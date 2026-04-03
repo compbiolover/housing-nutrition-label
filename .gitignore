@@ -1,0 +1,11 @@
+# Data files — too large and contain parcel data
+*.csv
+spc_tornadoes_raw.csv
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
