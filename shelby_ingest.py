@@ -23,6 +23,15 @@ RETRIES     = 3
 BACKOFF     = 2              # exponential back-off multiplier
 PARID_BATCH = 100            # PARIDs per CAMA query request
 
+# The Shelby County GIS WAF returns 403 for the default requests User-Agent,
+# so we present a browser UA on every call.
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+    )
+}
+
 # CAMA table IDs and the fields we want from each
 CAMA_TABLES = {
     "dweldat": {
@@ -42,7 +51,7 @@ def _get(url: str, params: dict | None = None) -> dict:
     """GET with retries, timeout, and JSON validation."""
     for attempt in range(1, RETRIES + 1):
         try:
-            r = requests.get(url, params={**(params or {}), "f": "json"}, timeout=TIMEOUT)
+            r = requests.get(url, params={**(params or {}), "f": "json"}, timeout=TIMEOUT, headers=HEADERS)
             r.raise_for_status()
             data = r.json()
             if "error" in data:
@@ -62,7 +71,7 @@ def _post(url: str, data: dict | None = None) -> dict:
     """
     for attempt in range(1, RETRIES + 1):
         try:
-            r = requests.post(url, data={**(data or {}), "f": "json"}, timeout=TIMEOUT)
+            r = requests.post(url, data={**(data or {}), "f": "json"}, timeout=TIMEOUT, headers=HEADERS)
             r.raise_for_status()
             result = r.json()
             if "error" in result:

@@ -15,6 +15,7 @@ The data ingestion pipeline and EAL-based scoring engine are fully operational f
 - **NOAA climate enrichment** — fetches historical extreme weather data from the NOAA Climate Data Online API
 - **SPC tornado enrichment** — processes Storm Prediction Center historical tornado tracks with spatial intersection
 - **USGS seismic hazard enrichment** — pulls peak ground acceleration values from the USGS Unified Hazard Tool API
+- **Census ACS socioeconomic enrichment** — pulls tract-level poverty rate, median household income, and housing cost burden (% of households paying ≥30% of income on housing) from the Census ACS 5-Year API, with a 0–100 composite index ranked against all Shelby County tracts
 - **EAL-based resilience scoring** — Expected Annual Loss model combining flood, wind, tornado, and seismic hazards, weighted by construction quality modifiers (year built, construction type, roof shape, etc.)
 - **Dual grading** — national percentile grade and local (county-relative) percentile grade, A–F scale
 - **CLI house simulator** — interactive simulator with 20+ above-code construction features to model how building decisions affect a property's resilience score
@@ -50,6 +51,9 @@ python enrich_noaa_climate.py
 python enrich_tornado.py
 python enrich_seismic.py
 
+# Enrich with neighborhood context (independent of the hazard chain)
+python enrich_socioeconomic.py
+
 # Score parcels
 python score_resilience.py
 
@@ -66,6 +70,7 @@ python simulate_house.py
 | [NOAA Climate Data Online](https://www.ncdc.noaa.gov/cdo-web/) | Historical extreme weather events |
 | [NOAA Storm Prediction Center](https://www.spc.noaa.gov/) | Historical tornado tracks |
 | [USGS Unified Hazard Tool](https://earthquake.usgs.gov/hazards/interactive/) | Peak ground acceleration (seismic hazard) |
+| [Census ACS 5-Year](https://www.census.gov/programs-surveys/acs/) | Tract poverty rate, median household income, housing cost burden |
 
 ## License
 
