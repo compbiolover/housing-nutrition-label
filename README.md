@@ -96,8 +96,11 @@ Available presets:
 - `icf-passive` — ICF passive house with the full resilience package
 - `worst-case` — pre-1950 wood frame, full basement, AE flood zone, poor condition
 - `fortified-gold` — 2026 frame build with IBHS FORTIFIED Gold + metal roof + sealed deck
+- `duplex` — 2026 brick duplex (2 units × 1,200 sqft, 0.15 ac, excellent condition)
+- `quadplex` — 2026 brick quadplex (4 units × 900 sqft, 0.20 ac, excellent condition)
+- `icf-quadplex` — 2026 ICF quadplex (4 units × 1,000 sqft, 0.20 ac) with solar, passive house, hurricane straps + hip roof
 
-All preset fields can be overridden from the CLI (e.g. `--year-built`, `--construction`, `--flood-zone`, `--value`). Run `python simulate_house.py --help` for the full flag list.
+All preset fields can be overridden from the CLI (e.g. `--year-built`, `--construction`, `--flood-zone`, `--value`, `--units`, `--sqft`, `--lot-acres`). Run `python simulate_house.py --help` for the full flag list.
 
 ## Quick Start
 

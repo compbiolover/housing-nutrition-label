@@ -277,6 +277,26 @@ PRESETS = {
         "condition": "excellent", "flood_zone": "X", "value": 350_000,
         "fortified_gold": True, "sealed_roof_deck": True, "metal_roof": True,
     },
+    "duplex": {
+        # New brick duplex: 2 units, 1,200 sqft each, small lot.
+        "year_built": 2026, "construction": "brick", "foundation": "slab",
+        "condition": "excellent", "flood_zone": "X", "value": 300_000,
+        "units": 2, "sqft": 1200, "lot_acres": 0.15,
+    },
+    "quadplex": {
+        # New brick quadplex: 4 units, 900 sqft each.
+        "year_built": 2026, "construction": "brick", "foundation": "slab",
+        "condition": "excellent", "flood_zone": "X", "value": 500_000,
+        "units": 4, "sqft": 900, "lot_acres": 0.20,
+    },
+    "icf-quadplex": {
+        # ICF quadplex: 4 units, 1,000 sqft each, full resilience package.
+        "year_built": 2026, "construction": "icf", "foundation": "slab",
+        "condition": "excellent", "flood_zone": "X", "value": 600_000,
+        "units": 4, "sqft": 1000, "lot_acres": 0.20,
+        "solar": True, "passive_house": True,
+        "hurricane_straps": True, "hip_roof": True,
+    },
 }
 
 
@@ -415,6 +435,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Simulate a hypothetical house's disaster resilience score.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="Presets: baseline | premium | icf-passive | worst-case | fortified-gold\n"
+               "         duplex | quadplex | icf-quadplex\n"
                "Example: python simulate_house.py --preset icf-passive --lat 35.15 --lon -89.85",
     )
     p.add_argument("--preset", choices=list(PRESETS.keys()), default=None,
@@ -433,6 +454,12 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Structural condition. Default: average.")
     p.add_argument("--value", type=float, default=None,
                    help="Appraised value ($). Default: county median ~$160,000.")
+    p.add_argument("--units",      type=int,   default=None,
+                   help="Number of dwelling units (e.g. 2 = duplex, 4 = quadplex). Default: 1.")
+    p.add_argument("--sqft",       type=float, default=None,
+                   help="Heated area per unit (sqft). Default: 2,000.")
+    p.add_argument("--lot-acres",  type=float, default=None,
+                   help="Lot size (acres). Default: 0.25.")
 
     # ── Existing bonus feature flags ──────────────────────────────────────────────
     p.add_argument("--solar",             action="store_true", help="Solar panels.")
@@ -507,6 +534,7 @@ def resolve_config(args: argparse.Namespace) -> dict:
     GLOBAL_DEFAULTS = {
         "year_built": 2024, "construction": "frame", "foundation": "slab",
         "condition": "average", "value": 160_000,
+        "units": 1, "sqft": 2000, "lot_acres": 0.25,
     }
     cfg = dict(PRESETS[args.preset]) if args.preset else {}
 
@@ -517,6 +545,9 @@ def resolve_config(args: argparse.Namespace) -> dict:
         "foundation":   args.foundation,
         "condition":    args.condition,
         "value":        args.value,
+        "units":        args.units,
+        "sqft":         args.sqft,
+        "lot_acres":    args.lot_acres,
     }
     for key, cli_val in CLI_FIELDS.items():
         if cli_val is not None:
@@ -789,6 +820,9 @@ def print_scorecard(cfg: dict, r: dict) -> None:
     print(row(f"    Construction     : {cfg['construction'].upper()}"))
     print(row(f"    Foundation       : {cfg['foundation']}"))
     print(row(f"    Condition        : {cfg['condition']}"))
+    unit_label = "unit" if cfg.get("units", 1) == 1 else "units"
+    print(row(f"    Units / size     : {cfg.get('units', 1)} {unit_label} × "
+              f"{cfg.get('sqft', 2000):,.0f} sqft on {cfg.get('lot_acres', 0.25):.2f} ac"))
     print(row(f"    Flood zone       : {cfg['flood_zone']}  ({r['flood_risk']} risk)"))
     print(row(f"    Location         : {cfg['lat']:.4f}°N, {abs(cfg['lon']):.4f}°W"))
     print(row(f"    Appraised value  : ${cfg['value']:,.0f}"))
