@@ -68,6 +68,8 @@ DEFAULT_INPUT  = "shelby_parcels_scored.csv"   # last enrichment + resilience sc
 DEFAULT_OUTPUT = "shelby_parcels_final.csv"
 
 CLIMATE_PLACEHOLDER = 50.0   # uniform climate score until per-parcel projections exist
+SOCIO_PLACEHOLDER   = 50.0   # uniform socioeconomic fallback when ACS data is absent
+                             # (e.g. no Census API key); excluded from the composite.
 
 
 # ---------------------------------------------------------------------------
@@ -157,17 +159,26 @@ def score_climate(df: pd.DataFrame) -> pd.Series:
     return pd.Series(CLIMATE_PLACEHOLDER, index=df.index)
 
 
+def const_scorer(value: float):
+    """A scorer that returns a uniform constant for every parcel (placeholder)."""
+    def _fn(df: pd.DataFrame) -> pd.Series:
+        return pd.Series(float(value), index=df.index)
+    return _fn
+
+
 # ---------------------------------------------------------------------------
 # Dimension registry.  `requires` is the source column that must be present;
 # `composite` flags whether the dimension feeds the composite average.
 # ---------------------------------------------------------------------------
 class Dimension:
-    def __init__(self, key, label, scorer, requires, composite=True):
+    def __init__(self, key, label, scorer, requires, composite=True, fallback=None):
         self.key = key
         self.label = label
         self.scorer = scorer
-        self.requires = requires
-        self.composite = composite
+        self.requires = requires        # source column that must exist, or None
+        self.composite = composite      # whether it feeds the composite average
+        self.fallback = fallback        # constant placeholder score to use if
+                                        # `requires` is absent (None = skip instead)
 
 
 DIMENSIONS: list[Dimension] = [
@@ -175,7 +186,8 @@ DIMENSIONS: list[Dimension] = [
     Dimension("energy",         "Energy Efficiency",    score_energy,                            "eui_kbtu_sqft_yr"),
     Dimension("infrastructure", "Infrastructure Burden", score_infrastructure,                   "fiscal_ratio"),
     Dimension("health",         "Health Impact",        score_passthrough("health_index"),       "health_index"),
-    Dimension("socioeconomic",  "Socioeconomic",        score_passthrough("socioeconomic_index"), "socioeconomic_index"),
+    Dimension("socioeconomic",  "Socioeconomic",        score_passthrough("socioeconomic_index"), "socioeconomic_index",
+              fallback=SOCIO_PLACEHOLDER),
     Dimension("climate",        "Climate Projections",  score_climate,                           None, composite=False),
 ]
 
@@ -319,13 +331,22 @@ def main() -> None:
         df = df.head(args.limit).copy()
         log.info("Limited to first %s rows.", f"{len(df):,}")
 
-    # --- Validate required source columns; warn (don't fail) on a missing one ---
+    # --- Validate required source columns. A dimension whose source is missing
+    #     either falls back to a uniform placeholder (if it defines one, e.g.
+    #     socioeconomic with no Census API key) or is skipped entirely. ---------
     active: list[Dimension] = []
     for dim in DIMENSIONS:
         if dim.requires is not None and dim.requires not in df.columns:
-            log.warning("Dimension '%s' skipped — missing source column '%s'.",
-                        dim.key, dim.requires)
-            continue
+            if dim.fallback is not None:
+                log.warning("Dimension '%s' source column '%s' missing — using "
+                            "uniform placeholder %.0f (excluded from composite).",
+                            dim.key, dim.requires, dim.fallback)
+                dim = Dimension(dim.key, dim.label, const_scorer(dim.fallback),
+                                requires=None, composite=False)
+            else:
+                log.warning("Dimension '%s' skipped — missing source column '%s'.",
+                            dim.key, dim.requires)
+                continue
         active.append(dim)
 
     composite_keys = [d.key for d in active if d.composite]
