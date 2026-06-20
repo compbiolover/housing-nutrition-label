@@ -108,7 +108,18 @@
   </div>
 
   <div class="method-section">
-    <h3>6. Climate Projections (Placeholder)</h3>
+    <h3>6. Walkability</h3>
+    <p>Uses the <strong>Walk Score API</strong>, which returns three 0&ndash;100 sub-scores for a parcel's coordinates: a <strong>Walk Score</strong> (access to daily errands on foot), a <strong>Transit Score</strong> (proximity and quality of public transit), and a <strong>Bike Score</strong> (bike infrastructure and terrain).</p>
+
+    <h4>Composite Weighting</h4>
+    <p>Walk Score is already a 0&ndash;100 score, so the raw Walk Score is used directly as the dimension score. Where a parcel also has a transit and bike score, a weighted composite is taken &mdash; deliberately weighted toward walkability, since walking access to daily needs matters most for everyday life:</p>
+    <div class="formula">Walkability = 0.60 &times; Walk + 0.25 &times; Transit + 0.15 &times; Bike<br>(parcels missing transit or bike fall back to the raw Walk Score)</div>
+    <p>The result carries the same dual grading as every other dimension &mdash; a national absolute grade and a local percentile grade within Shelby County. Because the Walk Score is already nationally calibrated (0 = car-dependent, 90&ndash;100 = a "walker's paradise"), the national grade is directly comparable across cities.</p>
+    <div class="insight"><strong>Context:</strong> Shelby County is overwhelmingly car-dependent suburban and exurban development, so most parcels score low on the national absolute scale. The local percentile grade is what surfaces the genuinely more walkable pockets &mdash; older street-grid neighborhoods near Midtown and Downtown Memphis &mdash; relative to their neighbors.</div>
+  </div>
+
+  <div class="method-section">
+    <h3>7. Climate Projections (Placeholder)</h3>
     <p>NOAA 1991&ndash;2020 normals for Memphis International Airport (station USW00013893). IECC zone 4A, 3,082 HDD, 2,191 CDD, avg Jan low 31.1&deg;F, avg Jul high 92.5&deg;F, 53.7&Prime; annual precipitation, ~45 extreme heat days, ~50 freeze days. Uniform for the single-county pilot; will be upgraded to per-parcel NOAA CDO API lookups when scaling beyond Shelby County.</p>
   </div>
 </section>

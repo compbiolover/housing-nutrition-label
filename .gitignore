@@ -23,3 +23,5 @@ dist/
 
 # Auth / credential files
 *.txt
+*.pdf
+Your Walk Score API Key.pdf

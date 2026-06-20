@@ -22,7 +22,7 @@
 <div class="hero">
   <div class="badge">Phase 1 Pilot &mdash; Shelby County, TN</div>
   <h1>Housing Nutrition Label</h1>
-  <p class="tagline">An open-source platform that scores residential properties on disaster resilience, energy efficiency, infrastructure burden, health impact, and socioeconomic factors &mdash; like a nutrition label for your home.</p>
+  <p class="tagline">An open-source platform that scores residential properties on disaster resilience, energy efficiency, infrastructure burden, health impact, socioeconomic factors, and walkability &mdash; like a nutrition label for your home.</p>
   <a href="https://github.com/compbiolover/housing-nutrition-label" style="display:inline-block;background:var(--green);color:#fff;padding:0.75rem 2rem;border-radius:var(--radius);font-weight:600;text-decoration:none;">View on GitHub</a>
 </div>
 
@@ -66,6 +66,11 @@
       <p>Census ACS indicators including median household income, poverty rate, educational attainment, and unemployment by census tract. Reflects neighborhood economic opportunity.</p>
     </div>
     <div class="card">
+      <div class="icon">&#x1F6B6;</div>
+      <h3>Walkability</h3>
+      <p>Walk Score API walk, transit, and bike scores. The 0&ndash;100 Walk Score is used directly; where transit and bike scores exist, a composite is taken (60% walk + 25% transit + 15% bike), weighted toward walkability since it matters most for daily errands.</p>
+    </div>
+    <div class="card">
       <div class="icon">&#x1F321;</div>
       <h3>Climate Projections</h3>
       <p>NOAA 1991&ndash;2020 normals: heating/cooling degree days, extreme heat days, freeze days, annual precipitation. Placeholder for forward-looking climate model projections. <em>(Uniform for single-county pilot.)</em></p>
@@ -92,7 +97,7 @@
 
 <section>
   <h2>Current Status</h2>
-  <p><strong>Phase 1 complete:</strong> 1,000 Shelby County (Memphis, TN) parcels scored across 5 dimensions with real data from 9 public data sources. Includes a CLI house simulator with 8 presets supporting multi-unit buildings (duplexes, quadplexes) and 20+ above-code construction features.</p>
+  <p><strong>Phase 1 complete:</strong> 1,000 Shelby County (Memphis, TN) parcels scored across 6 dimensions with real data from 10 public data sources. Includes a CLI house simulator with 8 presets supporting multi-unit buildings (duplexes, quadplexes) and 20+ above-code construction features.</p>
   <p>The scoring engine, data pipeline, and simulator are fully open-source under the MIT license.</p>
 </section>
 
@@ -109,7 +114,7 @@
       <tr><td>DOE/EIA ResStock</td><td>Energy use intensity benchmarks</td><td class="free">Free, reference data</td></tr>
       <tr><td>CDC PLACES</td><td>Health metrics by census tract</td><td class="free">Free, no key</td></tr>
       <tr><td>Census ACS</td><td>Socioeconomic indicators</td><td class="key-needed">Free key required</td></tr>
-      <tr><td>Walk Score API</td><td>Walkability/transit/bike scores</td><td class="key-needed">Key required (planned)</td></tr>
+      <tr><td>Walk Score API</td><td>Walk / transit / bike scores</td><td class="key-needed">Key required (active)</td></tr>
     </tbody>
   </table>
 </section>

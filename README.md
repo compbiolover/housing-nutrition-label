@@ -1,12 +1,12 @@
 # Housing Nutrition Label
 
-An open-source platform for scoring residential properties across multiple dimensions — disaster resilience, energy efficiency, infrastructure burden, health impact, and socioeconomic context — and presenting them in a clear, standardized format, like a nutrition label for housing. The goal is to give homebuyers, renters, insurers, and policymakers an at-a-glance understanding of a property's true risk and quality profile, beyond what typical listings or appraisals reveal.
+An open-source platform for scoring residential properties across multiple dimensions — disaster resilience, energy efficiency, infrastructure burden, health impact, socioeconomic context, and walkability — and presenting them in a clear, standardized format, like a nutrition label for housing. The goal is to give homebuyers, renters, insurers, and policymakers an at-a-glance understanding of a property's true risk and quality profile, beyond what typical listings or appraisals reveal.
 
 ## Current Status
 
-**Phase 1 complete — Shelby County, TN (Memphis) pilot with 5 scored dimensions.**
+**Phase 1 complete — Shelby County, TN (Memphis) pilot with 6 scored dimensions.**
 
-The full data ingestion → enrichment → multi-dimension scoring pipeline is operational end to end. Every Shelby County parcel in the pilot dataset carries five scored dimensions plus a rolled-up composite score, each with both a national (absolute) and a local (percentile) letter grade. Future phases will extend coverage to additional counties, add remaining dimensions (durability, environmental footprint, walkability), and deliver a React + D3 nutrition label visualization.
+The full data ingestion → enrichment → multi-dimension scoring pipeline is operational end to end. Every Shelby County parcel in the pilot dataset carries six scored dimensions plus a rolled-up composite score, each with both a national (absolute) and a local (percentile) letter grade. Future phases will extend coverage to additional counties, add remaining dimensions (durability, environmental footprint), and deliver a React + D3 nutrition label visualization.
 
 ## Architecture
 
@@ -14,7 +14,7 @@ The full data ingestion → enrichment → multi-dimension scoring pipeline is o
 data ingestion  →  enrichment pipeline  →  multi-dimension scoring  →  CLI simulator
 (ArcGIS parcels    (flood, climate, tornado,   (per-dimension 0–100        (model a hypothetical
  + CAMA building    seismic, energy, infra,     scores, dual grades,        house and see how
- attributes)        health, socioeconomic)      composite roll-up)          choices change scores)
+ attributes)        health, socio, walkability) composite roll-up)          choices change scores)
 ```
 
 Each enrichment stage consumes the previous stage's output, so the final scored CSV carries **every** dimension on a single row per parcel. The pipeline is a linear, reproducible chain orchestrated by a single runner.
@@ -31,19 +31,20 @@ Each enrichment stage consumes the previous stage's output, so the final scored 
 | [DOE/EIA ResStock](https://resstock.nrel.gov/) | Residential energy use intensity benchmarks — reference data | Free — no key |
 | [CDC PLACES](https://www.cdc.gov/places/) | Census-tract health metrics | Free — no key |
 | [Census ACS](https://www.census.gov/programs-surveys/acs/) | Socioeconomic indicators (income, poverty, education) | **Requires key** ([census.gov](https://api.census.gov/data/key_signup.html)) |
-| [Walk Score API](https://www.walkscore.com/professional/api.php) | Walkability score | **Requires key** — script ready, *not yet integrated* |
+| [Walk Score API](https://www.walkscore.com/professional/api.php) | Walk / transit / bike scores | **Requires key** — *active* |
 
 > Tract geocoding for the health and socioeconomic joins uses the free [FCC Area API](https://geo.fcc.gov/api/census/) (no key).
 
 ## Scored Dimensions
 
-Each parcel is scored on five dimensions (plus a climate placeholder):
+Each parcel is scored on six dimensions (plus a climate placeholder):
 
 - **Disaster Resilience** — Expected Annual Loss (EAL) model combining flood, tornado, and seismic hazards, weighted by a construction-quality modifier (year built, construction type, roof shape, foundation, condition).
 - **Energy Efficiency** — Energy Use Intensity (EUI) modeled from ResStock archetypes, adjusted for building vintage and construction type.
 - **Infrastructure Burden** — density-based municipal cost model producing a per-parcel fiscal ratio (revenue vs. infrastructure cost) by density and distance to the urban core.
 - **Health Impact** — CDC PLACES census-tract chronic-disease prevalence rolled into a 0–100 composite health index.
 - **Socioeconomic** — Census ACS income, poverty, and education indicators combined into a 0–100 composite index. Falls back to a uniform placeholder when no ACS data (or API key) is available.
+- **Walkability** — Walk Score API. The 0–100 Walk Score is used directly; where transit and bike scores are also available, a composite is taken (60% walk + 25% transit + 15% bike), weighted toward walkability since it matters most for daily life.
 - **Climate Projections** *(placeholder)* — uniform across the single-county pilot; excluded from the composite until multi-region data is available.
 
 ## Scoring System
@@ -105,6 +106,15 @@ The runner reports per-stage timing and record counts, skips stages whose output
 
 The final scored output is `shelby_parcels_final.csv` — one row per parcel with every dimension score, both grades, percentiles, and the composite.
 
+**Walk Score enrichment** runs out of band because it is API-gated (needs `WALKSCORE_API_KEY`) and has its own resume support, so it is not re-run on every pipeline pass:
+
+```bash
+export WALKSCORE_API_KEY=your_key_here
+python src/housing_label/enrich/walkscore.py    # writes shelby_parcels_enriched.csv (resumable)
+```
+
+The `score/all_dimensions.py` stage merges its output (walk / transit / bike scores) back in on `PARID`, so re-running `score_all` after enrichment picks up the walkability dimension.
+
 ## House Simulator
 
 `src/housing_label/simulate/house.py` models a hypothetical house and reports its resilience score, letting you see how construction decisions move the needle. It supports 20+ above-code construction features (hurricane straps, sealed roof deck, metal/hip roof, tornado safe room, FORTIFIED Gold, flood elevation, ICF walls, etc.). Once the package is installed (`pip install -e .`) it's also available as the `housing-simulate` command.
@@ -148,7 +158,6 @@ python scripts/run_pipeline.py
 
 ## Roadmap
 
-- **Walk Score integration** — wire the existing `src/housing_label/enrich/walkscore.py` into the pipeline (requires API key)
 - **Durability dimension** — material lifespan, maintenance burden, expected component replacement
 - **Environmental footprint** — embodied carbon, operational emissions, water use
 - **Frontend visualization** — React + D3 nutrition label UI

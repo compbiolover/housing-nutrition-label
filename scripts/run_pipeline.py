@@ -20,6 +20,11 @@ Pipeline order
  11. score          score_resilience.py         socioeconomic -> shelby_parcels_scored.csv
  12. score_all      score_all_dimensions.py     scored       -> shelby_parcels_final.csv
 
+Walk Score enrichment (src/housing_label/enrich/walkscore.py -> shelby_parcels_enriched.csv)
+is an out-of-band, API-gated step: it needs WALKSCORE_API_KEY, has its own resume
+support, and is run manually so it does not consume API quota on every pipeline run.
+The score_all stage merges its output (walk/transit/bike scores) in on PARID.
+
 Freshness / skipping
 --------------------
 A stage is re-run when any of the following is true:

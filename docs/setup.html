@@ -40,14 +40,15 @@ python scripts/run_pipeline.py      # run the full pipeline</code></pre>
       <h3>Census ACS (Required for socioeconomic)</h3>
       <p>Free signup: <a href="https://api.census.gov/data/key_signup.html">api.census.gov/data/key_signup.html</a></p>
       <pre><code>export CENSUS_API_KEY=your_key_here</code></pre>
-      <p>Without this key, the socioeconomic step will be skipped and the composite score will be computed from 4 dimensions instead of 5.</p>
+      <p>Without this key, the socioeconomic step will be skipped and the composite score will be computed from the remaining dimensions.</p>
     </div>
     <div class="card">
-      <h3>Walk Score (Optional, planned)</h3>
+      <h3>Walk Score (Active &mdash; required for walkability)</h3>
       <p>Signup: <a href="https://www.walkscore.com/professional/api.php">walkscore.com/professional/api.php</a></p>
       <pre><code>export WALKSCORE_API_KEY=your_key_here
-python src/housing_label/enrich/walkscore.py --limit 10</code></pre>
-      <p>The enrichment script is written and ready. Walk Score requires a URL associated with your account &mdash; use your project's GitHub URL or housinglabel.dev.</p>
+python src/housing_label/enrich/walkscore.py            # all parcels (resumable)
+python src/housing_label/enrich/walkscore.py --limit 10 # quick test first</code></pre>
+      <p>Walk Score requires a URL associated with your account &mdash; use your project's GitHub URL or housinglabel.dev. This step runs out of band from the main pipeline (it is API-gated and resumable, so it isn't re-run on every pass) and writes <code>shelby_parcels_enriched.csv</code>. The <code>score/all_dimensions</code> stage merges the walk / transit / bike scores back in on <code>PARID</code> to produce the walkability dimension. Without this key, walkability is skipped and the composite is computed from the remaining dimensions.</p>
     </div>
   </div>
 </section>
@@ -206,7 +207,6 @@ housing-simulate \
   <h2>Roadmap</h2>
   <p>Phase 1 (current) covers data ingestion and scoring. The longer-term vision includes:</p>
   <ul style="margin:1rem 0;padding-left:1.5rem;">
-    <li style="margin-bottom:0.5rem;"><strong>Walk Score integration</strong> &mdash; walkability, transit, and bike scores (script ready, needs API key)</li>
     <li style="margin-bottom:0.5rem;"><strong>Durability dimension</strong> &mdash; estimated major maintenance over 15/30 years by construction type and age</li>
     <li style="margin-bottom:0.5rem;"><strong>Environmental footprint</strong> &mdash; carbon, stormwater, impervious surface</li>
     <li style="margin-bottom:0.5rem;"><strong>Frontend visualization</strong> &mdash; React + D3 interactive nutrition label card and map explorer</li>

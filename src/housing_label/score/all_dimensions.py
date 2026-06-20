@@ -18,6 +18,12 @@ Dimensions
   health          CDC PLACES health_index (already 0–100; used directly).
   socioeconomic   Census ACS socioeconomic_index (already 0–100, higher = less
                   economic stress; used directly).
+  walkability     Walk Score API.  Walk Score is already 0–100 and used directly
+                  as the dimension score; where transit and bike scores are also
+                  available a composite is taken (60% walk + 25% transit + 15%
+                  bike), weighted toward walkability since it matters most for
+                  daily life.  Walk scores live in shelby_parcels_enriched.csv
+                  (a separate, API-gated enrichment) and are merged in on PARID.
   climate         Placeholder: uniform 50 for every parcel until per-parcel
                   climate projections exist.  Excluded from the composite.
 
@@ -66,6 +72,12 @@ SCRIPT_DIR = pathlib.Path(__file__).resolve().parents[3]   # repo root; data liv
 
 DEFAULT_INPUT  = "shelby_parcels_scored.csv"   # last enrichment + resilience scores
 DEFAULT_OUTPUT = "shelby_parcels_final.csv"
+DEFAULT_WALKSCORE = "shelby_parcels_enriched.csv"  # Walk Score enrichment (API-gated, run separately)
+
+# Walk Score columns and the composite weighting (walk dominates, then transit,
+# then bike) used when all three sub-scores are present for a parcel.
+WALK_COLS    = ["walk_score", "transit_score", "bike_score"]
+WALK_WEIGHTS = {"walk_score": 0.60, "transit_score": 0.25, "bike_score": 0.15}
 
 CLIMATE_PLACEHOLDER = 50.0   # uniform climate score until per-parcel projections exist
 SOCIO_PLACEHOLDER   = 50.0   # uniform socioeconomic fallback when ACS data is absent
@@ -159,6 +171,29 @@ def score_climate(df: pd.DataFrame) -> pd.Series:
     return pd.Series(CLIMATE_PLACEHOLDER, index=df.index)
 
 
+def score_walkability(df: pd.DataFrame) -> pd.Series:
+    """Walk Score → 0–100 walkability score.
+
+    Walk Score is already a 0–100 score, so the raw ``walk_score`` is used
+    directly.  Where a parcel also has a transit and bike score, a composite is
+    taken — 60% walk + 25% transit + 15% bike — weighted toward walkability
+    because it matters most for daily life.  Parcels missing one of the optional
+    sub-scores fall back to the raw walk score; parcels with no walk score at all
+    stay NaN (unscored)."""
+    walk    = pd.to_numeric(df.get("walk_score"),    errors="coerce").clip(0, 100)
+    transit = pd.to_numeric(df.get("transit_score"), errors="coerce").clip(0, 100)
+    bike    = pd.to_numeric(df.get("bike_score"),    errors="coerce").clip(0, 100)
+
+    composite = (WALK_WEIGHTS["walk_score"]    * walk
+                 + WALK_WEIGHTS["transit_score"] * transit
+                 + WALK_WEIGHTS["bike_score"]    * bike)
+    # Use the composite only when both optional sub-scores exist; otherwise the
+    # raw walk score.  np.where keeps it vectorised and NaN-safe.
+    have_all = transit.notna() & bike.notna()
+    out = np.where(have_all, composite, walk)
+    return pd.Series(out, index=df.index).round(1)
+
+
 def const_scorer(value: float):
     """A scorer that returns a uniform constant for every parcel (placeholder)."""
     def _fn(df: pd.DataFrame) -> pd.Series:
@@ -188,6 +223,7 @@ DIMENSIONS: list[Dimension] = [
     Dimension("health",         "Health Impact",        score_passthrough("health_index"),       "health_index"),
     Dimension("socioeconomic",  "Socioeconomic",        score_passthrough("socioeconomic_index"), "socioeconomic_index",
               fallback=SOCIO_PLACEHOLDER),
+    Dimension("walkability",    "Walkability",          score_walkability,                       "walk_score"),
     Dimension("climate",        "Climate Projections",  score_climate,                           None, composite=False),
 ]
 
@@ -302,6 +338,35 @@ def _resolve(path_str: str) -> pathlib.Path:
     return p if p.is_absolute() else (SCRIPT_DIR / p)
 
 
+def merge_walkscore(df: pd.DataFrame, ws_path: pathlib.Path) -> pd.DataFrame:
+    """Merge Walk Score columns into ``df`` on PARID.
+
+    Walk scores come from a separate, API-gated enrichment
+    (shelby_parcels_enriched.csv) rather than the chained pipeline, so they are
+    joined in here on the parcel id.  No-ops (with a warning) if the file or join
+    key is absent, or if the columns are already present in ``df``."""
+    if all(c in df.columns for c in WALK_COLS):
+        return df  # already carried in the input
+    if not ws_path.exists():
+        log.warning("Walk Score file not found (%s) — walkability will be skipped.", ws_path)
+        return df
+    if "PARID" not in df.columns:
+        log.warning("No PARID column to join Walk Score on — walkability skipped.")
+        return df
+
+    ws = pd.read_csv(ws_path, low_memory=False)
+    if "PARID" not in ws.columns:
+        log.warning("Walk Score file has no PARID column — walkability skipped.")
+        return df
+
+    keep = ["PARID"] + [c for c in WALK_COLS if c in ws.columns]
+    ws = ws[keep].drop_duplicates(subset="PARID")
+    merged = df.merge(ws, on="PARID", how="left")
+    n = int(merged["walk_score"].notna().sum()) if "walk_score" in merged.columns else 0
+    log.info("Merged Walk Score for %s/%s parcels from %s", f"{n:,}", f"{len(df):,}", ws_path.name)
+    return merged
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Score and grade every dimension (0–100, national + local "
@@ -311,6 +376,9 @@ def main() -> None:
                         help=f"Input CSV (default: {DEFAULT_INPUT}).")
     parser.add_argument("--output", default=DEFAULT_OUTPUT,
                         help=f"Output CSV (default: {DEFAULT_OUTPUT}).")
+    parser.add_argument("--walkscore-file", default=DEFAULT_WALKSCORE,
+                        help=f"Walk Score enrichment CSV to merge on PARID "
+                             f"(default: {DEFAULT_WALKSCORE}).")
     parser.add_argument("--limit", type=int, default=None,
                         help="Score only the first N rows (ranks reflect the subset).")
     parser.add_argument("--dry-run", action="store_true",
@@ -326,6 +394,10 @@ def main() -> None:
 
     df = pd.read_csv(in_path, low_memory=False)
     log.info("Loaded %s rows × %d cols from %s", f"{len(df):,}", df.shape[1], in_path)
+
+    # Walk scores live in a separate, API-gated enrichment; merge them on PARID
+    # so the walkability dimension has its source columns.
+    df = merge_walkscore(df, _resolve(args.walkscore_file))
 
     if args.limit is not None:
         df = df.head(args.limit).copy()
