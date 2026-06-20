@@ -33,10 +33,9 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(mes
 log = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
+SCRIPT_DIR  = pathlib.Path(__file__).resolve().parent
 FEMA_URL    = ("https://hazards.fema.gov/arcgis/rest/services"
                "/public/NFHL/MapServer/28/query")
-IN_FILE     = pathlib.Path(__file__).resolve().parent / "shelby_parcels_clean.csv"
-OUT_FILE    = pathlib.Path(__file__).resolve().parent / "shelby_parcels_flood.csv"
 SLEEP_SEC   = 0.25    # polite delay between requests (~4 req/s)
 TIMEOUT     = 20      # seconds per HTTP call
 MAX_RETRIES = 3
@@ -124,20 +123,46 @@ def already_enriched(row: pd.Series) -> bool:
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Enrich parcels with FEMA flood zone data.")
+    parser.add_argument("--input", default="shelby_parcels_clean.csv",
+                        help="Input CSV path (default: shelby_parcels_clean.csv).")
+    parser.add_argument("--output", default="shelby_parcels_flood.csv",
+                        help="Output CSV path (default: shelby_parcels_flood.csv).")
     parser.add_argument("--limit", type=int, default=None,
                         help="Process at most N rows (for testing).")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Validate inputs and report the plan without making API calls or writing output.")
     args = parser.parse_args()
 
-    log.info("Reading %s", IN_FILE)
-    df = pd.read_csv(IN_FILE)
+    # Resolve bare paths relative to the script directory
+    in_path = pathlib.Path(args.input)
+    if not in_path.is_absolute():
+        in_path = SCRIPT_DIR / in_path
+    out_path = pathlib.Path(args.output)
+    if not out_path.is_absolute():
+        out_path = SCRIPT_DIR / out_path
+
+    # Input validation
+    if not in_path.exists():
+        log.error("Input file not found: %s", in_path)
+        sys.exit(1)
+
+    log.info("Reading %s", in_path)
+    df = pd.read_csv(in_path)
     log.info("  %d rows × %d columns", *df.shape)
+    input_rows = len(df)
+
+    required_cols = ["latitude", "longitude"]
+    missing = [c for c in required_cols if c not in df.columns]
+    if missing:
+        log.error("Input is missing required columns: %s", missing)
+        sys.exit(1)
 
     # Resume: merge any previously enriched rows
-    if OUT_FILE.exists():
-        log.info("Found existing output – loading to resume: %s", OUT_FILE)
-        prev = pd.read_csv(OUT_FILE)
+    if out_path.exists():
+        log.info("Found existing output – loading to resume: %s", out_path)
+        prev = pd.read_csv(out_path)
         for col in FLOOD_COLS:
             if col in prev.columns:
                 df[col] = prev[col]
@@ -153,6 +178,13 @@ def main():
 
     todo = df[~df.apply(already_enriched, axis=1)]
     log.info("%d rows to enrich.", len(todo))
+
+    if args.dry_run:
+        log.info("DRY RUN – no API calls or writes will be made.")
+        log.info("  Input : %s", in_path)
+        log.info("  Output: %s", out_path)
+        log.info("  Rows that would be enriched: %d", len(todo))
+        return
 
     if todo.empty:
         log.info("Nothing to do – all rows already enriched.")
@@ -174,12 +206,21 @@ def main():
 
             if i % CHECKPOINT == 0 or i == len(todo):
                 log.info("Progress: %d/%d  (checkpoint save)", i, len(todo))
-                df.to_csv(OUT_FILE, index=False)
+                df.to_csv(out_path, index=False)
 
             time.sleep(SLEEP_SEC)
 
-    df.to_csv(OUT_FILE, index=False)
-    log.info("Saved → %s", OUT_FILE)
+    df.to_csv(out_path, index=False)
+    log.info("Saved → %s", out_path)
+
+    # Output validation
+    log.info("wrote %d rows × %d cols", df.shape[0], df.shape[1])
+    if len(df) != input_rows:
+        if args.limit is not None:
+            log.warning("Output row count (%d) != input row count (%d) due to --limit %d.",
+                        len(df), input_rows, args.limit)
+        else:
+            log.warning("Output row count (%d) != input row count (%d).", len(df), input_rows)
 
     # ── Summary ───────────────────────────────────────────────────────────
     total    = len(df)
@@ -191,7 +232,7 @@ def main():
     for label in ("high", "moderate", "minimal", "unknown"):
         count = dist.get(label, 0)
         print(f"║   {label:<17}: {count:<35}║")
-    print(f"║ Output             : {OUT_FILE.name:<35}║")
+    print(f"║ Output             : {out_path.name:<35}║")
     print("╚════════════════════════════════════════════════════════╝\n")
 
     if not df.empty:
@@ -204,7 +245,7 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        log.info("Interrupted – partial results saved to %s", OUT_FILE)
+        log.info("Interrupted – partial results saved to the last checkpoint.")
         sys.exit(0)
     except Exception as exc:
         log.error("Fatal: %s", exc, exc_info=True)

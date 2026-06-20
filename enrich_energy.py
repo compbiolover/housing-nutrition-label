@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
-"""Enrich shelby_parcels_sample.csv with modeled residential energy consumption.
+"""Enrich shelby_parcels_seismic.csv with modeled residential energy consumption.
+
+This is a chained pipeline step: it reads the seismic-enriched parcels file
+(which preserves the upstream CAMA columns YRBLT/SFLA/EXTWALL/HEAT/FUEL/BSMT
+forward from clean_parcels) and writes shelby_parcels_energy.csv.
 
 Usage
 -----
-  python enrich_energy.py              # all 1 000 parcels
-  python enrich_energy.py --limit 10  # test with 10 rows first
+  python enrich_energy.py                       # all parcels
+  python enrich_energy.py --limit 10            # test with 10 rows first
+  python enrich_energy.py --limit 5 --dry-run   # validate without writing
+  python enrich_energy.py --input X --output Y  # custom paths
 
 Data source & methodology
 --------------------------
@@ -67,8 +73,9 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(mes
 log = logging.getLogger(__name__)
 
 # ── File paths ─────────────────────────────────────────────────────────────────
-IN_FILE  = pathlib.Path(__file__).resolve().parent / "shelby_parcels_sample.csv"
-OUT_FILE = pathlib.Path(__file__).resolve().parent / "shelby_parcels_energy.csv"
+SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
+IN_FILE  = SCRIPT_DIR / "shelby_parcels_seismic.csv"
+OUT_FILE = SCRIPT_DIR / "shelby_parcels_energy.csv"
 
 # ── IECC climate zone for all Shelby County parcels ───────────────────────────
 CLIMATE_ZONE = "4A"
@@ -293,17 +300,38 @@ def model_parcel_energy(row: pd.Series) -> dict:
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────
-def main():
+def _resolve_path(raw: str) -> pathlib.Path:
+    """Resolve a CLI path: bare names are relative to the script directory."""
+    p = pathlib.Path(raw)
+    return p if p.is_absolute() else (SCRIPT_DIR / p)
+
+
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Enrich Shelby County parcels with modeled residential energy data."
     )
+    parser.add_argument("--input", default="shelby_parcels_seismic.csv",
+                        help="Input CSV (chained from the seismic step).")
+    parser.add_argument("--output", default="shelby_parcels_energy.csv",
+                        help="Output CSV with energy columns appended.")
     parser.add_argument("--limit", type=int, default=None,
                         help="Process at most N rows (for testing).")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Load and validate only; log the plan without writing.")
     args = parser.parse_args()
 
-    log.info("Reading %s", IN_FILE)
-    df = pd.read_csv(IN_FILE)
+    in_file  = _resolve_path(args.input)
+    out_file = _resolve_path(args.output)
+
+    # --- Input validation ---
+    if not in_file.exists():
+        log.error("Input file does not exist: %s", in_file)
+        sys.exit(1)
+
+    log.info("Reading %s", in_file)
+    df = pd.read_csv(in_file)
     log.info("  %d rows × %d columns", *df.shape)
+    input_rows = len(df)
 
     # Verify required CAMA columns are present
     required = ["YRBLT", "SFLA", "EXTWALL", "HEAT", "FUEL", "BSMT"]
@@ -316,14 +344,30 @@ def main():
         df = df.head(args.limit)
         log.info("--limit %d applied.", args.limit)
 
+    # --- Dry run: report the plan and exit without writing ---
+    if args.dry_run:
+        log.info("[dry-run] Plan:")
+        log.info("[dry-run]   input  : %s", in_file)
+        log.info("[dry-run]   output : %s", out_file)
+        log.info("[dry-run]   rows to model : %d", len(df))
+        log.info("[dry-run]   columns to add: %s", ENERGY_COLS)
+        log.info("[dry-run] Validation passed; no output written.")
+        return
+
     log.info("Modelling energy for %d parcels …", len(df))
     results = [model_parcel_energy(row) for _, row in df.iterrows()]
     enriched = pd.DataFrame(results, index=df.index)
     for col in ENERGY_COLS:
         df[col] = enriched[col]
 
-    df.to_csv(OUT_FILE, index=False)
-    log.info("Saved → %s", OUT_FILE)
+    df.to_csv(out_file, index=False)
+    log.info("Saved → %s", out_file)
+
+    # --- Output validation ---
+    out_rows, out_cols = df.shape
+    log.info("wrote %d rows × %d cols", out_rows, out_cols)
+    if args.limit is None and out_rows != input_rows:
+        log.warning("Output rows (%d) != input rows (%d)", out_rows, input_rows)
 
     # ── Summary ───────────────────────────────────────────────────────────────
     total = len(df)
@@ -362,7 +406,7 @@ def main():
         pct = cnt / total * 100
         print(f"║   {vbin:<15}: {cnt:>5}  ({pct:5.1f}%){'':>23}║")
     print(f"║ New columns added           : {len(ENERGY_COLS):<{w}}║")
-    print(f"║ Output                      : {OUT_FILE.name:<{w}}║")
+    print(f"║ Output                      : {out_file.name:<{w}}║")
     print("╚═══════════════════════════════════════════════════════════════════╝\n")
 
     # ── Five example rows spanning different vintages / sizes ─────────────────

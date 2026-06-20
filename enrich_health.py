@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Enrich shelby_parcels_sample.csv with CDC PLACES neighborhood health data.
+"""Enrich shelby_parcels_infrastructure.csv with CDC PLACES neighborhood health data.
 
 Usage
 -----
-  python enrich_health.py              # all 1 000 parcels
-  python enrich_health.py --limit 10  # test with 10 rows first
+  python enrich_health.py                       # all parcels
+  python enrich_health.py --limit 10            # test with 10 rows first
+  python enrich_health.py --limit 5 --dry-run   # validate + plan, no API calls
+  python enrich_health.py --input X.csv --output Y.csv
 
 Data source
 -----------
@@ -66,8 +68,15 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(mes
 log = logging.getLogger(__name__)
 
 # ── File paths ─────────────────────────────────────────────────────────────────
-IN_FILE  = pathlib.Path(__file__).resolve().parent / "shelby_parcels_sample.csv"
-OUT_FILE = pathlib.Path(__file__).resolve().parent / "shelby_parcels_health.csv"
+SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
+IN_FILE    = "shelby_parcels_infrastructure.csv"   # chained upstream input
+OUT_FILE   = "shelby_parcels_health.csv"
+
+
+def _resolve(p: str) -> pathlib.Path:
+    """Resolve a path, treating bare/relative paths as relative to SCRIPT_DIR."""
+    path = pathlib.Path(p)
+    return path if path.is_absolute() else (SCRIPT_DIR / path)
 
 # ── Geography ─────────────────────────────────────────────────────────────────
 COUNTY_FIPS = "47157"   # Tennessee (47) + Shelby County (157)
@@ -243,32 +252,48 @@ def get_census_tract(lat: float, lon: float) -> str | None:
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Enrich Shelby County parcels with CDC PLACES health data."
+    )
+    parser.add_argument(
+        "--input", default=IN_FILE,
+        help=f"Input parcels CSV (default: {IN_FILE}).",
+    )
+    parser.add_argument(
+        "--output", default=OUT_FILE,
+        help=f"Output CSV (default: {OUT_FILE}).",
     )
     parser.add_argument(
         "--limit", type=int, default=None,
         help="Process at most N rows (for testing).",
     )
+    parser.add_argument(
+        "--dry-run", action="store_true",
+        help="Load + validate only; make no API calls and write nothing.",
+    )
     args = parser.parse_args()
 
+    in_path  = _resolve(args.input)
+    out_path = _resolve(args.output)
+
     # ── Load parcels ──────────────────────────────────────────────────────────
-    log.info("Reading %s", IN_FILE)
-    if not IN_FILE.exists():
-        log.error("Input file not found: %s", IN_FILE)
+    log.info("Reading %s", in_path)
+    if not in_path.exists():
+        log.error("Input file not found: %s", in_path)
         sys.exit(1)
-    df = pd.read_csv(IN_FILE)
+    df = pd.read_csv(in_path)
     log.info("  %d rows × %d columns", *df.shape)
+    input_rows = len(df)
 
     if "latitude" not in df.columns or "longitude" not in df.columns:
         log.error("Input must have 'latitude' and 'longitude' columns.")
         sys.exit(1)
 
     # ── Resume: reload any previously geocoded rows ───────────────────────────
-    if OUT_FILE.exists():
-        log.info("Found existing output — loading for resume: %s", OUT_FILE)
-        prev = pd.read_csv(OUT_FILE)
+    if out_path.exists():
+        log.info("Found existing output — loading for resume: %s", out_path)
+        prev = pd.read_csv(out_path)
         if "census_tract" in prev.columns:
             df["census_tract"] = prev["census_tract"].apply(_clean_tract)
         else:
@@ -281,6 +306,23 @@ def main():
     if args.limit:
         df = df.head(args.limit)
         log.info("--limit %d applied.", args.limit)
+        input_rows = len(df)
+
+    # ── Dry run: report the plan, then exit before any network I/O ────────────
+    if args.dry_run:
+        need_geocode = int(
+            (
+                df["census_tract"].isna()
+                & df["latitude"].notna()
+                & df["longitude"].notna()
+            ).sum()
+        )
+        log.info("DRY RUN — no API calls, no checkpoints, no output written.")
+        log.info("  Input            : %s", in_path)
+        log.info("  Output (planned) : %s", out_path)
+        log.info("  Rows to process  : %d", len(df))
+        log.info("  Need geocoding   : %d parcels", need_geocode)
+        return
 
     # ── Step 1: Download CDC PLACES tract-level data ──────────────────────────
     tract_health = fetch_places_data()
@@ -301,7 +343,7 @@ def main():
 
             if i % CHECKPOINT == 0 or i == len(todo):
                 log.info("Geocoder progress: %d/%d  (checkpoint save)", i, len(todo))
-                df.to_csv(OUT_FILE, index=False)
+                df.to_csv(out_path, index=False)
 
             time.sleep(SLEEP_SEC)
 
@@ -326,8 +368,14 @@ def main():
     df = df.merge(tract_df, on="census_tract", how="left")
 
     # ── Save ──────────────────────────────────────────────────────────────────
-    df.to_csv(OUT_FILE, index=False)
-    log.info("Saved → %s", OUT_FILE)
+    df.to_csv(out_path, index=False)
+    log.info("Saved → %s", out_path)
+    log.info("wrote %d rows × %d cols", df.shape[0], df.shape[1])
+    if len(df) != input_rows:
+        log.warning(
+            "Output rows (%d) != input rows (%d) — row count changed during enrichment.",
+            len(df), input_rows,
+        )
 
     # ── Summary ───────────────────────────────────────────────────────────────
     total          = len(df)
@@ -396,7 +444,7 @@ def main():
             print(f"║   {fmt:<{w+1}}║")
 
     print(f"║ New columns added            : {len(HEALTH_COLS):<{w}}║")
-    print(f"║ Output                       : {OUT_FILE.name:<{w}}║")
+    print(f"║ Output                       : {out_path.name:<{w}}║")
     print("╚═══════════════════════════════════════════════════════════════════╝\n")
 
     # ── Sample rows ───────────────────────────────────────────────────────────
@@ -419,7 +467,7 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        log.info("Interrupted – partial results saved to %s", OUT_FILE)
+        log.info("Interrupted – any partial results were saved at the last checkpoint.")
         sys.exit(0)
     except Exception as exc:
         log.error("Fatal: %s", exc, exc_info=True)
