@@ -25,8 +25,9 @@
 cd housing-nutrition-label
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
-python run_pipeline.py</code></pre>
+pip install -e .                    # installs package + dependencies
+python scripts/run_pipeline.py      # run the full pipeline</code></pre>
+  <p>Installing with <code>pip install -e .</code> (editable mode) gives you the <code>housing-simulate</code> and <code>housing-pipeline</code> console commands, plus installs <code>requests</code> and <code>pandas</code> automatically from <code>pyproject.toml</code>.</p>
   <p>The pipeline will run all 12 stages in order. On first run, stages that query external APIs (FEMA flood, CDC PLACES, Census ACS) will take longer due to rate limiting. Subsequent runs skip stages whose output is already fresh.</p>
 </section>
 
@@ -45,46 +46,81 @@ python run_pipeline.py</code></pre>
       <h3>Walk Score (Optional, planned)</h3>
       <p>Signup: <a href="https://www.walkscore.com/professional/api.php">walkscore.com/professional/api.php</a></p>
       <pre><code>export WALKSCORE_API_KEY=your_key_here
-python enrich_walkscore.py --limit 10</code></pre>
+python src/housing_label/enrich/walkscore.py --limit 10</code></pre>
       <p>The enrichment script is written and ready. Walk Score requires a URL associated with your account &mdash; use your project's GitHub URL or housinglabel.dev.</p>
     </div>
   </div>
 </section>
 
 <section>
+  <h2>Project Structure</h2>
+  <pre><code>housing-nutrition-label/
+&#x251C;&#x2500;&#x2500; src/housing_label/           # Installable Python package
+&#x2502;   &#x251C;&#x2500;&#x2500; config.py                # Shared constants (URLs, rates, thresholds)
+&#x2502;   &#x251C;&#x2500;&#x2500; utils.py                 # Shared helpers (HTTP, haversine, coords)
+&#x2502;   &#x251C;&#x2500;&#x2500; ingest/                  # Data ingestion
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; shelby_parcels.py    # ArcGIS parcel + CAMA pull
+&#x2502;   &#x2502;   &#x2514;&#x2500;&#x2500; clean.py             # Data cleanup
+&#x2502;   &#x251C;&#x2500;&#x2500; enrich/                  # Enrichment modules (9 data sources)
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; fema_flood.py
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; noaa_climate.py
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; tornado.py
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; seismic.py
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; energy.py
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; infrastructure.py
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; health.py
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; socioeconomic.py
+&#x2502;   &#x2502;   &#x2514;&#x2500;&#x2500; walkscore.py
+&#x2502;   &#x251C;&#x2500;&#x2500; score/                   # Scoring models
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; resilience.py        # EAL-based disaster scoring
+&#x2502;   &#x2502;   &#x2514;&#x2500;&#x2500; all_dimensions.py    # Multi-dimension scorer
+&#x2502;   &#x2514;&#x2500;&#x2500; simulate/                # CLI house simulator
+&#x2502;       &#x2514;&#x2500;&#x2500; house.py
+&#x251C;&#x2500;&#x2500; scripts/run_pipeline.py       # Pipeline orchestrator
+&#x251C;&#x2500;&#x2500; research/                    # Research &amp; methodology docs
+&#x251C;&#x2500;&#x2500; tests/                       # Test directory
+&#x251C;&#x2500;&#x2500; docs/                        # housinglabel.dev site
+&#x251C;&#x2500;&#x2500; pyproject.toml               # Package metadata &amp; dependencies
+&#x2514;&#x2500;&#x2500; README.md</code></pre>
+</section>
+
+<section>
   <h2>Pipeline Architecture</h2>
-  <p>The pipeline runs 12 stages in sequence. Each stage reads a CSV, enriches it, and writes the output for the next stage.</p>
+  <p>The pipeline runs 12 stages in sequence. Each stage reads a CSV, enriches it, and writes the output for the next stage. All stages live under <code>src/housing_label/</code>.</p>
 
   <div class="pipeline">
-    <div class="stage"><strong>1.</strong> shelby_ingest.py</div><span class="arrow">&rarr;</span>
-    <div class="stage"><strong>2.</strong> clean_parcels.py</div><span class="arrow">&rarr;</span>
-    <div class="stage"><strong>3.</strong> enrich_fema_flood.py</div><span class="arrow">&rarr;</span>
-    <div class="stage"><strong>4.</strong> enrich_noaa_climate.py</div><span class="arrow">&rarr;</span>
-    <div class="stage"><strong>5.</strong> enrich_tornado.py</div><span class="arrow">&rarr;</span>
-    <div class="stage"><strong>6.</strong> enrich_seismic.py</div><span class="arrow">&rarr;</span>
-    <div class="stage"><strong>7.</strong> enrich_energy.py</div><span class="arrow">&rarr;</span>
-    <div class="stage"><strong>8.</strong> enrich_infrastructure.py</div><span class="arrow">&rarr;</span>
-    <div class="stage"><strong>9.</strong> enrich_health.py</div><span class="arrow">&rarr;</span>
-    <div class="stage"><strong>10.</strong> enrich_socioeconomic.py</div><span class="arrow">&rarr;</span>
-    <div class="stage"><strong>11.</strong> score_resilience.py</div><span class="arrow">&rarr;</span>
-    <div class="stage"><strong>12.</strong> score_all_dimensions.py</div>
+    <div class="stage"><strong>1.</strong> ingest/shelby_parcels</div><span class="arrow">&rarr;</span>
+    <div class="stage"><strong>2.</strong> ingest/clean</div><span class="arrow">&rarr;</span>
+    <div class="stage"><strong>3.</strong> enrich/fema_flood</div><span class="arrow">&rarr;</span>
+    <div class="stage"><strong>4.</strong> enrich/noaa_climate</div><span class="arrow">&rarr;</span>
+    <div class="stage"><strong>5.</strong> enrich/tornado</div><span class="arrow">&rarr;</span>
+    <div class="stage"><strong>6.</strong> enrich/seismic</div><span class="arrow">&rarr;</span>
+    <div class="stage"><strong>7.</strong> enrich/energy</div><span class="arrow">&rarr;</span>
+    <div class="stage"><strong>8.</strong> enrich/infrastructure</div><span class="arrow">&rarr;</span>
+    <div class="stage"><strong>9.</strong> enrich/health</div><span class="arrow">&rarr;</span>
+    <div class="stage"><strong>10.</strong> enrich/socioeconomic</div><span class="arrow">&rarr;</span>
+    <div class="stage"><strong>11.</strong> score/resilience</div><span class="arrow">&rarr;</span>
+    <div class="stage"><strong>12.</strong> score/all_dimensions</div>
   </div>
 
   <h3>Pipeline Runner Options</h3>
   <pre><code># Run everything fresh
-python run_pipeline.py --force
+python scripts/run_pipeline.py --force
 
 # Run from a specific stage onward
-python run_pipeline.py --from energy
+python scripts/run_pipeline.py --from energy
 
 # Run a single stage
-python run_pipeline.py --step flood
+python scripts/run_pipeline.py --step flood
 
 # Continue past failures
-python run_pipeline.py --continue-on-error
+python scripts/run_pipeline.py --continue-on-error
 
 # Preview what would run
-python run_pipeline.py --dry-run</code></pre>
+python scripts/run_pipeline.py --dry-run
+
+# Or use the console command (after pip install -e .)
+housing-pipeline --force</code></pre>
 </section>
 
 <section>
@@ -92,13 +128,16 @@ python run_pipeline.py --dry-run</code></pre>
   <p>The CLI simulator lets you define a hypothetical house and see its nutrition label scores instantly.</p>
 
   <h3>Using Presets</h3>
-  <pre><code># Compare construction quality
-python simulate_house.py --preset baseline --lat 35.15 --lon -89.85
-python simulate_house.py --preset icf-passive --lat 35.15 --lon -89.85
+  <pre><code># Via the script directly
+python src/housing_label/simulate/house.py --preset baseline --lat 35.15 --lon -89.85
+python src/housing_label/simulate/house.py --preset icf-passive --lat 35.15 --lon -89.85
+
+# Or via the console command (after pip install -e .)
+housing-simulate --preset icf-passive --lat 35.15 --lon -89.85
 
 # Multi-unit buildings
-python simulate_house.py --preset duplex --lat 35.15 --lon -89.85
-python simulate_house.py --preset icf-quadplex --lat 35.15 --lon -89.85</code></pre>
+housing-simulate --preset duplex --lat 35.15 --lon -89.85
+housing-simulate --preset icf-quadplex --lat 35.15 --lon -89.85</code></pre>
 
   <h3>Available Presets</h3>
   <table class="data-table">
@@ -117,7 +156,7 @@ python simulate_house.py --preset icf-quadplex --lat 35.15 --lon -89.85</code></
 
   <h3>Custom Builds</h3>
   <pre><code># Build your own scenario
-python simulate_house.py \
+housing-simulate \
   --year-built 2026 \
   --construction icf \
   --foundation slab \
@@ -150,16 +189,17 @@ python simulate_house.py \
   <h2>Adding a New Dimension</h2>
   <p>The pipeline is designed to be extensible. To add a new scoring dimension:</p>
   <ol style="margin:1rem 0;padding-left:1.5rem;">
-    <li style="margin-bottom:0.75rem;">Write an <code>enrich_*.py</code> script following the existing pattern: accepts <code>--input</code>/<code>--output</code>/<code>--limit</code> flags, reads the previous stage's CSV, adds new columns, writes the enriched CSV.</li>
-    <li style="margin-bottom:0.75rem;">Add a scoring function in <code>score_all_dimensions.py</code> that maps your new metric to a 0&ndash;100 score.</li>
-    <li style="margin-bottom:0.75rem;">Wire it into <code>run_pipeline.py</code>'s STAGES list in the correct position.</li>
+    <li style="margin-bottom:0.75rem;">Write an enrichment module in <code>src/housing_label/enrich/</code> following the existing pattern: accepts <code>--input</code>/<code>--output</code>/<code>--limit</code> flags, reads the previous stage's CSV, adds new columns, writes the enriched CSV.</li>
+    <li style="margin-bottom:0.75rem;">Add a scoring function in <code>src/housing_label/score/all_dimensions.py</code> that maps your new metric to a 0&ndash;100 score.</li>
+    <li style="margin-bottom:0.75rem;">Wire it into <code>scripts/run_pipeline.py</code>'s STAGES list in the correct position.</li>
     <li style="margin-bottom:0.75rem;">The dual grading (national + local) and composite score automatically include the new dimension.</li>
   </ol>
 </section>
 
 <section>
   <h2>Tech Stack</h2>
-  <p>Python 3.x with two dependencies: <code>requests</code> and <code>pandas</code>. No geo libraries, no databases, no frameworks. All spatial calculations (Haversine, Web Mercator conversion, polygon centroids) use pure math. This is intentional &mdash; the entire pipeline runs on any machine with Python installed.</p>
+  <p>Python 3.9+ with two dependencies: <code>requests</code> and <code>pandas</code>. No geo libraries, no databases, no frameworks. All spatial calculations (Haversine, Web Mercator conversion, polygon centroids) use pure math. This is intentional &mdash; the entire pipeline runs on any machine with Python installed.</p>
+  <p>The project is packaged as a standard Python package via <code>pyproject.toml</code> and can be installed with <code>pip install -e .</code> for development or built as a wheel for distribution.</p>
 </section>
 
 <section>
