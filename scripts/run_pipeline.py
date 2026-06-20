@@ -17,8 +17,9 @@ Pipeline order
   8. infrastructure enrich_infrastructure.py    energy       -> shelby_parcels_infrastructure.csv
   9. health         enrich_health.py            infrastructure -> shelby_parcels_health.csv
  10. socioeconomic  enrich_socioeconomic.py     health       -> shelby_parcels_socioeconomic.csv
- 11. score          score_resilience.py         socioeconomic -> shelby_parcels_scored.csv
- 12. score_all      score_all_dimensions.py     scored       -> shelby_parcels_final.csv
+ 11. durability     enrich/durability.py        socioeconomic -> shelby_parcels_durability.csv
+ 12. score          score_resilience.py         durability   -> shelby_parcels_scored.csv
+ 13. score_all      score_all_dimensions.py     scored       -> shelby_parcels_final.csv
 
 Walk Score enrichment (src/housing_label/enrich/walkscore.py -> shelby_parcels_enriched.csv)
 is an out-of-band, API-gated step: it needs WALKSCORE_API_KEY, has its own resume
@@ -88,7 +89,8 @@ STAGES: list[Stage] = [
     Stage("infrastructure", "src/housing_label/enrich/infrastructure.py",  "shelby_parcels_infrastructure.csv", input="shelby_parcels_energy.csv"),
     Stage("health",         "src/housing_label/enrich/health.py",          "shelby_parcels_health.csv",         input="shelby_parcels_infrastructure.csv"),
     Stage("socioeconomic",  "src/housing_label/enrich/socioeconomic.py",   "shelby_parcels_socioeconomic.csv",  input="shelby_parcels_health.csv"),
-    Stage("score",          "src/housing_label/score/resilience.py",       "shelby_parcels_scored.csv",         input="shelby_parcels_socioeconomic.csv"),
+    Stage("durability",     "src/housing_label/enrich/durability.py",      "shelby_parcels_durability.csv",     input="shelby_parcels_socioeconomic.csv"),
+    Stage("score",          "src/housing_label/score/resilience.py",       "shelby_parcels_scored.csv",         input="shelby_parcels_durability.csv"),
     Stage("score_all",      "src/housing_label/score/all_dimensions.py",   "shelby_parcels_final.csv",          input="shelby_parcels_scored.csv"),
 ]
 

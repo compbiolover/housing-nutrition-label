@@ -14,6 +14,9 @@ Dimensions
   resilience      EAL-based disaster-resilience score from score_resilience.py
                   (already 0–100; carried through unchanged).
   energy          EUI (kBTU/sqft/yr) → 0–100, log-linear between breakpoints.
+  durability      Component-lifespan / effective-age durability score from
+                  enrich/durability.py (already 0–100; used directly). NaN for
+                  parcels with no CAMA building data (vacant/non-residential).
   infrastructure  Municipal fiscal ratio → 0–100, log-linear between breakpoints.
   health          CDC PLACES health_index (already 0–100; used directly).
   socioeconomic   Census ACS socioeconomic_index (already 0–100, higher = less
@@ -219,6 +222,7 @@ class Dimension:
 DIMENSIONS: list[Dimension] = [
     Dimension("resilience",     "Disaster Resilience",  score_passthrough("resilience_score"),   "resilience_score"),
     Dimension("energy",         "Energy Efficiency",    score_energy,                            "eui_kbtu_sqft_yr"),
+    Dimension("durability",     "Durability",           score_passthrough("durability_score"),   "durability_score"),
     Dimension("infrastructure", "Infrastructure Burden", score_infrastructure,                   "fiscal_ratio"),
     Dimension("health",         "Health Impact",        score_passthrough("health_index"),       "health_index"),
     Dimension("socioeconomic",  "Socioeconomic",        score_passthrough("socioeconomic_index"), "socioeconomic_index",
