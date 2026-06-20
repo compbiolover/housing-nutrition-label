@@ -71,9 +71,19 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(mes
 log = logging.getLogger(__name__)
 
 # ── File paths ─────────────────────────────────────────────────────────────────
-IN_FILE   = pathlib.Path(__file__).resolve().parent / "shelby_parcels_sample.csv"
-OUT_FILE  = pathlib.Path(__file__).resolve().parent / "shelby_parcels_socioeconomic.csv"
-SEED_FILE = pathlib.Path(__file__).resolve().parent / "shelby_parcels_health.csv"
+SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
+# Defaults; overridable via --input/--output so run_pipeline.py can chain stages.
+# In the pipeline the input is shelby_parcels_health.csv, which already carries a
+# census_tract column (same geography), so geocoding is skipped entirely.
+DEFAULT_IN  = "shelby_parcels_health.csv"
+DEFAULT_OUT = "shelby_parcels_socioeconomic.csv"
+SEED_FILE   = SCRIPT_DIR / "shelby_parcels_health.csv"
+
+
+def _resolve(path_str) -> pathlib.Path:
+    """Resolve a bare path relative to SCRIPT_DIR; absolute paths pass through."""
+    p = pathlib.Path(path_str)
+    return p if p.is_absolute() else (SCRIPT_DIR / p)
 
 # ── Geography ─────────────────────────────────────────────────────────────────
 STATE_FIPS  = "47"     # Tennessee
@@ -345,6 +355,14 @@ def main():
         description="Enrich Shelby County parcels with Census ACS socioeconomic data."
     )
     parser.add_argument(
+        "--input", default=DEFAULT_IN,
+        help=f"Input parcels CSV (default: {DEFAULT_IN}).",
+    )
+    parser.add_argument(
+        "--output", default=DEFAULT_OUT,
+        help=f"Output CSV (default: {DEFAULT_OUT}).",
+    )
+    parser.add_argument(
         "--limit", type=int, default=None,
         help="Process at most N rows (for testing).",
     )
@@ -355,30 +373,38 @@ def main():
     )
     args = parser.parse_args()
 
+    in_path  = _resolve(args.input)
+    out_path = _resolve(args.output)
+
     # ── Load parcels ──────────────────────────────────────────────────────────
-    log.info("Reading %s", IN_FILE)
-    if not IN_FILE.exists():
-        log.error("Input file not found: %s", IN_FILE)
+    log.info("Reading %s", in_path)
+    if not in_path.exists():
+        log.error("Input file not found: %s", in_path)
         sys.exit(1)
-    df = pd.read_csv(IN_FILE)
+    df = pd.read_csv(in_path)
     log.info("  %d rows × %d columns", *df.shape)
 
     if "latitude" not in df.columns or "longitude" not in df.columns:
         log.error("Input must have 'latitude' and 'longitude' columns.")
         sys.exit(1)
 
-    # ── Resume: reload any previously geocoded rows ───────────────────────────
-    if OUT_FILE.exists():
-        log.info("Found existing output — loading for resume: %s", OUT_FILE)
-        prev = pd.read_csv(OUT_FILE)
-        if "census_tract" in prev.columns and len(prev) == len(df):
-            df["census_tract"] = prev["census_tract"].apply(_clean_tract)
-        else:
-            df["census_tract"] = None
-        already = df["census_tract"].notna().sum()
-        log.info("  %d rows already have a census tract assigned.", already)
+    # ── Census tract: prefer a value already on the input (the pipeline feeds
+    #    shelby_parcels_health.csv, which carries census_tract), then resume from
+    #    any prior output, then the health seed file. ───────────────────────────
+    if "census_tract" in df.columns:
+        df["census_tract"] = df["census_tract"].apply(_clean_tract)
     else:
         df["census_tract"] = None
+
+    if out_path.exists():
+        log.info("Found existing output — loading for resume: %s", out_path)
+        prev = pd.read_csv(out_path)
+        if "census_tract" in prev.columns and len(prev) == len(df):
+            prev_tracts = prev["census_tract"].apply(_clean_tract)
+            fill = df["census_tract"].isna() & prev_tracts.notna()
+            df.loc[fill, "census_tract"] = prev_tracts[fill].values
+        already = df["census_tract"].notna().sum()
+        log.info("  %d rows already have a census tract assigned.", already)
 
     # Reuse tracts from the health enrichment (same geography) where still missing.
     _seed_tracts(df)
@@ -406,7 +432,7 @@ def main():
 
             if i % CHECKPOINT == 0 or i == len(todo):
                 log.info("Geocoder progress: %d/%d  (checkpoint save)", i, len(todo))
-                df.to_csv(OUT_FILE, index=False)
+                df.to_csv(out_path, index=False)
 
             time.sleep(SLEEP_SEC)
 
@@ -431,14 +457,14 @@ def main():
     df = df.merge(tract_df, on="census_tract", how="left")
 
     # ── Save ──────────────────────────────────────────────────────────────────
-    df.to_csv(OUT_FILE, index=False)
-    log.info("Saved → %s", OUT_FILE)
+    df.to_csv(out_path, index=False)
+    log.info("Saved → %s", out_path)
 
-    _print_summary(df, vintage)
+    _print_summary(df, vintage, out_path)
 
 
 # ── Summary ────────────────────────────────────────────────────────────────────
-def _print_summary(df: pd.DataFrame, vintage: int):
+def _print_summary(df: pd.DataFrame, vintage: int, out_path: pathlib.Path):
     total          = len(df)
     tract_assigned = df["census_tract"].notna().sum()
     socio_data     = df["socioeconomic_index"].notna().sum()
@@ -505,7 +531,7 @@ def _print_summary(df: pd.DataFrame, vintage: int):
             print(f"║   {fmt:<{w+1}}║")
 
     print(f"║ New columns added            : {len(SOCIO_COLS):<{w}}║")
-    print(f"║ Output                       : {OUT_FILE.name:<{w}}║")
+    print(f"║ Output                       : {out_path.name:<{w}}║")
     print("╚═══════════════════════════════════════════════════════════════════╝\n")
 
     # ── Sample rows ───────────────────────────────────────────────────────────
@@ -527,7 +553,7 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        log.info("Interrupted – partial results saved to %s", OUT_FILE)
+        log.info("Interrupted – partial results saved to %s", DEFAULT_OUT)
         sys.exit(0)
     except Exception as exc:                           # noqa: BLE001
         log.error("Fatal: %s", exc, exc_info=True)

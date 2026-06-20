@@ -16,7 +16,9 @@ Pipeline order
   7. energy         enrich_energy.py            seismic      -> shelby_parcels_energy.csv
   8. infrastructure enrich_infrastructure.py    energy       -> shelby_parcels_infrastructure.csv
   9. health         enrich_health.py            infrastructure -> shelby_parcels_health.csv
- 10. score          score_resilience.py         health       -> shelby_parcels_scored.csv
+ 10. socioeconomic  enrich_socioeconomic.py     health       -> shelby_parcels_socioeconomic.csv
+ 11. score          score_resilience.py         socioeconomic -> shelby_parcels_scored.csv
+ 12. score_all      score_all_dimensions.py     scored       -> shelby_parcels_final.csv
 
 Freshness / skipping
 --------------------
@@ -78,7 +80,9 @@ STAGES: list[Stage] = [
     Stage("energy",         "enrich_energy.py",         "shelby_parcels_energy.csv",         input="shelby_parcels_seismic.csv"),
     Stage("infrastructure", "enrich_infrastructure.py", "shelby_parcels_infrastructure.csv", input="shelby_parcels_energy.csv"),
     Stage("health",         "enrich_health.py",         "shelby_parcels_health.csv",         input="shelby_parcels_infrastructure.csv"),
-    Stage("score",          "score_resilience.py",      "shelby_parcels_scored.csv",         input="shelby_parcels_health.csv"),
+    Stage("socioeconomic",  "enrich_socioeconomic.py",  "shelby_parcels_socioeconomic.csv",  input="shelby_parcels_health.csv"),
+    Stage("score",          "score_resilience.py",      "shelby_parcels_scored.csv",         input="shelby_parcels_socioeconomic.csv"),
+    Stage("score_all",      "score_all_dimensions.py",  "shelby_parcels_final.csv",          input="shelby_parcels_scored.csv"),
 ]
 
 STAGE_BY_NAME = {s.name: s for s in STAGES}
