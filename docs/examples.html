@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Examples &mdash; Housing Nutrition Label</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav>
+  <div class="logo">Housing<span>Label</span>.dev</div>
+  <button class="hamburger" aria-label="Menu">&#9776;</button>
+  <ul>
+    <li><a href="index.html">Overview</a></li>
+    <li><a href="methodology.html">Methodology</a></li>
+    <li><a href="examples.html" class="active">Examples</a></li>
+    <li><a href="setup.html">Setup</a></li>
+    <li><a href="https://github.com/compbiolover/housing-nutrition-label">GitHub</a></li>
+  </ul>
+</nav>
+
+<section>
+  <h2>Case Studies</h2>
+  <p>These examples use the CLI house simulator with real scoring models. Each preset represents a different construction profile at the same Memphis location (lat 35.15, lon -89.85).</p>
+</section>
+
+<section>
+  <h2>Single-Family Comparison</h2>
+  <table class="comparison">
+    <thead>
+      <tr>
+        <th>Metric</th>
+        <th>Worst Case<br><small>1945 frame, AE zone</small></th>
+        <th>Baseline<br><small>2000 frame</small></th>
+        <th>Premium<br><small>2026 brick</small></th>
+        <th>FORTIFIED Gold<br><small>2026 frame + Gold</small></th>
+        <th>ICF Passive<br><small>2026 ICF + solar + all</small></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Resilience Score</strong></td>
+        <td>32.8 <span class="grade grade-d">D</span></td>
+        <td>72.8 <span class="grade grade-b">B</span></td>
+        <td>80.3 <span class="grade grade-a">A</span></td>
+        <td>81.9 <span class="grade grade-a">A</span></td>
+        <td>95.6 <span class="grade grade-a">A</span></td>
+      </tr>
+      <tr>
+        <td><strong>Expected Annual Loss</strong></td>
+        <td>$370/yr</td>
+        <td>$57/yr</td>
+        <td>$86/yr</td>
+        <td>$55/yr</td>
+        <td>$13/yr</td>
+      </tr>
+      <tr>
+        <td><strong>Monthly Energy</strong></td>
+        <td>$174</td>
+        <td>$156</td>
+        <td>$178</td>
+        <td>$138</td>
+        <td>$28 <small>(with solar)</small></td>
+      </tr>
+      <tr>
+        <td><strong>EUI (kBTU/sqft/yr)</strong></td>
+        <td>75.0</td>
+        <td>35.0</td>
+        <td>26.6</td>
+        <td>28.0</td>
+        <td>11.2</td>
+      </tr>
+      <tr>
+        <td><strong>Infra Cost/yr</strong></td>
+        <td>$6,944</td>
+        <td>$4,804</td>
+        <td>$5,944</td>
+        <td>$4,804</td>
+        <td>$4,804</td>
+      </tr>
+      <tr>
+        <td><strong>Fiscal Ratio</strong></td>
+        <td>0.09</td>
+        <td>0.27</td>
+        <td>0.60</td>
+        <td>0.58</td>
+        <td>0.83</td>
+      </tr>
+      <tr>
+        <td><strong>30-yr Energy Cost</strong></td>
+        <td>$62,640</td>
+        <td>$56,160</td>
+        <td>$64,080</td>
+        <td>$49,680</td>
+        <td><strong>$10,080</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="insight">
+    <strong>Key insight:</strong> The ICF passive house costs $28/mo to run vs $156 for the baseline frame. Over 30 years, that's a $46,000 energy savings &mdash; which more than covers the ICF construction premium.
+  </div>
+</section>
+
+<section>
+  <h2>The Density Dividend: Multi-Unit Comparison</h2>
+  <table class="comparison">
+    <thead>
+      <tr>
+        <th>Metric</th>
+        <th>Baseline SFH<br><small>1 unit, 0.25 ac</small></th>
+        <th>Duplex<br><small>2 units, 0.15 ac</small></th>
+        <th>Quadplex<br><small>4 units, 0.20 ac</small></th>
+        <th>ICF Quadplex<br><small>4 units, 0.20 ac, loaded</small></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Density (DU/acre)</strong></td>
+        <td>4.0</td>
+        <td>13.3</td>
+        <td>20.0</td>
+        <td>20.0</td>
+      </tr>
+      <tr>
+        <td><strong>Resilience</strong></td>
+        <td>72.8 <span class="grade grade-b">B</span></td>
+        <td>80.1 <span class="grade grade-a">A</span></td>
+        <td>80.3 <span class="grade grade-a">A</span></td>
+        <td>93.9 <span class="grade grade-a">A</span></td>
+      </tr>
+      <tr>
+        <td><strong>Infra Cost / Unit</strong></td>
+        <td>$4,804</td>
+        <td>$3,314</td>
+        <td>$3,314</td>
+        <td>$3,314</td>
+      </tr>
+      <tr>
+        <td><strong>Energy / Unit / Mo</strong></td>
+        <td>$146</td>
+        <td>$63</td>
+        <td>$44</td>
+        <td>$6</td>
+      </tr>
+      <tr>
+        <td><strong>Fiscal Ratio</strong></td>
+        <td>0.27</td>
+        <td>0.36</td>
+        <td>0.30</td>
+        <td>0.36</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="insight">
+    <strong>The density dividend:</strong> Going from single-family to quadplex drops per-unit infrastructure cost by 31%. The shared-wall efficiency bonus cuts energy 25%. The ICF quadplex reaches $6/unit/month in energy after solar &mdash; that's $1,680/year per unit saved vs the baseline, or $50,400 over a 30-year mortgage.
+  </div>
+</section>
+
+<section>
+  <h2>Real Scenario: Andrew's ICF Duplex in Cooper-Young</h2>
+  <p>A realistic build scenario: ICF duplex on a 0.12-acre lot in walkable Cooper-Young, Memphis. 900 sqft per unit, $330K total value. Solar panels, hurricane straps, hip roof, sealed roof deck. No passive house certification (keeping it affordable).</p>
+
+  <div class="card" style="max-width:500px;">
+    <h3>Cooper-Young ICF Duplex</h3>
+    <div class="score-bar-container">
+      <div class="score-bar-label"><span>Disaster Resilience</span><span>93.6 / A</span></div>
+      <div class="score-bar"><div class="fill green" style="width:93.6%"></div></div>
+    </div>
+    <div class="score-bar-container">
+      <div class="score-bar-label"><span>Flood EAL</span><span>$1/yr</span></div>
+      <div class="score-bar"><div class="fill green" style="width:98%"></div></div>
+    </div>
+    <div class="score-bar-container">
+      <div class="score-bar-label"><span>Tornado EAL</span><span>$2/yr</span></div>
+      <div class="score-bar"><div class="fill green" style="width:97%"></div></div>
+    </div>
+    <div class="score-bar-container">
+      <div class="score-bar-label"><span>Seismic EAL</span><span>$8/yr</span></div>
+      <div class="score-bar"><div class="fill green" style="width:90%"></div></div>
+    </div>
+    <p style="margin-top:1rem;"><strong>Total EAL:</strong> $12/yr on $330K &mdash; 0.004% annual loss rate</p>
+    <p><strong>National:</strong> <span class="grade grade-a">A</span> &nbsp; <strong>Local:</strong> <span class="grade grade-a">A</span> (100th percentile)</p>
+  </div>
+
+  <div class="insight" style="margin-top:1.5rem;">
+    <strong>The house-hack math:</strong> $330K at 6.5% = ~$2,087/mo PITI. Rent unit 2 at $950/mo &rarr; effective payment $1,137/mo. With solar, your unit's energy is ~$10&ndash;15/mo. Less than renting a 1BR in the same neighborhood, while building equity in a tornado-proof, near-zero-energy building.
+  </div>
+</section>
+
+<section>
+  <h2>What the Conventional Frame Duplex Looks Like</h2>
+  <p>Same location, same lot, but conventional wood-frame construction at $250K:</p>
+
+  <div class="card" style="max-width:500px;">
+    <h3>Cooper-Young Frame Duplex</h3>
+    <div class="score-bar-container">
+      <div class="score-bar-label"><span>Disaster Resilience</span><span>76.1 / B</span></div>
+      <div class="score-bar"><div class="fill yellow" style="width:76.1%"></div></div>
+    </div>
+    <div class="score-bar-container">
+      <div class="score-bar-label"><span>Tornado EAL</span><span>$30/yr (15&times; higher)</span></div>
+      <div class="score-bar"><div class="fill orange" style="width:55%"></div></div>
+    </div>
+    <div class="score-bar-container">
+      <div class="score-bar-label"><span>Seismic EAL</span><span>$35/yr (4.4&times; higher)</span></div>
+      <div class="score-bar"><div class="fill orange" style="width:50%"></div></div>
+    </div>
+    <p style="margin-top:1rem;"><strong>Total EAL:</strong> $68/yr &mdash; 7.6&times; higher than ICF</p>
+    <p><strong>National:</strong> <span class="grade grade-b">B</span> &nbsp; <strong>Local:</strong> <span class="grade grade-c">C</span> (58th percentile)</p>
+  </div>
+
+  <div class="insight warn">
+    <strong>The $80K question:</strong> The ICF duplex costs ~$80K more upfront but saves ~$49,000 per unit in energy over 30 years ($98K total across both units), plus lower insurance premiums, dramatically lower disaster risk, and the marketing advantage of a $6/mo utility bill for tenants.
+  </div>
+</section>
+
+<footer>
+  <p>Housing Nutrition Label &mdash; MIT License &mdash; <a href="https://github.com/compbiolover/housing-nutrition-label">GitHub</a></p>
+  <p style="margin-top:0.5rem;font-size:0.85rem;">All scores generated by the CLI simulator. Try it: <code>python simulate_house.py --preset icf-passive --lat 35.15 --lon -89.85</code></p>
+</footer>
+<script src="nav.js"></script>
+</body>
+</html>

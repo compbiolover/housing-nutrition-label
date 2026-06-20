@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Methodology &mdash; Housing Nutrition Label</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav>
+  <div class="logo">Housing<span>Label</span>.dev</div>
+  <button class="hamburger" aria-label="Menu">&#9776;</button>
+  <ul>
+    <li><a href="index.html">Overview</a></li>
+    <li><a href="methodology.html" class="active">Methodology</a></li>
+    <li><a href="examples.html">Examples</a></li>
+    <li><a href="setup.html">Setup</a></li>
+    <li><a href="https://github.com/compbiolover/housing-nutrition-label">GitHub</a></li>
+  </ul>
+</nav>
+
+<section>
+  <h2>Scoring Methodology</h2>
+  <p>Every dimension produces a 0&ndash;100 score using transparent, reproducible methods grounded in published data and peer-reviewed research. This page documents the approach for each dimension.</p>
+</section>
+
+<section>
+  <div class="method-section">
+    <h3>1. Disaster Resilience</h3>
+    <p>The resilience score uses an <strong>Expected Annual Loss (EAL)</strong> framework &mdash; the standard approach used by FEMA's National Risk Index, Hazus, and the insurance catastrophe modeling industry.</p>
+
+    <h4>Three Hazard Pillars</h4>
+    <p><strong>Flood:</strong> FEMA NFHL zone codes map to annual exceedance probabilities. Zone AE = 1% annual chance &times; 28% damage ratio = 0.28% EAL rate. Zone X (minimal) = 0.04% &times; 5% = 0.002% EAL rate.</p>
+    <p><strong>Tornado:</strong> SPC historical tornado data (1950&ndash;2023) provides frequency. Point-strike probability = tornado path width &divide; 25-mile circle area. EF-based damage ratios: EF0=2%, EF1=10%, EF2=30%, EF3=60%, EF4=90%.</p>
+    <p><strong>Seismic:</strong> USGS National Seismic Hazard Model PGA values with simplified fragility curves. Memphis sits on the New Madrid Seismic Zone with PGA 0.45&ndash;0.54g at the 2%-in-50-year level.</p>
+
+    <div class="formula">Total EAL Rate = Flood EAL + Tornado EAL + Seismic EAL<br>(independent hazards assumption &mdash; valid for these three)</div>
+
+    <h4>Building Resilience Modifier (BRM)</h4>
+    <p>Raw EAL is adjusted by a construction quality multiplier (0.15&ndash;1.5) based on four factors:</p>
+    <p><strong>Code era</strong> (year built): Pre-1970 = 1.3&times;, 2003+ post-IBC = 0.85&times;<br>
+    <strong>Construction type:</strong> Wood frame = 1.2&times;, ICF = 0.25&times; <span class="source-tag">PCA racking data</span> <span class="source-tag">FEMA MAT Joplin/Moore</span><br>
+    <strong>Foundation</strong> (flood only): Full basement = 1.4&times;, Slab = 0.7&times;<br>
+    <strong>Condition:</strong> Unsound = 1.5&times;, Excellent = 0.8&times;</p>
+
+    <p>Construction-type-specific BRM floors prevent over-crediting: wood frame floor = 0.50, ICF floor = 0.15 (85% max EAL reduction).</p>
+
+    <h4>Above-Code Feature Modifiers</h4>
+    <p>20+ toggleable features with literature-backed multipliers:</p>
+    <p><strong>Wind:</strong> Hurricane straps (0.70), hip roof (0.55), impact garage door (0.75), sealed roof deck (0.80), metal roof (0.75) <span class="source-tag">IBHS research</span><br>
+    <strong>FORTIFIED:</strong> Roof tier (0.35), Silver (0.25), Gold (0.20) <span class="source-tag">73&ndash;76% claim reduction, Hurricane Sally actuarial data</span><br>
+    <strong>Seismic:</strong> Cripple wall bracing (0.45), seismic retrofit (0.75) <span class="source-tag">PEER-CEA research</span><br>
+    <strong>Flood:</strong> Elevation +1ft above BFE (0.15), +2ft (0.08), +3ft (0.04) <span class="source-tag">FEMA depth-damage curves</span></p>
+
+    <div class="formula">Adjusted EAL = Raw EAL &times; BRM &times; &Pi;(bonus modifiers)</div>
+
+    <h4>Score Mapping</h4>
+    <p>Total EAL rate maps to 0&ndash;100 via log-linear interpolation: score 100 at EAL &le; 0.001%, score 80 at 0.02%, score 60 at 0.1%, score 40 at 0.3%, score 20 at 1%, score 0 at &ge; 2%.</p>
+  </div>
+
+  <div class="method-section">
+    <h3>2. Energy Efficiency</h3>
+    <p>Score based on <strong>Energy Use Intensity (EUI)</strong> in kBTU/sqft/yr, using DOE Building America and EIA RECS 2020 benchmarks for IECC Climate Zone 4A.</p>
+
+    <h4>EUI Lookup by Building Archetype</h4>
+    <p>Each parcel maps to an archetype via year built (vintage bin), square footage (size bin), construction type, and HVAC system from the Shelby County CAMA database.</p>
+    <p>Published CZ 4A EUI benchmarks by vintage: Pre-1950 = 75 kBTU/sqft/yr, 1950&ndash;1979 = 55, 1980&ndash;1999 = 40, 2000&ndash;2009 = 30, 2010+ = 25, Passive House = 12.</p>
+    <p>Construction modifiers: ICF = 0.65&times; (superior thermal mass), SIP = 0.70&times;. Multi-unit shared-wall bonus: 2 units = 0.85&times;, 3&ndash;4 = 0.80&times;, 5+ = 0.75&times;. Passive house certification = 0.40&times;. Solar = 60% electricity cost offset.</p>
+
+    <h4>Cost Estimation</h4>
+    <p>Memphis Light Gas &amp; Water / TVA rates: $0.105/kWh electricity, $1.10/therm gas. Electric/gas split based on heating system type from CAMA data.</p>
+
+    <h4>Score Mapping</h4>
+    <div class="formula">Score 100 at EUI &le; 15 (passive house), 80 at 25, 60 at 40, 40 at 55, 20 at 70, 0 at &ge; 90</div>
+  </div>
+
+  <div class="method-section">
+    <h3>3. Infrastructure Burden</h3>
+    <p>Models the annual municipal cost to serve each parcel using a <strong>density-based cost allocation</strong> approach. Inspired by the Halifax cost-of-sprawl study, Strong Towns fiscal analysis, and Smart City Memphis's density-budget research.</p>
+
+    <h4>Per-Service Cost Model</h4>
+    <p>Costs decrease with density (dwelling units per acre):</p>
+    <p><strong>Roads:</strong> &lt;1 DU/ac = $2,400/yr &rarr; 12+ DU/ac = $400/yr<br>
+    <strong>Water/sewer:</strong> &lt;1 DU/ac = $1,500/yr &rarr; 12+ DU/ac = $350/yr (base) + $200/unit usage<br>
+    <strong>Fire/EMS:</strong> ~$800 base &times; distance modifier<br>
+    <strong>Police:</strong> ~$1,200 base &times; density modifier<br>
+    <strong>Sanitation:</strong> $504/unit (Memphis's actual fee)<br>
+    <strong>Parks:</strong> $300/unit</p>
+
+    <h4>Fiscal Ratio</h4>
+    <div class="formula">Fiscal Ratio = Property Tax Revenue / Total Infrastructure Cost<br>Property Tax = Appraised Value &times; 25% assessment &times; $3.19/$100 (Memphis rate)</div>
+    <p>A ratio &gt; 1.0 = net contributor to the city. The median Shelby County parcel has a ratio of 0.27 &mdash; generating only 27 cents per dollar of infrastructure cost.</p>
+
+    <h4>Score Mapping</h4>
+    <div class="formula">Score 100 at ratio &ge; 1.5, 80 at 1.0, 60 at 0.6, 40 at 0.3, 20 at 0.15, 0 at &le; 0.05</div>
+  </div>
+
+  <div class="method-section">
+    <h3>4. Health Impact</h3>
+    <p>Uses <strong>CDC PLACES</strong> census-tract-level health estimates. Nine measures: obesity, diabetes, high blood pressure, asthma, coronary heart disease, mental distress, physical inactivity, stroke, COPD.</p>
+    <p>Each parcel is assigned to its census tract via the Census Bureau geocoder. Health index = average of inverted percentile ranks across all measures (lower prevalence = higher score). Range in Shelby County: 0.7 to 95.5 &mdash; nearly the full 0&ndash;100 spectrum, reflecting extreme neighborhood health disparities.</p>
+    <div class="insight"><strong>Key finding:</strong> Obesity ranges from 28% to 58% and diabetes from 7% to 34% between the healthiest and least healthy Memphis neighborhoods &mdash; a 2&times; to 5&times; gap within the same county.</div>
+  </div>
+
+  <div class="method-section">
+    <h3>5. Socioeconomic</h3>
+    <p>Census ACS 5-year estimates at the census tract level. Indicators include median household income, poverty rate, educational attainment (bachelor's degree or higher), and unemployment rate. Indexed using inverted percentile ranks (higher income, lower poverty = higher score).</p>
+  </div>
+
+  <div class="method-section">
+    <h3>6. Climate Projections (Placeholder)</h3>
+    <p>NOAA 1991&ndash;2020 normals for Memphis International Airport (station USW00013893). IECC zone 4A, 3,082 HDD, 2,191 CDD, avg Jan low 31.1&deg;F, avg Jul high 92.5&deg;F, 53.7&Prime; annual precipitation, ~45 extreme heat days, ~50 freeze days. Uniform for the single-county pilot; will be upgraded to per-parcel NOAA CDO API lookups when scaling beyond Shelby County.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Dual Grading Details</h2>
+  <p><strong>National absolute grade:</strong> A &ge; 80, B &ge; 60, C &ge; 40, D &ge; 20, F &lt; 20. Calibrated for national comparison &mdash; a Grade B in Memphis means the same thing as a Grade B in Phoenix.</p>
+  <p><strong>Local percentile grade:</strong> A = top 10%, B = next 25% (65th&ndash;90th percentile), C = next 30% (35th&ndash;65th), D = next 25% (10th&ndash;35th), F = bottom 10%. All five grades are always populated by construction.</p>
+  <p><strong>Composite score:</strong> Simple NaN-skipping mean of all active dimension scores (excluding the climate placeholder).</p>
+</section>
+
+<footer>
+  <p>Housing Nutrition Label &mdash; MIT License &mdash; <a href="https://github.com/compbiolover/housing-nutrition-label">GitHub</a></p>
+  <p style="margin-top:0.5rem;font-size:0.85rem;">Every threshold, weight, and data source is documented in the codebase. Open an issue to suggest improvements.</p>
+</footer>
+<script src="nav.js"></script>
+</body>
+</html>

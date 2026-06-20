@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Housing Nutrition Label</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav>
+  <div class="logo">Housing<span>Label</span>.dev</div>
+  <button class="hamburger" aria-label="Menu">&#9776;</button>
+  <ul>
+    <li><a href="index.html" class="active">Overview</a></li>
+    <li><a href="methodology.html">Methodology</a></li>
+    <li><a href="examples.html">Examples</a></li>
+    <li><a href="setup.html">Setup</a></li>
+    <li><a href="https://github.com/compbiolover/housing-nutrition-label">GitHub</a></li>
+  </ul>
+</nav>
+
+<div class="hero">
+  <div class="badge">Phase 1 Pilot &mdash; Shelby County, TN</div>
+  <h1>Housing Nutrition Label</h1>
+  <p class="tagline">An open-source platform that scores residential properties on disaster resilience, energy efficiency, infrastructure burden, health impact, and socioeconomic factors &mdash; like a nutrition label for your home.</p>
+  <a href="https://github.com/compbiolover/housing-nutrition-label" style="display:inline-block;background:var(--green);color:#fff;padding:0.75rem 2rem;border-radius:var(--radius);font-weight:600;text-decoration:none;">View on GitHub</a>
+</div>
+
+<section>
+  <h2>The Problem</h2>
+  <p>There is a massive information asymmetry in housing markets. Buyers cannot evaluate construction quality, lifecycle costs, disaster resilience, or the true cost of ownership. Builders have no incentive to build well because the market cannot distinguish quality. Cities cannot demonstrate the true infrastructure cost differential between dense infill and sprawl.</p>
+  <p>Nobody has built a unified, open-source, multi-dimensional lifecycle scoring platform with API distribution to listing platforms. <strong>The field is wide open.</strong></p>
+</section>
+
+<section>
+  <h2>The Vision</h2>
+  <p>A standardized, color-coded scorecard for every property &mdash; showing how it performs across multiple dimensions that matter to buyers, communities, and cities. Each dimension scored 0&ndash;100 with dual grades: a national absolute grade and a local percentile-based grade for within-market comparison.</p>
+</section>
+
+<section>
+  <h2>Scored Dimensions</h2>
+  <div class="card-grid">
+    <div class="card">
+      <div class="icon">&#x1F3D7;</div>
+      <h3>Disaster Resilience</h3>
+      <p>Expected Annual Loss (EAL) across flood, tornado, and seismic hazards. Adjusted for construction type, building code era, foundation, and condition using a Building Resilience Modifier with literature-backed ICF and FORTIFIED Home modifiers.</p>
+    </div>
+    <div class="card">
+      <div class="icon">&#x26A1;</div>
+      <h3>Energy Efficiency</h3>
+      <p>Energy Use Intensity (kBTU/sqft/yr) based on DOE/EIA ResStock benchmarks, adjusted for building vintage, construction type, and HVAC system. Estimated monthly cost at Memphis/TVA utility rates.</p>
+    </div>
+    <div class="card">
+      <div class="icon">&#x1F3D8;</div>
+      <h3>Infrastructure Burden</h3>
+      <p>Annual municipal cost to serve each parcel (roads, water/sewer, fire, police, sanitation) based on density. Fiscal ratio shows property tax revenue vs. infrastructure cost &mdash; revealing which properties pay their way.</p>
+    </div>
+    <div class="card">
+      <div class="icon">&#x2764;</div>
+      <h3>Health Impact</h3>
+      <p>CDC PLACES census-tract health metrics: obesity, diabetes, high blood pressure, physical inactivity, mental distress, asthma, coronary heart disease, stroke, and COPD prevalence. Indexed 0&ndash;100.</p>
+    </div>
+    <div class="card">
+      <div class="icon">&#x1F4CA;</div>
+      <h3>Socioeconomic</h3>
+      <p>Census ACS indicators including median household income, poverty rate, educational attainment, and unemployment by census tract. Reflects neighborhood economic opportunity.</p>
+    </div>
+    <div class="card">
+      <div class="icon">&#x1F321;</div>
+      <h3>Climate Projections</h3>
+      <p>NOAA 1991&ndash;2020 normals: heating/cooling degree days, extreme heat days, freeze days, annual precipitation. Placeholder for forward-looking climate model projections. <em>(Uniform for single-county pilot.)</em></p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Dual Grading System</h2>
+  <p>Every dimension produces two grades, because context matters:</p>
+  <div class="card-grid">
+    <div class="card">
+      <h3>National Grade</h3>
+      <p>Absolute thresholds (A&ge;80, B&ge;60, C&ge;40, D&ge;20, F&lt;20). Tells you how a Memphis property compares to the rest of the country. Useful for cross-city comparisons.</p>
+      <p><span class="grade grade-a">A</span> <span class="grade grade-b">B</span> <span class="grade grade-c">C</span> <span class="grade grade-d">D</span> <span class="grade grade-f">F</span></p>
+    </div>
+    <div class="card">
+      <h3>Local Grade</h3>
+      <p>Percentile-based within Shelby County (A=top 10%, B=next 25%, C=next 30%, D=next 25%, F=bottom 10%). Tells you how a property compares to its neighbors. Useful for home-shopping.</p>
+      <p><span class="grade grade-a">A</span> <span class="grade grade-b">B</span> <span class="grade grade-c">C</span> <span class="grade grade-d">D</span> <span class="grade grade-f">F</span></p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Current Status</h2>
+  <p><strong>Phase 1 complete:</strong> 1,000 Shelby County (Memphis, TN) parcels scored across 5 dimensions with real data from 9 public data sources. Includes a CLI house simulator with 8 presets supporting multi-unit buildings (duplexes, quadplexes) and 20+ above-code construction features.</p>
+  <p>The scoring engine, data pipeline, and simulator are fully open-source under the MIT license.</p>
+</section>
+
+<section>
+  <h2>Data Sources</h2>
+  <table class="data-table">
+    <thead><tr><th>Source</th><th>Provides</th><th>Access</th></tr></thead>
+    <tbody>
+      <tr><td>Shelby County Assessor ArcGIS</td><td>Parcels, CAMA building data, appraisal values</td><td class="free">Free, no key</td></tr>
+      <tr><td>FEMA NFHL</td><td>Flood zone designations</td><td class="free">Free, no key</td></tr>
+      <tr><td>NOAA Climate Normals</td><td>Temperature, degree days, precipitation</td><td class="free">Free, no key</td></tr>
+      <tr><td>SPC Historical Tornadoes</td><td>Tornado frequency &amp; intensity</td><td class="free">Free, no key</td></tr>
+      <tr><td>USGS NSHM</td><td>Seismic hazard (PGA values)</td><td class="free">Free, no key</td></tr>
+      <tr><td>DOE/EIA ResStock</td><td>Energy use intensity benchmarks</td><td class="free">Free, reference data</td></tr>
+      <tr><td>CDC PLACES</td><td>Health metrics by census tract</td><td class="free">Free, no key</td></tr>
+      <tr><td>Census ACS</td><td>Socioeconomic indicators</td><td class="key-needed">Free key required</td></tr>
+      <tr><td>Walk Score API</td><td>Walkability/transit/bike scores</td><td class="key-needed">Key required (planned)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<footer>
+  <p>Housing Nutrition Label &mdash; MIT License &mdash; <a href="https://github.com/compbiolover/housing-nutrition-label">GitHub</a></p>
+  <p style="margin-top:0.5rem;font-size:0.85rem;">Built with public data. No proprietary sources. Fully reproducible.</p>
+</footer>
+<script src="nav.js"></script>
+</body>
+</html>

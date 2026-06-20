@@ -1,0 +1,110 @@
+/* Housing Nutrition Label — housinglabel.dev */
+:root {
+  --navy: #1a2332;
+  --slate: #2d3748;
+  --green: #22c55e;
+  --yellow: #eab308;
+  --red: #ef4444;
+  --orange: #f97316;
+  --blue: #3b82f6;
+  --purple: #8b5cf6;
+  --teal: #14b8a6;
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --text: #334155;
+  --muted: #64748b;
+  --border: #e2e8f0;
+  --radius: 8px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; color: var(--text); background: var(--bg); line-height: 1.6; }
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Nav */
+nav { background: var(--navy); padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+nav .logo { color: #fff; font-weight: 700; font-size: 1.1rem; padding: 1rem 0; }
+nav .logo span { color: var(--green); }
+nav ul { list-style: none; display: flex; gap: 0.5rem; }
+nav ul a { color: #cbd5e1; padding: 0.5rem 1rem; border-radius: var(--radius); transition: 0.2s; }
+nav ul a:hover, nav ul a.active { color: #fff; background: rgba(255,255,255,0.1); text-decoration: none; }
+.hamburger { display: none; background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer; }
+@media (max-width: 768px) {
+  .hamburger { display: block; }
+  nav ul { display: none; flex-direction: column; position: absolute; top: 100%; left: 0; right: 0; background: var(--navy); padding: 1rem; }
+  nav ul.open { display: flex; }
+}
+
+/* Sections */
+.hero { background: linear-gradient(135deg, var(--navy) 0%, var(--slate) 100%); color: #fff; padding: 5rem 2rem; text-align: center; }
+.hero h1 { font-size: 2.8rem; margin-bottom: 1rem; }
+.hero .tagline { font-size: 1.25rem; color: #94a3b8; max-width: 700px; margin: 0 auto 2rem; }
+.hero .badge { display: inline-block; background: rgba(34,197,94,0.15); color: var(--green); padding: 0.4rem 1rem; border-radius: 20px; font-size: 0.9rem; margin-bottom: 1.5rem; }
+section { padding: 4rem 2rem; max-width: 1100px; margin: 0 auto; }
+h2 { font-size: 1.8rem; color: var(--navy); margin-bottom: 1.5rem; }
+h3 { font-size: 1.3rem; color: var(--slate); margin: 1.5rem 0 0.75rem; }
+p { margin-bottom: 1rem; }
+
+/* Cards */
+.card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin: 2rem 0; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; transition: box-shadow 0.2s; }
+.card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+.card .icon { font-size: 2rem; margin-bottom: 0.75rem; }
+.card h3 { margin-top: 0; }
+
+/* Score bars */
+.score-bar-container { margin: 0.5rem 0; }
+.score-bar-label { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.25rem; }
+.score-bar { height: 10px; background: var(--border); border-radius: 5px; overflow: hidden; }
+.score-bar .fill { height: 100%; border-radius: 5px; transition: width 0.6s ease; }
+.fill.green { background: var(--green); }
+.fill.yellow { background: var(--yellow); }
+.fill.orange { background: var(--orange); }
+.fill.red { background: var(--red); }
+
+/* Comparison table */
+.comparison { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.95rem; }
+.comparison th { background: var(--navy); color: #fff; padding: 0.75rem 1rem; text-align: left; }
+.comparison td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); }
+.comparison tr:hover { background: #f1f5f9; }
+.comparison .grade { display: inline-block; width: 28px; height: 28px; line-height: 28px; text-align: center; border-radius: 4px; font-weight: 700; font-size: 0.85rem; color: #fff; }
+.grade-a { background: var(--green); }
+.grade-b { background: #84cc16; }
+.grade-c { background: var(--yellow); }
+.grade-d { background: var(--orange); }
+.grade-f { background: var(--red); }
+
+/* Methodology */
+.method-section { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; margin: 1.5rem 0; }
+.formula { background: #f1f5f9; padding: 1rem; border-radius: var(--radius); font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.9rem; margin: 1rem 0; overflow-x: auto; }
+.source-tag { display: inline-block; background: #e0f2fe; color: #0369a1; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.8rem; margin: 0.25rem 0.25rem 0.25rem 0; }
+
+/* Data sources table */
+.data-table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; }
+.data-table th { background: #f1f5f9; padding: 0.75rem; text-align: left; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.data-table td { padding: 0.75rem; border-bottom: 1px solid var(--border); }
+.data-table .free { color: var(--green); font-weight: 600; }
+.data-table .key-needed { color: var(--orange); font-weight: 600; }
+
+/* Code blocks */
+pre { background: var(--navy); color: #e2e8f0; padding: 1.25rem; border-radius: var(--radius); overflow-x: auto; margin: 1rem 0; font-size: 0.9rem; line-height: 1.5; }
+code { font-family: 'SF Mono', 'Fira Code', monospace; }
+p code { background: #f1f5f9; padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.9em; }
+
+/* Insight callouts */
+.insight { border-left: 4px solid var(--blue); background: #eff6ff; padding: 1rem 1.5rem; border-radius: 0 var(--radius) var(--radius) 0; margin: 1.5rem 0; }
+.insight.warn { border-color: var(--orange); background: #fff7ed; }
+.insight strong { color: var(--navy); }
+
+/* Footer */
+footer { background: var(--navy); color: #94a3b8; text-align: center; padding: 2rem; margin-top: 3rem; }
+footer a { color: var(--green); }
+
+/* Pipeline diagram */
+.pipeline { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 1.5rem 0; }
+.pipeline .stage { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.5rem 1rem; font-size: 0.85rem; white-space: nowrap; }
+.pipeline .arrow { color: var(--muted); font-size: 1.2rem; }
+@media (max-width: 768px) {
+  .hero h1 { font-size: 2rem; }
+  section { padding: 2rem 1rem; }
+}

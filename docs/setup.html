@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Setup Guide &mdash; Housing Nutrition Label</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav>
+  <div class="logo">Housing<span>Label</span>.dev</div>
+  <button class="hamburger" aria-label="Menu">&#9776;</button>
+  <ul>
+    <li><a href="index.html">Overview</a></li>
+    <li><a href="methodology.html">Methodology</a></li>
+    <li><a href="examples.html">Examples</a></li>
+    <li><a href="setup.html" class="active">Setup</a></li>
+    <li><a href="https://github.com/compbiolover/housing-nutrition-label">GitHub</a></li>
+  </ul>
+</nav>
+
+<section>
+  <h2>Quick Start</h2>
+  <pre><code>git clone https://github.com/compbiolover/housing-nutrition-label.git
+cd housing-nutrition-label
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python run_pipeline.py</code></pre>
+  <p>The pipeline will run all 12 stages in order. On first run, stages that query external APIs (FEMA flood, CDC PLACES, Census ACS) will take longer due to rate limiting. Subsequent runs skip stages whose output is already fresh.</p>
+</section>
+
+<section>
+  <h2>API Keys</h2>
+  <p>Most data sources are free and require no authentication. Two require free API keys:</p>
+
+  <div class="card-grid">
+    <div class="card">
+      <h3>Census ACS (Required for socioeconomic)</h3>
+      <p>Free signup: <a href="https://api.census.gov/data/key_signup.html">api.census.gov/data/key_signup.html</a></p>
+      <pre><code>export CENSUS_API_KEY=your_key_here</code></pre>
+      <p>Without this key, the socioeconomic step will be skipped and the composite score will be computed from 4 dimensions instead of 5.</p>
+    </div>
+    <div class="card">
+      <h3>Walk Score (Optional, planned)</h3>
+      <p>Signup: <a href="https://www.walkscore.com/professional/api.php">walkscore.com/professional/api.php</a></p>
+      <pre><code>export WALKSCORE_API_KEY=your_key_here
+python enrich_walkscore.py --limit 10</code></pre>
+      <p>The enrichment script is written and ready. Walk Score requires a URL associated with your account &mdash; use your project's GitHub URL or housinglabel.dev.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Pipeline Architecture</h2>
+  <p>The pipeline runs 12 stages in sequence. Each stage reads a CSV, enriches it, and writes the output for the next stage.</p>
+
+  <div class="pipeline">
+    <div class="stage"><strong>1.</strong> shelby_ingest.py</div><span class="arrow">&rarr;</span>
+    <div class="stage"><strong>2.</strong> clean_parcels.py</div><span class="arrow">&rarr;</span>
+    <div class="stage"><strong>3.</strong> enrich_fema_flood.py</div><span class="arrow">&rarr;</span>
+    <div class="stage"><strong>4.</strong> enrich_noaa_climate.py</div><span class="arrow">&rarr;</span>
+    <div class="stage"><strong>5.</strong> enrich_tornado.py</div><span class="arrow">&rarr;</span>
+    <div class="stage"><strong>6.</strong> enrich_seismic.py</div><span class="arrow">&rarr;</span>
+    <div class="stage"><strong>7.</strong> enrich_energy.py</div><span class="arrow">&rarr;</span>
+    <div class="stage"><strong>8.</strong> enrich_infrastructure.py</div><span class="arrow">&rarr;</span>
+    <div class="stage"><strong>9.</strong> enrich_health.py</div><span class="arrow">&rarr;</span>
+    <div class="stage"><strong>10.</strong> enrich_socioeconomic.py</div><span class="arrow">&rarr;</span>
+    <div class="stage"><strong>11.</strong> score_resilience.py</div><span class="arrow">&rarr;</span>
+    <div class="stage"><strong>12.</strong> score_all_dimensions.py</div>
+  </div>
+
+  <h3>Pipeline Runner Options</h3>
+  <pre><code># Run everything fresh
+python run_pipeline.py --force
+
+# Run from a specific stage onward
+python run_pipeline.py --from energy
+
+# Run a single stage
+python run_pipeline.py --step flood
+
+# Continue past failures
+python run_pipeline.py --continue-on-error
+
+# Preview what would run
+python run_pipeline.py --dry-run</code></pre>
+</section>
+
+<section>
+  <h2>House Simulator</h2>
+  <p>The CLI simulator lets you define a hypothetical house and see its nutrition label scores instantly.</p>
+
+  <h3>Using Presets</h3>
+  <pre><code># Compare construction quality
+python simulate_house.py --preset baseline --lat 35.15 --lon -89.85
+python simulate_house.py --preset icf-passive --lat 35.15 --lon -89.85
+
+# Multi-unit buildings
+python simulate_house.py --preset duplex --lat 35.15 --lon -89.85
+python simulate_house.py --preset icf-quadplex --lat 35.15 --lon -89.85</code></pre>
+
+  <h3>Available Presets</h3>
+  <table class="data-table">
+    <thead><tr><th>Preset</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>baseline</code></td><td>2000 wood frame, slab, average condition, 2,000 sqft, 0.25 ac</td></tr>
+      <tr><td><code>premium</code></td><td>2026 brick, slab, excellent, 3,000 sqft, 0.35 ac, $450K</td></tr>
+      <tr><td><code>icf-passive</code></td><td>2026 ICF + solar + generator + passive house + safe room + hip roof + straps + metal roof + sealed deck + elevation</td></tr>
+      <tr><td><code>worst-case</code></td><td>1945 frame, full basement, Zone AE, poor condition, 2.0 ac</td></tr>
+      <tr><td><code>fortified-gold</code></td><td>2026 frame + IBHS FORTIFIED Gold certification</td></tr>
+      <tr><td><code>duplex</code></td><td>2026 brick, 2 units &times; 1,200 sqft, 0.15 ac, $300K</td></tr>
+      <tr><td><code>quadplex</code></td><td>2026 brick, 4 units &times; 900 sqft, 0.20 ac, $500K</td></tr>
+      <tr><td><code>icf-quadplex</code></td><td>2026 ICF, 4 units + solar + passive + straps + hip roof, $600K</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Custom Builds</h3>
+  <pre><code># Build your own scenario
+python simulate_house.py \
+  --year-built 2026 \
+  --construction icf \
+  --foundation slab \
+  --condition excellent \
+  --flood-zone X \
+  --lat 35.13 --lon -89.99 \
+  --value 330000 \
+  --units 2 \
+  --sqft 900 \
+  --lot-acres 0.12 \
+  --solar \
+  --hurricane-straps \
+  --hip-roof \
+  --sealed-roof-deck</code></pre>
+
+  <h3>Above-Code Feature Flags</h3>
+  <table class="data-table">
+    <thead><tr><th>Category</th><th>Flags</th></tr></thead>
+    <tbody>
+      <tr><td>Wind/Tornado</td><td><code>--hurricane-straps</code> <code>--hip-roof</code> <code>--impact-garage-door</code> <code>--sealed-roof-deck</code> <code>--metal-roof</code> <code>--reinforced-gable</code> <code>--ring-shank-nails</code> <code>--truss-16oc</code></td></tr>
+      <tr><td>FORTIFIED</td><td><code>--fortified-roof</code> <code>--fortified-silver</code> <code>--fortified-gold</code></td></tr>
+      <tr><td>Seismic</td><td><code>--cripple-wall-bracing</code> <code>--seismic-hold-downs</code> <code>--auto-gas-shutoff</code> <code>--seismic-retrofit</code></td></tr>
+      <tr><td>Flood</td><td><code>--elevation-1ft</code> <code>--elevation-2ft</code> <code>--elevation-3ft</code> <code>--flood-vents</code> <code>--backflow-valve</code> <code>--leak-detection</code></td></tr>
+      <tr><td>General</td><td><code>--solar</code> <code>--backup-generator</code> <code>--passive-house</code> <code>--tornado-safe-room</code> <code>--fire-sprinklers</code></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>Adding a New Dimension</h2>
+  <p>The pipeline is designed to be extensible. To add a new scoring dimension:</p>
+  <ol style="margin:1rem 0;padding-left:1.5rem;">
+    <li style="margin-bottom:0.75rem;">Write an <code>enrich_*.py</code> script following the existing pattern: accepts <code>--input</code>/<code>--output</code>/<code>--limit</code> flags, reads the previous stage's CSV, adds new columns, writes the enriched CSV.</li>
+    <li style="margin-bottom:0.75rem;">Add a scoring function in <code>score_all_dimensions.py</code> that maps your new metric to a 0&ndash;100 score.</li>
+    <li style="margin-bottom:0.75rem;">Wire it into <code>run_pipeline.py</code>'s STAGES list in the correct position.</li>
+    <li style="margin-bottom:0.75rem;">The dual grading (national + local) and composite score automatically include the new dimension.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Tech Stack</h2>
+  <p>Python 3.x with two dependencies: <code>requests</code> and <code>pandas</code>. No geo libraries, no databases, no frameworks. All spatial calculations (Haversine, Web Mercator conversion, polygon centroids) use pure math. This is intentional &mdash; the entire pipeline runs on any machine with Python installed.</p>
+</section>
+
+<section>
+  <h2>Roadmap</h2>
+  <p>Phase 1 (current) covers data ingestion and scoring. The longer-term vision includes:</p>
+  <ul style="margin:1rem 0;padding-left:1.5rem;">
+    <li style="margin-bottom:0.5rem;"><strong>Walk Score integration</strong> &mdash; walkability, transit, and bike scores (script ready, needs API key)</li>
+    <li style="margin-bottom:0.5rem;"><strong>Durability dimension</strong> &mdash; estimated major maintenance over 15/30 years by construction type and age</li>
+    <li style="margin-bottom:0.5rem;"><strong>Environmental footprint</strong> &mdash; carbon, stormwater, impervious surface</li>
+    <li style="margin-bottom:0.5rem;"><strong>Frontend visualization</strong> &mdash; React + D3 interactive nutrition label card and map explorer</li>
+    <li style="margin-bottom:0.5rem;"><strong>Rust scoring engine</strong> &mdash; high-performance API for real-time lookups</li>
+    <li style="margin-bottom:0.5rem;"><strong>API layer</strong> &mdash; REST API for Zillow/Redfin/Realtor.com integration</li>
+    <li style="margin-bottom:0.5rem;"><strong>Scale beyond Shelby County</strong> &mdash; parameterize for any US county</li>
+  </ul>
+</section>
+
+<footer>
+  <p>Housing Nutrition Label &mdash; MIT License &mdash; <a href="https://github.com/compbiolover/housing-nutrition-label">GitHub</a></p>
+</footer>
+<script src="nav.js"></script>
+</body>
+</html>
