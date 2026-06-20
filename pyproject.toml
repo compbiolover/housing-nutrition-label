@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "housing-nutrition-label"
+version = "0.1.0"
+description = "Multi-dimensional lifecycle scoring for residential properties"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+dependencies = [
+    "requests>=2.32,<3",
+    "pandas>=2.2,<3",
+]
+
+[project.scripts]
+housing-simulate = "housing_label.simulate.house:main"
+housing-pipeline = "scripts.run_pipeline:main"
+
+[tool.setuptools]
+package-dir = { "" = "src", "scripts" = "scripts" }
+packages = [
+    "housing_label",
+    "housing_label.ingest",
+    "housing_label.enrich",
+    "housing_label.score",
+    "housing_label.simulate",
+    "scripts",
+]

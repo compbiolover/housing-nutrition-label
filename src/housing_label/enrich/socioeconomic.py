@@ -71,7 +71,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(mes
 log = logging.getLogger(__name__)
 
 # ── File paths ─────────────────────────────────────────────────────────────────
-SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
+SCRIPT_DIR = pathlib.Path(__file__).resolve().parents[3]   # repo root; data lives here
 # Defaults; overridable via --input/--output so run_pipeline.py can chain stages.
 # In the pipeline the input is shelby_parcels_health.csv, which already carries a
 # census_tract column (same geography), so geocoding is skipped entirely.

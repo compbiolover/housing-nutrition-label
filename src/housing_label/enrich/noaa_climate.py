@@ -42,7 +42,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(mes
 log = logging.getLogger(__name__)
 
 # ── File paths ────────────────────────────────────────────────────────────────
-SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
+SCRIPT_DIR = pathlib.Path(__file__).resolve().parents[3]   # repo root; data lives here
 
 # ── NOAA 1991-2020 Climate Normals: Memphis International Airport ─────────────
 #    Source: NOAA Climate Normals for the U.S. (1991–2020), NCEI station USW00013893

@@ -62,7 +62,7 @@ import pandas as pd
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(message)s")
 log = logging.getLogger("score_all")
 
-SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
+SCRIPT_DIR = pathlib.Path(__file__).resolve().parents[3]   # repo root; data lives here
 
 DEFAULT_INPUT  = "shelby_parcels_scored.csv"   # last enrichment + resilience scores
 DEFAULT_OUTPUT = "shelby_parcels_final.csv"

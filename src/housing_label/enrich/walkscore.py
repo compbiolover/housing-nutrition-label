@@ -35,8 +35,9 @@ log = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
 API_URL    = "https://api.walkscore.com/score"
-IN_FILE    = pathlib.Path(__file__).resolve().parent / "shelby_parcels_clean.csv"
-OUT_FILE   = pathlib.Path(__file__).resolve().parent / "shelby_parcels_enriched.csv"
+_ROOT      = pathlib.Path(__file__).resolve().parents[3]   # repo root; data lives here
+IN_FILE    = _ROOT / "shelby_parcels_clean.csv"
+OUT_FILE   = _ROOT / "shelby_parcels_enriched.csv"
 SLEEP_SEC  = 0.25   # 4 req/s – conservative; free tier limit undisclosed
 RETRY_SEC  = 5.0    # wait before retrying a "score calculating" response
 TIMEOUT    = 15     # seconds per HTTP call

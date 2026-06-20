@@ -56,25 +56,49 @@ Each parcel is scored on five dimensions (plus a climate placeholder):
 
 The national/local thresholds are identical across all dimensions, so a grade means exactly the same thing whether it's read from the resilience dimension, the composite, or any other.
 
+## Project Structure
+
+```
+housing-nutrition-label/
+├── src/housing_label/          # Installable package
+│   ├── config.py               # Shared constants (URLs, HTTP defaults, geo reference points)
+│   ├── utils.py                # Shared helpers (HTTP, haversine, Web Mercator → WGS84)
+│   ├── ingest/                 # shelby_parcels.py, clean.py
+│   ├── enrich/                 # fema_flood, noaa_climate, tornado, seismic, energy,
+│   │                           #   infrastructure, health, socioeconomic, walkscore
+│   ├── score/                  # resilience.py, all_dimensions.py
+│   └── simulate/               # house.py (CLI simulator)
+├── scripts/run_pipeline.py     # Pipeline orchestrator
+├── research/                   # Methodology & data-exploration write-ups
+├── docs/                       # GitHub Pages site (housinglabel.dev)
+├── tests/
+├── pyproject.toml / setup.py   # Packaging
+└── requirements.txt
+```
+
+Every stage script is also runnable on its own as a plain file (it resolves the
+data CSVs at the repo root), so the move to a package layout doesn't change how
+you invoke an individual stage.
+
 ## Pipeline
 
 Stages run in dependency order, each consuming the previous stage's output:
 
 ```
-shelby_ingest.py → clean_parcels.py → enrich_fema_flood.py → enrich_noaa_climate.py →
-enrich_tornado.py → enrich_seismic.py → enrich_energy.py → enrich_infrastructure.py →
-enrich_health.py → enrich_socioeconomic.py → score_resilience.py → score_all_dimensions.py
+ingest/shelby_parcels.py → ingest/clean.py → enrich/fema_flood.py → enrich/noaa_climate.py →
+enrich/tornado.py → enrich/seismic.py → enrich/energy.py → enrich/infrastructure.py →
+enrich/health.py → enrich/socioeconomic.py → score/resilience.py → score/all_dimensions.py
 ```
 
 Run the entire pipeline with the orchestrator:
 
 ```bash
-python run_pipeline.py            # full run, skips stages whose outputs are fresh
-python run_pipeline.py --force    # re-run everything, ignoring cached outputs
-python run_pipeline.py --step flood       # run a single stage
-python run_pipeline.py --from energy      # run from a stage onward
-python run_pipeline.py --limit 25         # quick subset before a full run
-python run_pipeline.py --dry-run          # preview the execution plan
+python scripts/run_pipeline.py            # full run, skips stages whose outputs are fresh
+python scripts/run_pipeline.py --force    # re-run everything, ignoring cached outputs
+python scripts/run_pipeline.py --step flood       # run a single stage
+python scripts/run_pipeline.py --from energy      # run from a stage onward
+python scripts/run_pipeline.py --limit 25         # quick subset before a full run
+python scripts/run_pipeline.py --dry-run          # preview the execution plan
 ```
 
 The runner reports per-stage timing and record counts, skips stages whose outputs are already fresh, and supports running an individual stage or everything from a given stage onward. Every stage is also runnable on its own with a consistent CLI (`--input`, `--output`, `--limit`, `--dry-run`).
@@ -83,10 +107,12 @@ The final scored output is `shelby_parcels_final.csv` — one row per parcel wit
 
 ## House Simulator
 
-`simulate_house.py` models a hypothetical house and reports its resilience score, letting you see how construction decisions move the needle. It supports 20+ above-code construction features (hurricane straps, sealed roof deck, metal/hip roof, tornado safe room, FORTIFIED Gold, flood elevation, ICF walls, etc.).
+`src/housing_label/simulate/house.py` models a hypothetical house and reports its resilience score, letting you see how construction decisions move the needle. It supports 20+ above-code construction features (hurricane straps, sealed roof deck, metal/hip roof, tornado safe room, FORTIFIED Gold, flood elevation, ICF walls, etc.). Once the package is installed (`pip install -e .`) it's also available as the `housing-simulate` command.
 
 ```bash
-python simulate_house.py --preset icf-passive --lat 35.15 --lon -89.85
+python src/housing_label/simulate/house.py --preset icf-passive --lat 35.15 --lon -89.85
+# or, after `pip install -e .`:
+housing-simulate --preset icf-passive --lat 35.15 --lon -89.85
 ```
 
 Available presets:
@@ -100,7 +126,7 @@ Available presets:
 - `quadplex` — 2026 brick quadplex (4 units × 900 sqft, 0.20 ac, excellent condition)
 - `icf-quadplex` — 2026 ICF quadplex (4 units × 1,000 sqft, 0.20 ac) with solar, passive house, hurricane straps + hip roof
 
-All preset fields can be overridden from the CLI (e.g. `--year-built`, `--construction`, `--flood-zone`, `--value`, `--units`, `--sqft`, `--lot-acres`). Run `python simulate_house.py --help` for the full flag list.
+All preset fields can be overridden from the CLI (e.g. `--year-built`, `--construction`, `--flood-zone`, `--value`, `--units`, `--sqft`, `--lot-acres`). Run `python src/housing_label/simulate/house.py --help` for the full flag list.
 
 ## Quick Start
 
@@ -110,7 +136,8 @@ cd housing-nutrition-label
 python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-python run_pipeline.py
+pip install -e .                   # optional: installs the housing_label package + console scripts
+python scripts/run_pipeline.py
 ```
 
 ## Tech Stack
@@ -121,7 +148,7 @@ python run_pipeline.py
 
 ## Roadmap
 
-- **Walk Score integration** — wire the existing `enrich_walkscore.py` into the pipeline (requires API key)
+- **Walk Score integration** — wire the existing `src/housing_label/enrich/walkscore.py` into the pipeline (requires API key)
 - **Durability dimension** — material lifespan, maintenance burden, expected component replacement
 - **Environmental footprint** — embodied carbon, operational emissions, water use
 - **Frontend visualization** — React + D3 nutrition label UI

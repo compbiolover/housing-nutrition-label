@@ -33,7 +33,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(mes
 log = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
-SCRIPT_DIR  = pathlib.Path(__file__).resolve().parent
+SCRIPT_DIR  = pathlib.Path(__file__).resolve().parents[3]   # repo root; data lives here
 FEMA_URL    = ("https://hazards.fema.gov/arcgis/rest/services"
                "/public/NFHL/MapServer/28/query")
 SLEEP_SEC   = 0.25    # polite delay between requests (~4 req/s)

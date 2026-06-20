@@ -40,7 +40,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(mes
 log = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
-SCRIPT_DIR  = pathlib.Path(__file__).resolve().parent
+SCRIPT_DIR  = pathlib.Path(__file__).resolve().parents[3]   # repo root; data lives here
 SPC_URL     = "https://www.spc.noaa.gov/wcm/data/1950-2023_actual_tornadoes.csv"
 CACHE_FILE  = SCRIPT_DIR / "spc_tornadoes_raw.csv"
 IN_FILE     = SCRIPT_DIR / "shelby_parcels_climate.csv"

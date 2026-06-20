@@ -73,7 +73,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(mes
 log = logging.getLogger(__name__)
 
 # ── File paths ─────────────────────────────────────────────────────────────────
-SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
+SCRIPT_DIR = pathlib.Path(__file__).resolve().parents[3]   # repo root; data lives here
 IN_FILE  = SCRIPT_DIR / "shelby_parcels_seismic.csv"
 OUT_FILE = SCRIPT_DIR / "shelby_parcels_energy.csv"
 

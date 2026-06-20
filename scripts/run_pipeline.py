@@ -56,14 +56,16 @@ from dataclasses import dataclass, field
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(message)s")
 log = logging.getLogger("pipeline")
 
-SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
+# Repo root (this orchestrator lives in scripts/). Data CSVs and the pipeline
+# stage scripts (under src/housing_label/) are both resolved relative to it.
+SCRIPT_DIR = pathlib.Path(__file__).resolve().parents[1]
 
 
 # ── Stage definitions ──────────────────────────────────────────────────────────
 @dataclass(frozen=True)
 class Stage:
     name: str                       # short key used by --step / --from
-    script: str                     # script filename
+    script: str                     # stage script path, relative to the repo root
     output: str                     # output CSV filename (relative to SCRIPT_DIR)
     input: str | None = None        # input CSV filename, or None for the ingest stage
     extra_args: list[str] = field(default_factory=list)  # always-on extra CLI args
@@ -71,18 +73,18 @@ class Stage:
 
 
 STAGES: list[Stage] = [
-    Stage("ingest",         "shelby_ingest.py",         "shelby_parcels_sample.csv",         input=None),
-    Stage("clean",          "clean_parcels.py",         "shelby_parcels_clean.csv",          input="shelby_parcels_sample.csv",         supports_limit=False),
-    Stage("flood",          "enrich_fema_flood.py",     "shelby_parcels_flood.csv",          input="shelby_parcels_clean.csv"),
-    Stage("climate",        "enrich_noaa_climate.py",   "shelby_parcels_climate.csv",        input="shelby_parcels_flood.csv"),
-    Stage("tornado",        "enrich_tornado.py",        "shelby_parcels_tornado.csv",        input="shelby_parcels_climate.csv"),
-    Stage("seismic",        "enrich_seismic.py",        "shelby_parcels_seismic.csv",        input="shelby_parcels_tornado.csv"),
-    Stage("energy",         "enrich_energy.py",         "shelby_parcels_energy.csv",         input="shelby_parcels_seismic.csv"),
-    Stage("infrastructure", "enrich_infrastructure.py", "shelby_parcels_infrastructure.csv", input="shelby_parcels_energy.csv"),
-    Stage("health",         "enrich_health.py",         "shelby_parcels_health.csv",         input="shelby_parcels_infrastructure.csv"),
-    Stage("socioeconomic",  "enrich_socioeconomic.py",  "shelby_parcels_socioeconomic.csv",  input="shelby_parcels_health.csv"),
-    Stage("score",          "score_resilience.py",      "shelby_parcels_scored.csv",         input="shelby_parcels_socioeconomic.csv"),
-    Stage("score_all",      "score_all_dimensions.py",  "shelby_parcels_final.csv",          input="shelby_parcels_scored.csv"),
+    Stage("ingest",         "src/housing_label/ingest/shelby_parcels.py",  "shelby_parcels_sample.csv",         input=None),
+    Stage("clean",          "src/housing_label/ingest/clean.py",           "shelby_parcels_clean.csv",          input="shelby_parcels_sample.csv",         supports_limit=False),
+    Stage("flood",          "src/housing_label/enrich/fema_flood.py",      "shelby_parcels_flood.csv",          input="shelby_parcels_clean.csv"),
+    Stage("climate",        "src/housing_label/enrich/noaa_climate.py",    "shelby_parcels_climate.csv",        input="shelby_parcels_flood.csv"),
+    Stage("tornado",        "src/housing_label/enrich/tornado.py",         "shelby_parcels_tornado.csv",        input="shelby_parcels_climate.csv"),
+    Stage("seismic",        "src/housing_label/enrich/seismic.py",         "shelby_parcels_seismic.csv",        input="shelby_parcels_tornado.csv"),
+    Stage("energy",         "src/housing_label/enrich/energy.py",          "shelby_parcels_energy.csv",         input="shelby_parcels_seismic.csv"),
+    Stage("infrastructure", "src/housing_label/enrich/infrastructure.py",  "shelby_parcels_infrastructure.csv", input="shelby_parcels_energy.csv"),
+    Stage("health",         "src/housing_label/enrich/health.py",          "shelby_parcels_health.csv",         input="shelby_parcels_infrastructure.csv"),
+    Stage("socioeconomic",  "src/housing_label/enrich/socioeconomic.py",   "shelby_parcels_socioeconomic.csv",  input="shelby_parcels_health.csv"),
+    Stage("score",          "src/housing_label/score/resilience.py",       "shelby_parcels_scored.csv",         input="shelby_parcels_socioeconomic.csv"),
+    Stage("score_all",      "src/housing_label/score/all_dimensions.py",   "shelby_parcels_final.csv",          input="shelby_parcels_scored.csv"),
 ]
 
 STAGE_BY_NAME = {s.name: s for s in STAGES}

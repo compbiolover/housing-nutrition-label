@@ -7,6 +7,11 @@ spc_tornadoes_raw.csv
 __pycache__/
 *.pyc
 
+# Packaging / build artifacts
+*.egg-info/
+build/
+dist/
+
 # Pipeline run logs
 *.log
 

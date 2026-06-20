@@ -32,7 +32,7 @@ import numpy as np
 import pandas as pd
 
 # ── File paths ─────────────────────────────────────────────────────────────────
-BASE_DIR   = pathlib.Path(__file__).resolve().parent
+BASE_DIR   = pathlib.Path(__file__).resolve().parents[3]   # repo root; data lives here
 SCORED_CSV = BASE_DIR / "shelby_parcels_scored.csv"
 SPC_CACHE  = BASE_DIR / "spc_tornadoes_raw.csv"
 

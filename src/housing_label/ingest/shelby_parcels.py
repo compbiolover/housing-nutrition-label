@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 # ── Config ───────────────────────────────────────────────────────────────────
 BASE_URL    = "https://gis.shelbycountytn.gov/public/rest/services/BaseMap/Assessor/MapServer"
 CAMA_URL    = "https://gis.shelbycountytn.gov/public/rest/services/Parcel/CertParcel_NOAttrib/MapServer"
-OUT_DIR     = pathlib.Path(__file__).resolve().parent
+OUT_DIR     = pathlib.Path(__file__).resolve().parents[3]   # repo root; data lives here
 SAMPLE_N    = 1_000          # matches the API's default pagination limit
 TIMEOUT     = 60             # seconds per HTTP call
 RETRIES     = 3
