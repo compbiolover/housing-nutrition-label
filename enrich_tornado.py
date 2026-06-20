@@ -40,10 +40,11 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(mes
 log = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
+SCRIPT_DIR  = pathlib.Path(__file__).resolve().parent
 SPC_URL     = "https://www.spc.noaa.gov/wcm/data/1950-2023_actual_tornadoes.csv"
-CACHE_FILE  = pathlib.Path(__file__).resolve().parent / "spc_tornadoes_raw.csv"
-IN_FILE     = pathlib.Path(__file__).resolve().parent / "shelby_parcels_climate.csv"
-OUT_FILE    = pathlib.Path(__file__).resolve().parent / "shelby_parcels_tornado.csv"
+CACHE_FILE  = SCRIPT_DIR / "spc_tornadoes_raw.csv"
+IN_FILE     = SCRIPT_DIR / "shelby_parcels_climate.csv"
+OUT_FILE    = SCRIPT_DIR / "shelby_parcels_tornado.csv"
 
 RADIUS_25   = 25.0   # miles
 RADIUS_10   = 10.0   # miles
@@ -77,18 +78,18 @@ def haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> float
 
 
 # ── SPC data download & load ──────────────────────────────────────────────────
-def load_spc_data() -> pd.DataFrame:
+def load_spc_data(cache_file: pathlib.Path = CACHE_FILE) -> pd.DataFrame:
     """Download (or load cached) SPC tornado CSV and return a cleaned DataFrame."""
-    if CACHE_FILE.exists():
-        log.info("Using cached SPC data: %s", CACHE_FILE)
+    if cache_file.exists():
+        log.info("Using cached SPC data: %s", cache_file)
     else:
         log.info("Downloading SPC tornado data from %s …", SPC_URL)
         r = requests.get(SPC_URL, timeout=120, stream=True)
         r.raise_for_status()
-        CACHE_FILE.write_bytes(r.content)
-        log.info("  Saved → %s  (%d bytes)", CACHE_FILE, CACHE_FILE.stat().st_size)
+        cache_file.write_bytes(r.content)
+        log.info("  Saved → %s  (%d bytes)", cache_file, cache_file.stat().st_size)
 
-    df = pd.read_csv(CACHE_FILE, low_memory=False)
+    df = pd.read_csv(cache_file, low_memory=False)
     log.info("  Loaded %d tornado records, columns: %s", len(df), list(df.columns))
 
     # Normalise column names (strip whitespace)
@@ -113,7 +114,7 @@ def load_spc_data() -> pd.DataFrame:
 
 
 # ── Per-parcel enrichment ─────────────────────────────────────────────────────
-def enrich_parcel(lat: float, lon: float, tornadoes: pd.DataFrame) -> dict:
+def enrich_parcel(lat: float, lon: float, tornadoes: pd.DataFrame) -> dict[str, object]:
     """Compute tornado metrics for a single parcel location."""
     dists = tornadoes.apply(
         lambda r: haversine_miles(lat, lon, r["slat"], r["slon"]), axis=1
@@ -149,23 +150,67 @@ def enrich_parcel(lat: float, lon: float, tornadoes: pd.DataFrame) -> dict:
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Enrich parcels with SPC historical tornado data."
     )
+    parser.add_argument("--input", default="shelby_parcels_climate.csv",
+                        help="Input parcels CSV (default: shelby_parcels_climate.csv).")
+    parser.add_argument("--output", default="shelby_parcels_tornado.csv",
+                        help="Output CSV (default: shelby_parcels_tornado.csv).")
+    parser.add_argument("--cache", default="spc_tornadoes_raw.csv",
+                        help="SPC raw tornado data CSV (default: spc_tornadoes_raw.csv).")
     parser.add_argument("--limit", type=int, default=None,
                         help="Process at most N rows (for testing).")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Validate inputs and log the plan without writing output.")
     args = parser.parse_args()
 
-    tornadoes = load_spc_data()
+    # Resolve bare paths relative to the script directory.
+    def _resolve(p: str) -> pathlib.Path:
+        path = pathlib.Path(p)
+        return path if path.is_absolute() else SCRIPT_DIR / path
 
-    log.info("Reading %s", IN_FILE)
-    df = pd.read_csv(IN_FILE)
+    in_file    = _resolve(args.input)
+    out_file   = _resolve(args.output)
+    cache_file = _resolve(args.cache)
+
+    # ── Input validation ──────────────────────────────────────────────────────
+    if not in_file.exists():
+        log.error("Input file does not exist: %s", in_file)
+        sys.exit(1)
+    if not cache_file.exists():
+        log.error("Cache file (SPC raw data) does not exist: %s", cache_file)
+        sys.exit(1)
+
+    tornadoes = load_spc_data(cache_file)
+
+    log.info("Reading %s", in_file)
+    df = pd.read_csv(in_file)
     log.info("  %d rows × %d columns", *df.shape)
+
+    required_cols = ["latitude", "longitude"]
+    missing = [c for c in required_cols if c not in df.columns]
+    if missing:
+        log.error("Input is missing required column(s): %s", missing)
+        sys.exit(1)
+
+    input_rows = len(df)
 
     if args.limit:
         df = df.head(args.limit)
         log.info("--limit %d: working on first %d rows only.", args.limit, len(df))
+
+    # ── Dry run: log the plan and stop before writing ─────────────────────────
+    if args.dry_run:
+        log.info("[dry-run] Plan:")
+        log.info("[dry-run]   input  : %s", in_file)
+        log.info("[dry-run]   output : %s", out_file)
+        log.info("[dry-run]   cache  : %s", cache_file)
+        log.info("[dry-run]   parcel rows to enrich : %d", len(df))
+        log.info("[dry-run]   nearby tornadoes (bbox): %d", len(tornadoes))
+        log.info("[dry-run] No output written.")
+        return
 
     log.info("Enriching %d parcels with tornado risk data …", len(df))
     results = []
@@ -182,8 +227,16 @@ def main():
     for col in TORNADO_COLS:
         df[col] = enriched[col]
 
-    df.to_csv(OUT_FILE, index=False)
-    log.info("Saved → %s", OUT_FILE)
+    df.to_csv(out_file, index=False)
+    log.info("Saved → %s", out_file)
+
+    # ── Output validation ─────────────────────────────────────────────────────
+    out_rows, out_cols = df.shape
+    log.info("wrote %d rows × %d cols", out_rows, out_cols)
+    expected_rows = min(input_rows, args.limit) if args.limit else input_rows
+    if out_rows != expected_rows:
+        log.warning("Output rows (%d) != expected input rows (%d).",
+                    out_rows, expected_rows)
 
     # ── Summary ───────────────────────────────────────────────────────────────
     total = len(df)
@@ -200,7 +253,7 @@ def main():
         pct   = count / total * 100 if total else 0
         print(f"║   {label:<10} : {count:>5}  ({pct:5.1f}%){'':>19}║")
     print(f"║ New columns added       : {len(TORNADO_COLS):<{w}}║")
-    print(f"║ Output                  : {OUT_FILE.name:<{w}}║")
+    print(f"║ Output                  : {out_file.name:<{w}}║")
     print("╚══════════════════════════════════════════════════════════════╝\n")
 
     sample_cols = ["PARCELID", "latitude", "longitude",

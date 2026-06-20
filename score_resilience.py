@@ -20,8 +20,32 @@ the same mapping.
 Sources / rationale are cited at each threshold.
 """
 
+import argparse
+import logging
+import pathlib
+import sys
+
 import numpy as np
 import pandas as pd
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(message)s")
+log = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Module-level configuration
+# ---------------------------------------------------------------------------
+SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
+
+# Default input is the LAST enrichment in the chain (health). The chained file
+# already carries the CAMA columns forward from clean_parcels plus all
+# hazard/energy/infra/health columns.
+DEFAULT_INPUT = "shelby_parcels_health.csv"
+DEFAULT_SAMPLE = "shelby_parcels_sample.csv"
+DEFAULT_OUTPUT = "shelby_parcels_scored.csv"
+
+# CAMA construction columns (PARCELID is the join key; the rest are values).
+CAMA_COLS = ["PARCELID", "YRBLT", "EXTWALL", "BSMT", "COND",
+             "GRADE", "SFLA", "RTOTAPR", "APRBLDG"]
 
 # ---------------------------------------------------------------------------
 # 1. FLOOD EAL RATE
@@ -520,28 +544,92 @@ def calc_brm_row(row):
 # 6. MAIN — apply to all parcels, save output
 # ---------------------------------------------------------------------------
 
-def main():
-    pipeline_path = "shelby_parcels_seismic.csv"   # latest enrichment output
-    sample_path   = "shelby_parcels_sample.csv"     # source of CAMA fields
-    output_path   = "shelby_parcels_scored.csv"
+def _resolve_path(path_str: str) -> pathlib.Path:
+    """Resolve a bare path relative to SCRIPT_DIR; absolute paths pass through."""
+    p = pathlib.Path(path_str)
+    return p if p.is_absolute() else (SCRIPT_DIR / p)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Compute EAL-based disaster resilience scores and grades "
+                    "for Shelby County parcels."
+    )
+    parser.add_argument("--input", default=DEFAULT_INPUT,
+                        help="Input parcels CSV (default: %(default)s, the last "
+                             "enrichment in the pipeline chain).")
+    parser.add_argument("--output", default=DEFAULT_OUTPUT,
+                        help="Output scored CSV (default: %(default)s).")
+    parser.add_argument("--sample-file", default=DEFAULT_SAMPLE,
+                        help="Sample CSV used only for the conditional CAMA "
+                             "fallback join (default: %(default)s).")
+    parser.add_argument("--limit", type=int, default=None,
+                        help="If set, process only the first N rows (for "
+                             "testing; percentile ranks then reflect the subset).")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Validate input and log the plan without scoring "
+                             "or writing output.")
+    args = parser.parse_args()
+
+    input_path  = _resolve_path(args.input)
+    output_path = _resolve_path(args.output)
+    sample_path = _resolve_path(args.sample_file)
+
+    # --- Input validation ---
+    if not input_path.exists():
+        log.error("Input file does not exist: %s", input_path)
+        sys.exit(1)
 
     # --- Load pipeline output ---
-    df = pd.read_csv(pipeline_path, low_memory=False)
-    print(f"Loaded {len(df):,} parcels from {pipeline_path}")
+    df = pd.read_csv(input_path, low_memory=False)
+    log.info("Loaded %s parcels from %s", f"{len(df):,}", input_path)
 
-    # --- Join CAMA fields from sample file ---
-    # The enrichment pipeline does not carry CAMA columns forward; join them
-    # here on PARCELID using a left join so all pipeline parcels are retained.
-    cama_cols = ["PARCELID", "YRBLT", "EXTWALL", "BSMT", "COND",
-                 "GRADE", "SFLA", "RTOTAPR", "APRBLDG"]
-    sample = pd.read_csv(sample_path, usecols=cama_cols, low_memory=False)
-    sample = sample.drop_duplicates(subset="PARCELID")
+    if args.limit is not None:
+        df = df.head(args.limit)
+        log.info("Limited to first %s rows for testing", f"{len(df):,}")
 
-    df = df.merge(sample, on="PARCELID", how="left")
-    cama_present = df["YRBLT"].notna().sum()
-    print(f"CAMA data joined: {cama_present:,} parcels have CAMA records "
-          f"({cama_present/len(df)*100:.1f}%); "
-          f"{len(df)-cama_present:,} will use BRM=1.0 default")
+    # --- Determine whether a CAMA re-join is needed ---
+    # The chained input already carries CAMA columns forward. Re-merging them
+    # would create duplicate _x/_y columns, so only fall back to the sample
+    # file for value columns that are genuinely missing from df.
+    cama_value_cols = [c for c in CAMA_COLS if c != "PARCELID"]
+    missing_cama = [c for c in cama_value_cols if c not in df.columns]
+    needs_rejoin = bool(missing_cama)
+
+    # --- Dry-run: log the plan and exit before any scoring/writing ---
+    if args.dry_run:
+        log.info("DRY RUN — no scoring performed, no output written")
+        log.info("  input:  %s", input_path)
+        log.info("  output: %s", output_path)
+        log.info("  rows:   %s", f"{len(df):,}")
+        if needs_rejoin:
+            log.info("  CAMA re-join needed for missing columns: %s",
+                     ", ".join(missing_cama))
+        else:
+            log.info("  CAMA columns already present — no re-join needed")
+        return
+
+    # --- Conditional CAMA join ---
+    if not needs_rejoin:
+        log.info("CAMA columns already present from pipeline — skipping sample re-join")
+    else:
+        log.info("CAMA columns missing from input: %s — joining from sample file",
+                 ", ".join(missing_cama))
+        if not sample_path.exists():
+            log.warning("Sample file not found (%s); continuing — BRM falls back "
+                        "to 1.0 for parcels lacking CAMA data", sample_path)
+        else:
+            sample = pd.read_csv(sample_path, usecols=["PARCELID"] + missing_cama,
+                                 low_memory=False)
+            sample = sample.drop_duplicates(subset="PARCELID")
+            df = df.merge(sample, on="PARCELID", how="left")
+
+    if "YRBLT" in df.columns:
+        cama_present = df["YRBLT"].notna().sum()
+        log.info("CAMA data: %s parcels have CAMA records (%.1f%%); "
+                 "%s will use BRM=1.0 default",
+                 f"{cama_present:,}", cama_present / len(df) * 100,
+                 f"{len(df) - cama_present:,}")
 
     # --- RTOTAPR: use for dollar-denominated EAL reporting ---
     # EAL Rate is dimensionless (fraction/year); multiply by appraised value
@@ -550,8 +638,8 @@ def main():
     # Source: Shelby County Assessor CAMA data; median from 1,000-parcel sample.
     rtotapr_median = df["RTOTAPR"].median()
     df["property_value"] = df["RTOTAPR"].fillna(rtotapr_median)
-    print(f"Property value: median ${rtotapr_median:,.0f}; "
-          f"{df['RTOTAPR'].isna().sum()} parcels using median fallback")
+    log.info("Property value: median $%s; %s parcels using median fallback",
+             f"{rtotapr_median:,.0f}", df["RTOTAPR"].isna().sum())
 
     # --- Compute raw per-hazard EAL rates (before BRM) ---
     df["flood_eal_rate_raw"]   = df.apply(calc_flood_eal,   axis=1)
@@ -600,7 +688,8 @@ def main():
 
     # --- Save ---
     df.to_csv(output_path, index=False)
-    print(f"Saved scored parcels to {output_path}\n")
+    log.info("wrote %s rows × %s cols to %s",
+             f"{len(df):,}", f"{df.shape[1]:,}", output_path)
 
     # -----------------------------------------------------------------------
     # SUMMARY REPORT
@@ -609,7 +698,7 @@ def main():
     pd.set_option("display.max_columns", 25)
     pd.set_option("display.width", 160)
 
-    print("=" * 70)
+    print("\n" + "=" * 70)
     print("BRM SUMMARY")
     print("=" * 70)
     brm_cols = ["code_era_factor", "construction_factor",
@@ -751,4 +840,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        log.info("Interrupted by user")
+        sys.exit(0)
+    except Exception:
+        log.error("Unhandled error during scoring", exc_info=True)
+        sys.exit(1)

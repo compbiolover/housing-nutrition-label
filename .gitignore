@@ -7,6 +7,9 @@ spc_tornadoes_raw.csv
 __pycache__/
 *.pyc
 
+# Pipeline run logs
+*.log
+
 # macOS
 .DS_Store
 

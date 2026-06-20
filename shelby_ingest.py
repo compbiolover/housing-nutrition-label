@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """Phase 1 – Shelby County Assessor parcel data ingest via ArcGIS REST API.
 
+Data source : Shelby County GIS ArcGIS REST API (no local file input).
+Output       : shelby_parcels_sample.csv (written to this script's directory by default).
+
 Pulls:
   • BaseMap/Assessor  – parcel polygons + ownership fields
   • Parcel/CertParcel_NOAttrib – CAMA tables (ASSR_DWELDAT, ASSR_ASMT)
 and joins all three on PARID.
 """
 
-import logging, sys, time, pathlib, math
+import argparse, logging, sys, time, pathlib, math
 import requests, pandas as pd
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(message)s")
@@ -135,37 +138,77 @@ def _polygon_centroid(rings: list) -> tuple[float, float] | tuple[None, None]:
 
 LAYER_PAGE = 100   # records per paginated parcel request
 
+
+def _features_to_rows(features: list[dict]) -> list[dict]:
+    """Flatten ArcGIS features into attribute dicts with WGS84 centroid lat/lon."""
+    rows: list[dict] = []
+    for feat in features:
+        row  = feat["attributes"]
+        geom = feat.get("geometry")
+        lat  = lon = None
+        if geom and "rings" in geom:
+            mx, my = _polygon_centroid(geom["rings"])
+            if mx is not None:
+                lon, lat = _webmercator_to_wgs84(mx, my)
+        row["latitude"]  = lat
+        row["longitude"] = lon
+        rows.append(row)
+    return rows
+
+
+def _query_single_shot(url: str, max_records: int) -> list[dict]:
+    """Fallback for servers that reject pagination entirely.
+
+    Some ArcGIS deployments reject *any* paging parameter (``resultOffset`` and
+    ``resultRecordCount`` both raise "Pagination is not supported"). We therefore
+    issue a bare query and let the server return up to its own maxRecordCount,
+    then truncate client-side to *max_records*. If the server signals more data
+    is available we warn, since without paging we cannot retrieve the remainder.
+    """
+    data = _get(url, {
+        "where":          "1=1",
+        "outFields":      "*",
+        "returnGeometry": "true",
+    })
+    features = data.get("features", [])[:max_records]
+    log.info("  Single-shot query → %d rows (server cap applied)", len(features))
+    if data.get("exceededTransferLimit") and len(features) < max_records:
+        log.warning("  Server transfer limit hit at %d records and pagination is "
+                    "unsupported – cannot fetch the full %d without keyset paging.",
+                    len(features), max_records)
+    return _features_to_rows(features)
+
+
 def query_layer(layer_id: int, max_records: int = SAMPLE_N) -> pd.DataFrame:
     """Pull up to *max_records* features (all attributes + centroid) from a layer.
 
-    Paginates in pages of LAYER_PAGE to avoid server timeouts on large geometry payloads.
+    Paginates in pages of LAYER_PAGE to avoid server timeouts on large geometry
+    payloads. If the server rejects pagination (some ArcGIS deployments disable
+    ``resultOffset``), transparently falls back to a single-shot query.
     """
     url  = f"{BASE_URL}/{layer_id}/query"
-    rows = []
+    rows: list[dict] = []
     offset = 0
     while len(rows) < max_records:
         page_size = min(LAYER_PAGE, max_records - len(rows))
-        data = _get(url, {
-            "where":             "1=1",
-            "outFields":         "*",
-            "returnGeometry":    "true",
-            "resultRecordCount": page_size,
-            "resultOffset":      offset,
-        })
+        try:
+            data = _get(url, {
+                "where":             "1=1",
+                "outFields":         "*",
+                "returnGeometry":    "true",
+                "resultRecordCount": page_size,
+                "resultOffset":      offset,
+            })
+        except RuntimeError as exc:
+            if "pagination" in str(exc).lower():
+                log.warning("  Server does not support pagination – falling back "
+                            "to a single-shot query for up to %d records.", max_records)
+                return pd.DataFrame(_query_single_shot(url, max_records))
+            raise
         features = data.get("features", [])
         if not features:
             break
-        for feat in features:
-            row  = feat["attributes"]
-            geom = feat.get("geometry")
-            lat  = lon = None
-            if geom and "rings" in geom:
-                mx, my = _polygon_centroid(geom["rings"])
-                if mx is not None:
-                    lon, lat = _webmercator_to_wgs84(mx, my)
-            row["latitude"]  = lat
-            row["longitude"] = lon
-            rows.append(row)
+        rows.extend(_features_to_rows(features))
         log.info("  Parcel page offset=%d → %d rows (total so far: %d)",
                  offset, len(features), len(rows))
         offset += len(features)
@@ -235,7 +278,39 @@ def query_cama_table(table_id: int, parids: list[str], fields: list[str],
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
-def main():
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse command-line arguments for the ingest run."""
+    parser = argparse.ArgumentParser(
+        description="Shelby County Assessor parcel data ingest via ArcGIS REST API."
+    )
+    parser.add_argument(
+        "--output",
+        default="shelby_parcels_sample.csv",
+        help="Output CSV path. Relative paths are resolved against this script's directory.",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help=f"Number of parcels to fetch (overrides SAMPLE_N={SAMPLE_N}).",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Discover layers and log the plan, then exit without pulling or writing.",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = _parse_args(argv)
+
+    out_path = pathlib.Path(args.output)
+    if not out_path.is_absolute():
+        out_path = OUT_DIR / out_path
+
+    sample_n = args.limit if args.limit is not None else SAMPLE_N
+
     log.info("Discovering layers at %s", BASE_URL)
     layers = discover_layers()
     for ly in layers:
@@ -243,12 +318,20 @@ def main():
 
     # Pick the first (primary) parcel layer for the sample pull
     target = layers[0]
+
+    if args.dry_run:
+        log.info("DRY RUN – no parcel pull, CAMA join, or file write will be performed.")
+        log.info("  Target layer  : %d (%s)", target["id"], target["name"])
+        log.info("  Records to pull: %d", sample_n)
+        log.info("  Output path   : %s", out_path)
+        return
+
     log.info("Fetching fields for layer %d (%s)…", target["id"], target["name"])
     fields = layer_fields(target["id"])
     log.info("  %d fields available", len(fields))
 
-    log.info("Querying %d-record sample…", SAMPLE_N)
-    df = query_layer(target["id"])
+    log.info("Querying %d-record sample…", sample_n)
+    df = query_layer(target["id"], max_records=sample_n)
     log.info("  Received %d records × %d columns", *df.shape)
 
     # Strip schema prefixes
@@ -300,9 +383,11 @@ def main():
     log.info("After CAMA joins: %d rows × %d cols", *df.shape)
 
     # ── Save ─────────────────────────────────────────────────────────────────
-    out_path = OUT_DIR / "shelby_parcels_sample.csv"
     df.to_csv(out_path, index=False)
     log.info("Saved → %s", out_path)
+    log.info("wrote %d rows × %d cols", df.shape[0], df.shape[1])
+    if df.shape[0] == 0:
+        log.warning("Output has 0 rows.")
 
     # ── Summary ──────────────────────────────────────────────────────────────
     n_dweldat_matched  = df["YRBLT"].notna().sum() if "YRBLT" in df.columns else 0
@@ -335,6 +420,9 @@ def main():
 if __name__ == "__main__":
     try:
         main()
+    except KeyboardInterrupt:
+        log.info("Interrupted by user.")
+        sys.exit(0)
     except Exception as exc:
         log.error("Fatal: %s", exc, exc_info=True)
         sys.exit(1)

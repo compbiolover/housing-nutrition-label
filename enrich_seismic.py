@@ -47,8 +47,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(mes
 log = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
-IN_FILE  = pathlib.Path(__file__).resolve().parent / "shelby_parcels_tornado.csv"
-OUT_FILE = pathlib.Path(__file__).resolve().parent / "shelby_parcels_seismic.csv"
+SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
+REQUIRED_COLS = ["latitude", "longitude"]
 
 # New Madrid Seismic Zone reference point (approximate center of the main rupture
 # zone, near New Madrid, MO / Caruthersville, MO area).
@@ -147,22 +147,57 @@ def enrich_parcel(lat: float, lon: float) -> dict:
     }
 
 
+def _resolve_path(p: str) -> pathlib.Path:
+    """Resolve a bare path relative to SCRIPT_DIR; leave absolute paths as-is."""
+    path = pathlib.Path(p)
+    return path if path.is_absolute() else SCRIPT_DIR / path
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Enrich parcels with USGS seismic hazard data (NSHM 2023 reference values)."
     )
+    parser.add_argument("--input", default="shelby_parcels_tornado.csv",
+                        help="Input CSV path (relative paths resolve to script dir).")
+    parser.add_argument("--output", default="shelby_parcels_seismic.csv",
+                        help="Output CSV path (relative paths resolve to script dir).")
     parser.add_argument("--limit", type=int, default=None,
                         help="Process at most N rows (for testing).")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Load and validate input, log the plan, then exit without writing.")
     args = parser.parse_args()
 
-    log.info("Reading %s", IN_FILE)
-    df = pd.read_csv(IN_FILE)
+    in_file = _resolve_path(args.input)
+    out_file = _resolve_path(args.output)
+
+    # ── Input validation ────────────────────────────────────────────────────
+    if not in_file.exists():
+        log.error("Input file does not exist: %s", in_file)
+        sys.exit(1)
+
+    log.info("Reading %s", in_file)
+    df = pd.read_csv(in_file)
     log.info("  %d rows × %d columns", *df.shape)
+
+    missing = [c for c in REQUIRED_COLS if c not in df.columns]
+    if missing:
+        log.error("Input is missing required column(s): %s", ", ".join(missing))
+        sys.exit(1)
 
     if args.limit:
         df = df.head(args.limit)
         log.info("--limit %d: working on first %d rows only.", args.limit, len(df))
+
+    input_rows = len(df)
+
+    # ── Dry run ─────────────────────────────────────────────────────────────
+    if args.dry_run:
+        log.info("Dry run – no output will be written.")
+        log.info("  Input  : %s", in_file)
+        log.info("  Output : %s", out_file)
+        log.info("  Rows to enrich: %d", input_rows)
+        return
 
     log.info("Enriching %d parcels with seismic hazard data …", len(df))
     results = []
@@ -179,8 +214,11 @@ def main():
     for col in SEISMIC_COLS:
         df[col] = enriched[col]
 
-    df.to_csv(OUT_FILE, index=False)
-    log.info("Saved → %s", OUT_FILE)
+    df.to_csv(out_file, index=False)
+    log.info("Saved → %s", out_file)
+    log.info("wrote %d rows × %d cols", df.shape[0], df.shape[1])
+    if len(df) != input_rows:
+        log.warning("Output rows (%d) != input rows (%d).", len(df), input_rows)
 
     # ── Summary ───────────────────────────────────────────────────────────────
     total      = len(df)
@@ -220,7 +258,7 @@ def main():
     print(f"║   Site C/D (upland)   : {total-alluvium_n:>5}  ({(total-alluvium_n)/total*100:5.1f}%){'':>19}║")
     print(f"║ Seismic Design Category    : {'D (county-wide, per ASCE 7)':<{w}}║")
     print(f"║ New columns added          : {len(SEISMIC_COLS):<{w}}║")
-    print(f"║ Output                     : {OUT_FILE.name:<{w}}║")
+    print(f"║ Output                     : {out_file.name:<{w}}║")
     print("╚══════════════════════════════════════════════════════════════════╝\n")
 
     sample_cols = ["PARCELID", "latitude", "longitude"] + SEISMIC_COLS

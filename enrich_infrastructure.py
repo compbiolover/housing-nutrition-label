@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Enrich shelby_parcels_sample.csv with modeled infrastructure cost burden.
+"""Enrich shelby_parcels_energy.csv with modeled infrastructure cost burden.
 
 Usage
 -----
-  python enrich_infrastructure.py              # all 1 000 parcels
+  python enrich_infrastructure.py              # all parcels
   python enrich_infrastructure.py --limit 10  # test with 10 rows first
+  python enrich_infrastructure.py --dry-run    # validate + plan, no write
 
 Methodology: Density-Adjusted Cost Allocation
 ----------------------------------------------
@@ -91,8 +92,18 @@ def _find_project_root() -> pathlib.Path:
     return here   # fallback — will produce a clear FileNotFoundError
 
 PROJECT_DIR = _find_project_root()
-IN_FILE  = PROJECT_DIR / "shelby_parcels_sample.csv"
-OUT_FILE = PROJECT_DIR / "shelby_parcels_infrastructure.csv"
+IN_FILE  = "shelby_parcels_energy.csv"
+OUT_FILE = "shelby_parcels_infrastructure.csv"
+
+REQUIRED_COLUMNS = ["latitude", "longitude", "CALC_ACRE"]
+
+
+def _resolve_path(path_str: str) -> pathlib.Path:
+    """Resolve a path; bare (non-absolute, no dir) names are placed in PROJECT_DIR."""
+    path = pathlib.Path(path_str)
+    if path.is_absolute() or path.parent != pathlib.Path("."):
+        return path
+    return PROJECT_DIR / path
 
 # ── Memphis city center (Main St & Beale St intersection, downtown core) ───────
 # Used as proxy for proximity to high-density urban services & fire stations.
@@ -335,21 +346,70 @@ def enrich_row(row: pd.Series) -> pd.Series:
 # Main
 # ══════════════════════════════════════════════════════════════════════════════
 
-def main(limit=None) -> None:
-    log.info("Reading %s", IN_FILE)
-    df = pd.read_csv(IN_FILE)
-    if limit:
-        df = df.head(limit)
-        log.info("Limiting to %d rows", limit)
+ADDED_COLUMNS = [
+    "lot_density_du_acre", "distance_to_core_mi",
+    "infra_cost_roads", "infra_cost_water_sewer",
+    "infra_cost_fire", "infra_cost_police",
+    "infra_cost_sanitation", "infra_cost_parks",
+    "est_annual_infra_cost", "est_property_tax",
+    "fiscal_balance", "fiscal_ratio", "infra_burden_rating",
+]
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Enrich parcels with infrastructure cost burden"
+    )
+    parser.add_argument("--input", default=IN_FILE,
+                        help="Input CSV (default: %(default)s)")
+    parser.add_argument("--output", default=OUT_FILE,
+                        help="Output CSV (default: %(default)s)")
+    parser.add_argument("--limit", type=int, default=None,
+                        help="Process only N rows (testing)")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Validate and report plan without writing output")
+    args = parser.parse_args()
+
+    in_path = _resolve_path(args.input)
+    out_path = _resolve_path(args.output)
+
+    # ── Input validation ───────────────────────────────────────────────────────
+    if not in_path.exists():
+        log.error("Input file does not exist: %s", in_path)
+        sys.exit(1)
+
+    log.info("Reading %s", in_path)
+    df = pd.read_csv(in_path)
+
+    missing = [c for c in REQUIRED_COLUMNS if c not in df.columns]
+    if missing:
+        log.error("Input missing required columns: %s", missing)
+        sys.exit(1)
+
+    input_rows = len(df)
+    if args.limit:
+        df = df.head(args.limit)
+        log.info("Limiting to %d rows", args.limit)
     log.info("Loaded %d parcels", len(df))
+
+    # ── Dry-run: report plan and exit without writing ───────────────────────────
+    if args.dry_run:
+        log.info("DRY RUN — no output will be written")
+        log.info("  Input:   %s", in_path)
+        log.info("  Output:  %s", out_path)
+        log.info("  Rows to enrich: %d", len(df))
+        log.info("  Columns that would be added: %s", ADDED_COLUMNS)
+        return
 
     log.info("Computing infrastructure cost fields …")
     enriched = df.apply(enrich_row, axis=1)
     df = pd.concat([df, enriched], axis=1)
 
-    log.info("Writing %s", OUT_FILE)
-    df.to_csv(OUT_FILE, index=False)
-    log.info("Done — %d rows written", len(df))
+    log.info("Writing %s", out_path)
+    df.to_csv(out_path, index=False)
+    log.info("wrote %d rows × %d cols", len(df), df.shape[1])
+    if args.limit is None and len(df) != input_rows:
+        log.warning("Output rows (%d) != input rows (%d)", len(df), input_rows)
 
     # ── Summary report ─────────────────────────────────────────────────────────
     print("\n" + "═" * 65)
@@ -427,7 +487,11 @@ def main(limit=None) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Enrich parcels with infrastructure cost burden")
-    parser.add_argument("--limit", type=int, default=None, help="Process only N rows (testing)")
-    args = parser.parse_args()
-    main(limit=args.limit)
+    try:
+        main()
+    except KeyboardInterrupt:
+        log.info("Interrupted by user")
+        sys.exit(0)
+    except Exception:
+        log.error("Unhandled error", exc_info=True)
+        sys.exit(1)

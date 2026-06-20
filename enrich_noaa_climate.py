@@ -42,8 +42,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(mes
 log = logging.getLogger(__name__)
 
 # ── File paths ────────────────────────────────────────────────────────────────
-IN_FILE  = pathlib.Path(__file__).resolve().parent / "shelby_parcels_flood.csv"
-OUT_FILE = pathlib.Path(__file__).resolve().parent / "shelby_parcels_climate.csv"
+SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
 
 # ── NOAA 1991-2020 Climate Normals: Memphis International Airport ─────────────
 #    Source: NOAA Climate Normals for the U.S. (1991–2020), NCEI station USW00013893
@@ -65,21 +64,50 @@ CLIMATE_COLS = list(MEMPHIS_CLIMATE.keys())
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
-def main():
+def resolve_path(raw: str) -> pathlib.Path:
+    """Resolve a path; bare (non-absolute) paths are taken relative to SCRIPT_DIR."""
+    p = pathlib.Path(raw)
+    return p if p.is_absolute() else SCRIPT_DIR / p
+
+
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Enrich parcels with NOAA climate normals (Memphis / Shelby County)."
     )
+    parser.add_argument("--input", default="shelby_parcels_flood.csv",
+                        help="Input CSV path (default: shelby_parcels_flood.csv).")
+    parser.add_argument("--output", default="shelby_parcels_climate.csv",
+                        help="Output CSV path (default: shelby_parcels_climate.csv).")
     parser.add_argument("--limit", type=int, default=None,
                         help="Process at most N rows (for testing).")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Validate and log the plan without writing output.")
     args = parser.parse_args()
 
-    log.info("Reading %s", IN_FILE)
-    df = pd.read_csv(IN_FILE)
+    in_file = resolve_path(args.input)
+    out_file = resolve_path(args.output)
+
+    if not in_file.exists():
+        log.error("Input file not found: %s", in_file)
+        sys.exit(1)
+
+    log.info("Reading %s", in_file)
+    df = pd.read_csv(in_file)
     log.info("  %d rows × %d columns", *df.shape)
 
     if args.limit:
         df = df.head(args.limit)
         log.info("--limit %d: working on first %d rows only.", args.limit, len(df))
+
+    in_rows = len(df)
+
+    if args.dry_run:
+        log.info("DRY RUN — no output will be written.")
+        log.info("  Input  : %s", in_file)
+        log.info("  Output : %s", out_file)
+        log.info("  Rows   : %d", in_rows)
+        log.info("  Columns that WOULD be added: %s", list(MEMPHIS_CLIMATE))
+        return
 
     log.info("Applying Memphis / Shelby County climate normals  "
              "(station %s, %s normals) …",
@@ -89,8 +117,11 @@ def main():
     for col, val in MEMPHIS_CLIMATE.items():
         df[col] = val
 
-    df.to_csv(OUT_FILE, index=False)
-    log.info("Saved → %s", OUT_FILE)
+    df.to_csv(out_file, index=False)
+    log.info("Saved → %s", out_file)
+    log.info("wrote %d rows × %d cols", len(df), len(df.columns))
+    if len(df) != in_rows:
+        log.warning("Output row count (%d) != input row count (%d).", len(df), in_rows)
 
     # ── Summary ───────────────────────────────────────────────────────────────
     total = len(df)
@@ -110,7 +141,7 @@ def main():
     print(f"║ Freeze days/yr       : {MEMPHIS_CLIMATE['freeze_days']:<{w}}║")
     print(f"║ New columns added    : {len(CLIMATE_COLS):<{w}}║")
     print(f"║ Total columns        : {len(df.columns):<{w}}║")
-    print(f"║ Output               : {OUT_FILE.name:<{w}}║")
+    print(f"║ Output               : {out_file.name:<{w}}║")
     print("╚══════════════════════════════════════════════════════════╝\n")
 
     sample_cols = ["PARCELID", "latitude", "longitude", "flood_risk"] + CLIMATE_COLS
