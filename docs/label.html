@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nutrition Label &mdash; Housing Nutrition Label</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Label-specific layout (reuses style.css design tokens) */
+    .label-card {
+      background: var(--card);
+      border: 2px solid var(--navy);
+      border-radius: var(--radius);
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 1.5rem 1.75rem;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    }
+    .label-card .label-title {
+      border-bottom: 6px solid var(--navy);
+      padding-bottom: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+    .label-card .label-title h2 { margin: 0; font-size: 1.6rem; }
+    .label-card .label-title p { margin: 0.25rem 0 0; color: var(--muted); font-size: 0.9rem; }
+    .label-summary {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem; padding: 0.5rem 0 0.75rem;
+      border-bottom: 2px solid var(--border); margin-bottom: 0.75rem;
+    }
+    .label-summary .composite-num { font-size: 2.4rem; font-weight: 800; color: var(--navy); line-height: 1; }
+    .label-summary .composite-cap { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+    .label-summary .grade-lg {
+      width: 56px; height: 56px; line-height: 56px; text-align: center;
+      border-radius: var(--radius); color: #fff; font-weight: 800; font-size: 1.8rem;
+    }
+    .metrics-row { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; font-size: 0.85rem; color: var(--text); margin-bottom: 0.5rem; }
+    .metrics-row span strong { color: var(--navy); }
+    .picker { margin: 0 auto 1.5rem; max-width: 640px; }
+    .picker label { font-weight: 600; color: var(--navy); margin-right: 0.5rem; }
+    .picker select {
+      font: inherit; padding: 0.5rem 0.75rem; border: 1px solid var(--border);
+      border-radius: var(--radius); background: var(--card); color: var(--text); min-width: 220px;
+    }
+    .legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; justify-content: center; margin-top: 1.5rem; font-size: 0.8rem; color: var(--muted); }
+    .legend .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 0.35rem; vertical-align: middle; }
+    .disclaimer { max-width: 640px; margin: 1.5rem auto 0; }
+    .dim-chart text { font-family: inherit; }
+    .loading, .error { text-align: center; color: var(--muted); padding: 2rem; }
+    .error { color: var(--red); }
+  </style>
+</head>
+<body>
+<nav>
+  <div class="logo">Housing<span>Label</span>.dev</div>
+  <button class="hamburger" aria-label="Menu">&#9776;</button>
+  <ul>
+    <li><a href="index.html">Overview</a></li>
+    <li><a href="methodology.html">Methodology</a></li>
+    <li><a href="examples.html">Examples</a></li>
+    <li><a href="label.html" class="active">Label</a></li>
+    <li><a href="setup.html">Setup</a></li>
+    <li><a href="https://github.com/compbiolover/housing-nutrition-label">GitHub</a></li>
+  </ul>
+</nav>
+
+<section>
+  <h2>Interactive Nutrition Label</h2>
+  <p>A React&nbsp;+&nbsp;D3 rendering of the eight scored dimensions as a single at-a-glance label. Pick a construction profile to see how building choices move each dimension. All profiles sit at the same Memphis location (lat&nbsp;35.15, lon&nbsp;&minus;89.85), so the location-driven dimensions stay fixed while the construction-driven ones change.</p>
+
+  <div id="root"><div class="loading">Loading visualization&hellip;</div></div>
+
+  <div class="insight disclaimer">
+    <strong>About this data:</strong> Disaster Resilience scores come from the CLI simulator; the remaining dimensions are representative sample values drawn from the published case studies for UI demonstration. Local (percentile) grades require the full county dataset and are omitted here. National grades use the absolute thresholds A&nbsp;&ge;&nbsp;80, B&nbsp;&ge;&nbsp;60, C&nbsp;&ge;&nbsp;40, D&nbsp;&ge;&nbsp;20, F&nbsp;&lt;&nbsp;20.
+  </div>
+</section>
+
+<footer>
+  <p>Housing Nutrition Label &mdash; MIT License &mdash; <a href="https://github.com/compbiolover/housing-nutrition-label">GitHub</a></p>
+  <p style="margin-top:0.5rem;font-size:0.85rem;">Visualization built with React &amp; D3, served statically &mdash; no build step.</p>
+</footer>
+
+<script src="nav.js"></script>
+
+<!-- React + D3 from CDN (pinned), JSX via Babel-standalone — no build step -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/d3@7.9.0/dist/d3.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js" crossorigin></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef } = React;
+
+// Grade colors mirror the .grade-* classes in style.css
+const GRADE_COLORS = { A: "#22c55e", B: "#84cc16", C: "#eab308", D: "#f97316", F: "#ef4444" };
+
+function gradeFor(score) {
+  if (score >= 80) return "A";
+  if (score >= 60) return "B";
+  if (score >= 40) return "C";
+  if (score >= 20) return "D";
+  return "F";
+}
+
+function GradeBadge({ score, large }) {
+  const g = gradeFor(score);
+  const style = { background: GRADE_COLORS[g] };
+  return <span className={large ? "grade-lg" : "grade"} style={style}>{g}</span>;
+}
+
+// D3-rendered horizontal bar chart for the eight dimensions.
+// React owns the <svg> node; D3 owns everything inside it and animates on data change.
+function DimensionChart({ dimensions, scores }) {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const rowH = 38, gap = 10, labelW = 170, valueW = 64, top = 8, bottom = 8;
+    const width = 600;
+    const barX = labelW;
+    const barW = width - labelW - valueW;
+    const height = top + bottom + dimensions.length * rowH + (dimensions.length - 1) * gap;
+
+    const svg = d3.select(ref.current);
+    svg.attr("viewBox", `0 0 ${width} ${height}`)
+       .attr("preserveAspectRatio", "xMinYMin meet")
+       .attr("role", "img")
+       .attr("aria-label", "Per-dimension scores");
+
+    const x = d3.scaleLinear().domain([0, 100]).range([0, barW]);
+
+    const data = dimensions.map(d => ({
+      key: d.key, label: d.label, score: scores[d.key] ?? 0
+    }));
+
+    const rows = svg.selectAll("g.row").data(data, d => d.key);
+    const rowsEnter = rows.enter().append("g").attr("class", "row");
+
+    rowsEnter.attr("transform", (d, i) => `translate(0, ${top + i * (rowH + gap)})`);
+
+    // Dimension label
+    rowsEnter.append("text")
+      .attr("class", "dim-label")
+      .attr("x", 0).attr("y", rowH / 2)
+      .attr("dominant-baseline", "middle")
+      .attr("font-size", 13).attr("fill", "#334155");
+
+    // Track
+    rowsEnter.append("rect")
+      .attr("class", "track")
+      .attr("x", barX).attr("y", (rowH - 14) / 2)
+      .attr("rx", 7).attr("height", 14).attr("width", barW)
+      .attr("fill", "#e2e8f0");
+
+    // Fill
+    rowsEnter.append("rect")
+      .attr("class", "fill")
+      .attr("x", barX).attr("y", (rowH - 14) / 2)
+      .attr("rx", 7).attr("height", 14).attr("width", 0);
+
+    // Score value + grade letter
+    rowsEnter.append("text")
+      .attr("class", "dim-value")
+      .attr("x", width).attr("y", rowH / 2)
+      .attr("text-anchor", "end").attr("dominant-baseline", "middle")
+      .attr("font-size", 13).attr("font-weight", 700);
+
+    const merged = rowsEnter.merge(rows);
+
+    merged.select("text.dim-label").text(d => d.label);
+
+    merged.select("rect.fill")
+      .transition().duration(600).ease(d3.easeCubicOut)
+      .attr("width", d => x(d.score))
+      .attr("fill", d => GRADE_COLORS[gradeFor(d.score)]);
+
+    merged.select("text.dim-value")
+      .attr("fill", d => GRADE_COLORS[gradeFor(d.score)])
+      .text(d => `${d.score.toFixed(1)}  ${gradeFor(d.score)}`);
+
+    rows.exit().remove();
+  }, [dimensions, scores]);
+
+  return <svg ref={ref} className="dim-chart" style={{ width: "100%", height: "auto" }} />;
+}
+
+function NutritionLabel({ parcel, dimensions }) {
+  const scored = dimensions.map(d => parcel.scores[d.key]).filter(v => typeof v === "number");
+  const composite = scored.reduce((a, b) => a + b, 0) / scored.length;
+
+  return (
+    <div className="label-card">
+      <div className="label-title">
+        <h2>{parcel.name}</h2>
+        <p>{parcel.description}</p>
+      </div>
+
+      <div className="label-summary">
+        <div>
+          <div className="composite-cap">Composite score</div>
+          <div className="composite-num">{composite.toFixed(1)}<span style={{fontSize:"1rem",color:"var(--muted)"}}> / 100</span></div>
+        </div>
+        <GradeBadge score={composite} large />
+      </div>
+
+      {parcel.metrics && (
+        <div className="metrics-row">
+          {Object.entries(parcel.metrics).map(([k, v]) => (
+            <span key={k}><strong>{k}:</strong> {v}</span>
+          ))}
+        </div>
+      )}
+
+      <DimensionChart dimensions={dimensions} scores={parcel.scores} />
+    </div>
+  );
+}
+
+function App() {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
+  const [idx, setIdx] = useState(0);
+
+  useEffect(() => {
+    fetch("data/sample-parcels.json")
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(setData)
+      .catch(e => setError(e.message));
+  }, []);
+
+  if (error) return <div className="error">Could not load sample data: {error}</div>;
+  if (!data) return <div className="loading">Loading visualization&hellip;</div>;
+
+  const parcel = data.parcels[idx];
+
+  return (
+    <div>
+      <div className="picker">
+        <label htmlFor="parcel-select">Construction profile:</label>
+        <select id="parcel-select" value={idx} onChange={e => setIdx(Number(e.target.value))}>
+          {data.parcels.map((p, i) => <option key={p.name} value={i}>{p.name}</option>)}
+        </select>
+      </div>
+
+      <NutritionLabel parcel={parcel} dimensions={data.dimensions} />
+
+      <div className="legend">
+        {["A", "B", "C", "D", "F"].map(g => (
+          <span key={g}><span className="swatch" style={{ background: GRADE_COLORS[g] }}></span>{g}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
