@@ -77,7 +77,13 @@ def main() -> None:
 
     # Optionally reuse the previously fetched location scores (offline refresh).
     reuse_loc, prev_meta = {}, {}
-    if args.reuse_location and OUT_FILE.exists():
+    if args.reuse_location:
+        if not OUT_FILE.exists():
+            raise SystemExit(
+                f"--reuse-location requires an existing {OUT_FILE.relative_to(REPO_ROOT)} "
+                "to read location scores from; run once without --reuse-location "
+                "(a live fetch) first."
+            )
         prev = json.loads(OUT_FILE.read_text())
         prev_meta = prev.get("meta", {})
         for p in prev.get("parcels", []):

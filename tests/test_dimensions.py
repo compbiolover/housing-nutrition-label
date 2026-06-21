@@ -89,9 +89,9 @@ def test_override_includes_location_dim():
 
 def test_embodied_amortized_over_service_life():
     """Embodied carbon is amortized over the shell's service life: a frame shell
-    is 60 yr (sub-score unchanged from the flat-period model), while a
-    concrete/ICF shell is 100 yr and so is no longer near-zero on embodied
-    despite its high upfront intensity."""
+    is 60 yr (its embodied sub-score is unchanged from the flat-period model),
+    while a concrete/ICF shell is 100 yr and so its embodied sub-score is no
+    longer near-zero despite the shell's high upfront embodied intensity."""
     import pandas as pd
     from housing_label.enrich.environmental import (
         service_life_years, model_parcel_environment,

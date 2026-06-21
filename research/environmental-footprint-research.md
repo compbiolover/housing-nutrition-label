@@ -79,10 +79,10 @@ dataset, but residential coverage is sparse).
 **CAMA-driven estimator (what we can actually compute):**
 
 ```
-embodied_total_kg = EC_intensity(EXTWALL, GRADE) × floor_area_m²
-service_life_yr   = service_life(EXTWALL)                  # 60 frame · 70 veneer · 100 masonry/ICF
-embodied_annualized_kg/yr   = embodied_total_kg / service_life_yr
-embodied_annual_intensity   = EC_intensity / service_life_yr           # kgCO₂e/m²/yr (scored)
+embodied_total_kg = embodied_intensity(EXTWALL, GRADE) × floor_area_m²
+service_life_yr   = service_life_years(EXTWALL)            # 60 frame · 70 veneer · 100 masonry/ICF
+embodied_annualized_kg/yr = embodied_total_kg / service_life_yr
+embodied_annual_intensity = embodied_intensity(EXTWALL, GRADE) / service_life_yr   # kgCO₂e/m²/yr (scored)
 ```
 
 Map `EXTWALL` to an intensity within the verified 39–121 band (wood frame sequesters carbon
