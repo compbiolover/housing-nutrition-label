@@ -17,6 +17,9 @@ Dimensions
   durability      Component-lifespan / effective-age durability score from
                   enrich/durability.py (already 0–100; used directly). NaN for
                   parcels with no CAMA building data (vacant/non-residential).
+  environmental   Environmental-footprint score from enrich/environmental.py
+                  (embodied carbon + operational emissions + water use; already
+                  0–100; used directly). NaN for vacant/non-residential parcels.
   infrastructure  Municipal fiscal ratio → 0–100, log-linear between breakpoints.
   health          CDC PLACES health_index (already 0–100; used directly).
   socioeconomic   Census ACS socioeconomic_index (already 0–100, higher = less
@@ -223,6 +226,7 @@ DIMENSIONS: list[Dimension] = [
     Dimension("resilience",     "Disaster Resilience",  score_passthrough("resilience_score"),   "resilience_score"),
     Dimension("energy",         "Energy Efficiency",    score_energy,                            "eui_kbtu_sqft_yr"),
     Dimension("durability",     "Durability",           score_passthrough("durability_score"),   "durability_score"),
+    Dimension("environmental",  "Environmental Footprint", score_passthrough("environmental_score"), "environmental_score"),
     Dimension("infrastructure", "Infrastructure Burden", score_infrastructure,                   "fiscal_ratio"),
     Dimension("health",         "Health Impact",        score_passthrough("health_index"),       "health_index"),
     Dimension("socioeconomic",  "Socioeconomic",        score_passthrough("socioeconomic_index"), "socioeconomic_index",
