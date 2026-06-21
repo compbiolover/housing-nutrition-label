@@ -33,9 +33,14 @@ Methodology
      US single-family residential embodied-carbon benchmarks are sparse. We use a
      material/size estimator calibrated to the verified band of ~39-121 kgCO2e/m2
      (Jungclaus et al. 2024), mapped from EXTWALL and nudged by GRADE, then
-     amortized over a 60-year reference study period (EN 15978 / RICS default):
+     amortized over the shell's expected SERVICE LIFE (not a flat period):
        embodied_total  = EC_intensity(EXTWALL, GRADE) * floor_area_m2
-       embodied_annual = embodied_total / RSP_YEARS
+       embodied_annual = embodied_total / service_life_years(EXTWALL)
+     The sub-score is computed on the per-year intensity (kgCO2e/m2/yr), so a
+     longer-lived shell (masonry/concrete/ICF ~100yr) is rewarded for spreading
+     its upfront carbon over more years, calibrated so a 60-yr shell is unchanged.
+     See SERVICE_LIFE_BY_WALL for the basis and caveats (the standardized EN 15978
+     approach instead uses a fixed period with replacement cycles).
      NOTE: the claim that embodied dominates operational over a building's life was
      refuted for this grid — operational stays the heavier-weighted leg.
 
@@ -91,8 +96,38 @@ EF_GAS_KG_PER_THERM  = 5.3     # EPA GHG Emission Factors Hub
 EGRID_VINTAGE        = "eGRID2022 SRTV"
 
 # ── Embodied carbon ───────────────────────────────────────────────────────────
-RSP_YEARS = 60.0   # EN 15978 / RICS reference study period for amortization
+RSP_YEARS = 60.0   # EN 15978 / RICS reference study period (legacy constant)
 SQFT_TO_M2 = 0.092903
+
+# ── Service life by wall/structure type (years) ───────────────────────────────
+# Embodied carbon is amortized per year of service: a longer-lived shell spreads
+# its upfront embodied carbon over more years (kgCO2e/m2/yr), so durable
+# construction is rewarded environmentally rather than only on the Durability
+# dimension. Typical/reference service lives (ISO 15686 service-life planning;
+# Athena Institute and national WLCA reference lives): light wood frame ~60 yr;
+# brick veneer / stucco / EIFS ~70 yr; solid masonry / concrete / ICF / stone
+# ~100 yr.
+#
+# CAVEATS (deliberately kept conservative): standardized WLCA (EN 15978 / RICS)
+# instead holds a fixed study period and books replacement cycles (Module B4) to
+# credit longevity — per-year amortization is the simpler defensible alternative
+# used here. Real building lifespans are often governed by demolition /
+# obsolescence rather than material durability, and per-year amortization
+# understates the near-term impact of the upfront carbon spike.
+DEFAULT_SERVICE_LIFE_YR = 60.0
+SERVICE_LIFE_BY_WALL = {
+    7:  60.0,   # frame / wood
+    5:  60.0,   # aluminum / vinyl (light frame)
+    9:  70.0,   # brick veneer
+    8:  70.0,   # stucco
+    10: 70.0,   # EIFS
+    1:  100.0,  # solid brick
+    3:  100.0,  # block / concrete (incl. ICF, mapped to this code)
+    4:  100.0,  # stone
+}
+# Amortization is calibrated to a 60-yr reference so a 60-yr shell keeps its
+# previous embodied sub-score; only longer-/shorter-lived shells move.
+EMB_REF_PERIOD_YR = 60.0
 
 # EXTWALL → embodied intensity (kg CO2e/m2), calibrated to the verified US
 # single-family band of ~39-121 (Jungclaus et al. 2024). Wood frame sequesters
@@ -129,6 +164,9 @@ OP_YS = [100.0, 80.0, 60.0, 40.0, 20.0, 0.0]
 # Embodied intensity, kg CO2e/m2 (the 39-121 band):
 EMB_XS = [40.0, 60.0, 80.0, 100.0, 120.0]
 EMB_YS = [100.0, 75.0, 50.0, 25.0, 0.0]
+# Annualized embodied breakpoints (kg CO2e/m2/yr) = total breakpoints ÷ the 60-yr
+# reference period, so the embodied sub-score is scored on per-year intensity.
+EMB_XS_ANNUAL = [x / EMB_REF_PERIOD_YR for x in EMB_XS]
 # Water use, gallons/capita/day:
 WAT_XS = [40.0, 60.0, 90.0, 130.0, 180.0]
 WAT_YS = [100.0, 80.0, 55.0, 30.0, 0.0]
@@ -142,6 +180,7 @@ ENV_COLS = [
     "env_operational_co2e_kg_yr",
     "env_embodied_co2e_kg_yr",
     "env_embodied_intensity_kgm2",
+    "env_service_life_yr",
     "env_water_gal_yr",
     "env_water_co2e_kg_yr",
     "env_total_co2e_kg_yr",
@@ -154,7 +193,8 @@ ENV_COLS = [
 
 DATA_SOURCE = (
     f"Operational: EPA {EGRID_VINTAGE} 0.423 kgCO2e/kWh + EPA gas 5.3 kgCO2e/therm; "
-    "Embodied: Jungclaus et al. 2024 39-121 kgCO2e/m2 band amortized 60yr (LOW CONFIDENCE); "
+    "Embodied: Jungclaus et al. 2024 39-121 kgCO2e/m2 band amortized over material "
+    "service life (60-100yr), scored per kgCO2e/m2/yr (LOW CONFIDENCE); "
     "Water: EPA WaterSense + Memphis Sand aquifer low embedded energy"
 )
 
@@ -187,6 +227,15 @@ def embodied_intensity(extwall, grade) -> float:
         f = 1.0 + (g - GRADE_MIDPOINT) * GRADE_SLOPE
         base *= min(GRADE_MAX_F, max(GRADE_MIN_F, f))
     return base
+
+
+def service_life_years(extwall) -> float:
+    """Expected structural service life (years) for an EXTWALL code, used to
+    amortize embodied carbon per year of service."""
+    code = _num(extwall)
+    if code is None:
+        return DEFAULT_SERVICE_LIFE_YR
+    return SERVICE_LIFE_BY_WALL.get(int(code), DEFAULT_SERVICE_LIFE_YR)
 
 
 def water_use_gal_yr(rmbed, fixbath, sfla, stories, calc_acre, acre_outlier) -> tuple[float, float]:
@@ -233,10 +282,12 @@ def model_parcel_environment(row: pd.Series) -> dict:
     operational = kwh * EF_GRID_KG_PER_KWH + therms * EF_GAS_KG_PER_THERM
     op_intensity = operational / floor_m2
 
-    # --- Embodied ---
+    # --- Embodied (amortized over the shell's service life, not a flat period) ---
     emb_intensity = embodied_intensity(row.get("EXTWALL"), row.get("GRADE"))
+    service_life = service_life_years(row.get("EXTWALL"))
     emb_total  = emb_intensity * floor_m2
-    emb_annual = emb_total / RSP_YEARS
+    emb_annual = emb_total / service_life
+    emb_annual_intensity = emb_intensity / service_life   # kg CO2e/m2/yr
 
     # --- Water ---
     water_gal, occupancy = water_use_gal_yr(
@@ -249,7 +300,7 @@ def model_parcel_environment(row: pd.Series) -> dict:
 
     # --- Sub-scores (higher = lower footprint) ---
     op_sub  = _loglin_score(op_intensity, OP_XS, OP_YS)
-    emb_sub = _loglin_score(emb_intensity, EMB_XS, EMB_YS)
+    emb_sub = _loglin_score(emb_annual_intensity, EMB_XS_ANNUAL, EMB_YS)
     wat_sub = _loglin_score(gpcd, WAT_XS, WAT_YS)
 
     composite = (W_OPERATIONAL * op_sub + W_EMBODIED * emb_sub + W_WATER * wat_sub)
@@ -258,6 +309,7 @@ def model_parcel_environment(row: pd.Series) -> dict:
         "env_operational_co2e_kg_yr":  round(operational, 1),
         "env_embodied_co2e_kg_yr":     round(emb_annual, 1),
         "env_embodied_intensity_kgm2": round(emb_intensity, 1),
+        "env_service_life_yr":         round(service_life, 0),
         "env_water_gal_yr":            round(water_gal, 0),
         "env_water_co2e_kg_yr":        round(water_co2e, 1),
         "env_total_co2e_kg_yr":        round(total_co2e, 1),

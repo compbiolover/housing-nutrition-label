@@ -87,6 +87,31 @@ def test_override_includes_location_dim():
     assert label["n_scored"] == 6
 
 
+def test_embodied_amortized_over_service_life():
+    """Embodied carbon is amortized over the shell's service life: a frame shell
+    is 60 yr (sub-score unchanged from the flat-period model), while a
+    concrete/ICF shell is 100 yr and so is no longer near-zero on embodied
+    despite its high upfront intensity."""
+    import pandas as pd
+    from housing_label.enrich.environmental import (
+        service_life_years, model_parcel_environment,
+    )
+    assert service_life_years(7) == 60.0    # frame
+    assert service_life_years(3) == 100.0   # block/concrete (ICF maps here)
+
+    base = dict(SFLA=2000, GRADE=45, est_annual_kwh=3000, est_annual_therms=10,
+                RMBED=3, FIXBATH=2, STORIES=1, CALC_ACRE=0.2, acre_outlier=False)
+    frame = model_parcel_environment(pd.Series({**base, "EXTWALL": 7}))
+    icf = model_parcel_environment(pd.Series({**base, "EXTWALL": 3}))
+
+    assert frame["env_service_life_yr"] == 60
+    assert icf["env_service_life_yr"] == 100
+    assert frame["env_embodied_subscore"] > 80           # low-carbon wood, ~93
+    # Concrete's high upfront carbon, amortized over 100 yr, is no longer ~0 as
+    # it was under flat 60-yr amortization (was ~1.4).
+    assert icf["env_embodied_subscore"] > 40
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:
