@@ -6,7 +6,7 @@ An open-source platform for scoring residential properties across multiple dimen
 
 **Phase 1 complete — Shelby County, TN (Memphis) pilot with 8 scored dimensions.**
 
-The full data ingestion → enrichment → multi-dimension scoring pipeline is operational end to end. Every Shelby County parcel in the pilot dataset carries eight scored dimensions plus a rolled-up composite score, each with both a national (absolute) and a local (percentile) letter grade. Future phases will extend coverage to additional counties, add per-parcel climate projections, and deliver a React + D3 nutrition label visualization.
+The full data ingestion → enrichment → multi-dimension scoring pipeline is operational end to end. Every Shelby County parcel in the pilot dataset carries eight scored dimensions plus a rolled-up composite score, each with both a national (absolute) and a local (percentile) letter grade. An initial **React + D3 nutrition label visualization** is now live on the project site — [housinglabel.dev/label.html](https://housinglabel.dev/label.html). Future phases will extend coverage to additional counties and add per-parcel climate projections.
 
 ## Architecture
 
@@ -74,6 +74,8 @@ housing-nutrition-label/
 ├── scripts/run_pipeline.py     # Pipeline orchestrator
 ├── research/                   # Methodology & data-exploration write-ups
 ├── docs/                       # GitHub Pages site (housinglabel.dev)
+│   ├── label.html              #   React + D3 interactive nutrition label
+│   └── data/sample-parcels.json#   Sample data feeding the label visualization
 ├── tests/
 ├── pyproject.toml / setup.py   # Packaging
 └── requirements.txt
@@ -161,9 +163,10 @@ python scripts/run_pipeline.py
 ## Roadmap
 
 - **Per-parcel climate projections** — replace the uniform climate placeholder with downscaled climate-projection data
-- **Frontend visualization** — React + D3 nutrition label UI
 - **Rust scoring engine** — port the hot scoring path for performance at scale
 - **API layer** — serve scores and grades over HTTP for third-party integration
+
+**Shipped:** ~~Frontend visualization — React + D3 nutrition label UI~~ → an initial version is live at [housinglabel.dev/label.html](https://housinglabel.dev/label.html) ([`docs/label.html`](docs/label.html)). It renders the eight scored dimensions as an at-a-glance label with a switchable set of construction profiles, served statically with no build step (React + D3 loaded from CDN).
 
 ## License
 
