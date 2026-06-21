@@ -79,22 +79,39 @@ dataset, but residential coverage is sparse).
 **CAMA-driven estimator (what we can actually compute):**
 
 ```
-embodied_total_kg = EC_intensity(EXTWALL, GRADE) × floor_area_m²
-embodied_annualized_kg/yr = embodied_total_kg / RSP        # RSP = 60 yr (EN 15978/RICS default)
+embodied_total_kg = embodied_intensity(EXTWALL, GRADE) × floor_area_m²
+service_life_yr   = service_life_years(EXTWALL)            # 60 frame · 70 veneer · 100 masonry/ICF
+embodied_annualized_kg/yr = embodied_total_kg / service_life_yr
+embodied_annual_intensity = embodied_intensity(EXTWALL, GRADE) / service_life_yr   # kgCO₂e/m²/yr (scored)
 ```
 
 Map `EXTWALL` to an intensity within the verified 39–121 band (wood frame sequesters carbon
 and sits low; masonry/concrete sit high):
 
-| EXTWALL | Class | EC intensity (kgCO₂e/m²) |
-|---------|-------|--------------------------|
-| 7 frame / 5 vinyl-alum | light frame | ~45 |
-| 9 brick veneer / 8 stucco / 10 EIFS | veneer/clad | ~75 |
-| 1 brick / 3 block / 4 stone | solid masonry/concrete | ~115 |
+| EXTWALL | Class | EC intensity (kgCO₂e/m²) | Service life (yr) |
+|---------|-------|--------------------------|-------------------|
+| 7 frame / 5 vinyl-alum | light frame | ~45 | 60 |
+| 9 brick veneer / 8 stucco / 10 EIFS | veneer/clad | ~75 | 70 |
+| 1 brick / 3 block / 4 stone | solid masonry/concrete (incl. ICF) | ~115 | 100 |
 
 `GRADE` (construction quality) adds a small ±10% modifier (higher grade ⇒ more/heavier
-finishes ⇒ more embodied). Annualizing over a 60-yr RSP makes embodied directly comparable
-to operational CO₂e. **Flag this leg's low confidence in the output and the docs.**
+finishes ⇒ more embodied). **Embodied is amortized over the shell's expected service life,
+not a flat period**, and the sub-score is computed on the per-year intensity
+(kgCO₂e/m²/yr) — so a durable shell (masonry/concrete/ICF, ~100 yr) is rewarded for
+spreading its upfront carbon over more years. The per-year breakpoints are calibrated to a
+60-yr reference, so a 60-yr (frame) shell scores exactly as it did under the flat-RSP model;
+only longer-/shorter-lived shells move.
+
+**Literature basis & caveats (this is a modeling choice, not the textbook standard):**
+Per-year normalization over service life is a recognized LCA metric and intuitive, but the
+standardized whole-life methods (EN 15978 / RICS / ISO 21931) instead hold a *fixed*
+reference study period (~60 yr) and credit longevity through **replacement cycles**
+(Module B4) rather than by stretching the amortization window. Two well-documented caveats
+keep the service-life values deliberately conservative: (1) real building lifespans are
+often set by demolition / functional obsolescence, not material durability — many
+structurally sound buildings are razed; and (2) per-year amortization understates the
+near-term climate impact of the upfront carbon spike (carbon-budget / timing-of-emissions
+critique). **Flag this leg's low confidence in the output and the docs.**
 
 ---
 

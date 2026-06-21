@@ -101,7 +101,7 @@
       "name": "Premium",
       "description": "2026 brick, X flood zone, excellent condition",
       "metrics": {
-        "Expected Annual Loss": "$87/yr",
+        "Expected Annual Loss": "$86/yr",
         "EUI": "21.5 kBTU/sqft/yr",
         "Monthly Energy": "$107",
         "Fiscal Ratio": "0.75"
@@ -110,13 +110,13 @@
         "resilience": 80.3,
         "energy": 85.9,
         "durability": 100.0,
-        "environmental": 45.3,
+        "environmental": 62.8,
         "infrastructure": 68.6,
         "health": 87.6,
         "socioeconomic": 52.9,
         "walkability": 65.4
       },
-      "composite": 73.2
+      "composite": 75.4
     },
     {
       "name": "FORTIFIED Gold",
@@ -152,13 +152,13 @@
         "resilience": 95.6,
         "energy": 100.0,
         "durability": 100.0,
-        "environmental": 60.9,
+        "environmental": 78.5,
         "infrastructure": 72.7,
         "health": 87.6,
         "socioeconomic": 52.9,
         "walkability": 65.4
       },
-      "composite": 79.4
+      "composite": 81.6
     }
   ]
 }
