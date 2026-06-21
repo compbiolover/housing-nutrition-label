@@ -157,7 +157,11 @@ def _adjusted_energy(cfg: dict, row: pd.Series) -> dict:
     if cfg.get("passive_house"):
         factor *= PASSIVE_HOUSE_EUI_FACTOR
 
-    for k in ("eui_kbtu_sqft_yr", "est_annual_kbtu", "est_annual_kwh", "est_annual_therms"):
+    # The monthly cost is proportional to energy use, so it scales by the same
+    # factor as the EUI/kWh/therms (keeps the displayed cost consistent with the
+    # reduced EUI for passive/ICF builds).
+    for k in ("eui_kbtu_sqft_yr", "est_annual_kbtu", "est_annual_kwh",
+              "est_annual_therms", "est_monthly_energy_cost"):
         if energy.get(k) is not None:
             energy[k] = round(energy[k] * factor, 2)
 

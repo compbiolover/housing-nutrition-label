@@ -22,7 +22,7 @@
 
 <section>
   <h2>Case Studies</h2>
-  <p>These examples use the CLI house simulator with real scoring models. Each preset represents a different construction profile at the same Memphis location (lat 35.15, lon -89.85).</p>
+  <p>These examples use the CLI house simulator with real scoring models. Each preset is a different construction profile at the same walkable Cooper-Young location in Midtown Memphis (lat 35.13, lon -89.99). The five construction-driven dimensions are modeled from each build; health, socioeconomic, and walkability are fetched live for the location (so they're identical across presets).</p>
   <p><a href="label.html">See the interactive nutrition label &rarr;</a> &mdash; the same construction profiles rendered as a React&nbsp;+&nbsp;D3 label across all eight dimensions.</p>
 </section>
 
@@ -41,7 +41,7 @@
     </thead>
     <tbody>
       <tr>
-        <td><strong>Resilience Score</strong></td>
+        <td><strong>Disaster Resilience</strong></td>
         <td>32.8 <span class="grade grade-d">D</span></td>
         <td>72.8 <span class="grade grade-b">B</span></td>
         <td>80.3 <span class="grade grade-a">A</span></td>
@@ -49,58 +49,122 @@
         <td>95.6 <span class="grade grade-a">A</span></td>
       </tr>
       <tr>
+        <td><strong>Energy Efficiency</strong></td>
+        <td>28.8 <span class="grade grade-d">D</span></td>
+        <td>74.8 <span class="grade grade-b">B</span></td>
+        <td>85.9 <span class="grade grade-a">A</span></td>
+        <td>83.9 <span class="grade grade-a">A</span></td>
+        <td>100.0 <span class="grade grade-a">A</span></td>
+      </tr>
+      <tr>
+        <td><strong>Durability</strong></td>
+        <td>13.5 <span class="grade grade-f">F</span></td>
+        <td>46.1 <span class="grade grade-c">C</span></td>
+        <td>100.0 <span class="grade grade-a">A</span></td>
+        <td>99.2 <span class="grade grade-a">A</span></td>
+        <td>100.0 <span class="grade grade-a">A</span></td>
+      </tr>
+      <tr>
+        <td><strong>Environmental Footprint</strong></td>
+        <td>44.1 <span class="grade grade-c">C</span></td>
+        <td>67.2 <span class="grade grade-b">B</span></td>
+        <td>45.3 <span class="grade grade-c">C</span></td>
+        <td>71.6 <span class="grade grade-b">B</span></td>
+        <td>60.9 <span class="grade grade-b">B</span></td>
+      </tr>
+      <tr>
+        <td><strong>Infrastructure Burden</strong></td>
+        <td>17.8 <span class="grade grade-f">F</span></td>
+        <td>36.5 <span class="grade grade-c">C</span></td>
+        <td>68.6 <span class="grade grade-b">B</span></td>
+        <td>59.1 <span class="grade grade-c">C</span></td>
+        <td>72.7 <span class="grade grade-b">B</span></td>
+      </tr>
+      <tr>
+        <td><strong>Health Impact</strong> <small>(location)</small></td>
+        <td>87.6 <span class="grade grade-a">A</span></td>
+        <td>87.6 <span class="grade grade-a">A</span></td>
+        <td>87.6 <span class="grade grade-a">A</span></td>
+        <td>87.6 <span class="grade grade-a">A</span></td>
+        <td>87.6 <span class="grade grade-a">A</span></td>
+      </tr>
+      <tr>
+        <td><strong>Socioeconomic</strong> <small>(location)</small></td>
+        <td>52.9 <span class="grade grade-c">C</span></td>
+        <td>52.9 <span class="grade grade-c">C</span></td>
+        <td>52.9 <span class="grade grade-c">C</span></td>
+        <td>52.9 <span class="grade grade-c">C</span></td>
+        <td>52.9 <span class="grade grade-c">C</span></td>
+      </tr>
+      <tr>
+        <td><strong>Walkability</strong> <small>(location)</small></td>
+        <td>65.4 <span class="grade grade-b">B</span></td>
+        <td>65.4 <span class="grade grade-b">B</span></td>
+        <td>65.4 <span class="grade grade-b">B</span></td>
+        <td>65.4 <span class="grade grade-b">B</span></td>
+        <td>65.4 <span class="grade grade-b">B</span></td>
+      </tr>
+      <tr style="background:#f1f5f9;">
+        <td><strong>Composite</strong></td>
+        <td><strong>42.9</strong> <span class="grade grade-c">C</span></td>
+        <td><strong>62.9</strong> <span class="grade grade-b">B</span></td>
+        <td><strong>73.2</strong> <span class="grade grade-b">B</span></td>
+        <td><strong>75.2</strong> <span class="grade grade-b">B</span></td>
+        <td><strong>79.4</strong> <span class="grade grade-b">B</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Key Metrics</h3>
+  <table class="comparison">
+    <thead>
+      <tr>
+        <th>Metric</th>
+        <th>Worst Case</th>
+        <th>Baseline</th>
+        <th>Premium</th>
+        <th>FORTIFIED Gold</th>
+        <th>ICF Passive</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
         <td><strong>Expected Annual Loss</strong></td>
         <td>$370/yr</td>
         <td>$57/yr</td>
-        <td>$86/yr</td>
+        <td>$87/yr</td>
         <td>$55/yr</td>
         <td>$13/yr</td>
       </tr>
       <tr>
         <td><strong>Monthly Energy</strong></td>
-        <td>$174</td>
-        <td>$156</td>
-        <td>$178</td>
-        <td>$138</td>
-        <td>$28 <small>(with solar)</small></td>
+        <td>$313</td>
+        <td>$140</td>
+        <td>$107</td>
+        <td>$112</td>
+        <td>$55</td>
       </tr>
       <tr>
         <td><strong>EUI (kBTU/sqft/yr)</strong></td>
-        <td>75.0</td>
-        <td>35.0</td>
-        <td>26.6</td>
-        <td>28.0</td>
-        <td>11.2</td>
-      </tr>
-      <tr>
-        <td><strong>Infra Cost/yr</strong></td>
-        <td>$6,944</td>
-        <td>$4,804</td>
-        <td>$5,944</td>
-        <td>$4,804</td>
-        <td>$4,804</td>
+        <td>63.0</td>
+        <td>28.3</td>
+        <td>21.5</td>
+        <td>22.6</td>
+        <td>11.1</td>
       </tr>
       <tr>
         <td><strong>Fiscal Ratio</strong></td>
-        <td>0.09</td>
+        <td>0.13</td>
         <td>0.27</td>
-        <td>0.60</td>
+        <td>0.75</td>
         <td>0.58</td>
         <td>0.83</td>
-      </tr>
-      <tr>
-        <td><strong>30-yr Energy Cost</strong></td>
-        <td>$62,640</td>
-        <td>$56,160</td>
-        <td>$64,080</td>
-        <td>$49,680</td>
-        <td><strong>$10,080</strong></td>
       </tr>
     </tbody>
   </table>
 
   <div class="insight">
-    <strong>Key insight:</strong> The ICF passive house costs $28/mo to run vs $156 for the baseline frame. Over 30 years, that's a $46,000 energy savings &mdash; which more than covers the ICF construction premium.
+    <strong>Key insight:</strong> Construction choices lift the composite from <strong>C (42.9)</strong> for the worst-case build to <strong>B (79.4)</strong> for the ICF passive house &mdash; the ICF home posts an A on resilience, energy, and durability. The three location dimensions are identical across presets (same parcel): a strong health score (87.6, A) and solid walkability (65.4, B) in Cooper-Young lift every build, while the modeled ICF passive home runs about $55/mo on energy (EUI 11.1) versus $140 for the baseline frame &mdash; roughly $30,000 less over a 30-year mortgage.
   </div>
 </section>
 
