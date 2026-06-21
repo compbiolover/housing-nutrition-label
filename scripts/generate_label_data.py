@@ -26,7 +26,7 @@ from housing_label.simulate.dimensions import DIMENSIONS, simulate_all_dimension
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 OUT_FILE = REPO_ROOT / "docs" / "data" / "sample-parcels.json"
 
-LAT, LON = 35.15, -89.85
+LAT, LON = 35.13, -89.99   # Cooper-Young, Memphis — walkable Midtown neighborhood
 
 # Display name + simulator preset + human description for each website parcel.
 WEBSITE_PRESETS = [
@@ -107,7 +107,7 @@ def main() -> None:
 
     data = {
         "meta": {
-            "location": {"label": "Memphis, TN", "lat": LAT, "lon": LON},
+            "location": {"label": "Cooper-Young, Memphis, TN", "lat": LAT, "lon": LON},
             "gradeThresholds": {"A": 80, "B": 60, "C": 40, "D": 20, "F": 0},
             "census_tract": tract,
             "location_notes": notes,
