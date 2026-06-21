@@ -24,12 +24,15 @@ Methodology mirrors score_resilience.py exactly:
 """
 
 import argparse
+import json
 import math
 import pathlib
 import sys
 
 import numpy as np
 import pandas as pd
+
+from housing_label.simulate.dimensions import simulate_all_dimensions
 
 # ── File paths ─────────────────────────────────────────────────────────────────
 BASE_DIR   = pathlib.Path(__file__).resolve().parents[3]   # repo root; data lives here
@@ -522,6 +525,20 @@ def build_parser() -> argparse.ArgumentParser:
                        help="Engineered flood vents (×0.85 flood EAL).")
     flood.add_argument("--backflow-valve", action="store_true",
                        help="Backflow prevention valve (×0.90 flood EAL).")
+
+    # ── Full nutrition label (all 8 dimensions) ───────────────────────────────────
+    label_grp = p.add_argument_group("full nutrition label (all 8 dimensions)")
+    label_grp.add_argument("--json", action="store_true",
+                           help="Emit the full nutrition label as JSON (all dimensions) and exit.")
+    label_grp.add_argument("--no-fetch", action="store_true",
+                           help="Skip live API calls for the location dimensions (health, "
+                                "socioeconomic, walkability); leave them unscored.")
+    label_grp.add_argument("--health-index", type=float, default=None,
+                           help="Override the health dimension score (0-100) instead of fetching.")
+    label_grp.add_argument("--socioeconomic-index", type=float, default=None,
+                           help="Override the socioeconomic dimension score (0-100) instead of fetching.")
+    label_grp.add_argument("--walk-score", type=float, default=None,
+                           help="Override the walkability dimension score (0-100) instead of fetching.")
     return p
 
 
@@ -926,6 +943,92 @@ def print_scorecard(cfg: dict, r: dict) -> None:
     print()
 
 
+# ── Full nutrition label (all dimensions) ───────────────────────────────────────
+
+def print_label(cfg: dict, label: dict) -> None:
+    """Print the full multi-dimension nutrition label below the resilience card."""
+    INNER = 64
+    TOP = "╔" + "═" * INNER + "╗"
+    SEP = "╠" + "═" * INNER + "╣"
+    BOT = "╚" + "═" * INNER + "╝"
+
+    def row(content: str = "") -> str:
+        return f"║{content:<{INNER}}║"
+
+    print(TOP)
+    print(row("  FULL NUTRITION LABEL — ALL DIMENSIONS"))
+    print(row(f"  {label['n_scored']} of 8 dimensions scored (location data optional)"))
+    print(SEP)
+    print(row(f"  {'Dimension':<24}{'Score':>8}  {'Grade':<6}{'Profile':<20}"))
+    print(row(f"  {'─'*58}"))
+    for d in label["dimensions"]:
+        if d["score"] is None:
+            bar = "·" * 12
+            score_str = "   N/A"
+        else:
+            filled = int(round(d["score"] / 100 * 12))
+            bar = "█" * filled + "░" * (12 - filled)
+            score_str = f"{d['score']:>6.1f}"
+        print(row(f"  {d['label']:<24}{score_str}  {d['national_grade']:<6}{bar:<20}"))
+    print(row(f"  {'─'*58}"))
+
+    comp = label["composite_score"]
+    comp_str = "N/A" if comp is None else f"{comp:.1f} / 100"
+    print(row(f"  {'COMPOSITE':<24}{comp_str:>8}  {label['composite_national_grade']:<6}"))
+    print(SEP)
+
+    # Side metrics from the construction-driven models.
+    m = label["metrics"]
+    print(row("  KEY METRICS"))
+    if m.get("eui_kbtu_sqft_yr") is not None:
+        print(row(f"    Energy use intensity : {m['eui_kbtu_sqft_yr']:.1f} kBTU/sqft/yr"))
+    if m.get("est_monthly_energy_cost") is not None:
+        print(row(f"    Est. monthly energy  : ${m['est_monthly_energy_cost']:,.0f}/mo (per unit)"))
+    if m.get("fiscal_ratio") is not None:
+        print(row(f"    Fiscal ratio         : {m['fiscal_ratio']:.2f} "
+                  f"(tax ÷ infra cost, per unit)"))
+
+    # Explain any unscored location dimensions.
+    unscored = [d["label"] for d in label["dimensions"] if d["score"] is None]
+    if unscored:
+        print(row(f"    {'─'*54}"))
+        print(row("  Location dimensions not scored (excluded from composite):"))
+        for d in label["dimensions"]:
+            if d["score"] is None:
+                note = label["location_notes"].get(d["key"], "unavailable")
+                print(row(f"    • {d['label']:<22}: {note}"))
+    print(BOT)
+    print()
+
+
+def emit_json(cfg: dict, r: dict, label: dict) -> None:
+    """Print the full nutrition label (all dimensions) as JSON to stdout."""
+    payload = {
+        "house": {
+            "year_built": cfg["year_built"],
+            "construction": cfg["construction"],
+            "foundation": cfg["foundation"],
+            "condition": cfg["condition"],
+            "units": cfg.get("units", 1),
+            "sqft": cfg.get("sqft", 2000),
+            "lot_acres": cfg.get("lot_acres", 0.25),
+            "flood_zone": cfg["flood_zone"],
+            "value": cfg["value"],
+            "lat": cfg["lat"],
+            "lon": cfg["lon"],
+        },
+        "dimensions": label["dimensions"],
+        "composite_score": label["composite_score"],
+        "composite_national_grade": label["composite_national_grade"],
+        "n_scored": label["n_scored"],
+        "metrics": label["metrics"],
+        "census_tract": label["census_tract"],
+        "location_notes": label["location_notes"],
+        "total_loss": round(r["total_loss"], 2),
+    }
+    print(json.dumps(payload, indent=2))
+
+
 # ── Entry point ────────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -937,7 +1040,23 @@ def main() -> None:
 
     cfg = resolve_config(args)
     r   = simulate(cfg)
-    print_scorecard(cfg, r)
+
+    overrides = {
+        "health":        args.health_index,
+        "socioeconomic": args.socioeconomic_index,
+        "walkability":   args.walk_score,
+    }
+    label = simulate_all_dimensions(
+        cfg, r["total_score"],
+        allow_network=not args.no_fetch,
+        overrides=overrides,
+    )
+
+    if args.json:
+        emit_json(cfg, r, label)
+    else:
+        print_scorecard(cfg, r)
+        print_label(cfg, label)
 
 
 if __name__ == "__main__":

@@ -71,7 +71,7 @@
   <div id="root"><div class="loading">Loading visualization&hellip;</div></div>
 
   <div class="insight disclaimer">
-    <strong>About this data:</strong> Disaster Resilience scores come from the CLI simulator; the remaining dimensions are representative sample values drawn from the published case studies for UI demonstration. Local (percentile) grades require the full county dataset and are omitted here. National grades use the absolute thresholds A&nbsp;&ge;&nbsp;80, B&nbsp;&ge;&nbsp;60, C&nbsp;&ge;&nbsp;40, D&nbsp;&ge;&nbsp;20, F&nbsp;&lt;&nbsp;20.
+    <strong>About this data:</strong> Every score here is produced by the CLI simulator (<code>scripts/generate_label_data.py</code>). The five construction-driven dimensions &mdash; resilience, energy, durability, environmental footprint, and infrastructure burden &mdash; are modeled from each house's configuration. Location-driven dimensions are fetched live for this Memphis location: <strong>Health</strong> comes from CDC PLACES; <strong>Socioeconomic</strong> (Census ACS) and <strong>Walkability</strong> (Walk Score) require API keys and show <em>N/A</em> &mdash; excluded from the composite rather than filled with a placeholder, so a strong build isn't unfairly penalized for a missing input. The composite is the mean of the scored dimensions. National grades use the absolute thresholds A&nbsp;&ge;&nbsp;80, B&nbsp;&ge;&nbsp;60, C&nbsp;&ge;&nbsp;40, D&nbsp;&ge;&nbsp;20, F&nbsp;&lt;&nbsp;20; local (percentile) grades require the full county dataset and are omitted here.
   </div>
 </section>
 
@@ -128,9 +128,13 @@ function DimensionChart({ dimensions, scores }) {
 
     const x = d3.scaleLinear().domain([0, 100]).range([0, barW]);
 
-    const data = dimensions.map(d => ({
-      key: d.key, label: d.label, score: scores[d.key] ?? 0
-    }));
+    // A null/missing score means the dimension was not scored (e.g. a
+    // location dimension with no API key) — render it muted as "N/A", not 0.
+    const data = dimensions.map(d => {
+      const raw = scores[d.key];
+      const score = (typeof raw === "number") ? raw : null;
+      return { key: d.key, label: d.label, score };
+    });
 
     const rows = svg.selectAll("g.row").data(data, d => d.key);
     const rowsEnter = rows.enter().append("g").attr("class", "row");
@@ -170,12 +174,16 @@ function DimensionChart({ dimensions, scores }) {
 
     merged.select("rect.fill")
       .transition().duration(600).ease(d3.easeCubicOut)
-      .attr("width", d => x(d.score))
-      .attr("fill", d => GRADE_COLORS[gradeFor(d.score)]);
+      .attr("width", d => d.score === null ? 0 : x(d.score))
+      .attr("fill", d => d.score === null ? "transparent" : GRADE_COLORS[gradeFor(d.score)]);
 
     merged.select("text.dim-value")
-      .attr("fill", d => GRADE_COLORS[gradeFor(d.score)])
-      .text(d => `${d.score.toFixed(1)}  ${gradeFor(d.score)}`);
+      .attr("fill", d => d.score === null ? "#94a3b8" : GRADE_COLORS[gradeFor(d.score)])
+      .attr("font-style", d => d.score === null ? "italic" : "normal")
+      .text(d => d.score === null ? "N/A" : `${d.score.toFixed(1)}  ${gradeFor(d.score)}`);
+
+    merged.select("text.dim-label")
+      .attr("fill", d => d.score === null ? "#94a3b8" : "#334155");
 
     rows.exit().remove();
   }, [dimensions, scores]);
