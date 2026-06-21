@@ -121,7 +121,9 @@ The `score/all_dimensions.py` stage merges its output (walk / transit / bike sco
 
 ## House Simulator
 
-`src/housing_label/simulate/house.py` models a hypothetical house and reports its resilience score, letting you see how construction decisions move the needle. It supports 20+ above-code construction features (hurricane straps, sealed roof deck, metal/hip roof, tornado safe room, FORTIFIED Gold, flood elevation, ICF walls, etc.). Once the package is installed (`pip install -e .`) it's also available as the `housing-simulate` command.
+`src/housing_label/simulate/house.py` models a hypothetical house and reports a **full nutrition label across all eight dimensions**, letting you see how construction decisions move the needle. It supports 20+ above-code construction features (hurricane straps, sealed roof deck, metal/hip roof, tornado safe room, FORTIFIED Gold, flood elevation, ICF walls, etc.). Once the package is installed (`pip install -e .`) it's also available as the `housing-simulate` command.
+
+The five **construction-driven** dimensions — resilience, energy efficiency, durability, environmental footprint, and infrastructure burden — are modeled offline from the house configuration (reusing the same `enrich/` models the pipeline uses). The three **location-driven** dimensions — health, socioeconomic, and walkability — are fetched live for the house's lat/lon (CDC PLACES, Census ACS, and Walk Score respectively). When a source is unavailable (no network, or no `CENSUS_API_KEY` / `WALKSCORE_API_KEY`), that dimension is reported as `N/A` and **excluded from the composite rather than filled with a placeholder**, so a strong build isn't penalized for a missing input.
 
 ```bash
 python src/housing_label/simulate/house.py --preset icf-passive --lat 35.15 --lon -89.85
@@ -141,6 +143,14 @@ Available presets:
 - `icf-quadplex` — 2026 ICF quadplex (4 units × 1,000 sqft, 0.20 ac) with solar, passive house, hurricane straps + hip roof
 
 All preset fields can be overridden from the CLI (e.g. `--year-built`, `--construction`, `--flood-zone`, `--value`, `--units`, `--sqft`, `--lot-acres`). Run `python src/housing_label/simulate/house.py --help` for the full flag list.
+
+Full-label flags:
+
+- `--json` — emit the complete nutrition label (all dimensions, composite, metrics) as JSON.
+- `--no-fetch` — skip the live location lookups; leave health/socioeconomic/walkability unscored.
+- `--health-index` / `--socioeconomic-index` / `--walk-score` — supply a location dimension directly instead of fetching it.
+
+The website nutrition label at [housinglabel.dev/label.html](https://housinglabel.dev/label.html) is generated from this simulator — regenerate its data with `python scripts/generate_label_data.py` (writes [`docs/data/sample-parcels.json`](docs/data/sample-parcels.json)).
 
 ## Quick Start
 
