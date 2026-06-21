@@ -1,12 +1,12 @@
 # Housing Nutrition Label
 
-An open-source platform for scoring residential properties across multiple dimensions — disaster resilience, energy efficiency, durability, infrastructure burden, health impact, socioeconomic context, and walkability — and presenting them in a clear, standardized format, like a nutrition label for housing. The goal is to give homebuyers, renters, insurers, and policymakers an at-a-glance understanding of a property's true risk and quality profile, beyond what typical listings or appraisals reveal.
+An open-source platform for scoring residential properties across multiple dimensions — disaster resilience, energy efficiency, durability, environmental footprint, infrastructure burden, health impact, socioeconomic context, and walkability — and presenting them in a clear, standardized format, like a nutrition label for housing. The goal is to give homebuyers, renters, insurers, and policymakers an at-a-glance understanding of a property's true risk and quality profile, beyond what typical listings or appraisals reveal.
 
 ## Current Status
 
-**Phase 1 complete — Shelby County, TN (Memphis) pilot with 7 scored dimensions.**
+**Phase 1 complete — Shelby County, TN (Memphis) pilot with 8 scored dimensions.**
 
-The full data ingestion → enrichment → multi-dimension scoring pipeline is operational end to end. Every Shelby County parcel in the pilot dataset carries seven scored dimensions plus a rolled-up composite score, each with both a national (absolute) and a local (percentile) letter grade. Future phases will extend coverage to additional counties, add remaining dimensions (environmental footprint), and deliver a React + D3 nutrition label visualization.
+The full data ingestion → enrichment → multi-dimension scoring pipeline is operational end to end. Every Shelby County parcel in the pilot dataset carries eight scored dimensions plus a rolled-up composite score, each with both a national (absolute) and a local (percentile) letter grade. Future phases will extend coverage to additional counties, add per-parcel climate projections, and deliver a React + D3 nutrition label visualization.
 
 ## Architecture
 
@@ -37,11 +37,12 @@ Each enrichment stage consumes the previous stage's output, so the final scored 
 
 ## Scored Dimensions
 
-Each parcel is scored on seven dimensions (plus a climate placeholder):
+Each parcel is scored on eight dimensions (plus a climate placeholder):
 
 - **Disaster Resilience** — Expected Annual Loss (EAL) model combining flood, tornado, and seismic hazards, weighted by a construction-quality modifier (year built, construction type, roof shape, foundation, condition).
 - **Energy Efficiency** — Energy Use Intensity (EUI) modeled from ResStock archetypes, adjusted for building vintage and construction type.
 - **Durability** — component-lifespan / effective-age model blending the remaining service life of eight major building systems (structural shell, roof, HVAC, plumbing, electrical, windows, interior finishes, water heater) with the assessor's condition rating (CDU/COND), then adjusted for exterior-wall material and construction grade. Unscored for vacant / non-residential parcels with no building data.
+- **Environmental Footprint** — three components blended 0.50 operational / 0.30 embodied / 0.20 water: operational CO₂e from modeled energy use × EPA eGRID2022 SRTV grid + natural-gas factors; embodied carbon from material/size (calibrated to the ~39–121 kgCO₂e/m² US single-family band) amortized over a 60-yr study period; and water use from EPA WaterSense benchmarks (with the Memphis Sand aquifer's low embedded-energy advantage). See [research/environmental-footprint-research.md](research/environmental-footprint-research.md). Unscored for vacant / non-residential parcels.
 - **Infrastructure Burden** — density-based municipal cost model producing a per-parcel fiscal ratio (revenue vs. infrastructure cost) by density and distance to the urban core.
 - **Health Impact** — CDC PLACES census-tract chronic-disease prevalence rolled into a 0–100 composite health index.
 - **Socioeconomic** — Census ACS income, poverty, and education indicators combined into a 0–100 composite index. Falls back to a uniform placeholder when no ACS data (or API key) is available.
@@ -89,7 +90,7 @@ Stages run in dependency order, each consuming the previous stage's output:
 ```
 ingest/shelby_parcels.py → ingest/clean.py → enrich/fema_flood.py → enrich/noaa_climate.py →
 enrich/tornado.py → enrich/seismic.py → enrich/energy.py → enrich/infrastructure.py →
-enrich/health.py → enrich/socioeconomic.py → enrich/durability.py → score/resilience.py → score/all_dimensions.py
+enrich/health.py → enrich/socioeconomic.py → enrich/durability.py → enrich/environmental.py → score/resilience.py → score/all_dimensions.py
 ```
 
 Run the entire pipeline with the orchestrator:
@@ -159,7 +160,7 @@ python scripts/run_pipeline.py
 
 ## Roadmap
 
-- **Environmental footprint** — embodied carbon, operational emissions, water use
+- **Per-parcel climate projections** — replace the uniform climate placeholder with downscaled climate-projection data
 - **Frontend visualization** — React + D3 nutrition label UI
 - **Rust scoring engine** — port the hot scoring path for performance at scale
 - **API layer** — serve scores and grades over HTTP for third-party integration
