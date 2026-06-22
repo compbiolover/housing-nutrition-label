@@ -26,5 +26,9 @@ packages = [
     "housing_label.enrich",
     "housing_label.score",
     "housing_label.simulate",
+    "housing_label.data",
     "scripts",
 ]
+
+[tool.setuptools.package-data]
+"housing_label.data" = ["*.csv"]

@@ -146,9 +146,18 @@ All preset fields can be overridden from the CLI (e.g. `--year-built`, `--constr
 
 Full-label flags:
 
+- `--address "<US address>"` — score a house at **any US address** (geocoded via the keyless
+  Census geocoder to lat/lon + county + census tract). `--lat/--lon` also work anywhere.
 - `--json` — emit the complete nutrition label (all dimensions, composite, metrics) as JSON.
 - `--no-fetch` — skip the live location lookups; leave health/socioeconomic/walkability unscored.
 - `--health-index` / `--socioeconomic-index` / `--walk-score` — supply a location dimension directly instead of fetching it.
+
+**Any-location support:** the resolved location drives the location-dependent dimensions —
+health & socioeconomic are ranked within the address's *own county*, energy is scaled by the
+location's IECC climate zone, the flood zone is auto-derived from FEMA NFHL, and environmental
+uses a national-average grid factor. Disaster Resilience (seismic & tornado) and Infrastructure
+Burden are still calibrated to Memphis and are flagged *approximate* outside Shelby County
+(national generalization of those is in progress).
 
 The website nutrition label at [housinglabel.dev/label.html](https://housinglabel.dev/label.html) is generated from this simulator — regenerate its data with `python scripts/generate_label_data.py` (writes [`docs/data/sample-parcels.json`](docs/data/sample-parcels.json)).
 

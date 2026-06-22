@@ -267,9 +267,14 @@ def water_use_gal_yr(rmbed, fixbath, sfla, stories, calc_acre, acre_outlier) -> 
 
 
 # ── Per-parcel model ──────────────────────────────────────────────────────────
-def model_parcel_environment(row: pd.Series) -> dict:
+def model_parcel_environment(row: pd.Series,
+                             grid_factor: float = EF_GRID_KG_PER_KWH) -> dict:
     """Compute environmental-footprint metrics. Returns all-None when the parcel
-    has no living area (vacant / non-residential)."""
+    has no living area (vacant / non-residential).
+
+    `grid_factor` is the grid CO2 emission factor (kgCO2e/kWh) for the location;
+    defaults to the Shelby/TVA eGRID value used by the pilot pipeline.
+    """
     sfla = _num(row.get("SFLA"))
     if sfla is None or sfla <= 0:
         return {c: None for c in ENV_COLS}
@@ -279,7 +284,7 @@ def model_parcel_environment(row: pd.Series) -> dict:
     # --- Operational ---
     kwh    = _num(row.get("est_annual_kwh")) or 0.0
     therms = _num(row.get("est_annual_therms")) or 0.0
-    operational = kwh * EF_GRID_KG_PER_KWH + therms * EF_GAS_KG_PER_THERM
+    operational = kwh * grid_factor + therms * EF_GAS_KG_PER_THERM
     op_intensity = operational / floor_m2
 
     # --- Embodied (amortized over the shell's service life, not a flat period) ---
@@ -293,7 +298,7 @@ def model_parcel_environment(row: pd.Series) -> dict:
     water_gal, occupancy = water_use_gal_yr(
         row.get("RMBED"), row.get("FIXBATH"), sfla,
         row.get("STORIES"), row.get("CALC_ACRE"), row.get("acre_outlier"))
-    water_co2e = (water_gal / 1000.0) * WATER_EMBEDDED_KWH_PER_KGAL * EF_GRID_KG_PER_KWH
+    water_co2e = (water_gal / 1000.0) * WATER_EMBEDDED_KWH_PER_KGAL * grid_factor
     gpcd = water_gal / occupancy / 365.0
 
     total_co2e = operational + emb_annual + water_co2e

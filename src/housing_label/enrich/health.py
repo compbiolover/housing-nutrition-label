@@ -131,17 +131,19 @@ def _clean_tract(val) -> str | None:
 
 
 # ── CDC PLACES data fetch ──────────────────────────────────────────────────────
-def fetch_places_data() -> pd.DataFrame:
-    """Download and pivot CDC PLACES census-tract health data for Shelby County.
+def fetch_places_data(county_fips: str = COUNTY_FIPS) -> pd.DataFrame:
+    """Download and pivot CDC PLACES census-tract health data for a county.
 
     Returns a DataFrame indexed by locationid (11-digit GEOID) with one column
     per measure (crude prevalence %) plus a pre-computed health_index column.
-    The health_index is based on all Shelby County tracts so percentile ranks
+    The health_index is based on all of the county's tracts so percentile ranks
     reflect the full county distribution, not just the parcel sample.
+
+    `county_fips` is the 5-digit state+county GEOID (default: Shelby County).
     """
-    log.info("Fetching CDC PLACES data for Shelby County (FIPS %s) …", COUNTY_FIPS)
+    log.info("Fetching CDC PLACES data for county FIPS %s …", county_fips)
     params = {
-        "countyfips":      COUNTY_FIPS,
+        "countyfips":      county_fips,
         "datavaluetypeid": "CrdPrv",   # crude prevalence only (consistent type)
         "$select":         "locationid,measureid,data_value,year",
         "$limit":          50000,       # well above the ~200 tracts × 7 measures

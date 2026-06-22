@@ -1,0 +1,70 @@
+#!/usr/bin/env python3
+"""Offline tests for national location generalization (no network, no pytest).
+
+Run directly:  python tests/test_location.py
+"""
+
+import pandas as pd
+
+from housing_label.simulate.location import resolve_location, Location
+from housing_label.data.climate import climate_zone_for_county
+from housing_label.data.egrid import egrid_for_county, US_AVG_FACTOR_KG_PER_KWH
+from housing_label.enrich.energy import climate_zone_factor, model_parcel_energy
+
+
+def test_climate_zone_lookup():
+    assert climate_zone_for_county("47157") == "3A"     # Shelby County, TN
+    assert climate_zone_for_county("06037") == "3B"     # Los Angeles County, CA
+    assert climate_zone_for_county("17031") == "5A"     # Cook County, IL
+    assert climate_zone_for_county("99999") is None     # unknown
+    assert climate_zone_for_county(None) is None
+
+
+def test_egrid_default():
+    sub, factor = egrid_for_county("06037")
+    assert factor == US_AVG_FACTOR_KG_PER_KWH
+    assert "average" in sub.lower()
+
+
+def test_climate_zone_factor_ordering():
+    assert climate_zone_factor("4A") == 1.0             # baseline
+    assert climate_zone_factor(None) == 1.0             # missing → no scaling
+    assert climate_zone_factor("1A") < 1.0              # hot → less site energy
+    assert climate_zone_factor("7") > climate_zone_factor("5A") > 1.0   # colder → more
+
+
+def test_energy_scales_with_climate_zone():
+    row = pd.Series({"YRBLT": 2000, "SFLA": 2000})
+    hot = model_parcel_energy(row, "1A")["eui_kbtu_sqft_yr"]
+    base = model_parcel_energy(row, "4A")["eui_kbtu_sqft_yr"]
+    cold = model_parcel_energy(row, "7")["eui_kbtu_sqft_yr"]
+    assert hot < base < cold
+
+
+def test_location_dataclass_helpers():
+    loc = Location(lat=34.05, lon=-118.25, county_fips="06037",
+                   county_name="Los Angeles County", place_label="Los Angeles city")
+    assert loc.county3 == "037"
+    assert loc.label == "Los Angeles city"
+    bare = Location(lat=1.0, lon=2.0)
+    assert "1.0" in bare.label and "2.0" in bare.label   # falls back to coords
+
+
+def test_resolve_location_offline():
+    """Without network, lat/lon is preserved and geographies stay None (noted)."""
+    loc = resolve_location(lat=35.13, lon=-89.99, allow_network=False)
+    assert loc.lat == 35.13 and loc.lon == -89.99
+    assert loc.county_fips is None and loc.tract is None
+    assert "geocoder" in loc.notes
+
+
+def _run_all():
+    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
+    for t in tests:
+        t()
+        print(f"  ok  {t.__name__}")
+    print(f"\n{len(tests)} tests passed.")
+
+
+if __name__ == "__main__":
+    _run_all()

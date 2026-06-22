@@ -144,14 +144,15 @@ def build_parcel_row(cfg: dict) -> pd.Series:
     })
 
 
-def _adjusted_energy(cfg: dict, row: pd.Series) -> dict:
+def _adjusted_energy(cfg: dict, row: pd.Series, climate_zone: str | None = None) -> dict:
     """Run the energy model, then apply the high-performance feature factors.
 
     Returns the energy dict with eui / kwh / therms scaled, plus a separate
     ``env_kwh`` that additionally folds in the rooftop-solar offset for the
-    environmental operational-carbon calculation.
+    environmental operational-carbon calculation. ``climate_zone`` (IECC label)
+    scales the base EUI for the location; None falls back to the 4A baseline.
     """
-    energy = model_parcel_energy(row)
+    energy = model_parcel_energy(row, climate_zone)
     factor = 1.0
     factor *= ENVELOPE_EUI_FACTOR.get(cfg["construction"], 1.0)
     if cfg.get("passive_house"):
@@ -172,11 +173,16 @@ def _adjusted_energy(cfg: dict, row: pd.Series) -> dict:
 
 
 # ── Construction-driven dimensions (offline) ───────────────────────────────────
-def compute_construction_dimensions(cfg: dict) -> dict:
+def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
+                                    grid_factor: float | None = None) -> dict:
     """Compute energy / durability / environmental / infrastructure scores
-    (0–100, or None when the model cannot score the parcel)."""
+    (0–100, or None when the model cannot score the parcel).
+
+    ``climate_zone`` (IECC) scales the energy model; ``grid_factor`` (kgCO2e/kWh)
+    drives the environmental operational-carbon leg. Both fall back to the
+    Shelby/4A pilot defaults when None."""
     row = build_parcel_row(cfg)
-    energy = _adjusted_energy(cfg, row)
+    energy = _adjusted_energy(cfg, row, climate_zone)
 
     # Energy: lower EUI → higher score (same breakpoints as the pipeline).
     eui = energy.get("eui_kbtu_sqft_yr")
@@ -191,7 +197,8 @@ def compute_construction_dimensions(cfg: dict) -> dict:
     env_row = row.copy()
     env_row["est_annual_kwh"] = energy.get("env_kwh")
     env_row["est_annual_therms"] = energy.get("est_annual_therms")
-    env = model_parcel_environment(env_row)
+    env = (model_parcel_environment(env_row, grid_factor) if grid_factor is not None
+           else model_parcel_environment(env_row))
     environmental_score = env.get("environmental_score")
 
     # Infrastructure: fiscal ratio → score (higher ratio → higher score).
@@ -218,18 +225,18 @@ def compute_construction_dimensions(cfg: dict) -> dict:
 
 
 # ── Location-driven dimensions (live fetch, cached per process) ─────────────────
-@lru_cache(maxsize=1)
-def _places_table():
-    """County-wide CDC PLACES table (tract → health_index). Cached per process."""
+@lru_cache(maxsize=8)
+def _places_table(county_fips: str):
+    """CDC PLACES table (tract → health_index) for a county. Cached per process."""
     from housing_label.enrich import health as health_mod
-    return health_mod.fetch_places_data()
+    return health_mod.fetch_places_data(county_fips)
 
 
-@lru_cache(maxsize=1)
-def _acs_table():
-    """County-wide Census ACS table (tract → socioeconomic_index). Cached."""
+@lru_cache(maxsize=8)
+def _acs_table(state_fips: str, county3: str):
+    """Census ACS table (tract → socioeconomic_index) for a county. Cached."""
     from housing_label.enrich import socioeconomic as socio_mod
-    table, _vintage = socio_mod.fetch_acs_data(socio_mod.DEFAULT_YEAR)
+    table, _vintage = socio_mod.fetch_acs_data(socio_mod.DEFAULT_YEAR, state_fips, county3)
     return table
 
 
@@ -242,20 +249,25 @@ def _tract_for(lat: float, lon: float) -> str | None:
 def fetch_location_dimensions(
     lat: float,
     lon: float,
+    tract: str | None = None,
     *,
     allow_network: bool = True,
     overrides: dict | None = None,
 ) -> dict:
-    """Return {health, socioeconomic, walkability} scores for a lat/lon.
+    """Return {health, socioeconomic, walkability} scores for a location.
 
-    Manual ``overrides`` (e.g. a known walk score) always win. Otherwise each
-    dimension is fetched live; any failure yields ``None`` for that dimension
-    (excluded from the composite, never placeholdered). Also returns ``_tract``
-    and ``_notes`` describing what happened for each source.
+    ``tract`` is the 11-digit census-tract GEOID (from the location resolver); if
+    omitted it is geocoded from lat/lon. The county/state FIPS for the CDC PLACES
+    and Census ACS queries are derived from the tract (GEOID = state+county+tract),
+    so health and socioeconomic are ranked within that location's own county.
+
+    Manual ``overrides`` always win. Otherwise each dimension is fetched live; any
+    failure yields ``None`` for that dimension (excluded from the composite, never
+    placeholdered). Also returns ``_tract`` and ``_notes``.
     """
     overrides = overrides or {}
     out: dict = {"health": None, "socioeconomic": None, "walkability": None,
-                 "_tract": None, "_notes": {}}
+                 "_tract": tract, "_notes": {}}
     notes = out["_notes"]
 
     # Manual overrides first.
@@ -272,21 +284,21 @@ def fetch_location_dimensions(
             notes.setdefault(k, "skipped (--no-fetch)")
         return out
 
-    # Census tract (shared by health + socioeconomic).
-    tract = None
-    if need_tract:
+    # Census tract (shared by health + socioeconomic) — geocode only if needed.
+    if tract is None and need_tract:
         try:
             tract = _tract_for(round(float(lat), 6), round(float(lon), 6))
-            out["_tract"] = tract
         except Exception as exc:  # noqa: BLE001
             notes["health"] = notes.get("health") or f"geocoder failed: {exc}"
             notes["socioeconomic"] = notes.get("socioeconomic") or f"geocoder failed: {exc}"
+    out["_tract"] = tract
+    county5 = tract[:5] if tract else None       # state(2)+county(3) from GEOID
 
-    # Health (CDC PLACES percentile index for the tract).
+    # Health (CDC PLACES percentile index for the tract, ranked within its county).
     if out["health"] is None:
-        if tract:
+        if tract and county5:
             try:
-                table = _places_table()
+                table = _places_table(county5)
                 if tract in table.index and not pd.isna(table.loc[tract, "health_index"]):
                     out["health"] = round(float(table.loc[tract, "health_index"]), 1)
                     notes["health"] = f"CDC PLACES (tract {tract})"
@@ -303,9 +315,9 @@ def fetch_location_dimensions(
     if out["socioeconomic"] is None:
         if not os.environ.get("CENSUS_API_KEY", "").strip():
             notes["socioeconomic"] = "no CENSUS_API_KEY"
-        elif tract:
+        elif tract and county5:
             try:
-                table = _acs_table()
+                table = _acs_table(county5[:2], county5[2:])
                 if tract in table.index and not pd.isna(table.loc[tract, "socioeconomic_index"]):
                     out["socioeconomic"] = round(float(table.loc[tract, "socioeconomic_index"]), 1)
                     notes["socioeconomic"] = f"Census ACS (tract {tract})"
@@ -348,18 +360,38 @@ def simulate_all_dimensions(
     cfg: dict,
     resilience_score: float,
     *,
+    location=None,
     allow_network: bool = True,
     overrides: dict | None = None,
 ) -> dict:
     """Produce the complete nutrition label for a house config.
 
+    ``location`` is an optional resolved ``Location`` (see simulate/location.py);
+    when omitted it is resolved from cfg lat/lon. Its climate zone and grid factor
+    drive the energy/environmental models, and its census tract drives the
+    health/socioeconomic lookups so they rank within the location's own county.
+
     Returns a dict with an ordered ``dimensions`` list (each: key, label, score,
     national_grade, kind) plus the composite (mean of the scored dimensions) and
     the side metrics / fetch notes.
     """
-    construction = compute_construction_dimensions(cfg)
-    location = fetch_location_dimensions(
-        cfg["lat"], cfg["lon"], allow_network=allow_network, overrides=overrides
+    if location is None:
+        from housing_label.simulate.location import resolve_location
+        try:
+            location = resolve_location(lat=cfg["lat"], lon=cfg["lon"],
+                                        allow_network=allow_network)
+        except Exception:  # noqa: BLE001
+            location = None
+
+    climate_zone = location.climate_zone if location else None
+    grid_factor = location.egrid_factor if location else None
+    tract = location.tract if location else None
+
+    construction = compute_construction_dimensions(
+        cfg, climate_zone=climate_zone, grid_factor=grid_factor)
+    location_dims = fetch_location_dimensions(
+        cfg["lat"], cfg["lon"], tract,
+        allow_network=allow_network, overrides=overrides,
     )
 
     scores = {
@@ -368,9 +400,9 @@ def simulate_all_dimensions(
         "durability": construction["durability"],
         "environmental": construction["environmental"],
         "infrastructure": construction["infrastructure"],
-        "health": location["health"],
-        "socioeconomic": location["socioeconomic"],
-        "walkability": location["walkability"],
+        "health": location_dims["health"],
+        "socioeconomic": location_dims["socioeconomic"],
+        "walkability": location_dims["walkability"],
     }
 
     dims = []
@@ -393,6 +425,7 @@ def simulate_all_dimensions(
         "composite_national_grade": score_to_grade(composite) if composite is not None else "—",
         "n_scored": len(scored_vals),
         "metrics": construction["_metrics"],
-        "location_notes": location["_notes"],
-        "census_tract": location.get("_tract"),
+        "location_notes": location_dims["_notes"],
+        "census_tract": location_dims.get("_tract"),
+        "location": location,
     }
