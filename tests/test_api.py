@@ -9,7 +9,9 @@ def test_api_healthz_and_validation():
     try:
         from fastapi.testclient import TestClient
         from housing_label.api import app
-    except Exception:  # noqa: BLE001
+    except ImportError:
+        # Only skip when FastAPI/TestClient is genuinely unavailable — let any
+        # other import error (e.g. a bug in housing_label.api) fail the test.
         print("  skip test_api_healthz_and_validation (fastapi not installed)")
         return
     client = TestClient(app)

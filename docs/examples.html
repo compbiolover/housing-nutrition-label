@@ -53,7 +53,7 @@
   <p>Type any US address and pick a construction profile to generate a live nutrition label for that location &mdash; the same eight-dimension scoring the CLI produces. Health &amp; socioeconomic are ranked within the address's own county; energy uses the local climate zone; seismic and flood are pulled for the exact point.</p>
 
   <form class="addr-form" id="addr-form">
-    <input type="text" id="addr-input" placeholder="e.g. 111 S Grand Ave, Los Angeles, CA 90012" autocomplete="off">
+    <input type="text" id="addr-input" aria-label="US address to score" placeholder="e.g. 111 S Grand Ave, Los Angeles, CA 90012" autocomplete="off">
     <select id="addr-preset" aria-label="Construction profile">
       <option value="baseline">Baseline (2000 frame)</option>
       <option value="premium">Premium (2026 brick)</option>
@@ -378,10 +378,9 @@
   if (!API_BASE) note.style.display = "";
 
   var GRADE_COLORS = { A:"#22c55e", B:"#84cc16", C:"#eab308", D:"#f97316", F:"#ef4444" };
-  function fillClass(score) {            // map to style.css fill colors
-    if (score >= 80) return "green";
-    if (score >= 60) return "green";
-    if (score >= 40) return "yellow";
+  function fillClass(score) {            // map score to a style.css fill color
+    if (score >= 60) return "green";     // A & B share the green bar; the grade
+    if (score >= 40) return "yellow";    // badge carries the precise A/B/C/D/F color
     if (score >= 20) return "orange";
     return "red";
   }

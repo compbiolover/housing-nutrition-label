@@ -26,12 +26,35 @@ CORS is open by default (read-only GETs); narrow `allow_origins` for production.
 
 from __future__ import annotations
 
+import logging
 import os
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from housing_label.simulate.house import build_label_parts, label_payload
+from housing_label.simulate.house import (
+    build_label_parts, label_payload,
+    PRESETS, CONSTRUCTION_FACTOR, FOUNDATION_FACTOR, CONDITION_FACTOR,
+)
+
+log = logging.getLogger("housing_label.api")
+
+# Allowed query-param vocabularies (mirror the CLI's argparse choices).
+_CHOICES = {
+    "preset": set(PRESETS),
+    "construction": set(CONSTRUCTION_FACTOR),
+    "foundation": set(FOUNDATION_FACTOR),
+    "condition": set(CONDITION_FACTOR),
+    "flood_zone": {"X", "X500", "AE"},
+}
+
+
+def _validate(name: str, value: str | None) -> None:
+    allowed = _CHOICES[name]
+    if value is not None and value not in allowed:
+        raise HTTPException(
+            400, f"invalid {name}={value!r}; choose one of: {', '.join(sorted(allowed))}")
+
 
 app = FastAPI(title="Housing Nutrition Label API", version="0.1.0")
 app.add_middleware(
@@ -66,6 +89,10 @@ def label(
     """Return the full nutrition-label payload for an address or lat/lon."""
     if not address and (lat is None or lon is None):
         raise HTTPException(400, "Provide ?address= or both ?lat= and ?lon=")
+    for name, val in (("preset", preset), ("construction", construction),
+                      ("foundation", foundation), ("condition", condition),
+                      ("flood_zone", flood_zone)):
+        _validate(name, val)
     try:
         cfg, r, lbl = build_label_parts(
             address=address, lat=lat, lon=lon, preset=preset, flood_zone=flood_zone,
@@ -75,8 +102,9 @@ def label(
         )
     except ValueError as exc:
         raise HTTPException(400, str(exc))
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(502, f"scoring failed: {exc}")
+    except Exception:  # noqa: BLE001 — don't leak internals; log server-side
+        log.exception("scoring failed (address=%r lat=%r lon=%r)", address, lat, lon)
+        raise HTTPException(502, "scoring failed")
     return label_payload(cfg, r, lbl)
 
 

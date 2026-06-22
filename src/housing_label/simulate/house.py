@@ -1179,7 +1179,10 @@ def build_label_parts(*, address: str | None = None,
 
     location = None
     if address:
-        location = resolve_location(address=address, allow_network=allow_network)
+        try:
+            location = resolve_location(address=address, allow_network=allow_network)
+        except Exception as exc:  # noqa: BLE001 — surface as a clean validation error
+            raise ValueError(f"Could not geocode address {address!r}: {exc}") from exc
         lat, lon = location.lat, location.lon
     else:
         lat = lat if lat is not None else SHELBY_LAT
