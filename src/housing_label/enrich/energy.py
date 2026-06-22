@@ -107,6 +107,27 @@ BASE_EUI: dict[str, float] = {
     "unknown":   50.0,   # mid-range default when YRBLT is missing
 }
 
+# The BASE_EUI table above is calibrated to IECC climate zone 4A (Mixed-Humid,
+# the Shelby County pilot). For national use, scale site EUI by climate zone:
+# colder, heating-dominated zones consume more site energy; hot zones less.
+# Multipliers are relative to 4A (= 1.00); v1 estimates from RECS 2020 regional
+# site-energy intensity. Keyed on the leading IECC zone number (1–8).
+DEFAULT_CLIMATE_ZONE = "4A"
+ZONE_EUI_FACTOR: dict[int, float] = {
+    1: 0.85, 2: 0.90, 3: 0.95, 4: 1.00,
+    5: 1.10, 6: 1.22, 7: 1.38, 8: 1.55,
+}
+
+
+def climate_zone_factor(climate_zone: str | None) -> float:
+    """Map an IECC zone label (e.g. "5B") to a site-EUI multiplier vs. 4A."""
+    if not climate_zone:
+        return 1.0
+    try:
+        return ZONE_EUI_FACTOR.get(int(str(climate_zone).strip()[0]), 1.0)
+    except (ValueError, IndexError):
+        return 1.0
+
 # ── Vintage bin assignment ─────────────────────────────────────────────────────
 def vintage_bin(yrblt) -> str:
     """Map a year-built float to a ResStock-style vintage bin."""
@@ -243,20 +264,22 @@ ENERGY_COLS = [
 ]
 
 
-def model_parcel_energy(row: pd.Series) -> dict:
+def model_parcel_energy(row: pd.Series, climate_zone: str = DEFAULT_CLIMATE_ZONE) -> dict:
     """Compute energy metrics for a single parcel.
 
     Steps
     -----
-    1. Assign vintage bin → base EUI (kBTU/sqft/yr).
+    1. Assign vintage bin → base EUI (kBTU/sqft/yr), scaled by climate zone.
     2. Apply multiplicative adjustments: size, wall type, foundation, HVAC.
     3. Convert adjusted EUI × floor area → total annual kBTU.
     4. Split kBTU into electricity (kWh) and gas (therms) by fuel split.
-    5. Compute estimated monthly cost at MLGW/TVA rates.
+    5. Compute estimated monthly cost at utility rates.
+
+    `climate_zone` is an IECC zone label (e.g. "5B"); defaults to 4A (the pilot).
     """
-    # --- Vintage ---
+    # --- Vintage (base EUI is calibrated to 4A; scale for the actual zone) ---
     vbin = vintage_bin(row.get("YRBLT"))
-    base_eui = BASE_EUI[vbin]
+    base_eui = BASE_EUI[vbin] * climate_zone_factor(climate_zone)
 
     # --- Size ---
     sbin, area = size_bin(row.get("SFLA"))

@@ -443,6 +443,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--preset", choices=list(PRESETS.keys()), default=None,
                    help="Load a named preset profile (all fields can still be overridden).")
+    p.add_argument("--address", type=str, default=None,
+                   help="Free-text US address; geocoded to lat/lon + county/tract. "
+                        "Alternative to --lat/--lon for scoring a house anywhere.")
     p.add_argument("--lat", type=float, default=None, help="Latitude. Default: county center.")
     p.add_argument("--lon", type=float, default=None, help="Longitude. Default: county center.")
 
@@ -572,14 +575,13 @@ def resolve_config(args: argparse.Namespace) -> dict:
         elif key not in cfg:
             cfg[key] = GLOBAL_DEFAULTS[key]
 
-    # Flood zone: required unless preset provides it
+    # Flood zone: CLI > preset. If absent it is auto-derived from the location
+    # later (main), so it's no longer required up front.
     if args.flood_zone is not None:
         cfg["flood_zone"] = args.flood_zone
-    elif "flood_zone" not in cfg:
-        print("ERROR: --flood-zone is required when not using a preset.", file=sys.stderr)
-        sys.exit(1)
 
-    # Location: default to county center if not provided
+    # Location: default to county center if not provided. (When --address is used,
+    # main() geocodes it and sets args.lat/args.lon before calling resolve_config.)
     cfg["lat"] = args.lat if args.lat is not None else SHELBY_LAT
     cfg["lon"] = args.lon if args.lon is not None else SHELBY_LON
 
@@ -945,6 +947,49 @@ def print_scorecard(cfg: dict, r: dict) -> None:
 
 # ── Full nutrition label (all dimensions) ───────────────────────────────────────
 
+# Shelby County (Memphis) — the region the seismic/tornado/infrastructure models
+# are calibrated to. Those dimensions are flagged approximate everywhere else
+# until the national generalization (Phase 2) lands.
+CALIBRATED_COUNTY_FIPS = "47157"
+
+
+def _approx_caveats(location) -> list[str]:
+    """Caveats for dimensions not yet location-generalized.
+
+    Three cases: a confirmed Shelby location (none), a confirmed non-Shelby
+    location (the dimensions are approximate), and an unresolved county
+    (we can't confirm — flag it without falsely asserting 'outside Shelby')."""
+    fips = getattr(location, "county_fips", None) if location is not None else None
+    if fips == CALIBRATED_COUNTY_FIPS:
+        return []
+    if fips is None:
+        return [
+            "Location county could not be resolved, so it can't be confirmed as "
+            "Shelby: Disaster Resilience (seismic & tornado) and Infrastructure "
+            "Burden are calibrated to Memphis and may be approximate here.",
+        ]
+    return [
+        "Disaster Resilience (seismic & tornado components) and Infrastructure "
+        "Burden remain calibrated to Memphis (New Madrid seismic zone, Shelby "
+        "budget); treat them as rough estimates here. Environmental uses a "
+        "national-average grid factor.",
+    ]
+
+
+def _wrap(text: str, width: int) -> list[str]:
+    """Greedy word-wrap to `width` columns."""
+    words, lines, cur = text.split(), [], ""
+    for w in words:
+        t = f"{cur} {w}".strip()
+        if len(t) > width and cur:
+            lines.append(cur); cur = w
+        else:
+            cur = t
+    if cur:
+        lines.append(cur)
+    return lines
+
+
 def print_label(cfg: dict, label: dict) -> None:
     """Print the full multi-dimension nutrition label below the resilience card."""
     INNER = 64
@@ -958,6 +1003,14 @@ def print_label(cfg: dict, label: dict) -> None:
     print(TOP)
     print(row("  FULL NUTRITION LABEL — ALL DIMENSIONS"))
     print(row(f"  {label['n_scored']} of 8 dimensions scored (location data optional)"))
+    loc = label.get("location")
+    if loc is not None:
+        place = (loc.label or "")[:34]
+        cz = loc.climate_zone or "—"
+        grid = loc.egrid_factor if loc.egrid_factor is not None else "—"
+        print(row(f"  Location: {place}"))
+        print(row(f"    IECC zone {cz}  ·  grid {grid} kgCO2e/kWh  ·  "
+                  f"tract {label.get('census_tract') or '—'}"))
     print(SEP)
     print(row(f"  {'Dimension':<24}{'Score':>8}  {'Grade':<6}{'Profile':<20}"))
     print(row(f"  {'─'*58}"))
@@ -997,6 +1050,15 @@ def print_label(cfg: dict, label: dict) -> None:
             if d["score"] is None:
                 note = label["location_notes"].get(d["key"], "unavailable")
                 print(row(f"    • {d['label']:<22}: {note}"))
+
+    # Honest caveat: some dimensions are not yet location-generalized.
+    caveats = _approx_caveats(label.get("location"))
+    if caveats:
+        print(row(f"    {'─'*54}"))
+        print(row("  ⚠ Approximate outside Shelby County:"))
+        for c in caveats:
+            for line in _wrap(c, 58):
+                print(row(f"    {line}"))
     print(BOT)
     print()
 
@@ -1026,20 +1088,72 @@ def emit_json(cfg: dict, r: dict, label: dict) -> None:
         "location_notes": label["location_notes"],
         "total_loss": round(r["total_loss"], 2),
     }
+    loc = label.get("location")
+    if loc is not None:
+        payload["location"] = {
+            "label": loc.label,
+            "county_fips": loc.county_fips,
+            "county_name": loc.county_name,
+            "climate_zone": loc.climate_zone,
+            "egrid_subregion": loc.egrid_subregion,
+            "egrid_factor": loc.egrid_factor,
+            "in_urban_area": loc.in_urban_area,
+            "notes": loc.notes,
+        }
+    payload["caveats"] = _approx_caveats(loc)
     print(json.dumps(payload, indent=2))
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 
+_RISK_TO_ZONE = {"high": "AE", "moderate": "X500", "minimal": "X"}
+
+
+def _auto_flood_zone(lat: float, lon: float, allow_network: bool) -> str:
+    """Derive a flood zone (X/X500/AE) from the location via FEMA NFHL; default X."""
+    if not allow_network:
+        return "X"
+    try:
+        from housing_label.enrich.fema_flood import fetch_flood_zone
+        risk = fetch_flood_zone(lat, lon).get("flood_risk")
+    except Exception:  # noqa: BLE001
+        risk = None
+    return _RISK_TO_ZONE.get(risk, "X")
+
+
 def main() -> None:
     parser = build_parser()
     args   = parser.parse_args()
 
-    if args.preset is None and args.flood_zone is None:
-        parser.error("--flood-zone is required when not using --preset.")
+    from housing_label.simulate.location import resolve_location
+    allow_network = not args.no_fetch
+
+    # Resolve the location: an address geocodes to lat/lon + county/tract; a
+    # lat/lon (or the Shelby default) reverse-geocodes to county/tract + climate.
+    location = None
+    if args.address:
+        if not allow_network:
+            parser.error("--address requires network access (omit --no-fetch).")
+        try:
+            location = resolve_location(address=args.address, allow_network=True)
+        except Exception as exc:  # noqa: BLE001
+            parser.error(f"Could not geocode --address: {exc}")
+        args.lat, args.lon = location.lat, location.lon
+    else:
+        lat = args.lat if args.lat is not None else SHELBY_LAT
+        lon = args.lon if args.lon is not None else SHELBY_LON
+        try:
+            location = resolve_location(lat=lat, lon=lon, allow_network=allow_network)
+        except Exception:  # noqa: BLE001
+            location = None
 
     cfg = resolve_config(args)
-    r   = simulate(cfg)
+
+    # Auto-derive the flood zone from the location when not supplied via CLI/preset.
+    if "flood_zone" not in cfg:
+        cfg["flood_zone"] = _auto_flood_zone(cfg["lat"], cfg["lon"], allow_network)
+
+    r = simulate(cfg)
 
     overrides = {
         "health":        args.health_index,
@@ -1048,7 +1162,8 @@ def main() -> None:
     }
     label = simulate_all_dimensions(
         cfg, r["total_score"],
-        allow_network=not args.no_fetch,
+        location=location,
+        allow_network=allow_network,
         overrides=overrides,
     )
 

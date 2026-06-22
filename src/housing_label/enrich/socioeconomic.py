@@ -163,13 +163,16 @@ def _safe_div(num: pd.Series, den: pd.Series) -> pd.Series:
 
 
 # ── Census ACS data fetch ──────────────────────────────────────────────────────
-def fetch_acs_data(year: int) -> tuple[pd.DataFrame, int]:
-    """Download ACS5 tract-level socioeconomic data for Shelby County.
+def fetch_acs_data(year: int, state_fips: str = STATE_FIPS,
+                   county_fips: str = COUNTY_FIPS) -> tuple[pd.DataFrame, int]:
+    """Download ACS5 tract-level socioeconomic data for a county.
 
     Tries the requested `year` and steps back up to YEAR_FALLBACK vintages if
     that release is not yet published.  Returns a DataFrame indexed by 11-digit
     tract GEOID with the headline metrics plus a pre-computed socioeconomic_index
     (percentile-ranked across all county tracts), and the vintage actually used.
+
+    `state_fips` (2-digit) and `county_fips` (3-digit) default to Shelby County.
     """
     api_key = os.environ.get("CENSUS_API_KEY")
     if api_key:
@@ -181,13 +184,13 @@ def fetch_acs_data(year: int) -> tuple[pd.DataFrame, int]:
         params = {
             "get": "NAME," + ",".join(ACS_VARS),
             "for": "tract:*",
-            "in":  f"state:{STATE_FIPS} county:{COUNTY_FIPS}",
+            "in":  f"state:{state_fips} county:{county_fips}",
         }
         if api_key:
             params["key"] = api_key
 
-        log.info("Fetching ACS5 %d data for Shelby County (FIPS %s%s) …",
-                 yr, STATE_FIPS, COUNTY_FIPS)
+        log.info("Fetching ACS5 %d data for FIPS %s%s …",
+                 yr, state_fips, county_fips)
         try:
             records = _acs_get(url, params)
         except Exception as exc:                       # noqa: BLE001
