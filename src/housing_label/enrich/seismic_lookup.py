@@ -8,7 +8,8 @@ the stable interior), unlike the old New-Madrid-only model.
 
 Fallback: a bundled coarse national PGA grid (``seismic_pga_grid.csv``),
 inverse-distance interpolated, for offline / API-outage use. If neither source
-is available, ``get_pga`` returns None and the caller leaves seismic unscored.
+is available, ``get_pga`` returns None; the caller decides how to proceed (the
+CLI simulator falls back to the legacy New Madrid model in that case).
 
 The 10%/50yr value is derived from the 2%/50yr value via a national ratio (the
 downstream EAL model only needs two points on the hazard curve).
@@ -97,7 +98,8 @@ def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 
 # ── Public API ──────────────────────────────────────────────────────────────────
-def get_pga(lat: float, lon: float, allow_network: bool = True) -> tuple | None:
+def get_pga(lat: float, lon: float,
+            allow_network: bool = True) -> tuple[float, float, str] | None:
     """Return (pga_2pct, pga_10pct, source) for a lat/lon, or None if unavailable.
 
     Tries the live USGS service first, then the bundled grid.

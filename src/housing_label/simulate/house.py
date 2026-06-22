@@ -54,12 +54,9 @@ SPC_DATA_YEARS = 74     # SPC database covers 1950–2023
 RADIUS_25_MI   = 25.0   # search radius for tornado count
 SHELBY_LAT     = 35.15  # default location when none is supplied
 SHELBY_LON     = -89.98
-BBOX_DEG       = 0.50   # ±0.50° ≈ 34 mi coarse pre-filter around the query point
+BBOX_DEG       = 0.50   # ±0.50° lat ≈ 34 mi coarse pre-filter (lon widened by 1/cos(lat))
 # Fallback tornado rate used only if the national SPC dataset can't be loaded.
 NATIONAL_AVG_TORNADO_RATE = 0.5
-
-# Fallback when SPC cache is unavailable; empirical median from scored dataset.
-COUNTY_AVG_TORNADO_RATE = 1.30  # tornadoes/yr within 25 mi (median of 1,000 parcels)
 
 # ── Flood EAL rates (score_resilience.py) ─────────────────────────────────────
 # AEP × mean damage ratio per FEMA NFIP actuarial data.
@@ -378,9 +375,12 @@ def compute_tornado_rate(lat: float, lon: float,
         return NATIONAL_AVG_TORNADO_RATE, "national average (SPC dataset unavailable)"
 
     # Coarse bbox pre-filter around the query point, then exact distance.
+    # Longitude degrees shrink with latitude, so widen the lon half-window by
+    # 1/cos(lat) (clamped) to keep the bbox a safe superset of the 25-mi radius.
+    lon_margin = BBOX_DEG / max(math.cos(math.radians(lat)), 0.2)
     nearby = df[
         df["slat"].between(lat - BBOX_DEG, lat + BBOX_DEG) &
-        df["slon"].between(lon - BBOX_DEG, lon + BBOX_DEG)
+        df["slon"].between(lon - lon_margin, lon + lon_margin)
     ]
     if nearby.empty:
         return 0.0, "SPC 1950-2023 (0 tornadoes in 25 mi)"
@@ -659,8 +659,10 @@ def simulate(cfg: dict) -> dict:
 
     # ── Hazard parameters from location ───────────────────────────────────────
     # Seismic: national USGS lookup (any US location); fall back to the New Madrid
-    # model only if USGS and the bundled grid are both unavailable.
-    allow_network = cfg.get("allow_network", True)
+    # model only if USGS and the bundled grid are both unavailable. Network is
+    # off by default so simulate() stays offline-safe for callers that don't opt
+    # in (tests, batch scripts); main() sets cfg["allow_network"] for the CLI.
+    allow_network = cfg.get("allow_network", False)
     pga = get_pga(cfg["lat"], cfg["lon"], allow_network=allow_network)
     if pga is not None:
         pga_2pct, pga_10pct, pga_source = pga
