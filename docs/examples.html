@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Examples &mdash; Housing Nutrition Label</title>
   <link rel="stylesheet" href="style.css">
+  <!-- Default scoring API for the address search (override per-visit with ?api=...). -->
+  <script>window.HOUSING_LABEL_API = "https://housing-nutrition-label.onrender.com"</script>
   <style>
     /* Address search */
     .addr-form { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 1rem 0; }
@@ -29,6 +31,7 @@
     .addr-upgrades label { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; }
     .addr-upgrades input { width: auto; }
     #addr-status { color: var(--muted); font-size: 0.9rem; margin: 0.25rem 0; min-height: 1.2em; }
+    .addr-privacy { color: var(--muted); font-size: 0.8rem; margin: 0.25rem 0; }
     #addr-result { max-width: 640px; }
     #addr-result .label-card { background: var(--card); border: 2px solid var(--navy);
       border-radius: var(--radius); padding: 1.25rem 1.5rem; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
@@ -113,6 +116,7 @@
     </fieldset>
   </details>
 
+  <p id="addr-api-default" class="addr-privacy" style="display:none;"></p>
   <div class="insight warn" id="addr-api-active" style="display:none;"></div>
   <div id="addr-status"></div>
   <div id="addr-result"></div>
@@ -425,19 +429,27 @@
   var btn    = document.getElementById("addr-btn");
   var status = document.getElementById("addr-status");
   var result = document.getElementById("addr-result");
-  var note   = document.getElementById("addr-config-note");
-  var active = document.getElementById("addr-api-active");
+  var note    = document.getElementById("addr-config-note");
+  var active  = document.getElementById("addr-api-active");
+  var dfltMsg = document.getElementById("addr-api-default");
+
+  function apiHost() {
+    try { return new URL(API_BASE).host || API_BASE; } catch (e) { return API_BASE; }
+  }
 
   if (!API_BASE) {
     note.style.display = "";
   } else if (apiFromQuery) {
     // The endpoint was supplied via the URL (?api=...). Surface where the typed
     // address will be sent so a shared link can't silently exfiltrate it.
-    var host = API_BASE;
-    try { host = new URL(API_BASE).host || API_BASE; } catch (e) {}
-    active.textContent = "Heads up: addresses you enter are sent to the API at " + host
+    active.textContent = "Heads up: addresses you enter are sent to the API at " + apiHost()
       + " (set via this link's ?api= parameter).";
     active.style.display = "";
+  } else {
+    // Site default endpoint — a quieter, neutral disclosure of where data goes.
+    dfltMsg.textContent = "Addresses you enter are sent to our scoring API ("
+      + apiHost() + ") to look up location data.";
+    dfltMsg.style.display = "";
   }
 
   var GRADE_COLORS = { A:"#22c55e", B:"#84cc16", C:"#eab308", D:"#f97316", F:"#ef4444" };
