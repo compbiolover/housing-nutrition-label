@@ -185,8 +185,11 @@ export CENSUS_API_KEY=... WALKSCORE_API_KEY=...   # optional, for the full 8 dim
 housing-api                            # GET /label?address=... (or ?lat=&lon=), GET /healthz
 ```
 
-Deploy it anywhere that runs Python (GitHub Pages can't host it), then point the Examples-page
-search bar at it with `?api=https://your-api-host` or `window.HOUSING_LABEL_API`. See
+Deploy it anywhere that runs Python (GitHub Pages can't host it). The repo ships a
+[`render.yaml`](render.yaml) Blueprint and a [`Dockerfile`](Dockerfile) (Fly / Cloud Run /
+Railway / any container host). CORS is locked to `https://housinglabel.dev` by default —
+override via the `ALLOWED_ORIGINS` env var. Then point the Examples-page search bar at the
+deployed URL with `?api=https://your-api-host` or `window.HOUSING_LABEL_API`. See
 [`docs/setup.html`](docs/setup.html) → *Address-search API*.
 
 ## Tech Stack
