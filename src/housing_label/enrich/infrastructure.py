@@ -278,8 +278,19 @@ def _fire_dist_multiplier(dist_mi: float) -> float:
 # Row-level enrichment
 # ══════════════════════════════════════════════════════════════════════════════
 
-def enrich_row(row: pd.Series) -> pd.Series:
-    """Compute all infrastructure cost fields for a single parcel row."""
+def enrich_row(row: pd.Series, *,
+               core_lat: float = MEMPHIS_CORE_LAT,
+               core_lon: float = MEMPHIS_CORE_LON,
+               assess_ratio: float = RESIDENTIAL_ASSESS_RATIO,
+               tax_rate: float = CITY_TAX_RATE,
+               in_urban_area: bool | None = None) -> pd.Series:
+    """Compute all infrastructure cost fields for a single parcel row.
+
+    Memphis defaults reproduce the Shelby pilot. For other locations the simulator
+    passes a national-average parameterization: a national effective property-tax
+    rate (``assess_ratio`` × ``tax_rate``) and, when ``in_urban_area`` is given,
+    an urban/rural fire multiplier in place of distance-to-the-Memphis-core.
+    """
 
     # ── Density metric ─────────────────────────────────────────────────────────
     acres = row["CALC_ACRE"]
@@ -289,18 +300,19 @@ def enrich_row(row: pd.Series) -> pd.Series:
     # Assuming 1 dwelling unit per parcel (single-family / DWELDAT record)
     lot_density = 1.0 / acres   # DU/acre
 
-    # ── Distance to Memphis city center ────────────────────────────────────────
-    lat = row["latitude"]
-    lon = row["longitude"]
-    if pd.isna(lat) or pd.isna(lon):
-        dist_mi = 5.0   # use mid-range default if coordinates missing
+    # ── Fire service multiplier: urban-area flag (national) or core distance ────
+    if in_urban_area is not None:
+        fire_mult = FIRE_DIST_MULTIPLIER_MID if in_urban_area else FIRE_DIST_MULTIPLIER_OUTER
     else:
-        dist_mi = haversine_miles(lat, lon, MEMPHIS_CORE_LAT, MEMPHIS_CORE_LON)
+        lat, lon = row["latitude"], row["longitude"]
+        dist_mi = (5.0 if pd.isna(lat) or pd.isna(lon)
+                   else haversine_miles(lat, lon, core_lat, core_lon))
+        fire_mult = _fire_dist_multiplier(dist_mi)
 
     # ── Cost components ────────────────────────────────────────────────────────
     cost_roads       = tiered_cost(lot_density, ROAD_COST_BY_DENSITY)
     cost_water_sewer = tiered_cost(lot_density, WATER_SEWER_COST_BY_DENSITY)
-    cost_fire        = FIRE_BASE_COST * _fire_dist_multiplier(dist_mi)
+    cost_fire        = FIRE_BASE_COST * fire_mult
     cost_police      = police_cost(POLICE_BASE_COST, lot_density)
     cost_sanitation  = float(SANITATION_COST)
     cost_parks       = float(PARKS_OTHER_COST)
@@ -314,7 +326,7 @@ def enrich_row(row: pd.Series) -> pd.Series:
     appraised = row["RTOTAPR"]
     if pd.isna(appraised) or appraised <= 0:
         appraised = 0.0
-    est_tax = appraised * RESIDENTIAL_ASSESS_RATIO * CITY_TAX_RATE
+    est_tax = appraised * assess_ratio * tax_rate
 
     # ── Fiscal balance ─────────────────────────────────────────────────────────
     fiscal_bal = est_tax - total_infra

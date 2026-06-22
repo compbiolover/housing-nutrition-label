@@ -153,11 +153,12 @@ Full-label flags:
 - `--health-index` / `--socioeconomic-index` / `--walk-score` — supply a location dimension directly instead of fetching it.
 
 **Any-location support:** the resolved location drives the location-dependent dimensions —
-health & socioeconomic are ranked within the address's *own county*, energy is scaled by the
-location's IECC climate zone, the flood zone is auto-derived from FEMA NFHL, and environmental
-uses a national-average grid factor. Disaster Resilience (seismic & tornado) and Infrastructure
-Burden are still calibrated to Memphis and are flagged *approximate* outside Shelby County
-(national generalization of those is in progress).
+health & socioeconomic are ranked within the address's *own county*; energy is scaled by the
+location's IECC climate zone; the flood zone is auto-derived from FEMA NFHL; **Disaster
+Resilience uses live USGS seismic hazard** (2%/50yr PGA, with a bundled national fallback grid)
+and the **national SPC tornado record** within 25 mi of the point. Infrastructure Burden uses a
+national-average cost model outside Shelby (flagged as an estimate), and Environmental uses a
+national-average grid factor (eGRID-subregion precision is a later refinement).
 
 The website nutrition label at [housinglabel.dev/label.html](https://housinglabel.dev/label.html) is generated from this simulator — regenerate its data with `python scripts/generate_label_data.py` (writes [`docs/data/sample-parcels.json`](docs/data/sample-parcels.json)).
 
