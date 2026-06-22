@@ -21,6 +21,30 @@ def test_api_healthz_and_validation():
     assert client.get("/label").status_code == 400
 
 
+def test_cors_default_allowlist():
+    """CORS must echo Access-Control-Allow-Origin for the configured origin and
+    omit it for others — guards against regressing back to a wildcard."""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_cors_default_allowlist (fastapi not installed)")
+        return
+    import os
+    from housing_label.api import app, ALLOWED_ORIGINS
+    # With no override, the default must lock to the production site (not "*").
+    if not os.environ.get("ALLOWED_ORIGINS"):
+        assert ALLOWED_ORIGINS == ["https://housinglabel.dev"], ALLOWED_ORIGINS
+    assert "*" not in ALLOWED_ORIGINS, "CORS must not be a wildcard"
+    client = TestClient(app)
+
+    ok_origin = ALLOWED_ORIGINS[0]
+    allowed = client.get("/healthz", headers={"Origin": ok_origin})
+    assert allowed.headers.get("access-control-allow-origin") == ok_origin
+
+    blocked = client.get("/healthz", headers={"Origin": "https://evil.example"})
+    assert blocked.headers.get("access-control-allow-origin") is None
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

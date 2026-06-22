@@ -21,7 +21,8 @@ Endpoints::
         optional: preset, construction, year_built, foundation, condition,
                   value, units, sqft, lot_acres, flood_zone
 
-CORS is open by default (read-only GETs); narrow `allow_origins` for production.
+CORS is restricted to https://housinglabel.dev by default; set the
+ALLOWED_ORIGINS env var (comma-separated) to allow other origins or local dev.
 """
 
 from __future__ import annotations
