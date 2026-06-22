@@ -58,6 +58,31 @@ def test_resolve_location_offline():
     assert "geocoder" in loc.notes
 
 
+def test_get_pga_applies_ratio():
+    """get_pga returns (2%/50yr, 10%/50yr, source) with the documented ratio."""
+    import housing_label.enrich.seismic_lookup as sl
+    sl._usgs_pga.cache_clear()
+    orig = sl._usgs_pga
+    sl._usgs_pga = lambda lat, lon: 0.80          # stub the live lookup
+    try:
+        pga2, pga10, source = sl.get_pga(34.0, -118.0)
+        assert pga2 == 0.8
+        assert abs(pga10 - 0.8 * sl.PGA_10_2_RATIO) < 1e-9
+        assert "USGS" in source
+    finally:
+        sl._usgs_pga = orig
+        sl._usgs_pga.cache_clear()
+
+
+def test_get_pga_offline_no_grid_is_none():
+    """With network off and no bundled grid, get_pga returns None (caller then
+    falls back), never a fabricated value."""
+    import housing_label.enrich.seismic_lookup as sl
+    if sl._GRID_CSV.exists():
+        return  # a bundled grid is present; offline would interpolate, skip
+    assert sl.get_pga(34.0, -118.0, allow_network=False) is None
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

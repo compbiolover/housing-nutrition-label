@@ -89,6 +89,12 @@ PASSIVE_HOUSE_EUI_FACTOR = 0.55
 # for the energy-efficiency dimension. ~70% of annual electricity offset.
 SOLAR_OPERATIONAL_REMAINING = 0.30
 
+# Infrastructure: Shelby keeps its Memphis calibration; elsewhere a national model
+# applies. National effective property-tax rate ≈ 1.1% of market value (US median;
+# applied with assess_ratio 1.0).
+SHELBY_COUNTY_FIPS = "47157"
+NATIONAL_EFFECTIVE_TAX_RATE = 0.011
+
 # Dimension display order / labels (mirrors score/all_dimensions, climate aside).
 DIMENSIONS = [
     ("resilience",     "Disaster Resilience"),
@@ -174,13 +180,15 @@ def _adjusted_energy(cfg: dict, row: pd.Series, climate_zone: str | None = None)
 
 # ── Construction-driven dimensions (offline) ───────────────────────────────────
 def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
-                                    grid_factor: float | None = None) -> dict:
+                                    grid_factor: float | None = None,
+                                    infra_params: dict | None = None) -> dict:
     """Compute energy / durability / environmental / infrastructure scores
     (0–100, or None when the model cannot score the parcel).
 
     ``climate_zone`` (IECC) scales the energy model; ``grid_factor`` (kgCO2e/kWh)
-    drives the environmental operational-carbon leg. Both fall back to the
-    Shelby/4A pilot defaults when None."""
+    drives the environmental operational-carbon leg; ``infra_params`` overrides the
+    Memphis infrastructure calibration with a national-average one. All fall back
+    to the Shelby/4A pilot defaults when None."""
     row = build_parcel_row(cfg)
     energy = _adjusted_energy(cfg, row, climate_zone)
 
@@ -202,7 +210,7 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
     environmental_score = env.get("environmental_score")
 
     # Infrastructure: fiscal ratio → score (higher ratio → higher score).
-    infra = infra_enrich_row(row)
+    infra = infra_enrich_row(row, **infra_params) if infra_params else infra_enrich_row(row)
     fr = infra.get("fiscal_ratio")
     infrastructure_score = (
         round(_loglin(fr, INFRA_XS, INFRA_YS), 1)
@@ -387,8 +395,19 @@ def simulate_all_dimensions(
     grid_factor = location.egrid_factor if location else None
     tract = location.tract if location else None
 
+    # Infrastructure: national-average model for confirmed non-Shelby locations;
+    # the Memphis calibration is kept for Shelby (and when the county is unknown).
+    infra_params = None
+    if location and location.county_fips and location.county_fips != SHELBY_COUNTY_FIPS:
+        infra_params = {
+            "assess_ratio": 1.0,
+            "tax_rate": NATIONAL_EFFECTIVE_TAX_RATE,
+            "in_urban_area": bool(location.in_urban_area),
+        }
+
     construction = compute_construction_dimensions(
-        cfg, climate_zone=climate_zone, grid_factor=grid_factor)
+        cfg, climate_zone=climate_zone, grid_factor=grid_factor,
+        infra_params=infra_params)
     location_dims = fetch_location_dimensions(
         cfg["lat"], cfg["lon"], tract,
         allow_network=allow_network, overrides=overrides,

@@ -95,6 +95,8 @@ def main() -> None:
     notes = {}
     for name, preset, description in WEBSITE_PRESETS:
         cfg = _cfg_for(preset)
+        # Gate the live seismic/tornado lookups in simulate() (offline by default).
+        cfg["allow_network"] = not args.no_fetch
         r = simulate(cfg)
         label = simulate_all_dimensions(
             cfg, r["total_score"],

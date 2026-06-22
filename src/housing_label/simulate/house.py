@@ -33,6 +33,7 @@ import numpy as np
 import pandas as pd
 
 from housing_label.simulate.dimensions import simulate_all_dimensions
+from housing_label.enrich.seismic_lookup import get_pga
 
 # ── File paths ─────────────────────────────────────────────────────────────────
 BASE_DIR   = pathlib.Path(__file__).resolve().parents[3]   # repo root; data lives here
@@ -51,12 +52,11 @@ ALLUVIUM_LON_THRESH = -89.95   # west of this → deeper alluvial soils (+5% PGA
 # ── Tornado constants (enrich_tornado.py) ─────────────────────────────────────
 SPC_DATA_YEARS = 74     # SPC database covers 1950–2023
 RADIUS_25_MI   = 25.0   # search radius for tornado count
-SHELBY_LAT     = 35.15  # county center (bbox pre-filter reference)
+SHELBY_LAT     = 35.15  # default location when none is supplied
 SHELBY_LON     = -89.98
-BBOX_DEG       = 0.50   # ±0.50° ≈ 34 mi coarse pre-filter around county
-
-# Fallback when SPC cache is unavailable; empirical median from scored dataset.
-COUNTY_AVG_TORNADO_RATE = 1.30  # tornadoes/yr within 25 mi (median of 1,000 parcels)
+BBOX_DEG       = 0.50   # ±0.50° lat ≈ 34 mi coarse pre-filter (lon widened by 1/cos(lat))
+# Fallback tornado rate used only if the national SPC dataset can't be loaded.
+NATIONAL_AVG_TORNADO_RATE = 0.5
 
 # ── Flood EAL rates (score_resilience.py) ─────────────────────────────────────
 # AEP × mean damage ratio per FEMA NFIP actuarial data.
@@ -329,24 +329,61 @@ def compute_seismic_pga(lat: float, lon: float) -> tuple[float, float, float]:
     )
 
 
-def compute_tornado_rate(lat: float, lon: float) -> tuple[float, str]:
-    """
-    Return (avg_tornadoes_per_yr_25mi, source_note).
-    Uses cached SPC data if available; otherwise falls back to county average.
-    """
-    if not SPC_CACHE.exists():
-        return COUNTY_AVG_TORNADO_RATE, "county average (SPC cache not found)"
+_SPC_DF = None   # process cache for the national SPC tornado table
 
+
+def _load_spc(allow_network: bool = True):
+    """Load the national SPC tornado table, downloading + caching it if needed.
+
+    Returns a cleaned DataFrame (slat/slon floats) or None if unavailable.
+    """
+    global _SPC_DF
+    if _SPC_DF is not None:
+        return _SPC_DF
+    if not SPC_CACHE.exists() and allow_network:
+        try:
+            import requests
+            from housing_label.config import SPC_TORNADO_URL, HEADERS, TIMEOUT
+            r = requests.get(SPC_TORNADO_URL, headers=HEADERS, timeout=TIMEOUT)
+            r.raise_for_status()
+            SPC_CACHE.write_bytes(r.content)
+        except Exception:  # noqa: BLE001
+            return None
+    if not SPC_CACHE.exists():
+        return None
     df = pd.read_csv(SPC_CACHE, low_memory=False)
     df.columns = df.columns.str.strip()
     df = df[df["slat"].notna() & df["slon"].notna() & (df["slat"] != 0)].copy()
     df["slat"] = df["slat"].astype(float)
     df["slon"] = df["slon"].astype(float)
+    _SPC_DF = df
+    return df
 
+
+def compute_tornado_rate(lat: float, lon: float,
+                         allow_network: bool = True) -> tuple[float, str]:
+    """
+    Return (avg_tornadoes_per_yr_25mi, source_note) for any US location.
+
+    Counts historical SPC tornado touchdowns within 25 mi of the point (over the
+    national 1950–2023 record) and divides by the record length. The national SPC
+    dataset is downloaded and cached on first use. Falls back to a national
+    average only if the dataset is unavailable.
+    """
+    df = _load_spc(allow_network)
+    if df is None:
+        return NATIONAL_AVG_TORNADO_RATE, "national average (SPC dataset unavailable)"
+
+    # Coarse bbox pre-filter around the query point, then exact distance.
+    # Longitude degrees shrink with latitude, so widen the lon half-window by
+    # 1/cos(lat) (clamped) to keep the bbox a safe superset of the 25-mi radius.
+    lon_margin = BBOX_DEG / max(math.cos(math.radians(lat)), 0.2)
     nearby = df[
-        df["slat"].between(SHELBY_LAT - BBOX_DEG, SHELBY_LAT + BBOX_DEG) &
-        df["slon"].between(SHELBY_LON - BBOX_DEG, SHELBY_LON + BBOX_DEG)
+        df["slat"].between(lat - BBOX_DEG, lat + BBOX_DEG) &
+        df["slon"].between(lon - lon_margin, lon + lon_margin)
     ]
+    if nearby.empty:
+        return 0.0, "SPC 1950-2023 (0 tornadoes in 25 mi)"
     dists = nearby.apply(
         lambda row: haversine_miles(lat, lon, row["slat"], row["slon"]), axis=1
     )
@@ -621,11 +658,25 @@ def simulate(cfg: dict) -> dict:
     r = {}
 
     # ── Hazard parameters from location ───────────────────────────────────────
-    pga_2pct, pga_10pct, nmsz_dist = compute_seismic_pga(cfg["lat"], cfg["lon"])
-    tornado_rate, tornado_src       = compute_tornado_rate(cfg["lat"], cfg["lon"])
+    # Seismic: national USGS lookup (any US location); fall back to the New Madrid
+    # model only if USGS and the bundled grid are both unavailable. Network is
+    # off by default so simulate() stays offline-safe for callers that don't opt
+    # in (tests, batch scripts); main() sets cfg["allow_network"] for the CLI.
+    allow_network = cfg.get("allow_network", False)
+    pga = get_pga(cfg["lat"], cfg["lon"], allow_network=allow_network)
+    if pga is not None:
+        pga_2pct, pga_10pct, pga_source = pga
+    else:
+        pga_2pct, pga_10pct, _ = compute_seismic_pga(cfg["lat"], cfg["lon"])
+        pga_source = "New Madrid model (no USGS/grid)"
+    nmsz_dist = haversine_miles(cfg["lat"], cfg["lon"], NMSZ_LAT, NMSZ_LON)
+
+    tornado_rate, tornado_src       = compute_tornado_rate(cfg["lat"], cfg["lon"],
+                                                            allow_network=allow_network)
     flood_risk = FLOOD_ZONE_TO_RISK[cfg["flood_zone"]]
 
     r.update(pga_2pct=pga_2pct, pga_10pct=pga_10pct, nmsz_dist=nmsz_dist,
+             pga_source=pga_source,
              tornado_rate=tornado_rate, tornado_src=tornado_src, flood_risk=flood_risk)
 
     # ── BRM components ────────────────────────────────────────────────────────
@@ -867,9 +918,9 @@ def print_scorecard(cfg: dict, r: dict) -> None:
 
     # ── Hazard parameters ─────────────────────────────────────────────────────
     print(section("HAZARD PARAMETERS (from lat/lon)"))
-    print(row(f"    NMSZ distance    : {r['nmsz_dist']:.1f} mi to New Madrid fault"))
     print(row(f"    PGA 2%/50yr      : {r['pga_2pct']:.3f} g  (2,475-yr return period)"))
     print(row(f"    PGA 10%/50yr     : {r['pga_10pct']:.3f} g  (475-yr return period)"))
+    print(row(f"    Seismic source   : {r.get('pga_source', 'n/a')}"))
     print(row(f"    Tornado rate     : {r['tornado_rate']:.3f} tornadoes/yr within 25 mi"))
     print(row(f"    Tornado source   : {r['tornado_src']}"))
     print(SEP)
@@ -954,25 +1005,25 @@ CALIBRATED_COUNTY_FIPS = "47157"
 
 
 def _approx_caveats(location) -> list[str]:
-    """Caveats for dimensions not yet location-generalized.
+    """Caveats for dimensions that aren't locally calibrated.
 
-    Three cases: a confirmed Shelby location (none), a confirmed non-Shelby
-    location (the dimensions are approximate), and an unresolved county
-    (we can't confirm — flag it without falsely asserting 'outside Shelby')."""
+    Seismic (USGS) and tornado (SPC) are now nationwide; the remaining estimate is
+    Infrastructure (national-average cost model outside Shelby) plus the national-
+    average grid factor used by Environmental."""
     fips = getattr(location, "county_fips", None) if location is not None else None
     if fips == CALIBRATED_COUNTY_FIPS:
-        return []
+        return ["Environmental uses a national-average grid factor (eGRID subregion "
+                "precision is pending)."]
     if fips is None:
         return [
-            "Location county could not be resolved, so it can't be confirmed as "
-            "Shelby: Disaster Resilience (seismic & tornado) and Infrastructure "
-            "Burden are calibrated to Memphis and may be approximate here.",
+            "County could not be resolved: Infrastructure Burden may be approximate "
+            "(it falls back to the Memphis cost model). Environmental uses a "
+            "national-average grid factor.",
         ]
     return [
-        "Disaster Resilience (seismic & tornado components) and Infrastructure "
-        "Burden remain calibrated to Memphis (New Madrid seismic zone, Shelby "
-        "budget); treat them as rough estimates here. Environmental uses a "
-        "national-average grid factor.",
+        "Infrastructure Burden uses a national-average cost model (not locally "
+        "calibrated), and Environmental uses a national-average grid factor — "
+        "treat both as estimates.",
     ]
 
 
@@ -1148,6 +1199,7 @@ def main() -> None:
             location = None
 
     cfg = resolve_config(args)
+    cfg["allow_network"] = allow_network   # gates the live seismic (USGS) lookup
 
     # Auto-derive the flood zone from the location when not supplied via CLI/preset.
     if "flood_zone" not in cfg:
