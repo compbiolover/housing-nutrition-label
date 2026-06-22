@@ -954,9 +954,20 @@ CALIBRATED_COUNTY_FIPS = "47157"
 
 
 def _approx_caveats(location) -> list[str]:
-    """Caveats for dimensions not yet location-generalized, outside Shelby."""
-    if location is None or getattr(location, "county_fips", None) == CALIBRATED_COUNTY_FIPS:
+    """Caveats for dimensions not yet location-generalized.
+
+    Three cases: a confirmed Shelby location (none), a confirmed non-Shelby
+    location (the dimensions are approximate), and an unresolved county
+    (we can't confirm — flag it without falsely asserting 'outside Shelby')."""
+    fips = getattr(location, "county_fips", None) if location is not None else None
+    if fips == CALIBRATED_COUNTY_FIPS:
         return []
+    if fips is None:
+        return [
+            "Location county could not be resolved, so it can't be confirmed as "
+            "Shelby: Disaster Resilience (seismic & tornado) and Infrastructure "
+            "Burden are calibrated to Memphis and may be approximate here.",
+        ]
     return [
         "Disaster Resilience (seismic & tornado components) and Infrastructure "
         "Burden remain calibrated to Memphis (New Madrid seismic zone, Shelby "
@@ -996,8 +1007,9 @@ def print_label(cfg: dict, label: dict) -> None:
     if loc is not None:
         place = (loc.label or "")[:34]
         cz = loc.climate_zone or "—"
+        grid = loc.egrid_factor if loc.egrid_factor is not None else "—"
         print(row(f"  Location: {place}"))
-        print(row(f"    IECC zone {cz}  ·  grid {loc.egrid_factor or '—'} kgCO2e/kWh  ·  "
+        print(row(f"    IECC zone {cz}  ·  grid {grid} kgCO2e/kWh  ·  "
                   f"tract {label.get('census_tract') or '—'}"))
     print(SEP)
     print(row(f"  {'Dimension':<24}{'Score':>8}  {'Grade':<6}{'Profile':<20}"))

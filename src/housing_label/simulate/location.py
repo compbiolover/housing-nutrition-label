@@ -134,12 +134,14 @@ def resolve_location(
 ) -> Location:
     """Resolve an address or lat/lon into a fully-populated Location.
 
-    Exactly one of (address) or (lat and lon) should be supplied. Failures are
+    Provide an ``address`` (preferred) or a ``lat``/``lon`` pair. If both are
+    supplied the address takes precedence — it is geocoded and the lat/lon are
+    ignored — so the chosen input is never silently dropped. Failures are
     recorded in ``loc.notes`` and leave the corresponding fields None.
     """
     notes: dict = {}
 
-    if address and (lat is None or lon is None):
+    if address:
         if not allow_network:
             raise ValueError("Geocoding an address requires network access.")
         geo = geocode_address(address)
