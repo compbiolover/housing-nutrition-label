@@ -174,6 +174,21 @@ pip install -e .                   # optional: installs the housing_label packag
 python scripts/run_pipeline.py
 ```
 
+## Address-search API
+
+The static site can score **any US address** via a small HTTP wrapper around the simulator
+(same scoring path, no model drift):
+
+```bash
+pip install -e ".[api]"               # FastAPI + uvicorn
+export CENSUS_API_KEY=... WALKSCORE_API_KEY=...   # optional, for the full 8 dimensions
+housing-api                            # GET /label?address=... (or ?lat=&lon=), GET /healthz
+```
+
+Deploy it anywhere that runs Python (GitHub Pages can't host it), then point the Examples-page
+search bar at it with `?api=https://your-api-host` or `window.HOUSING_LABEL_API`. See
+[`docs/setup.html`](docs/setup.html) → *Address-search API*.
+
 ## Tech Stack
 
 - **Python 3.x**

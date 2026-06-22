@@ -202,6 +202,24 @@ housing-simulate \
   </table>
 </section>
 
+<section id="api">
+  <h2>Address-search API</h2>
+  <p>The <a href="examples.html">Examples</a> page can score any US address with a live nutrition label. Because the site is static (GitHub Pages), the scoring runs behind a small HTTP API that wraps the CLI simulator &mdash; the same scoring path, no model drift.</p>
+
+  <h3>Run it</h3>
+  <pre><code>pip install -e ".[api]"            # installs FastAPI + uvicorn
+# optional: full 8 dimensions need keys (server-side)
+export CENSUS_API_KEY=your_key WALKSCORE_API_KEY=your_key
+housing-api                        # serves on :8000 (PORT overrides)
+# or: uvicorn housing_label.api:app --host 0.0.0.0 --port 8000</code></pre>
+  <p>Endpoints: <code>GET /healthz</code> and <code>GET /label?address=&lt;addr&gt;&amp;preset=&lt;preset&gt;</code> (or <code>?lat=&amp;lon=</code>). Optional overrides: <code>year_built</code>, <code>construction</code>, <code>foundation</code>, <code>condition</code>, <code>sqft</code>, <code>units</code>, <code>lot_acres</code>, <code>value</code>, <code>flood_zone</code>, and <code>upgrades</code> (comma-separated resilience flags, e.g. <code>upgrades=solar,fortified_roof,hurricane_straps</code>). Unknown values return a 400. Deploy it anywhere that runs Python (Render, Fly, Cloud Run, a small VM); GitHub Pages can't host it. Narrow <code>allow_origins</code> to your site's origin for production.</p>
+
+  <h3>Point the page at your API</h3>
+  <p>The search bar reads its API base URL from, in order: a <code>?api=</code> query param on the Examples page, then <code>window.HOUSING_LABEL_API</code>. For a permanent default, set the global before <code>nav.js</code> loads, e.g.:</p>
+  <pre><code>&lt;script&gt;window.HOUSING_LABEL_API = "https://your-api-host"&lt;/script&gt;</code></pre>
+  <p>Until an API URL is configured the search bar shows a short setup note instead of calling out.</p>
+</section>
+
 <section>
   <h2>Adding a New Dimension</h2>
   <p>The pipeline is designed to be extensible. To add a new scoring dimension:</p>

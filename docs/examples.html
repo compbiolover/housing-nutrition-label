@@ -5,6 +5,41 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Examples &mdash; Housing Nutrition Label</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* Address search */
+    .addr-form { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 1rem 0; }
+    .addr-form input[type=text] { flex: 1 1 320px; font: inherit; padding: 0.6rem 0.8rem;
+      border: 1px solid var(--border); border-radius: var(--radius); }
+    .addr-form select { font: inherit; padding: 0.6rem 0.8rem; border: 1px solid var(--border);
+      border-radius: var(--radius); background: var(--card); }
+    .addr-form button { font: inherit; font-weight: 600; padding: 0.6rem 1.2rem; border: none;
+      border-radius: var(--radius); background: var(--navy); color: #fff; cursor: pointer; }
+    .addr-form button:disabled { opacity: 0.6; cursor: progress; }
+    .addr-details { max-width: 640px; margin: 0 0 0.5rem; }
+    .addr-details summary { cursor: pointer; color: var(--navy); font-weight: 600; font-size: 0.9rem; padding: 0.3rem 0; }
+    .addr-fields { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 0.6rem 0; }
+    .addr-fields label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem;
+      color: var(--muted); flex: 1 1 140px; }
+    .addr-fields input, .addr-fields select { font: inherit; padding: 0.45rem 0.6rem;
+      border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); }
+    .addr-upgrades { border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 0.6rem 0.9rem; margin: 0.4rem 0; display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.35rem; }
+    .addr-upgrades legend { font-size: 0.85rem; font-weight: 600; color: var(--navy); padding: 0 0.3rem; }
+    .addr-upgrades label { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; }
+    .addr-upgrades input { width: auto; }
+    #addr-status { color: var(--muted); font-size: 0.9rem; margin: 0.25rem 0; min-height: 1.2em; }
+    #addr-result { max-width: 640px; }
+    #addr-result .label-card { background: var(--card); border: 2px solid var(--navy);
+      border-radius: var(--radius); padding: 1.25rem 1.5rem; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+    #addr-result .label-head { display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 2px solid var(--border); padding-bottom: 0.6rem; margin-bottom: 0.6rem; gap: 1rem; }
+    #addr-result .composite-num { font-size: 2rem; font-weight: 800; color: var(--navy); line-height: 1; }
+    #addr-result .grade-lg { width: 48px; height: 48px; line-height: 48px; text-align: center;
+      border-radius: var(--radius); color: #fff; font-weight: 800; font-size: 1.5rem; }
+    #addr-result .na { color: var(--muted); font-style: italic; }
+    #addr-result .meta { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.75rem; }
+  </style>
 </head>
 <body>
 <nav>
@@ -24,6 +59,67 @@
   <h2>Case Studies</h2>
   <p>These examples use the CLI house simulator with real scoring models. Each preset is a different construction profile at the same walkable Cooper-Young location in Midtown Memphis (lat 35.13, lon -89.99). The five construction-driven dimensions are modeled from each build; health, socioeconomic, and walkability are fetched live for the location (so they're identical across presets).</p>
   <p><a href="label.html">See the interactive nutrition label &rarr;</a> &mdash; the same construction profiles rendered as a React&nbsp;+&nbsp;D3 label across all eight dimensions.</p>
+</section>
+
+<section>
+  <h2>Score Any US Address</h2>
+  <p>Type any US address and pick a construction profile to generate a live nutrition label for that location &mdash; the same eight-dimension scoring the CLI produces. Health &amp; socioeconomic are ranked within the address's own county; energy uses the local climate zone; seismic and flood are pulled for the exact point. Expand <em>Construction details</em> to override the profile with a specific year built, wall type, square footage, and resilience upgrades.</p>
+
+  <form class="addr-form" id="addr-form">
+    <input type="text" id="addr-input" aria-label="US address to score" placeholder="e.g. 111 S Grand Ave, Los Angeles, CA 90012" autocomplete="off">
+    <select id="addr-preset" aria-label="Construction profile">
+      <option value="baseline">Baseline (2000 frame)</option>
+      <option value="premium">Premium (2026 brick)</option>
+      <option value="icf-passive">ICF Passive (2026, solar)</option>
+      <option value="fortified-gold">FORTIFIED Gold (2026 frame)</option>
+      <option value="worst-case">Worst Case (1945 frame)</option>
+    </select>
+    <button type="submit" id="addr-btn">Score it</button>
+  </form>
+
+  <details class="addr-details">
+    <summary>Construction details (optional &mdash; these override the profile)</summary>
+    <div class="addr-fields">
+      <label>Year built
+        <input type="number" id="d-year" min="1850" max="2030" step="1" placeholder="e.g. 1998">
+      </label>
+      <label>Wall type
+        <select id="d-construction">
+          <option value="">(use profile)</option>
+          <option value="frame">Wood frame</option>
+          <option value="brick">Brick (masonry)</option>
+          <option value="brick-frame">Brick veneer / frame</option>
+          <option value="block">Concrete block (CMU)</option>
+          <option value="icf">Insulated concrete form (ICF)</option>
+          <option value="sip">Structural insulated panel (SIP)</option>
+          <option value="stone">Stone</option>
+          <option value="vinyl">Vinyl-sided frame</option>
+        </select>
+      </label>
+      <label>Living area (sqft)
+        <input type="number" id="d-sqft" min="200" max="20000" step="50" placeholder="e.g. 2000">
+      </label>
+    </div>
+    <fieldset class="addr-upgrades">
+      <legend>Resilience upgrades</legend>
+      <label><input type="checkbox" value="solar"> Solar panels</label>
+      <label><input type="checkbox" value="backup_generator"> Backup generator / battery</label>
+      <label><input type="checkbox" value="fire_sprinklers"> Fire sprinklers</label>
+      <label><input type="checkbox" value="hurricane_straps"> Hurricane straps</label>
+      <label><input type="checkbox" value="fortified_roof"> FORTIFIED roof</label>
+      <label><input type="checkbox" value="tornado_safe_room"> Tornado safe room</label>
+      <label><input type="checkbox" value="seismic_retrofit"> Seismic retrofit</label>
+      <label><input type="checkbox" value="flood_vents"> Flood vents</label>
+    </fieldset>
+  </details>
+
+  <div class="insight warn" id="addr-api-active" style="display:none;"></div>
+  <div id="addr-status"></div>
+  <div id="addr-result"></div>
+
+  <div class="insight" id="addr-config-note" style="display:none;">
+    <strong>Set the API endpoint:</strong> this search calls a small scoring API (the CLI behind HTTP). Configure its URL by appending <code>?api=https://your-api-host</code> to this page's URL, or set <code>window.HOUSING_LABEL_API</code>. See <a href="setup.html#api">Setup &rarr; Address-search API</a>.
+  </div>
 </section>
 
 <section>
@@ -316,5 +412,122 @@
   <p style="margin-top:0.5rem;font-size:0.85rem;">Resilience/energy scores from the CLI simulator; walkability from the Walk Score API. Try it: <code>python simulate_house.py --preset icf-passive --lat 35.15 --lon -89.85</code></p>
 </footer>
 <script src="nav.js"></script>
+<script>
+(function () {
+  // API base URL: ?api=... query param, or window.HOUSING_LABEL_API, else none.
+  var apiFromQuery = new URLSearchParams(location.search).get("api");
+  var API_BASE = (apiFromQuery
+                  || window.HOUSING_LABEL_API || "").replace(/\/$/, "");
+
+  var form   = document.getElementById("addr-form");
+  var input  = document.getElementById("addr-input");
+  var preset = document.getElementById("addr-preset");
+  var btn    = document.getElementById("addr-btn");
+  var status = document.getElementById("addr-status");
+  var result = document.getElementById("addr-result");
+  var note   = document.getElementById("addr-config-note");
+  var active = document.getElementById("addr-api-active");
+
+  if (!API_BASE) {
+    note.style.display = "";
+  } else if (apiFromQuery) {
+    // The endpoint was supplied via the URL (?api=...). Surface where the typed
+    // address will be sent so a shared link can't silently exfiltrate it.
+    var host = API_BASE;
+    try { host = new URL(API_BASE).host || API_BASE; } catch (e) {}
+    active.textContent = "Heads up: addresses you enter are sent to the API at " + host
+      + " (set via this link's ?api= parameter).";
+    active.style.display = "";
+  }
+
+  var GRADE_COLORS = { A:"#22c55e", B:"#84cc16", C:"#eab308", D:"#f97316", F:"#ef4444" };
+  function fillClass(score) {            // map score to a style.css fill color
+    if (score >= 60) return "green";     // A & B share the green bar; the grade
+    if (score >= 40) return "yellow";    // badge carries the precise A/B/C/D/F color
+    if (score >= 20) return "orange";
+    return "red";
+  }
+  function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML; }
+
+  function dimRow(d) {
+    if (d.score == null) {
+      return '<div class="score-bar-container"><div class="score-bar-label">'
+        + '<span>' + esc(d.label) + '</span><span class="na">N/A</span></div>'
+        + '<div class="score-bar"></div></div>';
+    }
+    return '<div class="score-bar-container"><div class="score-bar-label">'
+      + '<span>' + esc(d.label) + '</span><span>' + d.score.toFixed(1) + ' / '
+      + esc(d.national_grade) + '</span></div>'
+      + '<div class="score-bar"><div class="fill ' + fillClass(d.score)
+      + '" style="width:' + d.score + '%"></div></div></div>';
+  }
+
+  function render(data) {
+    var loc = data.location || {};
+    var comp = data.composite_score;
+    var compGrade = data.composite_national_grade || "—";
+    var color = GRADE_COLORS[compGrade] || "#64748b";
+    var m = data.metrics || {};
+    var metricBits = [];
+    if (m.eui_kbtu_sqft_yr != null) metricBits.push("EUI " + m.eui_kbtu_sqft_yr.toFixed(1) + " kBTU/sqft/yr");
+    if (m.est_monthly_energy_cost != null) metricBits.push("$" + Math.round(m.est_monthly_energy_cost) + "/mo energy");
+    if (m.fiscal_ratio != null) metricBits.push("fiscal ratio " + m.fiscal_ratio.toFixed(2));
+
+    var metaParts = [];
+    if (loc.county_name) metaParts.push(esc(loc.county_name));
+    if (loc.climate_zone) metaParts.push("IECC " + esc(loc.climate_zone));
+    metaParts.push(data.n_scored + "/8 dimensions");
+
+    var html = '<div class="label-card">'
+      + '<div class="label-head"><div>'
+      + '<div style="font-weight:700;color:var(--navy);">' + esc(loc.label || (data.house.lat + ", " + data.house.lon)) + '</div>'
+      + '<div class="meta">' + metaParts.join(" &middot; ") + '</div></div>'
+      + '<div style="text-align:right;"><div class="composite-num">'
+      + (comp == null ? "N/A" : comp.toFixed(1)) + '</div>'
+      + '<span class="grade-lg" style="background:' + color + '">' + esc(compGrade) + '</span></div>'
+      + '</div>';
+
+    html += data.dimensions.map(dimRow).join("");
+    if (metricBits.length) html += '<p class="meta" style="margin-top:0.75rem;">' + esc(metricBits.join("  ·  ")) + '</p>';
+    (data.caveats || []).forEach(function (c) {
+      html += '<div class="insight warn" style="margin-top:0.75rem;font-size:0.85rem;">' + esc(c) + '</div>';
+    });
+    html += '</div>';
+    result.innerHTML = html;
+  }
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var addr = input.value.trim();
+    if (!addr) { status.textContent = "Enter an address."; return; }
+    if (!API_BASE) { status.textContent = ""; note.style.display = ""; return; }
+    result.innerHTML = "";
+    status.textContent = "Scoring " + addr + " …";
+    btn.disabled = true;
+
+    // Optional construction details override the chosen profile.
+    var params = new URLSearchParams();
+    params.set("address", addr);
+    params.set("preset", preset.value);
+    var year = document.getElementById("d-year").value.trim();
+    var constr = document.getElementById("d-construction").value;
+    var sqft = document.getElementById("d-sqft").value.trim();
+    if (year)   params.set("year_built", year);
+    if (constr) params.set("construction", constr);
+    if (sqft)   params.set("sqft", sqft);
+    var ups = Array.prototype.slice
+      .call(document.querySelectorAll(".addr-upgrades input:checked"))
+      .map(function (c) { return c.value; });
+    if (ups.length) params.set("upgrades", ups.join(","));
+
+    var url = API_BASE + "/label?" + params.toString();
+    fetch(url)
+      .then(function (r) { if (!r.ok) return r.json().then(function (j) { throw new Error(j.detail || ("HTTP " + r.status)); }); return r.json(); })
+      .then(function (data) { status.textContent = ""; render(data); })
+      .catch(function (err) { status.textContent = "Could not score that address: " + err.message; })
+      .finally(function () { btn.disabled = false; });
+  });
+})();
+</script>
 </body>
 </html>
