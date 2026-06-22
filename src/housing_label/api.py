@@ -57,10 +57,19 @@ def _validate(name: str, value: str | None) -> None:
             400, f"invalid {name}={value!r}; choose one of: {', '.join(sorted(allowed))}")
 
 
+# CORS: lock to the production site by default. Override with ALLOWED_ORIGINS
+# (comma-separated) for local dev or extra origins, e.g.
+#   ALLOWED_ORIGINS="https://housinglabel.dev,http://localhost:8000"
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.environ.get("ALLOWED_ORIGINS", "https://housinglabel.dev").split(",")
+    if o.strip()
+]
+
 app = FastAPI(title="Housing Nutrition Label API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],          # narrow to your site's origin in production
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["GET"],
     allow_headers=["*"],
 )

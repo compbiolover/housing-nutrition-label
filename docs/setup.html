@@ -212,7 +212,15 @@ housing-simulate \
 export CENSUS_API_KEY=your_key WALKSCORE_API_KEY=your_key
 housing-api                        # serves on :8000 (PORT overrides)
 # or: uvicorn housing_label.api:app --host 0.0.0.0 --port 8000</code></pre>
-  <p>Endpoints: <code>GET /healthz</code> and <code>GET /label?address=&lt;addr&gt;&amp;preset=&lt;preset&gt;</code> (or <code>?lat=&amp;lon=</code>). Optional overrides: <code>year_built</code>, <code>construction</code>, <code>foundation</code>, <code>condition</code>, <code>sqft</code>, <code>units</code>, <code>lot_acres</code>, <code>value</code>, <code>flood_zone</code>, and <code>upgrades</code> (comma-separated resilience flags, e.g. <code>upgrades=solar,fortified_roof,hurricane_straps</code>). Unknown values return a 400. Deploy it anywhere that runs Python (Render, Fly, Cloud Run, a small VM); GitHub Pages can't host it. Narrow <code>allow_origins</code> to your site's origin for production.</p>
+  <p>Endpoints: <code>GET /healthz</code> and <code>GET /label?address=&lt;addr&gt;&amp;preset=&lt;preset&gt;</code> (or <code>?lat=&amp;lon=</code>). Optional overrides: <code>year_built</code>, <code>construction</code>, <code>foundation</code>, <code>condition</code>, <code>sqft</code>, <code>units</code>, <code>lot_acres</code>, <code>value</code>, <code>flood_zone</code>, and <code>upgrades</code> (comma-separated resilience flags, e.g. <code>upgrades=solar,fortified_roof,hurricane_straps</code>). Unknown values return a 400.</p>
+
+  <h3>Deploy it</h3>
+  <p>GitHub Pages can't host the Python API &mdash; deploy it anywhere that runs Python (Render, Fly, Cloud Run, Railway, a small VM). The repo ships two ready-to-use configs:</p>
+  <ul style="margin:1rem 0;padding-left:1.5rem;">
+    <li style="margin-bottom:0.5rem;"><strong>Render:</strong> <code>render.yaml</code> (a Blueprint). Push the repo, then <em>New&nbsp;+ &rarr; Blueprint</em> and select it; set <code>CENSUS_API_KEY</code>/<code>WALKSCORE_API_KEY</code> in the dashboard.</li>
+    <li style="margin-bottom:0.5rem;"><strong>Containers</strong> (Fly / Cloud Run / Railway / any host): <code>Dockerfile</code>. Build with <code>docker build -t housing-label-api .</code> and run with <code>-p 8000:8000</code> plus the env vars below.</li>
+  </ul>
+  <p><strong>CORS:</strong> the API restricts browser origins to <code>https://housinglabel.dev</code> by default. Override with the <code>ALLOWED_ORIGINS</code> env var (comma-separated) for a different domain or local dev, e.g. <code>ALLOWED_ORIGINS="https://housinglabel.dev,http://localhost:8000"</code>.</p>
 
   <h3>Point the page at your API</h3>
   <p>The search bar reads its API base URL from, in order: a <code>?api=</code> query param on the Examples page, then <code>window.HOUSING_LABEL_API</code>. For a permanent default, set the global before <code>nav.js</code> loads, e.g.:</p>
