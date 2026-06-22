@@ -8,12 +8,13 @@ Run directly:  python tests/test_api.py
 def test_api_healthz_and_validation():
     try:
         from fastapi.testclient import TestClient
-        from housing_label.api import app
     except ImportError:
-        # Only skip when FastAPI/TestClient is genuinely unavailable — let any
-        # other import error (e.g. a bug in housing_label.api) fail the test.
+        # Skip only when FastAPI/TestClient is genuinely unavailable.
         print("  skip test_api_healthz_and_validation (fastapi not installed)")
         return
+    # Imported outside the guard so a real import error in housing_label.api
+    # (e.g. a broken import/rename) fails the test instead of being skipped.
+    from housing_label.api import app
     client = TestClient(app)
     assert client.get("/healthz").json() == {"ok": True}
     # Missing both address and lat/lon → 400, no network involved.
