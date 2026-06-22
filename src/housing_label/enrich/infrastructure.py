@@ -301,6 +301,7 @@ def enrich_row(row: pd.Series, *,
     lot_density = 1.0 / acres   # DU/acre
 
     # ── Fire service multiplier: urban-area flag (national) or core distance ────
+    dist_mi = float("nan")
     if in_urban_area is not None:
         fire_mult = FIRE_DIST_MULTIPLIER_MID if in_urban_area else FIRE_DIST_MULTIPLIER_OUTER
     else:
