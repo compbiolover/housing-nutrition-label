@@ -1114,8 +1114,9 @@ def print_label(cfg: dict, label: dict) -> None:
     print()
 
 
-def emit_json(cfg: dict, r: dict, label: dict) -> None:
-    """Print the full nutrition label (all dimensions) as JSON to stdout."""
+def label_payload(cfg: dict, r: dict, label: dict) -> dict:
+    """Build the full nutrition-label payload (JSON-serializable) shared by the
+    CLI's --json output and the HTTP API."""
     payload = {
         "house": {
             "year_built": cfg["year_built"],
@@ -1152,7 +1153,60 @@ def emit_json(cfg: dict, r: dict, label: dict) -> None:
             "notes": loc.notes,
         }
     payload["caveats"] = _approx_caveats(loc)
-    print(json.dumps(payload, indent=2))
+    return payload
+
+
+def emit_json(cfg: dict, r: dict, label: dict) -> None:
+    """Print the full nutrition label (all dimensions) as JSON to stdout."""
+    print(json.dumps(label_payload(cfg, r, label), indent=2))
+
+
+# ── Shared orchestration (used by the CLI and the HTTP API) ──────────────────────
+
+def build_label_parts(*, address: str | None = None,
+                      lat: float | None = None, lon: float | None = None,
+                      preset: str | None = None, flood_zone: str | None = None,
+                      allow_network: bool = True, overrides: dict | None = None,
+                      **fields) -> tuple[dict, dict, dict]:
+    """Resolve a location, build the house config, and run the full simulation.
+
+    Returns (cfg, r, label). ``fields`` may carry house overrides (year_built,
+    construction, foundation, condition, value, units, sqft, lot_acres). Mirrors
+    the CLI flow so both share one code path.
+    """
+    from argparse import Namespace
+    from housing_label.simulate.location import resolve_location
+
+    location = None
+    if address:
+        location = resolve_location(address=address, allow_network=allow_network)
+        lat, lon = location.lat, location.lon
+    else:
+        lat = lat if lat is not None else SHELBY_LAT
+        lon = lon if lon is not None else SHELBY_LON
+        try:
+            location = resolve_location(lat=lat, lon=lon, allow_network=allow_network)
+        except Exception:  # noqa: BLE001
+            location = None
+
+    ns = Namespace(
+        preset=preset, lat=lat, lon=lon, flood_zone=flood_zone,
+        year_built=fields.get("year_built"), construction=fields.get("construction"),
+        foundation=fields.get("foundation"), condition=fields.get("condition"),
+        value=fields.get("value"), units=fields.get("units"),
+        sqft=fields.get("sqft"), lot_acres=fields.get("lot_acres"),
+    )
+    cfg = resolve_config(ns)            # bonus flags default False via getattr
+    cfg["allow_network"] = allow_network
+    if "flood_zone" not in cfg:
+        cfg["flood_zone"] = _auto_flood_zone(cfg["lat"], cfg["lon"], allow_network)
+
+    r = simulate(cfg)
+    label = simulate_all_dimensions(
+        cfg, r["total_score"], location=location,
+        allow_network=allow_network, overrides=overrides,
+    )
+    return cfg, r, label
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────
@@ -1175,49 +1229,27 @@ def _auto_flood_zone(lat: float, lon: float, allow_network: bool) -> str:
 def main() -> None:
     parser = build_parser()
     args   = parser.parse_args()
-
-    from housing_label.simulate.location import resolve_location
     allow_network = not args.no_fetch
 
-    # Resolve the location: an address geocodes to lat/lon + county/tract; a
-    # lat/lon (or the Shelby default) reverse-geocodes to county/tract + climate.
-    location = None
-    if args.address:
-        if not allow_network:
-            parser.error("--address requires network access (omit --no-fetch).")
-        try:
-            location = resolve_location(address=args.address, allow_network=True)
-        except Exception as exc:  # noqa: BLE001
-            parser.error(f"Could not geocode --address: {exc}")
-        args.lat, args.lon = location.lat, location.lon
-    else:
-        lat = args.lat if args.lat is not None else SHELBY_LAT
-        lon = args.lon if args.lon is not None else SHELBY_LON
-        try:
-            location = resolve_location(lat=lat, lon=lon, allow_network=allow_network)
-        except Exception:  # noqa: BLE001
-            location = None
-
-    cfg = resolve_config(args)
-    cfg["allow_network"] = allow_network   # gates the live seismic (USGS) lookup
-
-    # Auto-derive the flood zone from the location when not supplied via CLI/preset.
-    if "flood_zone" not in cfg:
-        cfg["flood_zone"] = _auto_flood_zone(cfg["lat"], cfg["lon"], allow_network)
-
-    r = simulate(cfg)
+    if args.address and not allow_network:
+        parser.error("--address requires network access (omit --no-fetch).")
 
     overrides = {
         "health":        args.health_index,
         "socioeconomic": args.socioeconomic_index,
         "walkability":   args.walk_score,
     }
-    label = simulate_all_dimensions(
-        cfg, r["total_score"],
-        location=location,
-        allow_network=allow_network,
-        overrides=overrides,
-    )
+    try:
+        cfg, r, label = build_label_parts(
+            address=args.address, lat=args.lat, lon=args.lon,
+            preset=args.preset, flood_zone=args.flood_zone,
+            allow_network=allow_network, overrides=overrides,
+            year_built=args.year_built, construction=args.construction,
+            foundation=args.foundation, condition=args.condition,
+            value=args.value, units=args.units, sqft=args.sqft, lot_acres=args.lot_acres,
+        )
+    except ValueError as exc:
+        parser.error(str(exc))
 
     if args.json:
         emit_json(cfg, r, label)
