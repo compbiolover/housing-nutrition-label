@@ -247,6 +247,25 @@ BONUS_FLOOD_VENTS        = 0.85  # Engineered flood vents; reduces hydrostatic d
 BONUS_BACKFLOW_VALVE     = 0.90  # Backflow prevention valve; prevents sewer backup.
                                   # Source: FEMA. Moderate evidence.
 
+# Resilience-upgrade flag names (the single source of truth shared by the CLI's
+# argparse flags, resolve_config(), and the HTTP API's `upgrades` param).
+BONUS_FLAGS = [
+    # existing
+    "solar", "backup_generator", "passive_house",
+    "tornado_safe_room", "fire_sprinklers", "leak_detection", "seismic_retrofit",
+    # wind/tornado above-code
+    "hurricane_straps", "hip_roof", "impact_garage_door", "sealed_roof_deck",
+    "metal_roof", "reinforced_gable", "ring_shank_nails", "truss_16oc",
+    # FORTIFIED tiers
+    "fortified_roof", "fortified_silver", "fortified_gold",
+    # seismic above-code
+    "cripple_wall_bracing", "seismic_hold_downs", "auto_gas_shutoff",
+    # flood above-code
+    "elevation_1ft", "elevation_2ft", "elevation_3ft",
+    "flood_vents", "backflow_valve",
+]
+ELEVATION_FLAGS = ["elevation_1ft", "elevation_2ft", "elevation_3ft"]
+
 # ── Preset profiles ────────────────────────────────────────────────────────────
 PRESETS = {
     "baseline": {
@@ -623,26 +642,12 @@ def resolve_config(args: argparse.Namespace) -> dict:
     cfg["lon"] = args.lon if args.lon is not None else SHELBY_LON
 
     # Bonus flags: preset OR CLI (either can activate)
-    for flag in [
-        # existing
-        "solar", "backup_generator", "passive_house",
-        "tornado_safe_room", "fire_sprinklers", "leak_detection", "seismic_retrofit",
-        # wind/tornado above-code
-        "hurricane_straps", "hip_roof", "impact_garage_door", "sealed_roof_deck",
-        "metal_roof", "reinforced_gable", "ring_shank_nails", "truss_16oc",
-        # FORTIFIED tiers
-        "fortified_roof", "fortified_silver", "fortified_gold",
-        # seismic above-code
-        "cripple_wall_bracing", "seismic_hold_downs", "auto_gas_shutoff",
-        # flood above-code
-        "elevation_1ft", "elevation_2ft", "elevation_3ft",
-        "flood_vents", "backflow_valve",
-    ]:
+    for flag in BONUS_FLAGS:
         cfg[flag] = cfg.get(flag, False) or getattr(args, flag, False)
 
     # Validate: at most one flood elevation tier (argparse mutually_exclusive_group handles
     # CLI, but presets could theoretically set multiple — enforce here too).
-    elev_flags = [f for f in ["elevation_1ft", "elevation_2ft", "elevation_3ft"] if cfg.get(f)]
+    elev_flags = [f for f in ELEVATION_FLAGS if cfg.get(f)]
     if len(elev_flags) > 1:
         print(f"ERROR: Flood elevation flags are mutually exclusive; got: {elev_flags}",
               file=sys.stderr)
@@ -1167,12 +1172,14 @@ def build_label_parts(*, address: str | None = None,
                       lat: float | None = None, lon: float | None = None,
                       preset: str | None = None, flood_zone: str | None = None,
                       allow_network: bool = True, overrides: dict | None = None,
+                      upgrades: list[str] | None = None,
                       **fields) -> tuple[dict, dict, dict]:
     """Resolve a location, build the house config, and run the full simulation.
 
     Returns (cfg, r, label). ``fields`` may carry house overrides (year_built,
-    construction, foundation, condition, value, units, sqft, lot_acres). Mirrors
-    the CLI flow so both share one code path.
+    construction, foundation, condition, value, units, sqft, lot_acres) and
+    ``upgrades`` is a list of resilience-upgrade flag names (see BONUS_FLAGS).
+    Mirrors the CLI flow so both share one code path.
     """
     from argparse import Namespace
     from housing_label.simulate.location import resolve_location
@@ -1199,7 +1206,9 @@ def build_label_parts(*, address: str | None = None,
         value=fields.get("value"), units=fields.get("units"),
         sqft=fields.get("sqft"), lot_acres=fields.get("lot_acres"),
     )
-    cfg = resolve_config(ns)            # bonus flags default False via getattr
+    for flag in BONUS_FLAGS:            # resilience upgrades → Namespace booleans
+        setattr(ns, flag, flag in (upgrades or []))
+    cfg = resolve_config(ns)
     cfg["allow_network"] = allow_network
     if "flood_zone" not in cfg:
         cfg["flood_zone"] = _auto_flood_zone(cfg["lat"], cfg["lon"], allow_network)

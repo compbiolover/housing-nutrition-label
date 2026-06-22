@@ -35,6 +35,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from housing_label.simulate.house import (
     build_label_parts, label_payload,
     PRESETS, CONSTRUCTION_FACTOR, FOUNDATION_FACTOR, CONDITION_FACTOR,
+    BONUS_FLAGS, ELEVATION_FLAGS,
 )
 
 log = logging.getLogger("housing_label.api")
@@ -85,17 +86,32 @@ def label(
     sqft: float | None = None,
     lot_acres: float | None = None,
     flood_zone: str | None = None,
+    upgrades: str | None = None,
 ) -> dict:
-    """Return the full nutrition-label payload for an address or lat/lon."""
+    """Return the full nutrition-label payload for an address or lat/lon.
+
+    `upgrades` is a comma-separated list of resilience-upgrade flags (see
+    BONUS_FLAGS), e.g. ``upgrades=solar,fortified_roof,hurricane_straps``.
+    """
     if not address and (lat is None or lon is None):
         raise HTTPException(400, "Provide ?address= or both ?lat= and ?lon=")
     for name, val in (("preset", preset), ("construction", construction),
                       ("foundation", foundation), ("condition", condition),
                       ("flood_zone", flood_zone)):
         _validate(name, val)
+
+    upgrade_list = [u.strip() for u in upgrades.split(",") if u.strip()] if upgrades else []
+    bad = [u for u in upgrade_list if u not in BONUS_FLAGS]
+    if bad:
+        raise HTTPException(400, f"unknown upgrade(s): {', '.join(bad)}; "
+                                 f"choose from: {', '.join(BONUS_FLAGS)}")
+    if sum(u in ELEVATION_FLAGS for u in upgrade_list) > 1:
+        raise HTTPException(400, "at most one flood elevation tier may be selected")
+
     try:
         cfg, r, lbl = build_label_parts(
             address=address, lat=lat, lon=lon, preset=preset, flood_zone=flood_zone,
+            upgrades=upgrade_list,
             allow_network=True,
             year_built=year_built, construction=construction, foundation=foundation,
             condition=condition, value=value, units=units, sqft=sqft, lot_acres=lot_acres,

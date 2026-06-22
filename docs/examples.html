@@ -15,6 +15,19 @@
     .addr-form button { font: inherit; font-weight: 600; padding: 0.6rem 1.2rem; border: none;
       border-radius: var(--radius); background: var(--navy); color: #fff; cursor: pointer; }
     .addr-form button:disabled { opacity: 0.6; cursor: progress; }
+    .addr-details { max-width: 640px; margin: 0 0 0.5rem; }
+    .addr-details summary { cursor: pointer; color: var(--navy); font-weight: 600; font-size: 0.9rem; padding: 0.3rem 0; }
+    .addr-fields { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 0.6rem 0; }
+    .addr-fields label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem;
+      color: var(--muted); flex: 1 1 140px; }
+    .addr-fields input, .addr-fields select { font: inherit; padding: 0.45rem 0.6rem;
+      border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); }
+    .addr-upgrades { border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 0.6rem 0.9rem; margin: 0.4rem 0; display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.35rem; }
+    .addr-upgrades legend { font-size: 0.85rem; font-weight: 600; color: var(--navy); padding: 0 0.3rem; }
+    .addr-upgrades label { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; }
+    .addr-upgrades input { width: auto; }
     #addr-status { color: var(--muted); font-size: 0.9rem; margin: 0.25rem 0; min-height: 1.2em; }
     #addr-result { max-width: 640px; }
     #addr-result .label-card { background: var(--card); border: 2px solid var(--navy);
@@ -50,7 +63,7 @@
 
 <section>
   <h2>Score Any US Address</h2>
-  <p>Type any US address and pick a construction profile to generate a live nutrition label for that location &mdash; the same eight-dimension scoring the CLI produces. Health &amp; socioeconomic are ranked within the address's own county; energy uses the local climate zone; seismic and flood are pulled for the exact point.</p>
+  <p>Type any US address and pick a construction profile to generate a live nutrition label for that location &mdash; the same eight-dimension scoring the CLI produces. Health &amp; socioeconomic are ranked within the address's own county; energy uses the local climate zone; seismic and flood are pulled for the exact point. Expand <em>Construction details</em> to override the profile with a specific year built, wall type, square footage, and resilience upgrades.</p>
 
   <form class="addr-form" id="addr-form">
     <input type="text" id="addr-input" aria-label="US address to score" placeholder="e.g. 111 S Grand Ave, Los Angeles, CA 90012" autocomplete="off">
@@ -63,6 +76,43 @@
     </select>
     <button type="submit" id="addr-btn">Score it</button>
   </form>
+
+  <details class="addr-details">
+    <summary>Construction details (optional &mdash; these override the profile)</summary>
+    <div class="addr-fields">
+      <label>Year built
+        <input type="number" id="d-year" min="1850" max="2030" step="1" placeholder="e.g. 1998">
+      </label>
+      <label>Wall type
+        <select id="d-construction">
+          <option value="">(use profile)</option>
+          <option value="frame">Wood frame</option>
+          <option value="brick">Brick (masonry)</option>
+          <option value="brick-frame">Brick veneer / frame</option>
+          <option value="block">Concrete block (CMU)</option>
+          <option value="icf">Insulated concrete form (ICF)</option>
+          <option value="sip">Structural insulated panel (SIP)</option>
+          <option value="stone">Stone</option>
+          <option value="vinyl">Vinyl-sided frame</option>
+        </select>
+      </label>
+      <label>Living area (sqft)
+        <input type="number" id="d-sqft" min="200" max="20000" step="50" placeholder="e.g. 2000">
+      </label>
+    </div>
+    <fieldset class="addr-upgrades">
+      <legend>Resilience upgrades</legend>
+      <label><input type="checkbox" value="solar"> Solar panels</label>
+      <label><input type="checkbox" value="backup_generator"> Backup generator / battery</label>
+      <label><input type="checkbox" value="fire_sprinklers"> Fire sprinklers</label>
+      <label><input type="checkbox" value="hurricane_straps"> Hurricane straps</label>
+      <label><input type="checkbox" value="fortified_roof"> FORTIFIED roof</label>
+      <label><input type="checkbox" value="tornado_safe_room"> Tornado safe room</label>
+      <label><input type="checkbox" value="seismic_retrofit"> Seismic retrofit</label>
+      <label><input type="checkbox" value="flood_vents"> Flood vents</label>
+    </fieldset>
+  </details>
+
   <div id="addr-status"></div>
   <div id="addr-result"></div>
 
@@ -437,8 +487,23 @@
     result.innerHTML = "";
     status.textContent = "Scoring " + addr + " …";
     btn.disabled = true;
-    var url = API_BASE + "/label?address=" + encodeURIComponent(addr)
-            + "&preset=" + encodeURIComponent(preset.value);
+
+    // Optional construction details override the chosen profile.
+    var params = new URLSearchParams();
+    params.set("address", addr);
+    params.set("preset", preset.value);
+    var year = document.getElementById("d-year").value.trim();
+    var constr = document.getElementById("d-construction").value;
+    var sqft = document.getElementById("d-sqft").value.trim();
+    if (year)   params.set("year_built", year);
+    if (constr) params.set("construction", constr);
+    if (sqft)   params.set("sqft", sqft);
+    var ups = Array.prototype.slice
+      .call(document.querySelectorAll(".addr-upgrades input:checked"))
+      .map(function (c) { return c.value; });
+    if (ups.length) params.set("upgrades", ups.join(","));
+
+    var url = API_BASE + "/label?" + params.toString();
     fetch(url)
       .then(function (r) { if (!r.ok) return r.json().then(function (j) { throw new Error(j.detail || ("HTTP " + r.status)); }); return r.json(); })
       .then(function (data) { status.textContent = ""; render(data); })
