@@ -82,6 +82,33 @@ def test_photon_label_formatter():
     assert len(_photon_features_to_suggestions(many, 3)) == 3
 
 
+def test_geoapify_formatter():
+    """Pure Geoapify parsing helpers — no network/key. Skip if FastAPI absent."""
+    try:
+        from housing_label.api import _geoapify_label, _geoapify_results_to_suggestions
+    except ImportError:
+        print("  skip test_geoapify_formatter (fastapi not installed)")
+        return
+    assert _geoapify_label({
+        "address_line1": "1234 Scott St", "city": "San Francisco",
+        "state_code": "CA", "postcode": "94115",
+    }) == "1234 Scott St, San Francisco, CA 94115"
+    # Falls back to `formatted`, stripping the country suffix.
+    assert _geoapify_label({
+        "formatted": "350 5th Ave, New York, NY 10118, United States of America",
+    }) == "350 5th Ave, New York, NY 10118"
+
+    results = [
+        {"country_code": "us", "address_line1": "1234 Scott St", "city": "San Francisco",
+         "state_code": "CA", "postcode": "94115", "lat": 37.7811, "lon": -122.4373},
+        {"country_code": "de", "address_line1": "X", "lat": 52.5, "lon": 13.4},   # drop non-US
+        {"country_code": "us", "address_line1": "Y", "lat": None, "lon": 1.0},    # drop bad coords
+    ]
+    assert _geoapify_results_to_suggestions(results, 5) == [
+        {"label": "1234 Scott St, San Francisco, CA 94115", "lat": 37.7811, "lon": -122.4373},
+    ]
+
+
 def test_suggest_short_query():
     """Short/empty q short-circuits to [] before any network call."""
     try:
