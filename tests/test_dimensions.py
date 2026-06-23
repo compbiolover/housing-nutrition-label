@@ -112,6 +112,42 @@ def test_embodied_amortized_over_service_life():
     assert icf["env_embodied_subscore"] > 40
 
 
+def test_resilience_fire_and_uncapped_brm():
+    """Fire peril is modeled, the BRM cap is gone (condition bites), and pre-1940
+    construction is penalized harder than pre-1970."""
+    from housing_label.simulate.house import (
+        resolve_config, simulate, code_era_factor, fire_age_factor,
+    )
+
+    def cfg(**over):
+        fields = {f: None for f in _FIELDS}
+        fields.update(over)
+        return resolve_config(Namespace(preset="baseline", lat=35.15, lon=-89.85, **fields))
+
+    # Pre-1940 is steeper than pre-1970; fire wiring-era captures the knob-and-tube era.
+    assert code_era_factor(1920) == 1.6 > code_era_factor(1965) == 1.3
+    assert fire_age_factor(1920) == 1.5 > fire_age_factor(2024)
+
+    r = simulate(cfg(construction="vinyl", year_built=1920, condition="average"))
+    # Fire peril is present and folded into the total EAL.
+    assert r["fire_adj"] > 0 and "fire_score" in r
+    assert abs(r["total_eal"] - (r["flood_adj"] + r["tornado_adj"]
+                                 + r["seismic_adj"] + r["fire_adj"])) < 1e-12
+    # BRM cap removed: a 1920 frame exceeds the old 1.5 ceiling.
+    assert r["wind_seismic_brm"] > 1.5
+
+    # Condition now bites (was flat at the cap before the change).
+    avg = simulate(cfg(construction="vinyl", year_built=1920, condition="average"))["total_score"]
+    poor = simulate(cfg(construction="vinyl", year_built=1920, condition="poor"))["total_score"]
+    assert poor < avg
+
+    # Fire sprinklers reduce the fire peril.
+    base = cfg(construction="vinyl", year_built=1920, condition="poor")
+    no_spr = simulate(base)["fire_adj"]
+    base["fire_sprinklers"] = True
+    assert simulate(base)["fire_adj"] < no_spr
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

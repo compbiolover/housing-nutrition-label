@@ -30,21 +30,23 @@
     <h3>1. Disaster Resilience</h3>
     <p>The resilience score uses an <strong>Expected Annual Loss (EAL)</strong> framework &mdash; the standard approach used by FEMA's National Risk Index, Hazus, and the insurance catastrophe modeling industry.</p>
 
-    <h4>Three Hazard Pillars</h4>
+    <h4>Four Hazard Pillars</h4>
+    <p>Disaster Resilience covers four perils &mdash; <strong>flood, tornado, earthquake, and fire</strong>. (It does not measure general wear-out or longevity; that is the separate <em>Durability</em> dimension.)</p>
     <p><strong>Flood:</strong> FEMA NFHL zone codes map to annual exceedance probabilities. Zone AE = 1% annual chance &times; 28% damage ratio = 0.28% EAL rate. Zone X (minimal) = 0.04% &times; 5% = 0.002% EAL rate.</p>
     <p><strong>Tornado:</strong> SPC historical tornado data (1950&ndash;2023) provides frequency. Point-strike probability = tornado path width &divide; 25-mile circle area. EF-based damage ratios: EF0=2%, EF1=10%, EF2=30%, EF3=60%, EF4=90%.</p>
     <p><strong>Seismic:</strong> USGS National Seismic Hazard Model PGA values with simplified fragility curves. Memphis sits on the New Madrid Seismic Zone with PGA 0.45&ndash;0.54g at the 2%-in-50-year level.</p>
+    <p><strong>Fire:</strong> structural (residential) fire EAL. A national-average base rate (&asymp;0.02%/yr, from NFPA home-fire loss data) is scaled by <em>wiring era</em> (pre-1950 knob-and-tube = 1.5&times;, NEC&nbsp;2002+ AFCI = 0.85&times;) and <em>construction combustibility</em> (wood frame = 1.10&times;, ICF concrete = 0.70&times;). Residential sprinklers cut it ~60% (0.40&times;). Unlike the other three, fire is largely location-independent, so it dominates the score in low-hazard areas.</p>
 
-    <div class="formula">Total EAL Rate = Flood EAL + Tornado EAL + Seismic EAL<br>(independent hazards assumption &mdash; valid for these three)</div>
+    <div class="formula">Total EAL Rate = Flood EAL + Tornado EAL + Seismic EAL + Fire EAL<br>(independent-hazards assumption)</div>
 
     <h4>Building Resilience Modifier (BRM)</h4>
-    <p>Raw EAL is adjusted by a construction quality multiplier (0.15&ndash;1.5) based on four factors:</p>
-    <p><strong>Code era</strong> (year built): Pre-1970 = 1.3&times;, 2003+ post-IBC = 0.85&times;<br>
+    <p>Raw EAL is adjusted by a construction-quality multiplier based on four factors:</p>
+    <p><strong>Code era</strong> (year built): Pre-1940 = 1.6&times; (balloon framing, no engineered connections), Pre-1970 = 1.3&times;, 2003+ post-IBC = 0.85&times;<br>
     <strong>Construction type:</strong> Wood frame = 1.2&times;, ICF = 0.25&times; <span class="source-tag">PCA racking data</span> <span class="source-tag">FEMA MAT Joplin/Moore</span><br>
     <strong>Foundation</strong> (flood only): Full basement = 1.4&times;, Slab = 0.7&times;<br>
     <strong>Condition:</strong> Unsound = 1.5&times;, Excellent = 0.8&times;</p>
 
-    <p>Construction-type-specific BRM floors prevent over-crediting: wood frame floor = 0.50, ICF floor = 0.15 (85% max EAL reduction).</p>
+    <p>There is <strong>no upper cap</strong> on the BRM, so old, poorly-built, and poor-condition stock can compound well above the code-current baseline (a pre-1940 unsound frame house can exceed 2.5&times;). Construction-type-specific <em>floors</em> still prevent over-crediting: wood frame floor = 0.50, ICF floor = 0.15 (85% max EAL reduction).</p>
 
     <h4>Above-Code Feature Modifiers</h4>
     <p>20+ toggleable features with literature-backed multipliers:</p>
