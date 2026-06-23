@@ -54,6 +54,16 @@
     #addr-result .build-line strong { color: var(--navy); }
     #addr-result .na { color: var(--muted); font-style: italic; }
     #addr-result .meta { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.75rem; }
+    .row-highlight { background: #f1f5f9; }
+    /* Dark mode: re-light the navy-as-text bits and the suggestion hover. */
+    @media (prefers-color-scheme: dark) {
+      .addr-suggest li.active, .addr-suggest li:hover { background: #334155; }
+      .row-highlight { background: #0b1220; }
+      .addr-details summary, .addr-upgrades legend { color: #cbd5e1; }
+      #addr-result .label-card { border-color: #475569; }
+      #addr-result .composite-num,
+      #addr-result .build-line strong { color: #e2e8f0; }
+    }
   </style>
 </head>
 <body>
@@ -220,7 +230,7 @@
         <td>65.4 <span class="grade grade-b">B</span></td>
         <td>65.4 <span class="grade grade-b">B</span></td>
       </tr>
-      <tr style="background:#f1f5f9;">
+      <tr class="row-highlight">
         <td><strong>Composite</strong></td>
         <td><strong>42.9</strong> <span class="grade grade-c">C</span></td>
         <td><strong>62.9</strong> <span class="grade grade-b">B</span></td>

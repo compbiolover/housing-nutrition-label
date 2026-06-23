@@ -48,6 +48,15 @@
     .dim-chart text { font-family: inherit; }
     .loading, .error { text-align: center; color: var(--muted); padding: 2rem; }
     .error { color: var(--red); }
+    /* Dark mode: re-light the navy-as-text bits and soften the navy borders.
+       The D3 chart reads its colors from CSS vars at render time (see script). */
+    @media (prefers-color-scheme: dark) {
+      .label-card { border-color: #475569; }
+      .label-card .label-title { border-bottom-color: #475569; }
+      .label-summary .composite-num,
+      .metrics-row span strong,
+      .picker label { color: #e2e8f0; }
+    }
   </style>
 </head>
 <body>
@@ -112,8 +121,29 @@ function GradeBadge({ score, large }) {
 // React owns the <svg> node; D3 owns everything inside it and animates on data change.
 function DimensionChart({ dimensions, scores }) {
   const ref = useRef(null);
+  const [theme, setTheme] = useState(0);
+
+  // Re-render the SVG when the OS light/dark preference changes.
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () => setTheme(t => t + 1);
+    // Older Safari (<14) only has addListener/removeListener, not the
+    // EventTarget API — fall back so the page doesn't throw.
+    if (mq.addEventListener) mq.addEventListener("change", onChange);
+    else mq.addListener(onChange);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener("change", onChange);
+      else mq.removeListener(onChange);
+    };
+  }, []);
 
   useEffect(() => {
+    // Chart colors come from the CSS theme tokens so the SVG follows dark mode.
+    const css = getComputedStyle(document.documentElement);
+    const C_TEXT  = css.getPropertyValue("--text").trim()   || "#334155";
+    const C_TRACK = css.getPropertyValue("--border").trim() || "#e2e8f0";
+    const C_MUTED = css.getPropertyValue("--muted").trim()  || "#94a3b8";
+
     const rowH = 38, gap = 10, labelW = 170, valueW = 64, top = 8, bottom = 8;
     const width = 600;
     const barX = labelW;
@@ -146,14 +176,14 @@ function DimensionChart({ dimensions, scores }) {
       .attr("class", "dim-label")
       .attr("x", 0).attr("y", rowH / 2)
       .attr("dominant-baseline", "middle")
-      .attr("font-size", 13).attr("fill", "#334155");
+      .attr("font-size", 13).attr("fill", C_TEXT);
 
     // Track
     rowsEnter.append("rect")
       .attr("class", "track")
       .attr("x", barX).attr("y", (rowH - 14) / 2)
       .attr("rx", 7).attr("height", 14).attr("width", barW)
-      .attr("fill", "#e2e8f0");
+      .attr("fill", C_TRACK);
 
     // Fill
     rowsEnter.append("rect")
@@ -171,6 +201,7 @@ function DimensionChart({ dimensions, scores }) {
     const merged = rowsEnter.merge(rows);
 
     merged.select("text.dim-label").text(d => d.label);
+    merged.select("rect.track").attr("fill", C_TRACK);   // refresh on theme change
 
     merged.select("rect.fill")
       .transition().duration(600).ease(d3.easeCubicOut)
@@ -178,15 +209,15 @@ function DimensionChart({ dimensions, scores }) {
       .attr("fill", d => d.score === null ? "transparent" : GRADE_COLORS[gradeFor(d.score)]);
 
     merged.select("text.dim-value")
-      .attr("fill", d => d.score === null ? "#94a3b8" : GRADE_COLORS[gradeFor(d.score)])
+      .attr("fill", d => d.score === null ? C_MUTED : GRADE_COLORS[gradeFor(d.score)])
       .attr("font-style", d => d.score === null ? "italic" : "normal")
       .text(d => d.score === null ? "N/A" : `${d.score.toFixed(1)}  ${gradeFor(d.score)}`);
 
     merged.select("text.dim-label")
-      .attr("fill", d => d.score === null ? "#94a3b8" : "#334155");
+      .attr("fill", d => d.score === null ? C_MUTED : C_TEXT);
 
     rows.exit().remove();
-  }, [dimensions, scores]);
+  }, [dimensions, scores, theme]);
 
   return <svg ref={ref} className="dim-chart" style={{ width: "100%", height: "auto" }} />;
 }

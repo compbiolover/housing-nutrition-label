@@ -1,5 +1,6 @@
 /* Housing Nutrition Label — housinglabel.dev */
 :root {
+  color-scheme: light dark;   /* native form controls + scrollbars follow the OS theme */
   --navy: #1a2332;
   --slate: #2d3748;
   --green: #22c55e;
@@ -108,3 +109,28 @@ footer a { color: var(--green); }
   .hero h1 { font-size: 2rem; }
   section { padding: 2rem 1rem; }
 }
+
+/* ── Dark mode (follows the OS via prefers-color-scheme) ─────────────────────── */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:     #0f172a;   /* slate-900 page background */
+    --card:   #1e293b;   /* slate-800 surfaces */
+    --text:   #cbd5e1;   /* slate-300 body text */
+    --muted:  #94a3b8;   /* slate-400 secondary text */
+    --border: #334155;   /* slate-700 borders / bar tracks */
+    /* semantic hazard/grade colors stay the same — they read fine on dark */
+  }
+  /* --navy doubles as a dark brand surface (nav/footer/hero/pre/table headers),
+     which still works on a dark page, AND as heading text, which would vanish.
+     Re-light just the text usages. */
+  h2, .insight strong { color: #e2e8f0; }
+  h3 { color: #cbd5e1; }
+
+  /* Hardcoded light backgrounds → dark equivalents */
+  .formula, p code, .data-table th, .comparison tr:hover { background: #0b1220; }
+  .insight { background: #172033; }
+  .insight.warn { background: #2a2014; }
+  .source-tag { background: #0c2a3a; color: #7dd3fc; }
+  pre { background: #0b1220; }
+}
+
