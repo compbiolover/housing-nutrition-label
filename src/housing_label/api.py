@@ -105,8 +105,9 @@ def _photon_features_to_suggestions(features: list, limit: int) -> list[dict]:
     out: list[dict] = []
     for f in features or []:
         props = f.get("properties") or {}
-        if props.get("countrycode") != "US":          # US-only (the scorer is US-only)
-            continue
+        cc = props.get("countrycode") or ""           # US-only (the scorer is US-only)
+        if cc.upper() != "US":                         # case-insensitive: Photon uses "US",
+            continue                                   # but self-hosted instances may differ
         coords = (f.get("geometry") or {}).get("coordinates") or []
         if len(coords) != 2:                          # Photon coords are [lon, lat]
             continue

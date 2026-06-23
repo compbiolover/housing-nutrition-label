@@ -46,8 +46,13 @@ def test_cors_default_allowlist():
 
 
 def test_photon_label_formatter():
-    """Pure helpers — no FastAPI/network needed."""
-    from housing_label.api import _photon_label, _photon_features_to_suggestions
+    """Pure helpers — no network. Importing housing_label.api needs FastAPI, so
+    skip (like the other tests) when it isn't installed."""
+    try:
+        from housing_label.api import _photon_label, _photon_features_to_suggestions
+    except ImportError:
+        print("  skip test_photon_label_formatter (fastapi not installed)")
+        return
     assert _photon_label({
         "housenumber": "123", "street": "Main St", "city": "Memphis",
         "state": "TN", "postcode": "38104",
@@ -59,13 +64,18 @@ def test_photon_label_formatter():
     feats = [
         {"properties": {"countrycode": "US", "name": "A", "city": "X", "state": "CA"},
          "geometry": {"coordinates": [-118.0, 34.0]}},                 # keep ([lon,lat])
-        {"properties": {"countrycode": "DE", "name": "B"},
+        {"properties": {"countrycode": "us", "name": "B", "city": "Y", "state": "TX"},
+         "geometry": {"coordinates": [-97.0, 30.0]}},                  # keep: case-insensitive
+        {"properties": {"countrycode": "DE", "name": "C"},
          "geometry": {"coordinates": [13.4, 52.5]}},                   # drop: non-US
-        {"properties": {"countrycode": "US", "name": "C"},
+        {"properties": {"countrycode": "US", "name": "D"},
          "geometry": {"coordinates": []}},                             # drop: bad coords
     ]
     out = _photon_features_to_suggestions(feats, 5)
-    assert out == [{"label": "A, X, CA", "lat": 34.0, "lon": -118.0}]  # note lon/lat swap
+    assert out == [                                                    # note lon/lat swap
+        {"label": "A, X, CA", "lat": 34.0, "lon": -118.0},
+        {"label": "B, Y, TX", "lat": 30.0, "lon": -97.0},
+    ]
     # limit is respected
     many = [{"properties": {"countrycode": "US", "name": str(i)},
              "geometry": {"coordinates": [float(i), 1.0]}} for i in range(10)]
