@@ -40,6 +40,8 @@
     #addr-result .composite-num { font-size: 2rem; font-weight: 800; color: var(--navy); line-height: 1; }
     #addr-result .grade-lg { width: 48px; height: 48px; line-height: 48px; text-align: center;
       border-radius: var(--radius); color: #fff; font-weight: 800; font-size: 1.5rem; }
+    #addr-result .build-line { color: var(--muted); font-size: 0.85rem; margin-top: 0.2rem; }
+    #addr-result .build-line strong { color: var(--navy); }
     #addr-result .na { color: var(--muted); font-style: italic; }
     #addr-result .meta { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.75rem; }
   </style>
@@ -453,6 +455,16 @@
   }
 
   var GRADE_COLORS = { A:"#22c55e", B:"#84cc16", C:"#eab308", D:"#f97316", F:"#ef4444" };
+  var WALL_LABELS = {
+    frame:"wood frame", brick:"brick", "brick-frame":"brick veneer", block:"concrete block",
+    icf:"ICF", sip:"SIP", stone:"stone", vinyl:"vinyl-sided frame"
+  };
+  var UPGRADE_LABELS = {
+    solar:"solar", backup_generator:"backup generator", fire_sprinklers:"fire sprinklers",
+    hurricane_straps:"hurricane straps", fortified_roof:"FORTIFIED roof",
+    tornado_safe_room:"tornado safe room", seismic_retrofit:"seismic retrofit",
+    flood_vents:"flood vents"
+  };
   function fillClass(score) {            // map score to a style.css fill color
     if (score >= 60) return "green";     // A & B share the green bar; the grade
     if (score >= 40) return "yellow";    // badge carries the precise A/B/C/D/F color
@@ -474,7 +486,7 @@
       + '" style="width:' + d.score + '%"></div></div></div>';
   }
 
-  function render(data) {
+  function render(data, ctx) {
     var loc = data.location || {};
     var comp = data.composite_score;
     var compGrade = data.composite_national_grade || "—";
@@ -490,10 +502,22 @@
     if (loc.climate_zone) metaParts.push("IECC " + esc(loc.climate_zone));
     metaParts.push(data.n_scored + "/8 dimensions");
 
+    // Build summary: "Custom" (or the profile name) + what was actually scored.
+    var h = data.house || {};
+    var profileText = ctx.isCustom ? "Custom" : ctx.presetLabel;
+    var buildBits = [];
+    if (h.construction) buildBits.push(WALL_LABELS[h.construction] || h.construction);
+    if (h.year_built) buildBits.push("built " + h.year_built);
+    if (h.sqft != null) buildBits.push(Math.round(h.sqft).toLocaleString() + " sqft");
+    if (ctx.upgradeLabels && ctx.upgradeLabels.length) buildBits.push(ctx.upgradeLabels.join(", "));
+    var buildLine = '<div class="build-line"><strong>' + esc(profileText) + '</strong>'
+      + (buildBits.length ? " &middot; " + esc(buildBits.join(" · ")) : "") + '</div>';
+
     var html = '<div class="label-card">'
       + '<div class="label-head"><div>'
       + '<div style="font-weight:700;color:var(--navy);">' + esc(loc.label || (data.house.lat + ", " + data.house.lon)) + '</div>'
-      + '<div class="meta">' + metaParts.join(" &middot; ") + '</div></div>'
+      + '<div class="meta">' + metaParts.join(" &middot; ") + '</div>'
+      + buildLine + '</div>'
       + '<div style="text-align:right;"><div class="composite-num">'
       + (comp == null ? "N/A" : comp.toFixed(1)) + '</div>'
       + '<span class="grade-lg" style="background:' + color + '">' + esc(compGrade) + '</span></div>'
@@ -532,10 +556,18 @@
       .map(function (c) { return c.value; });
     if (ups.length) params.set("upgrades", ups.join(","));
 
+    // Any override (field or upgrade) makes the scored build "Custom" rather
+    // than the selected base profile. Capture context for the result header.
+    var ctx = {
+      presetLabel: preset.options[preset.selectedIndex].text,
+      isCustom: !!(year || constr || sqft || ups.length),
+      upgradeLabels: ups.map(function (v) { return UPGRADE_LABELS[v] || v; })
+    };
+
     var url = API_BASE + "/label?" + params.toString();
     fetch(url)
       .then(function (r) { if (!r.ok) return r.json().then(function (j) { throw new Error(j.detail || ("HTTP " + r.status)); }); return r.json(); })
-      .then(function (data) { status.textContent = ""; render(data); })
+      .then(function (data) { status.textContent = ""; render(data, ctx); })
       .catch(function (err) { status.textContent = "Could not score that address: " + err.message; })
       .finally(function () { btn.disabled = false; });
   });
