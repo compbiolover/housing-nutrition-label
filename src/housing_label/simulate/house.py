@@ -989,7 +989,9 @@ def print_scorecard(cfg: dict, r: dict) -> None:
     print(row(f"    Wind/Seismic BRM   : {r['wind_seismic_brm']:.3f}  (code×type×cond, floor {r['brm_floor']}, no ceiling)"))
     print(row(f"    Fire BRM           : {r['fire_brm']:.3f}  (wiring-era×type×cond, floor {FIRE_BRM_FLOOR})"))
     if active_bonuses:
-        print(row(f"    General bonus mod  : {r['gen_mod']:.4f}  (all hazards combined)"))
+        print(row(f"    General bonus mod  : {r['gen_mod']:.4f}  (flood/tornado/seismic)"))
+        if cfg.get("fire_sprinklers"):
+            print(row(f"    + {'Fire sprinklers':<30}: ×{BONUS_FIRE_SPRINKLERS} fire only"))
         haz_specific = [b for b in BONUS_LABELS if cfg.get(b)
                         and b not in ("solar","backup_generator","passive_house","fire_sprinklers")]
         for b in haz_specific:
@@ -1014,7 +1016,7 @@ def print_scorecard(cfg: dict, r: dict) -> None:
                    f" {score:>7.1f} {g:>6}")
         print(row(f"    {row_str}"))
     print(row(f"    {'─'*52}"))
-    total_raw = r["flood_raw"] + r["tornado_raw"] + r["seismic_raw"]
+    total_raw = r["flood_raw"] + r["tornado_raw"] + r["seismic_raw"] + r["fire_raw"]
     total_row = (f"  {'TOTAL':<9} {total_raw*100:>8.4f}% {r['total_eal']*100:>8.4f}%"
                  f" {r['total_score']:>7.1f} {r['national_grade']:>6}")
     print(row(f"    {total_row}"))
@@ -1301,11 +1303,12 @@ def main() -> None:
         "socioeconomic": args.socioeconomic_index,
         "walkability":   args.walk_score,
     }
+    upgrades = [f for f in BONUS_FLAGS if getattr(args, f, False)]   # CLI resilience flags
     try:
         cfg, r, label = build_label_parts(
             address=args.address, lat=args.lat, lon=args.lon,
             preset=args.preset, flood_zone=args.flood_zone,
-            allow_network=allow_network, overrides=overrides,
+            allow_network=allow_network, overrides=overrides, upgrades=upgrades,
             year_built=args.year_built, construction=args.construction,
             foundation=args.foundation, condition=args.condition,
             value=args.value, units=args.units, sqft=args.sqft, lot_acres=args.lot_acres,

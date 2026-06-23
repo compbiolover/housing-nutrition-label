@@ -148,6 +148,17 @@ def test_resilience_fire_and_uncapped_brm():
     assert simulate(base)["fire_adj"] < no_spr
 
 
+def test_upgrades_flow_through_build_label_parts():
+    """Resilience upgrades passed to build_label_parts take effect (guards the
+    CLI path, which forwards its bonus flags as `upgrades`)."""
+    from housing_label.simulate.house import build_label_parts
+    common = dict(lat=35.15, lon=-89.85, preset="baseline", construction="frame",
+                  year_built=1920, condition="poor", allow_network=False)
+    _, base, _ = build_label_parts(**common)
+    _, spr, _  = build_label_parts(**common, upgrades=["fire_sprinklers"])
+    assert spr["fire_adj"] < base["fire_adj"]          # fire-specific sprinkler effect
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:
