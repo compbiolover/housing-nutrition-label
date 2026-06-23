@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reference &mdash; Housing Nutrition Label</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .ref-toc { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; margin: 1rem 0 0; padding: 0; list-style: none; }
+    .ref-toc a { font-size: 0.92rem; }
+    .data-table td:first-child, .data-table th:first-child { white-space: nowrap; }
+    .tag { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.75rem;
+      font-weight: 600; }
+    .tag.point { background: #dbeafe; color: #1e40af; }
+    .tag.tract { background: #dcfce7; color: #166534; }
+    .tag.county { background: #fef9c3; color: #854d0e; }
+    .tag.region { background: #f3e8ff; color: #6b21a8; }
+    .tag.config { background: #e2e8f0; color: #334155; }
+    @media (prefers-color-scheme: dark) {
+      .tag.point { background: #1e3a5f; color: #bfdbfe; }
+      .tag.tract { background: #14532d; color: #bbf7d0; }
+      .tag.county { background: #422006; color: #fde68a; }
+      .tag.region { background: #3b0764; color: #e9d5ff; }
+      .tag.config { background: #334155; color: #cbd5e1; }
+    }
+  </style>
+</head>
+<body>
+<nav>
+  <div class="logo">Housing<span>Label</span>.dev</div>
+  <button class="hamburger" aria-label="Menu">&#9776;</button>
+  <ul>
+    <li><a href="index.html">Overview</a></li>
+    <li><a href="methodology.html">Methodology</a></li>
+    <li><a href="examples.html">Examples</a></li>
+    <li><a href="label.html">Label</a></li>
+    <li><a href="setup.html">Setup</a></li>
+    <li><a href="reference.html" class="active">Reference</a></li>
+    <li><a href="https://github.com/compbiolover/housing-nutrition-label">GitHub</a></li>
+  </ul>
+</nav>
+
+<section>
+  <h2>Reference</h2>
+  <p>A complete catalog of the label's eight dimensions, every variable you can control, and where each input comes from geographically. For the underlying formulas and sources, see <a href="methodology.html">Methodology</a>; to run it yourself, see <a href="setup.html">Setup</a>.</p>
+  <ul class="ref-toc">
+    <li><a href="#geo">Geographic resolution</a></li>
+    <li><a href="#dimensions">The eight dimensions</a></li>
+    <li><a href="#construction">Wall / construction type</a></li>
+    <li><a href="#condition">Condition</a></li>
+    <li><a href="#foundation">Foundation</a></li>
+    <li><a href="#year">Year built</a></li>
+    <li><a href="#fields">Other house fields</a></li>
+    <li><a href="#upgrades">Resilience upgrades</a></li>
+    <li><a href="#presets">Presets</a></li>
+    <li><a href="#controls">CLI &amp; API</a></li>
+  </ul>
+</section>
+
+<section id="geo">
+  <h2>Geographic resolution &mdash; what's measured where</h2>
+  <p>Some inputs are pulled for your <strong>exact address</strong>; others describe the surrounding <strong>census tract</strong>, <strong>county</strong>, or power-grid <strong>subregion</strong>; and a few depend only on <strong>your house</strong> and are identical anywhere. This is the single most common source of confusion, so here it is up front.</p>
+  <table class="data-table">
+    <thead><tr><th>Resolution</th><th>What's resolved at this level</th></tr></thead>
+    <tbody>
+      <tr><td><span class="tag point">Address point</span></td><td>Flood zone (FEMA NFHL), tornado frequency (SPC, within 25&nbsp;mi), seismic PGA (USGS), and <strong>Walkability</strong> (Walk Score)</td></tr>
+      <tr><td><span class="tag tract">Census tract</span></td><td><strong>Health</strong> (CDC PLACES) and <strong>Socioeconomic</strong> (Census ACS) &mdash; each ranked <em>within the address's own county</em></td></tr>
+      <tr><td><span class="tag county">County</span></td><td>Energy climate zone (IECC) and Infrastructure Burden (cost / property-tax model)</td></tr>
+      <tr><td><span class="tag region">Grid subregion</span></td><td>Environmental grid-carbon factor (kg&nbsp;CO&#8322;e/kWh, eGRID subregion)</td></tr>
+      <tr><td><span class="tag config">Your house only</span></td><td>Durability, embodied carbon, and the <strong>fire</strong> peril &mdash; driven by construction / year / condition, identical at any location</td></tr>
+    </tbody>
+  </table>
+  <div class="insight"><strong>Why it matters:</strong> two identical buildings can score very differently on Health, Socioeconomic, or Walkability purely because of location, while Durability and the construction-driven dimensions move only when you change the build.</div>
+</section>
+
+<section id="dimensions">
+  <h2>The eight dimensions</h2>
+  <p>The composite is the mean of whichever dimensions could be scored (location dimensions are omitted, not zeroed, when their data/keys are unavailable). National grades use absolute thresholds: A&nbsp;&ge;&nbsp;80, B&nbsp;&ge;&nbsp;60, C&nbsp;&ge;&nbsp;40, D&nbsp;&ge;&nbsp;20, F&nbsp;&lt;&nbsp;20.</p>
+  <table class="data-table">
+    <thead><tr><th>Dimension</th><th>Measures</th><th>Data source</th><th>Resolution</th></tr></thead>
+    <tbody>
+      <tr><td>Disaster Resilience</td><td>Expected annual loss from flood, tornado, earthquake &amp; fire</td><td>FEMA NFHL, SPC, USGS, NFPA base rate</td><td><span class="tag point">point</span> <span class="tag config">+ config</span></td></tr>
+      <tr><td>Energy Efficiency</td><td>Modeled energy use intensity vs. a climate-zone benchmark</td><td>IECC climate zone + construction model</td><td><span class="tag county">county</span> <span class="tag config">+ config</span></td></tr>
+      <tr><td>Durability</td><td>Building longevity from materials, build quality &amp; condition</td><td>Construction model</td><td><span class="tag config">config</span></td></tr>
+      <tr><td>Environmental Footprint</td><td>Embodied + operational carbon over the building's life</td><td>Material carbon + eGRID grid factor</td><td><span class="tag region">subregion</span> <span class="tag config">+ config</span></td></tr>
+      <tr><td>Infrastructure Burden</td><td>Fiscal cost-to-serve vs. the revenue the parcel generates</td><td>Memphis calibration / national tax model</td><td><span class="tag county">county</span></td></tr>
+      <tr><td>Health Impact</td><td>Neighborhood health outcomes index (percentile)</td><td>CDC PLACES</td><td><span class="tag tract">tract</span></td></tr>
+      <tr><td>Socioeconomic</td><td>Neighborhood socioeconomic index (percentile)</td><td>Census ACS</td><td><span class="tag tract">tract</span></td></tr>
+      <tr><td>Walkability</td><td>How walkable the location is</td><td>Walk Score API</td><td><span class="tag point">point</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="construction">
+  <h2>Wall / construction type</h2>
+  <p>The structural system. It drives Disaster Resilience (separate factors per peril) and the build-quality grade used by Durability &amp; Environmental. <strong>Lower peril factors = less expected loss = better;</strong> higher build grade = better. ICF/SIP also get extra envelope credit in the Energy model beyond what the wall code below implies.</p>
+  <table class="data-table">
+    <thead><tr><th>Type</th><th>Wind / seismic</th><th>Flood</th><th>Fire</th><th>Build grade</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Wood frame</td><td>1.20</td><td>1.20</td><td>1.10</td><td>38</td><td>Light wood frame &mdash; the baseline; most vulnerable to wind/seismic</td></tr>
+      <tr><td>Vinyl-sided frame</td><td>1.15</td><td>1.15</td><td>1.10</td><td>35</td><td>Wood frame with vinyl siding: slight wind benefit, slightly lower build grade</td></tr>
+      <tr><td>Brick veneer / frame</td><td>1.00</td><td>1.00</td><td>1.00</td><td>42</td><td>Brick veneer over a wood frame &mdash; composite baseline</td></tr>
+      <tr><td>Brick (solid masonry)</td><td>0.95</td><td>0.95</td><td>0.85</td><td>48</td><td>Solid brick; better lateral resistance &amp; less combustible</td></tr>
+      <tr><td>Concrete block (CMU)</td><td>0.90</td><td>0.90</td><td>0.80</td><td>46</td><td>Reinforced masonry; strong lateral resistance</td></tr>
+      <tr><td>Stone</td><td>0.85</td><td>0.85</td><td>0.80</td><td>52</td><td>Solid masonry; best of the traditional types</td></tr>
+      <tr><td>ICF (insulated concrete form)</td><td>0.25</td><td>0.45</td><td>0.70</td><td>50</td><td>Monolithic concrete shell; huge wind/seismic &amp; fire benefit (finishes still flood-vulnerable)</td></tr>
+      <tr><td>SIP (structural insulated panel)</td><td>0.35</td><td>0.35</td><td>1.05</td><td>45</td><td>Engineered wood composite; excellent racking resistance, frame-like fire behavior</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="condition">
+  <h2>Condition</h2>
+  <p>Upkeep/deterioration. Multiplies expected loss for every disaster peril (so it now affects the score at any age &mdash; there is no upper cap) and feeds the Durability model.</p>
+  <table class="data-table">
+    <thead><tr><th>Condition</th><th>Loss multiplier</th></tr></thead>
+    <tbody>
+      <tr><td>Unsound</td><td>1.5&times; (worst)</td></tr>
+      <tr><td>Poor</td><td>1.3&times;</td></tr>
+      <tr><td>Fair</td><td>1.1&times;</td></tr>
+      <tr><td>Average</td><td>1.0&times; (baseline)</td></tr>
+      <tr><td>Good</td><td>0.9&times;</td></tr>
+      <tr><td>Excellent</td><td>0.8&times; (best)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="foundation">
+  <h2>Foundation</h2>
+  <p>Affects the <strong>flood</strong> peril only (below-grade space is what floods).</p>
+  <table class="data-table">
+    <thead><tr><th>Foundation</th><th>Flood multiplier</th></tr></thead>
+    <tbody>
+      <tr><td>Slab</td><td>0.7&times; (at/above grade; least flood loss)</td></tr>
+      <tr><td>Crawl space</td><td>1.0&times; (baseline)</td></tr>
+      <tr><td>Partial basement</td><td>1.2&times;</td></tr>
+      <tr><td>Full basement</td><td>1.4&times; (most flood loss)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="year">
+  <h2>Year built</h2>
+  <p>Year built drives two separate vulnerability multipliers &mdash; one for the building code era (wind/seismic) and one for the electrical/wiring era (fire). Both compound with condition; <strong>lower is better.</strong></p>
+  <table class="data-table">
+    <thead><tr><th>Era</th><th>Code factor (wind/seismic)</th></tr></thead>
+    <tbody>
+      <tr><td>Before 1940</td><td>1.6&times; (balloon framing, no engineered connections)</td></tr>
+      <tr><td>1940&ndash;1969</td><td>1.3&times;</td></tr>
+      <tr><td>1970&ndash;1989</td><td>1.1&times;</td></tr>
+      <tr><td>1990&ndash;2002</td><td>1.0&times;</td></tr>
+      <tr><td>2003 or later</td><td>0.85&times; (post-IBC)</td></tr>
+    </tbody>
+  </table>
+  <table class="data-table">
+    <thead><tr><th>Wiring era</th><th>Fire factor</th></tr></thead>
+    <tbody>
+      <tr><td>Before 1950</td><td>1.5&times; (knob-and-tube era)</td></tr>
+      <tr><td>1950&ndash;1974</td><td>1.2&times; (aluminum branch wiring era)</td></tr>
+      <tr><td>1975&ndash;2001</td><td>1.0&times;</td></tr>
+      <tr><td>2002 or later</td><td>0.85&times; (NEC&nbsp;2002+ AFCI requirements)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="fields">
+  <h2>Other house fields</h2>
+  <table class="data-table">
+    <thead><tr><th>Field</th><th>What it does</th><th>Default</th></tr></thead>
+    <tbody>
+      <tr><td>Flood zone</td><td>FEMA zone (<code>X</code> minimal, <code>X500</code> moderate, <code>AE</code> high). Auto-derived from the address if not set.</td><td>auto (FEMA NFHL)</td></tr>
+      <tr><td>Value</td><td>Market value; scales the dollar-denominated expected loss (not the 0&ndash;100 scores, which are rates).</td><td>$160,000</td></tr>
+      <tr><td>Units</td><td>Dwelling units; the parcel is framed per-unit for the construction dimensions.</td><td>1</td></tr>
+      <tr><td>Square footage</td><td>Living area; feeds the energy &amp; environmental per-area models.</td><td>2,000</td></tr>
+      <tr><td>Lot acres</td><td>Parcel size; feeds the infrastructure cost-to-serve model.</td><td>0.25</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="upgrades">
+  <h2>Resilience upgrades</h2>
+  <p>Above-code features that reduce a specific peril's expected loss. Each is a multiplier &mdash; <strong>lower = bigger reduction</strong> &mdash; applied on top of the construction/condition adjustment. FORTIFIED tiers are composite and supersede the individual wind features; the three elevation tiers are mutually exclusive.</p>
+
+  <h3>General (apply to flood, tornado &amp; seismic)</h3>
+  <table class="data-table"><thead><tr><th>Upgrade</th><th>Factor</th></tr></thead><tbody>
+    <tr><td>Solar panels</td><td>0.97</td></tr>
+    <tr><td>Backup generator / battery</td><td>0.95</td></tr>
+    <tr><td>Passive-house certification</td><td>0.92</td></tr>
+    <tr><td>Fire sprinklers</td><td>0.92 here, <strong>and 0.40 on fire</strong></td></tr>
+  </tbody></table>
+
+  <h3>Wind / tornado</h3>
+  <table class="data-table"><thead><tr><th>Upgrade</th><th>Factor</th></tr></thead><tbody>
+    <tr><td>Hurricane straps (continuous load path)</td><td>0.70</td></tr>
+    <tr><td>Hip roof</td><td>0.55</td></tr>
+    <tr><td>Impact-rated garage door</td><td>0.75</td></tr>
+    <tr><td>Sealed roof deck</td><td>0.80</td></tr>
+    <tr><td>Standing-seam metal roof</td><td>0.75</td></tr>
+    <tr><td>Reinforced gable ends</td><td>0.80</td></tr>
+    <tr><td>Ring-shank nails</td><td>0.88</td></tr>
+    <tr><td>16&Prime; OC trusses</td><td>0.92</td></tr>
+  </tbody></table>
+
+  <h3>IBHS FORTIFIED (composite &mdash; supersedes the wind features above)</h3>
+  <table class="data-table"><thead><tr><th>Tier</th><th>Factor</th></tr></thead><tbody>
+    <tr><td>FORTIFIED Roof</td><td>0.35</td></tr>
+    <tr><td>FORTIFIED Silver</td><td>0.25</td></tr>
+    <tr><td>FORTIFIED Gold</td><td>0.20</td></tr>
+  </tbody></table>
+
+  <h3>Seismic</h3>
+  <table class="data-table"><thead><tr><th>Upgrade</th><th>Factor</th></tr></thead><tbody>
+    <tr><td>Seismic retrofit / base isolation</td><td>0.75</td></tr>
+    <tr><td>Cripple-wall bracing</td><td>0.45</td></tr>
+    <tr><td>Seismic hold-downs</td><td>0.85</td></tr>
+    <tr><td>Automatic gas shut-off valve</td><td>0.90</td></tr>
+  </tbody></table>
+
+  <h3>Flood</h3>
+  <table class="data-table"><thead><tr><th>Upgrade</th><th>Factor</th></tr></thead><tbody>
+    <tr><td>Elevated +1&nbsp;ft above BFE</td><td>0.15</td></tr>
+    <tr><td>Elevated +2&nbsp;ft</td><td>0.08</td></tr>
+    <tr><td>Elevated +3&nbsp;ft</td><td>0.04</td></tr>
+    <tr><td>Engineered flood vents</td><td>0.85</td></tr>
+    <tr><td>Backflow-prevention valve</td><td>0.90</td></tr>
+    <tr><td>Smart leak detection</td><td>0.95</td></tr>
+  </tbody></table>
+
+  <h3>Fire</h3>
+  <table class="data-table"><thead><tr><th>Upgrade</th><th>Factor</th></tr></thead><tbody>
+    <tr><td>Fire sprinklers</td><td>0.40 on the fire peril (~60% loss reduction)</td></tr>
+  </tbody></table>
+</section>
+
+<section id="presets">
+  <h2>Presets</h2>
+  <p>Starting configurations. Any field you set in <em>Construction details</em> (or via CLI/API) overrides the preset.</p>
+  <table class="data-table">
+    <thead><tr><th>Preset</th><th>Profile</th></tr></thead>
+    <tbody>
+      <tr><td>baseline</td><td>2000 wood frame, slab, average, zone X, $160k</td></tr>
+      <tr><td>premium</td><td>2026 solid brick, excellent, zone X, $450k</td></tr>
+      <tr><td>icf-passive</td><td>2026 ICF passive house, excellent, full resilience package (solar, generator, safe room, wind upgrades, +1ft)</td></tr>
+      <tr><td>fortified-gold</td><td>2026 frame, FORTIFIED Gold + metal roof + sealed deck, $350k</td></tr>
+      <tr><td>worst-case</td><td>1945 wood frame, full basement, poor, zone AE, $80k</td></tr>
+      <tr><td>duplex</td><td>2026 brick, 2 units @ 1,200 sqft</td></tr>
+      <tr><td>quadplex</td><td>2026 brick, 4 units @ 900 sqft</td></tr>
+      <tr><td>icf-quadplex</td><td>2026 ICF, 4 units @ 1,000 sqft, resilience package</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="controls">
+  <h2>Controlling it: CLI &amp; API</h2>
+  <p>Every variable above is settable three ways: the <a href="examples.html">Examples</a> search form, the <code>housing-simulate</code> CLI, and the <code>/label</code> HTTP API (see <a href="setup.html#api">Setup</a>).</p>
+
+  <h3>CLI</h3>
+  <pre><code>housing-simulate --address "123 Main St, Memphis, TN" \
+    --construction icf --year-built 2026 --condition excellent \
+    --foundation slab --sqft 1800 --value 350000 \
+    --solar --hurricane-straps --fire-sprinklers --json</code></pre>
+  <p>Core flags: <code>--preset</code>, <code>--address</code> (or <code>--lat</code>/<code>--lon</code>), <code>--construction</code>, <code>--year-built</code>, <code>--foundation</code>, <code>--condition</code>, <code>--flood-zone</code>, <code>--value</code>, <code>--units</code>, <code>--sqft</code>, <code>--lot-acres</code>. Each resilience upgrade is a flag (e.g. <code>--solar</code>, <code>--fortified-gold</code>, <code>--elevation-1ft</code>). <code>--json</code> emits the full payload; <code>--no-fetch</code> runs offline.</p>
+
+  <h3>API</h3>
+  <pre><code>GET /label?address=&lt;addr&gt;&amp;preset=baseline&amp;construction=icf&amp;year_built=2026
+          &amp;condition=excellent&amp;sqft=1800&amp;value=350000
+          &amp;upgrades=solar,hurricane_straps,fire_sprinklers</code></pre>
+  <p>Same parameters as the CLI; resilience upgrades are a single comma-separated <code>upgrades=</code> list. <code>GET /suggest?q=</code> powers the address autocomplete.</p>
+</section>
+
+<footer>
+  Housing Nutrition Label &mdash; <a href="https://github.com/compbiolover/housing-nutrition-label">open source on GitHub</a>
+</footer>
+<script src="nav.js"></script>
+</body>
+</html>
