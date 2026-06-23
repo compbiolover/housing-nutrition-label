@@ -16,6 +16,7 @@ Install + run::
 Endpoints::
 
     GET /healthz                     liveness probe
+    GET /suggest?q=<text>            US address typeahead [{label, lat, lon}]
     GET /label?address=<addr>        full label JSON for the address
     GET /label?lat=<y>&lon=<x>       …or by coordinates
         optional: preset, construction, year_built, foundation, condition,
@@ -33,11 +34,13 @@ import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+from housing_label.config import PHOTON_URL
 from housing_label.simulate.house import (
     build_label_parts, label_payload,
     PRESETS, CONSTRUCTION_FACTOR, FOUNDATION_FACTOR, CONDITION_FACTOR,
     BONUS_FLAGS, ELEVATION_FLAGS,
 )
+from housing_label.simulate.location import _get as _http_get
 
 log = logging.getLogger("housing_label.api")
 
@@ -79,6 +82,57 @@ app.add_middleware(
 @app.get("/healthz")
 def healthz() -> dict:
     return {"ok": True}
+
+
+# ── Address autocomplete (Photon proxy) ──────────────────────────────────────────
+
+_SUGGEST_MIN_CHARS = 3
+_SUGGEST_MAX_CHARS = 200
+_SUGGEST_LIMIT = 5
+
+
+def _photon_label(props: dict) -> str:
+    """Build a one-line US address label from a Photon feature's properties."""
+    house = props.get("housenumber")
+    street = props.get("street") or props.get("name")
+    line1 = f"{house} {street}".strip() if house and street else (street or props.get("name") or "")
+    parts = [p for p in (line1, props.get("city"), props.get("state"), props.get("postcode")) if p]
+    return ", ".join(parts)
+
+
+def _photon_features_to_suggestions(features: list, limit: int) -> list[dict]:
+    """Slim US-only [{label, lat, lon}] from a Photon GeoJSON feature list."""
+    out: list[dict] = []
+    for f in features or []:
+        props = f.get("properties") or {}
+        if props.get("countrycode") != "US":          # US-only (the scorer is US-only)
+            continue
+        coords = (f.get("geometry") or {}).get("coordinates") or []
+        if len(coords) != 2:                          # Photon coords are [lon, lat]
+            continue
+        label = _photon_label(props)
+        if not label:
+            continue
+        out.append({"label": label, "lat": float(coords[1]), "lon": float(coords[0])})
+        if len(out) >= limit:
+            break
+    return out
+
+
+@app.get("/suggest")
+def suggest(q: str | None = None) -> list[dict]:
+    """US address typeahead via Photon. Degrades to [] — never breaks the page."""
+    text = (q or "").strip()
+    if len(text) < _SUGGEST_MIN_CHARS:
+        return []                                     # too short — empty, not an error
+    data = _http_get(PHOTON_URL, {
+        "q": text[:_SUGGEST_MAX_CHARS],
+        "limit": _SUGGEST_LIMIT * 3,                  # over-fetch so the US filter isn't starved
+        "lang": "en",
+    })
+    if not data:                                      # upstream down/timeout → quietly empty
+        return []
+    return _photon_features_to_suggestions(data.get("features") or [], _SUGGEST_LIMIT)
 
 
 @app.get("/label")

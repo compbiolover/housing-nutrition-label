@@ -9,6 +9,7 @@ two or more stages belong here.
 
 from __future__ import annotations
 
+import os
 import pathlib
 
 # ── Project layout ──────────────────────────────────────────────────────────────
@@ -35,6 +36,9 @@ SHELBY_BASEMAP_URL = "https://gis.shelbycountytn.gov/public/rest/services/BaseMa
 SHELBY_CAMA_URL = "https://gis.shelbycountytn.gov/public/rest/services/Parcel/CertParcel_NOAttrib/MapServer"
 FEMA_NFHL_URL = "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query"
 SPC_TORNADO_URL = "https://www.spc.noaa.gov/wcm/data/1950-2023_actual_tornadoes.csv"
+# Photon (keyless, OpenStreetMap-based) powers the address-autocomplete proxy.
+# Override to self-host a Photon instance.
+PHOTON_URL = os.environ.get("PHOTON_URL", "https://photon.komoot.io/api")
 
 # ── Geographic reference points ─────────────────────────────────────────────────
 EARTH_RADIUS_MI: float = 3958.7613   # mean Earth radius, miles (haversine)

@@ -12,6 +12,16 @@
     .addr-form { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 1rem 0; }
     .addr-form input[type=text] { flex: 1 1 320px; font: inherit; padding: 0.6rem 0.8rem;
       border: 1px solid var(--border); border-radius: var(--radius); }
+    /* Autocomplete: positioned wrapper anchors the suggestion list under the input. */
+    .addr-ac { position: relative; flex: 1 1 320px; }
+    .addr-ac input[type=text] { width: 100%; box-sizing: border-box; }
+    .addr-suggest { position: absolute; top: 100%; left: 0; right: 0; z-index: 50;
+      background: var(--card); border: 1px solid var(--border); border-top: none;
+      border-radius: 0 0 var(--radius) var(--radius); box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      max-height: 16rem; overflow-y: auto; list-style: none; margin: 0; padding: 0; }
+    .addr-suggest li { padding: 0.5rem 0.8rem; cursor: pointer; font-size: 0.9rem; }
+    .addr-suggest li.active, .addr-suggest li:hover { background: #f1f5f9; }
+    .addr-suggest[hidden] { display: none; }
     .addr-form select { font: inherit; padding: 0.6rem 0.8rem; border: 1px solid var(--border);
       border-radius: var(--radius); background: var(--card); }
     .addr-form button { font: inherit; font-weight: 600; padding: 0.6rem 1.2rem; border: none;
@@ -71,7 +81,11 @@
   <p>Type any US address and pick a construction profile to generate a live nutrition label for that location &mdash; the same eight-dimension scoring the CLI produces. Health &amp; socioeconomic are ranked within the address's own county; energy uses the local climate zone; seismic and flood are pulled for the exact point. Expand <em>Construction details</em> to override the profile with a specific year built, wall type, square footage, and resilience upgrades.</p>
 
   <form class="addr-form" id="addr-form">
-    <input type="text" id="addr-input" aria-label="US address to score" placeholder="e.g. 111 S Grand Ave, Los Angeles, CA 90012" autocomplete="off">
+    <div class="addr-ac" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-owns="addr-suggest">
+      <input type="text" id="addr-input" aria-label="US address to score" placeholder="e.g. 111 S Grand Ave, Los Angeles, CA 90012"
+             autocomplete="off" role="textbox" aria-autocomplete="list" aria-controls="addr-suggest" aria-activedescendant="">
+      <ul class="addr-suggest" id="addr-suggest" role="listbox" hidden></ul>
+    </div>
     <select id="addr-preset" aria-label="Construction profile">
       <option value="baseline">Baseline (2000 frame)</option>
       <option value="premium">Premium (2026 brick)</option>
@@ -434,6 +448,15 @@
   var note    = document.getElementById("addr-config-note");
   var active  = document.getElementById("addr-api-active");
   var dfltMsg = document.getElementById("addr-api-default");
+  var acBox   = document.getElementById("addr-suggest");
+  var acWrap  = input.closest(".addr-ac");
+
+  // Autocomplete state.
+  var picked   = null;   // {label, lat, lon} when a suggestion is chosen; else null
+  var acItems  = [];     // current suggestion objects
+  var acActive = -1;     // highlighted index for keyboard nav
+  var acTimer  = null;   // debounce handle
+  var acSeq    = 0;      // request sequence — drop out-of-order responses
 
   function apiHost() {
     try { return new URL(API_BASE).host || API_BASE; } catch (e) { return API_BASE; }
@@ -443,14 +466,15 @@
     note.style.display = "";
   } else if (apiFromQuery) {
     // The endpoint was supplied via the URL (?api=...). Surface where the typed
-    // address will be sent so a shared link can't silently exfiltrate it.
-    active.textContent = "Heads up: addresses you enter are sent to the API at " + apiHost()
-      + " (set via this link's ?api= parameter).";
+    // address (and partial suggestion text) will be sent so a shared link can't
+    // silently exfiltrate it.
+    active.textContent = "Heads up: addresses you enter (including partial text typed for "
+      + "suggestions) are sent to the API at " + apiHost() + " (set via this link's ?api= parameter).";
     active.style.display = "";
   } else {
     // Site default endpoint — a quieter, neutral disclosure of where data goes.
-    dfltMsg.textContent = "Addresses you enter are sent to our scoring API ("
-      + apiHost() + ") to look up location data.";
+    dfltMsg.textContent = "Addresses you type (including partial text for suggestions) are sent to "
+      + "our scoring API (" + apiHost() + ") to look up location data.";
     dfltMsg.style.display = "";
   }
 
@@ -472,6 +496,61 @@
     return "red";
   }
   function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML; }
+
+  // ── Address autocomplete (debounced typeahead backed by our /suggest proxy) ──
+  function closeAc() {
+    acBox.hidden = true; acBox.innerHTML = ""; acItems = []; acActive = -1;
+    acWrap.setAttribute("aria-expanded", "false");
+    input.setAttribute("aria-activedescendant", "");
+  }
+  function setActive(i) {
+    var lis = acBox.querySelectorAll("li");
+    for (var j = 0; j < lis.length; j++) lis[j].classList.toggle("active", j === i);
+    acActive = i;
+    input.setAttribute("aria-activedescendant", i >= 0 ? "addr-opt-" + i : "");
+  }
+  function renderAc(list) {
+    acItems = list; acActive = -1;
+    if (!list.length) { closeAc(); return; }
+    acBox.innerHTML = list.map(function (s, i) {
+      return '<li role="option" id="addr-opt-' + i + '" data-i="' + i + '">' + esc(s.label) + '</li>';
+    }).join("");
+    acBox.hidden = false;
+    acWrap.setAttribute("aria-expanded", "true");
+  }
+  function fetchSuggest(q) {
+    var seq = ++acSeq;
+    fetch(API_BASE + "/suggest?q=" + encodeURIComponent(q))
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (list) { if (seq === acSeq) renderAc(Array.isArray(list) ? list : []); })
+      .catch(function () { if (seq === acSeq) closeAc(); });   // never throw to the page
+  }
+  function choose(i) {
+    var s = acItems[i]; if (!s) return;
+    picked = s;                 // remember {label, lat, lon}
+    input.value = s.label;
+    closeAc();
+  }
+
+  input.addEventListener("input", function () {
+    picked = null;              // editing the text invalidates any prior pick
+    var q = input.value.trim();
+    clearTimeout(acTimer);
+    if (!API_BASE || q.length < 3) { closeAc(); return; }
+    acTimer = setTimeout(function () { fetchSuggest(q); }, 250);
+  });
+  input.addEventListener("keydown", function (e) {
+    if (acBox.hidden || !acItems.length) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); setActive((acActive + 1) % acItems.length); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setActive((acActive - 1 + acItems.length) % acItems.length); }
+    else if (e.key === "Enter" && acActive >= 0) { e.preventDefault(); choose(acActive); }
+    else if (e.key === "Escape") { closeAc(); }
+  });
+  acBox.addEventListener("mousedown", function (e) {   // mousedown beats input blur
+    var li = e.target.closest("li[data-i]"); if (!li) return;
+    e.preventDefault(); choose(parseInt(li.getAttribute("data-i"), 10));
+  });
+  input.addEventListener("blur", function () { setTimeout(closeAc, 120); });
 
   function dimRow(d) {
     if (d.score == null) {
@@ -540,10 +619,18 @@
     result.innerHTML = "";
     status.textContent = "Scoring " + addr + " …";
     btn.disabled = true;
+    clearTimeout(acTimer); closeAc();
 
     // Optional construction details override the chosen profile.
     var params = new URLSearchParams();
-    params.set("address", addr);
+    // A picked suggestion carries exact coords — score that point directly (no
+    // re-geocode). Otherwise fall back to geocoding the typed address server-side.
+    if (picked && picked.label === addr) {
+      params.set("lat", picked.lat);
+      params.set("lon", picked.lon);
+    } else {
+      params.set("address", addr);
+    }
     params.set("preset", preset.value);
     var year = document.getElementById("d-year").value.trim();
     var constr = document.getElementById("d-construction").value;
