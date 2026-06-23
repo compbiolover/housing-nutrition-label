@@ -25,6 +25,7 @@ a:hover { text-decoration: underline; }
 /* Nav */
 nav { background: var(--navy); padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
 nav .logo { color: #fff; font-weight: 700; font-size: 1.1rem; padding: 1rem 0; }
+nav .logo:hover, nav .logo:focus { text-decoration: none; }   /* logo links home, no underline */
 nav .logo span { color: var(--green); }
 nav ul { list-style: none; display: flex; gap: 0.5rem; }
 nav ul a { color: #cbd5e1; padding: 0.5rem 1rem; border-radius: var(--radius); transition: 0.2s; }
