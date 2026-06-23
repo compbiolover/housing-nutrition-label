@@ -10,6 +10,8 @@ Install + run::
     pip install -e ".[api]"
     # set keys server-side for the full 8 dimensions (optional):
     export CENSUS_API_KEY=... WALKSCORE_API_KEY=...
+    # optional: sharper address autocomplete (else keyless Photon is used):
+    export GEOAPIFY_API_KEY=...
     housing-api                      # uvicorn on :8000 (PORT overrides)
     # or: uvicorn housing_label.api:app --host 0.0.0.0 --port 8000
 
@@ -31,16 +33,16 @@ from __future__ import annotations
 import logging
 import os
 
+import requests
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from housing_label.config import PHOTON_URL
+from housing_label.config import HEADERS, PHOTON_URL, GEOAPIFY_URL, GEOAPIFY_API_KEY
 from housing_label.simulate.house import (
     build_label_parts, label_payload,
     PRESETS, CONSTRUCTION_FACTOR, FOUNDATION_FACTOR, CONDITION_FACTOR,
     BONUS_FLAGS, ELEVATION_FLAGS,
 )
-from housing_label.simulate.location import _get as _http_get
 
 log = logging.getLogger("housing_label.api")
 
@@ -84,11 +86,34 @@ def healthz() -> dict:
     return {"ok": True}
 
 
-# ── Address autocomplete (Photon proxy) ──────────────────────────────────────────
+# ── Address autocomplete (Geoapify when keyed, else Photon) ──────────────────────
 
 _SUGGEST_MIN_CHARS = 3
 _SUGGEST_MAX_CHARS = 200
 _SUGGEST_LIMIT = 5
+_SUGGEST_TIMEOUT = 4          # seconds — interactive typeahead: fail fast, no retries
+
+
+def _suggest_get(url: str, params: dict) -> dict | None:
+    """Single short-timeout GET for the typeahead (no retries) → JSON or None.
+
+    Unlike the pipeline's _get, this never retries — a slow/4xx upstream (e.g. a
+    bad API key) must fail fast so the page falls back quickly, not after minutes.
+    """
+    try:
+        r = requests.get(url, params=params, headers=HEADERS, timeout=_SUGGEST_TIMEOUT)
+        r.raise_for_status()
+        return r.json()
+    except Exception:  # noqa: BLE001 — any failure → quietly fall back / empty
+        return None
+
+
+def _coord(v) -> float | None:
+    """Parse a coordinate to float, or None if it isn't numeric."""
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
 
 
 def _photon_label(props: dict) -> str:
@@ -111,10 +136,45 @@ def _photon_features_to_suggestions(features: list, limit: int) -> list[dict]:
         coords = (f.get("geometry") or {}).get("coordinates") or []
         if len(coords) != 2:                          # Photon coords are [lon, lat]
             continue
+        lat, lon = _coord(coords[1]), _coord(coords[0])
+        if lat is None or lon is None:
+            continue
         label = _photon_label(props)
         if not label:
             continue
-        out.append({"label": label, "lat": float(coords[1]), "lon": float(coords[0])})
+        out.append({"label": label, "lat": lat, "lon": lon})
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _geoapify_label(r: dict) -> str:
+    """One-line US address label from a Geoapify autocomplete result."""
+    region = " ".join(x for x in (r.get("state_code") or r.get("state"), r.get("postcode")) if x)
+    parts = [p for p in (r.get("address_line1") or r.get("name"), r.get("city"), region) if p]
+    if parts:
+        return ", ".join(parts)
+    # fallback: Geoapify's pre-formatted string, minus the country suffix
+    f = r.get("formatted") or ""
+    for suffix in (", United States of America", ", United States"):
+        if f.endswith(suffix):
+            return f[: -len(suffix)]
+    return f
+
+
+def _geoapify_results_to_suggestions(results: list, limit: int) -> list[dict]:
+    """Slim US-only [{label, lat, lon}] from Geoapify autocomplete results."""
+    out: list[dict] = []
+    for r in results or []:
+        if (r.get("country_code") or "").lower() != "us":   # US-only (the scorer is US-only)
+            continue
+        lat, lon = _coord(r.get("lat")), _coord(r.get("lon"))
+        if lat is None or lon is None:
+            continue
+        label = _geoapify_label(r)
+        if not label:
+            continue
+        out.append({"label": label, "lat": float(lat), "lon": float(lon)})
         if len(out) >= limit:
             break
     return out
@@ -122,12 +182,24 @@ def _photon_features_to_suggestions(features: list, limit: int) -> list[dict]:
 
 @app.get("/suggest")
 def suggest(q: str | None = None) -> list[dict]:
-    """US address typeahead via Photon. Degrades to [] — never breaks the page."""
+    """US address typeahead. Uses Geoapify when a key is set (better ranking),
+    else keyless Photon. Degrades to [] — never breaks the page."""
     text = (q or "").strip()
     if len(text) < _SUGGEST_MIN_CHARS:
         return []                                     # too short — empty, not an error
-    data = _http_get(PHOTON_URL, {
-        "q": text[:_SUGGEST_MAX_CHARS],
+    text = text[:_SUGGEST_MAX_CHARS]
+
+    if GEOAPIFY_API_KEY:
+        data = _suggest_get(GEOAPIFY_URL, {
+            "text": text, "apiKey": GEOAPIFY_API_KEY,
+            "filter": "countrycode:us", "limit": _SUGGEST_LIMIT,
+            "format": "json", "lang": "en",
+        })
+        if data is not None:                          # only fall back to Photon if unreachable
+            return _geoapify_results_to_suggestions(data.get("results") or [], _SUGGEST_LIMIT)
+
+    data = _suggest_get(PHOTON_URL, {
+        "q": text,
         "limit": _SUGGEST_LIMIT * 3,                  # over-fetch so the US filter isn't starved
         "lang": "en",
     })

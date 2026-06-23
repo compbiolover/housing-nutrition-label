@@ -185,9 +185,11 @@ export CENSUS_API_KEY=... WALKSCORE_API_KEY=...   # optional, for the full 8 dim
 housing-api                            # GET /label?address=... (or ?lat=&lon=), GET /suggest?q=..., GET /healthz
 ```
 
-The search bar also has **address autocomplete**: `GET /suggest?q=...` proxies the keyless
-[Photon](https://photon.komoot.io) geocoder (OpenStreetMap) server-side and returns US
-`[{label, lat, lon}]`; set `PHOTON_URL` to self-host it.
+The search bar also has **address autocomplete**: `GET /suggest?q=...` returns US
+`[{label, lat, lon}]`, proxied server-side (visitors' keystrokes never reach a third party
+directly). By default it uses the keyless [Photon](https://photon.komoot.io) geocoder
+(`PHOTON_URL` to self-host); set `GEOAPIFY_API_KEY` ([free tier](https://www.geoapify.com),
+EU/GDPR) for sharper US ranking, with automatic Photon fallback. Keys stay server-side.
 
 Deploy it anywhere that runs Python (GitHub Pages can't host it). The repo ships a
 [`render.yaml`](render.yaml) Blueprint and a [`Dockerfile`](Dockerfile) (Fly / Cloud Run /
