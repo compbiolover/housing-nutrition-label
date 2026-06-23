@@ -182,8 +182,12 @@ The static site can score **any US address** via a small HTTP wrapper around the
 ```bash
 pip install -e ".[api]"               # FastAPI + uvicorn
 export CENSUS_API_KEY=... WALKSCORE_API_KEY=...   # optional, for the full 8 dimensions
-housing-api                            # GET /label?address=... (or ?lat=&lon=), GET /healthz
+housing-api                            # GET /label?address=... (or ?lat=&lon=), GET /suggest?q=..., GET /healthz
 ```
+
+The search bar also has **address autocomplete**: `GET /suggest?q=...` proxies the keyless
+[Photon](https://photon.komoot.io) geocoder (OpenStreetMap) server-side and returns US
+`[{label, lat, lon}]`; set `PHOTON_URL` to self-host it.
 
 Deploy it anywhere that runs Python (GitHub Pages can't host it). The repo ships a
 [`render.yaml`](render.yaml) Blueprint and a [`Dockerfile`](Dockerfile) (Fly / Cloud Run /

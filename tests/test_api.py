@@ -45,6 +45,57 @@ def test_cors_default_allowlist():
     assert blocked.headers.get("access-control-allow-origin") is None
 
 
+def test_photon_label_formatter():
+    """Pure helpers — no network. Importing housing_label.api needs FastAPI, so
+    skip (like the other tests) when it isn't installed."""
+    try:
+        from housing_label.api import _photon_label, _photon_features_to_suggestions
+    except ImportError:
+        print("  skip test_photon_label_formatter (fastapi not installed)")
+        return
+    assert _photon_label({
+        "housenumber": "123", "street": "Main St", "city": "Memphis",
+        "state": "TN", "postcode": "38104",
+    }) == "123 Main St, Memphis, TN, 38104"
+    # POI with a name but no street/housenumber falls back to the name.
+    assert _photon_label({"name": "Griffith Observatory", "city": "Los Angeles"}) \
+        == "Griffith Observatory, Los Angeles"
+
+    feats = [
+        {"properties": {"countrycode": "US", "name": "A", "city": "X", "state": "CA"},
+         "geometry": {"coordinates": [-118.0, 34.0]}},                 # keep ([lon,lat])
+        {"properties": {"countrycode": "us", "name": "B", "city": "Y", "state": "TX"},
+         "geometry": {"coordinates": [-97.0, 30.0]}},                  # keep: case-insensitive
+        {"properties": {"countrycode": "DE", "name": "C"},
+         "geometry": {"coordinates": [13.4, 52.5]}},                   # drop: non-US
+        {"properties": {"countrycode": "US", "name": "D"},
+         "geometry": {"coordinates": []}},                             # drop: bad coords
+    ]
+    out = _photon_features_to_suggestions(feats, 5)
+    assert out == [                                                    # note lon/lat swap
+        {"label": "A, X, CA", "lat": 34.0, "lon": -118.0},
+        {"label": "B, Y, TX", "lat": 30.0, "lon": -97.0},
+    ]
+    # limit is respected
+    many = [{"properties": {"countrycode": "US", "name": str(i)},
+             "geometry": {"coordinates": [float(i), 1.0]}} for i in range(10)]
+    assert len(_photon_features_to_suggestions(many, 3)) == 3
+
+
+def test_suggest_short_query():
+    """Short/empty q short-circuits to [] before any network call."""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_suggest_short_query (fastapi not installed)")
+        return
+    from housing_label.api import app
+    client = TestClient(app)
+    assert client.get("/suggest").status_code == 200
+    assert client.get("/suggest").json() == []
+    assert client.get("/suggest", params={"q": "ab"}).json() == []
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:
