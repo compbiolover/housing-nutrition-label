@@ -49,10 +49,12 @@ def test_photon_label_formatter():
     """Pure helpers — no network. Importing housing_label.api needs FastAPI, so
     skip (like the other tests) when it isn't installed."""
     try:
-        from housing_label.api import _photon_label, _photon_features_to_suggestions
+        import fastapi  # noqa: F401 — housing_label.api needs it at import time
     except ImportError:
         print("  skip test_photon_label_formatter (fastapi not installed)")
         return
+    # Imported outside the guard so a real import error in housing_label.api fails the test.
+    from housing_label.api import _photon_label, _photon_features_to_suggestions
     assert _photon_label({
         "housenumber": "123", "street": "Main St", "city": "Memphis",
         "state": "TN", "postcode": "38104",
@@ -85,10 +87,12 @@ def test_photon_label_formatter():
 def test_geoapify_formatter():
     """Pure Geoapify parsing helpers — no network/key. Skip if FastAPI absent."""
     try:
-        from housing_label.api import _geoapify_label, _geoapify_results_to_suggestions
+        import fastapi  # noqa: F401 — housing_label.api needs it at import time
     except ImportError:
         print("  skip test_geoapify_formatter (fastapi not installed)")
         return
+    # Imported outside the guard so a real import error in housing_label.api fails the test.
+    from housing_label.api import _geoapify_label, _geoapify_results_to_suggestions
     assert _geoapify_label({
         "address_line1": "1234 Scott St", "city": "San Francisco",
         "state_code": "CA", "postcode": "94115",
