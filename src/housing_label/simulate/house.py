@@ -96,7 +96,9 @@ SCORE_BREAKPOINTS = [
     (20,  0.010),     # 1.000%/yr — very high risk
     (0,   0.020),     # 2.000%/yr — extreme risk
 ]
-BRM_MAX = 1.5  # upper clamp on Building Resilience Modifier
+# No upper clamp on the Building Resilience Modifier: old / poorly-built / poor-
+# condition stock should be free to exceed the code-current baseline so condition
+# and pre-code age actually bite. Only a per-construction floor (below) applies.
 
 # Construction-type-specific BRM floors (lower bound on adjusted EAL multiplier).
 # Replaces the previous universal floor of 0.50 with per-type values supported
@@ -143,6 +145,29 @@ FLOOD_CONSTRUCTION_FACTOR = {
     **{k: v for k, v in CONSTRUCTION_FACTOR.items()},  # default: same as wind/seismic
     "icf": 0.45,  # NFIP Class 5; concrete survives, finishes still damaged
 }
+
+# ── Fire peril ────────────────────────────────────────────────────────────────
+# Structural (residential) fire expected-annual-loss. Base rate is the national
+# average loss share: NFPA reports ~$9B annual home-fire property loss across
+# ~130M housing units (~$70/home/yr); on a ~$350k median home that's ≈0.02%/yr.
+# The base is calibrated to an "average" home (modifiers = 1.0); age (wiring era)
+# and construction (combustibility) scale it from there.
+FIRE_EAL_BASE = 0.0002          # 0.020%/yr national-average residential fire EAL
+FIRE_BRM_FLOOR = 0.5            # construction/age alone can at most halve fire EAL
+
+# Construction → fire vulnerability (combustibility of the structure).
+FIRE_CONSTRUCTION_FACTOR = {
+    "frame":       1.10,  # combustible light-frame structure
+    "vinyl":       1.10,  # wood frame; vinyl cladding adds no fire benefit
+    "brick-frame": 1.00,  # brick veneer over combustible frame — baseline
+    "brick":       0.85,  # masonry structure; less combustible
+    "block":       0.80,  # reinforced CMU; non-combustible structure
+    "stone":       0.80,  # solid masonry; non-combustible structure
+    "icf":         0.70,  # concrete core is fire-resistant (high fire rating)
+    "sip":         1.05,  # OSB/foam composite; roughly frame-like fire behavior
+}
+BONUS_FIRE_SPRINKLERS = 0.40   # residential sprinklers ≈ 60% property-loss reduction
+                                # per fire (NFPA); applied to the fire peril only
 
 # ── Foundation → BRM factor (flood EAL only) ──────────────────────────────────
 # Matches BSMT_FLOOD_FACTOR in score_resilience.py (FEMA P-259 depth-damage curves).
@@ -473,12 +498,25 @@ def percentile_to_local_grade(pct: float) -> str:
 
 
 def code_era_factor(year_built: int) -> float:
-    """Code-era vulnerability multiplier (matches score_resilience.py exactly)."""
+    """Code-era vulnerability multiplier (wind/seismic). Steepened for pre-code stock."""
     yr = int(year_built)
+    if yr < 1940: return 1.6    # pre-WWII: balloon framing, unreinforced masonry, no
+                                 # engineered connections or seismic/wind provisions
     if yr < 1970: return 1.3    # pre-modern codes: before ANSI 58.1 / seismic reforms
     if yr < 1990: return 1.1    # early modern: ASCE 7 wind, pre-Northridge
     if yr < 2003: return 1.0    # post-Hugo/Northridge baseline
     return 0.85                  # post-IBC (TN adopted IBC 2003): best provisions
+
+
+def fire_age_factor(year_built: int) -> float:
+    """Structural-fire vulnerability by electrical/wiring era (ignition risk).
+    Pre-1950 knob-and-tube and mid-century aluminum branch wiring raise fire risk;
+    NEC 2002+ (AFCI breakers, tamper-resistant receptacles) lowers it."""
+    yr = int(year_built)
+    if yr < 1950: return 1.5    # knob-and-tube era — highest residential electrical-fire risk
+    if yr < 1975: return 1.2    # cloth/early-plastic insulation, aluminum branch wiring era
+    if yr < 2002: return 1.0    # modern NM-B cable, but pre-AFCI
+    return 0.85                  # NEC 2002+ AFCI / tamper-resistant requirements
 
 
 def compute_local_percentile(sim_score: float, scored_df: pd.DataFrame) -> float:
@@ -692,27 +730,32 @@ def simulate(cfg: dict) -> dict:
     cf       = CONDITION_FACTOR[cfg["condition"]]
     brm_floor = BRM_FLOOR.get(cfg["construction"], 0.50)
 
-    flood_brm        = float(np.clip(cef * ctf_flood * ff * cf, brm_floor, BRM_MAX))
-    wind_seismic_brm = float(np.clip(cef * ctf * cf,            brm_floor, BRM_MAX))
+    flood_brm        = max(cef * ctf_flood * ff * cf, brm_floor)   # floor only, no ceiling
+    wind_seismic_brm = max(cef * ctf * cf,            brm_floor)
+    fire_brm         = max(fire_age_factor(cfg["year_built"])
+                           * FIRE_CONSTRUCTION_FACTOR[cfg["construction"]] * cf, FIRE_BRM_FLOOR)
 
     r.update(cef=cef, ctf=ctf, ctf_flood=ctf_flood, ff=ff, cf=cf,
              brm_floor=brm_floor,
-             flood_brm=flood_brm, wind_seismic_brm=wind_seismic_brm)
+             flood_brm=flood_brm, wind_seismic_brm=wind_seismic_brm, fire_brm=fire_brm)
 
     # ── Raw EAL rates (before BRM) ────────────────────────────────────────────
     flood_raw   = calc_flood_eal_raw(flood_risk)
     tornado_raw = calc_tornado_eal_raw(tornado_rate)
     seismic_raw = calc_seismic_eal_raw(pga_2pct, pga_10pct)
+    fire_raw    = FIRE_EAL_BASE
 
     # ── BRM-adjusted EAL rates ────────────────────────────────────────────────
     flood_adj   = flood_raw   * flood_brm
     tornado_adj = tornado_raw * wind_seismic_brm
     seismic_adj = seismic_raw * wind_seismic_brm
+    fire_adj    = fire_raw    * fire_brm
 
     # ── Hazard-specific bonus modifiers (existing) ────────────────────────────
     if cfg.get("leak_detection"):    flood_adj   *= BONUS_LEAK_DETECT
     if cfg.get("tornado_safe_room"): tornado_adj *= BONUS_SAFE_ROOM
     if cfg.get("seismic_retrofit"):  seismic_adj *= BONUS_SEISMIC_RET
+    if cfg.get("fire_sprinklers"):   fire_adj    *= BONUS_FIRE_SPRINKLERS
 
     # ── Wind/tornado above-code modifiers ─────────────────────────────────────
     # FORTIFIED tier is composite and supersedes individual wind features.
@@ -751,7 +794,9 @@ def simulate(cfg: dict) -> dict:
     if cfg.get("flood_vents"):     flood_adj *= BONUS_FLOOD_VENTS
     if cfg.get("backflow_valve"):  flood_adj *= BONUS_BACKFLOW_VALVE
 
-    # ── General bonus modifiers (apply to every hazard EAL) ──────────────────
+    # ── General bonus modifiers (apply to flood/tornado/seismic EAL) ─────────
+    # Fire is excluded: solar/generator/passive don't reduce ignition, and
+    # sprinklers already apply a strong fire-specific reduction above.
     gen_mod = 1.0
     if cfg.get("solar"):           gen_mod *= BONUS_SOLAR
     if cfg.get("backup_generator"):gen_mod *= BONUS_GENERATOR
@@ -763,16 +808,18 @@ def simulate(cfg: dict) -> dict:
     seismic_adj *= gen_mod
 
     r.update(flood_raw=flood_raw, tornado_raw=tornado_raw, seismic_raw=seismic_raw,
+             fire_raw=fire_raw,
              flood_adj=flood_adj, tornado_adj=tornado_adj, seismic_adj=seismic_adj,
-             gen_mod=gen_mod)
+             fire_adj=fire_adj, gen_mod=gen_mod)
 
-    total_eal = flood_adj + tornado_adj + seismic_adj
+    total_eal = flood_adj + tornado_adj + seismic_adj + fire_adj
     r["total_eal"] = total_eal
 
     # ── Scores and national grade ─────────────────────────────────────────────
     r["flood_score"]   = eal_rate_to_score(flood_adj)
     r["tornado_score"] = eal_rate_to_score(tornado_adj)
     r["seismic_score"] = eal_rate_to_score(seismic_adj)
+    r["fire_score"]    = eal_rate_to_score(fire_adj)
     r["total_score"]   = eal_rate_to_score(total_eal)
     r["national_grade"] = score_to_national_grade(r["total_score"])
 
@@ -781,6 +828,7 @@ def simulate(cfg: dict) -> dict:
     r["flood_loss"]   = flood_adj   * v
     r["tornado_loss"] = tornado_adj * v
     r["seismic_loss"] = seismic_adj * v
+    r["fire_loss"]    = fire_adj    * v
     r["total_loss"]   = total_eal   * v
 
     # ── Local comparison against scored dataset ───────────────────────────────
@@ -937,10 +985,13 @@ def print_scorecard(cfg: dict, r: dict) -> None:
     print(row(f"    Foundation factor  ({cfg['foundation']:<12})  : {r['ff']:.2f}  [flood EAL only]"))
     print(row(f"    Condition factor   ({cfg['condition']:<12})  : {r['cf']:.2f}"))
     print(row(f"    {'─'*54}"))
-    print(row(f"    Flood BRM          : {r['flood_brm']:.3f}  (code×type×foundation×cond, clamped [{r['brm_floor']},{BRM_MAX}])"))
-    print(row(f"    Wind/Seismic BRM   : {r['wind_seismic_brm']:.3f}  (code×type×cond, clamped [{r['brm_floor']},{BRM_MAX}])"))
+    print(row(f"    Flood BRM          : {r['flood_brm']:.3f}  (code×type×foundation×cond, floor {r['brm_floor']}, no ceiling)"))
+    print(row(f"    Wind/Seismic BRM   : {r['wind_seismic_brm']:.3f}  (code×type×cond, floor {r['brm_floor']}, no ceiling)"))
+    print(row(f"    Fire BRM           : {r['fire_brm']:.3f}  (wiring-era×type×cond, floor {FIRE_BRM_FLOOR})"))
     if active_bonuses:
-        print(row(f"    General bonus mod  : {r['gen_mod']:.4f}  (all hazards combined)"))
+        print(row(f"    General bonus mod  : {r['gen_mod']:.4f}  (flood/tornado/seismic)"))
+        if cfg.get("fire_sprinklers"):
+            print(row(f"    + {'Fire sprinklers':<30}: ×{BONUS_FIRE_SPRINKLERS} fire only"))
         haz_specific = [b for b in BONUS_LABELS if cfg.get(b)
                         and b not in ("solar","backup_generator","passive_house","fire_sprinklers")]
         for b in haz_specific:
@@ -958,13 +1009,14 @@ def print_scorecard(cfg: dict, r: dict) -> None:
         ("Flood",   r["flood_raw"],   r["flood_adj"],   r["flood_score"]),
         ("Tornado", r["tornado_raw"], r["tornado_adj"], r["tornado_score"]),
         ("Seismic", r["seismic_raw"], r["seismic_adj"], r["seismic_score"]),
+        ("Fire",    r["fire_raw"],    r["fire_adj"],    r["fire_score"]),
     ]:
         g = score_to_national_grade(score)
         row_str = (f"  {label:<9} {raw*100:>8.4f}% {adj*100:>8.4f}%"
                    f" {score:>7.1f} {g:>6}")
         print(row(f"    {row_str}"))
     print(row(f"    {'─'*52}"))
-    total_raw = r["flood_raw"] + r["tornado_raw"] + r["seismic_raw"]
+    total_raw = r["flood_raw"] + r["tornado_raw"] + r["seismic_raw"] + r["fire_raw"]
     total_row = (f"  {'TOTAL':<9} {total_raw*100:>8.4f}% {r['total_eal']*100:>8.4f}%"
                  f" {r['total_score']:>7.1f} {r['national_grade']:>6}")
     print(row(f"    {total_row}"))
@@ -1251,11 +1303,12 @@ def main() -> None:
         "socioeconomic": args.socioeconomic_index,
         "walkability":   args.walk_score,
     }
+    upgrades = [f for f in BONUS_FLAGS if getattr(args, f, False)]   # CLI resilience flags
     try:
         cfg, r, label = build_label_parts(
             address=args.address, lat=args.lat, lon=args.lon,
             preset=args.preset, flood_zone=args.flood_zone,
-            allow_network=allow_network, overrides=overrides,
+            allow_network=allow_network, overrides=overrides, upgrades=upgrades,
             year_built=args.year_built, construction=args.construction,
             foundation=args.foundation, condition=args.condition,
             value=args.value, units=args.units, sqft=args.sqft, lot_acres=args.lot_acres,
