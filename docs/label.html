@@ -127,8 +127,14 @@ function DimensionChart({ dimensions, scores }) {
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const onChange = () => setTheme(t => t + 1);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
+    // Older Safari (<14) only has addListener/removeListener, not the
+    // EventTarget API — fall back so the page doesn't throw.
+    if (mq.addEventListener) mq.addEventListener("change", onChange);
+    else mq.addListener(onChange);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener("change", onChange);
+      else mq.removeListener(onChange);
+    };
   }, []);
 
   useEffect(() => {
