@@ -167,10 +167,14 @@ def resolve_location(
         loc.climate_zone = climate_data.climate_zone_for_county(loc.county_fips)
         if loc.climate_zone is None:
             notes["climate_zone"] = f"no climate-zone entry for county {loc.county_fips}"
-        sub, factor = egrid_data.egrid_for_county(loc.county_fips)
-        loc.egrid_subregion, loc.egrid_factor = sub, factor
-        if factor is None:
-            notes["egrid"] = f"no eGRID entry for county {loc.county_fips}"
+
+    # Grid CO2 factor: the county's eGRID subregion when it maps, otherwise the
+    # US-average fallback. egrid_for_county handles a missing/unmapped county, so
+    # egrid_factor is always populated — the environmental model never silently
+    # applies the Shelby pilot default to a non-Shelby (or unresolved) location.
+    loc.egrid_subregion, loc.egrid_factor = egrid_data.egrid_for_county(loc.county_fips)
+    if loc.county_fips and loc.egrid_subregion == egrid_data.US_AVG_LABEL:
+        notes["egrid"] = f"county {loc.county_fips} not in eGRID crosswalk; using US average"
 
     return loc
 

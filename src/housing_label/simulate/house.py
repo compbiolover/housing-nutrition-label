@@ -1064,23 +1064,41 @@ CALIBRATED_COUNTY_FIPS = "47157"
 def _approx_caveats(location) -> list[str]:
     """Caveats for dimensions that aren't locally calibrated.
 
-    Seismic (USGS) and tornado (SPC) are nationwide, and Environmental now uses
-    the county's own eGRID2022 subregion grid factor. The remaining estimate is
-    Infrastructure (national-average cost model outside Shelby), plus the
-    US-average grid factor only when the county can't be resolved to a subregion."""
-    fips = getattr(location, "county_fips", None) if location is not None else None
-    if fips == CALIBRATED_COUNTY_FIPS:
-        return []
-    if fips is None:
+    Seismic (USGS) and tornado (SPC) are nationwide. Infrastructure is locally
+    calibrated only for Shelby (national-average cost model elsewhere). The
+    Environmental grid factor is the county's eGRID2022 subregion rate when the
+    county maps, and the US-average factor otherwise — flagged off the actually
+    resolved subregion so the fallback is never reported incorrectly."""
+    from housing_label.data.egrid import US_AVG_LABEL
+
+    if location is None:
         return [
-            "County could not be resolved: Infrastructure Burden may be approximate "
-            "(it falls back to the Memphis cost model), and Environmental falls back "
-            "to the US-average grid factor instead of a regional eGRID subregion.",
+            "Location could not be resolved: Infrastructure Burden and the "
+            "Environmental grid factor fall back to the Memphis pilot defaults.",
         ]
-    return [
-        "Infrastructure Burden uses a national-average cost model (not locally "
-        "calibrated) — treat it as an estimate.",
-    ]
+
+    caveats: list[str] = []
+    fips = getattr(location, "county_fips", None)
+    if fips is None:
+        caveats.append(
+            "County could not be resolved: Infrastructure Burden may be approximate "
+            "(it falls back to the Memphis cost model)."
+        )
+    elif fips != CALIBRATED_COUNTY_FIPS:
+        caveats.append(
+            "Infrastructure Burden uses a national-average cost model (not locally "
+            "calibrated) — treat it as an estimate."
+        )
+
+    # Environmental: flag whenever it used the US-average grid factor instead of a
+    # real eGRID subregion — i.e. the county was unresolved or not in the crosswalk.
+    egrid_sub = getattr(location, "egrid_subregion", None)
+    if egrid_sub is None or egrid_sub == US_AVG_LABEL:
+        caveats.append(
+            "Environmental uses the US-average grid factor (the location's eGRID "
+            "subregion could not be determined)."
+        )
+    return caveats
 
 
 def _wrap(text: str, width: int) -> list[str]:

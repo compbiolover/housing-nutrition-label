@@ -56,6 +56,40 @@ def test_egrid_fallback_to_us_average():
         assert "average" in sub.lower()
 
 
+def test_resolve_offline_sets_us_average_grid_factor():
+    """Offline (no county) still gets a grid factor — the US-average fallback —
+    so Environmental never silently uses the Shelby pilot default elsewhere."""
+    from housing_label.data.egrid import US_AVG_FACTOR_KG_PER_KWH, US_AVG_LABEL
+    loc = resolve_location(lat=35.13, lon=-89.99, allow_network=False)
+    assert loc.county_fips is None
+    assert loc.egrid_factor == US_AVG_FACTOR_KG_PER_KWH
+    assert loc.egrid_subregion == US_AVG_LABEL
+
+
+def test_environmental_caveat_tracks_grid_fallback():
+    """The Environmental grid caveat fires exactly when the US-average fallback is
+    used (unresolved or unmapped county), not merely when county_fips is None."""
+    from housing_label.simulate.house import _approx_caveats
+    from housing_label.data.egrid import US_AVG_LABEL, egrid_for_county
+
+    sub, _ = egrid_for_county("47157")                  # Shelby → real SRTV subregion
+    mapped = Location(lat=35.1, lon=-90.0, county_fips="47157", egrid_subregion=sub)
+    assert not any("grid factor" in c for c in _approx_caveats(mapped))
+
+    # Resolved but unmapped county → US-average fallback → caveat must appear.
+    unmapped = Location(lat=0.0, lon=0.0, county_fips="99999",
+                        egrid_subregion=US_AVG_LABEL)
+    assert any("US-average grid factor" in c for c in _approx_caveats(unmapped))
+
+    # Unresolved county (but US-average factor applied) → also flagged.
+    no_county = Location(lat=0.0, lon=0.0, county_fips=None,
+                         egrid_subregion=US_AVG_LABEL)
+    assert any("US-average grid factor" in c for c in _approx_caveats(no_county))
+
+    # Total resolution failure → accurate pilot-default message, not "US-average".
+    assert any("pilot default" in c for c in _approx_caveats(None))
+
+
 def test_climate_zone_factor_ordering():
     assert climate_zone_factor("4A") == 1.0             # baseline
     assert climate_zone_factor(None) == 1.0             # missing → no scaling
