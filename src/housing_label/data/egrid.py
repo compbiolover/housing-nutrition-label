@@ -97,12 +97,13 @@ def _crosswalk() -> dict[str, str]:
     return table
 
 
-def egrid_for_county(county_fips: str | None) -> tuple[str | None, float | None]:
+def egrid_for_county(county_fips: str | None) -> tuple[str, float]:
     """Return (subregion_label, kgCO2e/kWh) for a 5-digit county FIPS.
 
     Looks the county up in the bundled crosswalk and returns its eGRID2022
     subregion factor. Counties not in the crosswalk (or a missing/blank FIPS)
-    fall back to the US-average factor, with the label flagging it as such.
+    fall back to the US-average factor, with the label flagging it as such — so
+    a concrete (label, factor) pair is always returned, never None.
     """
     if county_fips:
         acro = _crosswalk().get(str(county_fips).strip().zfill(5))
