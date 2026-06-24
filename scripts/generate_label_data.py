@@ -98,9 +98,9 @@ def main() -> None:
     # from the prior file), but we still resolve the location *online* once — a
     # keyless Census geocode — so the construction dimensions use the location's
     # real IECC climate zone and eGRID subregion grid factor instead of the
-    # offline pilot/US-average fallback. Falls back gracefully with no network.
+    # offline pilot/US-average fallback. --no-fetch keeps it fully offline.
     shared_location = None
-    if args.reuse_location:
+    if args.reuse_location and not args.no_fetch:
         from housing_label.simulate.location import resolve_location
         try:
             shared_location = resolve_location(lat=LAT, lon=LON, allow_network=True)
