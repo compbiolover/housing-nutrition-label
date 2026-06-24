@@ -2,8 +2,8 @@
 
 Research backing the roadmap item: *"replace the uniform climate placeholder with
 downscaled climate-projection data."* The current `Climate Projections` dimension is a
-hard-coded placeholder (`CLIMATE_PLACEHOLDER = 50.0` in `score/all_dimensions.py`,
-`composite=False`, excluded from the composite). This document identifies the
+hard-coded placeholder (`CLIMATE_PLACEHOLDER = 50.0` in
+`src/housing_label/score/all_dimensions.py`, `composite=False`, excluded from the composite). This document identifies the
 authoritative, license-clean data sources and a concrete build plan to make it real.
 
 Scope chosen (most comprehensive on every axis):
@@ -18,8 +18,9 @@ Scope chosen (most comprehensive on every axis):
 
 ## Bottom line
 
-Build the bundled crosswalk from **CMRA / CRIS** (LOCA2 pre-aggregated to county geography,
-the official 5th National Climate Assessment downscaling), and use **NASA NEX-GDDP-CMIP6**
+Build the bundled crosswalk from **CMRA / CRIS** (LOCA2 pre-aggregated to **county and
+census-tract** geography — see Q1 — the official 5th National Climate Assessment
+downscaling), and use **NASA NEX-GDDP-CMIP6**
 (keyless CC0 on AWS S3 + NCCS THREDDS) for the optional live refresh and any custom index
 derivation. Both are CC0 / US-government public domain, so both can be bundled and
 redistributed. Every source is a 6–25 km **downscaled grid** — values must be surfaced as
@@ -35,7 +36,7 @@ redistributed. Every source is a 6–25 km **downscaled grid** — values must b
 | **NASA NEX-GDDP-CMIP6** | tasmax, tasmin, tas, pr, hurs, huss, rlds, rsds, sfcWind (daily) → derive days>95/100°F, CDD, extreme-precip return periods | All 4 Tier-1 SSPs (1-2.6, 2-4.5, 3-7.0, 5-8.5) | 1950–2100 (daily) | ~25 km (0.25°) daily, BCSD | Point-sample or area-mean to county/tract | **CC0** (since Sep 2022), keyless. AWS S3 `s3://nex-gddp-cmip6/` (bulk) + NCCS THREDDS subset/OPeNDAP/WMS (live) | **Primary: live refresh + custom indices** |
 | **LOCA2 native** (USGS ScienceBase) | Temp/precip + water-balance | ssp245 / ssp370 / ssp585 | 1950–2100 | ~6 km | Roll your own Zonal Statistics | **CC0 1.0** (DOI 10.5066/P9DWN1XL) | Supplementary: custom 6 km aggregation if CMRA insufficient |
 | **Argonne ClimRR** | 60+ incl. **Fire Weather Index**, heat index, CDD/HDD | RCP4.5, RCP8.5 (CMIP5) | hist 1995-2004, mid 2045-2054, end 2085-2094 | **12 km** dynamical (WRF) | Portal / bulk | Public (federal lab) | Supplementary: **fire-weather + heat-index** component |
-| **FEMA National Risk Index** | 18 hazards composite (incl. heat wave, drought, riverine flood, wildfire) | **present-day only** (no SSP/RCP projection) | current climatology | county + census-tract | Already tract/county | Free, keyless, OpenFEMA bulk | Composite *baseline* only — **not future-projected** (open question) |
+| **FEMA National Risk Index** | 18 hazards composite (incl. heat wave, drought, riverine flood, wildfire) | **present-day only** (no SSP/RCP projection) | current climatology | county + census-tract | Already tract/county | Free, keyless, OpenFEMA bulk | Composite *baseline* only — **not future-projected** (resolved in Q2: present-day only; FEMA's Future Risk Index was removed Feb 2025) |
 | **CEJST** (Justice40 screening tool) | Tract climate-burden indicators (incl. some projected: flood/wildfire risk to properties) | mixed | mixed | census-tract | Already tract | Keyless bulk (.csv/.xlsx/shapefile) | Supplementary: ready-made **tract** layer |
 | **First Street** | Flood/heat/fire/wind property risk | proprietary | 30-yr forward | property/parcel | n/a | **Commercial/paid API**, license-restricted | Not bundleable; out of scope for keyless build |
 
@@ -50,8 +51,9 @@ redistributed. Every source is a 6–25 km **downscaled grid** — values must b
   `pr`); days > 1"/2"/4"; max 1-day & 5-day precip (Rx1day/Rx5day). NEX-GDDP daily `pr`;
   CMRA flooding metric.
 - **Drought & wildfire** — SPEI / aridity; Fire Weather Index. **ClimRR** provides FWI and
-  heat index directly (12 km); MACAv2-METDATA (~4 km, *not verified in this run* — open
-  question) is the other standard fire/drought source.
+  heat index directly (12 km). Per Q3, MACAv2-METDATA (~4 km, CMIP5/RCP) supplies the input
+  met variables but no pre-derived indices; compute fire/drought indices ourselves from
+  NEX-GDDP (CMIP6/SSP) via the NCAR `fire-indices` method for scenario consistency.
 - **Composite** — FEMA NRI gives a present-day blended baseline; the forward-looking
   composite is best built by normalizing the per-hazard projected variables ourselves
   (see methodology) rather than relying on a single ready-made projected index.
@@ -60,14 +62,20 @@ redistributed. Every source is a 6–25 km **downscaled grid** — values must b
 
 ## Proposed implementation (mirrors the eGRID/seismic pattern)
 
-1. **`data/climate_projections.csv`** — bundled crosswalk: `county_fips, scenario {low,high},
-   horizon {mid,late}, heat_*, precip_*, drought_*, fire_*`. Built from CMRA/CRIS county
-   summaries (or rolled up ourselves from LOCA2 + ClimRR where CMRA lacks a variable).
+1. **`data/climate_projections.csv`** — bundled crosswalk keyed by geography id
+   (`geoid` — county FIPS for v1, with a `geo_level` column so census-tract rows can be added
+   later since CMRA exposes a tract layer; see Q1) plus `scenario {low,high},
+   horizon {mid,late}, heat_*, precip_*, drought_*, fire_*`. Built from CMRA/CRIS county (and
+   optionally tract) summaries — or rolled up ourselves from LOCA2 + ClimRR where CMRA lacks a
+   variable. **v1 scope: county-level**; tract is a drop-in extension, not a schema change.
 2. **`scripts/build_climate_projections.py`** — reproducible generator (like
    `build_egrid_crosswalk.py`): pulls the source grids/summaries, runs zonal aggregation,
    writes the CSV byte-for-byte. Documents source URLs + vintage.
-3. **`data/climate_projections.py`** — `climate_projection_for_county(fips) -> dict` with a
-   national-average fallback for unmapped counties (same shape as `egrid_for_county`).
+3. **`data/climate_projections.py`** — `climate_projection_for_county(fips) -> dict` (v1) with
+   a national-average fallback for unmapped counties (same shape as `egrid_for_county`), plus a
+   parallel `climate_projection_for_tract(tract_geoid) -> dict` when the tract layer is added
+   (falls back to the parent county). Lat/lon resolves to a geoid upstream, as for other
+   dimensions.
 4. **Optional live refresh** — NEX-GDDP via NCCS THREDDS subset for a lat/lon, gated on
    network like the other live enrichers; falls back to the bundled crosswalk offline.
 5. **Scoring** — replace `score_climate`: normalize each hazard variable to 0–100 (percentile
