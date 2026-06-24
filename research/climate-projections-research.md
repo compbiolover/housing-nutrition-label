@@ -31,7 +31,7 @@ redistributed. Every source is a 6–25 km **downscaled grid** — values must b
 
 | Source | Variables | Scenarios | Horizons | Native res | Aggregation | License / access | Role |
 |---|---|---|---|---|---|---|---|
-| **CMRA / CRIS** (`resilience.climate.gov`) | Heat, drought, wildfire, flooding, coastal — pre-summarized | SSP2-4.5, SSP5-8.5 | historic 1976-2005, early 2015-2044, **mid 2035-2064**, late 2070-2099 (30-yr means) | LOCA2 ~6 km, pre-aggregated to **county + tribal** | LOCA2 → ArcGIS Zonal Statistics → polygon means | Public domain (federal); web tool + Digital Coast | **Primary: bundled crosswalk** |
+| **CMRA / CRIS** (`resilience.climate.gov`) | 25 LOCA-derived vars (heat, drought, wildfire, flooding, coastal) — pre-summarized | SSP2-4.5, SSP5-8.5 | historic, early, **mid (~2050)**, late (30-yr means) | LOCA2 ~6 km, pre-aggregated to **county, census-tract, AND tribal** | NOAA NCEI TSU → ArcGIS FeatureServer | Public, **keyless ArcGIS FeatureServer** (see Q1) | **Primary: bundled crosswalk** |
 | **NASA NEX-GDDP-CMIP6** | tasmax, tasmin, tas, pr, hurs, huss, rlds, rsds, sfcWind (daily) → derive days>95/100°F, CDD, extreme-precip return periods | All 4 Tier-1 SSPs (1-2.6, 2-4.5, 3-7.0, 5-8.5) | 1950–2100 (daily) | ~25 km (0.25°) daily, BCSD | Point-sample or area-mean to county/tract | **CC0** (since Sep 2022), keyless. AWS S3 `s3://nex-gddp-cmip6/` (bulk) + NCCS THREDDS subset/OPeNDAP/WMS (live) | **Primary: live refresh + custom indices** |
 | **LOCA2 native** (USGS ScienceBase) | Temp/precip + water-balance | ssp245 / ssp370 / ssp585 | 1950–2100 | ~6 km | Roll your own Zonal Statistics | **CC0 1.0** (DOI 10.5066/P9DWN1XL) | Supplementary: custom 6 km aggregation if CMRA insufficient |
 | **Argonne ClimRR** | 60+ incl. **Fire Weather Index**, heat index, CDD/HDD | RCP4.5, RCP8.5 (CMIP5) | hist 1995-2004, mid 2045-2054, end 2085-2094 | **12 km** dynamical (WRF) | Portal / bulk | Public (federal lab) | Supplementary: **fire-weather + heat-index** component |
@@ -102,17 +102,67 @@ redistributed. Every source is a 6–25 km **downscaled grid** — values must b
 
 ---
 
-## Open questions (worth a focused follow-up before building)
+## Open questions — RESOLVED (focused follow-up run)
 
-1. Does CMRA/CRIS expose a **bulk download or API** for its pre-aggregated county summaries,
-   and does it offer **census-tract** (not just county/tribal)? If not, we re-run Zonal
-   Statistics on LOCA2 netCDF ourselves.
-2. Is there a **projected** FEMA NRI variant, or is it present-day only? (Affects how the
-   composite baseline is framed.)
-3. **MACAv2-METDATA (~4 km)** and Cal-Adapt / USGS Geo Data Portal delivery for the
-   drought/wildfire component — not covered in this run.
-4. **CEJST** projected tract indicators — usable as a ready-made tract crosswalk?
-5. Final **weighting** across the four hazards (equal vs. region-aware).
+A second deep-research run (105 agents, 23 sources, 25 claims under 3-vote adversarial
+verification — 19 confirmed, 6 killed) resolved all five. Net effect: the **core plan stands
+and gets simpler** — CMRA serves the data directly as a keyless API with tract-level support.
+
+### Q1 — CMRA/CRIS access: ✅ keyless ArcGIS FeatureServer, tract-level included
+CMRA Screening Data is a **public, keyless ArcGIS FeatureServer** (no key, anonymous
+Query/Extract):
+`https://services3.arcgis.com/0Fs3HcaFfvzXvm7w/arcgis/rest/services/CMRA_Screening_Data/FeatureServer`
+with **three aggregation layers — Counties (0), Census Tracts (1), Tribal/AIAN-NHPI areas
+(2)**. So tract-level *is* available (the earlier "county/tribal only" assumption was
+refuted). Backed by LOCA2 (NOAA NCEI TSU), **25 LOCA-derived variables**, 4 periods × 2
+scenarios (SSP2-4.5 / SSP5-8.5) as 30-yr means. **Caveat (verified):** the precise bulk-query
+mechanics (`?f=pjson`, `maxRecordCount` pagination) could *not* be confirmed (that specific
+claim was killed 0-3) — it's a standard FeatureServer so `Query` + `resultOffset` paging
+should work, but the build script must verify endpoint behavior and rate limits at runtime.
+**Clean CC0 fallback:** USGS published a CMIP6-LOCA2 **county-level** aggregation linkable by
+`GEOID` (2023 TIGER/Line) if the CMRA service is unstable.
+
+### Q2 — FEMA "Future Risk Index": ✅ it existed, but was REMOVED — don't depend on it
+Base NRI is present-day/historical climatology. FEMA *did* build a forward-looking
+**Future Risk Index** (adds a climate-change "Hazard Multiplier" to NRI, 4 scenarios),
+launched as a prototype **Dec 12, 2024** — but it was **taken offline ~Feb 2025** (live only
+mid-Dec 2024 → mid-Feb 2025) after the Jan 2025 executive-order rollback (Harvard EELP
+tracker; archived technical doc survives). **Recommendation:** treat present-day NRI as a
+composite *baseline* only; do **not** depend on the Future Risk Index (removed/unstable).
+Build the forward-looking composite ourselves from LOCA2/NEX-GDDP.
+
+### Q3 — MACAv2 / fire-drought: ✅ compute indices ourselves; prefer CMIP6 for scenario consistency
+MACAv2-METDATA is ~4 km (1/24°; MACAv2-LIVNEH ~6 km), 20 CMIP5 GCMs under RCP4.5/8.5,
+1950-2099. It provides **9 surface met variables** (tasmax, tasmin, rhsmax, rhsmin, huss, pr,
+rsds, uas, vas) but **no pre-derived fire/drought indices** — those must be computed.
+**gridMET** defines the standard *observational* fire-danger/fuel-moisture indices (ERC, BI,
+etc., ~4 km, keyless) but is present-day, not projections. The **NCAR `fire-indices`** repo
+computes SPI3, KBDI, Canadian FWI, mFFWI, FM100/FM1000, ERC, BI from downscaled inputs — a
+ready Python reference. **Recommendation:** for scenario consistency with the heat/precip
+legs, compute the drought/fire indices from **NEX-GDDP-CMIP6 (SSP)** using the NCAR method,
+with MACAv2 as a finer-resolution (but CMIP5/RCP) supplement. Cal-Adapt (AWS `cadcat`,
+keyless) and USGS GDP are workable access paths; verify per-endpoint (blanket keyless claim
+was downgraded 1-2).
+
+### Q4 — CEJST: ⚠️ not suitable as primary crosswalk
+CEJST was **taken offline ~Jan 22, 2025** (EO rescission); only an **unofficial archived
+mirror** (Public Environmental Data Partners / EDGI) remains, with keyless bulk downloads
+(.csv ~42 MB, .xlsx, shapefile; tract `GEOID`). Its Climate-Change category has 5 tract
+indicators but only **2 are forward-looking** (First Street projected flood & wildfire risk,
+30-yr) and those are **binary ≥90th-percentile flags** derived from a **proprietary** upstream
+(First Street). **Recommendation:** not usable as the primary tract crosswalk (removed,
+binary, proprietary upstream) — at most an optional cross-check.
+
+### Q5 — Normalization & weighting: ✅ percentile-rank + equal-weight + scenario band
+Authoritative reference is the **OECD/JRC Handbook on Constructing Composite Indicators**
+(z-score lets extremes dominate; min-max is outlier-sensitive). Impact-Chain risk uses
+min-max with clipped min/max thresholds; ND-GAIN and FEMA NRI use min-max with adjustments.
+**Recommendation for the sub-score:** normalize each hazard via **national percentile-rank
+across all US counties** (robust, distribution-aware, and consistent with how the project
+already reports local percentile grades), **equal-weight** the hazard legs as the transparent
+OECD-endorsed default (document the weights, leave room for region-aware weighting later), and
+report **SSP2-4.5 (low) and SSP5-8.5 (high)** — the spread *is* the uncertainty band, shown
+rather than averaged away.
 
 ---
 
