@@ -157,8 +157,9 @@ health & socioeconomic are ranked within the address's *own county*; energy is s
 location's IECC climate zone; the flood zone is auto-derived from FEMA NFHL; **Disaster
 Resilience uses live USGS seismic hazard** (2%/50yr PGA, with a bundled national fallback grid)
 and the **national SPC tornado record** within 25 mi of the point. Infrastructure Burden uses a
-national-average cost model outside Shelby (flagged as an estimate), and Environmental uses a
-national-average grid factor (eGRID-subregion precision is a later refinement).
+national-average cost model outside Shelby (flagged as an estimate), and Environmental uses the
+location's **eGRID2022 subregion** grid-carbon factor (a bundled county→subregion crosswalk;
+counties that can't be mapped fall back to the US-average factor).
 
 The website nutrition label at [housinglabel.dev/label.html](https://housinglabel.dev/label.html) is generated from this simulator — regenerate its data with `python scripts/generate_label_data.py` (writes [`docs/data/sample-parcels.json`](docs/data/sample-parcels.json)).
 

@@ -93,6 +93,25 @@ def main() -> None:
     parcels = []
     tract = None
     notes = {}
+
+    # In --reuse-location mode the per-dimension fetches are skipped (scores come
+    # from the prior file), but we still resolve the location *online* once — a
+    # keyless Census geocode — so the construction dimensions use the location's
+    # real IECC climate zone and eGRID subregion grid factor instead of the
+    # offline pilot/US-average fallback. --no-fetch keeps it fully offline.
+    shared_location = None
+    if args.reuse_location and not args.no_fetch:
+        from housing_label.simulate.location import resolve_location
+        try:
+            shared_location = resolve_location(lat=LAT, lon=LON, allow_network=True)
+            if shared_location is not None and shared_location.egrid_subregion:
+                print(f"  location: {shared_location.label}  "
+                      f"(grid {shared_location.egrid_factor} kgCO2e/kWh, "
+                      f"{shared_location.egrid_subregion})")
+        except Exception as exc:  # noqa: BLE001
+            print(f"  WARNING: online location resolve failed ({exc}); "
+                  "construction dims use offline fallbacks.")
+
     for name, preset, description in WEBSITE_PRESETS:
         cfg = _cfg_for(preset)
         # Gate the live seismic/tornado lookups in simulate() (offline by default).
@@ -100,6 +119,7 @@ def main() -> None:
         r = simulate(cfg)
         label = simulate_all_dimensions(
             cfg, r["total_score"],
+            location=shared_location,
             allow_network=not (args.no_fetch or args.reuse_location),
             overrides=reuse_loc.get(name),
         )

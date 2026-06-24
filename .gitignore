@@ -1,6 +1,8 @@
 # Data files — too large and contain parcel data
 *.csv
 spc_tornadoes_raw.csv
+# …but the small, keyless reference lookups bundled with the package must ship.
+!src/housing_label/data/*.csv
 
 # Python
 .venv/

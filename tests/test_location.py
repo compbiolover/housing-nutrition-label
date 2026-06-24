@@ -8,7 +8,7 @@ import pandas as pd
 
 from housing_label.simulate.location import resolve_location, Location
 from housing_label.data.climate import climate_zone_for_county
-from housing_label.data.egrid import egrid_for_county, US_AVG_FACTOR_KG_PER_KWH
+from housing_label.data.egrid import egrid_for_county, US_AVG_FACTOR_KG_PER_KWH, US_AVG_LABEL
 from housing_label.enrich.energy import climate_zone_factor, model_parcel_energy
 
 
@@ -20,10 +20,74 @@ def test_climate_zone_lookup():
     assert climate_zone_for_county(None) is None
 
 
-def test_egrid_default():
-    sub, factor = egrid_for_county("06037")
-    assert factor == US_AVG_FACTOR_KG_PER_KWH
-    assert "average" in sub.lower()
+def test_egrid_subregion_lookup():
+    # Shelby County, TN → SRTV (the pilot's TVA subregion); ≈0.426 kgCO2e/kWh
+    # (eGRID2022 SRTV CO2e total-output 938.6 lb/MWh).
+    sub, factor = egrid_for_county("47157")
+    assert "SRTV" in sub
+    assert abs(factor - 0.426) < 0.005
+    # Los Angeles County, CA → CAMX, a much cleaner grid than SRTV.
+    ca_sub, ca_factor = egrid_for_county("06037")
+    assert "CAMX" in ca_sub
+    assert ca_factor < factor
+    # Cook County, IL (Chicago/ComEd) → RFC West.
+    il_sub, _ = egrid_for_county("17031")
+    assert "RFCW" in il_sub
+
+
+def test_egrid_crosswalk_integrity():
+    """The bundled county→subregion crosswalk is complete and every subregion it
+    references has a factor (guards a regenerated egrid_subregions.csv)."""
+    from housing_label.data import egrid as e
+    xwalk = e._crosswalk()
+    assert len(xwalk) > 3000                       # ~3,200 US counties + territories
+    assert all(len(fips) == 5 and fips.isdigit() for fips in xwalk)
+    assert set(xwalk.values()) <= set(e._SUBREGION_LB_PER_MWH)   # all map to known subregions
+    # Every referenced subregion resolves to a positive kgCO2e/kWh factor.
+    for acro in set(xwalk.values()):
+        assert e._factor_kg_per_kwh(acro) > 0
+
+
+def test_egrid_fallback_to_us_average():
+    for missing in ("99999", None):
+        sub, factor = egrid_for_county(missing)
+        assert factor == US_AVG_FACTOR_KG_PER_KWH
+        assert sub == US_AVG_LABEL
+        assert "average" in sub.lower()
+
+
+def test_resolve_offline_sets_us_average_grid_factor():
+    """Offline (no county) still gets a grid factor — the US-average fallback —
+    so Environmental never silently uses the Shelby pilot default elsewhere."""
+    from housing_label.data.egrid import US_AVG_FACTOR_KG_PER_KWH, US_AVG_LABEL
+    loc = resolve_location(lat=35.13, lon=-89.99, allow_network=False)
+    assert loc.county_fips is None
+    assert loc.egrid_factor == US_AVG_FACTOR_KG_PER_KWH
+    assert loc.egrid_subregion == US_AVG_LABEL
+
+
+def test_environmental_caveat_tracks_grid_fallback():
+    """The Environmental grid caveat fires exactly when the US-average fallback is
+    used (unresolved or unmapped county), not merely when county_fips is None."""
+    from housing_label.simulate.house import _approx_caveats
+    from housing_label.data.egrid import US_AVG_LABEL, egrid_for_county
+
+    sub, _ = egrid_for_county("47157")                  # Shelby → real SRTV subregion
+    mapped = Location(lat=35.1, lon=-90.0, county_fips="47157", egrid_subregion=sub)
+    assert not any("grid factor" in c for c in _approx_caveats(mapped))
+
+    # Resolved but unmapped county → US-average fallback → caveat must appear.
+    unmapped = Location(lat=0.0, lon=0.0, county_fips="99999",
+                        egrid_subregion=US_AVG_LABEL)
+    assert any("US-average grid factor" in c for c in _approx_caveats(unmapped))
+
+    # Unresolved county (but US-average factor applied) → also flagged.
+    no_county = Location(lat=0.0, lon=0.0, county_fips=None,
+                         egrid_subregion=US_AVG_LABEL)
+    assert any("US-average grid factor" in c for c in _approx_caveats(no_county))
+
+    # Total resolution failure → accurate pilot-default message, not "US-average".
+    assert any("pilot default" in c for c in _approx_caveats(None))
 
 
 def test_climate_zone_factor_ordering():
