@@ -1064,23 +1064,22 @@ CALIBRATED_COUNTY_FIPS = "47157"
 def _approx_caveats(location) -> list[str]:
     """Caveats for dimensions that aren't locally calibrated.
 
-    Seismic (USGS) and tornado (SPC) are now nationwide; the remaining estimate is
-    Infrastructure (national-average cost model outside Shelby) plus the national-
-    average grid factor used by Environmental."""
+    Seismic (USGS) and tornado (SPC) are nationwide, and Environmental now uses
+    the county's own eGRID2022 subregion grid factor. The remaining estimate is
+    Infrastructure (national-average cost model outside Shelby), plus the
+    US-average grid factor only when the county can't be resolved to a subregion."""
     fips = getattr(location, "county_fips", None) if location is not None else None
     if fips == CALIBRATED_COUNTY_FIPS:
-        return ["Environmental uses a national-average grid factor (eGRID subregion "
-                "precision is pending)."]
+        return []
     if fips is None:
         return [
             "County could not be resolved: Infrastructure Burden may be approximate "
-            "(it falls back to the Memphis cost model). Environmental uses a "
-            "national-average grid factor.",
+            "(it falls back to the Memphis cost model), and Environmental falls back "
+            "to the US-average grid factor instead of a regional eGRID subregion.",
         ]
     return [
         "Infrastructure Burden uses a national-average cost model (not locally "
-        "calibrated), and Environmental uses a national-average grid factor — "
-        "treat both as estimates.",
+        "calibrated) — treat it as an estimate.",
     ]
 
 
