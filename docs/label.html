@@ -76,12 +76,12 @@
 
 <section>
   <h2>Interactive Nutrition Label</h2>
-  <p>A React&nbsp;+&nbsp;D3 rendering of the eight scored dimensions as a single at-a-glance label. Pick a construction profile to see how building choices move each dimension. All profiles sit at the same Memphis location &mdash; the walkable Cooper-Young neighborhood (lat&nbsp;35.13, lon&nbsp;&minus;89.99) &mdash; so the location-driven dimensions stay fixed while the construction-driven ones change.</p>
+  <p>A React&nbsp;+&nbsp;D3 rendering of the nine scored dimensions as a single at-a-glance label. Pick a construction profile to see how building choices move each dimension. All profiles sit at the same Memphis location &mdash; the walkable Cooper-Young neighborhood (lat&nbsp;35.13, lon&nbsp;&minus;89.99) &mdash; so the location-driven dimensions stay fixed while the construction-driven ones change.</p>
 
   <div id="root"><div class="loading">Loading visualization&hellip;</div></div>
 
   <div class="insight disclaimer">
-    <strong>About this data:</strong> Every score here is produced by the CLI simulator (<code>scripts/generate_label_data.py</code>). The five construction-driven dimensions &mdash; resilience, energy, durability, environmental footprint, and infrastructure burden &mdash; are modeled from each house's configuration. Location-driven dimensions are fetched live for this Memphis location: <strong>Health</strong> comes from CDC PLACES; <strong>Socioeconomic</strong> (Census ACS) and <strong>Walkability</strong> (Walk Score) require API keys and show <em>N/A</em> &mdash; excluded from the composite rather than filled with a placeholder, so a strong build isn't unfairly penalized for a missing input. The composite is the mean of the scored dimensions. National grades use the absolute thresholds A&nbsp;&ge;&nbsp;80, B&nbsp;&ge;&nbsp;60, C&nbsp;&ge;&nbsp;40, D&nbsp;&ge;&nbsp;20, F&nbsp;&lt;&nbsp;20; local (percentile) grades require the full county dataset and are omitted here.
+    <strong>About this data:</strong> Every score here is produced by the CLI simulator (<code>scripts/generate_label_data.py</code>). The five construction-driven dimensions &mdash; resilience, energy, durability, environmental footprint, and infrastructure burden &mdash; are modeled from each house's configuration. Location-driven dimensions are fetched live for this Memphis location: <strong>Health</strong> comes from CDC PLACES; <strong>Socioeconomic</strong> (Census ACS) and <strong>Walkability</strong> (Walk Score) require API keys and show <em>N/A</em> &mdash; excluded from the composite rather than filled with a placeholder, so a strong build isn't unfairly penalized for a missing input. <strong>Climate Projections</strong> is a per-county downscaled climate-hazard score (NOAA/DOI CMRA, LOCA/NCA4) for this Memphis location, identical across profiles. The composite is the mean of the scored dimensions. National grades use the absolute thresholds A&nbsp;&ge;&nbsp;80, B&nbsp;&ge;&nbsp;60, C&nbsp;&ge;&nbsp;40, D&nbsp;&ge;&nbsp;20, F&nbsp;&lt;&nbsp;20; local (percentile) grades require the full county dataset and are omitted here.
   </div>
 </section>
 
@@ -118,7 +118,7 @@ function GradeBadge({ score, large }) {
   return <span className={large ? "grade-lg" : "grade"} style={style}>{g}</span>;
 }
 
-// D3-rendered horizontal bar chart for the eight dimensions.
+// D3-rendered horizontal bar chart for the nine dimensions.
 // React owns the <svg> node; D3 owns everything inside it and animates on data change.
 function DimensionChart({ dimensions, scores }) {
   const ref = useRef(null);

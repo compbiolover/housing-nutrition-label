@@ -123,8 +123,9 @@
   </div>
 
   <div class="method-section">
-    <h3>7. Climate Projections (Placeholder)</h3>
-    <p>NOAA 1991&ndash;2020 normals for Memphis International Airport (station USW00013893). IECC zone 4A, 3,082 HDD, 2,191 CDD, avg Jan low 31.1&deg;F, avg Jul high 92.5&deg;F, 53.7&Prime; annual precipitation, ~45 extreme heat days, ~50 freeze days. Uniform for the single-county pilot; will be upgraded to per-parcel NOAA CDO API lookups when scaling beyond Shelby County.</p>
+    <h3>7. Climate Projections</h3>
+    <p>Per-county downscaled climate-hazard projections from the NOAA/DOI <a href="https://resilience.climate.gov/">Climate Mapping for Resilience and Adaptation (CMRA)</a> screening dataset (LOCA-downscaled CMIP5, the NCA4 downscaling, aggregated to counties as 30-year means). Three hazard legs are blended equally into a 0&ndash;100 score (higher = less projected hazard): <strong>extreme heat</strong> (annual days &gt; 95&deg;F and &gt; 100&deg;F), <strong>heavy precipitation &amp; flood</strong> (days &gt; 1&Prime; and the annual max 5-day total), and <strong>drought</strong> (max consecutive dry days). Each metric is scored against national breakpoints anchored to the RCP4.5 mid-century distribution. The dimension is reported as a low/high band from RCP4.5 &rarr; RCP8.5 at mid-century (~2050), with the RCP4.5 value as the headline.</p>
+    <div class="insight"><strong>Caveat:</strong> CMRA is a ~6&nbsp;km downscaled grid aggregated to counties &mdash; a <em>county aggregate, not parcel-resolution precision</em>. It is county-uniform within the single-county pilot but a real, composite-included value, with a national-average fallback for unmapped counties. RCP4.5/8.5 are treated as low/high analogs of SSP2-4.5/SSP5-8.5.</div>
   </div>
 </section>
 
@@ -132,7 +133,7 @@
   <h2>Dual Grading Details</h2>
   <p><strong>National absolute grade:</strong> A &ge; 80, B &ge; 60, C &ge; 40, D &ge; 20, F &lt; 20. Calibrated for national comparison &mdash; a Grade B in Memphis means the same thing as a Grade B in Phoenix.</p>
   <p><strong>Local percentile grade:</strong> A = top 10%, B = next 25% (65th&ndash;90th percentile), C = next 30% (35th&ndash;65th), D = next 25% (10th&ndash;35th), F = bottom 10%. All five grades are always populated by construction.</p>
-  <p><strong>Composite score:</strong> Simple NaN-skipping mean of all active dimension scores (excluding the climate placeholder).</p>
+  <p><strong>Composite score:</strong> Simple NaN-skipping mean of all active dimension scores.</p>
 </section>
 
 <footer>

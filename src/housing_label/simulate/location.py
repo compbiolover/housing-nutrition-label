@@ -10,6 +10,7 @@ dimensions depend on:
   • whether the point falls in a Census Urban Area (urban-core proxy)
   • IECC climate zone (bundled county lookup)
   • eGRID subregion + grid CO2 factor (bundled county lookup)
+  • climate-hazard projection (bundled county lookup)
 
 Geocoding uses the U.S. Census Geocoder (keyless): the ``onelineaddress``
 endpoint for an address, the ``coordinates`` endpoint for a lat/lon. Both return
@@ -27,6 +28,7 @@ import requests
 
 from housing_label.config import TIMEOUT, RETRIES, BACKOFF, HEADERS
 from housing_label.data import climate as climate_data
+from housing_label.data import climate_projections as climate_proj_data
 from housing_label.data import egrid as egrid_data
 
 GEOCODER_ONELINE = "https://geocoding.geo.census.gov/geocoder/geographies/onelineaddress"
@@ -49,6 +51,7 @@ class Location:
     climate_zone: str | None = None       # IECC zone, e.g. "4A"
     egrid_subregion: str | None = None
     egrid_factor: float | None = None     # kg CO2e / kWh
+    climate_projection: dict | None = None  # CMRA per-county hazard projection
     notes: dict = field(default_factory=dict)
 
     @property
@@ -175,6 +178,13 @@ def resolve_location(
     loc.egrid_subregion, loc.egrid_factor = egrid_data.egrid_for_county(loc.county_fips)
     if loc.county_fips and loc.egrid_subregion == egrid_data.US_AVG_LABEL:
         notes["egrid"] = f"county {loc.county_fips} not in eGRID crosswalk; using US average"
+
+    # Climate projections: the county's CMRA downscaled hazard projection when it
+    # maps, otherwise the national-average fallback (always populated, never None).
+    loc.climate_projection = climate_proj_data.climate_projection_for_county(loc.county_fips)
+    if loc.county_fips and not loc.climate_projection.get("resolved"):
+        notes["climate_projection"] = (
+            f"county {loc.county_fips} not in climate crosswalk; using US average")
 
     return loc
 

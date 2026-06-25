@@ -30,8 +30,11 @@ Dimensions
                   bike), weighted toward walkability since it matters most for
                   daily life.  Walk scores live in shelby_parcels_enriched.csv
                   (a separate, API-gated enrichment) and are merged in on PARID.
-  climate         Placeholder: uniform 50 for every parcel until per-parcel
-                  climate projections exist.  Excluded from the composite.
+  climate         Climate Projections: per-county downscaled climate-hazard
+                  score (CMRA/NCA4, RCP4.5 mid-century) from
+                  data/climate_projections.py.  County-uniform within the
+                  single-county pilot, but a real value, and included in the
+                  composite.
 
 For every dimension X this writes four columns:
   X_score            raw 0–100 score
@@ -42,9 +45,8 @@ For every dimension X this writes four columns:
 
 Composite
 ---------
-  composite_score            simple mean of the dimension scores, EXCLUDING the
-                             climate placeholder (and skipping any dimension that
-                             is missing for a given parcel).
+  composite_score            simple mean of the dimension scores (skipping any
+                             dimension that is missing for a given parcel).
   composite_national_grade   national grade of composite_score.
   composite_local_grade      local (percentile) grade of composite_score.
   composite_percentile       composite percentile rank within this dataset.
@@ -71,6 +73,8 @@ import sys
 import numpy as np
 import pandas as pd
 
+from housing_label.data import climate_projections as climate_proj_data
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(message)s")
 log = logging.getLogger("score_all")
 
@@ -85,7 +89,7 @@ DEFAULT_WALKSCORE = "shelby_parcels_enriched.csv"  # Walk Score enrichment (API-
 WALK_COLS    = ["walk_score", "transit_score", "bike_score"]
 WALK_WEIGHTS = {"walk_score": 0.60, "transit_score": 0.25, "bike_score": 0.15}
 
-CLIMATE_PLACEHOLDER = 50.0   # uniform climate score until per-parcel projections exist
+SHELBY_COUNTY_FIPS  = "47157"  # the single-county pilot; per-row county FIPS when present
 SOCIO_PLACEHOLDER   = 50.0   # uniform socioeconomic fallback when ACS data is absent
                              # (e.g. no Census API key); excluded from the composite.
 
@@ -174,7 +178,22 @@ def score_passthrough(col: str):
 
 
 def score_climate(df: pd.DataFrame) -> pd.Series:
-    return pd.Series(CLIMATE_PLACEHOLDER, index=df.index)
+    """Per-county Climate Projections score (CMRA/NCA4, RCP4.5 mid-century).
+
+    Resolves each parcel's county from a ``county_fips``/``geoid`` column when
+    present, otherwise the single-county pilot default (Shelby). The score is the
+    bundled climate-hazard lookup's headline (low-band) value, so it is uniform
+    within a county but a real, defensible per-county projection."""
+    fips_col = next((c for c in ("county_fips", "geoid", "GEOID") if c in df.columns), None)
+
+    def _score_for(fips: str | None) -> float:
+        return climate_proj_data.climate_projection_for_county(fips)["score"]
+
+    if fips_col is None:
+        return pd.Series(_score_for(SHELBY_COUNTY_FIPS), index=df.index).round(1)
+    fips = df[fips_col].astype("string").str.strip().str.zfill(5)
+    cache = {f: _score_for(f) for f in fips.dropna().unique()}
+    return fips.map(cache).fillna(_score_for(None)).astype(float).round(1)
 
 
 def score_walkability(df: pd.DataFrame) -> pd.Series:
@@ -232,7 +251,7 @@ DIMENSIONS: list[Dimension] = [
     Dimension("socioeconomic",  "Socioeconomic",        score_passthrough("socioeconomic_index"), "socioeconomic_index",
               fallback=SOCIO_PLACEHOLDER),
     Dimension("walkability",    "Walkability",          score_walkability,                       "walk_score"),
-    Dimension("climate",        "Climate Projections",  score_climate,                           None, composite=False),
+    Dimension("climate",        "Climate Projections",  score_climate,                           None),
 ]
 
 
@@ -283,7 +302,7 @@ def print_summary(df: pd.DataFrame, dims: list[Dimension], composite_keys: list[
     print("═" * 86)
     print(f"Parcels scored: {total:,}")
     print(f"Composite = mean of {len(composite_keys)} dimensions "
-          f"({', '.join(composite_keys)}); climate excluded as placeholder.\n")
+          f"({', '.join(composite_keys)}).\n")
 
     # --- Grade distribution per dimension (national vs local) ---
     print("GRADE DISTRIBUTION PER DIMENSION")
@@ -291,7 +310,9 @@ def print_summary(df: pd.DataFrame, dims: list[Dimension], composite_keys: list[
     for dim in dims:
         score = df[f"{dim.key}_score"]
         scored_n = int(score.notna().sum())
-        tag = "  (placeholder)" if not dim.composite else ""
+        constant = int(score.nunique(dropna=True)) <= 1
+        tag = ("  (placeholder)" if not dim.composite
+               else "  (county-uniform)" if constant else "")
         mean_s = score.mean(skipna=True)
         print(f"\n{dim.label} [{dim.key}_score]  mean={mean_s:5.1f}  scored={scored_n}/{total}{tag}")
         nat = df[f"{dim.key}_national_grade"].value_counts()
@@ -329,7 +350,10 @@ def print_summary(df: pd.DataFrame, dims: list[Dimension], composite_keys: list[
     print("\n" + "─" * 86)
     print("CORRELATION MATRIX — dimension scores (Pearson)")
     print("─" * 86)
-    corr_cols = [f"{d.key}_score" for d in dims if d.composite]  # constant climate → undefined corr
+    # Only non-constant scored dimensions: a county-uniform column (e.g. climate
+    # in the single-county pilot) has zero variance → undefined correlation.
+    corr_cols = [f"{d.key}_score" for d in dims
+                 if d.composite and int(df[f"{d.key}_score"].nunique(dropna=True)) > 1]
     corr = df[corr_cols].corr()
     corr.index = [c.replace("_score", "") for c in corr.index]
     corr.columns = [c.replace("_score", "") for c in corr.columns]

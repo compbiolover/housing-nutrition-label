@@ -8,7 +8,7 @@ It reuses the exact same scoring path as `housing-simulate` (no model drift).
 Install + run::
 
     pip install -e ".[api]"
-    # set keys server-side for the full 8 dimensions (optional):
+    # set keys server-side for the full 9 dimensions (optional):
     export CENSUS_API_KEY=... WALKSCORE_API_KEY=...
     # optional: sharper address autocomplete (else keyless Photon is used):
     export GEOAPIFY_API_KEY=...
