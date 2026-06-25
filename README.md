@@ -4,9 +4,9 @@ An open-source platform for scoring residential properties across multiple dimen
 
 ## Current Status
 
-**Phase 1 complete — Shelby County, TN (Memphis) pilot with 8 scored dimensions.**
+**Phase 1 complete — Shelby County, TN (Memphis) pilot with 9 scored dimensions.**
 
-The full data ingestion → enrichment → multi-dimension scoring pipeline is operational end to end. Every Shelby County parcel in the pilot dataset carries eight scored dimensions plus a rolled-up composite score, each with both a national (absolute) and a local (percentile) letter grade. An initial **React + D3 nutrition label visualization** is now live on the project site — [housinglabel.dev/label.html](https://housinglabel.dev/label.html). Future phases will extend coverage to additional counties and add per-parcel climate projections.
+The full data ingestion → enrichment → multi-dimension scoring pipeline is operational end to end. Every Shelby County parcel in the pilot dataset carries nine scored dimensions plus a rolled-up composite score, each with both a national (absolute) and a local (percentile) letter grade. An initial **React + D3 nutrition label visualization** is now live on the project site — [housinglabel.dev/label.html](https://housinglabel.dev/label.html). Future phases will extend coverage to additional counties.
 
 ## Architecture
 
@@ -26,6 +26,7 @@ Each enrichment stage consumes the previous stage's output, so the final scored 
 | [Shelby County Assessor ArcGIS](https://www.shelbycountytn.gov/) | Parcel boundaries + CAMA building data | Free — no key |
 | [FEMA NFHL](https://msc.fema.gov/portal/home) | Flood zone designations | Free — no key |
 | [NOAA Climate Normals](https://www.ncdc.noaa.gov/cdo-web/) | Temperature, heating/cooling degree days (1991–2020) | Free — no key |
+| [NOAA/DOI CMRA](https://resilience.climate.gov/) | County climate-hazard projections (LOCA/NCA4, RCP4.5–8.5) | Free — no key |
 | [SPC Historical Tornadoes](https://www.spc.noaa.gov/) | Historical tornado tracks / frequency | Free — no key |
 | [USGS NSHM](https://earthquake.usgs.gov/hazards/interactive/) | Seismic hazard (peak ground acceleration) — reference data | Free — no key |
 | [DOE/EIA ResStock](https://resstock.nrel.gov/) | Residential energy use intensity benchmarks — reference data | Free — no key |
@@ -37,7 +38,7 @@ Each enrichment stage consumes the previous stage's output, so the final scored 
 
 ## Scored Dimensions
 
-Each parcel is scored on eight dimensions (plus a climate placeholder):
+Each parcel is scored on nine dimensions:
 
 - **Disaster Resilience** — Expected Annual Loss (EAL) model combining flood, tornado, and seismic hazards, weighted by a construction-quality modifier (year built, construction type, roof shape, foundation, condition).
 - **Energy Efficiency** — Energy Use Intensity (EUI) modeled from ResStock archetypes, adjusted for building vintage and construction type.
@@ -47,7 +48,7 @@ Each parcel is scored on eight dimensions (plus a climate placeholder):
 - **Health Impact** — CDC PLACES census-tract chronic-disease prevalence rolled into a 0–100 composite health index.
 - **Socioeconomic** — Census ACS income, poverty, and education indicators combined into a 0–100 composite index. Falls back to a uniform placeholder when no ACS data (or API key) is available.
 - **Walkability** — Walk Score API. The 0–100 Walk Score is used directly; where transit and bike scores are also available, a composite is taken (60% walk + 25% transit + 15% bike), weighted toward walkability since it matters most for daily life.
-- **Climate Projections** *(placeholder)* — uniform across the single-county pilot; excluded from the composite until multi-region data is available.
+- **Climate Projections** — per-county downscaled climate-hazard projection from the NOAA/DOI [CMRA](https://resilience.climate.gov/) screening dataset (LOCA-downscaled CMIP5 / NCA4). Blends three hazard legs — extreme heat (days > 95 °F / 100 °F), heavy precipitation & flood (days > 1″, annual max 5-day total), and drought (max consecutive dry days) — into a 0–100 score, reported as a low/high band from RCP4.5 → RCP8.5 at mid-century (~2050), with the RCP4.5 value as the headline. A county aggregate (not parcel-resolution); county-uniform within the single-county pilot but a real, composite-included value, with a national-average fallback for unmapped counties. See [research/climate-projections-research.md](research/climate-projections-research.md).
 
 ## Scoring System
 
@@ -55,7 +56,7 @@ Each parcel is scored on eight dimensions (plus a climate placeholder):
 - **Dual grading** for every dimension:
   - **National (absolute):** A ≥ 80, B ≥ 60, C ≥ 40, D ≥ 20, F < 20.
   - **Local (percentile-based):** ranked within the dataset — A = top 10%, B = next 25%, C = middle 30%, D = next 25%, F = bottom 10%.
-- **Composite score** — the mean of the scored dimensions (excluding the climate placeholder), itself carrying a national grade, a local grade, and a percentile rank.
+- **Composite score** — the mean of the scored dimensions, itself carrying a national grade, a local grade, and a percentile rank.
 
 The national/local thresholds are identical across all dimensions, so a grade means exactly the same thing whether it's read from the resilience dimension, the composite, or any other.
 
@@ -121,9 +122,9 @@ The `score/all_dimensions.py` stage merges its output (walk / transit / bike sco
 
 ## House Simulator
 
-`src/housing_label/simulate/house.py` models a hypothetical house and reports a **full nutrition label across all eight dimensions**, letting you see how construction decisions move the needle. It supports 20+ above-code construction features (hurricane straps, sealed roof deck, metal/hip roof, tornado safe room, FORTIFIED Gold, flood elevation, ICF walls, etc.). Once the package is installed (`pip install -e .`) it's also available as the `housing-simulate` command.
+`src/housing_label/simulate/house.py` models a hypothetical house and reports a **full nutrition label across all nine dimensions**, letting you see how construction decisions move the needle. It supports 20+ above-code construction features (hurricane straps, sealed roof deck, metal/hip roof, tornado safe room, FORTIFIED Gold, flood elevation, ICF walls, etc.). Once the package is installed (`pip install -e .`) it's also available as the `housing-simulate` command.
 
-The five **construction-driven** dimensions — resilience, energy efficiency, durability, environmental footprint, and infrastructure burden — are modeled offline from the house configuration (reusing the same `enrich/` models the pipeline uses). The three **location-driven** dimensions — health, socioeconomic, and walkability — are fetched live for the house's lat/lon (CDC PLACES, Census ACS, and Walk Score respectively). When a source is unavailable (no network, or no `CENSUS_API_KEY` / `WALKSCORE_API_KEY`), that dimension is reported as `N/A` and **excluded from the composite rather than filled with a placeholder**, so a strong build isn't penalized for a missing input.
+The five **construction-driven** dimensions — resilience, energy efficiency, durability, environmental footprint, and infrastructure burden — are modeled offline from the house configuration (reusing the same `enrich/` models the pipeline uses). The four **location-driven** dimensions depend on where the house sits: health, socioeconomic, and walkability are fetched live for the house's lat/lon (CDC PLACES, Census ACS, and Walk Score respectively), while climate projections come from the bundled per-county CMRA crosswalk (offline, with a national-average fallback). When a live source is unavailable (no network, or no `CENSUS_API_KEY` / `WALKSCORE_API_KEY`), that dimension is reported as `N/A` and **excluded from the composite rather than filled with a placeholder**, so a strong build isn't penalized for a missing input.
 
 ```bash
 python src/housing_label/simulate/house.py --preset icf-passive --lat 35.15 --lon -89.85
@@ -207,11 +208,13 @@ deployed URL with `?api=https://your-api-host` or `window.HOUSING_LABEL_API`. Se
 
 ## Roadmap
 
-- **Per-parcel climate projections** — replace the uniform climate placeholder with downscaled climate-projection data
 - **Rust scoring engine** — port the hot scoring path for performance at scale
 - **API layer** — serve scores and grades over HTTP for third-party integration
+- **Finer climate resolution** — extend the climate-projection layer to census tracts (CMRA exposes a tract layer) and add a true Fire Weather Index (Argonne ClimRR, 12 km) for the fire/drought leg
 
-**Shipped:** ~~Frontend visualization — React + D3 nutrition label UI~~ → an initial version is live at [housinglabel.dev/label.html](https://housinglabel.dev/label.html) ([`docs/label.html`](docs/label.html)). It renders the eight scored dimensions as an at-a-glance label with a switchable set of construction profiles, served statically with no build step (React + D3 loaded from CDN).
+**Shipped:**
+- ~~Per-parcel climate projections — replace the uniform climate placeholder with downscaled climate-projection data~~ → the **Climate Projections** dimension is now a real per-county score from CMRA (LOCA/NCA4) downscaled projections, with an RCP4.5→8.5 mid-century band and a reproducible build script ([`scripts/build_climate_projections.py`](scripts/build_climate_projections.py)). Design notes in [research/climate-projections-research.md](research/climate-projections-research.md).
+- ~~Frontend visualization — React + D3 nutrition label UI~~ → an initial version is live at [housinglabel.dev/label.html](https://housinglabel.dev/label.html) ([`docs/label.html`](docs/label.html)). It renders the scored dimensions as an at-a-glance label with a switchable set of construction profiles, served statically with no build step (React + D3 loaded from CDN).
 
 ## License
 

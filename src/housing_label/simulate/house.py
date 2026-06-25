@@ -623,8 +623,8 @@ def build_parser() -> argparse.ArgumentParser:
     flood.add_argument("--backflow-valve", action="store_true",
                        help="Backflow prevention valve (×0.90 flood EAL).")
 
-    # ── Full nutrition label (all 8 dimensions) ───────────────────────────────────
-    label_grp = p.add_argument_group("full nutrition label (all 8 dimensions)")
+    # ── Full nutrition label (all 9 dimensions) ───────────────────────────────────
+    label_grp = p.add_argument_group("full nutrition label (all 9 dimensions)")
     label_grp.add_argument("--json", action="store_true",
                            help="Emit the full nutrition label as JSON (all dimensions) and exit.")
     label_grp.add_argument("--no-fetch", action="store_true",
@@ -1127,7 +1127,7 @@ def print_label(cfg: dict, label: dict) -> None:
 
     print(TOP)
     print(row("  FULL NUTRITION LABEL — ALL DIMENSIONS"))
-    print(row(f"  {label['n_scored']} of 8 dimensions scored (location data optional)"))
+    print(row(f"  {label['n_scored']} of {len(label['dimensions'])} dimensions scored (location data optional)"))
     loc = label.get("location")
     if loc is not None:
         place = (loc.label or "")[:34]

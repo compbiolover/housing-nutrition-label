@@ -84,7 +84,7 @@
 <section>
   <h2>Case Studies</h2>
   <p>These examples use the CLI house simulator with real scoring models. Each preset is a different construction profile at the same walkable Cooper-Young location in Midtown Memphis (lat 35.13, lon -89.99). The five construction-driven dimensions are modeled from each build; health, socioeconomic, and walkability are fetched live for the location (so they're identical across presets).</p>
-  <p><a href="label.html">See the interactive nutrition label &rarr;</a> &mdash; the same construction profiles rendered as a React&nbsp;+&nbsp;D3 label across all eight dimensions.</p>
+  <p><a href="label.html">See the interactive nutrition label &rarr;</a> &mdash; the same construction profiles rendered as a React&nbsp;+&nbsp;D3 label across all nine dimensions.</p>
 </section>
 
 <section>
@@ -590,7 +590,7 @@
     var metaParts = [];
     if (loc.county_name) metaParts.push(esc(loc.county_name));
     if (loc.climate_zone) metaParts.push("IECC " + esc(loc.climate_zone));
-    metaParts.push(data.n_scored + "/8 dimensions");
+    metaParts.push(data.n_scored + "/" + (data.dimensions ? data.dimensions.length : data.n_scored) + " dimensions");
 
     // Build summary: "Custom" (or the profile name) + what was actually scored.
     var h = data.house || {};

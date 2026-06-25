@@ -95,7 +95,7 @@ SOLAR_OPERATIONAL_REMAINING = 0.30
 SHELBY_COUNTY_FIPS = "47157"
 NATIONAL_EFFECTIVE_TAX_RATE = 0.011
 
-# Dimension display order / labels (mirrors score/all_dimensions, climate aside).
+# Dimension display order / labels (mirrors score/all_dimensions).
 DIMENSIONS = [
     ("resilience",     "Disaster Resilience"),
     ("energy",         "Energy Efficiency"),
@@ -105,9 +105,10 @@ DIMENSIONS = [
     ("health",         "Health Impact"),
     ("socioeconomic",  "Socioeconomic"),
     ("walkability",    "Walkability"),
+    ("climate",        "Climate Projections"),
 ]
 CONSTRUCTION_DRIVEN = {"energy", "durability", "environmental", "infrastructure"}
-LOCATION_DRIVEN = {"health", "socioeconomic", "walkability"}
+LOCATION_DRIVEN = {"health", "socioeconomic", "walkability", "climate"}
 
 
 def _loglin(x: float, xs: list[float], ys: list[float]) -> float:
@@ -413,6 +414,14 @@ def simulate_all_dimensions(
         allow_network=allow_network, overrides=overrides,
     )
 
+    # Climate Projections: bundled per-county hazard projection (low/RCP4.5 band
+    # is the headline). Scored whenever a county resolved — a known-but-unmapped
+    # county uses the national-average fallback — but excluded (like the other
+    # location-driven dimensions) when no county resolved at all, e.g. offline.
+    climate_proj = location.climate_projection if location else None
+    have_county = bool(location and location.county_fips)
+    climate_score = climate_proj["score"] if (climate_proj and have_county) else None
+
     scores = {
         "resilience": round(float(resilience_score), 1),
         "energy": construction["energy"],
@@ -422,7 +431,13 @@ def simulate_all_dimensions(
         "health": location_dims["health"],
         "socioeconomic": location_dims["socioeconomic"],
         "walkability": location_dims["walkability"],
+        "climate": climate_score,
     }
+
+    metrics = dict(construction["_metrics"])
+    if climate_proj and climate_proj.get("score_high") is not None:
+        metrics["Climate band (RCP4.5–8.5, mid-century)"] = (
+            f"{climate_proj['score_low']}–{climate_proj['score_high']}")
 
     dims = []
     for key, label in DIMENSIONS:
@@ -438,13 +453,20 @@ def simulate_all_dimensions(
     scored_vals = [d["score"] for d in dims if d["score"] is not None]
     composite = round(sum(scored_vals) / len(scored_vals), 1) if scored_vals else None
 
+    location_notes = dict(location_dims["_notes"])
+    if climate_score is not None and climate_proj is not None:
+        location_notes["climate"] = (
+            f"CMRA NCA4 (county {location.county_fips}, RCP4.5 mid-century)"
+            if climate_proj.get("resolved")
+            else "CMRA NCA4 (national-average fallback)")
+
     return {
         "dimensions": dims,
         "composite_score": composite,
         "composite_national_grade": score_to_grade(composite) if composite is not None else "—",
         "n_scored": len(scored_vals),
-        "metrics": construction["_metrics"],
-        "location_notes": location_dims["_notes"],
+        "metrics": metrics,
+        "location_notes": location_notes,
         "census_tract": location_dims.get("_tract"),
         "location": location,
     }
