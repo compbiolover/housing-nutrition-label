@@ -178,12 +178,22 @@ def score_passthrough(col: str):
 
 
 def score_climate(df: pd.DataFrame) -> pd.Series:
-    """Per-county Climate Projections score (CMRA/NCA4, RCP4.5 mid-century).
+    """Resolution-aware Climate Projections score (CMRA/NCA4, RCP4.5 mid-century).
 
-    Resolves each parcel's county from a ``county_fips``/``geoid`` column when
-    present, otherwise the single-county pilot default (Shelby). The score is the
-    bundled climate-hazard lookup's headline (low-band) value, so it is uniform
-    within a county but a real, defensible per-county projection."""
+    Resolves each parcel at the finest geography a column provides: an 11-digit
+    ``tract``/``tract_geoid`` column (tract→county→US fallback) takes precedence,
+    else a ``county_fips``/``geoid`` column (county→US), else the single-county
+    pilot default (Shelby). The score is the bundled climate-hazard lookup's
+    headline (low-band) value — a real, defensible projection for the resolved
+    geography (uniform within a county today; see data/climate_projections.py)."""
+    tract_col = next((c for c in ("tract", "tract_geoid") if c in df.columns), None)
+    if tract_col is not None:
+        def _score_for_tract(g: str | None) -> float:
+            return climate_proj_data.climate_projection_for_tract(g)["score"]
+        geo = df[tract_col].astype("string").str.strip().str.zfill(11)
+        cache = {g: _score_for_tract(g) for g in geo.dropna().unique()}
+        return geo.map(cache).fillna(_score_for_tract(None)).astype(float).round(1)
+
     fips_col = next((c for c in ("county_fips", "geoid", "GEOID") if c in df.columns), None)
 
     def _score_for(fips: str | None) -> float:

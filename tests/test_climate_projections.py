@@ -14,6 +14,7 @@ import pandas as pd
 def test_resolved_county_has_bands_and_drivers():
     d = cp.climate_projection_for_county("47157")   # Shelby County, TN
     assert d["resolved"] is True
+    assert d["geo_level"] == "county"
     assert "Shelby" in d["label"]
     # A concrete 0–100 headline (low band) plus a low/high band.
     assert 0 <= d["score"] <= 100
@@ -38,10 +39,42 @@ def test_unmapped_and_none_fall_back_to_national_average():
     for fips in ("99999", None):
         d = cp.climate_projection_for_county(fips)
         assert d["resolved"] is False
+        assert d["geo_level"] == "us"
         assert d["label"] == cp.US_AVG_LABEL
         assert d["score"] == nat_low
         assert d["score_high"] == nat_high
         assert d["hazards"] == {} and d["drivers"] == {}
+
+
+def test_no_tract_crosswalk_bundled():
+    # Deliberate: CMRA's Tracts layer carries no sub-county signal, so no tract
+    # crosswalk is bundled. The plumbing stays ready for a genuinely finer one.
+    assert cp._tract_table() == {}
+    assert not cp._TRACT_CSV.exists() and not cp._TRACT_CSV_GZ.exists()
+
+
+def test_tract_resolves_at_parent_county_today():
+    # With no tract crosswalk bundled, a tract resolves at its parent county and
+    # reports that geography — same score as the county lookup, never None.
+    tract = "47157000100"                       # a real Shelby County, TN tract
+    d = cp.climate_projection_for_tract(tract)
+    county = cp.climate_projection_for_county("47157")
+    assert d["resolved"] is True
+    assert d["geo_level"] == "county"
+    assert d["score"] == county["score"]
+    # A tract id that lost its leading zero (e.g. read as a number) is padded to
+    # 11 before the parent county is sliced off — Autauga County, AL (01001).
+    al = cp.climate_projection_for_tract("1001020100")     # 10 digits → "01001020100"
+    assert al["score"] == cp.climate_projection_for_county("01001")["score"]
+
+
+def test_tract_in_unmapped_county_and_none_fall_back_to_us():
+    nat_low, _ = cp._national_average()
+    for tract in ("99999000100", None):
+        d = cp.climate_projection_for_tract(tract)
+        assert d["resolved"] is False
+        assert d["geo_level"] == "us"
+        assert d["score"] == nat_low
 
 
 def test_score_monotonic_in_projected_heat():
@@ -72,6 +105,16 @@ def test_pipeline_scorer_maps_counties():
         cp.climate_projection_for_county("47157")["score"],
         cp.climate_projection_for_county("06037")["score"],
         cp.climate_projection_for_county(None)["score"],
+    ]
+
+
+def test_pipeline_scorer_maps_tracts():
+    # A tract column takes precedence and resolves tract→county→US.
+    out = score_climate(pd.DataFrame({"tract": ["47157000100", "06037000100", "99999000100"]}))
+    assert out.tolist() == [
+        cp.climate_projection_for_tract("47157000100")["score"],
+        cp.climate_projection_for_tract("06037000100")["score"],
+        cp.climate_projection_for_tract("99999000100")["score"],
     ]
 
 

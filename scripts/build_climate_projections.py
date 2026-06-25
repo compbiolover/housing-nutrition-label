@@ -30,17 +30,32 @@ of SSP2-4.5/5-8.5. CMRA carries no native Fire Weather Index, so the drought leg
 (consecutive dry days) stands in for the fire/drought hazard until a 12 km ClimRR
 FWI layer is added.
 
+Geo level (county vs tract)
+---------------------------
+``--geo-level county`` (default) builds the bundled county crosswalk. ``--geo-level
+tract`` builds a tract crosswalk from CMRA's Tracts layer — but **we do not bundle
+it**, because that layer carries **no sub-county signal**: it broadcasts the county
+value onto every tract polygon (verified — hundreds of tracts across San Bernardino
+/ LA / Maricopa report a single value equal to the county figure). The tract mode
+exists for reproducibility and as a drop-in slot; the data module loads a tract
+crosswalk if one is present. Genuinely finer resolution requires sampling the LOCA2
+~6 km grid at the parcel lat/lon — a separate, network-gated build, not this offline
+aggregate crosswalk.
+
 Service
 -------
-  https://services3.arcgis.com/0Fs3HcaFfvzXvm7w/arcgis/rest/services/CMRA_Screening_Data/FeatureServer/0
+  https://services3.arcgis.com/0Fs3HcaFfvzXvm7w/arcgis/rest/services/CMRA_Screening_Data/FeatureServer
+  layer 0 = Counties, layer 1 = Census Tracts
 
-Run:  python scripts/build_climate_projections.py
+Run:  python scripts/build_climate_projections.py                 # county (bundled)
+      python scripts/build_climate_projections.py --geo-level tract  # tract (not bundled)
 """
 
 from __future__ import annotations
 
 import argparse
 import csv
+import gzip
 import pathlib
 import statistics
 import sys
@@ -48,16 +63,28 @@ import time
 
 import requests
 
-OUT = (
-    pathlib.Path(__file__).resolve().parents[1]
-    / "src" / "housing_label" / "data" / "climate_projections.csv"
-)
+_DATA_DIR = pathlib.Path(__file__).resolve().parents[1] / "src" / "housing_label" / "data"
 
-SERVICE = (
+SERVICE_BASE = (
     "https://services3.arcgis.com/0Fs3HcaFfvzXvm7w/arcgis/rest/services/"
-    "CMRA_Screening_Data/FeatureServer/0"
+    "CMRA_Screening_Data/FeatureServer"
 )
 HEADERS = {"User-Agent": "housing-nutrition-label/0.1 (climate crosswalk build)"}
+
+# Per geo level: ArcGIS layer id, the id field, its zero-pad width, the value
+# written to the geo_level column, and the default output path. The county layer
+# is the bundled crosswalk; the tract layer is opt-in and intentionally not
+# bundled (it carries no sub-county signal — see module docstring).
+GEO_LEVELS: dict[str, dict] = {
+    "county": {
+        "layer": 0, "id_field": "GEOID", "width": 5, "geo_level": "county",
+        "out": _DATA_DIR / "climate_projections.csv", "expected": 3233,
+    },
+    "tract": {
+        "layer": 1, "id_field": "GEOID", "width": 11, "geo_level": "tract",
+        "out": _DATA_DIR / "climate_projections_tracts.csv.gz", "expected": 74000,
+    },
+}
 
 # Hazard metric → output column stem. The CMRA fields follow the pattern
 # {PERIOD}_MEAN_{METRIC}, where PERIOD ∈ {HISTORIC, RCP45MID, RCP85MID}.
@@ -72,8 +99,8 @@ METRICS = {
 BANDS = [("HISTORIC", "hist"), ("RCP45MID", "low"), ("RCP85MID", "high")]
 
 
-def _cmra_fields() -> list[str]:
-    fields = ["GEOID", "CountyName", "StateAbbr"]
+def _cmra_fields(id_field: str) -> list[str]:
+    fields = [id_field, "CountyName", "StateAbbr"]
     for metric in METRICS:
         for period, _ in BANDS:
             fields.append(f"{period}_MEAN_{metric}")
@@ -98,9 +125,9 @@ def _layer_max_record_count(service: str, default: int = 2000) -> int:
         return default
 
 
-def fetch_counties(service: str) -> list[dict]:
-    """Page through every county feature, newest ArcGIS pagination."""
-    fields = ",".join(_cmra_fields())
+def fetch_features(service: str, id_field: str) -> list[dict]:
+    """Page through every feature in a layer, newest ArcGIS pagination."""
+    fields = ",".join(_cmra_fields(id_field))
     rows: list[dict] = []
     # Cap the page size at the layer's maxRecordCount so the server can't
     # silently return fewer rows than requested.
@@ -139,13 +166,14 @@ def fetch_counties(service: str) -> list[dict]:
     return rows
 
 
-def to_output_row(attrs: dict) -> dict | None:
-    geoid = str(attrs.get("GEOID") or "").strip().zfill(5)
-    if not geoid or len(geoid) != 5:
+def to_output_row(attrs: dict, level: dict) -> dict | None:
+    width = level["width"]
+    geoid = str(attrs.get(level["id_field"]) or "").strip().zfill(width)
+    if not geoid or len(geoid) != width:
         return None
     out = {
         "geoid": geoid,
-        "geo_level": "county",
+        "geo_level": level["geo_level"],
         "county_name": (attrs.get("CountyName") or "").strip(),
         "state": (attrs.get("StateAbbr") or "").strip(),
     }
@@ -173,27 +201,44 @@ def _print_quantiles(rows: list[dict]) -> None:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--service", default=SERVICE, help="CMRA FeatureServer layer URL")
-    ap.add_argument("--out", default=str(OUT), help="output CSV path")
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--geo-level", choices=sorted(GEO_LEVELS), default="county",
+                    help="county (bundled) or tract (opt-in, not bundled)")
+    ap.add_argument("--service-base", default=SERVICE_BASE,
+                    help="CMRA FeatureServer base URL (layer id appended per geo level)")
+    ap.add_argument("--out", default=None, help="output path (defaults per geo level)")
     args = ap.parse_args()
 
-    print(f"Fetching counties from {args.service} …", file=sys.stderr)
-    attrs = fetch_counties(args.service)
-    rows = [r for r in (to_output_row(a) for a in attrs) if r]
-    rows.sort(key=lambda r: r["geoid"])
-    if len(rows) < 3000:
-        print(f"WARNING: only {len(rows)} counties fetched (expected ~3233).",
+    level = GEO_LEVELS[args.geo_level]
+    service = f"{args.service_base}/{level['layer']}"
+    out_path = pathlib.Path(args.out) if args.out else level["out"]
+
+    if args.geo_level == "tract":
+        print("NOTE: CMRA's Tracts layer carries NO sub-county signal — it broadcasts\n"
+              "      the county value onto every tract. This output is intentionally\n"
+              "      NOT bundled; it exists only for reproducibility / a drop-in slot.\n"
+              "      Genuinely finer resolution needs LOCA2 ~6 km grid sampling.\n",
               file=sys.stderr)
 
-    out_path = pathlib.Path(args.out)
-    with out_path.open("w", newline="") as f:
+    print(f"Fetching {args.geo_level} features from {service} …", file=sys.stderr)
+    attrs = fetch_features(service, level["id_field"])
+    rows = [r for r in (to_output_row(a, level) for a in attrs) if r]
+    rows.sort(key=lambda r: r["geoid"])
+    expected = level["expected"]
+    if len(rows) < expected * 0.9:
+        print(f"WARNING: only {len(rows)} {args.geo_level} rows fetched "
+              f"(expected ~{expected}).", file=sys.stderr)
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    opener = gzip.open if out_path.suffix == ".gz" else open
+    with opener(out_path, "wt", newline="") as f:
         w = csv.DictWriter(f, fieldnames=_out_columns())
         w.writeheader()
         w.writerows(rows)
 
     _print_quantiles(rows)
-    print(f"\nWrote {len(rows)} counties → {out_path}", file=sys.stderr)
+    print(f"\nWrote {len(rows)} {args.geo_level} rows → {out_path}", file=sys.stderr)
     return 0
 
 

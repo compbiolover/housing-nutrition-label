@@ -35,4 +35,4 @@ packages = [
 ]
 
 [tool.setuptools.package-data]
-"housing_label.data" = ["*.csv"]
+"housing_label.data" = ["*.csv", "*.csv.gz"]
