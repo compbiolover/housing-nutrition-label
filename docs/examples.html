@@ -590,7 +590,7 @@
     var metaParts = [];
     if (loc.county_name) metaParts.push(esc(loc.county_name));
     if (loc.climate_zone) metaParts.push("IECC " + esc(loc.climate_zone));
-    metaParts.push(data.n_scored + "/9 dimensions");
+    metaParts.push(data.n_scored + "/" + (data.dimensions ? data.dimensions.length : data.n_scored) + " dimensions");
 
     // Build summary: "Custom" (or the profile name) + what was actually scored.
     var h = data.house || {};

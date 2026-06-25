@@ -4,7 +4,7 @@ An open-source platform for scoring residential properties across multiple dimen
 
 ## Current Status
 
-**Phase 1 complete — Shelby County, TN (Memphis) pilot with 8 scored dimensions.**
+**Phase 1 complete — Shelby County, TN (Memphis) pilot with 9 scored dimensions.**
 
 The full data ingestion → enrichment → multi-dimension scoring pipeline is operational end to end. Every Shelby County parcel in the pilot dataset carries nine scored dimensions plus a rolled-up composite score, each with both a national (absolute) and a local (percentile) letter grade. An initial **React + D3 nutrition label visualization** is now live on the project site — [housinglabel.dev/label.html](https://housinglabel.dev/label.html). Future phases will extend coverage to additional counties.
 

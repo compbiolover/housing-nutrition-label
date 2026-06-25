@@ -453,13 +453,20 @@ def simulate_all_dimensions(
     scored_vals = [d["score"] for d in dims if d["score"] is not None]
     composite = round(sum(scored_vals) / len(scored_vals), 1) if scored_vals else None
 
+    location_notes = dict(location_dims["_notes"])
+    if climate_score is not None and climate_proj is not None:
+        location_notes["climate"] = (
+            f"CMRA NCA4 (county {location.county_fips}, RCP4.5 mid-century)"
+            if climate_proj.get("resolved")
+            else "CMRA NCA4 (national-average fallback)")
+
     return {
         "dimensions": dims,
         "composite_score": composite,
         "composite_national_grade": score_to_grade(composite) if composite is not None else "—",
         "n_scored": len(scored_vals),
         "metrics": metrics,
-        "location_notes": location_dims["_notes"],
+        "location_notes": location_notes,
         "census_tract": location_dims.get("_tract"),
         "location": location,
     }

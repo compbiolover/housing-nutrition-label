@@ -310,7 +310,7 @@ def print_summary(df: pd.DataFrame, dims: list[Dimension], composite_keys: list[
     for dim in dims:
         score = df[f"{dim.key}_score"]
         scored_n = int(score.notna().sum())
-        constant = int(score.nunique(dropna=True)) <= 1
+        constant = scored_n > 0 and int(score.nunique(dropna=True)) <= 1
         tag = ("  (placeholder)" if not dim.composite
                else "  (county-uniform)" if constant else "")
         mean_s = score.mean(skipna=True)

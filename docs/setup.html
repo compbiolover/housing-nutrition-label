@@ -130,7 +130,7 @@ housing-pipeline --force</code></pre>
   <h2>House Simulator</h2>
   <p>The CLI simulator lets you define a hypothetical house and see its full nutrition label &mdash; all nine dimensions &mdash; instantly.</p>
 
-  <p>The five <strong>construction-driven</strong> dimensions (resilience, energy, durability, environmental, infrastructure) are modeled offline from the house configuration. The three <strong>location-driven</strong> dimensions (health, socioeconomic, walkability) are fetched live for the house's lat/lon from CDC PLACES, Census ACS, and Walk Score. Sources needing a key (<code>CENSUS_API_KEY</code>, <code>WALKSCORE_API_KEY</code>) show <em>N/A</em> and are excluded from the composite &mdash; never filled with a placeholder.</p>
+  <p>The five <strong>construction-driven</strong> dimensions (resilience, energy, durability, environmental, infrastructure) are modeled offline from the house configuration. The four <strong>location-driven</strong> dimensions depend on where the house sits: health, socioeconomic, and walkability are fetched live for the house's lat/lon from CDC PLACES, Census ACS, and Walk Score (sources needing a key &mdash; <code>CENSUS_API_KEY</code>, <code>WALKSCORE_API_KEY</code> &mdash; show <em>N/A</em> and are excluded from the composite, never filled with a placeholder), while climate projections come from a bundled per-county lookup (no API key) once the county is resolved &mdash; a known-but-unmapped county uses a national-average fallback, but like the other location dimensions it is excluded under <code>--no-fetch</code>, since resolving the county still needs the geocoder.</p>
 
   <h3>Full-Label Flags</h3>
   <pre><code># Emit the whole label (all dimensions + composite) as JSON

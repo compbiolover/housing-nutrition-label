@@ -155,7 +155,11 @@ def climate_projection_for_county(county_fips: str | None) -> dict:
     per metric), ``resolved``.
     """
     row = _table().get(str(county_fips).strip().zfill(5)) if county_fips else None
-    if row is None:
+    score_low = _band_score(row, "low") if row is not None else None
+    # Unmapped county, or a row missing a hazard leg (so the low band can't be
+    # computed): fall back to the national-average score so callers always get a
+    # concrete float, never None.
+    if row is None or score_low is None:
         low, high = _national_average()
         return {
             "label": US_AVG_LABEL,
@@ -183,8 +187,8 @@ def climate_projection_for_county(county_fips: str | None) -> dict:
     place = f"{name}, {state}".strip(", ") or str(county_fips)
     return {
         "label": f"{place} ({DATA_VINTAGE})",
-        "score": _band_score(row, "low"),
-        "score_low": _band_score(row, "low"),
+        "score": score_low,
+        "score_low": score_low,
         "score_high": _band_score(row, "high"),
         "hazards": hazards,
         "drivers": drivers,

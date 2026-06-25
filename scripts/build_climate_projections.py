@@ -88,11 +88,24 @@ def _out_columns() -> list[str]:
     return cols
 
 
+def _layer_max_record_count(service: str, default: int = 2000) -> int:
+    """The layer's server-enforced maxRecordCount (default if metadata fails)."""
+    try:
+        r = requests.get(service, params={"f": "json"}, headers=HEADERS, timeout=60)
+        r.raise_for_status()
+        return int(r.json().get("maxRecordCount") or default)
+    except (requests.RequestException, ValueError, TypeError):
+        return default
+
+
 def fetch_counties(service: str) -> list[dict]:
     """Page through every county feature, newest ArcGIS pagination."""
     fields = ",".join(_cmra_fields())
     rows: list[dict] = []
-    offset, page = 0, 2000
+    # Cap the page size at the layer's maxRecordCount so the server can't
+    # silently return fewer rows than requested.
+    page = min(2000, _layer_max_record_count(service))
+    offset = 0
     while True:
         params = {
             "where": "1=1",
@@ -120,7 +133,9 @@ def fetch_counties(service: str) -> list[dict]:
         rows.extend(f["attributes"] for f in feats)
         if not data.get("exceededTransferLimit"):
             break
-        offset += page
+        # Advance by the number actually returned (the server may cap a page
+        # below the requested size), never by the requested page size.
+        offset += len(feats)
     return rows
 
 
