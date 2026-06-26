@@ -26,6 +26,25 @@ The composite climate score is the equal-weight mean of the three legs; the
 headline ``score`` uses the low (RCP4.5) band, with the high (RCP8.5) band
 surfaced as the downside.
 
+Resolution
+----------
+The lookup is **resolution-aware**: ``climate_projection_for_tract`` resolves a
+tract → its parent county → the national average, and ``climate_projection_for_county``
+resolves a county → the national average. Every result carries a ``geo_level``
+(``"tract"`` / ``"county"`` / ``"us"``) so callers can label the actual geography
+that answered.
+
+A tract crosswalk (``climate_projections_tracts.csv[.gz]``) is loaded if present
+but **none is bundled**, so tract lookups resolve at the parent county today.
+This is deliberate: CMRA's ArcGIS *Tracts* layer carries **no sub-county signal** —
+it broadcasts the county value onto every tract polygon (verified: hundreds of
+tracts across San Bernardino / LA / Maricopa all report an identical value, equal
+to the county figure). Bundling it would add ~9 MB of redundant data and a
+"tract-level" label that does not reflect finer accuracy. Genuinely finer
+resolution lives in the LOCA2 ~6 km grid sampled at the parcel lat/lon — a
+separate, network-gated build, not this offline crosswalk. The plumbing is ready
+for that drop-in; see ``scripts/build_climate_projections.py``.
+
 Caveats
 -------
 CMRA is a ~6 km downscaled grid aggregated to counties — a **county aggregate,
@@ -39,13 +58,19 @@ the crosswalk fall back to the national-average score, with the label flagging i
 from __future__ import annotations
 
 import csv
+import gzip
 import pathlib
 from functools import lru_cache
 
 DATA_VINTAGE = "CMRA NCA4 (RCP4.5–8.5, mid-century)"
 US_AVG_LABEL = f"US average ({DATA_VINTAGE})"
 
-_CSV = pathlib.Path(__file__).resolve().parent / "climate_projections.csv"
+_DIR = pathlib.Path(__file__).resolve().parent
+_CSV = _DIR / "climate_projections.csv"
+# Optional tract crosswalk (plain or gzipped). None bundled today — see module
+# docstring — so tract lookups resolve at the parent county.
+_TRACT_CSV = _DIR / "climate_projections_tracts.csv"
+_TRACT_CSV_GZ = _DIR / "climate_projections_tracts.csv.gz"
 
 # Per-hazard scoring breakpoints: (increasing-hazard x values, matching 0–100 y
 # values). Anchored to the national quantiles of the RCP4.5 mid-century
@@ -114,18 +139,30 @@ def _num(v) -> float | None:
         return None
 
 
+def _load_rows(path: pathlib.Path, width: int) -> dict[str, dict]:
+    """geoid (zero-padded to ``width``) → raw CMRA row, from a CSV or .csv.gz."""
+    table: dict[str, dict] = {}
+    opener = gzip.open if path.suffix == ".gz" else open
+    with opener(path, "rt", newline="") as f:
+        for row in csv.DictReader(f):
+            geoid = str(row["geoid"]).strip().zfill(width)
+            if geoid:
+                table[geoid] = row
+    return table
+
+
 @lru_cache(maxsize=1)
 def _table() -> dict[str, dict]:
     """county FIPS (5-digit) → raw CMRA row."""
-    table: dict[str, dict] = {}
-    if not _CSV.exists():
-        return table
-    with _CSV.open() as f:
-        for row in csv.DictReader(f):
-            fips = str(row["geoid"]).strip().zfill(5)
-            if fips:
-                table[fips] = row
-    return table
+    return _load_rows(_CSV, 5) if _CSV.exists() else {}
+
+
+@lru_cache(maxsize=1)
+def _tract_table() -> dict[str, dict]:
+    """tract GEOID (11-digit) → raw CMRA row. Empty unless a tract crosswalk
+    is bundled (none is today — see module docstring)."""
+    path = _TRACT_CSV_GZ if _TRACT_CSV_GZ.exists() else _TRACT_CSV
+    return _load_rows(path, 11) if path.exists() else {}
 
 
 @lru_cache(maxsize=1)
@@ -142,35 +179,30 @@ def _national_average() -> tuple[float | None, float | None]:
     return avg(lows), avg(highs)
 
 
-def climate_projection_for_county(county_fips: str | None) -> dict:
-    """Return the climate-projection sub-score + bands for a 5-digit county FIPS.
+def _us_result() -> dict:
+    """National-average fallback (used when no county/tract row resolves)."""
+    low, high = _national_average()
+    return {
+        "label": US_AVG_LABEL,
+        "score": low,
+        "score_low": low,
+        "score_high": high,
+        "hazards": {},
+        "drivers": {},
+        "resolved": False,
+        "geo_level": "us",
+    }
 
-    Always returns a dict (never None). For a county in the crosswalk it carries
-    the resolved low/high composite scores and the projected hazard drivers; for
-    a missing/unmapped county it falls back to the national-average score with
-    ``resolved=False`` and the label flagging it.
 
-    Keys: ``label``, ``score`` (headline = low band), ``score_low``,
-    ``score_high``, ``hazards`` (per-leg low/high), ``drivers`` (raw hist/low/high
-    per metric), ``resolved``.
+def _resolved_result(row: dict, geo_level: str, geoid: str) -> dict | None:
+    """Build a resolved climate-projection result from a raw CMRA row.
+
+    Returns None if the row can't yield a low-band composite (e.g. a missing
+    hazard leg), so callers can fall back to a coarser geography.
     """
-    row = _table().get(str(county_fips).strip().zfill(5)) if county_fips else None
-    score_low = _band_score(row, "low") if row is not None else None
-    # Unmapped county, or a row missing a hazard leg (so the low band can't be
-    # computed): fall back to the national-average score so callers always get a
-    # concrete float, never None.
-    if row is None or score_low is None:
-        low, high = _national_average()
-        return {
-            "label": US_AVG_LABEL,
-            "score": low,
-            "score_low": low,
-            "score_high": high,
-            "hazards": {},
-            "drivers": {},
-            "resolved": False,
-        }
-
+    score_low = _band_score(row, "low")
+    if score_low is None:
+        return None
     hazards = {
         leg: {
             "low": _leg_score(row, metrics, "low"),
@@ -184,7 +216,9 @@ def climate_projection_for_county(county_fips: str | None) -> dict:
     }
     name = (row.get("county_name") or "").strip()
     state = (row.get("state") or "").strip()
-    place = f"{name}, {state}".strip(", ") or str(county_fips)
+    place = f"{name}, {state}".strip(", ") or geoid
+    if geo_level == "tract":
+        place = f"Census Tract {geoid} ({place})"
     return {
         "label": f"{place} ({DATA_VINTAGE})",
         "score": score_low,
@@ -193,7 +227,50 @@ def climate_projection_for_county(county_fips: str | None) -> dict:
         "hazards": hazards,
         "drivers": drivers,
         "resolved": True,
+        "geo_level": geo_level,
     }
+
+
+def climate_projection_for_county(county_fips: str | None) -> dict:
+    """Return the climate-projection sub-score + bands for a 5-digit county FIPS.
+
+    Always returns a dict (never None). For a county in the crosswalk it carries
+    the resolved low/high composite scores and the projected hazard drivers
+    (``geo_level="county"``); for a missing/unmapped county it falls back to the
+    national-average score with ``resolved=False`` and ``geo_level="us"``.
+
+    Keys: ``label``, ``score`` (headline = low band), ``score_low``,
+    ``score_high``, ``hazards`` (per-leg low/high), ``drivers`` (raw hist/low/high
+    per metric), ``resolved``, ``geo_level``.
+    """
+    fips = str(county_fips).strip().zfill(5) if county_fips else None
+    row = _table().get(fips) if fips else None
+    # Unmapped county, or a row missing a hazard leg (so the low band can't be
+    # computed): fall back to the national average so callers always get a
+    # concrete float, never None.
+    result = _resolved_result(row, "county", fips) if row is not None else None
+    return result or _us_result()
+
+
+def climate_projection_for_tract(tract_geoid: str | None) -> dict:
+    """Return the climate-projection sub-score + bands for an 11-digit tract GEOID.
+
+    Resolution-aware: a tract in the (optional) tract crosswalk resolves at
+    ``geo_level="tract"``; otherwise it falls back to its parent county (the first
+    5 digits of the GEOID), then to the national average. Same dict shape as
+    ``climate_projection_for_county``. No tract crosswalk is bundled today (see
+    module docstring), so this resolves at the parent county — but the plumbing is
+    ready for a genuinely finer tract dataset to drop in.
+    """
+    geoid = str(tract_geoid).strip().zfill(11) if tract_geoid else None
+    if geoid:
+        row = _tract_table().get(geoid)
+        if row is not None:
+            result = _resolved_result(row, "tract", geoid)
+            if result is not None:
+                return result
+        return climate_projection_for_county(geoid[:5])
+    return climate_projection_for_county(None)
 
 
 def _leg_score(row: dict, metrics: list[str], band: str) -> float | None:

@@ -210,9 +210,11 @@ deployed URL with `?api=https://your-api-host` or `window.HOUSING_LABEL_API`. Se
 
 - **Rust scoring engine** — port the hot scoring path for performance at scale
 - **API layer** — serve scores and grades over HTTP for third-party integration
-- **Finer climate resolution** — extend the climate-projection layer to census tracts (CMRA exposes a tract layer) and add a true Fire Weather Index (Argonne ClimRR, 12 km) for the fire/drought leg
+- **Finer climate resolution (sub-county)** — sample the LOCA2 ~6 km grid at the parcel lat/lon as a network-gated live refresh. The climate lookup is already resolution-aware (tract → county → national, drop-in for a finer crosswalk), but CMRA's *tract* layer was found to carry no sub-county signal — it just broadcasts the county value — so genuinely finer data must come from grid sampling, not that layer.
+- **True Fire Weather Index** — add the Argonne ClimRR FWI (12 km) for the fire/drought leg, replacing the consecutive-dry-days stand-in (needs a spatial join + a reachable, keyless source)
 
 **Shipped:**
+- ~~Extend the climate layer to census tracts (CMRA tract layer)~~ → the climate lookup is now **resolution-aware** (`climate_projection_for_tract`: tract → county → national average, each result tagged with its `geo_level`), with a reproducible opt-in tract build. CMRA's tract layer was empirically found to broadcast the county value onto every tract (no sub-county signal), so it is deliberately **not bundled** — the plumbing is ready for a genuinely finer dataset instead. See [research/climate-projections-research.md](research/climate-projections-research.md).
 - ~~Per-parcel climate projections — replace the uniform climate placeholder with downscaled climate-projection data~~ → the **Climate Projections** dimension is now a real per-county score from CMRA (LOCA/NCA4) downscaled projections, with an RCP4.5→8.5 mid-century band and a reproducible build script ([`scripts/build_climate_projections.py`](scripts/build_climate_projections.py)). Design notes in [research/climate-projections-research.md](research/climate-projections-research.md).
 - ~~Frontend visualization — React + D3 nutrition label UI~~ → an initial version is live at [housinglabel.dev/label.html](https://housinglabel.dev/label.html) ([`docs/label.html`](docs/label.html)). It renders the scored dimensions as an at-a-glance label with a switchable set of construction profiles, served statically with no build step (React + D3 loaded from CDN).
 

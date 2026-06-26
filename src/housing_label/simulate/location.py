@@ -51,7 +51,7 @@ class Location:
     climate_zone: str | None = None       # IECC zone, e.g. "4A"
     egrid_subregion: str | None = None
     egrid_factor: float | None = None     # kg CO2e / kWh
-    climate_projection: dict | None = None  # CMRA per-county hazard projection
+    climate_projection: dict | None = None  # CMRA hazard projection (tract→county→US)
     notes: dict = field(default_factory=dict)
 
     @property
@@ -179,9 +179,15 @@ def resolve_location(
     if loc.county_fips and loc.egrid_subregion == egrid_data.US_AVG_LABEL:
         notes["egrid"] = f"county {loc.county_fips} not in eGRID crosswalk; using US average"
 
-    # Climate projections: the county's CMRA downscaled hazard projection when it
-    # maps, otherwise the national-average fallback (always populated, never None).
-    loc.climate_projection = climate_proj_data.climate_projection_for_county(loc.county_fips)
+    # Climate projections: resolution-aware — resolve at the tract when one is
+    # available (falling back to the parent county), else the county, else the
+    # national average (always populated, never None). No tract crosswalk is
+    # bundled today, so a resolved tract reports at the parent county.
+    loc.climate_projection = (
+        climate_proj_data.climate_projection_for_tract(loc.tract)
+        if loc.tract
+        else climate_proj_data.climate_projection_for_county(loc.county_fips)
+    )
     if loc.county_fips and not loc.climate_projection.get("resolved"):
         notes["climate_projection"] = (
             f"county {loc.county_fips} not in climate crosswalk; using US average")

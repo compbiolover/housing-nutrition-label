@@ -174,6 +174,43 @@ rather than averaged away.
 
 ---
 
+## Implementation note — "finer climate resolution" (tract layer ≠ finer signal)
+
+When the tract extension (research plan #1/#3) was implemented, an empirical check of CMRA's
+ArcGIS **Tracts** layer (layer 1) overturned its premise. The layer carries **no sub-county
+signal** — it broadcasts the parent county's value onto every tract polygon. Verified by
+querying all tracts in three large, climatically diverse counties: the projected-hazard
+metrics had **zero spread** across tracts, each equal to the bundled county figure:
+
+| County | Tracts | `heat_days95` (RCP4.5 mid) tract min…max | county value |
+|---|---|---|---|
+| San Bernardino, CA (06071) | 369 | 111.2 … 111.2 | 111.165 |
+| Los Angeles, CA (06037) | 2000 | 42.5 … 42.5 | 42.541 |
+| Maricopa, AZ (04013) | 916 | 154.2 … 154.2 | 154.244 |
+
+So bundling CMRA's 74,133-tract layer would add ~9&nbsp;MB (gzip ~2.5&nbsp;MB) of redundant data
+and a "tract-level" label that does **not** reflect finer accuracy — exactly the false
+precision this dimension's caveats forbid. **Decision:** ship the *plumbing* for finer
+resolution without the cosmetic data:
+
+- `data/climate_projections.py` is now resolution-aware — `climate_projection_for_tract(geoid)`
+  resolves tract&nbsp;→&nbsp;parent county&nbsp;→&nbsp;national average, every result tagged with a
+  `geo_level`. It loads `climate_projections_tracts.csv[.gz]` if present; **none is bundled**,
+  so tracts resolve at the parent county today.
+- `build_climate_projections.py --geo-level tract` reproducibly generates that crosswalk (with
+  a loud "no sub-county signal" warning) as a drop-in slot, but its output is intentionally not
+  committed.
+- `score_climate` and `resolve_location` prefer a tract id when one is available.
+
+**Genuinely finer resolution** requires sampling the LOCA2 ~6&nbsp;km grid (or NEX-GDDP, ClimRR)
+at the parcel lat/lon and re-deriving the indices — a separate, network-gated live-refresh
+build (research plan #4), not this offline aggregate crosswalk. The roadmap line has been
+redirected accordingly. The **true Fire Weather Index** leg (Argonne ClimRR, 12&nbsp;km) remains
+pending: its source is Cloudflare-gated and a 12&nbsp;km FWI grid needs a spatial join to tracts,
+which the project's minimal dependency set (requests/pandas/numpy) has no geospatial library for.
+
+---
+
 ## Verification provenance
 
 Deep-research run: 5 search angles → 25 sources fetched → 89 claims extracted → 25 verified

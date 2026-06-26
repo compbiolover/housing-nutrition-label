@@ -455,10 +455,14 @@ def simulate_all_dimensions(
 
     location_notes = dict(location_dims["_notes"])
     if climate_score is not None and climate_proj is not None:
-        location_notes["climate"] = (
-            f"CMRA NCA4 (county {location.county_fips}, RCP4.5 mid-century)"
-            if climate_proj.get("resolved")
-            else "CMRA NCA4 (national-average fallback)")
+        if not climate_proj.get("resolved"):
+            location_notes["climate"] = "CMRA NCA4 (national-average fallback)"
+        elif climate_proj.get("geo_level") == "tract":
+            location_notes["climate"] = (
+                f"CMRA NCA4 (tract {location.tract}, RCP4.5 mid-century)")
+        else:
+            location_notes["climate"] = (
+                f"CMRA NCA4 (county {location.county_fips}, RCP4.5 mid-century)")
 
     return {
         "dimensions": dims,
