@@ -9,6 +9,14 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.1](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.0...v0.1.1) (2026-06-26)
+
+
+### Documentation
+
+* complete methodology + label for all 9 dimensions ([#33](https://github.com/compbiolover/housing-nutrition-label/issues/33)) ([69bcf9c](https://github.com/compbiolover/housing-nutrition-label/commit/69bcf9c6fdf7082f83531088c4deb98062de27cf))
+* refresh homepage (9 dimensions, address search, CMIP6-LOCA2) ([#32](https://github.com/compbiolover/housing-nutrition-label/issues/32)) ([bdf106e](https://github.com/compbiolover/housing-nutrition-label/commit/bdf106e4c50cb30d9c1fbbdcb0dd3976177941ef))
+
 ## [0.1.0] - 2026-06-26
 
 Initial baseline.
