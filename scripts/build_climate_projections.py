@@ -359,6 +359,17 @@ def _loca2_coord(ds, names):
     return next(c for c in names if c in ds.coords or c in ds.variables)
 
 
+def _to_neg_west(lon: np.ndarray) -> np.ndarray:
+    """Normalize a longitude axis to the −180..180 (negative-west) convention.
+
+    LOCA2 stores longitude as 0–360 (CONUS ≈ 234.5..293.5); the tract internal
+    points and ``LOCA2_BBOX`` are negative-west, so without this every CONUS
+    point's nearest column collapses to the 0-360 western edge (an ocean NaN
+    cell) and all samples come back empty. The grid is wholly western-hemisphere,
+    so the shift stays monotonic (→ −125.5..−66.5)."""
+    return np.where(lon > 180.0, lon - 360.0, lon)
+
+
 def _read_var_windows(ds, var: str, windows: dict[str, tuple[int, int]]) -> dict:
     """Per-band window means for one variable from an OPEN dataset, computed
     lazily (only the in-window timesteps load — never the full time series)."""
@@ -382,7 +393,7 @@ def _open_loca2_var(path: pathlib.Path, var: str,
 
     with xr.open_dataset(path, decode_times=True) as ds:
         lat = ds[_loca2_coord(ds, ("lat", "latitude", "y"))].values
-        lon = ds[_loca2_coord(ds, ("lon", "longitude", "x"))].values
+        lon = _to_neg_west(ds[_loca2_coord(ds, ("lon", "longitude", "x"))].values)
         out = _read_var_windows(ds, var, windows)
     return lat, lon, out
 
@@ -412,7 +423,7 @@ def compute_loca2_fields(
         with xr.open_dataset(paths[scen], decode_times=True) as ds:
             if lat_arr is None:
                 lat_arr = ds[_loca2_coord(ds, ("lat", "latitude", "y"))].values
-                lon_arr = ds[_loca2_coord(ds, ("lon", "longitude", "x"))].values
+                lon_arr = _to_neg_west(ds[_loca2_coord(ds, ("lon", "longitude", "x"))].values)
             for stem, (var, divisor) in LOCA2_VARS.items():
                 for band, field2d in _read_var_windows(ds, var, windows).items():
                     fields[stem][band] = field2d if divisor is None else field2d / divisor
