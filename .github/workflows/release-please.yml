@@ -1,0 +1,24 @@
+name: release-please
+
+# On every push to main, release-please maintains a "release PR" that accumulates
+# the pending CHANGELOG + the next SemVer version (computed from Conventional Commit
+# titles). Merging that release PR tags the release and publishes a GitHub Release.
+# Pre-1.0 (0.y.z): breaking changes bump the minor, everything else the patch
+# (see bump-*-pre-major in release-please-config.json).
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write        # create the release PR, the tag, and the GitHub Release
+  pull-requests: write   # open/update the release PR
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
