@@ -16,6 +16,10 @@ dependencies = [
 
 [project.optional-dependencies]
 api = ["fastapi>=0.110", "uvicorn>=0.29"]
+# Build-only: reading the USGS CMIP6-LOCA2 NetCDF grids to (re)generate the
+# climate crosswalks (scripts/build_climate_projections.py --source loca2).
+# Never imported at runtime — the bundled CSVs keep the runtime deps minimal.
+build = ["xarray>=2024.1", "netCDF4>=1.6", "numpy>=1.26", "requests>=2.32"]
 
 [project.scripts]
 housing-simulate = "housing_label.simulate.house:main"

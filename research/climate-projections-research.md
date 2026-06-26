@@ -211,6 +211,50 @@ which the project's minimal dependency set (requests/pandas/numpy) has no geospa
 
 ---
 
+## Implementation note — LOCA2 sub-county build (the genuinely finer path)
+
+A follow-up build (`scripts/build_climate_projections.py --source loca2`) implements the real
+sub-county resolution the CMRA tract layer couldn't provide. Two findings shaped it:
+
+- **No keyless LOCA2 point API.** A live per-lat/lon refresh isn't viable: the only keyless,
+  requests-only CONUS point services are historical (USGS GDP pygeoapi, gridMET) or coarser
+  (NEX-GDDP ~25 km via awkward OPeNDAP); native LOCA2 (~6 km) is bulk NetCDF needing xarray.
+- **Single-model point samples aren't defensible.** Regional internal variability dominates;
+  a defensible value needs a multi-model **ensemble mean** (why CMRA uses one).
+
+So the chosen vehicle is an **offline build → bundled tract crosswalk** using a pre-derived
+ensemble mean, sampled at build time.
+
+**Verified source (keyless):** USGS *CMIP6-LOCA2 threshold/extreme-event metric projections*
+(DOI [10.5066/P13OV6GY](https://doi.org/10.5066/P13OV6GY), ScienceBase `65cd1ff2…`). The
+**Weighted Multi-Model Mean (WMMM)** annual 1/16° (~6 km) CONUS grid, one NetCDF per SSP
+(**~2.6 GB each** — the 171 MB files are county-aggregated, no sub-county signal). Variable map
+(units from the FGDC metadata): `TXge95F`, `TXge100F`, `R1in`, `Rx5day` (mm → ÷25.4 to inches),
+`CDD`. Grid 944×474, negative-west longitude. There is **no SSP-labeled mid-century gridded
+*climatology*** (those are MMM, historical/GWL only), so we cut windows from the WMMM time
+series ourselves: `hist` = 1991–2020, `low` = ssp245 2040–2069, `high` = ssp585 2040–2069.
+
+**Pipeline:** download the two WMMM grids + the Census Gazetteer tract/county internal points
+(keyless), nearest-cell sample each tract's internal point (numpy; bbox guard + NaN ring
+fallback for coastal cells), and set each county value to the **mean of its tracts** (so
+tract→county is coherent). Writes both `climate_projections.csv` and
+`climate_projections_tracts.csv.gz` in the existing schema. xarray/netCDF4 are imported only
+inside the loca2 branch and declared under the `[build]` extra — runtime stays
+requests/pandas/numpy and offline.
+
+**Validated** (`tests/test_build_loca2.py` + an in-session synthetic-grid run): the pure
+sampling/aggregation core (intra-county spread now *exists* — the inverse of the CMRA finding —
+plus tract→county coherence, schema, bbox/NaN handling), the xarray reader against a synthetic
+NetCDF, and the Gazetteer loader + ScienceBase URL resolver against live endpoints.
+
+**Remaining (capable-machine step):** run the full national build (~5.2 GB download + the
+`[build]` extra) to generate the bundled tract/county data, then **re-anchor the scoring
+breakpoints** in `data/climate_projections.py` to the printed national quantiles and update the
+vintage to CMIP6/SSP. Until then the bundled data and breakpoints remain the CMRA (CMIP5/RCP)
+county set, so the runtime is unchanged by this branch.
+
+---
+
 ## Verification provenance
 
 Deep-research run: 5 search angles → 25 sources fetched → 89 claims extracted → 25 verified
