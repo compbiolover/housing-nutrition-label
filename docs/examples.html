@@ -89,7 +89,7 @@
 
 <section>
   <h2>Score Any US Address</h2>
-  <p>Type any US address and pick a construction profile to generate a live nutrition label for that location &mdash; the same eight-dimension scoring the CLI produces. Health &amp; socioeconomic are ranked within the address's own county; energy uses the local climate zone; seismic and flood are pulled for the exact point. Disaster Resilience is the combined expected loss from flood, tornado, earthquake, and fire. Expand <em>Construction details</em> to override the profile with a specific year built, wall type, square footage, and resilience upgrades.</p>
+  <p>Type any US address and pick a construction profile to generate a live nutrition label for that location &mdash; the same nine-dimension scoring the CLI produces. Health &amp; socioeconomic are ranked within the address's own county; energy uses the local climate zone; seismic and flood are pulled for the exact point. Disaster Resilience is the combined expected loss from flood, tornado, earthquake, and fire. Expand <em>Construction details</em> to override the profile with a specific year built, wall type, square footage, and resilience upgrades.</p>
 
   <form class="addr-form" id="addr-form">
     <div class="addr-ac" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-owns="addr-suggest">
@@ -669,6 +669,22 @@
       .catch(function (err) { status.textContent = "Could not score that address: " + err.message; })
       .finally(function () { btn.disabled = false; });
   });
+
+  // Deep link: ?address=... (e.g. from the home-page search box) prefills the
+  // field and runs the search automatically. ?preset= optionally picks a profile.
+  var qs = new URLSearchParams(location.search);
+  var deepAddr = qs.get("address");
+  if (deepAddr) {
+    input.value = deepAddr;
+    var deepPreset = qs.get("preset");
+    if (deepPreset) {
+      for (var pi = 0; pi < preset.options.length; pi++) {
+        if (preset.options[pi].value === deepPreset) { preset.selectedIndex = pi; break; }
+      }
+    }
+    if (form.requestSubmit) form.requestSubmit();
+    else form.dispatchEvent(new Event("submit", { cancelable: true }));
+  }
 })();
 </script>
 </body>

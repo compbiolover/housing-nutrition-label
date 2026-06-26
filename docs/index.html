@@ -22,10 +22,16 @@
 </nav>
 
 <div class="hero">
-  <div class="badge">Phase 1 Pilot &mdash; Shelby County, TN</div>
+  <div class="badge">Open source &middot; 9 dimensions &middot; any U.S. address</div>
   <h1>Housing Nutrition Label</h1>
-  <p class="tagline">An open-source platform that scores residential properties on disaster resilience, energy efficiency, infrastructure burden, health impact, socioeconomic factors, and walkability &mdash; like a nutrition label for your home.</p>
-  <a href="https://github.com/compbiolover/housing-nutrition-label" style="display:inline-block;background:var(--green);color:#fff;padding:0.75rem 2rem;border-radius:var(--radius);font-weight:600;text-decoration:none;">View on GitHub</a>
+  <p class="tagline">An open-source platform that scores residential properties across nine dimensions &mdash; disaster resilience, energy efficiency, durability, environmental footprint, infrastructure burden, health, socioeconomic context, walkability, and climate projections &mdash; like a nutrition label for your home.</p>
+  <form action="examples.html" method="get" style="display:flex;flex-wrap:wrap;gap:0.5rem;justify-content:center;max-width:640px;margin:0 auto;">
+    <input type="text" name="address" required aria-label="U.S. address to score"
+           placeholder="Enter any U.S. address &mdash; e.g. 111 S Grand Ave, Los Angeles, CA"
+           style="flex:1 1 320px;padding:0.75rem 1rem;border:1px solid #cbd5e1;border-radius:var(--radius);font-size:1rem;">
+    <button type="submit" style="background:var(--green);color:#fff;padding:0.75rem 1.75rem;border:0;border-radius:var(--radius);font-weight:600;font-size:1rem;cursor:pointer;">Score it</button>
+  </form>
+  <p style="margin-top:0.75rem;font-size:0.9rem;">Generates a live label for that location, then pick a construction profile &mdash; or <a href="https://github.com/compbiolover/housing-nutrition-label">view the project on GitHub</a>.</p>
 </div>
 
 <section>
@@ -53,6 +59,16 @@
       <p>Energy Use Intensity (kBTU/sqft/yr) based on DOE/EIA ResStock benchmarks, adjusted for building vintage, construction type, and HVAC system. Estimated monthly cost at Memphis/TVA utility rates.</p>
     </div>
     <div class="card">
+      <div class="icon">&#x1F6E0;</div>
+      <h3>Durability</h3>
+      <p>A component-lifespan / effective-age model blending the remaining service life of eight major building systems (structural shell, roof, HVAC, plumbing, electrical, windows, finishes, water heater) with the assessor's condition rating, then adjusted for exterior-wall material and construction grade.</p>
+    </div>
+    <div class="card">
+      <div class="icon">&#x1F33F;</div>
+      <h3>Environmental Footprint</h3>
+      <p>Lifecycle CO&#8322;e blended 50% operational / 30% embodied / 20% water: operational emissions from modeled energy use &times; EPA eGRID2022 grid + natural-gas factors, embodied carbon from materials &amp; size amortized over a 60-year study period, and water use from EPA WaterSense benchmarks.</p>
+    </div>
+    <div class="card">
       <div class="icon">&#x1F3D8;</div>
       <h3>Infrastructure Burden</h3>
       <p>Annual municipal cost to serve each parcel (roads, water/sewer, fire, police, sanitation) based on density. Fiscal ratio shows property tax revenue vs. infrastructure cost &mdash; revealing which properties pay their way.</p>
@@ -75,7 +91,7 @@
     <div class="card">
       <div class="icon">&#x1F321;</div>
       <h3>Climate Projections</h3>
-      <p>Per-county downscaled climate-hazard projections (NOAA/DOI CMRA, LOCA/NCA4): extreme heat, heavy precipitation &amp; flood, and drought, blended into a 0&ndash;100 score with an RCP4.5&ndash;8.5 mid-century band. <em>(County aggregate; county-uniform for the single-county pilot.)</em></p>
+      <p>Sub-county downscaled climate-hazard projections from the USGS CMIP6-LOCA2 ensemble mean (~6&nbsp;km grid, sampled at each census tract's internal point): extreme heat, heavy precipitation &amp; flood, and drought, blended into a 0&ndash;100 score with an SSP2-4.5&ndash;5-8.5 mid-century (2040&ndash;2069) band. <em>(Tracts within a county genuinely differ; tract&nbsp;&rarr;&nbsp;county&nbsp;&rarr;&nbsp;national fallback.)</em></p>
     </div>
   </div>
 </section>
@@ -99,8 +115,8 @@
 
 <section>
   <h2>Current Status</h2>
-  <p><strong>Phase 1 complete:</strong> 1,000 Shelby County (Memphis, TN) parcels scored across 6 dimensions with real data from 10 public data sources. Includes a CLI house simulator with 8 presets supporting multi-unit buildings (duplexes, quadplexes) and 20+ above-code construction features.</p>
-  <p>The scoring engine, data pipeline, and simulator are fully open-source under the MIT license.</p>
+  <p>Score <strong>any U.S. address across nine dimensions</strong> in real time via the live API (try the box above), backed by ~1,000 Shelby County (Memphis, TN) parcels scored offline from public data. A CLI house simulator models construction profiles &mdash; including multi-unit buildings (duplexes, quadplexes) and 20+ above-code construction features &mdash; and the climate, grid-carbon, and seismic reference layers are built from keyless, reproducible scripts.</p>
+  <p>The scoring engine, data pipeline, simulator, and address-search API are all open-source under the MIT license.</p>
 </section>
 
 <section>
@@ -114,6 +130,8 @@
       <tr><td>SPC Historical Tornadoes</td><td>Tornado frequency &amp; intensity</td><td class="free">Free, no key</td></tr>
       <tr><td>USGS NSHM</td><td>Seismic hazard (PGA values)</td><td class="free">Free, no key</td></tr>
       <tr><td>DOE/EIA ResStock</td><td>Energy use intensity benchmarks</td><td class="free">Free, reference data</td></tr>
+      <tr><td>EPA eGRID2022</td><td>Grid carbon intensity (environmental footprint)</td><td class="free">Free, reference data</td></tr>
+      <tr><td>USGS CMIP6-LOCA2</td><td>Sub-county climate-hazard projections</td><td class="free">Free, no key</td></tr>
       <tr><td>CDC PLACES</td><td>Health metrics by census tract</td><td class="free">Free, no key</td></tr>
       <tr><td>Census ACS</td><td>Socioeconomic indicators</td><td class="key-needed">Free key required</td></tr>
       <tr><td>Walk Score API</td><td>Walk / transit / bike scores</td><td class="key-needed">Key required (active)</td></tr>
