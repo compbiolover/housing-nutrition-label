@@ -93,6 +93,24 @@ def test_loca2_var_mapping_and_conversion_config():
         "TXge95F", "TXge100F", "R1in", "Rx5day", "CDD"}
 
 
+def test_sb_download_url_is_file_get_not_manager():
+    # The working ScienceBase download is the catalog file/get route — NOT the
+    # item's manager/download/<id> (which serves an HTML app page) or an S3
+    # virtual-host URL (403). Guards against the regression that cached HTML stubs.
+    url = b._sb_file_url(b.LOCA2_GRID_NAME.format(scen="ssp245"))
+    assert url.startswith("https://www.sciencebase.gov/catalog/file/get/")
+    assert b.SCIENCEBASE_ITEM_ID in url and "manager/download" not in url
+    assert "ssp245_1950-2100_annual_16thdeg_grid.nc" in url.replace("%2D", "-")
+
+
+def test_is_netcdf_distinguishes_magic_from_html_stub():
+    d = pathlib.Path(tempfile.mkdtemp())
+    nc = d / "good.nc"; nc.write_bytes(b"CDF\x02rest-of-header")
+    html = d / "bad.nc"; html.write_bytes(b"<!doctype html><html>nope</html>")
+    assert b._is_netcdf(nc) is True
+    assert b._is_netcdf(html) is False
+
+
 def test_open_loca2_var_reads_windows():
     """xarray-backed reader against a tiny synthetic NetCDF (skips without the
     build deps — xarray AND a NetCDF engine, both needed to write/read the file)."""

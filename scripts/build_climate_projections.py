@@ -127,14 +127,21 @@ BANDS = [("HISTORIC", "hist"), ("RCP45MID", "low"), ("RCP85MID", "high")]
 # value), sampling this grid at each tract's internal point yields real
 # sub-county variation. Reading NetCDF needs xarray/netCDF4 — BUILD-ONLY deps,
 # imported lazily inside _open_loca2_var so the CMRA path and runtime stay light.
-SCIENCEBASE_ITEM = "https://www.sciencebase.gov/catalog/item/65cd1ff2d34ef4b119cb3d07"
+SCIENCEBASE_ITEM_ID = "65cd1ff2d34ef4b119cb3d07"
+SCIENCEBASE_ITEM = f"https://www.sciencebase.gov/catalog/item/{SCIENCEBASE_ITEM_ID}"
+# Direct file download is the catalog `file/get?name=` route — the item's
+# `downloadUri` (manager/download/<id>) serves an HTML app page, not the file,
+# and S3 virtual-host URLs are 403. This route returns application/octet-stream.
+SCIENCEBASE_FILE_GET = "https://www.sciencebase.gov/catalog/file/get/{iid}"
 LOCA2_BAND_SCENARIO = {"low": "ssp245", "high": "ssp585"}  # hist also cut from ssp245
-# Opaque ScienceBase download ids (fallback if item-listing resolution fails).
-LOCA2_FALLBACK_URLS = {
-    "ssp245": "https://sciencebase.usgs.gov/manager/download/cltt4690c00db14pfcdsz7a4i",
-    "ssp585": "https://sciencebase.usgs.gov/manager/download/cltt46ubj00df14pf9n0j4zyq",
-}
 LOCA2_GRID_SUFFIX = "annual_16thdeg_grid.nc"
+# WMMM annual-grid filename per scenario (fallback if item-listing resolution fails).
+LOCA2_GRID_NAME = "CMIP6-LOCA2_Thresholds_WeightedMultiModelMean.{scen}_1950-2100_" + LOCA2_GRID_SUFFIX
+
+
+def _sb_file_url(name: str) -> str:
+    """Direct ScienceBase download URL for a file by name within the item."""
+    return f"{SCIENCEBASE_FILE_GET.format(iid=SCIENCEBASE_ITEM_ID)}?name={requests.utils.quote(name)}"
 # output stem → (NetCDF variable, unit divisor or None). Rx5day is mm; the schema
 # and breakpoints are in inches, so divide by 25.4.
 LOCA2_VARS: dict[str, tuple[str, float | None]] = {
@@ -149,9 +156,28 @@ LOCA2_BBOX = (23.875, 53.5, -125.5, -66.0)
 GAZ_BASE = "https://www2.census.gov/geo/docs/maps-data/data/gazetteer/{yr}_Gazetteer/"
 
 
-def _download(url: str, dest: pathlib.Path) -> pathlib.Path:
-    """Stream a URL to ``dest`` with retry/back-off; skip if already cached."""
-    if dest.exists() and dest.stat().st_size > 0:
+_NETCDF_MAGIC = (b"CDF\x01", b"CDF\x02", b"\x89HDF")
+
+
+def _is_netcdf(path: pathlib.Path) -> bool:
+    with path.open("rb") as f:
+        return f.read(4) in _NETCDF_MAGIC
+
+
+def _download(url: str, dest: pathlib.Path, *, expect_netcdf: bool = False,
+              min_size: int = 1024) -> pathlib.Path:
+    """Stream a URL to ``dest`` with retry/back-off; skip if already validly cached.
+
+    Guards against silently caching a bad response (e.g. ScienceBase serving an
+    HTML app page instead of the file): a cached or freshly downloaded file must
+    clear ``min_size`` and, when ``expect_netcdf``, start with NetCDF/HDF5 magic
+    bytes — otherwise it is re-fetched / rejected rather than handed to xarray.
+    """
+    def _valid(p: pathlib.Path) -> bool:
+        return (p.exists() and p.stat().st_size >= min_size
+                and (not expect_netcdf or _is_netcdf(p)))
+
+    if _valid(dest):
         print(f"  cached {dest.name} ({dest.stat().st_size/1e6:.0f} MB)", file=sys.stderr)
         return dest
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -159,10 +185,20 @@ def _download(url: str, dest: pathlib.Path) -> pathlib.Path:
         try:
             with requests.get(url, headers=HEADERS, timeout=120, stream=True) as r:
                 r.raise_for_status()
+                ctype = r.headers.get("Content-Type", "")
+                if expect_netcdf and "html" in ctype.lower():
+                    raise RuntimeError(
+                        f"expected a file but got {ctype!r} from {url} — the URL "
+                        "likely points at an HTML page, not the download")
                 tmp = dest.with_suffix(dest.suffix + ".part")
                 with tmp.open("wb") as f:
                     for chunk in r.iter_content(chunk_size=1 << 20):
                         f.write(chunk)
+                if not _valid(tmp):
+                    tmp.unlink(missing_ok=True)
+                    raise RuntimeError(
+                        f"downloaded {dest.name} failed validation "
+                        f"(size/{'netcdf' if expect_netcdf else 'min-size'} check) from {url}")
                 tmp.replace(dest)
             return dest
         except requests.RequestException:
@@ -189,11 +225,11 @@ def _resolve_loca2_urls(scenarios: set[str]) -> dict[str, str]:
                 continue
             for scen in scenarios:
                 if f".{scen}_" in name:
-                    urls[scen] = f.get("downloadUri") or f.get("url")
+                    urls[scen] = _sb_file_url(name)  # catalog file/get, not downloadUri
     except (requests.RequestException, ValueError):
         pass
     for scen in scenarios:
-        urls.setdefault(scen, LOCA2_FALLBACK_URLS[scen])
+        urls.setdefault(scen, _sb_file_url(LOCA2_GRID_NAME.format(scen=scen)))
     return urls
 
 
@@ -362,7 +398,8 @@ def compute_loca2_fields(
     ~2.6 GB time series into memory)."""
     import xarray as xr  # build-only dependency
 
-    paths = {scen: _download(url, cache_dir / f"loca2_{scen}_{LOCA2_GRID_SUFFIX}")
+    paths = {scen: _download(url, cache_dir / f"loca2_{scen}_{LOCA2_GRID_SUFFIX}",
+                             expect_netcdf=True, min_size=10 << 20)
              for scen, url in urls.items()}
     # hist + low come from ssp245; high from ssp585.
     scen_windows = {
