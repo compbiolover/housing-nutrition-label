@@ -41,9 +41,13 @@ it broadcasts the county value onto every tract polygon (verified: hundreds of
 tracts across San Bernardino / LA / Maricopa all report an identical value, equal
 to the county figure). Bundling it would add ~9 MB of redundant data and a
 "tract-level" label that does not reflect finer accuracy. Genuinely finer
-resolution lives in the LOCA2 ~6 km grid sampled at the parcel lat/lon — a
-separate, network-gated build, not this offline crosswalk. The plumbing is ready
-for that drop-in; see ``scripts/build_climate_projections.py``.
+resolution comes instead from an **offline build** that samples the USGS
+CMIP6-LOCA2 ensemble-mean (~6 km) grid at each tract's internal point
+(``scripts/build_climate_projections.py --source loca2``), writing a real tract
+crosswalk into the drop-in slot above (county = the mean of its tracts). That
+build is a capable-machine step (~5.2 GB download + the ``[build]`` extra); until
+it has been run and these breakpoints re-anchored to CMIP6/SSP, the bundled data
+remains the CMRA (CMIP5/RCP) county set described below.
 
 Caveats
 -------

@@ -40,12 +40,15 @@ def test_sample_point_bbox_and_ring_fallback():
     assert b._sample_point(34.0, -91.0, lat, lon, f) == f[0, 0]
     # Outside the CONUS bbox → None (e.g. an Alaska point).
     assert b._sample_point(64.0, -150.0, lat, lon, f) is None
-    # A masked (NaN) nearest cell falls back to the nearest valid cell in a ring.
-    fn = f.copy()
+    # A masked (NaN) nearest cell falls back to the NEAREST valid cell — not the
+    # mean of the ring (which would bias the value).
     i = int(np.abs(lat - 35.0).argmin())
     j = int(np.abs(lon + 90.0).argmin())
-    fn[i, j] = np.nan
-    assert b._sample_point(35.0, -90.0, lat, lon, fn) is not None
+    fn = np.full_like(f, np.nan)
+    fn[i, j] = np.nan                 # nearest cell masked
+    fn[i, j + 1] = 7.0                # immediate neighbour (distance 1)
+    fn[i, j + 2] = 99.0               # farther cell (distance 2)
+    assert b._sample_point(35.0, -90.0, lat, lon, fn) == 7.0
 
 
 def test_window_mean():
@@ -91,11 +94,13 @@ def test_loca2_var_mapping_and_conversion_config():
 
 
 def test_open_loca2_var_reads_windows():
-    """xarray-backed reader against a tiny synthetic NetCDF (skips without xarray)."""
+    """xarray-backed reader against a tiny synthetic NetCDF (skips without the
+    build deps — xarray AND a NetCDF engine, both needed to write/read the file)."""
     try:
         import xarray as xr  # noqa: F401
+        import netCDF4  # noqa: F401  # writer/reader backend for ds.to_netcdf
     except ImportError:
-        print("  skip test_open_loca2_var_reads_windows (xarray not installed)")
+        print("  skip test_open_loca2_var_reads_windows (xarray/netCDF4 not installed)")
         return
     lat = np.linspace(34.0, 36.0, 4)
     lon = np.linspace(-91.0, -89.0, 4)

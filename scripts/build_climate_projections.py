@@ -247,12 +247,19 @@ def _sample_point(lat: float, lon: float, lat_arr: np.ndarray, lon_arr: np.ndarr
     v = field2d[i, j]
     if np.isfinite(v):
         return float(v)
+    # Masked (NaN) nearest cell — a coastal/edge internal point. Fall back to the
+    # NEAREST valid cell in an expanding ring (still nearest-neighbour, not an
+    # average, which would bias the value).
     for r in range(1, max_ring + 1):
         i0, i1 = max(0, i - r), min(field2d.shape[0], i + r + 1)
         j0, j1 = max(0, j - r), min(field2d.shape[1], j + r + 1)
         window = field2d[i0:i1, j0:j1]
-        if np.isfinite(window).any():
-            return float(window[np.isfinite(window)].mean())
+        finite = np.argwhere(np.isfinite(window))
+        if finite.size:
+            di = finite[:, 0] + i0 - i
+            dj = finite[:, 1] + j0 - j
+            nearest = finite[np.argmin(di * di + dj * dj)]
+            return float(window[nearest[0], nearest[1]])
     return None
 
 
@@ -312,22 +319,35 @@ def sample_loca2_rows(
     return county_rows, tract_rows
 
 
+def _loca2_coord(ds, names):
+    return next(c for c in names if c in ds.coords or c in ds.variables)
+
+
+def _read_var_windows(ds, var: str, windows: dict[str, tuple[int, int]]) -> dict:
+    """Per-band window means for one variable from an OPEN dataset, computed
+    lazily (only the in-window timesteps load — never the full time series)."""
+    years = ds["time"].dt.year
+    da = ds[var]
+    out = {}
+    for band, (y0, y1) in windows.items():
+        idx = np.nonzero(((years >= y0) & (years <= y1)).values)[0]
+        out[band] = da.isel(time=idx).mean("time", skipna=True).values
+    return out
+
+
 def _open_loca2_var(path: pathlib.Path, var: str,
                     windows: dict[str, tuple[int, int]]) -> tuple[np.ndarray, np.ndarray, dict]:
-    """Read one variable's window means from a LOCA2 NetCDF. Build-only (xarray)."""
+    """Read one variable's window means from a LOCA2 NetCDF. Build-only (xarray).
+
+    A thin single-variable convenience (used by tests). The build uses
+    ``compute_loca2_fields``, which opens each scenario file once.
+    """
     import xarray as xr  # build-only dependency
 
-    def _coord(ds, names):
-        return next(c for c in names if c in ds.coords or c in ds.variables)
-
     with xr.open_dataset(path, decode_times=True) as ds:
-        latn = _coord(ds, ("lat", "latitude", "y"))
-        lonn = _coord(ds, ("lon", "longitude", "x"))
-        years = ds["time"].dt.year.values
-        data = ds[var].values  # (time, lat, lon)
-        lat = ds[latn].values
-        lon = ds[lonn].values
-    out = {band: _window_mean(data, years, y0, y1) for band, (y0, y1) in windows.items()}
+        lat = ds[_loca2_coord(ds, ("lat", "latitude", "y"))].values
+        lon = ds[_loca2_coord(ds, ("lon", "longitude", "x"))].values
+        out = _read_var_windows(ds, var, windows)
     return lat, lon, out
 
 
@@ -335,22 +355,30 @@ def compute_loca2_fields(
     cache_dir: pathlib.Path, urls: dict[str, str],
     hist_window: tuple[int, int], mid_window: tuple[int, int],
 ) -> tuple[dict[str, dict[str, np.ndarray]], np.ndarray, np.ndarray]:
-    """Download the WMMM grids and reduce to per-metric {hist, low, high} fields."""
+    """Download the WMMM grids and reduce to per-metric {hist, low, high} fields.
+
+    Each scenario NetCDF is opened ONCE; every variable's window means are read
+    lazily from that single handle (no per-variable re-open, no loading the full
+    ~2.6 GB time series into memory)."""
+    import xarray as xr  # build-only dependency
+
     paths = {scen: _download(url, cache_dir / f"loca2_{scen}_{LOCA2_GRID_SUFFIX}")
              for scen, url in urls.items()}
     # hist + low come from ssp245; high from ssp585.
-    win = {
+    scen_windows = {
         "ssp245": {"hist": hist_window, "low": mid_window},
         "ssp585": {"high": mid_window},
     }
-    fields: dict[str, dict[str, np.ndarray]] = {}
+    fields: dict[str, dict[str, np.ndarray]] = {stem: {} for stem in LOCA2_VARS}
     lat_arr = lon_arr = None
-    for stem, (var, divisor) in LOCA2_VARS.items():
-        fields[stem] = {}
-        for scen, windows in win.items():
-            lat_arr, lon_arr, got = _open_loca2_var(paths[scen], var, windows)
-            for band, field2d in got.items():
-                fields[stem][band] = field2d if divisor is None else field2d / divisor
+    for scen, windows in scen_windows.items():
+        with xr.open_dataset(paths[scen], decode_times=True) as ds:
+            if lat_arr is None:
+                lat_arr = ds[_loca2_coord(ds, ("lat", "latitude", "y"))].values
+                lon_arr = ds[_loca2_coord(ds, ("lon", "longitude", "x"))].values
+            for stem, (var, divisor) in LOCA2_VARS.items():
+                for band, field2d in _read_var_windows(ds, var, windows).items():
+                    fields[stem][band] = field2d if divisor is None else field2d / divisor
     return fields, lat_arr, lon_arr
 
 
