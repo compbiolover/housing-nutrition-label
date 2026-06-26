@@ -79,7 +79,36 @@
   </div>
 
   <div class="method-section">
-    <h3>3. Infrastructure Burden</h3>
+    <h3>3. Durability</h3>
+    <p>A <strong>component-lifespan / effective-age</strong> model &mdash; how much usable service life the building has left, tempered by the assessor's observed condition. (Distinct from Disaster Resilience, which measures hazard loss rather than wear-out.)</p>
+
+    <h4>Component Service-Life Basket</h4>
+    <p>Eight major systems each carry a typical service life and a replacement-cost weight; the long-lived shell dominates and short-cycle systems contribute less:</p>
+    <p><strong>Structural shell</strong> 100&nbsp;yr (0.30) &middot; <strong>plumbing</strong> 55&nbsp;yr (0.10) &middot; <strong>electrical</strong> 35&nbsp;yr (0.10) &middot; <strong>roof covering</strong> 25&nbsp;yr (0.15) &middot; <strong>windows</strong> 25&nbsp;yr (0.08) &middot; <strong>interior finishes</strong> 20&nbsp;yr (0.10) &middot; <strong>HVAC</strong> 18&nbsp;yr (0.12) &middot; <strong>water heater</strong> 12&nbsp;yr (0.05).</p>
+    <p>Each system's remaining-life fraction is <code>clamp((service_life &minus; effective_age) / service_life, 0..1)</code>, using the assessor's <strong>effective year built</strong> (EFFYR, which folds in major renovations) rather than the original year. The age score is the weighted mean &times; 100.</p>
+
+    <h4>Condition &amp; Adjustments</h4>
+    <div class="formula">base = 0.55 &times; condition_score + 0.45 &times; age_score</div>
+    <p>Condition comes from the CAMA <strong>CDU</strong> rating (Excellent = 100, Average = 60, Unsound = 0; the numeric COND 0&ndash;5 field is the fallback) and is weighted slightly above pure age because an inspector's observation captures real-world maintenance. The base is then scaled by exterior-wall material and by construction grade (linear around the dataset midpoint, clamped 0.90&ndash;1.12&times;).</p>
+    <p>Parcels with neither a build year nor a condition rating &mdash; vacant / non-residential land &mdash; are left <em>unscored</em> and excluded from the composite rather than guessed.</p>
+  </div>
+
+  <div class="method-section">
+    <h3>4. Environmental Footprint</h3>
+    <p>A life-cycle CO&#8322;e score blending three components &mdash; <strong>0.50 operational + 0.30 embodied + 0.20 water</strong> &mdash; each normalized 0&ndash;100 against published good-vs-poor benchmarks (log-linear; higher score = lower footprint).</p>
+
+    <h4>Operational</h4>
+    <div class="formula">operational = annual_kWh &times; 0.423 kg&nbsp;CO&#8322;e/kWh + annual_therms &times; 5.3 kg&nbsp;CO&#8322;e/therm</div>
+    <p>The grid factor is <strong>EPA eGRID2022</strong>, subregion SRTV (SERC / Tennessee Valley); the gas factor is from the EPA GHG Emission Factors Hub. Energy use is the same model the Energy dimension produces. <em>(The grid factor is a dated constant &mdash; refresh it on each eGRID release as the grid decarbonizes.)</em></p>
+
+    <h4>Embodied &amp; Water</h4>
+    <p><strong>Embodied:</strong> a material/size estimator keyed on exterior wall and construction grade, calibrated to the verified US single-family band of <strong>~39&ndash;121 kg&nbsp;CO&#8322;e/m&sup2;</strong>, then amortized over the shell's expected service life (EN&nbsp;15978 / RICS 60-year reference study period) &mdash; so more durable construction spreads its upfront carbon over more years.</p>
+    <p><strong>Water:</strong> EPA WaterSense usage benchmarks, with the Memphis Sand aquifer's low embedded-energy advantage.</p>
+    <p>Parcels with no living area (vacant / non-residential) are left <em>unscored</em>.</p>
+  </div>
+
+  <div class="method-section">
+    <h3>5. Infrastructure Burden</h3>
     <p>Models the annual municipal cost to serve each parcel using a <strong>density-based cost allocation</strong> approach. Inspired by the Halifax cost-of-sprawl study, Strong Towns fiscal analysis, and Smart City Memphis's density-budget research.</p>
 
     <h4>Per-Service Cost Model</h4>
@@ -100,19 +129,19 @@
   </div>
 
   <div class="method-section">
-    <h3>4. Health Impact</h3>
+    <h3>6. Health Impact</h3>
     <p>Uses <strong>CDC PLACES</strong> census-tract-level health estimates. Nine measures: obesity, diabetes, high blood pressure, asthma, coronary heart disease, mental distress, physical inactivity, stroke, COPD.</p>
     <p>Each parcel is assigned to its census tract via the Census Bureau geocoder. Health index = average of inverted percentile ranks across all measures (lower prevalence = higher score). Range in Shelby County: 0.7 to 95.5 &mdash; nearly the full 0&ndash;100 spectrum, reflecting extreme neighborhood health disparities.</p>
     <div class="insight"><strong>Key finding:</strong> Obesity ranges from 28% to 58% and diabetes from 7% to 34% between the healthiest and least healthy Memphis neighborhoods &mdash; a 2&times; to 5&times; gap within the same county.</div>
   </div>
 
   <div class="method-section">
-    <h3>5. Socioeconomic</h3>
+    <h3>7. Socioeconomic</h3>
     <p>Census ACS 5-year estimates at the census tract level. Indicators include median household income, poverty rate, educational attainment (bachelor's degree or higher), and unemployment rate. Indexed using inverted percentile ranks (higher income, lower poverty = higher score).</p>
   </div>
 
   <div class="method-section">
-    <h3>6. Walkability</h3>
+    <h3>8. Walkability</h3>
     <p>Uses the <strong>Walk Score API</strong>, which returns three 0&ndash;100 sub-scores for a parcel's coordinates: a <strong>Walk Score</strong> (access to daily errands on foot), a <strong>Transit Score</strong> (proximity and quality of public transit), and a <strong>Bike Score</strong> (bike infrastructure and terrain).</p>
 
     <h4>Composite Weighting</h4>
@@ -123,7 +152,7 @@
   </div>
 
   <div class="method-section">
-    <h3>7. Climate Projections</h3>
+    <h3>9. Climate Projections</h3>
     <p>Sub-county downscaled climate-hazard projections from the USGS <a href="https://doi.org/10.5066/P13OV6GY">CMIP6-LOCA2</a> threshold/extreme-event metrics &mdash; the Weighted Multi-Model Mean (an ensemble mean over CMIP6 LOCA2-downscaled models, ~6&nbsp;km), sampled at each census tract's internal point (county = the mean of its tracts). Three hazard legs are blended equally into a 0&ndash;100 score (higher = less projected hazard): <strong>extreme heat</strong> (annual days &gt; 95&deg;F and &gt; 100&deg;F), <strong>heavy precipitation &amp; flood</strong> (days &gt; 1&Prime; and the annual max 5-day total), and <strong>drought</strong> (max consecutive dry days). Each metric is scored against national breakpoints anchored to the SSP2-4.5 mid-century distribution. The dimension is reported as a low/high band from SSP2-4.5 &rarr; SSP5-8.5 at mid-century (2040&ndash;2069), with the SSP2-4.5 value as the headline.</p>
     <div class="insight"><strong>Caveat:</strong> the ~6&nbsp;km grid is sampled at a tract's <em>internal point</em> &mdash; a real sub-county value, but <em>not parcel-resolution precision</em>. Values are a multi-model ensemble mean; a tract resolves at tract level, falling back to its parent county then the national average where the grid has no data (e.g. outside CONUS).</div>
     <div class="insight"><strong>Tracts vs. the CMRA tract layer:</strong> these tract values come from sampling the LOCA2 ~6&nbsp;km grid, so tracts within a large, diverse county genuinely differ (San&nbsp;Bernardino spans coast to desert). That is the inverse of CMRA's ArcGIS tract layer, which we found broadcasts the single county value onto every tract polygon (zero sub-county signal) and so was deliberately not used.</div>
