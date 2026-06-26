@@ -111,9 +111,22 @@ def test_is_netcdf_distinguishes_magic_from_html_stub():
     assert b._is_netcdf(html) is False
 
 
+def test_to_neg_west_normalizes_0_360_longitude():
+    # LOCA2 stores lon as 0–360 (CONUS ≈ 234.5..293.5); normalize to negative-west
+    # so it matches the tract points and LOCA2_BBOX. Already-negative lons untouched.
+    lon = np.array([234.53125, 269.95, 293.46875])     # ≈ -125.47, -90.05, -66.53
+    out = b._to_neg_west(lon)
+    assert np.allclose(out, [-125.46875, -90.05, -66.53125])
+    assert np.all(np.diff(out) > 0)                    # stays monotonic
+    assert np.allclose(b._to_neg_west(np.array([-90.0, -66.0])), [-90.0, -66.0])
+
+
 def test_open_loca2_var_reads_windows():
     """xarray-backed reader against a tiny synthetic NetCDF (skips without the
-    build deps — xarray AND a NetCDF engine, both needed to write/read the file)."""
+    build deps — xarray AND a NetCDF engine, both needed to write/read the file).
+
+    Uses 0–360 longitude like the real LOCA2 grids, so it also guards the
+    normalization fix: the reader must return a negative-west lon axis."""
     try:
         import xarray as xr  # noqa: F401
         import netCDF4  # noqa: F401  # writer/reader backend for ds.to_netcdf
@@ -121,7 +134,7 @@ def test_open_loca2_var_reads_windows():
         print("  skip test_open_loca2_var_reads_windows (xarray/netCDF4 not installed)")
         return
     lat = np.linspace(34.0, 36.0, 4)
-    lon = np.linspace(-91.0, -89.0, 4)
+    lon = np.linspace(269.0, 271.0, 4)              # 0–360 (≈ -91..-89), like LOCA2
     years = np.arange(1990, 2071)
     time = np.array([np.datetime64(f"{y}-07-01") for y in years])
     trend = (years - 1990).astype(float)
@@ -132,6 +145,8 @@ def test_open_loca2_var_reads_windows():
     ds.to_netcdf(nc)
     la, lo, got = b._open_loca2_var(nc, "TXge95F", {"hist": (1991, 2020), "low": (2040, 2069)})
     assert la.shape == (4,) and lo.shape == (4,)
+    # Longitude normalized to negative-west (would be ~269..271 without the fix).
+    assert lo.min() < -88 and lo.max() < 0
     # Upward trend → mid-century mean exceeds the historical mean everywhere.
     assert (got["low"] > got["hist"]).all()
     mask = (years >= 1991) & (years <= 2020)
