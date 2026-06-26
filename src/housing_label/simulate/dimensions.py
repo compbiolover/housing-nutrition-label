@@ -414,7 +414,7 @@ def simulate_all_dimensions(
         allow_network=allow_network, overrides=overrides,
     )
 
-    # Climate Projections: bundled per-county hazard projection (low/RCP4.5 band
+    # Climate Projections: bundled sub-county hazard projection (low/SSP2-4.5 band
     # is the headline). Scored whenever a county resolved — a known-but-unmapped
     # county uses the national-average fallback — but excluded (like the other
     # location-driven dimensions) when no county resolved at all, e.g. offline.
@@ -436,7 +436,7 @@ def simulate_all_dimensions(
 
     metrics = dict(construction["_metrics"])
     if climate_proj and climate_proj.get("score_high") is not None:
-        metrics["Climate band (RCP4.5–8.5, mid-century)"] = (
+        metrics["Climate band (SSP2-4.5–5-8.5, mid-century)"] = (
             f"{climate_proj['score_low']}–{climate_proj['score_high']}")
 
     dims = []
@@ -456,13 +456,13 @@ def simulate_all_dimensions(
     location_notes = dict(location_dims["_notes"])
     if climate_score is not None and climate_proj is not None:
         if not climate_proj.get("resolved"):
-            location_notes["climate"] = "CMRA NCA4 (national-average fallback)"
+            location_notes["climate"] = "CMIP6-LOCA2 (national-average fallback)"
         elif climate_proj.get("geo_level") == "tract":
             location_notes["climate"] = (
-                f"CMRA NCA4 (tract {location.tract}, RCP4.5 mid-century)")
+                f"CMIP6-LOCA2 (tract {location.tract}, SSP2-4.5 mid-century)")
         else:
             location_notes["climate"] = (
-                f"CMRA NCA4 (county {location.county_fips}, RCP4.5 mid-century)")
+                f"CMIP6-LOCA2 (county {location.county_fips}, SSP2-4.5 mid-century)")
 
     return {
         "dimensions": dims,

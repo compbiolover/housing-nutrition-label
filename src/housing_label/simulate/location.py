@@ -51,7 +51,7 @@ class Location:
     climate_zone: str | None = None       # IECC zone, e.g. "4A"
     egrid_subregion: str | None = None
     egrid_factor: float | None = None     # kg CO2e / kWh
-    climate_projection: dict | None = None  # CMRA hazard projection (tract→county→US)
+    climate_projection: dict | None = None  # CMIP6-LOCA2 hazard projection (tract→county→US)
     notes: dict = field(default_factory=dict)
 
     @property
