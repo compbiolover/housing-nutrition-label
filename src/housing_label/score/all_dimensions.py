@@ -177,6 +177,18 @@ def score_passthrough(col: str):
     return _fn
 
 
+def _geoid_series(col: pd.Series, width: int) -> pd.Series:
+    """Normalize a county/tract GEOID column to zero-padded string keys.
+
+    A numeric GEOID column (especially one with NaNs, which forces float dtype)
+    stringifies as ``"47157.0"``; strip a trailing ``.0`` before zero-padding so
+    the value matches the crosswalk keys instead of silently hitting the US
+    fallback. Already-correct string GEOIDs (no dot) are unchanged.
+    """
+    return (col.astype("string").str.strip()
+            .str.replace(r"\.0$", "", regex=True).str.zfill(width))
+
+
 def score_climate(df: pd.DataFrame) -> pd.Series:
     """Resolution-aware Climate Projections score (CMRA/NCA4, RCP4.5 mid-century).
 
@@ -190,7 +202,7 @@ def score_climate(df: pd.DataFrame) -> pd.Series:
     if tract_col is not None:
         def _score_for_tract(g: str | None) -> float:
             return climate_proj_data.climate_projection_for_tract(g)["score"]
-        geo = df[tract_col].astype("string").str.strip().str.zfill(11)
+        geo = _geoid_series(df[tract_col], 11)
         cache = {g: _score_for_tract(g) for g in geo.dropna().unique()}
         return geo.map(cache).fillna(_score_for_tract(None)).astype(float).round(1)
 
@@ -201,7 +213,7 @@ def score_climate(df: pd.DataFrame) -> pd.Series:
 
     if fips_col is None:
         return pd.Series(_score_for(SHELBY_COUNTY_FIPS), index=df.index).round(1)
-    fips = df[fips_col].astype("string").str.strip().str.zfill(5)
+    fips = _geoid_series(df[fips_col], 5)
     cache = {f: _score_for(f) for f in fips.dropna().unique()}
     return fips.map(cache).fillna(_score_for(None)).astype(float).round(1)
 

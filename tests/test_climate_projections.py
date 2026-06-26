@@ -118,6 +118,17 @@ def test_pipeline_scorer_maps_tracts():
     ]
 
 
+def test_pipeline_scorer_handles_numeric_geoid_columns():
+    # A numeric county column with a NaN forces float dtype, so GEOIDs stringify
+    # as "47157.0" — must still resolve to the county, not the US fallback.
+    out = score_climate(pd.DataFrame({"county_fips": [47157, None]}))
+    assert out.iloc[0] == cp.climate_projection_for_county("47157")["score"]
+    assert out.iloc[1] == cp.climate_projection_for_county(None)["score"]
+    # Same for a numeric 11-digit tract column.
+    out = score_climate(pd.DataFrame({"tract": [47157000100, None]}))
+    assert out.iloc[0] == cp.climate_projection_for_tract("47157000100")["score"]
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

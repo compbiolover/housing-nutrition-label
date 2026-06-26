@@ -138,7 +138,7 @@ def fetch_features(service: str, id_field: str) -> list[dict]:
             "where": "1=1",
             "outFields": fields,
             "returnGeometry": "false",
-            "orderByFields": "GEOID",
+            "orderByFields": id_field,
             "resultOffset": offset,
             "resultRecordCount": page,
             "f": "json",
