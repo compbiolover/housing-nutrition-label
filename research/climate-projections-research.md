@@ -247,11 +247,16 @@ sampling/aggregation core (intra-county spread now *exists* — the inverse of t
 plus tract→county coherence, schema, bbox/NaN handling), the xarray reader against a synthetic
 NetCDF, and the Gazetteer loader + ScienceBase URL resolver against live endpoints.
 
-**Remaining (capable-machine step):** run the full national build (~5.2 GB download + the
-`[build]` extra) to generate the bundled tract/county data, then **re-anchor the scoring
-breakpoints** in `data/climate_projections.py` to the printed national quantiles and update the
-vintage to CMIP6/SSP. Until then the bundled data and breakpoints remain the CMRA (CMIP5/RCP)
-county set, so the runtime is unchanged by this branch.
+**Completed (national build run):** the full build was run on a capable machine
+(~5.2 GB download + the `[build]` extra), producing **3,109 counties** and **85,396 tracts**
+(the ~120 missing counties are non-CONUS / all-water and fall back to the national average).
+Two build bugs surfaced and were fixed during the run: the ScienceBase download URL (the
+`manager/download/<id>` route served an HTML page — switched to `catalog/file/get?name=`, with a
+validation guard) and the **0–360 longitude convention** (the grid stores lon as 234.5…293.5,
+so every CONUS point collapsed to the western ocean edge → all-blank output; normalized to
+negative-west at read time). The bundled crosswalks are now CMIP6-LOCA2, the `_BREAKPOINTS` are
+re-anchored to the printed SSP2-4.5 national quantiles, and `DATA_VINTAGE` is CMIP6/SSP. San
+Bernardino tracts show real intra-county spread, confirming genuine sub-county signal.
 
 ---
 

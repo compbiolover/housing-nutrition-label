@@ -1,14 +1,24 @@
 #!/usr/bin/env python3
-"""Offline tests for the per-county climate-projection lookup (no network, no pytest).
+"""Offline tests for the climate-projection lookup (no network, no pytest).
 
 Run directly:  python tests/test_climate_projections.py
 """
 
 import csv
+import gzip
+import statistics
 
 from housing_label.data import climate_projections as cp
 from housing_label.score.all_dimensions import score_climate
 import pandas as pd
+
+
+def _read_tract_csv() -> list[dict]:
+    """The bundled tract crosswalk rows (gzip or plain)."""
+    path = cp._TRACT_CSV_GZ if cp._TRACT_CSV_GZ.exists() else cp._TRACT_CSV
+    opener = gzip.open if path.suffix == ".gz" else open
+    with opener(path, "rt", newline="") as f:
+        return list(csv.DictReader(f))
 
 
 def test_resolved_county_has_bands_and_drivers():
@@ -46,26 +56,23 @@ def test_unmapped_and_none_fall_back_to_national_average():
         assert d["hazards"] == {} and d["drivers"] == {}
 
 
-def test_no_tract_crosswalk_bundled():
-    # Deliberate: CMRA's Tracts layer carries no sub-county signal, so no tract
-    # crosswalk is bundled. The plumbing stays ready for a genuinely finer one.
-    assert cp._tract_table() == {}
-    assert not cp._TRACT_CSV.exists() and not cp._TRACT_CSV_GZ.exists()
+def test_tract_crosswalk_bundled():
+    # The sub-county LOCA2 tract crosswalk is bundled (sampled from the ~6 km grid).
+    assert cp._TRACT_CSV_GZ.exists() or cp._TRACT_CSV.exists()
+    assert len(cp._tract_table()) > 70000
 
 
-def test_tract_resolves_at_parent_county_today():
-    # With no tract crosswalk bundled, a tract resolves at its parent county and
-    # reports that geography — same score as the county lookup, never None.
-    tract = "47157000100"                       # a real Shelby County, TN tract
-    d = cp.climate_projection_for_tract(tract)
-    county = cp.climate_projection_for_county("47157")
-    assert d["resolved"] is True
-    assert d["geo_level"] == "county"
-    assert d["score"] == county["score"]
-    # A tract id that lost its leading zero (e.g. read as a number) is padded to
-    # 11 before the parent county is sliced off — Autauga County, AL (01001).
+def test_tract_resolves_at_tract():
+    # A tract present in the bundled crosswalk resolves at tract resolution.
+    rows = _read_tract_csv()
+    geoid = next(r["geoid"] for r in rows if r["geoid"].startswith("47157"))  # Shelby, TN
+    d = cp.climate_projection_for_tract(geoid)
+    assert d["resolved"] is True and d["geo_level"] == "tract"
+    assert 0 <= d["score"] <= 100 and d["score_high"] <= d["score_low"]
+    # A tract id that lost its leading zero (read as a number) is padded to 11
+    # before lookup, so it still resolves (tract or parent county) — never US.
     al = cp.climate_projection_for_tract("1001020100")     # 10 digits → "01001020100"
-    assert al["score"] == cp.climate_projection_for_county("01001")["score"]
+    assert al["resolved"] is True and al["geo_level"] in ("tract", "county")
 
 
 def test_tract_in_unmapped_county_and_none_fall_back_to_us():
@@ -87,12 +94,41 @@ def test_score_monotonic_in_projected_heat():
 
 def test_crosswalk_integrity():
     rows = list(csv.DictReader(cp._CSV.open()))
-    assert len(rows) >= 3000, "expected ~3233 counties"
+    assert len(rows) >= 3000, "expected ~3100+ counties"
     geoids = [r["geoid"] for r in rows]
     assert len(geoids) == len(set(geoids)), "duplicate county FIPS"
     for r in rows:
         assert len(r["geoid"]) == 5 and r["geoid"].isdigit()
         assert r["geo_level"] == "county"
+    # Tract crosswalk: unique 11-digit geoids, all tagged geo_level=tract.
+    trows = _read_tract_csv()
+    assert len(trows) >= 70000, "expected ~85k tracts"
+    tgeoids = [r["geoid"] for r in trows]
+    assert len(tgeoids) == len(set(tgeoids)), "duplicate tract GEOID"
+    for r in trows:
+        assert len(r["geoid"]) == 11 and r["geoid"].isdigit()
+        assert r["geo_level"] == "tract"
+
+
+def test_intra_county_tract_variation_exists():
+    # The whole point of the LOCA2 build: tracts within a large, diverse county
+    # genuinely differ — the inverse of CMRA's tract layer (which broadcast the
+    # county value, zero spread). San Bernardino, CA (06071) spans coast→desert.
+    trows = _read_tract_csv()
+    sb = [float(r["heat_days95_low"]) for r in trows
+          if r["geoid"].startswith("06071") and r["heat_days95_low"]]
+    assert len(sb) > 50
+    assert max(sb) - min(sb) > 1.0
+
+
+def test_county_is_mean_of_its_tracts():
+    # Build invariant: a county value is the mean of its tracts' samples.
+    cfips = "06071"
+    trows = _read_tract_csv()
+    tract_vals = [float(r["heat_days95_low"]) for r in trows
+                  if r["geoid"].startswith(cfips) and r["heat_days95_low"]]
+    county_row = next(r for r in csv.DictReader(cp._CSV.open()) if r["geoid"] == cfips)
+    assert abs(float(county_row["heat_days95_low"]) - statistics.mean(tract_vals)) < 0.5
 
 
 def test_pipeline_scorer_maps_counties():

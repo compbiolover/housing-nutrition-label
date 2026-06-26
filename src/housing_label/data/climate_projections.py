@@ -1,20 +1,22 @@
-"""Per-county climate-hazard projections (CMRA / NCA4, keyless + offline).
+"""Sub-county climate-hazard projections (CMIP6-LOCA2, keyless + offline).
 
 Returns a 0–100 **Climate Projections** sub-score (higher = a less hazardous
-projected future climate) for a county, plus the low/high emissions band and the
-underlying projected hazard drivers. Replaces the former uniform placeholder so
-the climate dimension reflects the county's real downscaled projections.
+projected future climate) for a tract or county, plus the low/high emissions band
+and the underlying projected hazard drivers.
 
 Data
 ----
-County values come from the NOAA/DOI **Climate Mapping for Resilience and
-Adaptation (CMRA)** screening dataset — LOCA-downscaled CMIP5 (NCA4) projections
-aggregated to counties as 30-year means, bundled offline as
-``climate_projections.csv`` by ``scripts/build_climate_projections.py``. We use
-the **mid-century (~2050) ensemble mean** under two pathways:
+Values come from the USGS **CMIP6-LOCA2** threshold/extreme-event metric
+projections — the Weighted Multi-Model Mean (WMMM), an ensemble mean over CMIP6
+LOCA2-downscaled models on a ~6 km CONUS grid (DOI 10.5066/P13OV6GY). The grid is
+sampled at each census tract's internal point and bundled offline by
+``scripts/build_climate_projections.py --source loca2`` as
+``climate_projections_tracts.csv.gz`` (tract) and ``climate_projections.csv``
+(county = the mean of its tracts, so tract→county is coherent). We use a
+**mid-century 30-yr window (2040–2069) ensemble mean** under two pathways:
 
-  • low band  = RCP4.5  (≈ SSP2-4.5 analog)
-  • high band = RCP8.5  (≈ SSP5-8.5 analog)
+  • low band  = SSP2-4.5
+  • high band = SSP5-8.5
 
 across five hazard metrics grouped into three legs:
 
@@ -23,7 +25,7 @@ across five hazard metrics grouped into three legs:
   • drought — annual max consecutive dry days
 
 The composite climate score is the equal-weight mean of the three legs; the
-headline ``score`` uses the low (RCP4.5) band, with the high (RCP8.5) band
+headline ``score`` uses the low (SSP2-4.5) band, with the high (SSP5-8.5) band
 surfaced as the downside.
 
 Resolution
@@ -34,29 +36,22 @@ resolves a county → the national average. Every result carries a ``geo_level``
 (``"tract"`` / ``"county"`` / ``"us"``) so callers can label the actual geography
 that answered.
 
-A tract crosswalk (``climate_projections_tracts.csv[.gz]``) is loaded if present
-but **none is bundled**, so tract lookups resolve at the parent county today.
-This is deliberate: CMRA's ArcGIS *Tracts* layer carries **no sub-county signal** —
-it broadcasts the county value onto every tract polygon (verified: hundreds of
-tracts across San Bernardino / LA / Maricopa all report an identical value, equal
-to the county figure). Bundling it would add ~9 MB of redundant data and a
-"tract-level" label that does not reflect finer accuracy. Genuinely finer
-resolution comes instead from an **offline build** that samples the USGS
-CMIP6-LOCA2 ensemble-mean (~6 km) grid at each tract's internal point
-(``scripts/build_climate_projections.py --source loca2``), writing a real tract
-crosswalk into the drop-in slot above (county = the mean of its tracts). That
-build is a capable-machine step (~5.2 GB download + the ``[build]`` extra); until
-it has been run and these breakpoints re-anchored to CMIP6/SSP, the bundled data
-remains the CMRA (CMIP5/RCP) county set described below.
+The bundled tract crosswalk (``climate_projections_tracts.csv.gz``) carries real
+sub-county variation — sampling the ~6 km grid at each tract's internal point, so
+tracts within a large/diverse county genuinely differ (unlike CMRA's tract layer,
+which broadcast the county value). A tract resolves at ``geo_level="tract"``; a
+tract absent from the crosswalk falls back to its parent county, then the national
+average.
 
 Caveats
 -------
-CMRA is a ~6 km downscaled grid aggregated to counties — a **county aggregate,
-never parcel-scale precision**. It is CMIP5/RCP (not CMIP6/SSP); RCP4.5/8.5 are
-treated as low/high analogs of SSP2-4.5/5-8.5. CMRA carries no native Fire
-Weather Index, so the drought leg (consecutive dry days) stands in for the
-fire/drought hazard until a 12 km ClimRR FWI layer is added. Counties absent from
-the crosswalk fall back to the national-average score, with the label flagging it.
+The ~6 km grid is sampled at a tract's **internal point** — a representative
+sub-county value, **not parcel-scale precision**. Values are a multi-model
+ensemble mean (WMMM); SSP2-4.5/SSP5-8.5 are the low/high bands. CMIP6-LOCA2
+carries no native Fire Weather Index, so the drought leg (consecutive dry days)
+stands in for the fire/drought hazard until a 12 km ClimRR FWI layer is added.
+Tracts/counties absent from the crosswalk (e.g. outside the CONUS grid) fall back
+to a coarser geography or the national-average score, with the label flagging it.
 """
 
 from __future__ import annotations
@@ -66,32 +61,32 @@ import gzip
 import pathlib
 from functools import lru_cache
 
-DATA_VINTAGE = "CMRA NCA4 (RCP4.5–8.5, mid-century)"
+DATA_VINTAGE = "CMIP6-LOCA2 (SSP2-4.5–5-8.5, mid-century 2040–2069)"
 US_AVG_LABEL = f"US average ({DATA_VINTAGE})"
 
 _DIR = pathlib.Path(__file__).resolve().parent
 _CSV = _DIR / "climate_projections.csv"
-# Optional tract crosswalk (plain or gzipped). None bundled today — see module
-# docstring — so tract lookups resolve at the parent county.
+# Tract crosswalk (gzipped). Bundled — sub-county values sampled from the ~6 km
+# grid. A plain-CSV variant is also accepted if present.
 _TRACT_CSV = _DIR / "climate_projections_tracts.csv"
 _TRACT_CSV_GZ = _DIR / "climate_projections_tracts.csv.gz"
 
 # Per-hazard scoring breakpoints: (increasing-hazard x values, matching 0–100 y
-# values). Anchored to the national quantiles of the RCP4.5 mid-century
-# distribution (printed by build_climate_projections.py), so a county scores by
+# values). Anchored to the national quantiles of the SSP2-4.5 (low) mid-century
+# distribution (printed by build_climate_projections.py), so a place scores by
 # where its projected hazard sits nationally. Higher hazard → lower score.
 # xs strictly increasing; values clamp to the end scores outside the range.
 _BREAKPOINTS: dict[str, tuple[list[float], list[float]]] = {
-    # days/yr > 95 °F           p5≈1  p25≈12  p50≈28  p75≈51  p90≈70  p95≈86
-    "heat_days95":      ([1, 12, 28, 51, 70, 90],     [100, 80, 60, 40, 20, 0]),
-    # days/yr > 100 °F          p5≈0  p25≈2.4 p50≈7   p75≈15.5 p90≈31  p95≈40
-    "heat_days100":     ([0.5, 2.4, 7, 15.5, 31, 45], [100, 80, 60, 40, 20, 0]),
-    # days/yr > 1" precip       p5≈0.8 p25≈2.8 p50≈5.1 p75≈8.1 p90≈11  p95≈12
-    "precip_days1in":   ([1, 3, 5, 8, 11, 13],        [100, 80, 60, 40, 20, 0]),
-    # annual max 5-day precip   p5≈2.1 p25≈3.3 p50≈4.1 p75≈4.9 p90≈5.6 p95≈6.1
-    "precip_max5day":   ([2, 3.3, 4.1, 5, 6, 7.5],    [100, 80, 60, 40, 20, 0]),
-    # max consecutive dry days  p5≈10.5 p25≈13.3 p50≈16 p75≈21 p90≈29 p95≈36
-    "drought_consecdd": ([10, 13, 16, 21, 29, 40],    [100, 80, 60, 40, 20, 0]),
+    # days/yr > 95 °F           p5 p25 p50 p75 p90 p95 (SSP2-4.5 mid, national)
+    "heat_days95":      ([2.4, 13.1, 28.9, 52.1, 74.4, 91.9], [100, 80, 60, 40, 20, 0]),
+    # days/yr > 100 °F
+    "heat_days100":     ([0.2, 2.3, 6.4, 14.9, 35.0, 46.0],   [100, 80, 60, 40, 20, 0]),
+    # days/yr > 1" precip
+    "precip_days1in":   ([0.9, 4.8, 8.3, 11.9, 14.9, 16.5],   [100, 80, 60, 40, 20, 0]),
+    # annual max 5-day precip [in]
+    "precip_max5day":   ([2.0, 3.4, 4.3, 5.2, 5.9, 6.4],      [100, 80, 60, 40, 20, 0]),
+    # max consecutive dry days
+    "drought_consecdd": ([16.1, 19.8, 24.3, 34.4, 46.0, 56.8], [100, 80, 60, 40, 20, 0]),
 }
 
 # Three hazard legs → the driver metrics averaged into each leg.

@@ -30,11 +30,11 @@ Dimensions
                   bike), weighted toward walkability since it matters most for
                   daily life.  Walk scores live in shelby_parcels_enriched.csv
                   (a separate, API-gated enrichment) and are merged in on PARID.
-  climate         Climate Projections: per-county downscaled climate-hazard
-                  score (CMRA/NCA4, RCP4.5 mid-century) from
-                  data/climate_projections.py.  County-uniform within the
-                  single-county pilot, but a real value, and included in the
-                  composite.
+  climate         Climate Projections: sub-county downscaled climate-hazard
+                  score (CMIP6-LOCA2, SSP2-4.5 mid-century) from
+                  data/climate_projections.py.  Sampled at the tract's internal
+                  point (county = mean of its tracts), a real value included in
+                  the composite.
 
 For every dimension X this writes four columns:
   X_score            raw 0–100 score
@@ -190,14 +190,14 @@ def _geoid_series(col: pd.Series, width: int) -> pd.Series:
 
 
 def score_climate(df: pd.DataFrame) -> pd.Series:
-    """Resolution-aware Climate Projections score (CMRA/NCA4, RCP4.5 mid-century).
+    """Resolution-aware Climate Projections score (CMIP6-LOCA2, SSP2-4.5 mid-century).
 
     Resolves each parcel at the finest geography a column provides: an 11-digit
     ``tract``/``tract_geoid`` column (tract→county→US fallback) takes precedence,
     else a ``county_fips``/``geoid`` column (county→US), else the single-county
     pilot default (Shelby). The score is the bundled climate-hazard lookup's
-    headline (low-band) value — a real, defensible projection for the resolved
-    geography (uniform within a county today; see data/climate_projections.py)."""
+    headline (low-band) value — a real, defensible sub-county projection for the
+    resolved geography (see data/climate_projections.py)."""
     tract_col = next((c for c in ("tract", "tract_geoid") if c in df.columns), None)
     if tract_col is not None:
         def _score_for_tract(g: str | None) -> float:
