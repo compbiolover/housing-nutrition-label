@@ -210,7 +210,7 @@ deployed URL with `?api=https://your-api-host` or `window.HOUSING_LABEL_API`. Se
 
 - **Rust scoring engine** — port the hot scoring path for performance at scale
 - **API layer** — serve scores and grades over HTTP for third-party integration
-- **Finer climate resolution (sub-county)** — sample the LOCA2 ~6 km grid at the parcel lat/lon as a network-gated live refresh. The climate lookup is already resolution-aware (tract → county → national, drop-in for a finer crosswalk), but CMRA's *tract* layer was found to carry no sub-county signal — it just broadcasts the county value — so genuinely finer data must come from grid sampling, not that layer.
+- **Finer climate resolution (sub-county) — build pipeline implemented; data generation pending** — `scripts/build_climate_projections.py --source loca2` samples the USGS CMIP6-LOCA2 ensemble-mean (~6 km WMMM) grid at each census tract's internal point and writes a real tract crosswalk into the drop-in slot (county = the mean of its tracts, so the two are coherent). The pipeline and its logic are validated (synthetic-grid + live Gazetteer/ScienceBase checks in `tests/test_build_loca2.py`); the heavy step that remains is **running the build on a capable machine** — it downloads ~2.6 GB per SSP and needs the `[build]` extra (xarray/netCDF4) — to generate the bundled tract data, after which the dimension is re-anchored to CMIP6/SSP. Live point sampling was ruled out: no keyless LOCA2 point API exists and single-model point samples aren't defensible, so an offline ensemble-mean build is the right vehicle.
 - **True Fire Weather Index** — add the Argonne ClimRR FWI (12 km) for the fire/drought leg, replacing the consecutive-dry-days stand-in (needs a spatial join + a reachable, keyless source)
 
 **Shipped:**
