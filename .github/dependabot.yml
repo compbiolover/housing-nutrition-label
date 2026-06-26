@@ -1,0 +1,15 @@
+version: 2
+updates:
+  # Keep the GitHub Actions used in our workflows current. Whether they are
+  # pinned by tag or by commit SHA, Dependabot opens a PR to bump them (updating
+  # the trailing `# vX.Y.Z` comment for SHA pins) — the maintenance half of the
+  # supply-chain story that makes SHA-pinning practical.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions:
+        patterns: ["*"]

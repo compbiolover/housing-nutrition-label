@@ -36,6 +36,10 @@ jobs:
             chore
             revert
           requireScope: false
+          # Disallow a capital first letter (avoid Sentence-case subjects).
+          # Digits/symbols are allowed (e.g. "fix: 2x faster …"), so the message
+          # matches what the regex actually enforces.
           subjectPattern: ^(?![A-Z]).+$
           subjectPatternError: |
-            The subject "{subject}" should start lowercase (Conventional Commits style).
+            The subject "{subject}" must not start with an uppercase letter
+            (keep it lowercase, Conventional Commits style).
