@@ -157,8 +157,16 @@ ENERGY_XS = [15.0, 25.0, 40.0, 55.0, 70.0, 90.0]
 ENERGY_YS = [100.0, 80.0, 60.0, 40.0, 20.0, 0.0]
 
 # Infrastructure: higher fiscal ratio (revenue / cost of services) is better.
-#   ≥1.5→100, 1.0→80, 0.6→60, 0.3→40, 0.15→20, ≤0.05→0   (log-linear between).
-INFRA_XS = [0.05, 0.15, 0.30, 0.60, 1.00, 1.50]
+# Breakpoints are anchored to the NATIONAL distribution of fiscal ratios — a
+# population-weighted reference over US counties × residential density archetypes,
+# computed with the localized cost+revenue model (see
+# scripts/calibrate_infra_breakpoints.py). The score therefore tracks national
+# percentile rank: A = top ~20%, B = 60–80th, C = 40–60th, D = 20–40th,
+# F = bottom ~20% (the national median fiscal ratio ≈ 0.61 → score ≈ 50). This
+# replaces the original Shelby-pilot-anchored thresholds, which were no longer
+# defensible once cost and revenue were localized per county.
+#   ≥2.00→100, 1.06→80, 0.73→60, 0.52→40, 0.35→20, ≤0.20→0   (log-linear between).
+INFRA_XS = [0.20, 0.35, 0.52, 0.73, 1.06, 2.00]
 INFRA_YS = [0.0, 20.0, 40.0, 60.0, 80.0, 100.0]
 
 
