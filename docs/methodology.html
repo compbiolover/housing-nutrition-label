@@ -126,7 +126,7 @@
     <h4>Fiscal Ratio</h4>
     <div class="formula">Fiscal Ratio = Property Tax Revenue / Total Infrastructure Cost<br>Property Tax (Shelby) = Appraised Value &times; 25% assessment &times; $3.19/$100 (Memphis rate)</div>
     <p>A ratio &gt; 1.0 = net contributor to the city. The median Shelby County parcel has a ratio of 0.27 &mdash; generating only 27 cents per dollar of infrastructure cost.</p>
-    <p><strong>Outside Shelby:</strong> the cost side is calibrated per county (above), but the revenue side currently applies a single <em>national average effective property-tax rate</em> rather than that jurisdiction's actual millage &mdash; so the fiscal ratio elsewhere is a reasonable estimate, not a local-rate calculation. Per-jurisdiction property-tax localization is planned future work (see the project roadmap).</p>
+    <p><strong>Outside Shelby:</strong> both sides of the ratio are localized per county &mdash; the cost side from the Census of Governments (above), and the revenue side from each county's <em>effective property-tax rate</em> (median real-estate taxes &divide; median home value, U.S. Census ACS), replacing the single national rate. These are county-level estimates: the ACS rate is a county median (not a parcel's actual millage) and includes the school-tax share, while the cost side excludes school spending, so the fiscal ratio is best read as a relative comparison. Sub-county / per-jurisdiction millage (state DOR tables) is a future precision refinement.</p>
 
     <h4>Score Mapping</h4>
     <div class="formula">Score 100 at ratio &ge; 1.5, 80 at 1.0, 60 at 0.6, 40 at 0.3, 20 at 0.15, 0 at &le; 0.05</div>

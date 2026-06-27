@@ -1108,10 +1108,17 @@ def _approx_caveats(location) -> list[str]:
         from housing_label.data.govfinance import govfinance_for_county
         gov = govfinance_for_county(fips)
         if gov["resolved"] == "county":
+            from housing_label.data.propertytax import property_tax_for_county
+            tax = property_tax_for_county(fips)
+            revenue = ("its effective property-tax rate (Census ACS)"
+                       if tax["resolved"] == "county"
+                       else "a national-average property-tax rate (this county isn't in "
+                            "the ACS crosswalk)")
             caveats.append(
                 "Infrastructure Burden is calibrated to this county's local-government "
-                "spending (Census of Governments per-capita, by function) layered on a "
-                "density cost model — a county-level estimate, not parcel-level."
+                "spending (Census of Governments, cost side) and " + revenue + " (revenue "
+                "side), layered on a density cost model — a county-level estimate, not "
+                "parcel-level."
             )
         elif gov["resolved"] == "national":
             caveats.append(

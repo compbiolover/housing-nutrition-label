@@ -99,12 +99,37 @@ reflects spending *level*, not service capacity or capital needs).
   Governments) where the county is in the crosswalk, and the national-average estimate
   otherwise.
 
+## Phase 2 (implemented) — revenue-side property-tax localization
+
+The fiscal ratio's revenue side previously applied one national effective rate to
+every non-Shelby location. It now uses each county's **effective property-tax rate**.
+The ACS county proxy — not the per-state DOR scrapers — is the right first step:
+near-universal county coverage, keyless, and reproducible. (Effective rates vary ~10×
+nationally, so even a county-level rate removes the bulk of the revenue error.)
+
+- `scripts/build_property_tax.py` — downloads the ACS 2022 5-year **table-based
+  Summary File** tables B25103 (median real-estate taxes) and B25077 (median home
+  value), keyless, and bundles `src/housing_label/data/property_tax_county.csv`
+  (effective rate = taxes / value, clamped to [0.1%, 5.0%]; 3,208 counties + a
+  national-average row). The Census Data **API** needs a key; these bulk table files
+  do not.
+- `src/housing_label/data/propertytax.py` — resolution-aware county → effective-rate
+  lookup (county → national fallback).
+- `src/housing_label/simulate/dimensions.py` — the live label now sets the
+  infrastructure `tax_rate` from the county's ACS rate (national fallback) instead of
+  the single national constant. The caveat names both the cost (CoG) and revenue (ACS)
+  calibration.
+
 ## Future phases (not in this change)
 
-- **Property-tax localization** (revenue side): Lincoln/MCFE benchmarks → ACS county
-  effective-rate proxy → per-state DOR millage scrapers where precision matters.
+- **Sub-county / per-jurisdiction property tax**: state DOR millage tables (and
+  Lincoln/MCFE city benchmarks) for municipal-level precision — PDF-only, ~50 bespoke
+  scrapers, so a precision refinement rather than a coverage gain.
 - **Parcel → service-provider mapping**: TIGER/Line places + county subdivisions, with
   special-district attribution flagged as irreducible uncertainty.
+- **Scope reconciliation**: the ACS revenue rate includes the school-tax share while
+  the CoG cost side excludes school spending — a future refinement could net the
+  school portion out of both for a like-for-like ratio.
 - **Validation**: bound the accuracy gain vs published ACFRs for a sample of cities.
 
 ---
