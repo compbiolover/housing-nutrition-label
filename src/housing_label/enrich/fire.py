@@ -56,15 +56,20 @@ FIRE_COLS = ["wildfire_eal_rate", "wildfire_risk_rating", "wildfire_geo_level"]
 def _norm_tract(census_tract) -> str | None:
     """Normalise a raw census_tract value to an 11-digit GEOID string, or None.
 
-    A tract column with any missing value makes pandas store the GEOID as a float
-    (e.g. ``47157006300.0``); coerce that back to the integer digits so it matches
-    the crosswalk rather than silently falling back to the county.
+    Mirrors ``enrich/health._clean_tract`` so the join key matches the crosswalk
+    everywhere: a tract column with any missing value makes pandas store the GEOID
+    as a float (e.g. ``47157006300.0``), and tracts outside TN have leading zeros
+    (e.g. ``06037...``). Strip any decimal suffix and zero-pad back to 11 digits
+    so the value matches rather than silently falling back to the county/US rate.
     """
     if census_tract is None or pd.isna(census_tract):
         return None
-    if isinstance(census_tract, float):
-        return str(int(census_tract))
-    return str(census_tract).strip()
+    s = str(census_tract).strip()
+    if s.lower() in ("nan", "none", ""):
+        return None
+    if "." in s:                       # stringified/numpy float, e.g. "47157006300.0"
+        s = s.split(".")[0]
+    return s.zfill(11)
 
 
 def _lookup(census_tract, county_fips: str = SHELBY_COUNTY_FIPS) -> dict:

@@ -752,7 +752,12 @@ def simulate(cfg: dict) -> dict:
     # simulate() offline-safe). build_label_parts sets cfg["wildfire_eal_base"]
     # from the resolved Location; tests/batch callers that omit it get the
     # structural baseline alone, as before.
-    wildfire_base = float(cfg.get("wildfire_eal_base") or 0.0)
+    try:
+        wildfire_base = float(cfg.get("wildfire_eal_base") or 0.0)
+        if not math.isfinite(wildfire_base):
+            wildfire_base = 0.0
+    except (TypeError, ValueError):    # non-numeric override (JSON/CLI) → ignore
+        wildfire_base = 0.0
     fire_raw    = FIRE_EAL_BASE + max(0.0, wildfire_base)
     r["wildfire_eal_base"] = wildfire_base
 
@@ -1304,8 +1309,11 @@ def build_label_parts(*, address: str | None = None,
         cfg["flood_zone"] = _auto_flood_zone(cfg["lat"], cfg["lon"], allow_network)
 
     # Location-based wildfire EAL feeds the fire peril (structural baseline +
-    # wildfire). Resolved offline from the bundled FEMA NRI crosswalk via the
-    # Location's tract/county; defaults to 0.0 when the location didn't resolve.
+    # wildfire), resolved offline from the bundled FEMA NRI crosswalk via the
+    # Location's tract/county. A resolved Location always carries a wildfire dict:
+    # the real tract/county rate when mapped, else the national-average fallback
+    # (resolved=False). Only when no Location resolved at all (e.g. offline with
+    # no geocode) is wildfire left unset, so simulate() uses 0.0.
     if location is not None and getattr(location, "wildfire", None):
         cfg["wildfire_eal_base"] = location.wildfire.get("eal_rate") or 0.0
 
