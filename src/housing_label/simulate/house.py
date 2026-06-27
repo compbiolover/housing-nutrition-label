@@ -1082,8 +1082,10 @@ CALIBRATED_COUNTY_FIPS = "47157"
 def _approx_caveats(location) -> list[str]:
     """Caveats for dimensions that aren't locally calibrated.
 
-    Seismic (USGS) and tornado (SPC) are nationwide. Infrastructure is locally
-    calibrated only for Shelby (national-average cost model elsewhere). The
+    Seismic (USGS) and tornado (SPC) are nationwide. Infrastructure is calibrated
+    to each county's local-government spending (Census of Governments) where the
+    county is in the crosswalk, a national-average cost model when the county isn't
+    in it, and the Memphis pilot baseline if the crosswalk isn't bundled at all. The
     Environmental grid factor is the county's eGRID2022 subregion rate when the
     county maps, and the US-average factor otherwise — flagged off the actually
     resolved subregion so the fallback is never reported incorrectly."""
@@ -1103,10 +1105,24 @@ def _approx_caveats(location) -> list[str]:
             "(it falls back to the Memphis cost model)."
         )
     elif fips != CALIBRATED_COUNTY_FIPS:
-        caveats.append(
-            "Infrastructure Burden uses a national-average cost model (not locally "
-            "calibrated) — treat it as an estimate."
-        )
+        from housing_label.data.govfinance import govfinance_for_county
+        gov = govfinance_for_county(fips)
+        if gov["resolved"] == "county":
+            caveats.append(
+                "Infrastructure Burden is calibrated to this county's local-government "
+                "spending (Census of Governments per-capita, by function) layered on a "
+                "density cost model — a county-level estimate, not parcel-level."
+            )
+        elif gov["resolved"] == "national":
+            caveats.append(
+                "Infrastructure Burden uses a national-average cost model (this county "
+                "is not in the local-finance crosswalk) — treat it as an estimate."
+            )
+        else:  # "none" — the local-finance crosswalk isn't bundled
+            caveats.append(
+                "Infrastructure Burden falls back to the Memphis pilot cost model (the "
+                "local-finance crosswalk is unavailable) — treat it as an estimate."
+            )
 
     # Environmental: flag whenever it used the US-average grid factor instead of a
     # real eGRID subregion — i.e. the county was unresolved or not in the crosswalk.

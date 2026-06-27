@@ -283,14 +283,23 @@ def enrich_row(row: pd.Series, *,
                core_lon: float = MEMPHIS_CORE_LON,
                assess_ratio: float = RESIDENTIAL_ASSESS_RATIO,
                tax_rate: float = CITY_TAX_RATE,
-               in_urban_area: bool | None = None) -> pd.Series:
+               in_urban_area: bool | None = None,
+               cost_multipliers: dict | None = None) -> pd.Series:
     """Compute all infrastructure cost fields for a single parcel row.
 
     Memphis defaults reproduce the Shelby pilot. For other locations the simulator
     passes a national-average parameterization: a national effective property-tax
     rate (``assess_ratio`` × ``tax_rate``) and, when ``in_urban_area`` is given,
     an urban/rural fire multiplier in place of distance-to-the-Memphis-core.
+
+    ``cost_multipliers`` optionally recalibrates the per-household cost *levels* to
+    a specific county's local-government spending (from the Census of Governments
+    crosswalk, ``data/govfinance.py``): a dict with any of the keys ``roads``,
+    ``water_sewer``, ``fire``, ``police``, ``sanitation``, ``parks``, each scaling
+    that component. The Memphis-calibrated curves give the density *shape*; these
+    multipliers give the local *level* (1.0 = Shelby pilot, the default).
     """
+    mult = cost_multipliers or {}
 
     # ── Density metric ─────────────────────────────────────────────────────────
     acres = row["CALC_ACRE"]
@@ -311,12 +320,14 @@ def enrich_row(row: pd.Series, *,
         fire_mult = _fire_dist_multiplier(dist_mi)
 
     # ── Cost components ────────────────────────────────────────────────────────
-    cost_roads       = tiered_cost(lot_density, ROAD_COST_BY_DENSITY)
-    cost_water_sewer = tiered_cost(lot_density, WATER_SEWER_COST_BY_DENSITY)
-    cost_fire        = FIRE_BASE_COST * fire_mult
-    cost_police      = police_cost(POLICE_BASE_COST, lot_density)
-    cost_sanitation  = float(SANITATION_COST)
-    cost_parks       = float(PARKS_OTHER_COST)
+    # Each density/urban-shape cost is scaled by the county's local-spending
+    # multiplier (default 1.0 = Shelby pilot calibration).
+    cost_roads       = tiered_cost(lot_density, ROAD_COST_BY_DENSITY) * mult.get("roads", 1.0)
+    cost_water_sewer = tiered_cost(lot_density, WATER_SEWER_COST_BY_DENSITY) * mult.get("water_sewer", 1.0)
+    cost_fire        = FIRE_BASE_COST * fire_mult * mult.get("fire", 1.0)
+    cost_police      = police_cost(POLICE_BASE_COST, lot_density) * mult.get("police", 1.0)
+    cost_sanitation  = float(SANITATION_COST) * mult.get("sanitation", 1.0)
+    cost_parks       = float(PARKS_OTHER_COST) * mult.get("parks", 1.0)
 
     total_infra = (
         cost_roads + cost_water_sewer + cost_fire

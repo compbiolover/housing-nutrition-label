@@ -396,14 +396,20 @@ def simulate_all_dimensions(
     grid_factor = location.egrid_factor if location else None
     tract = location.tract if location else None
 
-    # Infrastructure: national-average model for confirmed non-Shelby locations;
-    # the Memphis calibration is kept for Shelby (and when the county is unknown).
+    # Infrastructure: for confirmed non-Shelby locations, use a national effective
+    # property-tax rate (revenue side) and recalibrate the cost curves to the
+    # county's local-government spending via the Census of Governments crosswalk
+    # (cost side). The Memphis calibration is kept for Shelby (multipliers there
+    # are 1.0 by construction) and when the county is unknown.
     infra_params = None
     if location and location.county_fips and location.county_fips != SHELBY_COUNTY_FIPS:
+        from housing_label.data.govfinance import govfinance_for_county
+        gov = govfinance_for_county(location.county_fips)
         infra_params = {
             "assess_ratio": 1.0,
             "tax_rate": NATIONAL_EFFECTIVE_TAX_RATE,
             "in_urban_area": bool(location.in_urban_area),
+            "cost_multipliers": gov["multipliers"],
         }
 
     construction = compute_construction_dimensions(
