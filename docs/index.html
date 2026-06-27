@@ -52,7 +52,10 @@
     .hero .addr-details summary, .hero .addr-upgrades legend { color: #cbd5e1; }
     .hero .addr-fields label { color: #cbd5e1; }
     .hero #addr-status, .hero .addr-privacy { color: #cbd5e1; }
-    #addr-result { max-width: 640px; margin: 0 auto; text-align: left; }
+    /* The result card renders inside the dark hero (color:#fff); give the whole
+       subtree the themed text color so card text and the cream caveat boxes
+       aren't white-on-light in light mode (var(--text) flips with the OS theme). */
+    #addr-result { max-width: 640px; margin: 0 auto; text-align: left; color: var(--text); }
     #addr-result:not(:empty) { margin-top: 1.5rem; }
     #addr-result .label-card { background: var(--card); border: 2px solid var(--navy);
       border-radius: var(--radius); padding: 1.25rem 1.5rem; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
