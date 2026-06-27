@@ -4,7 +4,7 @@ NATIONAL distribution (replacing the original Shelby-pilot-anchored thresholds).
 
 Why
 ---
-``score/all_dimensions.py`` maps a parcel's fiscal ratio (property-tax revenue ÷
+``src/housing_label/score/all_dimensions.py`` maps a parcel's fiscal ratio (property-tax revenue ÷
 modeled cost-to-serve) to a 0–100 score via ``INFRA_XS`` breakpoints. Those were
 anchored to the Shelby pilot's distribution, so once the cost and revenue sides
 were localized per county (Census of Governments + ACS), the absolute grades were
@@ -22,7 +22,7 @@ Build the national distribution over a grid of {US county} × {density archetype
   • density archetypes: a documented spread of US residential densities, each with
     an approximate national household share (DENSITY_ARCHETYPES below).
   • each (county, archetype) fiscal ratio is computed with the SAME cost model the
-    app uses (``enrich/infrastructure.enrich_row``), and weighted by
+    app uses (``housing_label.enrich.infrastructure.enrich_row``), and weighted by
     county population × archetype share — so the distribution reflects where US
     homes actually are, across the real density mix.
 
@@ -110,8 +110,12 @@ def build_distribution() -> list[tuple[float, float]]:
 
 def weighted_percentile(points: list[tuple[float, float]], pct: float) -> float:
     """Population-weighted percentile of the fiscal-ratio distribution."""
+    if not points:
+        raise ValueError("no fiscal-ratio points to take a percentile of")
     pts = sorted(points)
     total = sum(w for _, w in pts)
+    if total <= 0:
+        raise ValueError("total weight is zero — cannot compute a weighted percentile")
     target = total * pct / 100.0
     cum = 0.0
     for val, w in pts:
@@ -123,6 +127,11 @@ def weighted_percentile(points: list[tuple[float, float]], pct: float) -> float:
 
 def main() -> int:
     points = build_distribution()
+    if not points:
+        raise SystemExit(
+            "No fiscal-ratio points were produced — check that the bundled "
+            "crosswalks (property_tax_county.csv, govfinance_county.csv) exist and "
+            "have the expected columns.")
     print(f"National distribution: {len(points):,} (county × archetype) points, "
           f"weight = population × household share.\n")
 
@@ -137,7 +146,7 @@ def main() -> int:
         if xs[i] <= xs[i - 1]:
             xs[i] = round(xs[i - 1] + 0.001, 3)
 
-    print("\nSuggested national breakpoints (paste into score/all_dimensions.py):")
+    print("\nSuggested national breakpoints (paste into src/housing_label/score/all_dimensions.py):")
     print(f"  INFRA_XS = {xs}")
     print(f"  INFRA_YS = {[float(y) for y in ys]}")
     print("\n(score ≈ national percentile rank: A=top 20%, B=60–80th, C=40–60th, "
