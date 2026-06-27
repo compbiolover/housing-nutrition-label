@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.7](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.6...v0.1.7) (2026-06-27)
+
+
+### Features
+
+* localize Infrastructure Burden revenue side (per-county property-tax rate) ([#45](https://github.com/compbiolover/housing-nutrition-label/issues/45)) ([5ab8919](https://github.com/compbiolover/housing-nutrition-label/commit/5ab89196215431b59956a9052ce45824c10fb1ea))
+
 ## [0.1.6](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.5...v0.1.6) (2026-06-27)
 
 
