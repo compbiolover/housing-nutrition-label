@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.4](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.3...v0.1.4) (2026-06-27)
+
+
+### Features
+
+* locally calibrate Infrastructure Burden to county government finances ([#39](https://github.com/compbiolover/housing-nutrition-label/issues/39)) ([7c47898](https://github.com/compbiolover/housing-nutrition-label/commit/7c47898636fc222b87a9c9e91ac1121fc8d1124a))
+
 ## [0.1.3](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.2...v0.1.3) (2026-06-27)
 
 
