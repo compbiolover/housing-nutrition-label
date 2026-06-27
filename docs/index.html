@@ -339,7 +339,11 @@
   }
   function setActive(i) {
     var lis = acBox.querySelectorAll("li");
-    for (var j = 0; j < lis.length; j++) lis[j].classList.toggle("active", j === i);
+    for (var j = 0; j < lis.length; j++) {
+      var on = j === i;
+      lis[j].classList.toggle("active", on);
+      lis[j].setAttribute("aria-selected", on ? "true" : "false");   // expose selection to AT
+    }
     acActive = i;
     input.setAttribute("aria-activedescendant", i >= 0 ? "addr-opt-" + i : "");
   }
@@ -347,7 +351,7 @@
     acItems = list; acActive = -1;
     if (!list.length) { closeAc(); return; }
     acBox.innerHTML = list.map(function (s, i) {
-      return '<li role="option" id="addr-opt-' + i + '" data-i="' + i + '">' + esc(s.label) + '</li>';
+      return '<li role="option" id="addr-opt-' + i + '" data-i="' + i + '" aria-selected="false">' + esc(s.label) + '</li>';
     }).join("");
     acBox.hidden = false;
     acWrap.setAttribute("aria-expanded", "true");
@@ -392,11 +396,16 @@
         + '<span>' + esc(d.label) + '</span><span class="na">N/A</span></div>'
         + '<div class="score-bar"></div></div>';
     }
+    // The API is ?api=-overridable, so treat the score as untrusted: coerce to a
+    // finite number and clamp to 0–100 before it reaches a style attribute.
+    var sc = Number(d.score);
+    if (!isFinite(sc)) sc = 0;
+    sc = Math.max(0, Math.min(100, sc));
     return '<div class="score-bar-container"><div class="score-bar-label">'
-      + '<span>' + esc(d.label) + '</span><span>' + d.score.toFixed(1) + ' / '
+      + '<span>' + esc(d.label) + '</span><span>' + sc.toFixed(1) + ' / '
       + esc(d.national_grade) + '</span></div>'
-      + '<div class="score-bar"><div class="fill ' + fillClass(d.score)
-      + '" style="width:' + d.score + '%"></div></div></div>';
+      + '<div class="score-bar"><div class="fill ' + fillClass(sc)
+      + '" style="width:' + sc + '%"></div></div></div>';
   }
 
   function render(data, ctx) {
@@ -428,7 +437,7 @@
 
     var html = '<div class="label-card">'
       + '<div class="label-head"><div>'
-      + '<div style="font-weight:700;color:var(--navy);">' + esc(loc.label || (data.house.lat + ", " + data.house.lon)) + '</div>'
+      + '<div style="font-weight:700;color:var(--navy);">' + esc(loc.label || (h.lat + ", " + h.lon)) + '</div>'
       + '<div class="meta">' + metaParts.join(" &middot; ") + '</div>'
       + buildLine + '</div>'
       + '<div style="text-align:right;"><div class="composite-num">'
