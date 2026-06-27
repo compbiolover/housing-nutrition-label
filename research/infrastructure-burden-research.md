@@ -35,8 +35,8 @@ single largest error (reusing one city everywhere).
 
 | Component | Source | Notes |
 |---|---|---|
-| Per-function local spending (cost side) | **Census of Governments 2017, Individual Unit File** | Complete finance census (~90k units; annual surveys in other years are samples). Record ID encodes FIPS state (1–2), gov type (3), FIPS county (4–6); item code (13–15) is object+function; amount (16–27) in $000s. Public-use, redistributable. ~1.5–2 yr lag. The convenience *API* now needs a free key, but the **bulk files stay keyless** — so we ingest bulk. |
-| Per-capita denominator | **Census Population Estimates (PEP)** county totals | `POPESTIMATE2017`, keyless CSV. |
+| Per-function local spending (cost side) | **Census of Governments 2022, Individual Unit File** | Most recent complete finance census (~90k units; the COG is a full count only in years ending in 2 and 7 — annual surveys in other years are samples). Record ID encodes FIPS state (1–2), gov type (3), FIPS county (4–6); item code (13–15) is object+function; amount (16–27) in $000s. Public-use, redistributable. ~1.5–2 yr lag. The convenience *API* now needs a free key, but the **bulk files stay keyless** — so we ingest bulk. |
+| Per-capita denominator | **Census Population Estimates (PEP)** county totals | `POPESTIMATE2022`, keyless CSV. |
 | Property-tax effective rate (revenue side) | Lincoln Institute / MCFE **50-State Property Tax Comparison** (≈100–124 cities); **ACS** county effective-rate proxy (~3,129 counties, noisy); **state DOR** millage tables (complete but PDF-only) | No single keyless parcel-level nationwide source — use a tiered fallback. The live path already applies a single national effective rate; per-county localization is future work. |
 | Parcel → jurisdiction | Census **TIGER/Line** places + county subdivisions | Maps a parcel to its general-purpose jurisdiction; **special districts** (water/sewer/fire) are the irreducible attribution gap. |
 
@@ -83,10 +83,10 @@ reflects spending *level*, not service capacity or capital needs).
 
 ## Phase 1 (implemented)
 
-- `scripts/build_govfinance.py` — downloads the 2017 COG Individual Unit File + PEP
+- `scripts/build_govfinance.py` — downloads the 2022 COG Individual Unit File + PEP
   population (keyless), aggregates per-county per-function direct expenditure,
   normalizes to Shelby, and bundles `src/housing_label/data/govfinance_county.csv`
-  (3,128 counties + a national-average row).
+  (3,137 counties + a national-average row).
 - `src/housing_label/data/govfinance.py` — resolution-aware county → multipliers
   lookup (county → national fallback), clamped, always returns a dict.
 - `src/housing_label/enrich/infrastructure.py` — `enrich_row` takes optional
@@ -113,8 +113,8 @@ reflects spending *level*, not service capacity or capital needs).
 
 - County-area aggregation assigns each local unit to one county; a city or special
   district spanning counties is counted in its home county.
-- Census finance data lags ~1.5–2 years and (in non-census years) is a sample; 2017 is
-  a full census, hence its use here.
+- Census finance data lags ~1.5–2 years and (in non-census years) is a sample; 2022 is
+  the most recent full census, hence its use here.
 - Per-capita spend captures level, not quality or marginal/capital need.
 - The density cost-to-serve *shape* is still the Halifax/Memphis calibration; only the
   per-function level is localized.

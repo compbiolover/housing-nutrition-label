@@ -33,13 +33,14 @@ thousands of jurisdictions; see research/infrastructure-burden-research.md)
 
 Sources (both keyless, free, public — bulk files, no API key)
 -------------------------------------------------------------
-- U.S. Census Bureau, **2017 Census of Governments — Individual Unit File** (the
-  complete finance census, every ~90k local units; annual surveys in other years
-  are only samples). Record ID encodes FIPS state (pos 1-2), government type
-  (pos 3), and FIPS county (pos 4-6); item code (pos 13-15) is object+function;
-  amount (pos 16-27) is in thousands of dollars.
+- U.S. Census Bureau, **2022 Census of Governments — Individual Unit File** (the
+  most recent complete finance census, every ~90k local units; the Census of
+  Governments is a full count only in years ending in 2 and 7 — annual surveys in
+  other years are samples). Record ID encodes FIPS state (pos 1-2), government
+  type (pos 3), and FIPS county (pos 4-6); item code (pos 13-15) is
+  object+function; amount (pos 16-27) is in thousands of dollars.
 - U.S. Census Bureau, **Population Estimates (PEP)** county totals
-  (POPESTIMATE2017) for the per-capita denominator.
+  (POPESTIMATE2022) for the per-capita denominator.
 
 Run:  python scripts/build_govfinance.py            # full national crosswalk
       python scripts/build_govfinance.py --cache-dir .govfin_cache
@@ -61,11 +62,15 @@ import requests
 _DATA_DIR = pathlib.Path(__file__).resolve().parents[1] / "src" / "housing_label" / "data"
 HEADERS = {"User-Agent": "housing-nutrition-label/0.1 (gov-finance crosswalk build)"}
 
-COG_ZIP = ("https://www2.census.gov/programs-surveys/gov-finances/datasets/"
-           "2017/public-use-datasets/2017_Individual_Unit_File.zip")
-COG_FIN_MEMBER = "2017FinEstDAT_06122023modp_pu.txt"
+COG_YEAR = 2022
+COG_ZIP = ("https://www2.census.gov/programs-surveys/gov-finances/tables/"
+           "2022/2022_Individual_Unit_File.zip")
+# The finance-estimates member carries a revision date in its name and (2022+)
+# sits inside a subdirectory, so locate it by pattern rather than hardcoding.
+COG_FIN_PATTERN = "FinEstDAT"
 PEP_CSV = ("https://www2.census.gov/programs-surveys/popest/datasets/"
-           "2010-2019/counties/totals/co-est2019-alldata.csv")
+           "2020-2024/counties/totals/co-est2024-alldata.csv")
+POP_COL = "POPESTIMATE2022"   # match the finance vintage
 
 # Census finance function codes → our cost components. Direct general expenditure
 # for a function = the E (current ops) + F (construction) + G (other capital)
@@ -143,7 +148,7 @@ def load_population(pep_text: io.TextIOBase) -> dict[str, dict]:
             continue
         fips = f"{row['STATE']}{row['COUNTY']}"
         try:
-            pop = int(row["POPESTIMATE2017"])
+            pop = int(row[POP_COL])
         except (KeyError, ValueError):
             continue
         out[fips] = {"pop": pop, "county_name": row.get("CTYNAME", ""),
@@ -215,12 +220,16 @@ def main() -> int:
                          or (pathlib.Path(__file__).resolve().parents[1] / ".govfin_cache"))
     print(f"Gov-finance build. Cache: {cache}", file=sys.stderr)
 
-    zip_path = _download(COG_ZIP, cache / "2017_Individual_Unit_File.zip", min_size=1 << 20)
-    pep_path = _download(PEP_CSV, cache / "co-est2019-alldata.csv", min_size=1 << 20)
+    zip_path = _download(COG_ZIP, cache / f"{COG_YEAR}_Individual_Unit_File.zip", min_size=1 << 20)
+    pep_path = _download(PEP_CSV, cache / "co-est-alldata.csv", min_size=1 << 20)
 
     print("Parsing finance records …", file=sys.stderr)
     with zipfile.ZipFile(zip_path) as zf:
-        with zf.open(COG_FIN_MEMBER) as raw:
+        member = next((n for n in zf.namelist()
+                       if COG_FIN_PATTERN in n and n.endswith("_pu.txt")), None)
+        if member is None:
+            raise SystemExit(f"No {COG_FIN_PATTERN} member found in {zip_path.name}")
+        with zf.open(member) as raw:
             spend = parse_county_spend(io.TextIOWrapper(raw, encoding="latin-1"))
     print(f"  {len(spend)} counties with local-government spend", file=sys.stderr)
 

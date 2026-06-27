@@ -9,7 +9,7 @@ function, so the pilot is unchanged.
 Data
 ----
 Bundled by ``scripts/build_govfinance.py`` as ``govfinance_county.csv`` from the
-U.S. Census Bureau **2017 Census of Governments — Individual Unit File** (direct
+U.S. Census Bureau **2022 Census of Governments — Individual Unit File** (direct
 general expenditure by function, per capita, normalized to Shelby) plus Census
 **Population Estimates** for the denominator. Multipliers are pre-clamped to
 [0.25, 4.0]; a county with zero recorded local spend on a function already carries
@@ -23,7 +23,7 @@ row (``resolved="national"``). Always returns a dict, never None.
 
 Caveats
 -------
-These are present-day (FY2017 census) per-capita spending ratios, not a forward
+These are present-day (FY2022 census) per-capita spending ratios, not a forward
 projection, and they capture *spending level*, not service quality. County-area
 aggregation assigns each local unit to one county (a city or special district
 spanning counties is counted in its home county), and special districts that serve
@@ -38,7 +38,7 @@ import csv
 import pathlib
 from functools import lru_cache
 
-DATA_VINTAGE = "Census of Governments 2017 (per-capita local direct expenditure)"
+DATA_VINTAGE = "Census of Governments 2022 (per-capita local direct expenditure)"
 US_AVG_LABEL = f"US national average ({DATA_VINTAGE})"
 
 _DIR = pathlib.Path(__file__).resolve().parent
