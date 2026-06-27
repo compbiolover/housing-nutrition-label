@@ -162,11 +162,14 @@ ENERGY_YS = [100.0, 80.0, 60.0, 40.0, 20.0, 0.0]
 # computed with the localized cost+revenue model (see
 # scripts/calibrate_infra_breakpoints.py). The score therefore tracks national
 # percentile rank: A = top ~20%, B = 60–80th, C = 40–60th, D = 20–40th,
-# F = bottom ~20% (the national median fiscal ratio ≈ 0.61 → score ≈ 50). This
-# replaces the original Shelby-pilot-anchored thresholds, which were no longer
-# defensible once cost and revenue were localized per county.
-#   ≥2.00→100, 1.06→80, 0.73→60, 0.52→40, 0.35→20, ≤0.20→0   (log-linear between).
-INFRA_XS = [0.20, 0.35, 0.52, 0.73, 1.06, 2.00]
+# F = bottom ~20%. Both sides are now like-for-like NON-SCHOOL: the revenue is
+# municipal property tax (the school-district share netted out, matching the
+# school-excluded cost side), so the ratios are lower — the national median
+# fiscal ratio ≈ 0.31 → score ≈ 50 (the typical US home's non-school property tax
+# covers only ~31% of its non-school municipal cost — ≈31¢ of revenue per $1 of
+# cost). Replaces the Shelby-pilot thresholds.
+#   ≥0.98→100, 0.53→80, 0.36→60, 0.26→40, 0.17→20, ≤0.09→0   (log-linear between).
+INFRA_XS = [0.092, 0.169, 0.264, 0.363, 0.526, 0.976]
 INFRA_YS = [0.0, 20.0, 40.0, 60.0, 80.0, 100.0]
 
 

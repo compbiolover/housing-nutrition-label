@@ -84,6 +84,11 @@ def build_distribution() -> list[tuple[float, float]]:
     gov = _load(_DATA / "govfinance_county.csv")
     components = ["roads", "water_sewer", "fire", "police", "sanitation", "parks"]
 
+    # School-share fallback = the bundled national row (00000), so recalibration
+    # stays consistent with the crosswalk/runtime; 0.41 only if it's missing.
+    nat_school = _num(gov.get("00000", {}).get("school_tax_share"))
+    nat_school = nat_school if nat_school is not None and 0.0 <= nat_school <= 1.0 else 0.41
+
     points: list[tuple[float, float]] = []
     for fips, trow in tax.items():
         if fips == "00000":
@@ -97,10 +102,15 @@ def build_distribution() -> list[tuple[float, float]]:
         if pop <= 0:
             continue
         mult = {c: (_num(grow.get(f"mult_{c}")) or 1.0) for c in components}
+        # Net schools out of the revenue rate (like-for-like with the non-school
+        # cost side), matching simulate/dimensions.py.
+        school = _num(grow.get("school_tax_share"))
+        school = school if school is not None and 0.0 <= school <= 1.0 else nat_school
+        municipal_rate = rate * (1.0 - school)
         for _, du_acre, share, urban in DENSITY_ARCHETYPES:
             row = pd.Series({"CALC_ACRE": 1.0 / du_acre, "latitude": None,
                              "longitude": None, "RTOTAPR": value})
-            out = enrich_row(row, assess_ratio=1.0, tax_rate=rate,
+            out = enrich_row(row, assess_ratio=1.0, tax_rate=municipal_rate,
                              in_urban_area=urban, cost_multipliers=mult)
             fr = out.get("fiscal_ratio")
             if fr is not None and not pd.isna(fr):

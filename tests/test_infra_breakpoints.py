@@ -20,12 +20,13 @@ def _score(ratio: float) -> float:
 
 
 def test_breakpoints_well_formed():
-    """XS strictly increasing, aligned with YS, and the national set (not Shelby)."""
+    """XS strictly increasing, aligned with YS, and the national (school-netted) set."""
     assert len(INFRA_XS) == len(INFRA_YS) == 6
     assert all(b > a for a, b in zip(INFRA_XS, INFRA_XS[1:])), "XS must be increasing"
     assert INFRA_YS == [0.0, 20.0, 40.0, 60.0, 80.0, 100.0]
-    # Re-anchored upward from the old Shelby thresholds (0.05/0.15/0.30/0.60/1.0/1.5).
-    assert INFRA_XS[0] >= 0.15 and INFRA_XS[-1] >= 1.75
+    # National non-school distribution: lower than the Shelby pilot's top anchor
+    # (1.5) since school property tax is netted out of the revenue side.
+    assert 0.05 < INFRA_XS[0] < 0.20 and 0.7 < INFRA_XS[-1] < 1.5
 
 
 def test_score_is_monotonic_in_ratio():
@@ -37,17 +38,17 @@ def test_score_is_monotonic_in_ratio():
 
 
 def test_national_median_ratio_scores_mid():
-    """The national median fiscal ratio (~0.61) should land in the C band (~50),
-    i.e. the score tracks national percentile rank."""
-    s = _score(0.61)
+    """The national (school-netted) median fiscal ratio (~0.31) should land in the
+    C band (~50), i.e. the score tracks national percentile rank."""
+    s = _score(0.31)
     assert 40.0 <= s <= 60.0
     assert score_to_grade(s) == "C"
 
 
 def test_tails_clamp():
-    assert _score(0.05) == 0.0           # well below the bottom breakpoint → F floor
+    assert _score(0.02) == 0.0           # well below the bottom breakpoint → F floor
     assert _score(5.0) == 100.0          # well above the top breakpoint → A ceiling
-    assert score_to_grade(_score(2.0)) == "A"
+    assert score_to_grade(_score(1.0)) == "A"
 
 
 def _run_all():

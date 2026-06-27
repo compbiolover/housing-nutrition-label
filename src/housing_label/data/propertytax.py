@@ -81,6 +81,18 @@ def _national_rate() -> float:
     return (_rate(nat) if nat else None) or LEGACY_NATIONAL_RATE
 
 
+def median_home_value_for_county(county_fips: str | None) -> float | None:
+    """County median owner-occupied home value (ACS B25077), or None if unmapped.
+
+    Used to auto-fill a realistic home value when the caller doesn't supply one,
+    so the fiscal-ratio revenue side reflects the local market.
+    """
+    fips = str(county_fips).strip().zfill(5) if county_fips else None
+    row = _table().get(fips) if fips else None
+    v = _num(row.get("median_value")) if row is not None else None
+    return v if v is not None and v > 0 else None
+
+
 def property_tax_for_county(county_fips: str | None) -> dict:
     """Return the effective property-tax rate for a 5-digit county FIPS.
 

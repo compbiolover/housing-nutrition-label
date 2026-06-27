@@ -57,6 +57,20 @@ def test_unmapped_and_none_fall_back_to_national():
         assert 0.25 <= nat["multipliers"][c] <= 4.0
 
 
+def test_school_tax_share_with_dependent_fallback():
+    """School-tax share is exposed; independent-district counties carry their real
+    share, while dependent-school counties (type-5 ≈ 0) fall back to the national
+    average rather than reading 0%."""
+    nat = govfinance_for_county(None)["school_tax_share"]
+    assert 0.30 <= nat <= 0.50                       # ~41% nationally
+    dupage = govfinance_for_county("17043")["school_tax_share"]   # independent districts
+    assert dupage > 0.6
+    shelby = govfinance_for_county("47157")["school_tax_share"]   # dependent (TN)
+    assert abs(shelby - nat) < 1e-6                  # fell back to national, not 0
+    for fips in ("17043", "06037", "47157"):
+        assert 0.0 <= govfinance_for_county(fips)["school_tax_share"] <= 0.75
+
+
 # ── Infra cost scaling (enrich/infrastructure.py) ───────────────────────────────
 _ROW = pd.Series({"CALC_ACRE": 0.25, "latitude": 35.13, "longitude": -89.99,
                   "RTOTAPR": 200000})

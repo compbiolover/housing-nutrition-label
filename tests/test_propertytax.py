@@ -13,7 +13,9 @@ from types import SimpleNamespace
 import pandas as pd
 
 from housing_label.data import propertytax as pt
-from housing_label.data.propertytax import property_tax_for_county
+from housing_label.data.propertytax import (
+    property_tax_for_county, median_home_value_for_county,
+)
 from housing_label.enrich.infrastructure import enrich_row
 
 
@@ -49,6 +51,17 @@ def test_unmapped_and_none_fall_back_to_national():
     assert nat["resolved"] == "national" and nat["geo_level"] == "us"
     assert property_tax_for_county("99999")["resolved"] == "national"
     assert 0.001 <= nat["effective_tax_rate"] <= 0.05
+
+
+def test_median_home_value_lookup():
+    """median_home_value_for_county returns sane county medians (for auto-fill),
+    and None for an unmapped/None county."""
+    shelby = median_home_value_for_county("47157")
+    la = median_home_value_for_county("06037")
+    assert shelby and 50_000 < shelby < 1_000_000
+    assert la and la > shelby                          # LA homes pricier than Memphis
+    assert median_home_value_for_county("99999") is None
+    assert median_home_value_for_county(None) is None
 
 
 # ── Revenue scaling in the infra model ──────────────────────────────────────────

@@ -85,6 +85,16 @@ def _national() -> dict | None:
     return _table().get(_NATIONAL_GEOID)
 
 
+# Ultimate fallback for the school-tax share when the crosswalk isn't bundled
+# (the national figure ≈ 41% of local property tax funds schools).
+LEGACY_SCHOOL_SHARE = 0.41
+
+
+def _school_share(row: dict | None) -> float:
+    v = _num(row.get("school_tax_share")) if row is not None else None
+    return v if v is not None and 0.0 <= v <= 1.0 else LEGACY_SCHOOL_SHARE
+
+
 def govfinance_for_county(county_fips: str | None) -> dict:
     """Return the infrastructure cost multipliers for a 5-digit county FIPS.
 
@@ -94,7 +104,9 @@ def govfinance_for_county(county_fips: str | None) -> dict:
     returns neutral 1.0 multipliers (``resolved="none"``) so the model degrades to
     the Memphis baseline rather than failing.
 
-    Keys: ``label``, ``multipliers`` (dict of the six components), ``resolved``,
+    Keys: ``label``, ``multipliers`` (dict of the six components),
+    ``school_tax_share`` (fraction of local property tax funding schools, for
+    netting the revenue side to a like-for-like non-school basis), ``resolved``,
     ``geo_level``.
     """
     fips = str(county_fips).strip().zfill(5) if county_fips else None
@@ -106,6 +118,7 @@ def govfinance_for_county(county_fips: str | None) -> dict:
         return {
             "label": f"{place} ({DATA_VINTAGE})",
             "multipliers": _multipliers(row),
+            "school_tax_share": _school_share(row),
             "resolved": "county",
             "geo_level": "county",
         }
@@ -114,6 +127,7 @@ def govfinance_for_county(county_fips: str | None) -> dict:
         return {
             "label": US_AVG_LABEL,
             "multipliers": _multipliers(nat),
+            "school_tax_share": _school_share(nat),
             "resolved": "national",
             "geo_level": "us",
         }
@@ -121,6 +135,7 @@ def govfinance_for_county(county_fips: str | None) -> dict:
     return {
         "label": "uncalibrated (Memphis baseline)",
         "multipliers": {c: 1.0 for c in COMPONENTS},
+        "school_tax_share": LEGACY_SCHOOL_SHARE,
         "resolved": "none",
         "geo_level": "us",
     }

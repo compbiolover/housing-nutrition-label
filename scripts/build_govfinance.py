@@ -87,11 +87,21 @@ FUNC_TO_COMPONENT = {
 COMPONENTS = ["roads", "water_sewer", "fire", "police", "sanitation", "parks"]
 EXPENDITURE_OBJECTS = set("EFG")
 LOCAL_GOV_TYPES = set("1234")   # county, municipal, township, special district
+ALL_LOCAL_TYPES = set("12345")  # …plus independent school districts (type 5)
+SCHOOL_TYPE = "5"
+PROPERTY_TAX_ITEM = "T01"       # property-tax revenue item code
 SHELBY_FIPS = "47157"           # the pilot county the cost curves are calibrated to
 
 MULT_FLOOR, MULT_CEIL = 0.25, 4.0
+# School-tax share: the fraction of local property tax going to independent school
+# districts (type 5). Where it reads near-zero, schools are funded through the
+# county/municipal government (a "dependent" school system with no separate
+# district), so the type-5 signal is absent — fall back to the national average.
+SCHOOL_SHARE_FLOOR = 0.08       # below this → treat as dependent-school → national avg
+SCHOOL_SHARE_CEIL = 0.75        # clamp extreme outliers
+LEGACY_NATIONAL_SCHOOL_SHARE = 0.41   # conservative fallback if T01 parsing yields nothing
 OUT_COLUMNS = (["geoid", "county_name", "state", "pop"]
-               + [f"mult_{c}" for c in COMPONENTS] + ["resolved"])
+               + [f"mult_{c}" for c in COMPONENTS] + ["school_tax_share", "resolved"])
 
 
 def _download(url: str, dest: pathlib.Path, *, min_size: int = 1024) -> pathlib.Path:
@@ -117,27 +127,42 @@ def _download(url: str, dest: pathlib.Path, *, min_size: int = 1024) -> pathlib.
     return dest
 
 
-def parse_county_spend(fin_text: io.TextIOBase) -> dict[str, dict[str, float]]:
-    """Aggregate direct general expenditure by county FIPS × component ($)."""
+def parse_county_records(fin_text: io.TextIOBase):
+    """Aggregate per county FIPS, in one pass:
+
+    - ``spend[fips][component]``  — direct general expenditure by function ($),
+      local general-purpose + special-district governments (types 1-4; schools
+      excluded, matching the cost side of the fiscal ratio).
+    - ``proptax[fips]``           — property-tax revenue ($): ``total`` across all
+      local governments (types 1-5) and ``school`` for independent school
+      districts (type 5), for the school-tax-share computation.
+    """
     spend: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    proptax: dict[str, dict[str, float]] = defaultdict(lambda: {"total": 0.0, "school": 0.0})
     for line in fin_text:
         line = line.rstrip("\n")
         if len(line) < 31:
             continue
         gid = line[0:12]
-        if gid[2] not in LOCAL_GOV_TYPES:        # local governments only
+        typ = gid[2]
+        if typ not in ALL_LOCAL_TYPES:
             continue
         item = line[12:15]
-        component = FUNC_TO_COMPONENT.get(item[1:3])
-        if component is None or item[0] not in EXPENDITURE_OBJECTS:
-            continue
         try:
-            amount = float(line[15:27])           # thousands of dollars
+            amount = float(line[15:27]) * 1000.0   # thousands of dollars → dollars
         except ValueError:
             continue
-        county_fips = gid[0:2] + gid[3:6]         # FIPS state + FIPS county
-        spend[county_fips][component] += amount * 1000.0
-    return spend
+        county_fips = gid[0:2] + gid[3:6]          # FIPS state + FIPS county
+        if item == PROPERTY_TAX_ITEM:
+            proptax[county_fips]["total"] += amount
+            if typ == SCHOOL_TYPE:
+                proptax[county_fips]["school"] += amount
+            continue
+        if typ in LOCAL_GOV_TYPES:                 # expenditure: schools excluded
+            component = FUNC_TO_COMPONENT.get(item[1:3])
+            if component is not None and item[0] in EXPENDITURE_OBJECTS:
+                spend[county_fips][component] += amount
+    return spend, proptax
 
 
 def load_population(pep_text: io.TextIOBase) -> dict[str, dict]:
@@ -157,8 +182,9 @@ def load_population(pep_text: io.TextIOBase) -> dict[str, dict]:
 
 
 def build_rows(spend: dict[str, dict[str, float]],
-               pop: dict[str, dict]) -> list[dict]:
-    """Compute per-capita spend, normalize to Shelby, return crosswalk rows."""
+               pop: dict[str, dict],
+               proptax: dict[str, dict[str, float]]) -> list[dict]:
+    """Compute per-capita spend (normalized to Shelby) + school-tax share per county."""
     # Per-capita spend per county per component (only counties with population).
     pc: dict[str, dict[str, float]] = {}
     for fips, comps in spend.items():
@@ -178,6 +204,26 @@ def build_rows(spend: dict[str, dict[str, float]],
     nat_mult = {c: _clamp(nat_pc[c] / shelby_pc[c]) if shelby_pc[c] > 0 else 1.0
                 for c in COMPONENTS}
 
+    # National school-tax share (revenue-weighted): independent school-district
+    # property tax ÷ all local property tax. The fallback for dependent-school
+    # counties (type-5 share ≈ 0) and for unmapped counties.
+    nat_school = sum(proptax[f]["school"] for f in proptax)
+    nat_total = sum(proptax[f]["total"] for f in proptax)
+    # If property-tax parsing yielded nothing, don't silently imply "no schools"
+    # (0.0 would propagate to every fallback county); use the documented legacy
+    # national share so the failure is conservative rather than skewing the ratio.
+    nat_school_share = (round(nat_school / nat_total, 4) if nat_total > 0
+                        else LEGACY_NATIONAL_SCHOOL_SHARE)
+
+    def school_share_for(fips: str) -> float:
+        pt = proptax.get(fips)
+        if not pt or pt["total"] <= 0:
+            return nat_school_share
+        raw = pt["school"] / pt["total"]
+        if raw < SCHOOL_SHARE_FLOOR:        # dependent-school system → national avg
+            return nat_school_share
+        return round(min(raw, SCHOOL_SHARE_CEIL), 4)
+
     def mults_for(fips: str) -> dict[str, float]:
         out = {}
         for c in COMPONENTS:
@@ -191,7 +237,7 @@ def build_rows(spend: dict[str, dict[str, float]],
     rows = [{
         "geoid": "00000", "county_name": "US national average", "state": "",
         "pop": nat_pop, **{f"mult_{c}": round(nat_mult[c], 4) for c in COMPONENTS},
-        "resolved": "national",
+        "school_tax_share": nat_school_share, "resolved": "national",
     }]
     for fips in sorted(pc):
         meta = pop.get(fips, {})
@@ -200,7 +246,7 @@ def build_rows(spend: dict[str, dict[str, float]],
             "geoid": fips, "county_name": meta.get("county_name", ""),
             "state": meta.get("state", ""), "pop": meta.get("pop", ""),
             **{f"mult_{c}": round(m[c], 4) for c in COMPONENTS},
-            "resolved": "county",
+            "school_tax_share": school_share_for(fips), "resolved": "county",
         })
     return rows
 
@@ -230,14 +276,14 @@ def main() -> int:
         if member is None:
             raise SystemExit(f"No {COG_FIN_PATTERN} member found in {zip_path.name}")
         with zf.open(member) as raw:
-            spend = parse_county_spend(io.TextIOWrapper(raw, encoding="latin-1"))
+            spend, proptax = parse_county_records(io.TextIOWrapper(raw, encoding="latin-1"))
     print(f"  {len(spend)} counties with local-government spend", file=sys.stderr)
 
     with pep_path.open(encoding="latin-1") as f:
         pop = load_population(f)
     print(f"  {len(pop)} counties with population", file=sys.stderr)
 
-    rows = build_rows(spend, pop)
+    rows = build_rows(spend, pop, proptax)
     out = pathlib.Path(args.out) if args.out else _DATA_DIR / "govfinance_county.csv"
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w", newline="") as f:
@@ -250,6 +296,8 @@ def main() -> int:
     print(f"\nWrote {len(rows)-1} counties + 1 national row → {out}", file=sys.stderr)
     print(f"National-vs-Shelby multipliers: "
           + "  ".join(f"{c}={nat['mult_'+c]}" for c in COMPONENTS), file=sys.stderr)
+    print(f"National school-tax share: {nat['school_tax_share']:.1%} "
+          "(fallback for dependent-school / unmapped counties)", file=sys.stderr)
     return 0
 
 
