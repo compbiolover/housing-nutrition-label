@@ -1110,15 +1110,16 @@ def _approx_caveats(location) -> list[str]:
         if gov["resolved"] == "county":
             from housing_label.data.propertytax import property_tax_for_county
             tax = property_tax_for_county(fips)
-            revenue = ("its effective property-tax rate (Census ACS)"
+            revenue = ("its municipal (non-school) effective property-tax rate (Census ACS)"
                        if tax["resolved"] == "county"
                        else "a national-average property-tax rate (this county isn't in "
                             "the ACS crosswalk)")
             caveats.append(
                 "Infrastructure Burden is calibrated to this county's local-government "
                 "spending (Census of Governments, cost side) and " + revenue + " (revenue "
-                "side), layered on a density cost model — a county-level estimate, not "
-                "parcel-level."
+                "side, with the school-district share netted out to match the non-school "
+                "cost model), layered on a density cost model — a county-level estimate, "
+                "not parcel-level."
             )
         elif gov["resolved"] == "national":
             caveats.append(
@@ -1340,6 +1341,17 @@ def build_label_parts(*, address: str | None = None,
     # no geocode) is wildfire left unset, so simulate() uses 0.0.
     if location is not None and getattr(location, "wildfire", None):
         cfg["wildfire_eal_base"] = location.wildfire.get("eal_rate") or 0.0
+
+    # Auto-fill the home value from the county median when the caller didn't
+    # specify one, so the Infrastructure fiscal ratio (and dollar EALs) reflect
+    # the local market instead of the construction profile's flat default. An
+    # explicit value (CLI --value / API value=) always wins.
+    if location is not None and fields.get("value") is None:
+        from housing_label.data.propertytax import median_home_value_for_county
+        median_value = median_home_value_for_county(getattr(location, "county_fips", None))
+        if median_value:
+            cfg["value"] = median_value
+            cfg["value_source"] = "county median (ACS)"
 
     r = simulate(cfg)
     label = simulate_all_dimensions(

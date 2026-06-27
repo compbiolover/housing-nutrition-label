@@ -407,9 +407,13 @@ def simulate_all_dimensions(
         from housing_label.data.propertytax import property_tax_for_county
         gov = govfinance_for_county(location.county_fips)
         tax = property_tax_for_county(location.county_fips)
+        # Net the school-district share out of the property-tax rate so the
+        # revenue side is like-for-like with the non-school cost side (the cost
+        # model excludes school spending). municipal_rate = ACS rate × (1 − school%).
+        municipal_rate = tax["effective_tax_rate"] * (1.0 - gov["school_tax_share"])
         infra_params = {
             "assess_ratio": 1.0,
-            "tax_rate": tax["effective_tax_rate"],
+            "tax_rate": municipal_rate,
             "in_urban_area": bool(location.in_urban_area),
             "cost_multipliers": gov["multipliers"],
         }

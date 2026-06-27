@@ -120,6 +120,30 @@ nationally, so even a county-level rate removes the bulk of the revenue error.)
   the single national constant. The caveat names both the cost (CoG) and revenue (ACS)
   calibration.
 
+## Phase 3 (implemented) — value auto-fill + school-scope reconciliation
+
+Two fiscal-ratio accuracy fixes, plus a breakpoint re-calibration.
+
+- **Auto-fill home value**: `data/propertytax.py` exposes the county median home
+  value (ACS B25077); `simulate/house.build_label_parts` defaults the home value to
+  it when the caller supplies none (explicit value still wins), so the revenue side
+  and dollar EALs reflect the local market rather than the construction profile's
+  flat default.
+- **School-scope reconciliation**: `scripts/build_govfinance.py` now also parses
+  property tax (item T01) by government type and writes a per-county
+  `school_tax_share` = independent school-district property tax ÷ all local property
+  tax (national-average fallback ~41% where the type-5 signal is ~0, i.e. dependent
+  school systems). `simulate/dimensions.py` and the calibration tool net that share
+  out of the revenue rate, so both sides of the ratio are like-for-like non-school.
+- **Re-calibration**: with schools netted out, the national median fiscal ratio
+  drops from ~0.61 to ~0.31; `INFRA_XS` was re-anchored to the new non-school
+  national distribution.
+
+**Limitation:** the school share is computed from independent school districts;
+dependent-school counties (TN, VA, parts of others) fall back to the national
+average, and CoG can't attribute a general government's property-tax revenue to its
+education function, so in-between cases are approximate.
+
 ## Future phases (not in this change)
 
 - **Sub-county / per-jurisdiction property tax**: state DOR millage tables (and
@@ -127,9 +151,6 @@ nationally, so even a county-level rate removes the bulk of the revenue error.)
   scrapers, so a precision refinement rather than a coverage gain.
 - **Parcel → service-provider mapping**: TIGER/Line places + county subdivisions, with
   special-district attribution flagged as irreducible uncertainty.
-- **Scope reconciliation**: the ACS revenue rate includes the school-tax share while
-  the CoG cost side excludes school spending — a future refinement could net the
-  school portion out of both for a like-for-like ratio.
 - **Validation**: bound the accuracy gain vs published ACFRs for a sample of cities.
 
 ---
