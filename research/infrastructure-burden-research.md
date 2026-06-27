@@ -70,7 +70,7 @@ mult[county, function] = per_capita[county, function] / per_capita[Shelby, funct
 The Memphis-calibrated density curves provide the cost-to-serve **shape** (how cost
 falls with density); these multipliers provide the local **level**. Shelby is 1.0 on
 every function by construction, so the pilot is unchanged; LA County, for instance,
-lands at ~2.1× roads and ~3.2× water/sewer. Multipliers are clamped to [0.25, 4.0],
+lands at ~2.0× roads and ~2.6× water/sewer (2022 census). Multipliers are clamped to [0.25, 4.0],
 and a county with zero recorded local spend on a function (e.g. water served by a
 utility counted elsewhere) falls back to the national-average multiplier rather than
 zeroing the modeled cost. Unmapped counties use a national-average row.
