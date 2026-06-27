@@ -1110,8 +1110,9 @@ def _approx_caveats(location) -> list[str]:
         if gov["resolved"] == "county":
             caveats.append(
                 "Infrastructure Burden is calibrated to this county's local-government "
-                "spending (Census of Governments per-capita, by function) layered on a "
-                "density cost model — a county-level estimate, not parcel-level."
+                "spending (Census of Governments, cost side) and effective property-tax "
+                "rate (Census ACS, revenue side), layered on a density cost model — a "
+                "county-level estimate, not parcel-level."
             )
         elif gov["resolved"] == "national":
             caveats.append(

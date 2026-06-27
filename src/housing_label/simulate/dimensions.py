@@ -89,11 +89,10 @@ PASSIVE_HOUSE_EUI_FACTOR = 0.55
 # for the energy-efficiency dimension. ~70% of annual electricity offset.
 SOLAR_OPERATIONAL_REMAINING = 0.30
 
-# Infrastructure: Shelby keeps its Memphis calibration; elsewhere a national model
-# applies. National effective property-tax rate ≈ 1.1% of market value (US median;
-# applied with assess_ratio 1.0).
+# Infrastructure: Shelby keeps its Memphis calibration; elsewhere the cost curves
+# are recalibrated per county (Census of Governments) and the property-tax revenue
+# uses the county's effective rate (Census ACS), both applied with assess_ratio 1.0.
 SHELBY_COUNTY_FIPS = "47157"
-NATIONAL_EFFECTIVE_TAX_RATE = 0.011
 
 # Dimension display order / labels (mirrors score/all_dimensions).
 DIMENSIONS = [
@@ -396,18 +395,21 @@ def simulate_all_dimensions(
     grid_factor = location.egrid_factor if location else None
     tract = location.tract if location else None
 
-    # Infrastructure: for confirmed non-Shelby locations, use a national effective
-    # property-tax rate (revenue side) and recalibrate the cost curves to the
-    # county's local-government spending via the Census of Governments crosswalk
-    # (cost side). The Memphis calibration is kept for Shelby (multipliers there
-    # are 1.0 by construction) and when the county is unknown.
+    # Infrastructure: for confirmed non-Shelby locations, recalibrate the cost
+    # curves to the county's local-government spending (Census of Governments,
+    # cost side) and use the county's effective property-tax rate (Census ACS,
+    # revenue side) — each with a national-average fallback. The Memphis
+    # calibration is kept for Shelby (multipliers there are 1.0 by construction)
+    # and when the county is unknown.
     infra_params = None
     if location and location.county_fips and location.county_fips != SHELBY_COUNTY_FIPS:
         from housing_label.data.govfinance import govfinance_for_county
+        from housing_label.data.propertytax import property_tax_for_county
         gov = govfinance_for_county(location.county_fips)
+        tax = property_tax_for_county(location.county_fips)
         infra_params = {
             "assess_ratio": 1.0,
-            "tax_rate": NATIONAL_EFFECTIVE_TAX_RATE,
+            "tax_rate": tax["effective_tax_rate"],
             "in_urban_area": bool(location.in_urban_area),
             "cost_multipliers": gov["multipliers"],
         }
