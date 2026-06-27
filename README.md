@@ -29,6 +29,7 @@ Each enrichment stage consumes the previous stage's output, so the final scored 
 | [USGS CMIP6-LOCA2](https://doi.org/10.5066/P13OV6GY) | Sub-county climate-hazard projections (CMIP6-LOCA2 WMMM ~6 km, SSP2-4.5–5-8.5) | Free — no key |
 | [SPC Historical Tornadoes](https://www.spc.noaa.gov/) | Historical tornado tracks / frequency | Free — no key |
 | [USGS NSHM](https://earthquake.usgs.gov/hazards/interactive/) | Seismic hazard (peak ground acceleration) — reference data | Free — no key |
+| [FEMA National Risk Index](https://hazards.fema.gov/nri/) | Wildfire expected-annual-loss (the location-based fire peril) | Free — no key |
 | [DOE/EIA ResStock](https://resstock.nrel.gov/) | Residential energy use intensity benchmarks — reference data | Free — no key |
 | [CDC PLACES](https://www.cdc.gov/places/) | Census-tract health metrics | Free — no key |
 | [Census ACS](https://www.census.gov/programs-surveys/acs/) | Socioeconomic indicators (income, poverty, education) | **Requires key** ([census.gov](https://api.census.gov/data/key_signup.html)) |
@@ -40,7 +41,7 @@ Each enrichment stage consumes the previous stage's output, so the final scored 
 
 Each parcel is scored on nine dimensions:
 
-- **Disaster Resilience** — Expected Annual Loss (EAL) model combining flood, tornado, and seismic hazards, weighted by a construction-quality modifier (year built, construction type, roof shape, foundation, condition).
+- **Disaster Resilience** — Expected Annual Loss (EAL) model combining flood, tornado, seismic, and fire hazards, weighted by a construction-quality modifier (year built, construction type, roof shape, foundation, condition). The fire peril blends a national-average structural/electrical fire baseline with the location's FEMA National Risk Index **wildfire** EAL, so it is genuinely location-aware (near-zero in Memphis, materially higher in the fire-prone West).
 - **Energy Efficiency** — Energy Use Intensity (EUI) modeled from ResStock archetypes, adjusted for building vintage and construction type.
 - **Durability** — component-lifespan / effective-age model blending the remaining service life of eight major building systems (structural shell, roof, HVAC, plumbing, electrical, windows, interior finishes, water heater) with the assessor's condition rating (CDU/COND), then adjusted for exterior-wall material and construction grade. Unscored for vacant / non-residential parcels with no building data.
 - **Environmental Footprint** — three components blended 0.50 operational / 0.30 embodied / 0.20 water: operational CO₂e from modeled energy use × EPA eGRID2022 SRTV grid + natural-gas factors; embodied carbon from material/size (calibrated to the ~39–121 kgCO₂e/m² US single-family band) amortized over a 60-yr study period; and water use from EPA WaterSense benchmarks (with the Memphis Sand aquifer's low embedded-energy advantage). See [research/environmental-footprint-research.md](research/environmental-footprint-research.md). Unscored for vacant / non-residential parcels.
@@ -156,8 +157,9 @@ Full-label flags:
 **Any-location support:** the resolved location drives the location-dependent dimensions —
 health & socioeconomic are ranked within the address's *own county*; energy is scaled by the
 location's IECC climate zone; the flood zone is auto-derived from FEMA NFHL; **Disaster
-Resilience uses live USGS seismic hazard** (2%/50yr PGA, with a bundled national fallback grid)
-and the **national SPC tornado record** within 25 mi of the point. Infrastructure Burden uses a
+Resilience uses live USGS seismic hazard** (2%/50yr PGA, with a bundled national fallback grid),
+the **national SPC tornado record** within 25 mi of the point, and the location's **FEMA National
+Risk Index wildfire** EAL (a bundled national tract/county crosswalk) for the fire peril. Infrastructure Burden uses a
 national-average cost model outside Shelby (flagged as an estimate), and Environmental uses the
 location's **eGRID2022 subregion** grid-carbon factor (a bundled county→subregion crosswalk;
 counties that can't be mapped fall back to the US-average factor).
@@ -210,9 +212,10 @@ deployed URL with `?api=https://your-api-host` or `window.HOUSING_LABEL_API`. Se
 
 - **Rust scoring engine** — port the hot scoring path for performance at scale
 - **API layer** — serve scores and grades over HTTP for third-party integration
-- **True Fire Weather Index** — add the Argonne ClimRR FWI (12 km) for the fire/drought leg, replacing the consecutive-dry-days stand-in (needs a spatial join + a reachable, keyless source)
+- **True Fire Weather Index** — add the Argonne ClimRR FWI (12 km) for the *Climate Projections* fire/drought leg, replacing the consecutive-dry-days stand-in (needs a spatial join + a reachable, keyless source — the official ClimRR portal is not reachable from CI sandboxes). This is the forward-looking climate-fire signal; the *present-day* wildfire hazard already ships in Disaster Resilience (below).
 
 **Shipped:**
+- ~~Add the "fire" hazard to the Disaster Resilience EAL pipeline~~ → "fire" is now a real, **location-based** summed hazard alongside flood/tornado/seismic. It combines a national-average structural/electrical fire baseline with the **FEMA National Risk Index wildfire** EAL rate (`WFIR_AFREQ × WFIR_HLRB`), resolved tract → county → national from a bundled national crosswalk (`nri_wildfire.csv` + `nri_wildfire_tracts.csv.gz`, built by [`scripts/build_nri_wildfire.py`](scripts/build_nri_wildfire.py)). Both the offline Shelby pipeline ([`enrich/fire.py`](src/housing_label/enrich/fire.py) + [`score/resilience.py`](src/housing_label/score/resilience.py)) and the live API ([`data/wildfire.py`](src/housing_label/data/wildfire.py) via the resolved location) share one fire model; a fire-specific Building Resilience Modifier (wiring era × wall-material combustibility × condition) adjusts it. Previously fire existed only as a flat national constant in the CLI simulator and was absent from the parcel pipeline entirely.
 - ~~Finer climate resolution (sub-county)~~ → the **Climate Projections** dimension now carries real **sub-county (census-tract)** values from the USGS **CMIP6-LOCA2** Weighted Multi-Model Mean (~6 km), sampled at each tract's internal point and bundled as `climate_projections_tracts.csv.gz` (county = the mean of its tracts). Built by [`scripts/build_climate_projections.py --source loca2`](scripts/build_climate_projections.py) (SSP2-4.5/5-8.5 mid-century 2040–2069); breakpoints re-anchored to the CMIP6 national distribution. Tracts within a large county now genuinely differ — the inverse of CMRA's tract layer, which broadcast the county value. Live point sampling was ruled out (no keyless LOCA2 point API; single-model point samples aren't defensible), so the signal comes from an offline ensemble-mean grid build.
 - ~~Extend the climate layer to census tracts (CMRA tract layer)~~ → the climate lookup was made **resolution-aware** (`climate_projection_for_tract`: tract → county → national average, each result tagged with its `geo_level`). CMRA's tract layer was empirically found to broadcast the county value onto every tract (no sub-county signal), so the genuinely finer signal was sourced from CMIP6-LOCA2 instead (above). See [research/climate-projections-research.md](research/climate-projections-research.md).
 - ~~Per-parcel climate projections — replace the uniform climate placeholder with downscaled climate-projection data~~ → the **Climate Projections** dimension is now a real per-county score from CMRA (LOCA/NCA4) downscaled projections, with an RCP4.5→8.5 mid-century band and a reproducible build script ([`scripts/build_climate_projections.py`](scripts/build_climate_projections.py)). Design notes in [research/climate-projections-research.md](research/climate-projections-research.md).

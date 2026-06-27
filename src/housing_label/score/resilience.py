@@ -3,10 +3,11 @@ score_resilience.py — Housing Nutrition Label: Disaster Resilience Scoring
 Methodology: Expected Annual Loss Rate (EAL Rate = EAL / property value)
 EAL Rate is dimensionless (fraction of property value lost per year, on average).
 
-Three independent hazards are modeled and summed:
+Four independent hazards are modeled and summed:
   1. Flood        — FEMA flood zone damage curves
   2. Tornado      — path-area strike probability × EF-scaled damage ratios
   3. Seismic      — two-point hazard curve integration (2%/50yr + 10%/50yr)
+  4. Fire         — structural-fire baseline + FEMA NRI wildfire EAL (location-based)
 
 Each hazard's raw EAL rate is multiplied by a Building Resilience Modifier (BRM)
 derived from CAMA construction attributes (year built, wall type, foundation,
@@ -36,10 +37,10 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parents[3]   # repo root; data lives here
 
-# Default input is the LAST enrichment in the chain (health). The chained file
+# Default input is the LAST enrichment in the chain (fire). The chained file
 # already carries the CAMA columns forward from clean_parcels plus all
-# hazard/energy/infra/health columns.
-DEFAULT_INPUT = "shelby_parcels_health.csv"
+# hazard/energy/infra/health/wildfire columns.
+DEFAULT_INPUT = "shelby_parcels_fire.csv"
 DEFAULT_SAMPLE = "shelby_parcels_sample.csv"
 DEFAULT_OUTPUT = "shelby_parcels_scored.csv"
 
@@ -203,7 +204,45 @@ def calc_seismic_eal(row) -> float:
 
 
 # ---------------------------------------------------------------------------
-# 4. SCORE MAPPING — log-linear interpolation
+# 4. FIRE EAL RATE  (structural fire baseline + location wildfire)
+# ---------------------------------------------------------------------------
+# The fire peril combines two independent contributions, summed as a rate:
+#
+#   • Structural / electrical fire — a national-average residential fire EAL.
+#     NFPA reports ~$9B annual home-fire property loss across ~US residential
+#     value → ≈0.020%/yr. Every home carries this regardless of location; it is
+#     the same baseline the CLI simulator (simulate/house.py) uses.
+#
+#   • Wildfire — the FEMA National Risk Index wildfire EAL rate for the parcel's
+#     census tract (county/national fallback), attached upstream by
+#     enrich/fire.py as ``wildfire_eal_rate``. This is what makes "fire"
+#     location-aware: near-zero in Memphis, materially higher in the fire-prone
+#     West. Absent (e.g. fire enrichment not run) → treated as 0.0.
+#
+# Both contributions scale with the same fire Building Resilience Modifier
+# (combustibility): wiring-era × wall-material × condition (see §5f).
+
+STRUCTURAL_FIRE_EAL_BASE = 0.0002   # 0.020%/yr national-average residential fire EAL (NFPA)
+
+
+def calc_fire_eal(row) -> float:
+    """Return the raw fire EAL rate (fraction/year) for one parcel, pre-BRM.
+
+    Structural-fire baseline plus the parcel's NRI wildfire rate (0.0 if the
+    wildfire enrichment column is absent or non-numeric).
+    """
+    wildfire = row.get("wildfire_eal_rate")
+    try:
+        wildfire = float(wildfire)
+    except (TypeError, ValueError):
+        wildfire = 0.0
+    if not np.isfinite(wildfire) or wildfire < 0:
+        wildfire = 0.0
+    return STRUCTURAL_FIRE_EAL_BASE + wildfire
+
+
+# ---------------------------------------------------------------------------
+# 5. SCORE MAPPING — log-linear interpolation
 # ---------------------------------------------------------------------------
 # The score-to-EAL-rate breakpoints below are anchored to physical meaning:
 #   100: EAL < 0.005% → virtually no hazard (e.g., interior low-risk US zones)
@@ -315,7 +354,7 @@ def percentile_to_local_grade(pct: float) -> str:
 
 
 # ---------------------------------------------------------------------------
-# 5. BUILDING RESILIENCE MODIFIER (BRM)
+# 6. BUILDING RESILIENCE MODIFIER (BRM)
 # ---------------------------------------------------------------------------
 # The BRM adjusts each hazard's raw EAL rate to reflect construction quality.
 # BRM is a multiplier:  0.5 = very resilient, 1.0 = baseline, 1.5 = vulnerable.
@@ -500,6 +539,52 @@ EXTWALL_BRM_FLOOR = {
 DEFAULT_BRM_FLOOR = 0.50  # fallback for unknown/unlisted EXTWALL codes
 
 
+# --- 5f. Fire BRM (combustibility) ---
+# The fire peril scales with how readily the structure ignites and burns, not
+# with wind/seismic lateral resistance — so it uses its own modifier built from
+# wall-material combustibility, electrical-wiring era, and condition. These
+# mirror the CLI simulator (simulate/house.py) so the offline pipeline and the
+# live API share one fire model.
+#
+# Wall-material combustibility by EXTWALL code (frame burns; masonry/concrete
+# resist): values track simulate_house.py's FIRE_CONSTRUCTION_FACTOR.
+FIRE_EXTWALL_FACTOR = {
+    1:  1.10,  # Frame: combustible structure
+    4:  1.10,  # Aluminum/vinyl: frame structure, cladding adds no fire benefit
+    9:  0.95,  # Brick & frame: partial masonry protection
+    7:  0.90,  # Brick veneer: masonry skin over frame
+    2:  0.80,  # Block/masonry: non-combustible shell
+    8:  0.80,  # Stone: non-combustible shell
+}
+FIRE_BRM_FLOOR = 0.50  # material/age/condition alone can at most halve fire EAL
+
+
+def fire_age_factor(yrblt) -> float:
+    """Structural-fire vulnerability by electrical/wiring era (ignition risk).
+
+    Pre-1950 knob-and-tube and mid-century aluminum branch wiring raise fire
+    risk; the 2002 NEC (AFCI / tamper-resistant) era lowers it.
+    """
+    if pd.isna(yrblt):
+        return 1.0
+    yr = int(yrblt)
+    if yr < 1950:
+        return 1.5   # knob-and-tube era — highest residential electrical-fire risk
+    elif yr < 1975:
+        return 1.2   # aluminum branch-wiring era
+    elif yr < 2002:
+        return 1.0   # modern NM-B, pre-AFCI baseline
+    else:
+        return 0.85  # NEC 2002+ AFCI / tamper-resistant
+
+
+def fire_construction_factor(extwall) -> float:
+    """Return wall-material fire-combustibility multiplier based on EXTWALL code."""
+    if pd.isna(extwall):
+        return 1.0
+    return FIRE_EXTWALL_FACTOR.get(int(extwall), 1.0)
+
+
 def calc_brm_row(row):
     """
     Compute BRM components and both flood and wind/seismic BRM for one row.
@@ -515,6 +600,7 @@ def calc_brm_row(row):
             "condition_factor":   1.0,
             "flood_brm":         1.0,
             "wind_seismic_brm":  1.0,
+            "fire_brm":          1.0,
             "brm_source":        "default",
         }
 
@@ -528,6 +614,11 @@ def calc_brm_row(row):
 
     flood_brm       = np.clip(cef * ctf * ff * cf,  brm_floor, BRM_MAX)
     wind_seismic_brm = np.clip(cef * ctf * cf,       brm_floor, BRM_MAX)
+    # Fire uses combustibility (wiring era × wall material × condition), not the
+    # wind/seismic factors, clamped to [FIRE_BRM_FLOOR, BRM_MAX].
+    fire_brm        = np.clip(fire_age_factor(row.get("YRBLT"))
+                              * fire_construction_factor(row.get("EXTWALL")) * cf,
+                              FIRE_BRM_FLOOR, BRM_MAX)
 
     return {
         "code_era_factor":    cef,
@@ -536,12 +627,13 @@ def calc_brm_row(row):
         "condition_factor":   cf,
         "flood_brm":         flood_brm,
         "wind_seismic_brm":  wind_seismic_brm,
+        "fire_brm":          fire_brm,
         "brm_source":        "cama",
     }
 
 
 # ---------------------------------------------------------------------------
-# 6. MAIN — apply to all parcels, save output
+# 7. MAIN — apply to all parcels, save output
 # ---------------------------------------------------------------------------
 
 def _resolve_path(path_str: str) -> pathlib.Path:
@@ -645,6 +737,7 @@ def main() -> None:
     df["flood_eal_rate_raw"]   = df.apply(calc_flood_eal,   axis=1)
     df["tornado_eal_rate_raw"] = df.apply(calc_tornado_eal, axis=1)
     df["seismic_eal_rate_raw"] = df.apply(calc_seismic_eal, axis=1)
+    df["fire_eal_rate_raw"]    = df.apply(calc_fire_eal,    axis=1)
 
     # --- Compute BRM for every parcel ---
     brm_df = df.apply(calc_brm_row, axis=1, result_type="expand")
@@ -654,22 +747,26 @@ def main() -> None:
     df["flood_eal_rate"]   = df["flood_eal_rate_raw"]   * df["flood_brm"]
     df["tornado_eal_rate"] = df["tornado_eal_rate_raw"] * df["wind_seismic_brm"]
     df["seismic_eal_rate"] = df["seismic_eal_rate_raw"] * df["wind_seismic_brm"]
+    df["fire_eal_rate"]    = df["fire_eal_rate_raw"]    * df["fire_brm"]
 
     # Independent-hazard assumption: total EAL = sum of individual EALs.
     df["total_eal_rate"] = (
-        df["flood_eal_rate"] + df["tornado_eal_rate"] + df["seismic_eal_rate"]
+        df["flood_eal_rate"] + df["tornado_eal_rate"]
+        + df["seismic_eal_rate"] + df["fire_eal_rate"]
     )
 
     # --- Dollar-denominated EAL (informational, not used in scoring) ---
     df["flood_eal_dollars"]   = df["flood_eal_rate"]   * df["property_value"]
     df["tornado_eal_dollars"] = df["tornado_eal_rate"] * df["property_value"]
     df["seismic_eal_dollars"] = df["seismic_eal_rate"] * df["property_value"]
+    df["fire_eal_dollars"]    = df["fire_eal_rate"]    * df["property_value"]
     df["total_eal_dollars"]   = df["total_eal_rate"]   * df["property_value"]
 
     # --- Map adjusted EAL rates to 0-100 scores ---
     df["flood_score"]      = df["flood_eal_rate"].apply(eal_rate_to_score)
     df["tornado_score"]    = df["tornado_eal_rate"].apply(eal_rate_to_score)
     df["seismic_score"]    = df["seismic_eal_rate"].apply(eal_rate_to_score)
+    df["fire_score"]       = df["fire_eal_rate"].apply(eal_rate_to_score)
     df["resilience_score"] = df["total_eal_rate"].apply(eal_rate_to_score)
 
     # --- National absolute grade (cross-city comparison) ---
@@ -685,6 +782,7 @@ def main() -> None:
     df["flood_local_grade"]   = (df["flood_score"].rank(pct=True) * 100).apply(percentile_to_local_grade)
     df["tornado_local_grade"] = (df["tornado_score"].rank(pct=True) * 100).apply(percentile_to_local_grade)
     df["seismic_local_grade"] = (df["seismic_score"].rank(pct=True) * 100).apply(percentile_to_local_grade)
+    df["fire_local_grade"]    = (df["fire_score"].rank(pct=True) * 100).apply(percentile_to_local_grade)
 
     # --- Save ---
     df.to_csv(output_path, index=False)
@@ -703,7 +801,7 @@ def main() -> None:
     print("=" * 70)
     brm_cols = ["code_era_factor", "construction_factor",
                 "foundation_factor", "condition_factor",
-                "flood_brm", "wind_seismic_brm"]
+                "flood_brm", "wind_seismic_brm", "fire_brm"]
     print(df[brm_cols].describe().map(lambda x: f"{x:.4f}").to_string())
     print(f"\nBRM source breakdown:")
     print(df["brm_source"].value_counts().to_string())
@@ -712,13 +810,14 @@ def main() -> None:
     print("EAL RATE SUMMARY — ADJUSTED (fraction/year × 100 = %/yr)")
     print("=" * 70)
     eal_cols = ["flood_eal_rate", "tornado_eal_rate",
-                "seismic_eal_rate", "total_eal_rate"]
+                "seismic_eal_rate", "fire_eal_rate", "total_eal_rate"]
     print(df[eal_cols].describe().map(lambda x: f"{x:.6f}").to_string())
 
     print("\n" + "=" * 70)
     print("SCORE SUMMARY — ADJUSTED (0–100, higher = more resilient)")
     print("=" * 70)
-    score_cols = ["flood_score", "tornado_score", "seismic_score", "resilience_score"]
+    score_cols = ["flood_score", "tornado_score", "seismic_score",
+                  "fire_score", "resilience_score"]
     print(df[score_cols].describe().map(lambda x: f"{x:.1f}").to_string())
 
     print("\n" + "=" * 70)
@@ -737,7 +836,8 @@ def main() -> None:
     print("\n  Per-hazard local grade distributions:")
     for hazard, col in [("Flood", "flood_local_grade"),
                         ("Tornado", "tornado_local_grade"),
-                        ("Seismic", "seismic_local_grade")]:
+                        ("Seismic", "seismic_local_grade"),
+                        ("Fire", "fire_local_grade")]:
         counts = df[col].value_counts().sort_index()
         row_str = "  ".join(f"{g}:{counts.get(g,0):,}" for g in ["A","B","C","D","F"])
         print(f"  {hazard:<8}: {row_str}")
@@ -757,7 +857,8 @@ def main() -> None:
     # --- BRM effect: score shift ---
     # Compute pre-BRM scores for comparison (using raw EAL rates)
     df["_score_pre_brm"] = (
-        df["flood_eal_rate_raw"] + df["tornado_eal_rate_raw"] + df["seismic_eal_rate_raw"]
+        df["flood_eal_rate_raw"] + df["tornado_eal_rate_raw"]
+        + df["seismic_eal_rate_raw"] + df["fire_eal_rate_raw"]
     ).apply(eal_rate_to_score)
     df["_score_shift"] = df["resilience_score"] - df["_score_pre_brm"]
 
@@ -835,7 +936,7 @@ def main() -> None:
     print("DOLLAR EAL SUMMARY (expected annual loss in $, using RTOTAPR)")
     print("=" * 70)
     dollar_cols = ["flood_eal_dollars", "tornado_eal_dollars",
-                   "seismic_eal_dollars", "total_eal_dollars"]
+                   "seismic_eal_dollars", "fire_eal_dollars", "total_eal_dollars"]
     print(df[dollar_cols].describe().map(lambda x: f"${x:,.0f}").to_string())
 
 

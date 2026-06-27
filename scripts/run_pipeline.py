@@ -19,8 +19,12 @@ Pipeline order
  10. socioeconomic  enrich_socioeconomic.py     health       -> shelby_parcels_socioeconomic.csv
  11. durability     enrich/durability.py        socioeconomic -> shelby_parcels_durability.csv
  12. environmental  enrich/environmental.py     durability   -> shelby_parcels_environmental.csv
- 13. score          score_resilience.py         environmental -> shelby_parcels_scored.csv
- 14. score_all      score_all_dimensions.py     scored       -> shelby_parcels_final.csv
+ 13. fire           enrich/fire.py              environmental -> shelby_parcels_fire.csv
+ 14. score          score_resilience.py         fire          -> shelby_parcels_scored.csv
+ 15. score_all      score_all_dimensions.py     scored        -> shelby_parcels_final.csv
+
+The fire (FEMA NRI wildfire) stage runs after health has attached each parcel's
+census tract, so wildfire EAL resolves at tract level (county/national fallback).
 
 Walk Score enrichment (src/housing_label/enrich/walkscore.py -> shelby_parcels_enriched.csv)
 is an out-of-band, API-gated step: it needs WALKSCORE_API_KEY, has its own resume
@@ -92,7 +96,8 @@ STAGES: list[Stage] = [
     Stage("socioeconomic",  "src/housing_label/enrich/socioeconomic.py",   "shelby_parcels_socioeconomic.csv",  input="shelby_parcels_health.csv"),
     Stage("durability",     "src/housing_label/enrich/durability.py",      "shelby_parcels_durability.csv",     input="shelby_parcels_socioeconomic.csv"),
     Stage("environmental",  "src/housing_label/enrich/environmental.py",   "shelby_parcels_environmental.csv",  input="shelby_parcels_durability.csv"),
-    Stage("score",          "src/housing_label/score/resilience.py",       "shelby_parcels_scored.csv",         input="shelby_parcels_environmental.csv"),
+    Stage("fire",           "src/housing_label/enrich/fire.py",            "shelby_parcels_fire.csv",           input="shelby_parcels_environmental.csv"),
+    Stage("score",          "src/housing_label/score/resilience.py",       "shelby_parcels_scored.csv",         input="shelby_parcels_fire.csv"),
     Stage("score_all",      "src/housing_label/score/all_dimensions.py",   "shelby_parcels_final.csv",          input="shelby_parcels_scored.csv"),
 ]
 
