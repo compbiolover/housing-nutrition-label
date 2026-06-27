@@ -38,6 +38,7 @@ from functools import lru_cache
 DATA_VINTAGE = "Census ACS 2022 5-yr (median taxes / median value)"
 US_AVG_LABEL = f"US national average ({DATA_VINTAGE})"
 LEGACY_NATIONAL_RATE = 0.011   # ultimate fallback if the crosswalk isn't bundled
+RATE_FLOOR, RATE_CEIL = 0.001, 0.05   # 0.1%–5.0% sanity clamp (mirrors the build)
 
 _DIR = pathlib.Path(__file__).resolve().parent
 _CSV = _DIR / "property_tax_county.csv"
@@ -70,7 +71,9 @@ def _table() -> dict[str, dict]:
 
 def _rate(row: dict) -> float | None:
     r = _num(row.get("effective_tax_rate"))
-    return r if r is not None and r > 0 else None
+    if r is None or r <= 0:
+        return None
+    return max(RATE_FLOOR, min(RATE_CEIL, r))   # enforce the documented clamp at runtime
 
 
 def _national_rate() -> float:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build the bundled per-county effective property-tax-rate crosswalk.
 
-Writes ``data/property_tax_county.csv`` — for every U.S. county, the effective
+Writes ``src/housing_label/data/property_tax_county.csv`` — for every U.S. county, the effective
 property-tax rate (annual property tax as a fraction of home value). This is the
 **revenue side** of Infrastructure Burden's fiscal ratio: it replaces the single
 national effective rate previously applied to every non-Shelby location, so a
