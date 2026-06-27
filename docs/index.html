@@ -5,6 +5,71 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Housing Nutrition Label</title>
   <link rel="stylesheet" href="style.css">
+  <!-- Default scoring API for the address search (override per-visit with ?api=...). -->
+  <script>window.HOUSING_LABEL_API = "https://housing-nutrition-label.onrender.com"</script>
+  <style>
+    /* Address search */
+    .addr-form { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 1rem 0; }
+    .addr-form input[type=text] { flex: 1 1 320px; font: inherit; padding: 0.6rem 0.8rem;
+      border: 1px solid var(--border); border-radius: var(--radius); }
+    /* Autocomplete: positioned wrapper anchors the suggestion list under the input. */
+    .addr-ac { position: relative; flex: 1 1 320px; }
+    .addr-ac input[type=text] { width: 100%; box-sizing: border-box; }
+    .addr-suggest { position: absolute; top: 100%; left: 0; right: 0; z-index: 50;
+      background: var(--card); border: 1px solid var(--border); border-top: none;
+      border-radius: 0 0 var(--radius) var(--radius); box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      max-height: 16rem; overflow-y: auto; list-style: none; margin: 0; padding: 0; text-align: left; }
+    .addr-suggest li { padding: 0.5rem 0.8rem; cursor: pointer; font-size: 0.9rem; }
+    .addr-suggest li.active, .addr-suggest li:hover { background: #f1f5f9; }
+    .addr-suggest[hidden] { display: none; }
+    .addr-form select { font: inherit; padding: 0.6rem 0.8rem; border: 1px solid var(--border);
+      border-radius: var(--radius); background: var(--card); }
+    .addr-form button { font: inherit; font-weight: 600; padding: 0.6rem 1.2rem; border: none;
+      border-radius: var(--radius); background: var(--green); color: #fff; cursor: pointer; }
+    .addr-form button:disabled { opacity: 0.6; cursor: progress; }
+    .addr-search { max-width: 640px; margin: 0 auto; text-align: left; }
+    .addr-details { margin: 0 0 0.5rem; }
+    .addr-details summary { cursor: pointer; color: var(--navy); font-weight: 600; font-size: 0.9rem; padding: 0.3rem 0; }
+    .addr-fields { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 0.6rem 0; }
+    .addr-fields label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem;
+      color: var(--muted); flex: 1 1 140px; }
+    .addr-fields input, .addr-fields select { font: inherit; padding: 0.45rem 0.6rem;
+      border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); }
+    .addr-upgrades { border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 0.6rem 0.9rem; margin: 0.4rem 0; display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.35rem; }
+    .addr-upgrades legend { font-size: 0.85rem; font-weight: 600; color: var(--navy); padding: 0 0.3rem; }
+    .addr-upgrades label { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; }
+    .addr-upgrades input { width: auto; }
+    #addr-status { color: var(--muted); font-size: 0.9rem; margin: 0.25rem 0; min-height: 1.2em; }
+    .addr-privacy { color: var(--muted); font-size: 0.8rem; margin: 0.25rem 0; }
+    /* The home hero is dark navy, so re-light the bits that default to navy text
+       and add breathing room above a rendered result. */
+    .hero .addr-details summary, .hero .addr-upgrades legend { color: #cbd5e1; }
+    .hero .addr-fields label { color: #cbd5e1; }
+    .hero #addr-status, .hero .addr-privacy { color: #cbd5e1; }
+    #addr-result { max-width: 640px; margin: 0 auto; text-align: left; }
+    #addr-result:not(:empty) { margin-top: 1.5rem; }
+    #addr-result .label-card { background: var(--card); border: 2px solid var(--navy);
+      border-radius: var(--radius); padding: 1.25rem 1.5rem; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+    #addr-result .label-head { display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 2px solid var(--border); padding-bottom: 0.6rem; margin-bottom: 0.6rem; gap: 1rem; }
+    #addr-result .composite-num { font-size: 2rem; font-weight: 800; color: var(--navy); line-height: 1; }
+    #addr-result .grade-lg { width: 48px; height: 48px; line-height: 48px; text-align: center;
+      border-radius: var(--radius); color: #fff; font-weight: 800; font-size: 1.5rem; }
+    #addr-result .build-line { color: var(--muted); font-size: 0.85rem; margin-top: 0.2rem; }
+    #addr-result .build-line strong { color: var(--navy); }
+    #addr-result .na { color: var(--muted); font-style: italic; }
+    #addr-result .meta { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.75rem; }
+    /* Dark mode: re-light the navy-as-text bits and the suggestion hover. */
+    @media (prefers-color-scheme: dark) {
+      .addr-suggest li.active, .addr-suggest li:hover { background: #334155; }
+      .addr-details summary, .addr-upgrades legend { color: #cbd5e1; }
+      #addr-result .label-card { border-color: #475569; }
+      #addr-result .composite-num,
+      #addr-result .build-line strong { color: #e2e8f0; }
+    }
+  </style>
 </head>
 <body>
 <nav>
@@ -25,13 +90,70 @@
   <div class="badge">Open source &middot; 9 dimensions &middot; any U.S. address</div>
   <h1>Housing Nutrition Label</h1>
   <p class="tagline">An open-source platform that scores residential properties across nine dimensions &mdash; disaster resilience, energy efficiency, durability, environmental footprint, infrastructure burden, health, socioeconomic context, walkability, and climate projections &mdash; like a nutrition label for your home.</p>
-  <form action="examples.html" method="get" style="display:flex;flex-wrap:wrap;gap:0.5rem;justify-content:center;max-width:640px;margin:0 auto;">
-    <input type="text" name="address" required aria-label="U.S. address to score"
-           placeholder="Enter any U.S. address &mdash; e.g. 111 S Grand Ave, Los Angeles, CA"
-           style="flex:1 1 320px;padding:0.75rem 1rem;border:1px solid #cbd5e1;border-radius:var(--radius);font-size:1rem;">
-    <button type="submit" style="background:var(--green);color:#fff;padding:0.75rem 1.75rem;border:0;border-radius:var(--radius);font-weight:600;font-size:1rem;cursor:pointer;">Score it</button>
-  </form>
-  <p style="margin-top:0.75rem;font-size:0.9rem;">Generates a live label for that location, then pick a construction profile &mdash; or <a href="https://github.com/compbiolover/housing-nutrition-label">view the project on GitHub</a>.</p>
+  <div class="addr-search">
+    <form class="addr-form" id="addr-form">
+      <div class="addr-ac" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-owns="addr-suggest">
+        <input type="text" id="addr-input" aria-label="US address to score" placeholder="Enter any U.S. address &mdash; e.g. 111 S Grand Ave, Los Angeles, CA"
+               autocomplete="off" role="textbox" aria-autocomplete="list" aria-controls="addr-suggest" aria-activedescendant="">
+        <ul class="addr-suggest" id="addr-suggest" role="listbox" hidden></ul>
+      </div>
+      <select id="addr-preset" aria-label="Construction profile">
+        <option value="baseline">Baseline (2000 frame)</option>
+        <option value="premium">Premium (2026 brick)</option>
+        <option value="icf-passive">ICF Passive (2026, solar)</option>
+        <option value="fortified-gold">FORTIFIED Gold (2026 frame)</option>
+        <option value="worst-case">Worst Case (1945 frame)</option>
+      </select>
+      <button type="submit" id="addr-btn">Score it</button>
+    </form>
+
+    <details class="addr-details">
+      <summary>Construction details (optional &mdash; these override the profile)</summary>
+      <div class="addr-fields">
+        <label>Year built
+          <input type="number" id="d-year" min="1850" max="2030" step="1" placeholder="e.g. 1998">
+        </label>
+        <label>Wall type
+          <select id="d-construction">
+            <option value="">(use profile)</option>
+            <option value="frame">Wood frame</option>
+            <option value="brick">Brick (masonry)</option>
+            <option value="brick-frame">Brick veneer / frame</option>
+            <option value="block">Concrete block (CMU)</option>
+            <option value="icf">Insulated concrete form (ICF)</option>
+            <option value="sip">Structural insulated panel (SIP)</option>
+            <option value="stone">Stone</option>
+            <option value="vinyl">Vinyl-sided frame</option>
+          </select>
+        </label>
+        <label>Living area (sqft)
+          <input type="number" id="d-sqft" min="200" max="20000" step="50" placeholder="e.g. 2000">
+        </label>
+      </div>
+      <fieldset class="addr-upgrades">
+        <legend>Resilience upgrades</legend>
+        <label><input type="checkbox" value="solar"> Solar panels</label>
+        <label><input type="checkbox" value="backup_generator"> Backup generator / battery</label>
+        <label><input type="checkbox" value="fire_sprinklers"> Fire sprinklers</label>
+        <label><input type="checkbox" value="hurricane_straps"> Hurricane straps</label>
+        <label><input type="checkbox" value="fortified_roof"> FORTIFIED roof</label>
+        <label><input type="checkbox" value="tornado_safe_room"> Tornado safe room</label>
+        <label><input type="checkbox" value="seismic_retrofit"> Seismic retrofit</label>
+        <label><input type="checkbox" value="flood_vents"> Flood vents</label>
+      </fieldset>
+    </details>
+
+    <p id="addr-api-default" class="addr-privacy" style="display:none;"></p>
+    <div class="insight warn" id="addr-api-active" style="display:none;"></div>
+    <div id="addr-status"></div>
+    <div id="addr-result"></div>
+
+    <div class="insight" id="addr-config-note" style="display:none;">
+      <strong>Set the API endpoint:</strong> this search calls a small scoring API (the CLI behind HTTP). Configure its URL by appending <code>?api=https://your-api-host</code> to this page's URL, or set <code>window.HOUSING_LABEL_API</code>. See <a href="setup.html#api">Setup &rarr; Address-search API</a>.
+    </div>
+  </div>
+
+  <p style="margin-top:0.75rem;font-size:0.9rem;">Generates a live label for that location, pick a construction profile and tweak the details &mdash; or <a href="https://github.com/compbiolover/housing-nutrition-label">view the project on GitHub</a>.</p>
 </div>
 
 <section>
@@ -144,5 +266,249 @@
   <p style="margin-top:0.5rem;font-size:0.85rem;">Built with public data. No proprietary sources. Fully reproducible.</p>
 </footer>
 <script src="nav.js"></script>
+<script>
+(function () {
+  // API base URL: ?api=... query param, or window.HOUSING_LABEL_API, else none.
+  var apiFromQuery = new URLSearchParams(location.search).get("api");
+  var API_BASE = (apiFromQuery
+                  || window.HOUSING_LABEL_API || "").replace(/\/$/, "");
+
+  var form   = document.getElementById("addr-form");
+  var input  = document.getElementById("addr-input");
+  var preset = document.getElementById("addr-preset");
+  var btn    = document.getElementById("addr-btn");
+  var status = document.getElementById("addr-status");
+  var result = document.getElementById("addr-result");
+  var note    = document.getElementById("addr-config-note");
+  var active  = document.getElementById("addr-api-active");
+  var dfltMsg = document.getElementById("addr-api-default");
+  var acBox   = document.getElementById("addr-suggest");
+  var acWrap  = input.closest(".addr-ac");
+
+  // Autocomplete state.
+  var picked   = null;   // {label, lat, lon} when a suggestion is chosen; else null
+  var acItems  = [];     // current suggestion objects
+  var acActive = -1;     // highlighted index for keyboard nav
+  var acTimer  = null;   // debounce handle
+  var acSeq    = 0;      // request sequence — drop out-of-order responses
+
+  function apiHost() {
+    try { return new URL(API_BASE).host || API_BASE; } catch (e) { return API_BASE; }
+  }
+
+  if (!API_BASE) {
+    note.style.display = "";
+  } else if (apiFromQuery) {
+    // The endpoint was supplied via the URL (?api=...). Surface where the typed
+    // address (and partial suggestion text) will be sent so a shared link can't
+    // silently exfiltrate it.
+    active.textContent = "Heads up: addresses you enter (including partial text typed for "
+      + "suggestions) are sent to the API at " + apiHost() + " (set via this link's ?api= parameter).";
+    active.style.display = "";
+  } else {
+    // Site default endpoint — a quieter, neutral disclosure of where data goes.
+    dfltMsg.textContent = "Addresses you type (including partial text for suggestions) are sent to "
+      + "our scoring API (" + apiHost() + ") to look up location data.";
+    dfltMsg.style.display = "";
+  }
+
+  var GRADE_COLORS = { A:"#22c55e", B:"#84cc16", C:"#eab308", D:"#f97316", F:"#ef4444" };
+  var WALL_LABELS = {
+    frame:"wood frame", brick:"brick", "brick-frame":"brick veneer", block:"concrete block",
+    icf:"ICF", sip:"SIP", stone:"stone", vinyl:"vinyl-sided frame"
+  };
+  var UPGRADE_LABELS = {
+    solar:"solar", backup_generator:"backup generator", fire_sprinklers:"fire sprinklers",
+    hurricane_straps:"hurricane straps", fortified_roof:"FORTIFIED roof",
+    tornado_safe_room:"tornado safe room", seismic_retrofit:"seismic retrofit",
+    flood_vents:"flood vents"
+  };
+  function fillClass(score) {            // map score to a style.css fill color
+    if (score >= 60) return "green";     // A & B share the green bar; the grade
+    if (score >= 40) return "yellow";    // badge carries the precise A/B/C/D/F color
+    if (score >= 20) return "orange";
+    return "red";
+  }
+  function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML; }
+
+  // ── Address autocomplete (debounced typeahead backed by our /suggest proxy) ──
+  function closeAc() {
+    acBox.hidden = true; acBox.innerHTML = ""; acItems = []; acActive = -1;
+    acWrap.setAttribute("aria-expanded", "false");
+    input.setAttribute("aria-activedescendant", "");
+  }
+  function setActive(i) {
+    var lis = acBox.querySelectorAll("li");
+    for (var j = 0; j < lis.length; j++) lis[j].classList.toggle("active", j === i);
+    acActive = i;
+    input.setAttribute("aria-activedescendant", i >= 0 ? "addr-opt-" + i : "");
+  }
+  function renderAc(list) {
+    acItems = list; acActive = -1;
+    if (!list.length) { closeAc(); return; }
+    acBox.innerHTML = list.map(function (s, i) {
+      return '<li role="option" id="addr-opt-' + i + '" data-i="' + i + '">' + esc(s.label) + '</li>';
+    }).join("");
+    acBox.hidden = false;
+    acWrap.setAttribute("aria-expanded", "true");
+  }
+  function fetchSuggest(q) {
+    var seq = ++acSeq;
+    fetch(API_BASE + "/suggest?q=" + encodeURIComponent(q))
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (list) { if (seq === acSeq) renderAc(Array.isArray(list) ? list : []); })
+      .catch(function () { if (seq === acSeq) closeAc(); });   // never throw to the page
+  }
+  function choose(i) {
+    var s = acItems[i]; if (!s) return;
+    picked = s;                 // remember {label, lat, lon}
+    input.value = s.label;
+    closeAc();
+  }
+
+  input.addEventListener("input", function () {
+    picked = null;              // editing the text invalidates any prior pick
+    var q = input.value.trim();
+    clearTimeout(acTimer);
+    if (!API_BASE || q.length < 3) { closeAc(); return; }
+    acTimer = setTimeout(function () { fetchSuggest(q); }, 250);
+  });
+  input.addEventListener("keydown", function (e) {
+    if (acBox.hidden || !acItems.length) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); setActive((acActive + 1) % acItems.length); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setActive((acActive - 1 + acItems.length) % acItems.length); }
+    else if (e.key === "Enter" && acActive >= 0) { e.preventDefault(); choose(acActive); }
+    else if (e.key === "Escape") { closeAc(); }
+  });
+  acBox.addEventListener("mousedown", function (e) {   // mousedown beats input blur
+    var li = e.target.closest("li[data-i]"); if (!li) return;
+    e.preventDefault(); choose(parseInt(li.getAttribute("data-i"), 10));
+  });
+  input.addEventListener("blur", function () { setTimeout(closeAc, 120); });
+
+  function dimRow(d) {
+    if (d.score == null) {
+      return '<div class="score-bar-container"><div class="score-bar-label">'
+        + '<span>' + esc(d.label) + '</span><span class="na">N/A</span></div>'
+        + '<div class="score-bar"></div></div>';
+    }
+    return '<div class="score-bar-container"><div class="score-bar-label">'
+      + '<span>' + esc(d.label) + '</span><span>' + d.score.toFixed(1) + ' / '
+      + esc(d.national_grade) + '</span></div>'
+      + '<div class="score-bar"><div class="fill ' + fillClass(d.score)
+      + '" style="width:' + d.score + '%"></div></div></div>';
+  }
+
+  function render(data, ctx) {
+    var loc = data.location || {};
+    var comp = data.composite_score;
+    var compGrade = data.composite_national_grade || "—";
+    var color = GRADE_COLORS[compGrade] || "#64748b";
+    var m = data.metrics || {};
+    var metricBits = [];
+    if (m.eui_kbtu_sqft_yr != null) metricBits.push("EUI " + m.eui_kbtu_sqft_yr.toFixed(1) + " kBTU/sqft/yr");
+    if (m.est_monthly_energy_cost != null) metricBits.push("$" + Math.round(m.est_monthly_energy_cost) + "/mo energy");
+    if (m.fiscal_ratio != null) metricBits.push("fiscal ratio " + m.fiscal_ratio.toFixed(2));
+
+    var metaParts = [];
+    if (loc.county_name) metaParts.push(esc(loc.county_name));
+    if (loc.climate_zone) metaParts.push("IECC " + esc(loc.climate_zone));
+    metaParts.push(data.n_scored + "/" + (data.dimensions ? data.dimensions.length : data.n_scored) + " dimensions");
+
+    // Build summary: "Custom" (or the profile name) + what was actually scored.
+    var h = data.house || {};
+    var profileText = ctx.isCustom ? "Custom" : ctx.presetLabel;
+    var buildBits = [];
+    if (h.construction) buildBits.push(WALL_LABELS[h.construction] || h.construction);
+    if (h.year_built) buildBits.push("built " + h.year_built);
+    if (h.sqft != null) buildBits.push(Math.round(h.sqft).toLocaleString() + " sqft");
+    if (ctx.upgradeLabels && ctx.upgradeLabels.length) buildBits.push(ctx.upgradeLabels.join(", "));
+    var buildLine = '<div class="build-line"><strong>' + esc(profileText) + '</strong>'
+      + (buildBits.length ? " &middot; " + esc(buildBits.join(" · ")) : "") + '</div>';
+
+    var html = '<div class="label-card">'
+      + '<div class="label-head"><div>'
+      + '<div style="font-weight:700;color:var(--navy);">' + esc(loc.label || (data.house.lat + ", " + data.house.lon)) + '</div>'
+      + '<div class="meta">' + metaParts.join(" &middot; ") + '</div>'
+      + buildLine + '</div>'
+      + '<div style="text-align:right;"><div class="composite-num">'
+      + (comp == null ? "N/A" : comp.toFixed(1)) + '</div>'
+      + '<span class="grade-lg" style="background:' + color + '">' + esc(compGrade) + '</span></div>'
+      + '</div>';
+
+    html += data.dimensions.map(dimRow).join("");
+    if (metricBits.length) html += '<p class="meta" style="margin-top:0.75rem;">' + esc(metricBits.join("  ·  ")) + '</p>';
+    (data.caveats || []).forEach(function (c) {
+      html += '<div class="insight warn" style="margin-top:0.75rem;font-size:0.85rem;">' + esc(c) + '</div>';
+    });
+    html += '</div>';
+    result.innerHTML = html;
+  }
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var addr = input.value.trim();
+    if (!addr) { status.textContent = "Enter an address."; return; }
+    if (!API_BASE) { status.textContent = ""; note.style.display = ""; return; }
+    result.innerHTML = "";
+    status.textContent = "Scoring " + addr + " …";
+    btn.disabled = true;
+    clearTimeout(acTimer); closeAc();
+
+    // Optional construction details override the chosen profile.
+    var params = new URLSearchParams();
+    // A picked suggestion carries exact coords — score that point directly (no
+    // re-geocode). Otherwise fall back to geocoding the typed address server-side.
+    if (picked && picked.label === addr) {
+      params.set("lat", picked.lat);
+      params.set("lon", picked.lon);
+    } else {
+      params.set("address", addr);
+    }
+    params.set("preset", preset.value);
+    var year = document.getElementById("d-year").value.trim();
+    var constr = document.getElementById("d-construction").value;
+    var sqft = document.getElementById("d-sqft").value.trim();
+    if (year)   params.set("year_built", year);
+    if (constr) params.set("construction", constr);
+    if (sqft)   params.set("sqft", sqft);
+    var ups = Array.prototype.slice
+      .call(document.querySelectorAll(".addr-upgrades input:checked"))
+      .map(function (c) { return c.value; });
+    if (ups.length) params.set("upgrades", ups.join(","));
+
+    // Any override (field or upgrade) makes the scored build "Custom" rather
+    // than the selected base profile. Capture context for the result header.
+    var ctx = {
+      presetLabel: preset.options[preset.selectedIndex].text,
+      isCustom: !!(year || constr || sqft || ups.length),
+      upgradeLabels: ups.map(function (v) { return UPGRADE_LABELS[v] || v; })
+    };
+
+    var url = API_BASE + "/label?" + params.toString();
+    fetch(url)
+      .then(function (r) { if (!r.ok) return r.json().then(function (j) { throw new Error(j.detail || ("HTTP " + r.status)); }); return r.json(); })
+      .then(function (data) { status.textContent = ""; render(data, ctx); })
+      .catch(function (err) { status.textContent = "Could not score that address: " + err.message; })
+      .finally(function () { btn.disabled = false; });
+  });
+
+  // Deep link: ?address=... prefills the field and runs the search automatically.
+  // ?preset= optionally picks a profile.
+  var qs = new URLSearchParams(location.search);
+  var deepAddr = qs.get("address");
+  if (deepAddr) {
+    input.value = deepAddr;
+    var deepPreset = qs.get("preset");
+    if (deepPreset) {
+      for (var pi = 0; pi < preset.options.length; pi++) {
+        if (preset.options[pi].value === deepPreset) { preset.selectedIndex = pi; break; }
+      }
+    }
+    if (form.requestSubmit) form.requestSubmit();
+    else form.dispatchEvent(new Event("submit", { cancelable: true }));
+  }
+})();
+</script>
 </body>
 </html>
