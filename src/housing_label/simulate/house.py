@@ -147,11 +147,15 @@ FLOOD_CONSTRUCTION_FACTOR = {
 }
 
 # ── Fire peril ────────────────────────────────────────────────────────────────
-# Structural (residential) fire expected-annual-loss. Base rate is the national
-# average loss share: NFPA reports ~$9B annual home-fire property loss across
-# ~130M housing units (~$70/home/yr); on a ~$350k median home that's ≈0.02%/yr.
-# The base is calibrated to an "average" home (modifiers = 1.0); age (wiring era)
-# and construction (combustibility) scale it from there.
+# The fire EAL has two parts, summed: a structural/electrical baseline (this
+# constant) plus the location's WILDFIRE EAL rate. The structural base is the
+# national average loss share: NFPA reports ~$9B annual home-fire property loss
+# across ~130M housing units (~$70/home/yr); on a ~$350k median home that's
+# ≈0.02%/yr. The wildfire term comes from the FEMA National Risk Index, resolved
+# for the location and passed in as cfg["wildfire_eal_base"] by build_label_parts
+# (0.0 when the location wasn't resolved, keeping simulate() offline-safe). The
+# base is calibrated to an "average" home (modifiers = 1.0); age (wiring era) and
+# construction (combustibility) scale the whole peril from there.
 FIRE_EAL_BASE = 0.0002          # 0.020%/yr national-average residential fire EAL
 FIRE_BRM_FLOOR = 0.5            # construction/age alone can at most halve fire EAL
 
@@ -743,7 +747,20 @@ def simulate(cfg: dict) -> dict:
     flood_raw   = calc_flood_eal_raw(flood_risk)
     tornado_raw = calc_tornado_eal_raw(tornado_rate)
     seismic_raw = calc_seismic_eal_raw(pga_2pct, pga_10pct)
-    fire_raw    = FIRE_EAL_BASE
+    # Fire = national-average structural/electrical fire baseline + the location's
+    # FEMA NRI wildfire EAL rate (0.0 when the location wasn't resolved, keeping
+    # simulate() offline-safe). build_label_parts sets cfg["wildfire_eal_base"]
+    # from the resolved Location; tests/batch callers that omit it get the
+    # structural baseline alone, as before.
+    try:
+        wildfire_base = float(cfg.get("wildfire_eal_base") or 0.0)
+        if not math.isfinite(wildfire_base):
+            wildfire_base = 0.0
+    except (TypeError, ValueError):    # non-numeric override (JSON/CLI) → ignore
+        wildfire_base = 0.0
+    wildfire_base = max(0.0, wildfire_base)   # clamp once so the reported base matches use
+    fire_raw    = FIRE_EAL_BASE + wildfire_base
+    r["wildfire_eal_base"] = wildfire_base
 
     # ── BRM-adjusted EAL rates ────────────────────────────────────────────────
     flood_adj   = flood_raw   * flood_brm
@@ -1027,6 +1044,7 @@ def print_scorecard(cfg: dict, r: dict) -> None:
     print(row(f"    Flood            : ${r['flood_loss']:>10,.0f} / year"))
     print(row(f"    Tornado          : ${r['tornado_loss']:>10,.0f} / year"))
     print(row(f"    Seismic          : ${r['seismic_loss']:>10,.0f} / year"))
+    print(row(f"    Fire             : ${r['fire_loss']:>10,.0f} / year"))
     print(row(f"    {'─'*40}"))
     print(row(f"    TOTAL            : ${r['total_loss']:>10,.0f} / year"))
     print(SEP)
@@ -1213,6 +1231,7 @@ def label_payload(cfg: dict, r: dict, label: dict) -> dict:
         "census_tract": label["census_tract"],
         "location_notes": label["location_notes"],
         "total_loss": round(r["total_loss"], 2),
+        "fire_loss": round(r["fire_loss"], 2),
     }
     loc = label.get("location")
     if loc is not None:
@@ -1226,6 +1245,14 @@ def label_payload(cfg: dict, r: dict, label: dict) -> dict:
             "in_urban_area": loc.in_urban_area,
             "notes": loc.notes,
         }
+        # Wildfire hazard behind the fire peril (FEMA NRI; rating + EAL rate).
+        wf = getattr(loc, "wildfire", None)
+        if wf is not None:
+            payload["wildfire"] = {
+                "risk_rating": wf.get("risk_rating"),
+                "eal_rate": wf.get("eal_rate"),
+                "geo_level": wf.get("geo_level"),
+            }
     payload["caveats"] = _approx_caveats(loc)
     return payload
 
@@ -1281,6 +1308,15 @@ def build_label_parts(*, address: str | None = None,
     cfg["allow_network"] = allow_network
     if "flood_zone" not in cfg:
         cfg["flood_zone"] = _auto_flood_zone(cfg["lat"], cfg["lon"], allow_network)
+
+    # Location-based wildfire EAL feeds the fire peril (structural baseline +
+    # wildfire), resolved offline from the bundled FEMA NRI crosswalk via the
+    # Location's tract/county. A resolved Location always carries a wildfire dict:
+    # the real tract/county rate when mapped, else the national-average fallback
+    # (resolved=False). Only when no Location resolved at all (e.g. offline with
+    # no geocode) is wildfire left unset, so simulate() uses 0.0.
+    if location is not None and getattr(location, "wildfire", None):
+        cfg["wildfire_eal_base"] = location.wildfire.get("eal_rate") or 0.0
 
     r = simulate(cfg)
     label = simulate_all_dimensions(

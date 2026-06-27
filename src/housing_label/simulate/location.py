@@ -30,6 +30,7 @@ from housing_label.config import TIMEOUT, RETRIES, BACKOFF, HEADERS
 from housing_label.data import climate as climate_data
 from housing_label.data import climate_projections as climate_proj_data
 from housing_label.data import egrid as egrid_data
+from housing_label.data import wildfire as wildfire_data
 
 GEOCODER_ONELINE = "https://geocoding.geo.census.gov/geocoder/geographies/onelineaddress"
 GEOCODER_COORDS = "https://geocoding.geo.census.gov/geocoder/geographies/coordinates"
@@ -52,6 +53,7 @@ class Location:
     egrid_subregion: str | None = None
     egrid_factor: float | None = None     # kg CO2e / kWh
     climate_projection: dict | None = None  # CMIP6-LOCA2 hazard projection (tract→county→US)
+    wildfire: dict | None = None          # FEMA NRI wildfire hazard (tract→county→US)
     notes: dict = field(default_factory=dict)
 
     @property
@@ -191,6 +193,17 @@ def resolve_location(
     if loc.county_fips and not loc.climate_projection.get("resolved"):
         notes["climate_projection"] = (
             f"county {loc.county_fips} not in climate crosswalk; using US average")
+
+    # Wildfire (FEMA NRI): resolution-aware tract→county→national. Drives the
+    # location-based "fire" hazard in the resilience EAL model. Always populated.
+    loc.wildfire = (
+        wildfire_data.wildfire_for_tract(loc.tract)
+        if loc.tract
+        else wildfire_data.wildfire_for_county(loc.county_fips)
+    )
+    if loc.county_fips and not loc.wildfire.get("resolved"):
+        notes["wildfire"] = (
+            f"county {loc.county_fips} not in NRI wildfire crosswalk; using US average")
 
     return loc
 
