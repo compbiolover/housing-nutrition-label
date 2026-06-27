@@ -547,7 +547,7 @@ DEFAULT_BRM_FLOOR = 0.50  # fallback for unknown/unlisted EXTWALL codes
 # live API share one fire model.
 #
 # Wall-material combustibility by EXTWALL code (frame burns; masonry/concrete
-# resist): values track simulate_house.py's FIRE_CONSTRUCTION_FACTOR.
+# resist): values track simulate/house.py's FIRE_CONSTRUCTION_FACTOR.
 FIRE_EXTWALL_FACTOR = {
     1:  1.10,  # Frame: combustible structure
     4:  1.10,  # Aluminum/vinyl: frame structure, cladding adds no fire benefit

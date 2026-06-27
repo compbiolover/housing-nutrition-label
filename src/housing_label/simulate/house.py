@@ -758,7 +758,8 @@ def simulate(cfg: dict) -> dict:
             wildfire_base = 0.0
     except (TypeError, ValueError):    # non-numeric override (JSON/CLI) → ignore
         wildfire_base = 0.0
-    fire_raw    = FIRE_EAL_BASE + max(0.0, wildfire_base)
+    wildfire_base = max(0.0, wildfire_base)   # clamp once so the reported base matches use
+    fire_raw    = FIRE_EAL_BASE + wildfire_base
     r["wildfire_eal_base"] = wildfire_base
 
     # ── BRM-adjusted EAL rates ────────────────────────────────────────────────

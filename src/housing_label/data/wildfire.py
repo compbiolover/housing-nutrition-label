@@ -66,9 +66,10 @@ def _load_rows(path: pathlib.Path, width: int) -> dict[str, dict]:
     opener = gzip.open if path.suffix == ".gz" else open
     with opener(path, "rt", newline="") as f:
         for row in csv.DictReader(f):
-            geoid = str(row.get("geoid", "")).strip().zfill(width)
-            if geoid:
-                table[geoid] = row
+            raw = str(row.get("geoid", "")).strip()
+            if not raw:                 # skip blank GEOIDs before zero-padding
+                continue                # (else zfill would key them as "0000…")
+            table[raw.zfill(width)] = row
     return table
 
 
