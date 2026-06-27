@@ -65,9 +65,10 @@ def _table() -> dict[str, dict]:
         return table
     with _CSV.open(newline="") as f:
         for row in csv.DictReader(f):
-            geoid = str(row.get("geoid", "")).strip().zfill(5)
-            if geoid:
-                table[geoid] = row
+            raw = str(row.get("geoid", "")).strip()
+            if not raw:                 # skip blank GEOIDs before zero-padding
+                continue                # (else zfill would clobber the "00000" national row)
+            table[raw.zfill(5)] = row
     return table
 
 

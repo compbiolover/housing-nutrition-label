@@ -1112,10 +1112,15 @@ def _approx_caveats(location) -> list[str]:
                 "spending (Census of Governments per-capita, by function) layered on a "
                 "density cost model — a county-level estimate, not parcel-level."
             )
-        else:
+        elif gov["resolved"] == "national":
             caveats.append(
                 "Infrastructure Burden uses a national-average cost model (this county "
                 "is not in the local-finance crosswalk) — treat it as an estimate."
+            )
+        else:  # "none" — the local-finance crosswalk isn't bundled
+            caveats.append(
+                "Infrastructure Burden falls back to the Memphis pilot cost model (the "
+                "local-finance crosswalk is unavailable) — treat it as an estimate."
             )
 
     # Environmental: flag whenever it used the US-average grid factor instead of a
