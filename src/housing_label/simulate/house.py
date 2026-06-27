@@ -1244,6 +1244,9 @@ def label_payload(cfg: dict, r: dict, label: dict) -> dict:
             "lot_acres": cfg.get("lot_acres", 0.25),
             "flood_zone": cfg["flood_zone"],
             "value": cfg["value"],
+            # How the home value was determined: "county median (ACS)" when
+            # auto-filled, else None (taken as entered / from the profile).
+            "value_source": cfg.get("value_source"),
             "lat": cfg["lat"],
             "lon": cfg["lon"],
         },
