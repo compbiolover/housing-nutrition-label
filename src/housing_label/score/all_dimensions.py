@@ -165,8 +165,9 @@ ENERGY_YS = [100.0, 80.0, 60.0, 40.0, 20.0, 0.0]
 # F = bottom ~20%. Both sides are now like-for-like NON-SCHOOL: the revenue is
 # municipal property tax (the school-district share netted out, matching the
 # school-excluded cost side), so the ratios are lower — the national median
-# fiscal ratio ≈ 0.31 → score ≈ 50 (the typical US home covers ~31¢ of non-school
-# municipal cost per non-school tax dollar). Replaces the Shelby-pilot thresholds.
+# fiscal ratio ≈ 0.31 → score ≈ 50 (the typical US home's non-school property tax
+# covers only ~31% of its non-school municipal cost — ≈31¢ of revenue per $1 of
+# cost). Replaces the Shelby-pilot thresholds.
 #   ≥0.98→100, 0.53→80, 0.36→60, 0.26→40, 0.17→20, ≤0.09→0   (log-linear between).
 INFRA_XS = [0.092, 0.169, 0.264, 0.363, 0.526, 0.976]
 INFRA_YS = [0.0, 20.0, 40.0, 60.0, 80.0, 100.0]

@@ -99,6 +99,7 @@ MULT_FLOOR, MULT_CEIL = 0.25, 4.0
 # district), so the type-5 signal is absent — fall back to the national average.
 SCHOOL_SHARE_FLOOR = 0.08       # below this → treat as dependent-school → national avg
 SCHOOL_SHARE_CEIL = 0.75        # clamp extreme outliers
+LEGACY_NATIONAL_SCHOOL_SHARE = 0.41   # conservative fallback if T01 parsing yields nothing
 OUT_COLUMNS = (["geoid", "county_name", "state", "pop"]
                + [f"mult_{c}" for c in COMPONENTS] + ["school_tax_share", "resolved"])
 
@@ -208,7 +209,11 @@ def build_rows(spend: dict[str, dict[str, float]],
     # counties (type-5 share ≈ 0) and for unmapped counties.
     nat_school = sum(proptax[f]["school"] for f in proptax)
     nat_total = sum(proptax[f]["total"] for f in proptax)
-    nat_school_share = round(nat_school / nat_total, 4) if nat_total > 0 else 0.0
+    # If property-tax parsing yielded nothing, don't silently imply "no schools"
+    # (0.0 would propagate to every fallback county); use the documented legacy
+    # national share so the failure is conservative rather than skewing the ratio.
+    nat_school_share = (round(nat_school / nat_total, 4) if nat_total > 0
+                        else LEGACY_NATIONAL_SCHOOL_SHARE)
 
     def school_share_for(fips: str) -> float:
         pt = proptax.get(fips)
