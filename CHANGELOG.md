@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.3](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.2...v0.1.3) (2026-06-27)
+
+
+### Features
+
+* add location-based fire (wildfire) hazard to disaster resilience ([#37](https://github.com/compbiolover/housing-nutrition-label/issues/37)) ([459dbf2](https://github.com/compbiolover/housing-nutrition-label/commit/459dbf23103dfc320796673ba471bcf865efe827))
+
 ## [0.1.2](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.1...v0.1.2) (2026-06-27)
 
 
