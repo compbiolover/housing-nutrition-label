@@ -144,6 +144,28 @@ dependent-school counties (TN, VA, parts of others) fall back to the national
 average, and CoG can't attribute a general government's property-tax revenue to its
 education function, so in-between cases are approximate.
 
+## Phase 4 (implemented) — density-responsive cost curve + per-acre productivity
+
+Sharpens how the model credits small-scale infill, after testing showed the
+density comparison barely moved the needle (1→4 units capped the gain).
+
+- **Continuous, extended cost curve**: `enrich/infrastructure.py` replaced the
+  step-function density tiers for roads & water/sewer with `interp_cost` (log-log
+  interpolation over anchor points). The anchors are the published Halifax band
+  costs at each band's geometric-mean density, **extended past 12 DU/acre** (24,
+  48 DU/acre). Previously these floored at 12 DU/acre, so a triplex, quadplex,
+  and 16-plex on a normal lot all scored identically; now per-household
+  linear-infrastructure cost keeps amortizing with density, so denser infill
+  keeps earning credit. A 16+ DU/acre police-efficiency tier was also added.
+- **Re-calibration**: with the densest archetype no longer pinned at the floor,
+  `INFRA_XS` was re-anchored (national median fiscal ratio ≈ 0.31 unchanged; the
+  top anchor rose from ~0.98 to ~1.05).
+- **Fiscal productivity per acre**: the per-unit fiscal ratio understates infill
+  because the headline gain is on the revenue side. The density comparison now
+  also reports revenue/cost/net fiscal *per acre* — on a fixed lot at constant
+  per-unit value a quadplex yields ~4× the tax base per acre on the same shared
+  infrastructure (the "value per acre" lens).
+
 ## Future phases (not in this change)
 
 - **Sub-county / per-jurisdiction property tax**: state DOR millage tables (and

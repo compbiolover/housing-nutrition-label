@@ -119,23 +119,33 @@ MEMPHIS_CORE_LON = -90.0490
 CITY_TAX_RATE           = 0.0319    # per $1 of assessed value
 RESIDENTIAL_ASSESS_RATIO = 0.25     # 25% of appraised value; TN state law (TCA 67-5-502)
 
-# ── Road cost by density tier ($/household/yr) ────────────────────────────────
+# ── Road cost vs density (continuous, $/household/yr) ─────────────────────────
 # Source: Halifax Regional Municipality "Cost of Sprawl" (2004, updated 2020);
 #         Strong Towns Sun Belt calibration applied (1.15x multiplier for
 #         lower-density suburban road network typical of Memphis metro).
 # Covers: pavement maintenance, reconstruction capital, stormwater drainage,
 #         sidewalks/curb, traffic signals — all amortized to annual $/HH.
 # These are calibrated to Memphis; NOT simple national averages.
+#
+# Anchor points are the published Halifax band costs placed at each band's
+# geometric-mean density, then EXTENDED past 12 DU/acre (24, 48) by continuing
+# the curve's slope (≈ density^-0.7). Cost is log-log interpolated between
+# anchors and clamped flat outside the range (interp_cost). Linear road network
+# is shared per-frontage, so per-household cost keeps falling with density rather
+# than flooring at 12 DU/acre — small-multiplex infill (a quadplex ≈ 16 DU/acre)
+# is squarely in the responsive range, not pinned at the old floor.
 ROAD_COST_BY_DENSITY = [
-    # (min_du_acre, max_du_acre, $/HH/yr)
-    (0.0,   1.0,  2_400),   # rural/estate  (<1 DU/acre)
-    (1.0,   3.0,  1_800),   # suburban sprawl (1–3 DU/acre)
-    (3.0,   6.0,  1_200),   # suburban (3–6 DU/acre)
-    (6.0,  12.0,    700),   # urban (6–12 DU/acre)
-    (12.0, float("inf"), 400),  # dense urban (12+ DU/acre)
+    # (du_acre, $/HH/yr)
+    (0.7,  2_400),   # rural/estate
+    (1.73, 1_800),   # suburban sprawl
+    (4.24, 1_200),   # suburban
+    (8.49,   700),   # urban
+    (12.0,   400),   # dense urban (published floor anchor)
+    (24.0,   250),   # very dense infill (extended)
+    (48.0,   150),   # mid-rise / compact urban (extended)
 ]
 
-# ── Water/sewer cost by density tier ($/household/yr) ─────────────────────────
+# ── Water/sewer cost vs density (continuous, $/household/yr) ───────────────────
 # Source: Halifax "Cost of Sprawl" (2004/2020); MLGW sewer/stormwater capital
 #         backlog (~$1B) amortized over 30 yr ÷ 140,000 connections adds ~$238/yr.
 # Covers: water distribution pipe, sewer collection pipe, treatment plant
@@ -143,12 +153,17 @@ ROAD_COST_BY_DENSITY = [
 # NOTE: MLGW is a separate utility from the City; these costs are included
 #       because they represent public infrastructure burden even if not in the
 #       general fund. Flag this if comparing to city-budget-only analyses.
+# Same anchor/interpolation scheme as roads (band cost at geometric-mean density,
+# extended past 12 DU/acre); the distribution/collection mains are shared linear
+# infrastructure, so per-household cost keeps amortizing with density.
 WATER_SEWER_COST_BY_DENSITY = [
-    (0.0,   1.0,  1_500),
-    (1.0,   3.0,  1_100),
-    (3.0,   6.0,    800),
-    (6.0,  12.0,    500),
-    (12.0, float("inf"), 350),
+    (0.7,  1_500),
+    (1.73, 1_100),
+    (4.24,   800),
+    (8.49,   500),
+    (12.0,   350),
+    (24.0,   220),
+    (48.0,   135),
 ]
 
 # ── Fire/EMS base cost ($/household/yr) ───────────────────────────────────────
@@ -183,7 +198,8 @@ POLICE_DENSITY_MULTIPLIERS = [
     # (max_du_acre, multiplier)
     (3.0,  1.20),   # <3 DU/acre: large patrol area per officer
     (8.0,  1.00),   # 3–8 DU/acre: moderate density
-    (float("inf"), 0.80),  # 8+ DU/acre: compact, efficient patrol
+    (16.0, 0.80),   # 8–16 DU/acre: compact, efficient patrol
+    (float("inf"), 0.70),  # 16+ DU/acre: dense infill, most efficient patrol
 ]
 
 # ── Sanitation (solid waste) ──────────────────────────────────────────────────
@@ -229,12 +245,25 @@ def haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> float
     return 2 * R_MILES * math.asin(math.sqrt(a))
 
 
-def tiered_cost(density: float, tiers: list[tuple]) -> float:
-    """Return cost for given density from a list of (min, max, cost) tiers."""
-    for lo, hi, cost in tiers:
-        if lo <= density < hi:
-            return float(cost)
-    return float(tiers[-1][2])
+def interp_cost(density: float, anchors: list[tuple]) -> float:
+    """Log-log linear interpolation of per-household cost vs density.
+
+    ``anchors`` is an ascending list of (du_acre, cost) points. Between anchors,
+    both axes are interpolated in log space (cost falls smoothly as a power of
+    density); outside the anchor range the cost is clamped flat to the nearest
+    endpoint. A continuous curve (vs the old step tiers) means every added unit
+    moves the cost, and extending the anchors past 12 DU/acre keeps crediting
+    denser infill instead of flooring at a triplex.
+    """
+    if density <= anchors[0][0]:
+        return float(anchors[0][1])
+    if density >= anchors[-1][0]:
+        return float(anchors[-1][1])
+    for (d_lo, c_lo), (d_hi, c_hi) in zip(anchors, anchors[1:]):
+        if d_lo <= density <= d_hi:
+            t = (math.log(density) - math.log(d_lo)) / (math.log(d_hi) - math.log(d_lo))
+            return float(math.exp(math.log(c_lo) + t * (math.log(c_hi) - math.log(c_lo))))
+    return float(anchors[-1][1])
 
 
 def fire_cost(base: float, dist_mi: float) -> float:
@@ -322,8 +351,8 @@ def enrich_row(row: pd.Series, *,
     # ── Cost components ────────────────────────────────────────────────────────
     # Each density/urban-shape cost is scaled by the county's local-spending
     # multiplier (default 1.0 = Shelby pilot calibration).
-    cost_roads       = tiered_cost(lot_density, ROAD_COST_BY_DENSITY) * mult.get("roads", 1.0)
-    cost_water_sewer = tiered_cost(lot_density, WATER_SEWER_COST_BY_DENSITY) * mult.get("water_sewer", 1.0)
+    cost_roads       = interp_cost(lot_density, ROAD_COST_BY_DENSITY) * mult.get("roads", 1.0)
+    cost_water_sewer = interp_cost(lot_density, WATER_SEWER_COST_BY_DENSITY) * mult.get("water_sewer", 1.0)
     cost_fire        = FIRE_BASE_COST * fire_mult * mult.get("fire", 1.0)
     cost_police      = police_cost(POLICE_BASE_COST, lot_density) * mult.get("police", 1.0)
     cost_sanitation  = float(SANITATION_COST) * mult.get("sanitation", 1.0)

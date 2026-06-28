@@ -270,7 +270,7 @@
           &amp;upgrades=solar,hurricane_straps,fire_sprinklers</code></pre>
   <p>Same parameters as the CLI; resilience upgrades are a single comma-separated <code>upgrades=</code> list. <code>GET /suggest?q=</code> powers the address autocomplete.</p>
   <pre><code>GET /density?address=&lt;addr&gt;&amp;units=1,2,4&amp;per_unit_value=250000</code></pre>
-  <p>Compares the parcel across densities (fixed lot, vary units). Accepts every <code>/label</code> house parameter plus <code>units=</code> (comma-separated counts, default <code>1,2,3,4</code>) and <code>per_unit_value=</code> (held constant; otherwise an explicit <code>value=</code> is the per-unit value, else the county median is auto-filled). Returns per-scenario scores and the headline density dividend.</p>
+  <p>Compares the parcel across densities (fixed lot, vary units). Accepts every <code>/label</code> house parameter plus <code>units=</code> (comma-separated counts, default <code>1,2,3,4</code>) and <code>per_unit_value=</code> (held constant; otherwise an explicit <code>value=</code> is the per-unit value, else the county median is auto-filled). Each scenario returns its scores plus <strong>fiscal productivity per acre</strong> (<code>revenue_per_acre</code>, <code>cost_per_acre</code>, <code>net_fiscal_per_acre</code>), and the response includes the headline density dividend (fiscal ratio, Infrastructure grade, and tax-base-per-acre multiplier from fewest to most units).</p>
 </section>
 
 <footer>

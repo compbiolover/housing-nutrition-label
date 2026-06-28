@@ -1397,6 +1397,21 @@ def _density_scenario_summary(units: int, cfg: dict, label: dict) -> dict:
     metrics = label["metrics"]
     lot = cfg.get("lot_acres", 0.25)
     value = cfg["value"]
+
+    # Fiscal productivity per ACRE (the "value per acre" lens): the infra metrics
+    # are per dwelling unit, so total-per-lot ÷ lot = per-unit ÷ per_unit_acres.
+    # This surfaces the infill dividend the per-unit ratio hides — denser forms
+    # generate far more tax base on the same land and shared infrastructure.
+    pu_acres = lot / units if lot and units else None
+    pu_tax = metrics.get("est_property_tax")
+    pu_cost = metrics.get("est_annual_infra_cost")
+    revenue_per_acre = (round(float(pu_tax) / pu_acres, 2)
+                        if pu_tax is not None and pu_acres else None)
+    cost_per_acre = (round(float(pu_cost) / pu_acres, 2)
+                     if pu_cost is not None and pu_acres else None)
+    net_per_acre = (round(revenue_per_acre - cost_per_acre, 2)
+                    if revenue_per_acre is not None and cost_per_acre is not None else None)
+
     return {
         "units": units,
         "name": _density_unit_name(units),
@@ -1412,6 +1427,10 @@ def _density_scenario_summary(units: int, cfg: dict, label: dict) -> dict:
         "energy_score": energy.get("score"),
         "eui_kbtu_sqft_yr": metrics.get("eui_kbtu_sqft_yr"),
         "est_monthly_energy_cost": metrics.get("est_monthly_energy_cost"),
+        # Fiscal productivity per acre ($/acre/yr).
+        "revenue_per_acre": revenue_per_acre,
+        "cost_per_acre": cost_per_acre,
+        "net_fiscal_per_acre": net_per_acre,
         "dimensions": label["dimensions"],
     }
 
@@ -1495,6 +1514,10 @@ def density_comparison(*, address: str | None = None,
         "infrastructure_score_to": last["infrastructure_score"],
         "infrastructure_grade_from": first["infrastructure_grade"],
         "infrastructure_grade_to": last["infrastructure_grade"],
+        "revenue_per_acre_from": first["revenue_per_acre"],
+        "revenue_per_acre_to": last["revenue_per_acre"],
+        "net_fiscal_per_acre_from": first["net_fiscal_per_acre"],
+        "net_fiscal_per_acre_to": last["net_fiscal_per_acre"],
     }
     return {
         "model": "fixed-lot-vary-units",
@@ -1549,6 +1572,13 @@ def print_density(comp: dict) -> None:
         line = (f"Density dividend {d['from_units']}→{d['to_units']} units: "
                 f"fiscal {d['fiscal_ratio_from']:.2f}→{d['fiscal_ratio_to']:.2f} · "
                 f"Infra {d['infrastructure_grade_from']}→{d['infrastructure_grade_to']}")
+        for ln in _wrap(line, 60):
+            print(row(f"  {ln}"))
+    if d.get("revenue_per_acre_from") is not None and d.get("revenue_per_acre_to") is not None:
+        line = (f"Tax base per acre ${d['revenue_per_acre_from']:,.0f}"
+                f"→${d['revenue_per_acre_to']:,.0f}/ac"
+                f" (×{d['revenue_per_acre_to']/d['revenue_per_acre_from']:.1f} on the same land)"
+                if d["revenue_per_acre_from"] else "")
         for ln in _wrap(line, 60):
             print(row(f"  {ln}"))
     caveats = comp.get("caveats") or []
