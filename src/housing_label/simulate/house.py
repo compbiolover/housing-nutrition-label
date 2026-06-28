@@ -631,6 +631,13 @@ def build_parser() -> argparse.ArgumentParser:
     label_grp = p.add_argument_group("full nutrition label (all 9 dimensions)")
     label_grp.add_argument("--json", action="store_true",
                            help="Emit the full nutrition label as JSON (all dimensions) and exit.")
+    label_grp.add_argument("--density", action="store_true",
+                           help="Compare this parcel at 1–4 dwelling units (fixed lot, "
+                                "constant per-unit value): the 'density dividend'. "
+                                "Combine with --json for machine-readable output.")
+    label_grp.add_argument("--density-units", type=str, default=None,
+                           help="Comma-separated unit counts for --density "
+                                "(default 1,2,3,4), e.g. --density-units 1,2,4.")
     label_grp.add_argument("--no-fetch", action="store_true",
                            help="Skip live API calls for the location dimensions (health, "
                                 "socioeconomic, walkability); leave them unscored.")
@@ -1364,6 +1371,196 @@ def build_label_parts(*, address: str | None = None,
     return cfg, r, label
 
 
+# ── Per-parcel density comparison ────────────────────────────────────────────────
+# "What would density look like on this parcel?" — hold the location and the lot
+# fixed and vary the number of dwelling units (a duplex, triplex, quadplex on the
+# same land). The per-unit value is the comparison's invariant: it stays ~constant
+# while total value scales with units. This surfaces the "density dividend" — the
+# same land and municipal services get shared across more homes, so the per-unit
+# cost-to-serve falls and the Infrastructure Burden fiscal ratio improves.
+
+DENSITY_UNIT_COUNTS = (1, 2, 3, 4)
+
+# Human names for small multi-unit buildings; larger counts fall back to "N-plex".
+_DENSITY_NAMES = {1: "Single-family", 2: "Duplex", 3: "Triplex", 4: "Quadplex"}
+
+
+def _density_unit_name(units: int) -> str:
+    return _DENSITY_NAMES.get(units, f"{units}-plex")
+
+
+def _density_scenario_summary(units: int, cfg: dict, label: dict) -> dict:
+    """Compact per-scenario record for a density comparison (JSON-serializable)."""
+    by_key = {d["key"]: d for d in label["dimensions"]}
+    infra = by_key.get("infrastructure", {})
+    energy = by_key.get("energy", {})
+    metrics = label["metrics"]
+    lot = cfg.get("lot_acres", 0.25)
+    value = cfg["value"]
+    return {
+        "units": units,
+        "name": _density_unit_name(units),
+        "value": round(float(value), 2),
+        "per_unit_value": round(float(value) / units, 2),
+        "lot_acres": lot,
+        "per_unit_acres": round(lot / units, 4),
+        "composite_score": label["composite_score"],
+        "composite_national_grade": label["composite_national_grade"],
+        "fiscal_ratio": metrics.get("fiscal_ratio"),
+        "infrastructure_score": infra.get("score"),
+        "infrastructure_grade": infra.get("national_grade"),
+        "energy_score": energy.get("score"),
+        "eui_kbtu_sqft_yr": metrics.get("eui_kbtu_sqft_yr"),
+        "est_monthly_energy_cost": metrics.get("est_monthly_energy_cost"),
+        "dimensions": label["dimensions"],
+    }
+
+
+def density_comparison(*, address: str | None = None,
+                       lat: float | None = None, lon: float | None = None,
+                       preset: str | None = None, flood_zone: str | None = None,
+                       allow_network: bool = True, overrides: dict | None = None,
+                       upgrades: list[str] | None = None,
+                       unit_counts=None, per_unit_value: float | None = None,
+                       **fields) -> dict:
+    """Compare what a parcel scores at different densities (fixed lot, vary units).
+
+    Holds the location and lot size fixed and re-scores the parcel for each unit
+    count in ``unit_counts`` (default 1→4). The per-unit value stays constant, so
+    the total appraised value scales with the number of units. Returns a dict of
+    per-scenario summaries plus the headline "density dividend" (how the fiscal
+    ratio / Infrastructure grade move from the fewest to the most units).
+
+    Per-unit value precedence: explicit ``per_unit_value`` > an explicit ``value``
+    in ``fields`` (treated as the per-unit value) > the county median home value
+    (ACS auto-fill), established from a single-unit baseline run.
+    """
+    def _coerce_unit(n):
+        try:
+            iv = int(n)
+        except (TypeError, ValueError):
+            raise ValueError(f"unit_counts must contain positive integers, got {n!r}") from None
+        if isinstance(n, float) and iv != n:      # don't silently truncate 2.9 → 2
+            raise ValueError(f"unit_counts must contain whole numbers, got {n!r}")
+        return iv
+
+    counts = sorted({c for c in map(_coerce_unit, unit_counts or DENSITY_UNIT_COUNTS) if c >= 1})
+    if not counts:
+        raise ValueError("unit_counts must contain at least one positive integer")
+
+    base_value = per_unit_value if per_unit_value is not None else fields.get("value")
+    cache: dict[int, tuple] = {}
+
+    def _run(n: int, val: float | None) -> tuple:
+        f = dict(fields)
+        f["units"] = n
+        if val is not None:
+            f["value"] = round(float(val) * n, 2)
+        else:
+            f.pop("value", None)            # let build_label_parts auto-fill
+        return build_label_parts(
+            address=address, lat=lat, lon=lon, preset=preset, flood_zone=flood_zone,
+            allow_network=allow_network, overrides=overrides, upgrades=upgrades, **f,
+        )
+
+    # Establish the per-unit value from a single-unit baseline when none was given,
+    # so every scenario scales from the same baseline (the auto-fill returns a
+    # single-home value, which is exactly the per-unit value at units == 1).
+    if base_value is None:
+        cfg1, r1, label1 = _run(1, None)
+        base_value = cfg1["value"]
+        cache[1] = (cfg1, r1, label1)
+
+    scenarios: list[dict] = []
+    loc_payload = caveats = wildfire = value_source = None
+    for n in counts:
+        cfg, r, label = cache[n] if n in cache else _run(n, base_value)
+        scenarios.append(_density_scenario_summary(n, cfg, label))
+        if loc_payload is None:             # capture shared context once
+            full = label_payload(cfg, r, label)
+            loc_payload = full.get("location")
+            caveats = full.get("caveats")
+            wildfire = full.get("wildfire")
+            value_source = (cfg.get("value_source")
+                            if per_unit_value is None and fields.get("value") is None
+                            else None)
+
+    first, last = scenarios[0], scenarios[-1]
+    dividend = {
+        "from_units": first["units"],
+        "to_units": last["units"],
+        "fiscal_ratio_from": first["fiscal_ratio"],
+        "fiscal_ratio_to": last["fiscal_ratio"],
+        "infrastructure_score_from": first["infrastructure_score"],
+        "infrastructure_score_to": last["infrastructure_score"],
+        "infrastructure_grade_from": first["infrastructure_grade"],
+        "infrastructure_grade_to": last["infrastructure_grade"],
+    }
+    return {
+        "model": "fixed-lot-vary-units",
+        "per_unit_value": round(float(base_value), 2),
+        "value_source": value_source,
+        "lot_acres": scenarios[0]["lot_acres"],
+        "scenarios": scenarios,
+        "density_dividend": dividend,
+        "location": loc_payload,
+        "wildfire": wildfire,
+        "caveats": caveats,
+    }
+
+
+def print_density(comp: dict) -> None:
+    """Print a fixed-width density comparison (units vs. key dimensions)."""
+    INNER = 64
+    TOP = "╔" + "═" * INNER + "╗"
+    SEP = "╠" + "═" * INNER + "╣"
+    BOT = "╚" + "═" * INNER + "╝"
+
+    def row(content: str = "") -> str:
+        return f"║{content:<{INNER}}║"
+
+    loc = comp.get("location")
+    place = (loc.get("label") if isinstance(loc, dict) else None) or "this parcel"
+
+    print()
+    print(TOP)
+    print(row("  DENSITY ON THIS PARCEL"))
+    print(row(f"  {place[:60]}"))
+    print(row(f"  Fixed {comp['lot_acres']:.2f}-ac lot · per-unit value "
+              f"${comp['per_unit_value']:,.0f}"
+              + ("  (county median, ACS)" if comp.get("value_source") else "")))
+    print(SEP)
+    print(row(f"  {'Scenario':<14}{'Value':>11}{'Infra':>9}{'Fiscal':>8}"
+              f"{'Energy':>7}{'Comp':>7}"))
+    print(row(f"  {'─'*55}"))
+    for s in comp["scenarios"]:
+        fr = "—" if s["fiscal_ratio"] is None else f"{s['fiscal_ratio']:.2f}"
+        infra = ("—" if s["infrastructure_score"] is None
+                 else f"{s['infrastructure_score']:.0f} {s['infrastructure_grade']}")
+        energy = "—" if s["energy_score"] is None else f"{s['energy_score']:.0f}"
+        comp_s = ("—" if s["composite_score"] is None
+                  else f"{s['composite_score']:.0f} {s['composite_national_grade']}")
+        print(row(f"  {s['name']:<14}{'$'+format(s['value'],',.0f'):>11}"
+                  f"{infra:>9}{fr:>8}{energy:>7}{comp_s:>7}"))
+    print(row(f"  {'─'*55}"))
+
+    d = comp["density_dividend"]
+    if d["fiscal_ratio_from"] is not None and d["fiscal_ratio_to"] is not None:
+        line = (f"Density dividend {d['from_units']}→{d['to_units']} units: "
+                f"fiscal {d['fiscal_ratio_from']:.2f}→{d['fiscal_ratio_to']:.2f} · "
+                f"Infra {d['infrastructure_grade_from']}→{d['infrastructure_grade_to']}")
+        for ln in _wrap(line, 60):
+            print(row(f"  {ln}"))
+    caveats = comp.get("caveats") or []
+    if caveats:
+        print(row(f"  {'─'*60}"))
+        for c in caveats:
+            for line in _wrap(c, 60):
+                print(row(f"  {line}"))
+    print(BOT)
+    print()
+
+
 # ── Entry point ────────────────────────────────────────────────────────────────
 
 _RISK_TO_ZONE = {"high": "AE", "moderate": "X500", "minimal": "X"}
@@ -1395,6 +1592,33 @@ def main() -> None:
         "walkability":   args.walk_score,
     }
     upgrades = [f for f in BONUS_FLAGS if getattr(args, f, False)]   # CLI resilience flags
+
+    if args.density:
+        unit_counts = None
+        if args.density_units:
+            try:
+                unit_counts = [int(x) for x in args.density_units.split(",") if x.strip()]
+            except ValueError:
+                parser.error("--density-units must be comma-separated integers, "
+                             "e.g. 1,2,4")
+        try:
+            comp = density_comparison(
+                address=args.address, lat=args.lat, lon=args.lon,
+                preset=args.preset, flood_zone=args.flood_zone,
+                allow_network=allow_network, overrides=overrides, upgrades=upgrades,
+                unit_counts=unit_counts,
+                year_built=args.year_built, construction=args.construction,
+                foundation=args.foundation, condition=args.condition,
+                value=args.value, sqft=args.sqft, lot_acres=args.lot_acres,
+            )
+        except ValueError as exc:
+            parser.error(str(exc))
+        if args.json:
+            print(json.dumps(comp, indent=2))
+        else:
+            print_density(comp)
+        return
+
     try:
         cfg, r, label = build_label_parts(
             address=args.address, lat=args.lat, lon=args.lon,

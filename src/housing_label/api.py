@@ -23,6 +23,8 @@ Endpoints::
     GET /label?lat=<y>&lon=<x>       …or by coordinates
         optional: preset, construction, year_built, foundation, condition,
                   value, units, sqft, lot_acres, flood_zone
+    GET /density?address=<addr>      compare 1–4 dwelling units on the same parcel
+        optional: units=1,2,4 (counts), per_unit_value, + all /label house params
 
 CORS is restricted to https://housinglabel.dev by default; set the
 ALLOWED_ORIGINS env var (comma-separated) to allow other origins or local dev.
@@ -39,7 +41,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from housing_label.config import HEADERS, PHOTON_URL, GEOAPIFY_URL, GEOAPIFY_API_KEY
 from housing_label.simulate.house import (
-    build_label_parts, label_payload,
+    build_label_parts, label_payload, density_comparison,
     PRESETS, CONSTRUCTION_FACTOR, FOUNDATION_FACTOR, CONDITION_FACTOR,
     BONUS_FLAGS, ELEVATION_FLAGS,
 )
@@ -259,6 +261,80 @@ def label(
         log.exception("scoring failed (address=%r lat=%r lon=%r)", address, lat, lon)
         raise HTTPException(502, "scoring failed")
     return label_payload(cfg, r, lbl)
+
+
+# Cap how many density scenarios one request can fan out into (each is a full
+# scoring pass): the website only ever asks for 1–4.
+_DENSITY_MAX_SCENARIOS = 6
+
+
+@app.get("/density")
+def density(
+    address: str | None = None,
+    lat: float | None = None,
+    lon: float | None = None,
+    preset: str | None = None,
+    construction: str | None = None,
+    year_built: int | None = None,
+    foundation: str | None = None,
+    condition: str | None = None,
+    value: float | None = None,
+    per_unit_value: float | None = None,
+    sqft: float | None = None,
+    lot_acres: float | None = None,
+    flood_zone: str | None = None,
+    units: str | None = None,
+    upgrades: str | None = None,
+) -> dict:
+    """Compare this parcel at several densities (fixed lot, vary dwelling units).
+
+    Same inputs as ``/label`` (minus a single ``units``), plus:
+      • ``units``          comma-separated unit counts to compare (default 1,2,3,4)
+      • ``per_unit_value`` hold this per-unit value constant across scenarios
+                           (else an explicit ``value`` is used as the per-unit
+                           value, else the county median is auto-filled).
+    """
+    if not address and (lat is None or lon is None):
+        raise HTTPException(400, "Provide ?address= or both ?lat= and ?lon=")
+    for name, val in (("preset", preset), ("construction", construction),
+                      ("foundation", foundation), ("condition", condition),
+                      ("flood_zone", flood_zone)):
+        _validate(name, val)
+
+    upgrade_list = [u.strip() for u in upgrades.split(",") if u.strip()] if upgrades else []
+    bad = [u for u in upgrade_list if u not in BONUS_FLAGS]
+    if bad:
+        raise HTTPException(400, f"unknown upgrade(s): {', '.join(bad)}; "
+                                 f"choose from: {', '.join(BONUS_FLAGS)}")
+    if sum(u in ELEVATION_FLAGS for u in upgrade_list) > 1:
+        raise HTTPException(400, "at most one flood elevation tier may be selected")
+
+    unit_counts = None
+    if units:
+        try:
+            unit_counts = [int(x) for x in units.split(",") if x.strip()]
+        except ValueError:
+            raise HTTPException(400, "units must be comma-separated integers, e.g. 1,2,4")
+        unit_counts = sorted({n for n in unit_counts if n >= 1})
+        if not unit_counts:
+            raise HTTPException(400, "units must contain at least one positive integer")
+        if len(unit_counts) > _DENSITY_MAX_SCENARIOS:
+            raise HTTPException(400, f"at most {_DENSITY_MAX_SCENARIOS} unit counts "
+                                     "may be compared at once")
+
+    try:
+        return density_comparison(
+            address=address, lat=lat, lon=lon, preset=preset, flood_zone=flood_zone,
+            upgrades=upgrade_list, allow_network=True, unit_counts=unit_counts,
+            per_unit_value=per_unit_value,
+            year_built=year_built, construction=construction, foundation=foundation,
+            condition=condition, value=value, sqft=sqft, lot_acres=lot_acres,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    except Exception:  # noqa: BLE001 — don't leak internals; log server-side
+        log.exception("density failed (address=%r lat=%r lon=%r)", address, lat, lon)
+        raise HTTPException(502, "density comparison failed")
 
 
 def serve() -> None:
