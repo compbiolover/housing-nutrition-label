@@ -9,6 +9,15 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.8](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.7...v0.1.8) (2026-06-28)
+
+
+### Features
+
+* auto-fill home value + reconcile school scope in Infrastructure Burden ([#49](https://github.com/compbiolover/housing-nutrition-label/issues/49)) ([38caf8b](https://github.com/compbiolover/housing-nutrition-label/commit/38caf8bb444cf1b3c1b06dcd61b0455095c44174))
+* per-parcel density comparison (duplex/triplex/quadplex on the same lot) ([#50](https://github.com/compbiolover/housing-nutrition-label/issues/50)) ([6f0326f](https://github.com/compbiolover/housing-nutrition-label/commit/6f0326fb84574ae20c85839a1695e88992b3e5e4))
+* re-anchor Infrastructure Burden score breakpoints to a national distribution ([#47](https://github.com/compbiolover/housing-nutrition-label/issues/47)) ([4e47d40](https://github.com/compbiolover/housing-nutrition-label/commit/4e47d408b44e2ea434ba437faa5cc7a81f1e6894))
+
 ## [0.1.7](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.6...v0.1.7) (2026-06-27)
 
 
