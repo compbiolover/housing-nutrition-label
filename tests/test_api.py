@@ -127,37 +127,31 @@ def test_suggest_short_query():
     assert client.get("/suggest", params={"q": "ab"}).json() == []
 
 
-def test_density_endpoint_validation_and_offline():
-    """The /density endpoint validates inputs and returns a scenario sweep for a
-    lat/lon (offline — no geocode needed)."""
+def test_density_endpoint_validation():
+    """The /density endpoint validates inputs before any network call. (The
+    scored scenario shape is covered offline in tests/test_density.py; like the
+    /label endpoint, /density is always-online in production, so the API test
+    stays on the no-network validation paths.)"""
     try:
         from fastapi.testclient import TestClient
     except ImportError:
-        print("  skip test_density_endpoint_validation_and_offline (fastapi not installed)")
+        print("  skip test_density_endpoint_validation (fastapi not installed)")
         return
     from housing_label.api import app
     client = TestClient(app)
     # Missing both address and lat/lon → 400, no network.
     assert client.get("/density").status_code == 400
-    # Bad unit list → 400.
+    # Bad unit list → 400, no network.
     assert client.get("/density", params={"lat": 35.15, "lon": -89.85,
                                           "units": "abc"}).status_code == 400
     assert client.get("/density", params={"lat": 35.15, "lon": -89.85,
                                           "units": "0,-1"}).status_code == 400
-
-    r = client.get("/density", params={"lat": 35.15, "lon": -89.85,
-                                       "value": 250000, "units": "1,2,4"})
-    assert r.status_code == 200, r.text
-    data = r.json()
-    assert data["model"] == "fixed-lot-vary-units"
-    units = [s["units"] for s in data["scenarios"]]
-    assert units == [1, 2, 4]
-    # Per-unit value held constant; total scales with units.
-    for s in data["scenarios"]:
-        assert abs(s["per_unit_value"] - 250000) < 1e-6
-        assert abs(s["value"] - 250000 * s["units"]) < 1e-6
-    dd = data["density_dividend"]
-    assert dd["from_units"] == 1 and dd["to_units"] == 4
+    # Invalid construction choice → 400 before scoring.
+    assert client.get("/density", params={"lat": 35.15, "lon": -89.85,
+                                          "construction": "adobe"}).status_code == 400
+    # Unknown upgrade → 400 before scoring.
+    assert client.get("/density", params={"lat": 35.15, "lon": -89.85,
+                                          "upgrades": "teleporter"}).status_code == 400
 
 
 def _run_all():

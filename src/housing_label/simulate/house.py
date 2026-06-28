@@ -1435,7 +1435,16 @@ def density_comparison(*, address: str | None = None,
     in ``fields`` (treated as the per-unit value) > the county median home value
     (ACS auto-fill), established from a single-unit baseline run.
     """
-    counts = sorted({int(n) for n in (unit_counts or DENSITY_UNIT_COUNTS) if int(n) >= 1})
+    def _coerce_unit(n):
+        try:
+            iv = int(n)
+        except (TypeError, ValueError):
+            raise ValueError(f"unit_counts must contain positive integers, got {n!r}") from None
+        if isinstance(n, float) and iv != n:      # don't silently truncate 2.9 → 2
+            raise ValueError(f"unit_counts must contain whole numbers, got {n!r}")
+        return iv
+
+    counts = sorted({c for c in map(_coerce_unit, unit_counts or DENSITY_UNIT_COUNTS) if c >= 1})
     if not counts:
         raise ValueError("unit_counts must contain at least one positive integer")
 
