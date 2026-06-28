@@ -1574,11 +1574,11 @@ def print_density(comp: dict) -> None:
                 f"Infra {d['infrastructure_grade_from']}→{d['infrastructure_grade_to']}")
         for ln in _wrap(line, 60):
             print(row(f"  {ln}"))
-    if d.get("revenue_per_acre_from") is not None and d.get("revenue_per_acre_to") is not None:
-        line = (f"Property tax per acre ${d['revenue_per_acre_from']:,.0f}"
-                f"→${d['revenue_per_acre_to']:,.0f}/ac"
-                f" (×{d['revenue_per_acre_to']/d['revenue_per_acre_from']:.1f} on the same land)"
-                if d["revenue_per_acre_from"] else "")
+    rpa_from, rpa_to = d.get("revenue_per_acre_from"), d.get("revenue_per_acre_to")
+    if rpa_from and rpa_to:        # both present and non-zero (guards the divide)
+        mult = rpa_to / rpa_from
+        line = (f"Property tax per acre ${rpa_from:,.0f}→${rpa_to:,.0f}/ac"
+                f" (×{mult:.1f} on the same land)")
         for ln in _wrap(line, 60):
             print(row(f"  {ln}"))
     caveats = comp.get("caveats") or []
