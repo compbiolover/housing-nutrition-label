@@ -55,6 +55,17 @@
     #addr-result .na { color: var(--muted); font-style: italic; }
     #addr-result .meta { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.75rem; }
     .row-highlight { background: #f1f5f9; }
+    /* Density-on-this-parcel comparison (fixed lot, vary units). */
+    #density-wrap { max-width: 640px; margin: 0.75rem 0 0; }
+    .density-btn { font: inherit; font-weight: 600; padding: 0.5rem 1rem; border: 1px solid var(--navy);
+      border-radius: var(--radius); background: var(--card); color: var(--navy); cursor: pointer; }
+    .density-btn:hover { background: var(--navy); color: #fff; }
+    .density-btn:disabled { opacity: 0.6; cursor: progress; }
+    #density-status { color: var(--muted); font-size: 0.9rem; margin: 0.4rem 0; min-height: 1.2em; }
+    #density-result { max-width: 640px; overflow-x: auto; }
+    #density-result:not(:empty) { margin-top: 0.6rem; }
+    .density-table { width: 100%; }
+    .density-table small { color: var(--muted); font-weight: 400; }
     /* Dark mode: re-light the navy-as-text bits and the suggestion hover. */
     @media (prefers-color-scheme: dark) {
       .addr-suggest li.active, .addr-suggest li:hover { background: #334155; }
@@ -63,6 +74,7 @@
       #addr-result .label-card { border-color: #475569; }
       #addr-result .composite-num,
       #addr-result .build-line strong { color: #e2e8f0; }
+      .density-btn { border-color: #475569; color: #e2e8f0; }
     }
   </style>
 </head>
@@ -147,6 +159,12 @@
   <div class="insight warn" id="addr-api-active" style="display:none;"></div>
   <div id="addr-status"></div>
   <div id="addr-result"></div>
+
+  <div id="density-wrap" hidden>
+    <button type="button" id="density-btn" class="density-btn">What if this parcel were denser? Compare 1&ndash;4 units</button>
+    <div id="density-status"></div>
+    <div id="density-result"></div>
+  </div>
 
   <div class="insight" id="addr-config-note" style="display:none;">
     <strong>Set the API endpoint:</strong> this search calls a small scoring API (the CLI behind HTTP). Configure its URL by appending <code>?api=https://your-api-host</code> to this page's URL, or set <code>window.HOUSING_LABEL_API</code>. See <a href="setup.html#api">Setup &rarr; Address-search API</a>.
@@ -349,6 +367,7 @@
   <div class="insight">
     <strong>The density dividend:</strong> Going from single-family to quadplex drops per-unit infrastructure cost by 31%. The shared-wall efficiency bonus cuts energy 25%. The ICF quadplex reaches $6/unit/month in energy after solar &mdash; that's $1,680/year per unit saved vs the baseline, or $50,400 over a 30-year mortgage.
   </div>
+  <p style="margin-top:0.6rem;font-size:0.9rem;">Want this for a specific parcel? Score any address in <a href="#">Score Any US Address</a> above, then hit <em>&ldquo;What if this parcel were denser?&rdquo;</em> to compare 1&ndash;4 units on that exact lot &mdash; or call the <code>/density</code> API endpoint directly.</p>
 </section>
 
 <section>
@@ -461,6 +480,11 @@
   var dfltMsg = document.getElementById("addr-api-default");
   var acBox   = document.getElementById("addr-suggest");
   var acWrap  = input.closest(".addr-ac");
+  var densWrap   = document.getElementById("density-wrap");
+  var densBtn    = document.getElementById("density-btn");
+  var densStatus = document.getElementById("density-status");
+  var densResult = document.getElementById("density-result");
+  var lastParams = null;   // query string of the most recent successful /label call
 
   // Autocomplete state.
   var picked   = null;   // {label, lat, lon} when a suggestion is chosen; else null
@@ -631,12 +655,84 @@
     result.innerHTML = html;
   }
 
+  // ── Density-on-this-parcel comparison (fixed lot, vary units) ────────────────
+  function gradeSpan(g) {
+    var c = (g || "").toLowerCase();
+    if (c !== "a" && c !== "b" && c !== "c" && c !== "d" && c !== "f") return esc(g);
+    return '<span class="grade grade-' + c + '">' + esc(g) + '</span>';
+  }
+  function renderDensity(data) {
+    var scn = (data && data.scenarios) || [];
+    if (!scn.length) { densResult.innerHTML = ""; return; }
+    var head = '<tr><th>Metric</th>' + scn.map(function (s) {
+      return '<th>' + esc(s.name) + '<br><small>' + s.units
+        + (s.units === 1 ? " unit" : " units") + '</small></th>';
+    }).join("") + '</tr>';
+    function valRow(label, fn) {
+      return '<tr><td><strong>' + label + '</strong></td>'
+        + scn.map(function (s) { return '<td>' + fn(s) + '</td>'; }).join("") + '</tr>';
+    }
+    var rows = "";
+    rows += valRow("Total value", function (s) {
+      return s.value == null ? "—" : "$" + Math.round(s.value).toLocaleString(); });
+    rows += valRow("Per-unit value", function (s) {
+      return s.per_unit_value == null ? "—" : "$" + Math.round(s.per_unit_value).toLocaleString(); });
+    rows += valRow("Density (DU/acre)", function (s) {
+      return s.per_unit_acres ? (1 / s.per_unit_acres).toFixed(1) : "—"; });
+    rows += valRow("Infrastructure", function (s) {
+      return s.infrastructure_score == null ? "—"
+        : s.infrastructure_score.toFixed(0) + " " + gradeSpan(s.infrastructure_grade); });
+    rows += valRow("Fiscal ratio", function (s) {
+      return s.fiscal_ratio == null ? "—" : s.fiscal_ratio.toFixed(2); });
+    rows += valRow("Energy", function (s) {
+      return s.energy_score == null ? "—" : s.energy_score.toFixed(0); });
+    rows += valRow("Energy / unit / mo", function (s) {
+      return s.est_monthly_energy_cost == null ? "—" : "$" + Math.round(s.est_monthly_energy_cost); });
+    rows += valRow("Composite", function (s) {
+      return s.composite_score == null ? "—"
+        : s.composite_score.toFixed(0) + " " + gradeSpan(s.composite_national_grade); });
+
+    var html = '<table class="comparison density-table"><thead>' + head
+      + '</thead><tbody>' + rows + '</tbody></table>';
+    var dd = data.density_dividend || {};
+    if (dd.fiscal_ratio_from != null && dd.fiscal_ratio_to != null) {
+      html += '<div class="insight"><strong>The density dividend:</strong> going from '
+        + dd.from_units + ' to ' + dd.to_units + ' unit' + (dd.to_units === 1 ? "" : "s")
+        + ' on this same lot moves the fiscal ratio ' + dd.fiscal_ratio_from.toFixed(2)
+        + ' &rarr; ' + dd.fiscal_ratio_to.toFixed(2) + ' and Infrastructure Burden '
+        + gradeSpan(dd.infrastructure_grade_from) + ' &rarr; '
+        + gradeSpan(dd.infrastructure_grade_to)
+        + '. Same land &amp; services, shared across more homes.</div>';
+    }
+    if (data.value_source) {
+      html += '<p class="meta" style="font-size:0.8rem;">Per-unit value auto-filled from the '
+        + 'county median (ACS); total value scales with the number of units.</p>';
+    }
+    (data.caveats || []).forEach(function (c) {
+      html += '<div class="insight warn" style="margin-top:0.6rem;font-size:0.82rem;">' + esc(c) + '</div>';
+    });
+    densResult.innerHTML = html;
+  }
+
+  densBtn.addEventListener("click", function () {
+    if (!API_BASE || !lastParams) return;
+    densResult.innerHTML = "";
+    densStatus.textContent = "Comparing densities on this parcel …";
+    densBtn.disabled = true;
+    fetch(API_BASE + "/density?" + lastParams)
+      .then(function (r) { if (!r.ok) return r.json().then(function (j) { throw new Error(j.detail || ("HTTP " + r.status)); }); return r.json(); })
+      .then(function (data) { densStatus.textContent = ""; renderDensity(data); })
+      .catch(function (err) { densStatus.textContent = "Could not compare densities: " + err.message; })
+      .finally(function () { densBtn.disabled = false; });
+  });
+
   form.addEventListener("submit", function (e) {
     e.preventDefault();
     var addr = input.value.trim();
     if (!addr) { status.textContent = "Enter an address."; return; }
     if (!API_BASE) { status.textContent = ""; note.style.display = ""; return; }
     result.innerHTML = "";
+    densWrap.hidden = true; densResult.innerHTML = ""; densStatus.textContent = "";
     status.textContent = "Scoring " + addr + " …";
     btn.disabled = true;
     clearTimeout(acTimer); closeAc();
@@ -674,7 +770,11 @@
     var url = API_BASE + "/label?" + params.toString();
     fetch(url)
       .then(function (r) { if (!r.ok) return r.json().then(function (j) { throw new Error(j.detail || ("HTTP " + r.status)); }); return r.json(); })
-      .then(function (data) { status.textContent = ""; render(data, ctx); })
+      .then(function (data) {
+        status.textContent = ""; render(data, ctx);
+        lastParams = params.toString();   // reuse the exact inputs for /density
+        densWrap.hidden = false;
+      })
       .catch(function (err) { status.textContent = "Could not score that address: " + err.message; })
       .finally(function () { btn.disabled = false; });
   });

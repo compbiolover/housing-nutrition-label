@@ -262,12 +262,15 @@
     --foundation slab --sqft 1800 --value 350000 \
     --solar --hurricane-straps --fire-sprinklers --json</code></pre>
   <p>Core flags: <code>--preset</code>, <code>--address</code> (or <code>--lat</code>/<code>--lon</code>), <code>--construction</code>, <code>--year-built</code>, <code>--foundation</code>, <code>--condition</code>, <code>--flood-zone</code>, <code>--value</code>, <code>--units</code>, <code>--sqft</code>, <code>--lot-acres</code>. Each resilience upgrade is a flag (e.g. <code>--solar</code>, <code>--fortified-gold</code>, <code>--elevation-1ft</code>). <code>--json</code> emits the full payload; <code>--no-fetch</code> runs offline.</p>
+  <p><strong>Density comparison:</strong> add <code>--density</code> to compare the same parcel at 1&ndash;4 dwelling units (fixed lot, constant per-unit value) &mdash; the density dividend. Set the counts with <code>--density-units 1,2,4</code>; combine with <code>--json</code> for machine-readable output.</p>
 
   <h3>API</h3>
   <pre><code>GET /label?address=&lt;addr&gt;&amp;preset=baseline&amp;construction=icf&amp;year_built=2026
           &amp;condition=excellent&amp;sqft=1800&amp;value=350000
           &amp;upgrades=solar,hurricane_straps,fire_sprinklers</code></pre>
   <p>Same parameters as the CLI; resilience upgrades are a single comma-separated <code>upgrades=</code> list. <code>GET /suggest?q=</code> powers the address autocomplete.</p>
+  <pre><code>GET /density?address=&lt;addr&gt;&amp;units=1,2,4&amp;per_unit_value=250000</code></pre>
+  <p>Compares the parcel across densities (fixed lot, vary units). Accepts every <code>/label</code> house parameter plus <code>units=</code> (comma-separated counts, default <code>1,2,3,4</code>) and <code>per_unit_value=</code> (held constant; otherwise an explicit <code>value=</code> is the per-unit value, else the county median is auto-filled). Returns per-scenario scores and the headline density dividend.</p>
 </section>
 
 <footer>

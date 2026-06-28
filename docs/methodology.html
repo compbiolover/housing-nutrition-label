@@ -131,6 +131,9 @@
     <h4>Score Mapping</h4>
     <div class="formula">Score 100 at ratio &ge; 0.98, 80 at 0.53, 60 at 0.36, 40 at 0.26, 20 at 0.17, 0 at &le; 0.09</div>
     <p>These breakpoints are anchored to the <strong>national distribution</strong> of fiscal ratios &mdash; a population-weighted reference over U.S. counties &times; residential-density archetypes, computed with the localized non-school cost &amp; revenue model &mdash; so the score tracks national percentile rank (A = top ~20%, B = 60&ndash;80th, C = 40&ndash;60th, D = 20&ndash;40th, F = bottom ~20%). On the non-school basis the national median fiscal ratio is ~0.31 (the typical U.S. home covers only about a third of its non-school municipal cost from non-school property tax), so a typical home scores around 50 (C). This replaced the original Shelby-pilot-anchored thresholds once cost and revenue were localized per county.</p>
+
+    <h4>Density on this parcel (the density dividend)</h4>
+    <p>Because the cost model is density-driven, the same lot scores very differently as a single-family home, a duplex, a triplex, or a quadplex. The <strong>density comparison</strong> holds the <em>location and lot fixed</em> and varies the number of dwelling units, keeping the <em>per-unit value constant</em> (so total appraised value scales with units). As units increase, the same land and municipal services are shared across more homes, so per-unit cost-to-serve falls and the fiscal ratio &mdash; and Infrastructure Burden grade &mdash; improve. That gap is the <strong>density dividend</strong>. It's available from the <code>density_comparison()</code> helper, the <code>housing-simulate --density</code> CLI flag, the <code>GET /density</code> API endpoint (e.g. <code>?address=&hellip;&amp;units=1,2,4</code>), and the &ldquo;What if this parcel were denser?&rdquo; button under the address search on the home and examples pages.</p>
   </div>
 
   <div class="method-section">
