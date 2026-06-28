@@ -521,6 +521,13 @@
     rows += valRow("Composite", function (s) {
       return s.composite_score == null ? "—"
         : s.composite_score.toFixed(0) + " " + gradeSpan(s.composite_national_grade); });
+    rows += valRow("Property tax / acre", function (s) {
+      return s.revenue_per_acre == null ? "—"
+        : "$" + Math.round(s.revenue_per_acre).toLocaleString() + "/ac"; });
+    rows += valRow("Net fiscal / acre", function (s) {
+      return s.net_fiscal_per_acre == null ? "—"
+        : (s.net_fiscal_per_acre < 0 ? "−$" + Math.round(-s.net_fiscal_per_acre).toLocaleString()
+                                     : "$" + Math.round(s.net_fiscal_per_acre).toLocaleString()) + "/ac"; });
 
     var html = '<table class="comparison density-table"><thead>' + head
       + '</thead><tbody>' + rows + '</tbody></table>';
@@ -532,7 +539,16 @@
         + ' &rarr; ' + dd.fiscal_ratio_to.toFixed(2) + ' and Infrastructure Burden '
         + gradeSpan(dd.infrastructure_grade_from) + ' &rarr; '
         + gradeSpan(dd.infrastructure_grade_to)
-        + '. Same land &amp; services, shared across more homes.</div>';
+        + '. Same land &amp; services, shared across more homes.';
+      if (dd.revenue_per_acre_from && dd.revenue_per_acre_to) {
+        html += ' It also generates <strong>'
+          + (dd.revenue_per_acre_to / dd.revenue_per_acre_from).toFixed(1)
+          + '&times; the property-tax revenue per acre</strong> ($'
+          + Math.round(dd.revenue_per_acre_from).toLocaleString() + ' &rarr; $'
+          + Math.round(dd.revenue_per_acre_to).toLocaleString()
+          + '/acre) on the same land &mdash; the value-per-acre dividend.';
+      }
+      html += '</div>';
     }
     if (data.value_source) {
       html += '<p class="meta" style="font-size:0.8rem;">Per-unit value auto-filled from the '

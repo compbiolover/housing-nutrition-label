@@ -367,7 +367,7 @@
   <div class="insight">
     <strong>The density dividend:</strong> Going from single-family to quadplex drops per-unit infrastructure cost by 31%. The shared-wall efficiency bonus cuts energy 25%. The ICF quadplex reaches $6/unit/month in energy after solar &mdash; that's $1,680/year per unit saved vs the baseline, or $50,400 over a 30-year mortgage.
   </div>
-  <p style="margin-top:0.6rem;font-size:0.9rem;">Want this for a specific parcel? Score any address in <a href="#">Score Any US Address</a> above, then hit <em>&ldquo;What if this parcel were denser?&rdquo;</em> to compare 1&ndash;4 units on that exact lot &mdash; or call the <code>/density</code> API endpoint directly.</p>
+  <p style="margin-top:0.6rem;font-size:0.9rem;">The table above is an illustrative snapshot; the <strong>live density tool is authoritative</strong>. Score any address in <a href="#">Score Any US Address</a> above, then hit <em>&ldquo;What if this parcel were denser?&rdquo;</em> to compare 1&ndash;4 units on that exact lot &mdash; including <strong>fiscal productivity per acre</strong> (a quadplex generates roughly 4&times; the property-tax revenue per acre on the same land) &mdash; or call the <code>/density</code> API endpoint directly.</p>
 </section>
 
 <section>
@@ -691,6 +691,13 @@
     rows += valRow("Composite", function (s) {
       return s.composite_score == null ? "—"
         : s.composite_score.toFixed(0) + " " + gradeSpan(s.composite_national_grade); });
+    rows += valRow("Property tax / acre", function (s) {
+      return s.revenue_per_acre == null ? "—"
+        : "$" + Math.round(s.revenue_per_acre).toLocaleString() + "/ac"; });
+    rows += valRow("Net fiscal / acre", function (s) {
+      return s.net_fiscal_per_acre == null ? "—"
+        : (s.net_fiscal_per_acre < 0 ? "−$" + Math.round(-s.net_fiscal_per_acre).toLocaleString()
+                                     : "$" + Math.round(s.net_fiscal_per_acre).toLocaleString()) + "/ac"; });
 
     var html = '<table class="comparison density-table"><thead>' + head
       + '</thead><tbody>' + rows + '</tbody></table>';
@@ -702,7 +709,16 @@
         + ' &rarr; ' + dd.fiscal_ratio_to.toFixed(2) + ' and Infrastructure Burden '
         + gradeSpan(dd.infrastructure_grade_from) + ' &rarr; '
         + gradeSpan(dd.infrastructure_grade_to)
-        + '. Same land &amp; services, shared across more homes.</div>';
+        + '. Same land &amp; services, shared across more homes.';
+      if (dd.revenue_per_acre_from && dd.revenue_per_acre_to) {
+        html += ' It also generates <strong>'
+          + (dd.revenue_per_acre_to / dd.revenue_per_acre_from).toFixed(1)
+          + '&times; the property-tax revenue per acre</strong> ($'
+          + Math.round(dd.revenue_per_acre_from).toLocaleString() + ' &rarr; $'
+          + Math.round(dd.revenue_per_acre_to).toLocaleString()
+          + '/acre) on the same land &mdash; the value-per-acre dividend.';
+      }
+      html += '</div>';
     }
     if (data.value_source) {
       html += '<p class="meta" style="font-size:0.8rem;">Per-unit value auto-filled from the '

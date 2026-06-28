@@ -102,7 +102,9 @@ def test_missing_multiplier_key_defaults_to_one():
     """A partial multiplier dict leaves unspecified components unscaled."""
     base = enrich_row(_ROW)
     partial = enrich_row(_ROW, cost_multipliers={"roads": 2.0})
-    assert _approx(partial["infra_cost_roads"], base["infra_cost_roads"] * 2.0)
+    # Ratio comparison (the costs are now continuous, not round integers, so
+    # round-then-double ≠ double-then-round at the cent level).
+    assert _approx(partial["infra_cost_roads"] / base["infra_cost_roads"], 2.0, 1e-3)
     assert _approx(partial["infra_cost_parks"], base["infra_cost_parks"])  # untouched
 
 

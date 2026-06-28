@@ -228,6 +228,7 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
             "est_monthly_energy_cost": energy.get("est_monthly_energy_cost"),
             "fiscal_ratio": None if fr is None or pd.isna(fr) else round(float(fr), 2),
             "est_annual_infra_cost": infra.get("est_annual_infra_cost"),
+            "est_property_tax": infra.get("est_property_tax"),
         },
     }
 

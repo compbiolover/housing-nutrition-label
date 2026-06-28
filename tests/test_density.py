@@ -65,6 +65,32 @@ def test_density_dividend_improves_infrastructure():
     assert dd["infrastructure_grade_from"] == first["infrastructure_grade"]
 
 
+def test_density_credit_does_not_floor_at_triplex():
+    """Regression: the cost curve no longer floors at 12 DU/acre, so a quadplex
+    (and denser) keeps earning credit beyond a triplex (it used to be identical)."""
+    comp = density_comparison(unit_counts=[3, 4, 8], **_COMMON)
+    by_units = {s["units"]: s for s in comp["scenarios"]}
+    assert by_units[4]["fiscal_ratio"] > by_units[3]["fiscal_ratio"]
+    assert by_units[8]["fiscal_ratio"] > by_units[4]["fiscal_ratio"]
+
+
+def test_fiscal_productivity_per_acre():
+    """The per-acre lens: tax base per acre scales ~linearly with units (same
+    per-unit value on a fixed lot), and net-fiscal-per-acre is reported."""
+    comp = density_comparison(**_COMMON)
+    by_units = {s["units"]: s for s in comp["scenarios"]}
+    one, four = by_units[1], by_units[4]
+    for s in (one, four):
+        assert s["revenue_per_acre"] is not None and s["revenue_per_acre"] > 0
+        assert s["cost_per_acre"] is not None and s["cost_per_acre"] > 0
+        assert abs(s["net_fiscal_per_acre"]
+                   - (s["revenue_per_acre"] - s["cost_per_acre"])) < 0.01
+    # 4 units on the same lot at constant per-unit value → ~4× the tax base/acre.
+    assert abs(four["revenue_per_acre"] / one["revenue_per_acre"] - 4.0) < 0.05
+    dd = comp["density_dividend"]
+    assert dd["revenue_per_acre_to"] > dd["revenue_per_acre_from"]
+
+
 def test_explicit_value_treated_as_per_unit():
     """An explicit value is the per-unit value; total scales from it."""
     comp = density_comparison(lat=35.15, lon=-89.85, allow_network=False,
