@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.9](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.8...v0.1.9) (2026-06-28)
+
+
+### Features
+
+* credit small-scale infill — density-responsive cost curve + per-acre productivity lens ([#51](https://github.com/compbiolover/housing-nutrition-label/issues/51)) ([b3cb5d1](https://github.com/compbiolover/housing-nutrition-label/commit/b3cb5d154e86ffd2fd82d76e84125d3316c1b39e))
+
 ## [0.1.8](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.7...v0.1.8) (2026-06-28)
 
 
