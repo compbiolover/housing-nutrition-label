@@ -1401,7 +1401,7 @@ def _density_scenario_summary(units: int, cfg: dict, label: dict) -> dict:
     # Fiscal productivity per ACRE (the "value per acre" lens): the infra metrics
     # are per dwelling unit, so total-per-lot ÷ lot = per-unit ÷ per_unit_acres.
     # This surfaces the infill dividend the per-unit ratio hides — denser forms
-    # generate far more tax base on the same land and shared infrastructure.
+    # generate far more property-tax revenue on the same land and shared infra.
     pu_acres = lot / units if lot and units else None
     pu_tax = metrics.get("est_property_tax")
     pu_cost = metrics.get("est_annual_infra_cost")
@@ -1575,7 +1575,7 @@ def print_density(comp: dict) -> None:
         for ln in _wrap(line, 60):
             print(row(f"  {ln}"))
     if d.get("revenue_per_acre_from") is not None and d.get("revenue_per_acre_to") is not None:
-        line = (f"Tax base per acre ${d['revenue_per_acre_from']:,.0f}"
+        line = (f"Property tax per acre ${d['revenue_per_acre_from']:,.0f}"
                 f"→${d['revenue_per_acre_to']:,.0f}/ac"
                 f" (×{d['revenue_per_acre_to']/d['revenue_per_acre_from']:.1f} on the same land)"
                 if d["revenue_per_acre_from"] else "")

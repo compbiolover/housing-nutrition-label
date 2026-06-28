@@ -163,8 +163,8 @@ density comparison barely moved the needle (1→4 units capped the gain).
 - **Fiscal productivity per acre**: the per-unit fiscal ratio understates infill
   because the headline gain is on the revenue side. The density comparison now
   also reports revenue/cost/net fiscal *per acre* — on a fixed lot at constant
-  per-unit value a quadplex yields ~4× the tax base per acre on the same shared
-  infrastructure (the "value per acre" lens).
+  per-unit value a quadplex yields ~4× the property-tax revenue per acre on the
+  same shared infrastructure (the "value per acre" lens).
 
 ## Future phases (not in this change)
 

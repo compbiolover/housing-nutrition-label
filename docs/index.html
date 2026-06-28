@@ -521,7 +521,7 @@
     rows += valRow("Composite", function (s) {
       return s.composite_score == null ? "—"
         : s.composite_score.toFixed(0) + " " + gradeSpan(s.composite_national_grade); });
-    rows += valRow("Tax base / acre", function (s) {
+    rows += valRow("Property tax / acre", function (s) {
       return s.revenue_per_acre == null ? "—"
         : "$" + Math.round(s.revenue_per_acre).toLocaleString() + "/ac"; });
     rows += valRow("Net fiscal / acre", function (s) {
@@ -543,7 +543,7 @@
       if (dd.revenue_per_acre_from && dd.revenue_per_acre_to) {
         html += ' It also generates <strong>'
           + (dd.revenue_per_acre_to / dd.revenue_per_acre_from).toFixed(1)
-          + '&times; the tax base per acre</strong> ($'
+          + '&times; the property-tax revenue per acre</strong> ($'
           + Math.round(dd.revenue_per_acre_from).toLocaleString() + ' &rarr; $'
           + Math.round(dd.revenue_per_acre_to).toLocaleString()
           + '/acre) on the same land &mdash; the value-per-acre dividend.';
