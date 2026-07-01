@@ -665,10 +665,14 @@ def _print_fwi_quantiles(county_fire: dict[str, dict[str, float]]) -> None:
     vals = sorted(v["low"] for v in county_fire.values() if "low" in v)
     if not vals:
         return
-    q = statistics.quantiles(vals, n=100)
-    picks = "  ".join(f"p{p}={q[p - 1]:.1f}" for p in (5, 25, 50, 75, 90, 95))
-    print(f"\nFire (FWI) national county quantiles [low band, mid-century]:\n"
-          f"  n={len(vals)} min={vals[0]:.1f} max={vals[-1]:.1f}  {picks}",
+    line = f"  n={len(vals)} min={vals[0]:.1f} max={vals[-1]:.1f}"
+    # quantiles need ≥2 data points; a tiny subset (e.g. --sample-state on a
+    # single-county jurisdiction like DC) would otherwise raise StatisticsError
+    # and crash an otherwise-successful build over a purely diagnostic printout.
+    if len(vals) >= 2:
+        q = statistics.quantiles(vals, n=100)
+        line += "  " + "  ".join(f"p{p}={q[p - 1]:.1f}" for p in (5, 25, 50, 75, 90, 95))
+    print(f"\nFire (FWI) national county quantiles [low band, mid-century]:\n{line}",
           file=sys.stderr)
 
 
