@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.10](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.9...v0.1.10) (2026-07-01)
+
+
+### Features
+
+* **climate:** add Argonne ClimRR Fire Weather Index fire leg ([#53](https://github.com/compbiolover/housing-nutrition-label/issues/53)) ([2737387](https://github.com/compbiolover/housing-nutrition-label/commit/2737387910da09ed6ce071b5b27d248dd1fc0fc7))
+
 ## [0.1.9](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.8...v0.1.9) (2026-06-28)
 
 
