@@ -39,9 +39,15 @@ applied to *both* the low and high bands: the fire leg contributes no SSP2-4.5 v
 SSP5-8.5 scenario spread (regionally, mid-century fire weather is dominated by the
 baseline fire climatology, not the emissions scenario). ClimRR's 12 km grid cells
 are joined to census geography by sampling the nearest cell at each tract's
-internal point (``scripts/build_climate_projections.py --source fwi``). The grid
-covers CONUS + Alaska but **not Hawaii / Puerto Rico**, where the fire leg is
-absent and the score falls back to the remaining three legs.
+internal point (``scripts/build_climate_projections.py --source fwi``).
+
+The fire leg only **enriches** the composite where present; the LOCA2 heat/precip/
+drought legs remain the required backbone. Across the bundled CONUS crosswalk
+every place carries all four legs, so fire simply adds a fourth. Where it's absent
+the composite is taken over the core legs alone — but a place *also* outside the
+CONUS LOCA2 grid (Alaska, Hawaii, Puerto Rico lack the core legs too) instead
+falls back to a coarser geography or the national average, so it is never scored
+on fire weather alone (see ``_band_score``).
 
 Resolution
 ----------
@@ -138,21 +144,33 @@ def _metric_score(metric: str, value: float | None) -> float | None:
     return _interp(float(value), xs, ys)
 
 
-def _band_score(row: dict, band: str) -> float | None:
-    """Composite 0–100 climate score for one emissions band (equal-weight over the
-    legs that have data).
+# The LOCA2 heat/precip/drought legs are the backbone of the composite; the fire
+# leg (ClimRR) only ENRICHES it where covered. A geography missing a core leg
+# (outside the CONUS LOCA2 grid) falls back to a coarser geography rather than
+# being scored on the fire leg alone.
+_CORE_LEGS = ("heat", "precip", "drought")
 
-    A leg with no available metric is *skipped* rather than nulling the whole
-    score, so a geography outside a single leg's coverage still scores from the
-    rest — e.g. the ClimRR fire grid excludes Hawaii / Puerto Rico, whose climate
-    score is then the mean of heat/precip/drought. Returns None only when no leg
-    has any data (so the caller can fall back to a coarser geography)."""
+
+def _band_score(row: dict, band: str) -> float | None:
+    """Composite 0–100 climate score for one emissions band.
+
+    Equal-weight mean over the legs that have data, with one rule: the core LOCA2
+    legs (heat/precip/drought) are *required*, while the fire leg (ClimRR FWI) is
+    an *optional enrichment*. If a core leg has no data the score is None and the
+    caller falls back to a coarser geography (so a place outside the CONUS LOCA2
+    grid — Alaska, Hawaii, Puerto Rico — is never scored on fire weather alone);
+    if only the fire leg is missing — a CONUS place ClimRR didn't cover, or a
+    pre-fire crosswalk — the composite is taken over the core legs alone. This
+    keeps every resolved score anchored on the primary climate signal."""
     leg_scores: list[float] = []
-    for metrics in _LEGS.values():
+    for leg, metrics in _LEGS.items():
         parts = [_metric_score(m, _num(row.get(f"{m}_{band}"))) for m in metrics]
         parts = [p for p in parts if p is not None]
-        if parts:
-            leg_scores.append(sum(parts) / len(parts))
+        if not parts:
+            if leg in _CORE_LEGS:
+                return None      # a required leg is missing → fall back
+            continue             # optional (fire) leg absent → omit it
+        leg_scores.append(sum(parts) / len(parts))
     if not leg_scores:
         return None
     return round(sum(leg_scores) / len(leg_scores), 1)

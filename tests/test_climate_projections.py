@@ -62,17 +62,27 @@ def test_fire_leg_lower_in_fire_prone_west():
 
 
 def test_fire_leg_bundled_for_conus():
-    # Every CONUS county carries the fire leg; the ClimRR grid excludes HI/PR, and
-    # a county missing the fire columns still scores from the remaining legs
-    # (skipped, not nulled).
+    # Every CONUS county carries the fire leg; the ClimRR grid excludes HI/PR.
     rows = list(csv.DictReader(cp._CSV.open()))
     with_fire = [r for r in rows if r.get("fire_fwi_low", "") != ""]
     assert len(with_fire) > 3000, "fire leg should be bundled for ~all CONUS counties"
-    # A synthetic row with the fire metric absent still yields a composite from the
-    # other three legs (graceful-optional leg).
-    conus = next(r for r in with_fire if r["geoid"] == "47157")
-    stripped = {k: v for k, v in conus.items() if not k.startswith("fire_")}
-    assert cp._band_score(stripped, "low") is not None
+
+
+def test_fire_is_optional_enrichment_not_a_required_leg():
+    # Fire enriches the composite but the LOCA2 core (heat/precip/drought) is
+    # required. A CONUS row with fire stripped still scores from the core three...
+    conus = next(r for r in csv.DictReader(cp._CSV.open()) if r["geoid"] == "47157")
+    no_fire = {k: v for k, v in conus.items() if not k.startswith("fire_")}
+    assert cp._band_score(no_fire, "low") is not None
+    # ...but a row missing a core leg (e.g. an Alaska tract: ClimRR fire present,
+    # LOCA2 core absent) is NOT scored on fire alone — it returns None so the
+    # caller falls back, rather than mislabeling a one-leg value as a composite.
+    fire_only = {k: v for k, v in conus.items()}
+    for core in ("heat_days95", "heat_days100", "precip_days1in",
+                 "precip_max5day", "drought_consecdd"):
+        for b in ("hist", "low", "high"):
+            fire_only[f"{core}_{b}"] = ""
+    assert cp._band_score(fire_only, "low") is None
 
 
 def test_unmapped_and_none_fall_back_to_national_average():

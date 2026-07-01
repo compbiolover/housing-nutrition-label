@@ -240,9 +240,14 @@ with breakpoints anchored to the national **county** quantiles of the mid-centur
 (p5=6.3 … p95=37.7; higher FWI → lower score). Fire-prone desert counties (San Bernardino,
 Maricopa) now score ~0 on the fire leg while humid eastern counties (Memphis, Chicago) score ~60.
 
-**Coverage / graceful degradation.** ClimRR's grid covers CONUS + Alaska but **not Hawaii /
-Puerto Rico**; `_band_score` skips a leg with no data rather than nulling the whole score, so
-those geographies score from the remaining three legs. Built by
+**Coverage / graceful degradation.** Fire is an **optional enrichment** on top of the required
+LOCA2 core (heat/precip/drought), not a co-equal gate: `_band_score` omits the fire leg when it
+has no data but still requires the core legs. So every CONUS place (all four legs present) scores
+on all four; a CONUS place ClimRR happened to miss — or a pre-fire crosswalk — scores on the core
+three; and a place outside the CONUS LOCA2 grid (Alaska, Hawaii, Puerto Rico lack the core legs
+too) falls back to a coarser geography or the national average rather than being scored on fire
+weather alone (which would misrepresent a one-leg value as a full climate composite — e.g. ~176
+Alaska tracts have ClimRR FWI but no LOCA2 core). Built by
 `scripts/build_climate_projections.py --source fwi`, which augments the existing county/tract
 crosswalks in place with `fire_fwi_{hist,low,high}` (small ~12&nbsp;MB download, no `[build]` extra).
 
