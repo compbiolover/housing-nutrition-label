@@ -150,9 +150,10 @@ def main() -> None:
         f"Health from CDC PLACES (census tract {tract}); Socioeconomic (Census ACS) and "
         "Walkability (Walk Score) are fetched live and require API keys (null/excluded from "
         "the composite when unavailable rather than fabricated); Climate Projections is a "
-        "bundled per-county downscaled hazard score (CMRA/NCA4, RCP4.5 mid-century). Location "
-        "dimensions are identical across presets by design. Local (percentile) grades require "
-        "the full county dataset."
+        "sub-county downscaled hazard score sampled at this tract (USGS CMIP6-LOCA2 heat/"
+        "precip/drought, SSP2-4.5 to SSP5-8.5 mid-century, plus an Argonne ClimRR 12 km "
+        "Fire Weather Index fire leg). Location dimensions are identical across presets by "
+        "design. Local (percentile) grades require the full county dataset."
     )
 
     data = {

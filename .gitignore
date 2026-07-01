@@ -21,6 +21,7 @@ dist/
 .govfin_cache/
 .loca2_cache/
 .proptax_cache/
+.fwi_cache/
 
 # macOS
 .DS_Store

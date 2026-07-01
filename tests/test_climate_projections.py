@@ -31,10 +31,12 @@ def test_resolved_county_has_bands_and_drivers():
     assert d["score"] == d["score_low"]
     # Higher emissions → more hazard → never a higher score than the low band.
     assert d["score_high"] <= d["score_low"]
-    # Three hazard legs and five raw drivers, each with hist/low/high.
-    assert set(d["hazards"]) == {"heat", "precip", "drought"}
-    assert set(d["drivers"]) >= {"heat_days95", "heat_days100", "drought_consecdd"}
+    # Four hazard legs and six raw drivers, each with hist/low/high.
+    assert set(d["hazards"]) == {"heat", "precip", "drought", "fire"}
+    assert set(d["drivers"]) >= {"heat_days95", "heat_days100", "drought_consecdd", "fire_fwi"}
     assert set(d["drivers"]["heat_days95"]) == {"hist", "low", "high"}
+    # ClimRR is a single RCP8.5 pathway, so the fire leg has no low/high spread.
+    assert d["hazards"]["fire"]["low"] == d["hazards"]["fire"]["high"]
 
 
 def test_hotter_county_scores_below_milder_county():
@@ -42,6 +44,35 @@ def test_hotter_county_scores_below_milder_county():
     memphis = cp.climate_projection_for_county("47157")["score"]
     boston = cp.climate_projection_for_county("25025")["score"]
     assert memphis < boston
+
+
+def test_fire_leg_lower_in_fire_prone_west():
+    # The ClimRR Fire Weather Index leg must make a fire-prone desert county score
+    # far worse on fire than a humid eastern one. San Bernardino, CA (desert SW)
+    # vs. Shelby County, TN (humid Memphis).
+    sb = cp.climate_projection_for_county("06071")["hazards"]["fire"]["low"]
+    memphis = cp.climate_projection_for_county("47157")["hazards"]["fire"]["low"]
+    assert sb is not None and memphis is not None
+    assert sb < memphis          # higher FWI → lower fire sub-score
+    assert sb <= 5               # extreme fire weather → near-zero
+    # The fire metric scorer is non-increasing as projected FWI rises.
+    scores = [cp._metric_score("fire_fwi", x) for x in (0, 10, 20, 40, 80)]
+    assert scores == sorted(scores, reverse=True)
+    assert scores[0] == 100 and scores[-1] == 0
+
+
+def test_fire_leg_bundled_for_conus():
+    # Every CONUS county carries the fire leg; the ClimRR grid excludes HI/PR, and
+    # a county missing the fire columns still scores from the remaining legs
+    # (skipped, not nulled).
+    rows = list(csv.DictReader(cp._CSV.open()))
+    with_fire = [r for r in rows if r.get("fire_fwi_low", "") != ""]
+    assert len(with_fire) > 3000, "fire leg should be bundled for ~all CONUS counties"
+    # A synthetic row with the fire metric absent still yields a composite from the
+    # other three legs (graceful-optional leg).
+    conus = next(r for r in with_fire if r["geoid"] == "47157")
+    stripped = {k: v for k, v in conus.items() if not k.startswith("fire_")}
+    assert cp._band_score(stripped, "low") is not None
 
 
 def test_unmapped_and_none_fall_back_to_national_average():

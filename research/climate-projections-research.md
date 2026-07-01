@@ -205,9 +205,46 @@ resolution without the cosmetic data:
 **Genuinely finer resolution** requires sampling the LOCA2 ~6&nbsp;km grid (or NEX-GDDP, ClimRR)
 at the parcel lat/lon and re-deriving the indices — a separate, network-gated live-refresh
 build (research plan #4), not this offline aggregate crosswalk. The roadmap line has been
-redirected accordingly. The **true Fire Weather Index** leg (Argonne ClimRR, 12&nbsp;km) remains
-pending: its source is Cloudflare-gated and a 12&nbsp;km FWI grid needs a spatial join to tracts,
-which the project's minimal dependency set (requests/pandas/numpy) has no geospatial library for.
+redirected accordingly.
+
+---
+
+## Implementation note — the ClimRR Fire Weather Index leg (SHIPPED)
+
+The **true Fire Weather Index** leg (Argonne ClimRR, 12&nbsp;km) is now bundled. The earlier
+blocker — "the portal is Cloudflare-gated and a 12&nbsp;km FWI grid needs a spatial join, which
+the minimal dependency set (requests/pandas/numpy) has no geospatial library for" — was
+resolved two ways:
+
+- **Reachable, keyless source.** ClimRR publishes its layers as bulk CSVs on a public Box
+  folder (`anl.app.box.com/s/hmkkgkrkzxxocfe9kpgrzk2gfc4gizp8`), reachable via Box's
+  unauthenticated shared-file download endpoint — no portal/Cloudflare gate. We use
+  *Fire Weather Index (FWI) Classes.csv* (95th-percentile FWI per grid cell, for Historical,
+  Mid-Century 2045–2054, and End-Century horizons) plus the companion *GridCellsShapefile.zip*.
+- **Spatial join without a geospatial library.** The FWI CSV is keyed by `Crossmodel` grid-cell
+  id (`R{row}C{col}`), not lat/lon. The grid shapefile is **EPSG:3857 (Web Mercator)** — which
+  the project already converts in `utils.webmercator_to_wgs84`. So a **pure-stdlib** `.shp`/`.dbf`
+  parser reads each cell's polygon bounding-box centre, reprojects it to WGS84, and a 0.5° lat/lon
+  spatial hash finds the nearest cell at each census tract's internal point (county = the mean of
+  its tracts, coherent with the LOCA2 build). No GeoPandas / Shapely / Fiona.
+
+**Band mapping.** ClimRR is CMIP5-era and provides a **single RCP8.5 pathway** (no RCP4.5), so
+the mid-century (2045–2054) FWI is applied to *both* the low (SSP2-4.5) and high (SSP5-8.5) bands
+— the fire leg contributes no scenario spread. This is defensible because mid-century fire weather
+is dominated by the regional baseline fire climatology, not the emissions scenario (e.g. San
+Bernardino's FWI is ~47 in both Historical and Mid-Century); the RCP4.5↔SSP2-4.5 / RCP8.5↔SSP5-8.5
+analogy is the same coarse mapping the CMRA source used, kept clearly labeled.
+
+**Scoring.** `fire_fwi` becomes a fourth equal-weight leg (`fire`) in `data/climate_projections.py`,
+with breakpoints anchored to the national **county** quantiles of the mid-century FWI
+(p5=6.3 … p95=37.7; higher FWI → lower score). Fire-prone desert counties (San Bernardino,
+Maricopa) now score ~0 on the fire leg while humid eastern counties (Memphis, Chicago) score ~60.
+
+**Coverage / graceful degradation.** ClimRR's grid covers CONUS + Alaska but **not Hawaii /
+Puerto Rico**; `_band_score` skips a leg with no data rather than nulling the whole score, so
+those geographies score from the remaining three legs. Built by
+`scripts/build_climate_projections.py --source fwi`, which augments the existing county/tract
+crosswalks in place with `fire_fwi_{hist,low,high}` (small ~12&nbsp;MB download, no `[build]` extra).
 
 ---
 

@@ -18,15 +18,30 @@ sampled at each census tract's internal point and bundled offline by
   • low band  = SSP2-4.5
   • high band = SSP5-8.5
 
-across five hazard metrics grouped into three legs:
+across six hazard metrics grouped into four legs:
 
   • heat    — days > 95 °F and days > 100 °F
   • precip  — days > 1" precip and the annual max 5-day precip total (flood)
   • drought — annual max consecutive dry days
+  • fire    — 95th-percentile Fire Weather Index (Argonne ClimRR, 12 km)
 
-The composite climate score is the equal-weight mean of the three legs; the
-headline ``score`` uses the low (SSP2-4.5) band, with the high (SSP5-8.5) band
+The composite climate score is the equal-weight mean of the legs that have data;
+the headline ``score`` uses the low (SSP2-4.5) band, with the high (SSP5-8.5) band
 surfaced as the downside.
+
+Fire leg (Argonne ClimRR)
+-------------------------
+The fire leg is the **95th-percentile Fire Weather Index (FWI)** from Argonne
+National Laboratory's Climate Risk & Resilience Portal (ClimRR) — a 12 km
+dynamically-downscaled (WRF) projection. Unlike the CMIP6-LOCA2 legs, ClimRR
+publishes a **single RCP8.5 pathway**, so its mid-century (2045–2054) FWI is
+applied to *both* the low and high bands: the fire leg contributes no SSP2-4.5 vs
+SSP5-8.5 scenario spread (regionally, mid-century fire weather is dominated by the
+baseline fire climatology, not the emissions scenario). ClimRR's 12 km grid cells
+are joined to census geography by sampling the nearest cell at each tract's
+internal point (``scripts/build_climate_projections.py --source fwi``). The grid
+covers CONUS + Alaska but **not Hawaii / Puerto Rico**, where the fire leg is
+absent and the score falls back to the remaining three legs.
 
 Resolution
 ----------
@@ -47,9 +62,9 @@ Caveats
 -------
 The ~6 km grid is sampled at a tract's **internal point** — a representative
 sub-county value, **not parcel-scale precision**. Values are a multi-model
-ensemble mean (WMMM); SSP2-4.5/SSP5-8.5 are the low/high bands. CMIP6-LOCA2
-carries no native Fire Weather Index, so the drought leg (consecutive dry days)
-stands in for the fire/drought hazard until a 12 km ClimRR FWI layer is added.
+ensemble mean (WMMM); SSP2-4.5/SSP5-8.5 are the low/high bands. The fire leg is a
+12 km ClimRR RCP8.5 Fire Weather Index — a coarser grid and a CMIP5/RCP pathway
+(vs. the CMIP6/SSP heat/precip/drought legs), applied to both bands (see above).
 Tracts/counties absent from the crosswalk (e.g. outside the CONUS grid) fall back
 to a coarser geography or the national-average score, with the label flagging it.
 """
@@ -87,13 +102,19 @@ _BREAKPOINTS: dict[str, tuple[list[float], list[float]]] = {
     "precip_max5day":   ([2.0, 3.4, 4.3, 5.2, 5.9, 6.4],      [100, 80, 60, 40, 20, 0]),
     # max consecutive dry days
     "drought_consecdd": ([16.1, 19.8, 24.3, 34.4, 46.0, 56.8], [100, 80, 60, 40, 20, 0]),
+    # 95th-percentile Fire Weather Index (ClimRR, RCP8.5 mid-century). Anchored to
+    # the national county quantiles of the mid-century FWI (printed by
+    # build_climate_projections.py --source fwi). Higher FWI → more fire danger.
+    "fire_fwi":         ([6.3, 10.2, 17.1, 27.3, 34.7, 37.7],   [100, 80, 60, 40, 20, 0]),
 }
 
-# Three hazard legs → the driver metrics averaged into each leg.
+# Four hazard legs → the driver metrics averaged into each leg. The fire leg
+# (ClimRR FWI) is a single RCP8.5 pathway, so fire_fwi_low == fire_fwi_high.
 _LEGS: dict[str, list[str]] = {
     "heat": ["heat_days95", "heat_days100"],
     "precip": ["precip_days1in", "precip_max5day"],
     "drought": ["drought_consecdd"],
+    "fire": ["fire_fwi"],
 }
 
 
@@ -118,14 +139,22 @@ def _metric_score(metric: str, value: float | None) -> float | None:
 
 
 def _band_score(row: dict, band: str) -> float | None:
-    """Composite 0–100 climate score for one emissions band (equal-weight legs)."""
+    """Composite 0–100 climate score for one emissions band (equal-weight over the
+    legs that have data).
+
+    A leg with no available metric is *skipped* rather than nulling the whole
+    score, so a geography outside a single leg's coverage still scores from the
+    rest — e.g. the ClimRR fire grid excludes Hawaii / Puerto Rico, whose climate
+    score is then the mean of heat/precip/drought. Returns None only when no leg
+    has any data (so the caller can fall back to a coarser geography)."""
     leg_scores: list[float] = []
     for metrics in _LEGS.values():
         parts = [_metric_score(m, _num(row.get(f"{m}_{band}"))) for m in metrics]
         parts = [p for p in parts if p is not None]
-        if not parts:
-            return None
-        leg_scores.append(sum(parts) / len(parts))
+        if parts:
+            leg_scores.append(sum(parts) / len(parts))
+    if not leg_scores:
+        return None
     return round(sum(leg_scores) / len(leg_scores), 1)
 
 
