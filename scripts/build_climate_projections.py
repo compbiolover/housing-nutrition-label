@@ -5,8 +5,8 @@ Writes the offline lookups that let ``data/climate_projections.py`` return real
 downscaled climate-hazard projections: ``climate_projections.csv`` (county) and,
 for the LOCA2 source, ``climate_projections_tracts.csv.gz`` (genuinely sub-county).
 
-Two sources
------------
+Three sources
+-------------
 ``--source loca2`` (default) — **genuinely sub-county.** USGS CMIP6-LOCA2 threshold
 metrics, Weighted Multi-Model Mean (WMMM), annual 1/16° (~6 km) CONUS grid on
 ScienceBase (DOI 10.5066/P13OV6GY, keyless). We download one NetCDF per SSP
@@ -19,6 +19,11 @@ ssp585→high. Unlike CMRA's tract layer, this yields real intra-county variatio
 ``--source cmra`` — the original county aggregate (CMIP5/RCP). NOAA/DOI CMRA
 ArcGIS FeatureServer; ``--geo-level tract`` exists but is not bundled (that layer
 broadcasts the county value — no sub-county signal). Retained for history.
+
+``--source fwi`` — the **fire leg.** Argonne ClimRR 12 km Fire Weather Index
+(RCP8.5, keyless CSVs on Box) joined to census geography by a pure-stdlib
+shapefile parse + nearest-cell sample, then appended to the existing crosswalks as
+fire_fwi_{hist,low,high}. Small download (~12 MB); run it after a base build.
 
 CMRA source (fully keyless, government-sourced)
 -----------------------------------------------
@@ -65,6 +70,7 @@ Service
 Run:  python scripts/build_climate_projections.py                    # LOCA2 county+tract (default)
       python scripts/build_climate_projections.py --sample-state 06  # LOCA2, one state (pilot)
       python scripts/build_climate_projections.py --source cmra      # CMRA county (original)
+      python scripts/build_climate_projections.py --source fwi       # append ClimRR fire leg
 """
 
 from __future__ import annotations
@@ -75,6 +81,7 @@ import gzip
 import io
 import pathlib
 import statistics
+import struct
 import sys
 import time
 import zipfile
@@ -446,6 +453,267 @@ def build_loca2(
     return sample_loca2_rows(fields, lat_arr, lon_arr, tracts, counties_meta)
 
 
+# ── FWI source (Argonne ClimRR Fire Weather Index; augments the crosswalks) ──
+#
+# Argonne National Laboratory's Climate Risk & Resilience Portal (ClimRR)
+# publishes a 12 km dynamically-downscaled (WRF) Fire Weather Index as keyless
+# CSVs on Box. Unlike the CMIP6-LOCA2 legs, ClimRR provides a SINGLE RCP8.5
+# pathway with Historical / Mid-Century (2045–2054) / End-Century horizons — no
+# RCP4.5 — so the mid-century FWI is applied to BOTH the low and high bands (the
+# fire leg contributes no scenario spread; see data/climate_projections.py).
+#
+# The FWI CSV is keyed by ``Crossmodel`` grid-cell id (R{row}C{col}), not by lat/
+# lon or FIPS. The companion GridCellsShapefile gives each cell's polygon in Web
+# Mercator (EPSG:3857); we take each cell's bbox centre, convert to WGS84 with the
+# same formula as ``housing_label.utils.webmercator_to_wgs84`` (inlined to keep
+# this build script decoupled from the runtime package), and join grid cells to
+# census geography by sampling the NEAREST cell at each tract's internal point —
+# the same nearest-point pattern the LOCA2 source uses, but with a lat/lon spatial
+# hash instead of a regular grid (ClimRR's grid is regular only in its native WRF
+# projection). County = the mean of its tracts, so tract→county stays coherent.
+# Pure stdlib .shp/.dbf parsing — no geospatial dependency.
+#
+# This source AUGMENTS the existing county/tract crosswalks in place, appending
+# fire_fwi_{hist,low,high} columns; run it after a base (loca2/cmra) build.
+FWI_SHARED_NAME = "hmkkgkrkzxxocfe9kpgrzk2gfc4gizp8"
+FWI_BOX_DL = "https://app.box.com/index.php?rm=box_download_shared_file"
+FWI_CSV_FILE_ID = "f_2070164260652"        # Fire Weather Index (FWI) Classes.csv
+FWI_GRID_FILE_ID = "f_1055124005369"       # GridCellsShapefile.zip
+# ClimRR FWI CSV horizon column → output band. Mid-century (RCP8.5) drives both
+# the low and high bands (single-scenario source).
+FWI_HORIZON_COL = {"hist": "FWI_Bins_Hist_95", "mid": "FWI_Bins_MidC_95"}
+FWI_STEM = "fire_fwi"
+FWI_BANDS = [("hist", "hist"), ("mid", "low"), ("mid", "high")]  # (horizon, out band)
+_WEBMERC_R = 20037508.342789244
+
+
+def _fwi_box_url(file_id: str) -> str:
+    return f"{FWI_BOX_DL}&shared_name={FWI_SHARED_NAME}&file_id={file_id}"
+
+
+def _webmerc_to_lonlat(x: float, y: float) -> tuple[float, float]:
+    """EPSG:3857 x,y → WGS84 (lon, lat). Mirrors housing_label.utils."""
+    import math
+    lon = x * 180.0 / _WEBMERC_R
+    lat = math.degrees(math.atan(math.exp(y * math.pi / _WEBMERC_R))) * 2.0 - 90.0
+    return lon, lat
+
+
+def _parse_grid_cells(zip_bytes: bytes) -> dict[str, tuple[float, float]]:
+    """ClimRR GridCellsShapefile.zip → {Crossmodel: (lat, lon)} cell centres.
+
+    Pure-stdlib .shp (polygon bounding-box centres) + .dbf (Crossmodel) parsing.
+    The shapefile is EPSG:3857, so each centre is reprojected to WGS84."""
+    zf = zipfile.ZipFile(io.BytesIO(zip_bytes))
+    shp_name = next(n for n in zf.namelist() if n.lower().endswith(".shp"))
+    dbf_name = next(n for n in zf.namelist() if n.lower().endswith(".dbf"))
+    shp = zf.read(shp_name)
+    # .shp: 100-byte header, then records of [big-endian num,len][little-endian body].
+    centres: list[tuple[float, float] | None] = []
+    pos = 100
+    while pos + 8 <= len(shp):
+        _num, clen = struct.unpack(">ii", shp[pos:pos + 8])
+        pos += 8
+        stype = struct.unpack("<i", shp[pos:pos + 4])[0]
+        if stype == 5:  # polygon: bbox is 4 doubles after the 4-byte type
+            xmin, ymin, xmax, ymax = struct.unpack("<4d", shp[pos + 4:pos + 36])
+            lon, lat = _webmerc_to_lonlat((xmin + xmax) / 2, (ymin + ymax) / 2)
+            centres.append((lat, lon))
+        else:
+            centres.append(None)
+        pos += clen * 2
+    # .dbf: header (record count, header/record length) then field descriptors.
+    dbf = zf.read(dbf_name)
+    numrec, hdrlen, reclen = struct.unpack("<xxxxIHH", dbf[:12])
+    fields, off, o = [], {}, 1
+    fpos = 32
+    while dbf[fpos:fpos + 1] != b"\r":
+        name = dbf[fpos:fpos + 11].split(b"\x00")[0].decode("latin-1")
+        flen = dbf[fpos + 16]
+        fields.append((name, flen))
+        off[name] = (o, flen)
+        o += flen
+        fpos += 32
+    cs, cl = off["Crossmodel"]
+    out: dict[str, tuple[float, float]] = {}
+    for i in range(numrec):
+        base = hdrlen + i * reclen
+        cm = dbf[base + cs:base + cs + cl].decode("latin-1").strip()
+        centre = centres[i] if i < len(centres) else None
+        if cm and centre is not None:
+            out[cm] = centre
+    return out
+
+
+def _load_fwi_values(csv_bytes: bytes) -> dict[str, dict[str, float]]:
+    """ClimRR FWI Classes CSV → {Crossmodel: {horizon: 95th-pct FWI}}."""
+    out: dict[str, dict[str, float]] = {}
+    reader = csv.DictReader(io.StringIO(csv_bytes.decode("latin-1")))
+    for row in reader:
+        cm = (row.get("Crossmodel") or "").strip()
+        if not cm:
+            continue
+        vals: dict[str, float] = {}
+        for horizon, col in FWI_HORIZON_COL.items():
+            try:
+                vals[horizon] = float(row[col])
+            except (KeyError, TypeError, ValueError):
+                pass
+        if vals:
+            out[cm] = vals
+    return out
+
+
+class _CellIndex:
+    """Nearest-cell lookup over ClimRR grid centres via a 0.5° lat/lon hash."""
+
+    _BIN = 0.5
+
+    def __init__(self, cells: list[tuple[str, float, float]]):
+        import math
+        self._math = math
+        self._cells = cells
+        self._grid: dict[tuple[int, int], list[int]] = {}
+        for idx, (_cm, lat, lon) in enumerate(cells):
+            key = (round(lat / self._BIN), round(lon / self._BIN))
+            self._grid.setdefault(key, []).append(idx)
+
+    def nearest(self, lat: float, lon: float, max_ring: int = 6) -> str | None:
+        cos = self._math.cos(self._math.radians(lat))
+        bi, bj = round(lat / self._BIN), round(lon / self._BIN)
+        best, best_d = None, 1e18
+        r = 0
+        while best is None and r <= max_ring:
+            for di in range(-r, r + 1):
+                for dj in range(-r, r + 1):
+                    if r > 0 and max(abs(di), abs(dj)) != r:
+                        continue  # only the new ring, not the filled interior
+                    for idx in self._grid.get((bi + di, bj + dj), ()):
+                        _cm, cla, clo = self._cells[idx]
+                        d = (cla - lat) ** 2 + ((clo - lon) * cos) ** 2
+                        if d < best_d:
+                            best_d, best = d, idx
+            r += 1
+        return self._cells[best][0] if best is not None else None
+
+
+def sample_fwi_rows(
+    cell_ll: dict[str, tuple[float, float]],
+    fwi: dict[str, dict[str, float]],
+    tracts: list[dict],
+) -> tuple[dict[str, dict[str, float]], dict[str, dict[str, float]]]:
+    """Pure core: sample each tract's nearest FWI cell; county = mean of tracts.
+
+    Returns (county_fire, tract_fire), each ``geoid -> {out_band: value}`` in the
+    fire_fwi_{hist,low,high} schema (out band via FWI_BANDS)."""
+    cells = [(cm, ll[0], ll[1]) for cm, ll in cell_ll.items() if cm in fwi]
+    index = _CellIndex(cells)
+    tract_fire: dict[str, dict[str, float]] = {}
+    buckets: dict[str, dict[str, list[float]]] = {}
+    for t in tracts:
+        geoid = t["geoid"].zfill(11)
+        cm = index.nearest(t["lat"], t["lon"])
+        if cm is None:
+            continue
+        vals = fwi[cm]
+        row = {out: vals[hz] for hz, out in FWI_BANDS if hz in vals}
+        if not row:
+            continue
+        tract_fire[geoid] = row
+        cbucket = buckets.setdefault(geoid[:5], {})
+        for out, v in row.items():
+            cbucket.setdefault(out, []).append(v)
+    county_fire = {
+        cfips: {out: sum(xs) / len(xs) for out, xs in bands.items()}
+        for cfips, bands in buckets.items()
+    }
+    return county_fire, tract_fire
+
+
+def _augment_with_fire(path: pathlib.Path, fire: dict[str, dict[str, float]],
+                       width: int) -> tuple[int, int]:
+    """Append fire_fwi_{hist,low,high} columns to an existing crosswalk in place.
+
+    Reads every row of the county/tract CSV (gzip-aware), fills the fire columns
+    from ``fire`` keyed by the row's geoid (blank where the ClimRR grid doesn't
+    cover it, e.g. HI/PR), and rewrites. Returns (rows, rows_with_fire)."""
+    opener = gzip.open if path.suffix == ".gz" else open
+    with opener(path, "rt", newline="") as f:
+        reader = csv.DictReader(f)
+        base_cols = list(reader.fieldnames or [])
+        rows = list(reader)
+    fire_cols = [f"{FWI_STEM}_{b}" for b in ("hist", "low", "high")]
+    cols = base_cols + [c for c in fire_cols if c not in base_cols]
+    n_fire = 0
+    for row in rows:
+        vals = fire.get(str(row["geoid"]).strip().zfill(width))
+        if vals:
+            n_fire += 1
+        for b in ("hist", "low", "high"):
+            v = (vals or {}).get(b)
+            row[f"{FWI_STEM}_{b}"] = "" if v is None else round(float(v), 3)
+    with opener(path, "wt", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=cols)
+        w.writeheader()
+        w.writerows(rows)
+    return len(rows), n_fire
+
+
+def _print_fwi_quantiles(county_fire: dict[str, dict[str, float]]) -> None:
+    """National county quantiles of the mid-century (low band) FWI — the anchors
+    for the fire_fwi scoring breakpoints in data/climate_projections.py."""
+    vals = sorted(v["low"] for v in county_fire.values() if "low" in v)
+    if not vals:
+        return
+    line = f"  n={len(vals)} min={vals[0]:.1f} max={vals[-1]:.1f}"
+    # quantiles need ≥2 data points; a tiny subset (e.g. --sample-state on a
+    # single-county jurisdiction like DC) would otherwise raise StatisticsError
+    # and crash an otherwise-successful build over a purely diagnostic printout.
+    if len(vals) >= 2:
+        q = statistics.quantiles(vals, n=100)
+        line += "  " + "  ".join(f"p{p}={q[p - 1]:.1f}" for p in (5, 25, 50, 75, 90, 95))
+    print(f"\nFire (FWI) national county quantiles [low band, mid-century]:\n{line}",
+          file=sys.stderr)
+
+
+def _run_fwi(args) -> int:
+    """FWI source: download ClimRR FWI + grid, join to census geography, and
+    append the fire leg to the existing county & tract crosswalks."""
+    cache_dir = pathlib.Path(
+        args.cache_dir or (pathlib.Path(__file__).resolve().parents[1] / ".fwi_cache"))
+    county_out = pathlib.Path(args.out) if args.out else GEO_LEVELS["county"]["out"]
+    tract_out = pathlib.Path(args.tract_out) if args.tract_out else GEO_LEVELS["tract"]["out"]
+    if not county_out.exists() or not tract_out.exists():
+        print("ERROR: base crosswalks not found — run a loca2/cmra build first so the\n"
+              f"       fire leg has rows to augment ({county_out}, {tract_out}).",
+              file=sys.stderr)
+        return 1
+
+    print("FWI build (Argonne ClimRR, 12 km RCP8.5). Downloads ~12 MB from Box +\n"
+          f"the Census Gazetteer, then augments the crosswalks. Cache: {cache_dir}\n",
+          file=sys.stderr)
+    csv_path = _download(_fwi_box_url(FWI_CSV_FILE_ID), cache_dir / "climrr_fwi_classes.csv",
+                         min_size=1 << 20)
+    grid_path = _download(_fwi_box_url(FWI_GRID_FILE_ID), cache_dir / "climrr_gridcells.zip",
+                          min_size=1 << 20)
+    cell_ll = _parse_grid_cells(grid_path.read_bytes())
+    fwi = _load_fwi_values(csv_path.read_bytes())
+    print(f"  {len(cell_ll)} grid cells, {len(fwi)} with FWI values", file=sys.stderr)
+
+    tracts = _load_gazetteer("tracts", args.gaz_year, cache_dir)
+    if args.sample_state:
+        st = args.sample_state.zfill(2)
+        tracts = [t for t in tracts if t["geoid"].zfill(11).startswith(st)]
+    county_fire, tract_fire = sample_fwi_rows(cell_ll, fwi, tracts)
+
+    c_rows, c_fire = _augment_with_fire(county_out, county_fire, 5)
+    t_rows, t_fire = _augment_with_fire(tract_out, tract_fire, 11)
+    _print_fwi_quantiles(county_fire)
+    print(f"\nAugmented {c_fire}/{c_rows} counties → {county_out}\n"
+          f"Augmented {t_fire}/{t_rows} tracts → {tract_out}", file=sys.stderr)
+    return 0
+
+
 def _cmra_fields(id_field: str) -> list[str]:
     fields = [id_field, "CountyName", "StateAbbr"]
     for metric in METRICS:
@@ -588,8 +856,10 @@ def _run_loca2(args) -> int:
 def main() -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--source", choices=("loca2", "cmra"), default="loca2",
-                    help="loca2 (sub-county, ensemble grid; default) or cmra (county aggregate)")
+    ap.add_argument("--source", choices=("loca2", "cmra", "fwi"), default="loca2",
+                    help="loca2 (sub-county, ensemble grid; default), cmra (county "
+                         "aggregate), or fwi (ClimRR Fire Weather Index — augments the "
+                         "existing crosswalks with the fire leg)")
     ap.add_argument("--geo-level", choices=sorted(GEO_LEVELS), default="county",
                     help="[cmra only] county (bundled) or tract (opt-in, not bundled)")
     ap.add_argument("--service-base", default=SERVICE_BASE,
@@ -606,6 +876,8 @@ def main() -> int:
 
     if args.source == "loca2":
         return _run_loca2(args)
+    if args.source == "fwi":
+        return _run_fwi(args)
 
     level = GEO_LEVELS[args.geo_level]
     service = f"{args.service_base}/{level['layer']}"

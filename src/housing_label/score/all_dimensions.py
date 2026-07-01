@@ -31,7 +31,8 @@ Dimensions
                   daily life.  Walk scores live in shelby_parcels_enriched.csv
                   (a separate, API-gated enrichment) and are merged in on PARID.
   climate         Climate Projections: sub-county downscaled climate-hazard
-                  score (CMIP6-LOCA2, SSP2-4.5 mid-century) from
+                  score (CMIP6-LOCA2 heat/precip/drought + Argonne ClimRR Fire
+                  Weather Index fire leg, SSP2-4.5 mid-century) from
                   data/climate_projections.py.  Sampled at the tract's internal
                   point (county = mean of its tracts), a real value included in
                   the composite.
@@ -201,7 +202,8 @@ def _geoid_series(col: pd.Series, width: int) -> pd.Series:
 
 
 def score_climate(df: pd.DataFrame) -> pd.Series:
-    """Resolution-aware Climate Projections score (CMIP6-LOCA2, SSP2-4.5 mid-century).
+    """Resolution-aware Climate Projections score (CMIP6-LOCA2 heat/precip/drought +
+    Argonne ClimRR Fire Weather Index fire leg, SSP2-4.5 mid-century headline).
 
     Resolves each parcel at the finest geography a column provides: an 11-digit
     ``tract``/``tract_geoid`` column (tract→county→US fallback) takes precedence,

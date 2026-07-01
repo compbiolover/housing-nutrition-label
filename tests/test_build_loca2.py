@@ -153,6 +153,65 @@ def test_open_loca2_var_reads_windows():
     assert np.isclose(got["hist"][0, 0], data[mask, 0, 0].mean())
 
 
+# ───────────────────────── FWI source (ClimRR fire leg) ─────────────────────────
+
+def test_webmerc_to_lonlat_matches_runtime_formula():
+    # The inlined EPSG:3857→WGS84 must match housing_label.utils.webmercator_to_wgs84.
+    from housing_label.utils import webmercator_to_wgs84
+    for x, y in [(0.0, 0.0), (-1.2e7, 5.0e6), (5.0e6, -3.0e6)]:
+        assert np.allclose(b._webmerc_to_lonlat(x, y), webmercator_to_wgs84(x, y))
+    # Origin maps to (lon=0, lat=0); a mid-CONUS cell resolves to plausible US lat/lon.
+    lon, lat = b._webmerc_to_lonlat(0.0, 0.0)
+    assert abs(lon) < 1e-9 and abs(lat) < 1e-9
+
+
+def test_sample_fwi_rows_join_aggregation_and_single_scenario():
+    # Two grid cells; tracts snap to the nearest by great-circle-ish distance.
+    cell_ll = {"R1C1": (35.0, -90.0), "R1C2": (40.0, -105.0)}
+    fwi = {"R1C1": {"hist": 18.0, "mid": 20.0},     # humid east
+           "R1C2": {"hist": 44.0, "mid": 46.0}}     # fire-prone west
+    tracts = [
+        {"geoid": "47001000100", "lat": 35.1, "lon": -90.1},   # → R1C1
+        {"geoid": "47001000200", "lat": 34.9, "lon": -89.8},   # → R1C1
+        {"geoid": "08001000100", "lat": 39.9, "lon": -105.2},  # → R1C2
+    ]
+    county_fire, tract_fire = b.sample_fwi_rows(cell_ll, fwi, tracts)
+    # Single RCP8.5 pathway: mid-century drives BOTH low and high; hist stays hist.
+    assert tract_fire["47001000100"] == {"hist": 18.0, "low": 20.0, "high": 20.0}
+    assert tract_fire["08001000100"]["low"] == 46.0
+    # County = mean of its tracts (both east tracts on R1C1 → same value).
+    assert county_fire["47001"]["low"] == 20.0
+    assert county_fire["08001"]["high"] == 46.0
+    # The fire-prone county's FWI is far higher than the humid one.
+    assert county_fire["08001"]["low"] > county_fire["47001"]["low"]
+
+
+def test_augment_with_fire_adds_columns_and_blanks_missing():
+    import csv as _csv
+    d = pathlib.Path(tempfile.mkdtemp())
+    path = d / "climate_projections.csv"
+    # A minimal base crosswalk (two counties) in the shared schema.
+    base_cols = b._out_columns()
+    with path.open("w", newline="") as f:
+        w = _csv.DictWriter(f, fieldnames=base_cols)
+        w.writeheader()
+        for geoid in ("47157", "15003"):   # Shelby (has fire), Honolulu (no fire)
+            w.writerow({c: ("county" if c == "geo_level" else geoid if c == "geoid" else "1")
+                        for c in base_cols})
+    n, n_fire = b._augment_with_fire(path, {"47157": {"hist": 18.0, "low": 20.0, "high": 20.0}}, 5)
+    assert (n, n_fire) == (2, 1)
+    rows = {r["geoid"]: r for r in _csv.DictReader(path.open())}
+    # New columns appended; the covered county filled, the uncovered one blank.
+    assert "fire_fwi_low" in rows["47157"] and rows["47157"]["fire_fwi_low"] == "20.0"
+    assert rows["15003"]["fire_fwi_low"] == ""
+
+
+def test_fwi_band_mapping_is_single_scenario():
+    # Mid-century (RCP8.5) feeds BOTH the low and high output bands; hist→hist.
+    assert b.FWI_BANDS == [("hist", "hist"), ("mid", "low"), ("mid", "high")]
+    assert set(b.FWI_HORIZON_COL) == {"hist", "mid"}
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:
