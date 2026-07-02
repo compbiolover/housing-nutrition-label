@@ -33,6 +33,9 @@ import numpy as np
 import pandas as pd
 
 from housing_label.simulate.dimensions import simulate_all_dimensions
+from housing_label.confidence import (
+    confidence_for_label, bands_for_label, CONFIDENCE_NOTES, CONFIDENCE_LEGEND,
+)
 from housing_label.enrich.seismic_lookup import get_pga
 
 # ── File paths ─────────────────────────────────────────────────────────────────
@@ -1237,6 +1240,17 @@ def print_label(cfg: dict, label: dict) -> None:
     print()
 
 
+def cost_flows(r: dict, label: dict) -> dict:
+    """Annual dollar flows the lifetime-cost strip discounts: expected annual
+    loss and annual energy cost (monthly × 12). See
+    research/lifetime-cost-research.md."""
+    out = {"expectedAnnualLoss": round(r["total_loss"])}
+    monthly = (label.get("metrics") or {}).get("est_monthly_energy_cost")
+    if monthly is not None:
+        out["annualEnergyCost"] = round(monthly * 12)
+    return out
+
+
 def label_payload(cfg: dict, r: dict, label: dict) -> dict:
     """Build the full nutrition-label payload (JSON-serializable) shared by the
     CLI's --json output and the HTTP API."""
@@ -1264,6 +1278,14 @@ def label_payload(cfg: dict, r: dict, label: dict) -> dict:
         "metrics": label["metrics"],
         "census_tract": label["census_tract"],
         "location_notes": label["location_notes"],
+        # Data-quality confidence channel (research/uncertainty-confidence-research.md).
+        "confidence": confidence_for_label(label),
+        "bands": bands_for_label(label),
+        "confidence_notes": CONFIDENCE_NOTES,
+        "confidence_legend": CONFIDENCE_LEGEND,
+        # Annual $ flows for the lifetime-cost strip (delta vs. a baseline is
+        # added by the API, which scores a typical comparable at this location).
+        "cost": cost_flows(r, label),
         "total_loss": round(r["total_loss"], 2),
         "fire_loss": round(r["fire_loss"], 2),
     }
@@ -1302,7 +1324,7 @@ def build_label_parts(*, address: str | None = None,
                       lat: float | None = None, lon: float | None = None,
                       preset: str | None = None, flood_zone: str | None = None,
                       allow_network: bool = True, overrides: dict | None = None,
-                      upgrades: list[str] | None = None,
+                      upgrades: list[str] | None = None, location=None,
                       **fields) -> tuple[dict, dict, dict]:
     """Resolve a location, build the house config, and run the full simulation.
 
@@ -1314,8 +1336,11 @@ def build_label_parts(*, address: str | None = None,
     from argparse import Namespace
     from housing_label.simulate.location import resolve_location
 
-    location = None
-    if address:
+    # A caller may pass a pre-resolved location to reuse (skips geocoding — used
+    # when scoring a baseline comparable at the same place for the cost strip).
+    if location is not None:
+        lat, lon = location.lat, location.lon
+    elif address:
         try:
             location = resolve_location(address=address, allow_network=allow_network)
         except Exception as exc:  # noqa: BLE001 — surface as a clean validation error
