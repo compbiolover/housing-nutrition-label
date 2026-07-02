@@ -705,8 +705,9 @@
             + byKey.map(function (m) { return '<td>' + cell(m[key]) + '</td>'; }).join("") + '</tr>';
         }).join("");
         rows += '<tr class="row-highlight"><td><strong>Composite</strong></td>' + ps.map(function (p) {
-          return '<td><strong>' + (p.composite_score == null ? "N/A" : p.composite_score.toFixed(1)) + '</strong> '
-            + gsp(p.composite_national_grade) + '</td>';
+          var c = p.composite_score;
+          return '<td>' + (c == null ? '<span class="na">N/A</span>'
+            : '<strong>' + c.toFixed(1) + '</strong> ' + gsp(p.composite_national_grade)) + '</td>';
         }).join("") + '</tr>';
         host.innerHTML = '<table class="comparison"><thead>' + head + '</thead><tbody>' + rows + '</tbody></table>';
       })
