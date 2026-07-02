@@ -21,12 +21,17 @@ comparable*, never as an absolute "total cost of the home."**
 
 The project already computes, per house, three genuinely dollar-denominated annual flows:
 
-1. **Expected Annual Loss (EAL)** — `total_loss = total_eal × value` (`simulate/house.py`), already
-   shown on the label as *"Expected Annual Loss: $X/yr."*
-2. **Annual energy cost** — `est_annual_kwh × $0.105 + est_annual_therms × $1.10`
-   (`enrich/energy.py`), already shown as *"Monthly Energy: $X."*
-3. **Annual property tax** — `est_property_tax` (`enrich/infrastructure.py`), a homeowner-facing
-   cash outflow (currently used only inside the fiscal ratio, not displayed as a cost).
+1. **Expected Annual Loss (EAL)** — `total_loss = total_eal × value`
+   (`src/housing_label/simulate/house.py`), already shown on the label as
+   *"Expected Annual Loss: $X/yr."* This is the one flow surfaced directly as an annual dollar figure.
+2. **Annual energy cost** — the module (`src/housing_label/enrich/energy.py`) emits
+   `est_annual_kwh`, `est_annual_therms`, and `est_monthly_energy_cost` ($/mo); it computes the
+   annual dollar cost internally (`annual_kwh × $0.105 + annual_therms × $1.10`) but only *surfaces*
+   the monthly figure (shown on the label as *"Monthly Energy: $X"*). The annual $ is therefore
+   trivially derivable (×12, or recomputed from the kWh/therm fields) but is **not currently an
+   output column** — a one-line change to surface it.
+3. **Annual property tax** — `est_property_tax` (`src/housing_label/enrich/infrastructure.py`), a
+   homeowner-facing cash outflow (currently used only inside the fiscal ratio, not displayed as a cost).
 
 These three are exactly the "operating + risk" costs that a home's **physical and locational
 characteristics** move — which is precisely what a nutrition label is for. Discount that annual
@@ -82,15 +87,17 @@ A stream of annual real costs `C_t` (in today's dollars) over an `N`-year horizo
 
 ```
         N
-PV  =   Σ    C_t · (1 + g)^(t)  /  (1 + d)^(t)
+PV  =   Σ    C₀ · (1 + g)^(t−1)  /  (1 + d)^(t)
        t=1
 ```
 
-where `g` is the **real escalation rate** of that cost stream and `d` is the **real discount rate**.
-When `C_t = C₀` and `g`, `d` are constant, this collapses to the closed-form growing annuity
+where `C₀` is the **first-year cost** (the payment at `t = 1`, i.e. the current modeled annual
+cost — no pre-escalation), `g` is the **real escalation rate** of that cost stream, and `d` is the
+**real discount rate**. This is the standard growing-annuity convention (first payment at `t = 1`
+equals `C₀`); it collapses to the closed form
 
 ```
-PV = C₀ · (1+g)/(d−g) · [ 1 − ((1+g)/(1+d))^N ]        (d ≠ g)
+PV = C₀ / (d−g) · [ 1 − ((1+g)/(1+d))^N ]        (d ≠ g)
 ```
 
 and with `g = 0` (constant real cost) to the ordinary annuity factor `a(N,d) = (1 − (1+d)^(−N)) / d`.
@@ -175,11 +182,11 @@ not price.)
 
 | Feed | Source in code | Status | Include in headline? |
 |---|---|---|---|
-| EAL $ (`total_loss`, and flood/tornado/seismic/fire sub-losses) | `simulate/house.py` `simulate()` | Already $/yr | **Yes** |
-| Annual energy cost (`est_annual_kwh`,`est_annual_therms` × rates; `est_monthly_energy_cost`) | `enrich/energy.py` | Already $/yr | **Yes** |
-| Property tax (`est_property_tax`) | `enrich/infrastructure.py` | Already $/yr, homeowner-facing | **Optional** (it's the "T" in PITI; include only if the baseline holds tax constant so it doesn't dominate the delta) |
+| EAL $ (`total_loss`, and flood/tornado/seismic/fire sub-losses) | `src/housing_label/simulate/house.py` `simulate()` | Surfaced as $/yr | **Yes** |
+| Annual energy cost (`est_annual_kwh`,`est_annual_therms` × rates; `est_monthly_energy_cost`) | `src/housing_label/enrich/energy.py` | Emits kWh/therms + monthly $; annual $ computed internally but **not yet a surfaced field** (derive ×12) | **Yes** |
+| Property tax (`est_property_tax`) | `src/housing_label/enrich/infrastructure.py` | $/yr, homeowner-facing | **Optional** (it's the "T" in PITI; include only if the baseline holds tax constant so it doesn't dominate the delta) |
 | Maintenance reserve | *not currently emitted* | Convertible via 1%/yr rule (§2), scaled by durability/age | **Optional, flagged** |
-| Public infra cost (`est_annual_infra_cost`, `fiscal_ratio`) | `enrich/infrastructure.py` | Public externality, **not** a homeowner outflow | **No** (keep separate; see §2) |
+| Public infra cost (`est_annual_infra_cost`, `fiscal_ratio`) | `src/housing_label/enrich/infrastructure.py` | Public externality, **not** a homeowner outflow | **No** (keep separate; see §2) |
 
 ---
 
@@ -195,7 +202,7 @@ supported by current data*.
 | 2 | **Energy Efficiency** | **Already-$** | `est_monthly_energy_cost`, `est_annual_kwh/therms` × MLGW/TVA rates. Underwriting-grade (matches the EEM/ENERGY STAR approach). |
 | 3 | **Durability** | **Convertible-to-$ (approx., flag it)** | Component-lifespan/effective-age model → *implies* a maintenance/replacement reserve, but the model emits a 0–100 score, **not** replacement-cost dollars. A defensible proxy is the industry **1%/yr of value** maintenance rule (older/poorer stock 3–4%+; [Fannie Mae](https://yourhome.fanniemae.com/own/how-build-your-maintenance-and-repair-budget)), scaled by the durability score/condition/age. **Flag:** this is a rule-of-thumb, not a modeled cash flow — show it only as an optional line with a wide band, never in the precise headline. |
 | 4 | **Environmental Footprint** | **Keep-qualitative** (operational leg already counted via energy) | Operational CO₂e is *derived from the same kWh/therms already dollarized under Energy* — dollarizing it again would **double-count**. Embodied carbon and water are not meaningful homeowner cash flows (water is small and already scored). A social cost of carbon could be attached for a *societal* view, but that is a different number from homeowner TCO and must be labeled as such. |
-| 5 | **Infrastructure Burden** | **Split: property tax = already-$ (homeowner); infra cost/fiscal ratio = public externality, keep separate** | `est_property_tax` is a real homeowner outflow (PITI "T"). `est_annual_infra_cost`/`fiscal_ratio` measure whether the *municipality* recovers its costs — a **public** externality, explicitly documented at ±30% uncertainty (`enrich/infrastructure.py` header). It is *not* a homeowner bill and must **not** be summed into the headline; show it, if at all, in a separate "public cost" line. |
+| 5 | **Infrastructure Burden** | **Split: property tax = already-$ (homeowner); infra cost/fiscal ratio = public externality, keep separate** | `est_property_tax` is a real homeowner outflow (PITI "T"). `est_annual_infra_cost`/`fiscal_ratio` measure whether the *municipality* recovers its costs — a **public** externality, explicitly documented at ±30% uncertainty (`src/housing_label/enrich/infrastructure.py` header). It is *not* a homeowner bill and must **not** be summed into the headline; show it, if at all, in a separate "public cost" line. |
 | 6 | **Health Impact** | **Keep-qualitative** | CDC PLACES chronic-disease prevalence. No defensible, non-inflammatory way to convert tract health to a dollar on a house's cost sheet. |
 | 7 | **Socioeconomic** | **Keep-qualitative** | ACS income/poverty/education index. Dollarizing neighborhood socioeconomics is both statistically unsupported here and ethically fraught (redlining risk). |
 | 8 | **Walkability** | **Keep-qualitative** (transportation $ is *conceptually* dollarizable but **data insufficient**) | The CNT H+T Index dollarizes location via a regression on auto ownership/use + transit — but this project has only a 0–100 Walk Score, **not** the H+T inputs. Do not invent a transportation-cost dollar from Walk Score alone. |
