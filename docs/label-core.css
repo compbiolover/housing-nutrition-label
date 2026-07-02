@@ -1,0 +1,82 @@
+/* label-core.css — shared styles for the unified label renderer (label-core.js),
+ * linked by index.html, examples.html, and label.html. Selectors are
+ * un-scoped so the same card markup styles identically on every page; a page
+ * may still add a more specific container rule (e.g. #addr-result) for layout.
+ * Uses the design tokens from style.css. */
+
+/* ── Card container ─────────────────────────────────────────────────────────*/
+.label-card { background: var(--card); border: 2px solid var(--navy); border-radius: var(--radius);
+  padding: 1.25rem 1.5rem; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); }
+.label-card .label-head { display: flex; justify-content: space-between; align-items: center;
+  border-bottom: 2px solid var(--border); padding-bottom: 0.6rem; margin-bottom: 0.6rem; gap: 1rem; }
+.label-card .composite-num { font-size: 2rem; font-weight: 800; color: var(--navy); line-height: 1; }
+.label-card .grade-lg { width: 48px; height: 48px; line-height: 48px; text-align: center;
+  border-radius: var(--radius); color: #fff; font-weight: 800; font-size: 1.5rem; }
+.label-card .build-line { color: var(--muted); font-size: 0.85rem; margin-top: 0.2rem; }
+.label-card .build-line strong { color: var(--navy); }
+.label-card .na { color: var(--muted); font-style: italic; }
+.label-card .meta { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.75rem; }
+
+/* ── Confidence (data-quality) channel — neutral, separate from the grade ────*/
+.conf-dot { color: var(--muted); font-size: 0.8em; margin-left: 0.15rem; cursor: help; }
+.composite-conf { font-size: 0.78rem; color: var(--muted); margin: 0 0 0.75rem; cursor: help; }
+.composite-conf .conf-dot { margin-left: 0; }
+.conf-legend { font-size: 0.72rem; color: var(--muted); margin-top: 0.75rem; font-style: italic; }
+
+/* ── Climate scenario-band whisker over the score bar ───────────────────────*/
+.score-bar { position: relative; }
+.ci-whisker { position: absolute; top: 0; bottom: 0; }
+.ci-whisker::before, .ci-whisker::after {
+  content: ""; position: absolute; top: 1px; bottom: 1px; width: 1.5px; background: var(--text); }
+.ci-whisker::before { left: 0; }
+.ci-whisker::after { right: 0; }
+.ci-whisker .ci-line {
+  position: absolute; top: 50%; left: 0; right: 0; height: 1.5px; background: var(--text); transform: translateY(-50%); }
+
+/* ── Lifetime "cost over a mortgage" strip ──────────────────────────────────*/
+.cost-strip { border-top: 2px solid var(--border); border-bottom: 2px solid var(--border);
+  padding: 0.7rem 0; margin: 0.75rem 0; }
+.cost-cap { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.cost-delta { font-size: 1.3rem; font-weight: 800; color: var(--navy); line-height: 1.15; }
+.cost-delta .cheaper { color: #16a34a; }
+.cost-delta .pricier { color: #dc2626; }
+.cost-band, .cost-vs { font-size: 0.78rem; color: var(--muted); }
+.cost-vs { margin-top: 0.15rem; }
+
+/* ── Mode toggle + compare (A/B) + profile picker (Label page) ──────────────*/
+.mode-toggle { display: flex; justify-content: center; gap: 0; margin: 0 auto 1rem; }
+.mode-toggle button { font: inherit; font-weight: 600; padding: 0.4rem 1rem; border: 1px solid var(--border);
+  background: var(--card); color: var(--text); cursor: pointer; }
+.mode-toggle button:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+.mode-toggle button:last-child { border-radius: 0 var(--radius) var(--radius) 0; border-left: none; }
+.mode-toggle button.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+.compare-grid { display: flex; flex-wrap: wrap; gap: 1.25rem; justify-content: center; align-items: flex-start; }
+.compare-grid .label-card { flex: 1 1 340px; max-width: 460px; margin: 0; }
+.compare-pickers { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center; margin-bottom: 1rem; }
+.picker { text-align: center; margin: 0 auto 1rem; }
+.picker label { font-weight: 600; color: var(--navy); margin-right: 0.5rem; }
+.picker select { font: inherit; padding: 0.5rem 0.75rem; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--card); color: var(--text); min-width: 220px; }
+
+/* ── Per-dimension A→B delta table (compare mode) ───────────────────────────*/
+.delta-table { max-width: 640px; margin: 1.25rem auto 0; border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+.delta-table th, .delta-table td { padding: 0.35rem 0.6rem; border-bottom: 1px solid var(--border); text-align: right; }
+.delta-table th:first-child, .delta-table td:first-child { text-align: left; }
+.delta-table thead th { color: var(--navy); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.delta-table .up { color: #16a34a; font-weight: 700; }
+.delta-table .down { color: #dc2626; font-weight: 700; }
+.delta-table .flat { color: var(--muted); }
+
+/* ── Grade legend + page states ─────────────────────────────────────────────*/
+.legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; justify-content: center; margin-top: 1.5rem; font-size: 0.8rem; color: var(--muted); }
+.legend .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 0.35rem; vertical-align: middle; }
+.loading, .error { text-align: center; color: var(--muted); padding: 2rem; }
+.error { color: var(--red); }
+
+@media (prefers-color-scheme: dark) {
+  .label-card { border-color: #475569; }
+  .label-card .composite-num, .label-card .build-line strong,
+  .cost-delta, .delta-table thead th, .picker label { color: #e2e8f0; }
+  .cost-delta .cheaper, .delta-table .up { color: #4ade80; }
+  .cost-delta .pricier, .delta-table .down { color: #f87171; }
+}

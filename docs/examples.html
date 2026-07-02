@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Examples &mdash; Housing Nutrition Label</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="label-core.css">
   <!-- Default scoring API for the address search (override per-visit with ?api=...). -->
   <script>window.HOUSING_LABEL_API = "https://housing-nutrition-label.onrender.com"</script>
   <style>
@@ -54,28 +55,8 @@
     #addr-result .build-line strong { color: var(--navy); }
     #addr-result .na { color: var(--muted); font-style: italic; }
     #addr-result .meta { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.75rem; }
-    /* Confidence (data-quality) channel + climate whisker + cost strip — mirror
-       of index.html / label.html. See uncertainty-confidence-research.md. */
-    #addr-result .conf-dot { color: var(--muted); font-size: 0.8em; margin-left: 0.15rem; cursor: help; }
-    #addr-result .composite-conf { font-size: 0.78rem; color: var(--muted); margin: 0 0 0.75rem; cursor: help; }
-    #addr-result .composite-conf .conf-dot { margin-left: 0; }
-    #addr-result .conf-legend { font-size: 0.72rem; color: var(--muted); margin-top: 0.75rem; font-style: italic; }
-    #addr-result .score-bar { position: relative; }
-    #addr-result .ci-whisker { position: absolute; top: 0; bottom: 0; }
-    #addr-result .ci-whisker::before, #addr-result .ci-whisker::after {
-      content: ""; position: absolute; top: 1px; bottom: 1px; width: 1.5px; background: var(--text); }
-    #addr-result .ci-whisker::before { left: 0; }
-    #addr-result .ci-whisker::after { right: 0; }
-    #addr-result .ci-whisker .ci-line {
-      position: absolute; top: 50%; left: 0; right: 0; height: 1.5px; background: var(--text); transform: translateY(-50%); }
-    #addr-result .cost-strip { border-top: 2px solid var(--border); border-bottom: 2px solid var(--border);
-      padding: 0.7rem 0; margin: 0.75rem 0; }
-    #addr-result .cost-cap { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
-    #addr-result .cost-delta { font-size: 1.3rem; font-weight: 800; color: var(--navy); line-height: 1.15; }
-    #addr-result .cost-delta .cheaper { color: #16a34a; }
-    #addr-result .cost-delta .pricier { color: #dc2626; }
-    #addr-result .cost-band, #addr-result .cost-vs { font-size: 0.78rem; color: var(--muted); }
-    #addr-result .cost-vs { margin-top: 0.15rem; }
+    /* Confidence dots, climate whisker, and the cost strip are styled by the
+       shared label-core.css (linked above). */
     .row-highlight { background: #f1f5f9; }
     /* Density-on-this-parcel comparison (fixed lot, vary units). */
     #density-wrap { max-width: 640px; margin: 0.75rem 0 0; }
@@ -95,10 +76,7 @@
       .addr-details summary, .addr-upgrades legend { color: #cbd5e1; }
       #addr-result .label-card { border-color: #475569; }
       #addr-result .composite-num,
-      #addr-result .cost-delta,
       #addr-result .build-line strong { color: #e2e8f0; }
-      #addr-result .cost-delta .cheaper { color: #4ade80; }
-      #addr-result .cost-delta .pricier { color: #f87171; }
       .density-btn { border-color: #475569; color: #e2e8f0; }
     }
   </style>
@@ -487,6 +465,7 @@
   <p style="margin-top:0.5rem;font-size:0.85rem;">Resilience/energy scores from the CLI simulator; walkability from the Walk Score API. Try it: <code>python simulate_house.py --preset icf-passive --lat 35.15 --lon -89.85</code></p>
 </footer>
 <script src="nav.js"></script>
+<script src="label-core.js"></script>
 <script>
 (function () {
   // API base URL: ?api=... query param, or window.HOUSING_LABEL_API, else none.
@@ -538,24 +517,9 @@
     dfltMsg.style.display = "";
   }
 
-  var GRADE_COLORS = { A:"#22c55e", B:"#84cc16", C:"#eab308", D:"#f97316", F:"#ef4444" };
-  var WALL_LABELS = {
-    frame:"wood frame", brick:"brick", "brick-frame":"brick veneer", block:"concrete block",
-    icf:"ICF", sip:"SIP", stone:"stone", vinyl:"vinyl-sided frame"
-  };
-  var UPGRADE_LABELS = {
-    solar:"solar", backup_generator:"backup generator", fire_sprinklers:"fire sprinklers",
-    hurricane_straps:"hurricane straps", fortified_roof:"FORTIFIED roof",
-    tornado_safe_room:"tornado safe room", seismic_retrofit:"seismic retrofit",
-    flood_vents:"flood vents"
-  };
-  function fillClass(score) {            // map score to a style.css fill color
-    if (score >= 60) return "green";     // A & B share the green bar; the grade
-    if (score >= 40) return "yellow";    // badge carries the precise A/B/C/D/F color
-    if (score >= 20) return "orange";
-    return "red";
-  }
-  function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML; }
+  // Label rendering lives in the shared LabelCore module (label-core.js).
+  var esc = LabelCore.esc;
+  var WALL_LABELS = LabelCore.WALL_LABELS, UPGRADE_LABELS = LabelCore.UPGRADE_LABELS;
 
   // ── Address autocomplete (debounced typeahead backed by our /suggest proxy) ──
   function closeAc() {
@@ -616,119 +580,9 @@
   });
   input.addEventListener("blur", function () { setTimeout(closeAc, 120); });
 
-  // ── Confidence (data quality, separate from the grade) ─────────────────────
-  // Mirrors index.html / label.html / uncertainty-confidence-research.md.
-  var CONFIDENCE = {
-    high:     { glyph: "●", label: "High" },
-    moderate: { glyph: "◐", label: "Moderate" },
-    low:      { glyph: "○", label: "Low" },
-  };
-  var CONF_RANK = { low: 1, moderate: 2, high: 3 };
-  function confInfo(t) { return CONFIDENCE[t] || null; }
-
-  function compositeConfidence(data) {
-    var conf = data.confidence || {}, dims = data.dimensions || [];
-    var nTotal = dims.length, nScored = 0, ranks = [];
-    dims.forEach(function (d) {
-      if (typeof d.score === "number") {
-        nScored++;
-        var r = CONF_RANK[conf[d.key]];
-        if (r) ranks.push(r);
-      }
-    });
-    if (!ranks.length) return null;
-    var avg = Math.round(ranks.reduce(function (a, b) { return a + b; }, 0) / ranks.length);
-    var capped = Math.min(avg, Math.min.apply(null, ranks) + 1);
-    var coverage = nScored / nTotal, nMissing = nTotal - nScored, rank = capped;
-    if (coverage <= 1 / 3) rank = 1;
-    else if (nMissing >= 2) rank = Math.max(1, capped - 1);
-    return { tier: ["low", "moderate", "high"][rank - 1], nScored: nScored, nTotal: nTotal };
-  }
-
-  function annuityFactor(years, rate) { return rate === 0 ? years : (1 - Math.pow(1 + rate, -years)) / rate; }
-  function fmtMoney(v) { return "$" + Math.round(Math.abs(v)).toLocaleString(); }
-  function fmtK(v) { var a = Math.abs(v); return a >= 1000 ? "$" + (Math.round(a / 100) / 10).toFixed(1) + "k" : "$" + Math.round(a); }
-  function roundMoney(v) {
-    var a = Math.abs(v);
-    if (a < 1000) return Math.round(v / 50) * 50;
-    var mag = Math.pow(10, Math.floor(Math.log10(a)) - 1);
-    return Math.round(v / mag) * mag;
-  }
-  function costStripHtml(data) {
-    var h = data.cost, b = data.baseline_cost;
-    if (!h || !b) return "";
-    var cmpEnergy = h.annualEnergyCost != null && b.annualEnergyCost != null;
-    var cmpLoss = h.expectedAnnualLoss != null && b.expectedAnnualLoss != null;
-    if (!cmpEnergy && !cmpLoss) return "";
-    var dAnnual = (cmpEnergy ? b.annualEnergyCost - h.annualEnergyCost : 0)
-      + (cmpLoss ? b.expectedAnnualLoss - h.expectedAnnualLoss : 0);
-    var years = 30;
-    var pv = dAnnual * annuityFactor(years, 0.04);
-    var pvs = [Math.abs(dAnnual * annuityFactor(years, 0.04)), Math.abs(dAnnual * annuityFactor(years, 0.02))];
-    var lo = Math.min.apply(null, pvs), hi = Math.max.apply(null, pvs);
-    var same = Math.abs(pv) < 1, cheaper = pv > 0;
-    var dir = same ? "about the same" : (cheaper ? "lower" : "higher");
-    var head = same ? "About the same"
-      : fmtMoney(roundMoney(pv)) + ' <span class="' + (cheaper ? "cheaper" : "pricier") + '">' + dir + '</span>';
-    return '<div class="cost-strip"><div class="cost-cap">Cost over a 30-year mortgage</div>'
-      + '<div class="cost-delta">' + head + '</div>'
-      + (same ? "" : '<div class="cost-band">' + fmtK(lo) + '–' + fmtK(hi) + ' ' + dir + ' across 2%–4% real discount rates</div>')
-      + '<div class="cost-vs">vs. ' + esc(b.label || "a typical comparable here")
-      + ' &mdash; energy + expected losses only, in today’s dollars</div></div>';
-  }
-
-  function confDot(data, key) {
-    var i = confInfo((data.confidence || {})[key]);
-    if (!i) return "";
-    var note = (data.confidence_notes || {})[key] || "";
-    var lbl = i.label + " confidence" + (note ? " — " + note : "");
-    // Focusable + labelled so the provenance is available to keyboard/screen-
-    // reader users, not just on hover.
-    return '<span class="conf-dot" role="img" tabindex="0" aria-label="' + esc(lbl) + '" title="' + esc(lbl) + '">' + i.glyph + '</span>';
-  }
-
-  function dimRow(d, data) {
-    var dot = confDot(data, d.key);
-    if (d.score == null) {
-      return '<div class="score-bar-container"><div class="score-bar-label">'
-        + '<span>' + esc(d.label) + '</span><span class="na">N/A' + dot + '</span></div>'
-        + '<div class="score-bar"></div></div>';
-    }
-    // The API is ?api=-overridable, so treat the score as untrusted: coerce to a
-    // finite number and clamp to 0–100 before it reaches a style attribute.
-    var sc = Number(d.score);
-    if (!isFinite(sc)) sc = 0;
-    sc = Math.max(0, Math.min(100, sc));
-    var band = (data.bands || {})[d.key], whisker = "";
-    if (band && isFinite(band.low) && isFinite(band.high)) {
-      var wlo = Math.max(0, Math.min(100, band.low)), whi = Math.max(0, Math.min(100, band.high));
-      whisker = '<div class="ci-whisker" style="left:' + wlo + '%;width:' + Math.max(0, whi - wlo)
-        + '%"><div class="ci-line"></div></div>';
-    }
-    return '<div class="score-bar-container"><div class="score-bar-label">'
-      + '<span>' + esc(d.label) + '</span><span>' + sc.toFixed(1) + ' / '
-      + esc(d.national_grade) + dot + '</span></div>'
-      + '<div class="score-bar"><div class="fill ' + fillClass(sc)
-      + '" style="width:' + sc + '%"></div>' + whisker + '</div></div>';
-  }
-
+  // The entire label card is rendered by the shared LabelCore module; this page
+  // only builds the "Custom / preset · build details" subline from its form ctx.
   function render(data, ctx) {
-    var loc = data.location || {};
-    var comp = data.composite_score;
-    var compGrade = data.composite_national_grade || "—";
-    var color = GRADE_COLORS[compGrade] || "#64748b";
-    var m = data.metrics || {};
-    var metricBits = [];
-    if (m.eui_kbtu_sqft_yr != null) metricBits.push("EUI " + m.eui_kbtu_sqft_yr.toFixed(1) + " kBTU/sqft/yr");
-    if (m.est_monthly_energy_cost != null) metricBits.push("$" + Math.round(m.est_monthly_energy_cost) + "/mo energy");
-    if (m.fiscal_ratio != null) metricBits.push("fiscal ratio " + m.fiscal_ratio.toFixed(2));
-
-    var metaParts = [];
-    if (loc.county_name) metaParts.push(esc(loc.county_name));
-    if (loc.climate_zone) metaParts.push("IECC " + esc(loc.climate_zone));
-    metaParts.push(data.n_scored + "/" + (data.dimensions ? data.dimensions.length : data.n_scored) + " dimensions");
-
-    // Build summary: "Custom" (or the profile name) + what was actually scored.
     var h = data.house || {};
     var profileText = ctx.isCustom ? "Custom" : ctx.presetLabel;
     var buildBits = [];
@@ -736,40 +590,9 @@
     if (h.year_built) buildBits.push("built " + h.year_built);
     if (h.sqft != null) buildBits.push(Math.round(h.sqft).toLocaleString() + " sqft");
     if (ctx.upgradeLabels && ctx.upgradeLabels.length) buildBits.push(ctx.upgradeLabels.join(", "));
-    var buildLine = '<div class="build-line"><strong>' + esc(profileText) + '</strong>'
-      + (buildBits.length ? " &middot; " + esc(buildBits.join(" · ")) : "") + '</div>';
-
-    var html = '<div class="label-card">'
-      + '<div class="label-head"><div>'
-      + '<div style="font-weight:700;color:var(--navy);">' + esc(loc.label || (h.lat + ", " + h.lon)) + '</div>'
-      + '<div class="meta">' + metaParts.join(" &middot; ") + '</div>'
-      + buildLine + '</div>'
-      + '<div style="text-align:right;"><div class="composite-num">'
-      + (comp == null ? "N/A" : comp.toFixed(1)) + '</div>'
-      + '<span class="grade-lg" style="background:' + color + '">' + esc(compGrade) + '</span></div>'
-      + '</div>';
-
-    var cc = compositeConfidence(data);
-    if (cc) {
-      var ci = confInfo(cc.tier);
-      var ccLbl = ci.label + " confidence, " + cc.nScored + " of " + cc.nTotal
-        + " dimensions scored. " + (data.confidence_legend || "");
-      html += '<div class="composite-conf" tabindex="0" aria-label="' + esc(ccLbl) + '" title="' + esc(data.confidence_legend || "") + '">'
-        + '<span class="conf-dot" aria-hidden="true">' + ci.glyph + '</span> ' + ci.label + ' confidence &middot; '
-        + cc.nScored + ' of ' + cc.nTotal + ' dimensions scored</div>';
-    }
-
-    html += costStripHtml(data);
-
-    html += data.dimensions.map(function (d) { return dimRow(d, data); }).join("");
-    if (metricBits.length) html += '<p class="meta" style="margin-top:0.75rem;">' + esc(metricBits.join("  ·  ")) + '</p>';
-    (data.caveats || []).forEach(function (c) {
-      html += '<div class="insight warn" style="margin-top:0.75rem;font-size:0.85rem;">' + esc(c) + '</div>';
-    });
-    if (cc) html += '<div class="conf-legend">● High &nbsp; ◐ Moderate &nbsp; ○ Low &mdash; '
-      + 'confidence = data quality, separate from the score; bracket = climate scenario range</div>';
-    html += '</div>';
-    result.innerHTML = html;
+    var subline = '<strong>' + esc(profileText) + '</strong>'
+      + (buildBits.length ? " &middot; " + esc(buildBits.join(" · ")) : "");
+    result.innerHTML = LabelCore.renderCard(data, { subline: subline });
   }
 
   // ── Density-on-this-parcel comparison (fixed lot, vary units) ────────────────

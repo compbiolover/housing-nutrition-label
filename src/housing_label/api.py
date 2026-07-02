@@ -307,6 +307,68 @@ def _attach_baseline_cost(payload: dict, lbl: dict, self_baseline: bool = False)
     payload["baseline_cost"] = flows
 
 
+# The construction profiles shown on the Label page, scored side by side at one
+# location. (name, preset, description) — mirrors the old sample-data generator.
+_WEBSITE_PRESETS = [
+    ("Worst Case",     "worst-case",     "1945 wood frame, AE flood zone, poor condition"),
+    ("Baseline",       "baseline",       "2000 wood frame, X flood zone, average condition"),
+    ("Premium",        "premium",        "2026 brick, X flood zone, excellent condition"),
+    ("FORTIFIED Gold", "fortified-gold", "2026 frame with FORTIFIED Gold roof system"),
+    ("ICF Passive",    "icf-passive",    "2026 ICF, solar, passive-house envelope, all resilience upgrades"),
+]
+# The Label page anchors on the walkable Cooper-Young neighborhood in Memphis.
+_PRESETS_DEFAULT_LAT, _PRESETS_DEFAULT_LON = 35.13, -89.99
+
+
+@app.get("/presets")
+def presets(
+    address: str | None = None,
+    lat: float | None = None,
+    lon: float | None = None,
+) -> dict:
+    """Score the standard construction presets at one location in a single
+    response — feeds the Label page without one /label call per preset.
+
+    The location is resolved once (first preset) and reused for the rest, and
+    the location-driven dimensions (health/socio/walkability) are fetched once
+    and passed as overrides, so this is one geocode + one location fetch total
+    regardless of preset count. No per-preset baseline is attached: the Baseline
+    profile is in the set, so the frontend computes cost deltas client-side.
+    """
+    if not address and (lat is None or lon is None):
+        lat, lon = _PRESETS_DEFAULT_LAT, _PRESETS_DEFAULT_LON
+
+    out = []
+    resolved = None
+    loc_overrides = None
+    for name, preset, desc in _WEBSITE_PRESETS:
+        kwargs = {"preset": preset, "allow_network": True}
+        if resolved is not None:
+            kwargs["location"] = resolved
+            kwargs["overrides"] = loc_overrides
+        elif address:
+            kwargs["address"] = address
+        else:
+            kwargs["lat"], kwargs["lon"] = lat, lon
+        try:
+            cfg, r, lbl = build_label_parts(**kwargs)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+        except Exception:  # noqa: BLE001 — don't leak internals; log server-side
+            log.exception("preset scoring failed (preset=%r)", preset)
+            raise HTTPException(502, "scoring failed")
+        if resolved is None:                       # capture location + its dims once
+            resolved = lbl.get("location")
+            main = {d["key"]: d.get("score") for d in lbl.get("dimensions", [])}
+            loc_overrides = {k: main.get(k) for k in ("health", "socioeconomic", "walkability")}
+        entry = label_payload(cfg, r, lbl)
+        entry["name"] = name
+        entry["preset"] = preset
+        entry["description"] = desc
+        out.append(entry)
+    return {"location": out[0].get("location") if out else None, "presets": out}
+
+
 # Cap how many density scenarios one request can fan out into (each is a full
 # scoring pass): the website only ever asks for 1–4.
 _DENSITY_MAX_SCENARIOS = 6

@@ -3,9 +3,9 @@
 This is the single source of truth for the label's *data-quality* confidence
 channel — a pedigree tier (High / Moderate / Low) kept deliberately separate
 from the score, plus the only interval we draw as a whisker (the climate SSP
-scenario band). Shared by the live API payload (`simulate.house.label_payload`)
-and the sample-data generator (`scripts/generate_label_data.py`) so the live
-label and the static demo page apply exactly one rubric.
+scenario band). Consumed by the live API payload (`simulate.house.label_payload`)
+so every page — scored by the same API and rendered by `docs/label-core.js` —
+applies exactly one rubric.
 
 Methodology + citations: research/uncertainty-confidence-research.md.
 

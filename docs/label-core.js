@@ -1,0 +1,242 @@
+/* label-core.js — the single, dependency-free renderer for the Housing
+ * Nutrition Label, shared by index.html, examples.html, and label.html.
+ *
+ * All three pages are fed by the same live scoring API (`/label`, `/presets`);
+ * this module turns one API payload into the label card markup, so there is one
+ * implementation of the grade bars, the data-quality confidence channel, and
+ * the lifetime "cost over a mortgage" strip. The per-dimension confidence tiers
+ * and the climate score band come from the API (housing_label.confidence is the
+ * Python source of truth); this file only *renders* them and rolls up the
+ * composite confidence. Markup matches the #addr-result CSS in style.css.
+ *
+ * No build step, no framework: exposes a single global `window.LabelCore`.
+ */
+window.LabelCore = (function () {
+  "use strict";
+
+  // ── Grades ─────────────────────────────────────────────────────────────────
+  var GRADE_COLORS = { A: "#22c55e", B: "#84cc16", C: "#eab308", D: "#f97316", F: "#ef4444" };
+  function gradeFor(s) {
+    if (s >= 80) return "A"; if (s >= 60) return "B"; if (s >= 40) return "C";
+    if (s >= 20) return "D"; return "F";
+  }
+  function fillClass(score) {          // → a style.css .fill.* color
+    if (score >= 60) return "green";   // A & B share the green bar; the grade
+    if (score >= 40) return "yellow";  // badge carries the precise A–F color
+    if (score >= 20) return "orange";
+    return "red";
+  }
+
+  var WALL_LABELS = {
+    frame: "wood frame", brick: "brick", "brick-frame": "brick veneer", block: "concrete block",
+    icf: "ICF", sip: "SIP", stone: "stone", vinyl: "vinyl-sided frame"
+  };
+  var UPGRADE_LABELS = {
+    solar: "solar", backup_generator: "backup generator", fire_sprinklers: "fire sprinklers",
+    hurricane_straps: "hurricane straps", fortified_roof: "FORTIFIED roof",
+    tornado_safe_room: "tornado safe room", seismic_retrofit: "seismic retrofit",
+    flood_vents: "flood vents"
+  };
+
+  function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML; }
+
+  // ── Confidence (data quality, separate from the grade) ─────────────────────
+  var CONFIDENCE = {
+    high: { glyph: "●", label: "High" },
+    moderate: { glyph: "◐", label: "Moderate" },
+    low: { glyph: "○", label: "Low" }
+  };
+  var CONF_RANK = { low: 1, moderate: 2, high: 3 };
+  function confInfo(t) { return CONFIDENCE[t] || null; }
+
+  // Coverage-penalized composite confidence: average the scored tiers, cap one
+  // tier above the weakest, drop a tier when ≥2 dimensions are missing (≤⅓ → Low).
+  function compositeConfidence(data) {
+    var conf = data.confidence || {}, dims = data.dimensions || [];
+    var nTotal = dims.length, nScored = 0, ranks = [];
+    dims.forEach(function (d) {
+      if (typeof d.score === "number") {
+        nScored++;
+        var r = CONF_RANK[conf[d.key]];
+        if (r) ranks.push(r);
+      }
+    });
+    if (!ranks.length) return null;
+    var avg = Math.round(ranks.reduce(function (a, b) { return a + b; }, 0) / ranks.length);
+    var capped = Math.min(avg, Math.min.apply(null, ranks) + 1);
+    var coverage = nScored / nTotal, nMissing = nTotal - nScored, rank = capped;
+    if (coverage <= 1 / 3) rank = 1;
+    else if (nMissing >= 2) rank = Math.max(1, capped - 1);
+    return { tier: ["low", "moderate", "high"][rank - 1], nScored: nScored, nTotal: nTotal };
+  }
+
+  function confDot(data, key) {
+    var i = confInfo((data.confidence || {})[key]);
+    if (!i) return "";
+    var note = (data.confidence_notes || {})[key] || "";
+    var lbl = i.label + " confidence" + (note ? " — " + note : "");
+    // Focusable + labelled so the provenance reaches keyboard/screen-reader
+    // users, not just on hover.
+    return '<span class="conf-dot" role="img" tabindex="0" aria-label="' + esc(lbl) + '" title="' + esc(lbl) + '">' + i.glyph + '</span>';
+  }
+
+  // ── Lifetime "cost over a mortgage" (delta vs. a typical comparable) ───────
+  function annuityFactor(years, rate) { return rate === 0 ? years : (1 - Math.pow(1 + rate, -years)) / rate; }
+  function fmtMoney(v) { return "$" + Math.round(Math.abs(v)).toLocaleString(); }
+  function fmtK(v) { var a = Math.abs(v); return a >= 1000 ? "$" + (Math.round(a / 100) / 10).toFixed(1) + "k" : "$" + Math.round(a); }
+  function roundMoney(v) {
+    var a = Math.abs(v);
+    if (a < 1000) return Math.round(v / 50) * 50;
+    var mag = Math.pow(10, Math.floor(Math.log10(a)) - 1);
+    return Math.round(v / mag) * mag;
+  }
+  // house/baseline: {annualEnergyCost, expectedAnnualLoss}. baseline.label names
+  // the comparable. Present value of the annual (energy + expected-loss) delta
+  // over a 30-yr mortgage, banded across 2%–4% real discount rates.
+  function costStrip(house, baseline) {
+    if (!house || !baseline) return "";
+    var cmpEnergy = house.annualEnergyCost != null && baseline.annualEnergyCost != null;
+    var cmpLoss = house.expectedAnnualLoss != null && baseline.expectedAnnualLoss != null;
+    if (!cmpEnergy && !cmpLoss) return "";
+    var dAnnual = (cmpEnergy ? baseline.annualEnergyCost - house.annualEnergyCost : 0)
+      + (cmpLoss ? baseline.expectedAnnualLoss - house.expectedAnnualLoss : 0);
+    var years = 30;
+    var pv = dAnnual * annuityFactor(years, 0.04);
+    var pvs = [Math.abs(dAnnual * annuityFactor(years, 0.04)), Math.abs(dAnnual * annuityFactor(years, 0.02))];
+    var lo = Math.min.apply(null, pvs), hi = Math.max.apply(null, pvs);
+    var same = Math.abs(pv) < 1, cheaper = pv > 0;
+    var dir = same ? "about the same" : (cheaper ? "lower" : "higher");
+    var head = same ? "About the same"
+      : fmtMoney(roundMoney(pv)) + ' <span class="' + (cheaper ? "cheaper" : "pricier") + '">' + dir + '</span>';
+    return '<div class="cost-strip"><div class="cost-cap">Cost over a 30-year mortgage</div>'
+      + '<div class="cost-delta">' + head + '</div>'
+      + (same ? "" : '<div class="cost-band">' + fmtK(lo) + '–' + fmtK(hi) + ' ' + dir + ' across 2%–4% real discount rates</div>')
+      + '<div class="cost-vs">vs. ' + esc((baseline.label) || "a typical comparable here")
+      + ' &mdash; energy + expected losses only, in today’s dollars</div></div>';
+  }
+
+  // ── Per-dimension row (bar + grade + confidence dot + climate whisker) ─────
+  function dimRow(d, data) {
+    var dot = confDot(data, d.key);
+    if (d.score == null) {
+      return '<div class="score-bar-container"><div class="score-bar-label">'
+        + '<span>' + esc(d.label) + '</span><span class="na">N/A' + dot + '</span></div>'
+        + '<div class="score-bar"></div></div>';
+    }
+    var sc = Number(d.score);
+    if (!isFinite(sc)) sc = 0;
+    sc = Math.max(0, Math.min(100, sc));
+    var band = (data.bands || {})[d.key], whisker = "";
+    if (band && isFinite(band.low) && isFinite(band.high)) {
+      var wlo = Math.max(0, Math.min(100, band.low)), whi = Math.max(0, Math.min(100, band.high));
+      whisker = '<div class="ci-whisker" style="left:' + wlo + '%;width:' + Math.max(0, whi - wlo)
+        + '%"><div class="ci-line"></div></div>';
+    }
+    return '<div class="score-bar-container"><div class="score-bar-label">'
+      + '<span>' + esc(d.label) + '</span><span>' + sc.toFixed(1) + ' / '
+      + esc(d.national_grade) + dot + '</span></div>'
+      + '<div class="score-bar"><div class="fill ' + fillClass(sc)
+      + '" style="width:' + sc + '%"></div>' + whisker + '</div></div>';
+  }
+
+  function compositeConfLine(data) {
+    var cc = compositeConfidence(data);
+    if (!cc) return { html: "", cc: null };
+    var ci = confInfo(cc.tier);
+    var ccLbl = ci.label + " confidence, " + cc.nScored + " of " + cc.nTotal
+      + " dimensions scored. " + (data.confidence_legend || "");
+    var html = '<div class="composite-conf" tabindex="0" aria-label="' + esc(ccLbl) + '" title="' + esc(data.confidence_legend || "") + '">'
+      + '<span class="conf-dot" aria-hidden="true">' + ci.glyph + '</span> ' + ci.label + ' confidence &middot; '
+      + cc.nScored + ' of ' + cc.nTotal + ' dimensions scored</div>';
+    return { html: html, cc: cc };
+  }
+
+  function legendHtml() {
+    return '<div class="conf-legend">● High &nbsp; ◐ Moderate &nbsp; ○ Low &mdash; '
+      + 'confidence = data quality, separate from the score; bracket = climate scenario range</div>';
+  }
+
+  // Full label card. `opts` may carry {heading, subline} to override the header
+  // (label.html supplies a preset name + description; the address pages supply
+  // the resolved location + a build summary). Returns an HTML string.
+  function renderCard(data, opts) {
+    opts = opts || {};
+    var loc = data.location || {};
+    var comp = data.composite_score;
+    var compGrade = data.composite_national_grade || "—";
+    var color = GRADE_COLORS[compGrade] || "#64748b";
+    var m = data.metrics || {};
+    var h = data.house || {};
+
+    var metricBits = [];
+    if (m.eui_kbtu_sqft_yr != null) metricBits.push("EUI " + m.eui_kbtu_sqft_yr.toFixed(1) + " kBTU/sqft/yr");
+    if (m.est_monthly_energy_cost != null) metricBits.push("$" + Math.round(m.est_monthly_energy_cost) + "/mo energy");
+    if (m.fiscal_ratio != null) metricBits.push("fiscal ratio " + m.fiscal_ratio.toFixed(2));
+
+    var heading = opts.heading || loc.label || (h.lat + ", " + h.lon);
+    var metaParts = [];
+    if (loc.county_name) metaParts.push(esc(loc.county_name));
+    if (loc.climate_zone) metaParts.push("IECC " + esc(loc.climate_zone));
+    metaParts.push(data.n_scored + "/" + (data.dimensions ? data.dimensions.length : data.n_scored) + " dimensions");
+
+    var subline = opts.subline != null ? opts.subline : (function () {
+      var bits = [];
+      if (h.construction) bits.push(WALL_LABELS[h.construction] || h.construction);
+      if (h.year_built) bits.push("built " + h.year_built);
+      if (h.sqft != null) bits.push(Math.round(h.sqft).toLocaleString() + " sqft");
+      return bits.length ? esc(bits.join(" · ")) : "";
+    })();
+
+    var html = '<div class="label-card"><div class="label-head"><div>'
+      + '<div style="font-weight:700;color:var(--navy);">' + esc(heading) + '</div>'
+      + '<div class="meta">' + metaParts.join(" &middot; ") + '</div>'
+      + (subline ? '<div class="build-line">' + subline + '</div>' : '')
+      + '</div><div style="text-align:right;"><div class="composite-num">'
+      + (comp == null ? "N/A" : comp.toFixed(1)) + '</div>'
+      + '<span class="grade-lg" style="background:' + color + '">' + esc(compGrade) + '</span></div></div>';
+
+    var confLine = compositeConfLine(data);
+    html += confLine.html;
+    html += costStrip(data.cost, data.baseline_cost);
+    html += (data.dimensions || []).map(function (d) { return dimRow(d, data); }).join("");
+    if (metricBits.length) html += '<p class="meta" style="margin-top:0.75rem;">' + esc(metricBits.join("  ·  ")) + '</p>';
+    (data.caveats || []).forEach(function (c) {
+      html += '<div class="insight warn" style="margin-top:0.75rem;font-size:0.85rem;">' + esc(c) + '</div>';
+    });
+    if (confLine.cc) html += legendHtml();
+    return html + '</div>';
+  }
+
+  // Per-dimension A→B delta table for compare mode.
+  function deltaTable(a, b) {
+    var dims = a.dimensions || [];
+    var bScore = {};
+    (b.dimensions || []).forEach(function (d) { bScore[d.key] = d.score; });
+    function cell(v) { return typeof v === "number" ? v.toFixed(1) : "N/A"; }
+    function deltaCell(va, vb) {
+      if (typeof va !== "number" || typeof vb !== "number") return { txt: "—", cls: "flat" };
+      var dd = vb - va;
+      return { txt: (dd > 0 ? "+" : "") + dd.toFixed(1), cls: dd > 0.05 ? "up" : dd < -0.05 ? "down" : "flat" };
+    }
+    var rows = dims.map(function (d) {
+      var va = d.score, vb = bScore[d.key], dc = deltaCell(va, vb);
+      return '<tr><td>' + esc(d.label) + '</td><td>' + cell(va) + '</td><td>' + cell(vb)
+        + '</td><td class="' + dc.cls + '">' + dc.txt + '</td></tr>';
+    }).join("");
+    var cd = deltaCell(a.composite_score, b.composite_score);
+    rows += '<tr><td><strong>Composite</strong></td><td><strong>' + cell(a.composite_score)
+      + '</strong></td><td><strong>' + cell(b.composite_score) + '</strong></td>'
+      + '<td class="' + cd.cls + '"><strong>' + cd.txt + '</strong></td></tr>';
+    return '<table class="delta-table"><thead><tr><th>Dimension</th><th>'
+      + esc(a._name || "A") + '</th><th>' + esc(b._name || "B") + '</th><th>&Delta;</th></tr></thead>'
+      + '<tbody>' + rows + '</tbody></table>';
+  }
+
+  return {
+    GRADE_COLORS: GRADE_COLORS, gradeFor: gradeFor, fillClass: fillClass, esc: esc,
+    WALL_LABELS: WALL_LABELS, UPGRADE_LABELS: UPGRADE_LABELS,
+    CONFIDENCE: CONFIDENCE, confInfo: confInfo, compositeConfidence: compositeConfidence,
+    confDot: confDot, dimRow: dimRow, costStrip: costStrip,
+    renderCard: renderCard, deltaTable: deltaTable, legendHtml: legendHtml
+  };
+})();
