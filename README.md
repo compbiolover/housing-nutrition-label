@@ -79,8 +79,11 @@ housing-nutrition-label/
 ├── scripts/run_pipeline.py     # Pipeline orchestrator
 ├── research/                   # Methodology & data-exploration write-ups
 ├── docs/                       # GitHub Pages site (housinglabel.dev)
-│   ├── label-core.js / .css    #   Shared label renderer + styles (all pages)
-│   └── index/label/examples.html#  Pages fed by the live scoring API
+│   ├── label-core.js           #   Shared label renderer (used by all pages)
+│   ├── label-core.css          #   Shared label styles
+│   ├── index.html              #   Home page — address search (live API)
+│   ├── label.html              #   Construction-profile label (live API /presets)
+│   └── examples.html           #   Preset examples + address search
 ├── tests/
 ├── pyproject.toml / setup.py   # Packaging
 └── requirements.txt

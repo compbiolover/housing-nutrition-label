@@ -335,8 +335,11 @@ def presets(
     regardless of preset count. No per-preset baseline is attached: the Baseline
     profile is in the set, so the frontend computes cost deltas client-side.
     """
-    if not address and (lat is None or lon is None):
-        lat, lon = _PRESETS_DEFAULT_LAT, _PRESETS_DEFAULT_LON
+    if not address:
+        if lat is None and lon is None:
+            lat, lon = _PRESETS_DEFAULT_LAT, _PRESETS_DEFAULT_LON   # Label-page default
+        elif lat is None or lon is None:
+            raise HTTPException(400, "Provide both ?lat= and ?lon= (or ?address=, or neither)")
 
     out = []
     resolved = None

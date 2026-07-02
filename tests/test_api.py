@@ -154,6 +154,21 @@ def test_density_endpoint_validation():
                                           "upgrades": "teleporter"}).status_code == 400
 
 
+def test_presets_coord_validation():
+    """/presets defaults to the Label-page location when no coords are given,
+    but must reject a single coordinate (both required) — before any scoring."""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_presets_coord_validation (fastapi not installed)")
+        return
+    from housing_label.api import app
+    client = TestClient(app)
+    # Only one of lat/lon → 400, no network involved (validated before scoring).
+    assert client.get("/presets", params={"lat": 40}).status_code == 400
+    assert client.get("/presets", params={"lon": -75}).status_code == 400
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:
