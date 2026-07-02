@@ -64,6 +64,21 @@ def _metrics(result_r: dict, label: dict) -> dict:
     return out
 
 
+def _cost(result_r: dict, label: dict) -> dict:
+    """Numeric dollar flows the lifetime-cost strip discounts (see
+    research/lifetime-cost-research.md). These are the annual $ figures behind
+    the display strings in ``_metrics`` — surfaced as raw numbers so the
+    frontend never has to parse formatted strings. Only the two dollar-defensible
+    flows (energy + expected annual loss) are emitted; property tax / maintenance
+    are intentionally left out of the shipped core."""
+    m = label["metrics"]
+    out = {"expectedAnnualLoss": round(result_r["total_loss"])}
+    if m.get("est_monthly_energy_cost") is not None:
+        # energy.py surfaces monthly $; the annual $ is monthly × 12.
+        out["annualEnergyCost"] = round(m["est_monthly_energy_cost"] * 12)
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -130,6 +145,7 @@ def main() -> None:
             "name": name,
             "description": description,
             "metrics": _metrics(r, label),
+            "cost": _cost(r, label),
             "scores": scores,
             "composite": label["composite_score"],
         })

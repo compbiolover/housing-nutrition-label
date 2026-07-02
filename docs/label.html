@@ -48,6 +48,64 @@
     .dim-chart text { font-family: inherit; }
     .loading, .error { text-align: center; color: var(--muted); padding: 2rem; }
     .error { color: var(--red); }
+
+    /* ── Lifetime-cost ("money over a mortgage") strip ─────────────────────── */
+    .cost-strip {
+      border-top: 2px solid var(--border);
+      border-bottom: 2px solid var(--border);
+      padding: 0.85rem 0; margin: 0.25rem 0 0.9rem;
+    }
+    .cost-strip .cost-head {
+      display: flex; align-items: baseline; justify-content: space-between;
+      flex-wrap: wrap; gap: 0.25rem 0.75rem;
+    }
+    .cost-strip .cost-cap {
+      font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted);
+    }
+    .cost-strip .cost-delta { font-size: 1.55rem; font-weight: 800; line-height: 1.1; color: var(--navy); }
+    .cost-strip .cost-delta.cheaper { color: #16a34a; }
+    .cost-strip .cost-delta.pricier { color: #dc2626; }
+    .cost-strip .cost-delta .dir { font-size: 0.9rem; font-weight: 700; }
+    .cost-strip .cost-band { font-size: 0.8rem; color: var(--muted); }
+    .cost-strip .cost-vs { font-size: 0.8rem; color: var(--muted); margin-top: 0.1rem; }
+    .cost-breakdown { display: flex; height: 12px; border-radius: 6px; overflow: hidden; margin: 0.6rem 0 0.35rem; background: var(--border); }
+    .cost-breakdown .seg { height: 100%; }
+    .cost-legend { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; font-size: 0.75rem; color: var(--muted); }
+    .cost-legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 0.3rem; vertical-align: middle; }
+    .cost-controls { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; align-items: center; margin: 0.7rem 0 0; font-size: 0.8rem; }
+    .cost-controls label { color: var(--navy); font-weight: 600; margin-right: 0.4rem; }
+    .cost-controls .seg-toggle button {
+      font: inherit; font-size: 0.78rem; padding: 0.2rem 0.6rem; border: 1px solid var(--border);
+      background: var(--card); color: var(--text); cursor: pointer;
+    }
+    .cost-controls .seg-toggle button:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+    .cost-controls .seg-toggle button:last-child { border-radius: 0 var(--radius) var(--radius) 0; border-left: none; }
+    .cost-controls .seg-toggle button.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+    .cost-controls select {
+      font: inherit; font-size: 0.78rem; padding: 0.2rem 0.4rem; border: 1px solid var(--border);
+      border-radius: var(--radius); background: var(--card); color: var(--text);
+    }
+    .cost-caveat { font-size: 0.72rem; color: var(--muted); margin: 0.5rem 0 0; line-height: 1.4; }
+
+    /* ── Comparison (A/B) mode ─────────────────────────────────────────────── */
+    .mode-toggle { display: flex; justify-content: center; gap: 0; margin: 0 auto 1rem; }
+    .mode-toggle button {
+      font: inherit; font-weight: 600; padding: 0.4rem 1rem; border: 1px solid var(--border);
+      background: var(--card); color: var(--text); cursor: pointer;
+    }
+    .mode-toggle button:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+    .mode-toggle button:last-child { border-radius: 0 var(--radius) var(--radius) 0; border-left: none; }
+    .mode-toggle button.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+    .compare-grid { display: flex; flex-wrap: wrap; gap: 1.25rem; justify-content: center; align-items: flex-start; }
+    .compare-grid .label-card { flex: 1 1 340px; max-width: 460px; margin: 0; }
+    .compare-pickers { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center; margin-bottom: 1rem; }
+    .delta-table { max-width: 640px; margin: 1.25rem auto 0; border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+    .delta-table th, .delta-table td { padding: 0.35rem 0.6rem; border-bottom: 1px solid var(--border); text-align: right; }
+    .delta-table th:first-child, .delta-table td:first-child { text-align: left; }
+    .delta-table thead th { color: var(--navy); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .delta-table .up { color: #16a34a; font-weight: 700; }
+    .delta-table .down { color: #dc2626; font-weight: 700; }
+    .delta-table .flat { color: var(--muted); }
     /* Dark mode: re-light the navy-as-text bits and soften the navy borders.
        The D3 chart reads its colors from CSS vars at render time (see script). */
     @media (prefers-color-scheme: dark) {
@@ -56,6 +114,11 @@
       .label-summary .composite-num,
       .metrics-row span strong,
       .picker label { color: #e2e8f0; }
+      .cost-strip .cost-delta,
+      .cost-controls label,
+      .delta-table thead th { color: #e2e8f0; }
+      .cost-strip .cost-delta.cheaper, .delta-table .up { color: #4ade80; }
+      .cost-strip .cost-delta.pricier, .delta-table .down { color: #f87171; }
     }
   </style>
 </head>
@@ -76,12 +139,12 @@
 
 <section>
   <h2>Interactive Nutrition Label</h2>
-  <p>A React&nbsp;+&nbsp;D3 rendering of the nine scored dimensions as a single at-a-glance label. Pick a construction profile to see how building choices move each dimension. All profiles sit at the same Memphis location &mdash; the walkable Cooper-Young neighborhood (lat&nbsp;35.13, lon&nbsp;&minus;89.99) &mdash; so the location-driven dimensions stay fixed while the construction-driven ones change.</p>
+  <p>A React&nbsp;+&nbsp;D3 rendering of the nine scored dimensions as a single at-a-glance label. Pick a construction profile to see how building choices move each dimension. All profiles sit at the same Memphis location &mdash; the walkable Cooper-Young neighborhood (lat&nbsp;35.13, lon&nbsp;&minus;89.99) &mdash; so the location-driven dimensions stay fixed while the construction-driven ones change. A <strong>&ldquo;cost over a mortgage&rdquo;</strong> strip present-values the dollar difference in energy and expected disaster losses against a typical comparable, and <strong>Compare</strong> mode puts two profiles side by side with a per-dimension delta.</p>
 
   <div id="root"><div class="loading">Loading visualization&hellip;</div></div>
 
   <div class="insight disclaimer">
-    <strong>About this data:</strong> Every score here is produced by the CLI simulator (<code>scripts/generate_label_data.py</code>). The five construction-driven dimensions &mdash; resilience, energy, durability, environmental footprint, and infrastructure burden &mdash; are modeled from each house's configuration. Location-driven dimensions are fetched live for this Memphis location: <strong>Health</strong> comes from CDC PLACES; <strong>Socioeconomic</strong> (Census ACS) and <strong>Walkability</strong> (Walk Score) require API keys and show <em>N/A</em> &mdash; excluded from the composite rather than filled with a placeholder, so a strong build isn't unfairly penalized for a missing input. <strong>Climate Projections</strong> is a sub-county downscaled climate-hazard score (USGS CMIP6-LOCA2 ensemble mean for heat, precipitation &amp; drought, SSP2-4.5 to SSP5-8.5, mid-century, plus an Argonne ClimRR 12&nbsp;km Fire Weather Index fire leg) sampled at this Memphis location's census tract, identical across profiles. The composite is the mean of the scored dimensions. National grades use the absolute thresholds A&nbsp;&ge;&nbsp;80, B&nbsp;&ge;&nbsp;60, C&nbsp;&ge;&nbsp;40, D&nbsp;&ge;&nbsp;20, F&nbsp;&lt;&nbsp;20; local (percentile) grades require the full county dataset and are omitted here.
+    <strong>About this data:</strong> Every score here is produced by the CLI simulator (<code>scripts/generate_label_data.py</code>). The five construction-driven dimensions &mdash; resilience, energy, durability, environmental footprint, and infrastructure burden &mdash; are modeled from each house's configuration. Location-driven dimensions are fetched live for this Memphis location: <strong>Health</strong> comes from CDC PLACES; <strong>Socioeconomic</strong> (Census ACS) and <strong>Walkability</strong> (Walk Score) require API keys and show <em>N/A</em> &mdash; excluded from the composite rather than filled with a placeholder, so a strong build isn't unfairly penalized for a missing input. <strong>Climate Projections</strong> is a sub-county downscaled climate-hazard score (USGS CMIP6-LOCA2 ensemble mean for heat, precipitation &amp; drought, SSP2-4.5 to SSP5-8.5, mid-century, plus an Argonne ClimRR 12&nbsp;km Fire Weather Index fire leg) sampled at this Memphis location's census tract, identical across profiles. The composite is the mean of the scored dimensions. National grades use the absolute thresholds A&nbsp;&ge;&nbsp;80, B&nbsp;&ge;&nbsp;60, C&nbsp;&ge;&nbsp;40, D&nbsp;&ge;&nbsp;20, F&nbsp;&lt;&nbsp;20; local (percentile) grades require the full county dataset and are omitted here. The <strong>&ldquo;cost over a mortgage&rdquo;</strong> figure is a comparative present value of only the two dollar-defensible flows &mdash; modeled <strong>energy cost</strong> and <strong>expected annual disaster loss</strong> &mdash; discounted in constant (real) dollars at ~4% real (homeowner mortgage opportunity cost; ~2% OMB social rate shown as the band), with no real cost escalation. It deliberately excludes purchase price, property tax, maintenance, and the qualitative dimensions, so it answers &ldquo;which home is cheaper to <em>run and insure</em>,&rdquo; not &ldquo;which is cheaper all-in.&rdquo; Full methodology and citations: <a href="https://github.com/compbiolover/housing-nutrition-label/blob/main/research/lifetime-cost-research.md">research/lifetime-cost-research.md</a>.
   </div>
 </section>
 
@@ -116,6 +179,174 @@ function GradeBadge({ score, large }) {
   const g = gradeFor(score);
   const style = { background: GRADE_COLORS[g] };
   return <span className={large ? "grade-lg" : "grade"} style={style}>{g}</span>;
+}
+
+// ── Lifetime cost of ownership ("money over a mortgage") ────────────────────
+// Present-value the two dollar-defensible annual flows — energy + expected
+// disaster loss — over a mortgage horizon, shown as a *delta vs. a baseline
+// comparable* (never an absolute "total cost"). Constant real dollars with
+// g = 0 real escalation, so PV = annualDelta × annuity(N, d). Discount-rate
+// anchors: ~4% real = homeowner mortgage opportunity cost (headline default),
+// ~2% real = OMB Circular A-94 social rate (shown as the band).
+// Full methodology + citations: research/lifetime-cost-research.md.
+const REAL_RATES = { "4": 0.04, "2": 0.02 };
+const COST_SEGMENTS = [
+  { key: "energy", label: "Energy", color: "#0ea5e9" },
+  { key: "loss",   label: "Expected losses", color: "#f59e0b" },
+];
+
+function annuityFactor(years, rate) {
+  return rate === 0 ? years : (1 - Math.pow(1 + rate, -years)) / rate;
+}
+
+function costFlows(parcel) {
+  const c = (parcel && parcel.cost) || {};
+  return {
+    energy: typeof c.annualEnergyCost === "number" ? c.annualEnergyCost : null,
+    loss:   typeof c.expectedAnnualLoss === "number" ? c.expectedAnnualLoss : null,
+  };
+}
+function hasCost(parcel) {
+  const f = costFlows(parcel);
+  return f.energy !== null || f.loss !== null;
+}
+function compositeOf(parcel, dimensions) {
+  const scored = dimensions.map(d => parcel.scores[d.key]).filter(v => typeof v === "number");
+  return scored.length ? scored.reduce((a, b) => a + b, 0) / scored.length : null;
+}
+
+// Never imply more precision than the inputs support: <$1k → nearest $50
+// (as EPA rounds its 5-yr fuel figure), otherwise 2 significant figures.
+function roundMoney(v) {
+  const a = Math.abs(v);
+  if (a < 1000) return Math.round(v / 50) * 50;
+  const mag = Math.pow(10, Math.floor(Math.log10(a)) - 1);
+  return Math.round(v / mag) * mag;
+}
+function fmtMoney(v) { return "$" + Math.round(Math.abs(v)).toLocaleString(); }
+function fmtK(v) {
+  const a = Math.abs(v);
+  return a >= 1000 ? "$" + (Math.round(a / 100) / 10).toFixed(1) + "k" : "$" + Math.round(a);
+}
+
+// baseline = the "typical comparable"; parcel = the home being scored.
+// Positive delta ⇒ the scored home is CHEAPER to run + insure than the baseline.
+function LifetimeCostStrip({ parcel, baseline, years, rate, onYears, onRate }) {
+  if (!baseline || parcel.name === baseline.name) return null;
+  if (!hasCost(parcel) || !hasCost(baseline)) return null;
+
+  const pf = costFlows(parcel), bf = costFlows(baseline);
+  const dEnergy = (bf.energy || 0) - (pf.energy || 0);
+  const dLoss   = (bf.loss   || 0) - (pf.loss   || 0);
+  const dAnnual = dEnergy + dLoss;
+
+  const a = annuityFactor(years, REAL_RATES[rate]);
+  const pv = dAnnual * a;
+  const pvs = Object.keys(REAL_RATES).map(r => dAnnual * annuityFactor(years, REAL_RATES[r]));
+  const lo = Math.min(...pvs), hi = Math.max(...pvs);
+
+  const cheaper = pv > 0;
+  const cls = Math.abs(pv) < 1 ? "" : (cheaper ? "cheaper" : "pricier");
+  const dir = cheaper ? "lower" : "higher";
+
+  const segVals = { energy: Math.abs(dEnergy * a), loss: Math.abs(dLoss * a) };
+  const tot = (segVals.energy + segVals.loss) || 1;
+
+  return (
+    <div className="cost-strip">
+      <div className="cost-head">
+        <div>
+          <div className="cost-cap">Cost over a {years}-year mortgage</div>
+          <div className={"cost-delta " + cls}>
+            {fmtMoney(roundMoney(pv))} <span className="dir">{dir}</span>
+          </div>
+          <div className="cost-band">{fmtK(lo)}–{fmtK(hi)} across 2%–4% real discount rates</div>
+        </div>
+      </div>
+      <div className="cost-vs">
+        vs. <strong>{baseline.name}</strong>, a typical comparable at this location &mdash; in today's dollars
+      </div>
+
+      <div className="cost-breakdown" role="img"
+           aria-label={`Delta driven by energy ${fmtMoney(segVals.energy)} and expected losses ${fmtMoney(segVals.loss)}`}>
+        {COST_SEGMENTS.map(s => segVals[s.key] > 0 && (
+          <div key={s.key} className="seg"
+               style={{ width: (100 * segVals[s.key] / tot) + "%", background: s.color }} />
+        ))}
+      </div>
+      <div className="cost-legend">
+        {COST_SEGMENTS.map(s => (
+          <span key={s.key}><span className="sw" style={{ background: s.color }} />
+            {s.label}: {fmtMoney(segVals[s.key])}</span>
+        ))}
+      </div>
+
+      {onYears && onRate && (
+        <div className="cost-controls">
+          <span>
+            <label>Horizon</label>
+            <span className="seg-toggle">
+              {[15, 30].map(y => (
+                <button key={y} className={years === y ? "on" : ""}
+                        onClick={() => onYears(y)}>{y} yr</button>
+              ))}
+            </span>
+          </span>
+          <span>
+            <label htmlFor="rate-sel">Discount rate</label>
+            <select id="rate-sel" value={rate} onChange={e => onRate(e.target.value)}>
+              <option value="4">Mortgage ~4% real</option>
+              <option value="2">Social ~2% real</option>
+            </select>
+          </span>
+        </div>
+      )}
+
+      <p className="cost-caveat">
+        Operating&nbsp;+&nbsp;expected-loss cost only &mdash; excludes purchase/construction price
+        and the neighborhood, health, and climate factors shown below. Constant (real) dollars,
+        no real cost escalation. A comparative estimate, not an appraisal.
+      </p>
+    </div>
+  );
+}
+
+// Per-dimension A→B score deltas for comparison mode.
+function DeltaTable({ a, b, dimensions }) {
+  const cell = (v) => (typeof v === "number" ? v.toFixed(1) : "N/A");
+  const deltaCell = (va, vb) => {
+    if (typeof va !== "number" || typeof vb !== "number") return { txt: "—", cls: "flat" };
+    const d = vb - va;
+    const cls = d > 0.05 ? "up" : d < -0.05 ? "down" : "flat";
+    return { txt: (d > 0 ? "+" : "") + d.toFixed(1), cls };
+  };
+  const ca = compositeOf(a, dimensions), cb = compositeOf(b, dimensions);
+  const cd = deltaCell(ca, cb);
+  return (
+    <table className="delta-table">
+      <thead>
+        <tr><th>Dimension</th><th>{a.name}</th><th>{b.name}</th><th>&Delta;</th></tr>
+      </thead>
+      <tbody>
+        {dimensions.map(d => {
+          const va = a.scores[d.key], vb = b.scores[d.key];
+          const dc = deltaCell(va, vb);
+          return (
+            <tr key={d.key}>
+              <td>{d.label}</td><td>{cell(va)}</td><td>{cell(vb)}</td>
+              <td className={dc.cls}>{dc.txt}</td>
+            </tr>
+          );
+        })}
+        <tr>
+          <td><strong>Composite</strong></td>
+          <td><strong>{cell(ca)}</strong></td>
+          <td><strong>{cell(cb)}</strong></td>
+          <td className={cd.cls}><strong>{cd.txt}</strong></td>
+        </tr>
+      </tbody>
+    </table>
+  );
 }
 
 // D3-rendered horizontal bar chart for the nine dimensions.
@@ -223,9 +454,8 @@ function DimensionChart({ dimensions, scores }) {
   return <svg ref={ref} className="dim-chart" style={{ width: "100%", height: "auto" }} />;
 }
 
-function NutritionLabel({ parcel, dimensions }) {
-  const scored = dimensions.map(d => parcel.scores[d.key]).filter(v => typeof v === "number");
-  const composite = scored.reduce((a, b) => a + b, 0) / scored.length;
+function NutritionLabel({ parcel, dimensions, costStrip }) {
+  const composite = compositeOf(parcel, dimensions);
 
   return (
     <div className="label-card">
@@ -242,6 +472,8 @@ function NutritionLabel({ parcel, dimensions }) {
         <GradeBadge score={composite} large />
       </div>
 
+      {costStrip}
+
       {parcel.metrics && (
         <div className="metrics-row">
           {Object.entries(parcel.metrics).map(([k, v]) => (
@@ -255,10 +487,37 @@ function NutritionLabel({ parcel, dimensions }) {
   );
 }
 
+function ParcelPicker({ id, label, value, onChange, parcels }) {
+  return (
+    <div className="picker">
+      <label htmlFor={id}>{label}</label>
+      <select id={id} value={value} onChange={e => onChange(Number(e.target.value))}>
+        {parcels.map((p, i) => <option key={p.name} value={i}>{p.name}</option>)}
+      </select>
+    </div>
+  );
+}
+
+function Legend() {
+  return (
+    <div className="legend">
+      {["A", "B", "C", "D", "F"].map(g => (
+        <span key={g}><span className="swatch" style={{ background: GRADE_COLORS[g] }}></span>{g}</span>
+      ))}
+    </div>
+  );
+}
+
 function App() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
-  const [idx, setIdx] = useState(0);
+  const [mode, setMode] = useState("single");   // "single" | "compare"
+  const [idx, setIdx]   = useState(0);          // single-mode selection
+  const [idxA, setIdxA] = useState(0);          // compare: reference / baseline
+  const [idxB, setIdxB] = useState(0);          // compare: subject
+  const [years, setYears] = useState(30);
+  const [rate, setRate]   = useState("4");
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     fetch("data/sample-parcels.json")
@@ -267,27 +526,77 @@ function App() {
       .catch(e => setError(e.message));
   }, []);
 
+  // Once data loads, pick sensible defaults: the "Baseline" preset is the
+  // typical comparable; lead the demo with a cheaper build so the headline
+  // opens on a "you save" figure (as an EPA fuel sticker does).
+  useEffect(() => {
+    if (!data || ready) return;
+    const parcels = data.parcels;
+    const find = (re) => { const i = parcels.findIndex(p => re.test(p.name)); return i < 0 ? null : i; };
+    const baseI = find(/baseline/i);
+    const cheapI = find(/icf|passive/i);
+    if (baseI !== null) setIdxA(baseI);
+    if (cheapI !== null) { setIdx(cheapI); setIdxB(cheapI); }
+    else if (parcels.length > 1) setIdxB(parcels.length - 1);
+    setReady(true);
+  }, [data, ready]);
+
   if (error) return <div className="error">Could not load sample data: {error}</div>;
   if (!data) return <div className="loading">Loading visualization&hellip;</div>;
 
-  const parcel = data.parcels[idx];
+  const { parcels, dimensions } = data;
+  const baselineIdx = Math.max(0, parcels.findIndex(p => /baseline/i.test(p.name)));
+  const baseline = parcels[baselineIdx];
+
+  const rateCtl = { years, rate, onYears: setYears, onRate: setRate };
 
   return (
     <div>
-      <div className="picker">
-        <label htmlFor="parcel-select">Construction profile:</label>
-        <select id="parcel-select" value={idx} onChange={e => setIdx(Number(e.target.value))}>
-          {data.parcels.map((p, i) => <option key={p.name} value={i}>{p.name}</option>)}
-        </select>
+      <div className="mode-toggle" role="tablist" aria-label="View mode">
+        <button className={mode === "single" ? "on" : ""} onClick={() => setMode("single")}>Single</button>
+        <button className={mode === "compare" ? "on" : ""} onClick={() => setMode("compare")}>Compare</button>
       </div>
 
-      <NutritionLabel parcel={parcel} dimensions={data.dimensions} />
+      {mode === "single" ? (
+        <div>
+          <div className="picker" style={{ textAlign: "center" }}>
+            <label htmlFor="parcel-select">Construction profile:</label>
+            <select id="parcel-select" value={idx} onChange={e => setIdx(Number(e.target.value))}>
+              {parcels.map((p, i) => <option key={p.name} value={i}>{p.name}</option>)}
+            </select>
+          </div>
 
-      <div className="legend">
-        {["A", "B", "C", "D", "F"].map(g => (
-          <span key={g}><span className="swatch" style={{ background: GRADE_COLORS[g] }}></span>{g}</span>
-        ))}
-      </div>
+          <NutritionLabel
+            parcel={parcels[idx]}
+            dimensions={dimensions}
+            costStrip={<LifetimeCostStrip parcel={parcels[idx]} baseline={baseline} {...rateCtl} />}
+          />
+          <Legend />
+        </div>
+      ) : (
+        <div>
+          <div className="compare-pickers">
+            <ParcelPicker id="cmp-a" label="Compare A (baseline):" value={idxA} onChange={setIdxA} parcels={parcels} />
+            <ParcelPicker id="cmp-b" label="against B:" value={idxB} onChange={setIdxB} parcels={parcels} />
+          </div>
+
+          <div style={{ maxWidth: 640, margin: "0 auto 1.25rem" }}>
+            <LifetimeCostStrip parcel={parcels[idxB]} baseline={parcels[idxA]} {...rateCtl} />
+          </div>
+
+          <div className="compare-grid">
+            <NutritionLabel parcel={parcels[idxA]} dimensions={dimensions} />
+            <NutritionLabel parcel={parcels[idxB]} dimensions={dimensions} />
+          </div>
+
+          <DeltaTable a={parcels[idxA]} b={parcels[idxB]} dimensions={dimensions} />
+          <p className="cost-caveat" style={{ maxWidth: 640, margin: "0.5rem auto 0", textAlign: "center" }}>
+            &Delta; is B minus A; green favors B, red favors A. Location-driven dimensions are
+            identical across profiles here, so they show &Delta;&nbsp;0.
+          </p>
+          <Legend />
+        </div>
+      )}
     </div>
   );
 }
