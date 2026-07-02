@@ -472,6 +472,8 @@ function DimensionChart({ dimensions, scores }) {
 }
 
 function NutritionLabel({ parcel, dimensions, costStrip }) {
+  // null when no dimension has a numeric score (e.g. partial/empty data); render
+  // "N/A" and skip the grade badge rather than crashing on null.toFixed().
   const composite = compositeOf(parcel, dimensions);
 
   return (
@@ -484,9 +486,13 @@ function NutritionLabel({ parcel, dimensions, costStrip }) {
       <div className="label-summary">
         <div>
           <div className="composite-cap">Composite score</div>
-          <div className="composite-num">{composite.toFixed(1)}<span style={{fontSize:"1rem",color:"var(--muted)"}}> / 100</span></div>
+          <div className="composite-num">
+            {composite === null
+              ? <span style={{color:"var(--muted)",fontStyle:"italic"}}>N/A</span>
+              : <>{composite.toFixed(1)}<span style={{fontSize:"1rem",color:"var(--muted)"}}> / 100</span></>}
+          </div>
         </div>
-        <GradeBadge score={composite} large />
+        {composite !== null && <GradeBadge score={composite} large />}
       </div>
 
       {costStrip}
