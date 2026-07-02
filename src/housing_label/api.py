@@ -41,7 +41,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from housing_label.config import HEADERS, PHOTON_URL, GEOAPIFY_URL, GEOAPIFY_API_KEY
 from housing_label.simulate.house import (
-    build_label_parts, label_payload, density_comparison,
+    build_label_parts, label_payload, density_comparison, cost_flows,
     PRESETS, CONSTRUCTION_FACTOR, FOUNDATION_FACTOR, CONDITION_FACTOR,
     BONUS_FLAGS, ELEVATION_FLAGS,
 )
@@ -260,7 +260,51 @@ def label(
     except Exception:  # noqa: BLE001 — don't leak internals; log server-side
         log.exception("scoring failed (address=%r lat=%r lon=%r)", address, lat, lon)
         raise HTTPException(502, "scoring failed")
-    return label_payload(cfg, r, lbl)
+    payload = label_payload(cfg, r, lbl)
+    # When the scored home IS the baseline comparable (preset=baseline with no
+    # construction/upgrade overrides), the delta is 0 by definition — reuse the
+    # already-computed house cost instead of a redundant second scoring pass.
+    is_self_baseline = preset == "baseline" and not any((
+        year_built, construction, foundation, condition, value, units, sqft,
+        lot_acres, upgrade_list,
+    ))
+    _attach_baseline_cost(payload, lbl, self_baseline=is_self_baseline)
+    return payload
+
+
+def _attach_baseline_cost(payload: dict, lbl: dict, self_baseline: bool = False) -> None:
+    """Score a typical comparable (2000-era frame home) at the SAME resolved
+    location and attach its cost flows, so the frontend can present the lifetime
+    cost as a delta vs. a typical home here (research/lifetime-cost-research.md).
+
+    Best-effort: the cost strip is optional and must never break the label. The
+    already-fetched location dimensions are reused as overrides so the baseline
+    pass does not re-hit the health/socio/walk APIs — it only needs the
+    construction-driven energy + expected-loss flows.
+
+    When the scored home already *is* the baseline (``self_baseline``), skip the
+    second scoring pass and reuse the house's own cost flows (delta 0).
+    """
+    loc = lbl.get("location")
+    if loc is None:
+        return
+    if self_baseline:
+        flows = dict(payload.get("cost") or {})
+        flows["label"] = "typical 2000-era frame home here"
+        payload["baseline_cost"] = flows
+        return
+    main = {d["key"]: d.get("score") for d in lbl.get("dimensions", [])}
+    overrides = {k: main.get(k) for k in ("health", "socioeconomic", "walkability")}
+    try:
+        _bcfg, _br, _blbl = build_label_parts(
+            preset="baseline", location=loc, allow_network=True, overrides=overrides,
+        )
+    except Exception:  # noqa: BLE001 — never fail the label over the cost strip
+        log.exception("baseline cost scoring failed")
+        return
+    flows = cost_flows(_br, _blbl)
+    flows["label"] = "typical 2000-era frame home here"
+    payload["baseline_cost"] = flows
 
 
 # Cap how many density scenarios one request can fan out into (each is a full

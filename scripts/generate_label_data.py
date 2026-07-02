@@ -22,6 +22,9 @@ from argparse import Namespace
 
 from housing_label.simulate.house import resolve_config, simulate
 from housing_label.simulate.dimensions import DIMENSIONS, simulate_all_dimensions
+from housing_label.confidence import (
+    confidence_for_label, bands_for_label, CONFIDENCE_NOTES, CONFIDENCE_LEGEND,
+)
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 OUT_FILE = REPO_ROOT / "docs" / "data" / "sample-parcels.json"
@@ -77,71 +80,6 @@ def _cost(result_r: dict, label: dict) -> dict:
         # energy.py surfaces monthly $; the annual $ is monthly × 12.
         out["annualEnergyCost"] = round(m["est_monthly_energy_cost"] * 12)
     return out
-
-
-# Per-dimension provenance/pedigree confidence tiers (see
-# research/uncertainty-confidence-research.md §3). This is the data-quality
-# confidence — source, geographic resolution, completeness — kept SEPARATE from
-# the score, never a statistical confidence interval. The rubric there scores
-# four criteria; this first version encodes its §3.3 outcome directly from the
-# provenance the label already exposes (scored vs. null/placeholder, and the
-# dimensions carrying a documented wide/scenario band).
-_WIDE_BAND_DIMS = {"environmental", "infrastructure", "climate"}  # → at most Moderate
-
-
-def _confidence(label: dict, scores: dict) -> dict:
-    """Map each dimension to a High / Moderate / Low confidence tier."""
-    notes = label.get("location_notes", {})
-    tiers = {}
-    for key, _lbl in DIMENSIONS:
-        score = scores.get(key)
-        note = (notes.get(key) or "").lower()
-        if score is None or "no " in note and "key" in note:
-            # N/A (no API key) or excluded/placeholder → Low.
-            tiers[key] = "low"
-        elif key in _WIDE_BAND_DIMS:
-            # Documented wide band (env embodied leg, infra ±30%) or scenario
-            # spread (climate SSPs) → hold at Moderate.
-            tiers[key] = "moderate"
-        else:
-            tiers[key] = "high"
-    return tiers
-
-
-def _bands(label: dict) -> dict:
-    """Real score-space intervals that can honestly be drawn as a whisker.
-    Currently only Climate Projections (the SSP2-4.5 → SSP5-8.5 scenario band,
-    already computed as score_low/score_high and surfaced as a 'Climate band …'
-    metric). Infrastructure's ±30% is a *dollar* band, not a score band, so it
-    is represented by its Moderate tier — not a whisker — until propagated into
-    score space."""
-    out = {}
-    for k, v in label.get("metrics", {}).items():
-        if k.startswith("Climate band") and isinstance(v, str) and "–" in v:
-            try:
-                lo, hi = (float(x) for x in v.split("–", 1))
-                out["climate"] = {"low": min(lo, hi), "high": max(lo, hi)}
-            except ValueError:
-                pass
-    return out
-
-
-# Plain-language provenance shown on hover of a dimension's confidence dot.
-CONFIDENCE_NOTES = {
-    "resilience": "Parcel-level flood zone + seismic; wildfire resolves at county level here; BRM feature bonuses are v1 estimates.",
-    "energy": "Modeled EUI from ResStock archetypes × vintage × construction — no metered data.",
-    "durability": "Component-lifespan model from CAMA building attributes + assessor condition.",
-    "environmental": "Operational leg strong (metered-equivalent × eGRID2022); embodied-carbon leg flagged low confidence (order-of-magnitude).",
-    "infrastructure": "Density cost model calibrated to county spending; documented ±30% on absolute dollars.",
-    "health": "CDC PLACES model-based estimates.",
-    "socioeconomic": "Census ACS (income/poverty/education); unavailable and excluded from the composite without an API key — not a fabricated value.",
-    "walkability": "Walk Score API (unavailable without an API key).",
-    "climate": "CMIP6-LOCA2 tract-level projection; scenario band SSP2-4.5 → SSP5-8.5 (mid-century).",
-}
-CONFIDENCE_LEGEND = (
-    "Confidence reflects data quality (source, resolution, completeness) — not "
-    "whether the score is good. A parcel can be confidently an F."
-)
 
 
 def main() -> None:
@@ -211,8 +149,8 @@ def main() -> None:
             "description": description,
             "metrics": _metrics(r, label),
             "cost": _cost(r, label),
-            "confidence": _confidence(label, scores),
-            "bands": _bands(label),
+            "confidence": confidence_for_label(label),
+            "bands": bands_for_label(label),
             "scores": scores,
             "composite": label["composite_score"],
         })
