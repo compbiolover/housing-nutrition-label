@@ -43,8 +43,12 @@
   <p>The nine scored dimensions as a single at-a-glance label, scored live by the same API that powers the home-page address search. Pick a construction profile to see how building choices move each dimension. By default all profiles sit at the walkable Cooper-Young neighborhood in Memphis &mdash; or <strong>enter any U.S. address</strong> below to compare the same construction profiles at your location (the location-driven dimensions shift while the construction-driven ones stay comparable). A <strong>&ldquo;cost over a mortgage&rdquo;</strong> strip present-values the dollar difference in energy and expected disaster losses against a typical comparable, and <strong>Compare</strong> mode puts two profiles side by side with a per-dimension delta.</p>
 
   <form class="label-addr-form" id="label-addr-form">
-    <input type="text" id="label-addr" aria-label="U.S. address to score the profiles at"
-           placeholder="Score these profiles at any U.S. address &mdash; or leave blank for Cooper-Young, Memphis">
+    <div class="addr-ac" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-owns="label-addr-suggest">
+      <input type="text" id="label-addr" aria-label="U.S. address to score the profiles at"
+             autocomplete="off" role="textbox" aria-autocomplete="list" aria-controls="label-addr-suggest" aria-activedescendant=""
+             placeholder="Score these profiles at any U.S. address &mdash; or leave blank for Cooper-Young, Memphis">
+      <ul class="addr-suggest" id="label-addr-suggest" role="listbox" hidden></ul>
+    </div>
     <button type="submit" class="go">Score here</button>
     <button type="button" class="reset" id="label-addr-reset">Reset</button>
   </form>
@@ -65,6 +69,7 @@
 
 <script src="nav.js"></script>
 <script src="label-core.js"></script>
+<script src="addr-suggest.js"></script>
 <script>
 (function () {
   "use strict";
@@ -192,13 +197,21 @@
   function clampIdx(i) { return Math.max(0, Math.min(i, state.presets.length - 1)); }
 
   var reqSeq = 0;   // request sequence — drop out-of-order responses from rapid submits
-  // Score the presets at `address` (or the default Cooper-Young location when null).
-  function load(address) {
+  // Score the presets at a location. `coords` ({lat, lon}) is used when the user
+  // picked an autocomplete suggestion (skips a redundant server-side geocode);
+  // otherwise `address` is geocoded, or the default Cooper-Young location if null.
+  function load(address, coords) {
     if (!API_BASE) { state.error = "no scoring API configured"; render(); return; }
     var seq = ++reqSeq;
     state.presets = null; state.error = null;
     render();  // loading state
-    var url = API_BASE + "/presets" + (address ? "?address=" + encodeURIComponent(address) : "");
+    var query = "";
+    if (coords && coords.lat != null && coords.lon != null) {
+      query = "?lat=" + encodeURIComponent(coords.lat) + "&lon=" + encodeURIComponent(coords.lon);
+    } else if (address) {
+      query = "?address=" + encodeURIComponent(address);
+    }
+    var url = API_BASE + "/presets" + query;
     fetch(url)
       .then(function (r) {
         if (!r.ok) return r.json().then(
@@ -221,8 +234,25 @@
 
   var addrForm = document.getElementById("label-addr-form");
   var addrInput = document.getElementById("label-addr");
-  addrForm.addEventListener("submit", function (e) { e.preventDefault(); load(addrInput.value.trim() || null); });
-  document.getElementById("label-addr-reset").addEventListener("click", function () { addrInput.value = ""; load(null); });
+  var ac = AddrSuggest.attach({
+    input: addrInput,
+    box: document.getElementById("label-addr-suggest"),
+    apiBase: API_BASE,
+    idPrefix: "label-addr-opt-"
+  });
+  addrForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    ac.close();
+    var addr = addrInput.value.trim();
+    var p = ac.picked();
+    // A picked suggestion carries coordinates — score there directly and skip
+    // a second geocode; otherwise geocode the typed text (or default if blank).
+    if (p && p.label === addr) load(addr, { lat: p.lat, lon: p.lon });
+    else load(addr || null);
+  });
+  document.getElementById("label-addr-reset").addEventListener("click", function () {
+    ac.close(); addrInput.value = ""; load(null);
+  });
 
   load(null);
 })();

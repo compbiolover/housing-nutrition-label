@@ -13,16 +13,7 @@
     .addr-form { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 1rem 0; }
     .addr-form input[type=text] { flex: 1 1 320px; font: inherit; padding: 0.6rem 0.8rem;
       border: 1px solid var(--border); border-radius: var(--radius); }
-    /* Autocomplete: positioned wrapper anchors the suggestion list under the input. */
-    .addr-ac { position: relative; flex: 1 1 320px; }
-    .addr-ac input[type=text] { width: 100%; box-sizing: border-box; }
-    .addr-suggest { position: absolute; top: 100%; left: 0; right: 0; z-index: 50;
-      background: var(--card); border: 1px solid var(--border); border-top: none;
-      border-radius: 0 0 var(--radius) var(--radius); box-shadow: 0 4px 16px rgba(0,0,0,0.08);
-      max-height: 16rem; overflow-y: auto; list-style: none; margin: 0; padding: 0; }
-    .addr-suggest li { padding: 0.5rem 0.8rem; cursor: pointer; font-size: 0.9rem; }
-    .addr-suggest li.active, .addr-suggest li:hover { background: #f1f5f9; }
-    .addr-suggest[hidden] { display: none; }
+    /* Autocomplete list styling (.addr-ac / .addr-suggest) is shared via label-core.css. */
     .addr-form select { font: inherit; padding: 0.6rem 0.8rem; border: 1px solid var(--border);
       border-radius: var(--radius); background: var(--card); }
     .addr-form button { font: inherit; font-weight: 600; padding: 0.6rem 1.2rem; border: none;
@@ -69,9 +60,8 @@
     #density-result:not(:empty) { margin-top: 0.6rem; }
     .density-table { width: 100%; }
     .density-table small { color: var(--muted); font-weight: 400; }
-    /* Dark mode: re-light the navy-as-text bits and the suggestion hover. */
+    /* Dark mode: re-light the navy-as-text bits (suggestion hover is in label-core.css). */
     @media (prefers-color-scheme: dark) {
-      .addr-suggest li.active, .addr-suggest li:hover { background: #334155; }
       .row-highlight { background: #0b1220; }
       .addr-details summary, .addr-upgrades legend { color: #cbd5e1; }
       #addr-result .label-card { border-color: #475569; }
@@ -346,6 +336,7 @@
 </footer>
 <script src="nav.js"></script>
 <script src="label-core.js"></script>
+<script src="addr-suggest.js"></script>
 <script>
 (function () {
   // API base URL: ?api=... query param, or window.HOUSING_LABEL_API, else none.
@@ -362,20 +353,11 @@
   var note    = document.getElementById("addr-config-note");
   var active  = document.getElementById("addr-api-active");
   var dfltMsg = document.getElementById("addr-api-default");
-  var acBox   = document.getElementById("addr-suggest");
-  var acWrap  = input.closest(".addr-ac");
   var densWrap   = document.getElementById("density-wrap");
   var densBtn    = document.getElementById("density-btn");
   var densStatus = document.getElementById("density-status");
   var densResult = document.getElementById("density-result");
   var lastParams = null;   // query string of the most recent successful /label call
-
-  // Autocomplete state.
-  var picked   = null;   // {label, lat, lon} when a suggestion is chosen; else null
-  var acItems  = [];     // current suggestion objects
-  var acActive = -1;     // highlighted index for keyboard nav
-  var acTimer  = null;   // debounce handle
-  var acSeq    = 0;      // request sequence — drop out-of-order responses
 
   function apiHost() {
     try { return new URL(API_BASE).host || API_BASE; } catch (e) { return API_BASE; }
@@ -401,64 +383,13 @@
   var esc = LabelCore.esc;
   var WALL_LABELS = LabelCore.WALL_LABELS, UPGRADE_LABELS = LabelCore.UPGRADE_LABELS;
 
-  // ── Address autocomplete (debounced typeahead backed by our /suggest proxy) ──
-  function closeAc() {
-    acBox.hidden = true; acBox.innerHTML = ""; acItems = []; acActive = -1;
-    acWrap.setAttribute("aria-expanded", "false");
-    input.setAttribute("aria-activedescendant", "");
-  }
-  function setActive(i) {
-    var lis = acBox.querySelectorAll("li");
-    for (var j = 0; j < lis.length; j++) {
-      var on = j === i;
-      lis[j].classList.toggle("active", on);
-      lis[j].setAttribute("aria-selected", on ? "true" : "false");   // expose selection to AT
-    }
-    acActive = i;
-    input.setAttribute("aria-activedescendant", i >= 0 ? "addr-opt-" + i : "");
-  }
-  function renderAc(list) {
-    acItems = list; acActive = -1;
-    if (!list.length) { closeAc(); return; }
-    acBox.innerHTML = list.map(function (s, i) {
-      return '<li role="option" id="addr-opt-' + i + '" data-i="' + i + '" aria-selected="false">' + esc(s.label) + '</li>';
-    }).join("");
-    acBox.hidden = false;
-    acWrap.setAttribute("aria-expanded", "true");
-  }
-  function fetchSuggest(q) {
-    var seq = ++acSeq;
-    fetch(API_BASE + "/suggest?q=" + encodeURIComponent(q))
-      .then(function (r) { return r.ok ? r.json() : []; })
-      .then(function (list) { if (seq === acSeq) renderAc(Array.isArray(list) ? list : []); })
-      .catch(function () { if (seq === acSeq) closeAc(); });   // never throw to the page
-  }
-  function choose(i) {
-    var s = acItems[i]; if (!s) return;
-    picked = s;                 // remember {label, lat, lon}
-    input.value = s.label;
-    closeAc();
-  }
-
-  input.addEventListener("input", function () {
-    picked = null;              // editing the text invalidates any prior pick
-    var q = input.value.trim();
-    clearTimeout(acTimer);
-    if (!API_BASE || q.length < 3) { closeAc(); return; }
-    acTimer = setTimeout(function () { fetchSuggest(q); }, 250);
+  // ── Address autocomplete (shared module: debounced typeahead over /suggest) ──
+  var ac = AddrSuggest.attach({
+    input: input,
+    box: document.getElementById("addr-suggest"),
+    apiBase: API_BASE,
+    idPrefix: "addr-opt-"
   });
-  input.addEventListener("keydown", function (e) {
-    if (acBox.hidden || !acItems.length) return;
-    if (e.key === "ArrowDown") { e.preventDefault(); setActive((acActive + 1) % acItems.length); }
-    else if (e.key === "ArrowUp") { e.preventDefault(); setActive((acActive - 1 + acItems.length) % acItems.length); }
-    else if (e.key === "Enter" && acActive >= 0) { e.preventDefault(); choose(acActive); }
-    else if (e.key === "Escape") { closeAc(); }
-  });
-  acBox.addEventListener("mousedown", function (e) {   // mousedown beats input blur
-    var li = e.target.closest("li[data-i]"); if (!li) return;
-    e.preventDefault(); choose(parseInt(li.getAttribute("data-i"), 10));
-  });
-  input.addEventListener("blur", function () { setTimeout(closeAc, 120); });
 
   // The entire label card is rendered by the shared LabelCore module; this page
   // only builds the "Custom / preset · build details" subline from its form ctx.
@@ -571,12 +502,13 @@
     densWrap.hidden = true; densResult.innerHTML = ""; densStatus.textContent = "";
     status.textContent = "Scoring " + addr + " …";
     btn.disabled = true;
-    clearTimeout(acTimer); closeAc();
+    ac.close();
 
     // Optional construction details override the chosen profile.
     var params = new URLSearchParams();
     // A picked suggestion carries exact coords — score that point directly (no
     // re-geocode). Otherwise fall back to geocoding the typed address server-side.
+    var picked = ac.picked();
     if (picked && picked.label === addr) {
       params.set("lat", picked.lat);
       params.set("lon", picked.lon);
