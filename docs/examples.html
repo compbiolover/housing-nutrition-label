@@ -176,92 +176,8 @@
 
 <section>
   <h2>Single-Family Comparison</h2>
-  <table class="comparison">
-    <thead>
-      <tr>
-        <th>Metric</th>
-        <th>Worst Case<br><small>1945 frame, AE zone</small></th>
-        <th>Baseline<br><small>2000 frame</small></th>
-        <th>Premium<br><small>2026 brick</small></th>
-        <th>FORTIFIED Gold<br><small>2026 frame + Gold</small></th>
-        <th>ICF Passive<br><small>2026 ICF + solar + all</small></th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><strong>Disaster Resilience</strong></td>
-        <td>32.8 <span class="grade grade-d">D</span></td>
-        <td>72.8 <span class="grade grade-b">B</span></td>
-        <td>80.3 <span class="grade grade-a">A</span></td>
-        <td>81.9 <span class="grade grade-a">A</span></td>
-        <td>95.6 <span class="grade grade-a">A</span></td>
-      </tr>
-      <tr>
-        <td><strong>Energy Efficiency</strong></td>
-        <td>28.8 <span class="grade grade-d">D</span></td>
-        <td>74.8 <span class="grade grade-b">B</span></td>
-        <td>85.9 <span class="grade grade-a">A</span></td>
-        <td>83.9 <span class="grade grade-a">A</span></td>
-        <td>100.0 <span class="grade grade-a">A</span></td>
-      </tr>
-      <tr>
-        <td><strong>Durability</strong></td>
-        <td>13.5 <span class="grade grade-f">F</span></td>
-        <td>46.1 <span class="grade grade-c">C</span></td>
-        <td>100.0 <span class="grade grade-a">A</span></td>
-        <td>99.2 <span class="grade grade-a">A</span></td>
-        <td>100.0 <span class="grade grade-a">A</span></td>
-      </tr>
-      <tr>
-        <td><strong>Environmental Footprint</strong></td>
-        <td>44.1 <span class="grade grade-c">C</span></td>
-        <td>67.2 <span class="grade grade-b">B</span></td>
-        <td>62.8 <span class="grade grade-b">B</span></td>
-        <td>71.6 <span class="grade grade-b">B</span></td>
-        <td>78.5 <span class="grade grade-b">B</span></td>
-      </tr>
-      <tr>
-        <td><strong>Infrastructure Burden</strong></td>
-        <td>17.8 <span class="grade grade-f">F</span></td>
-        <td>36.5 <span class="grade grade-c">C</span></td>
-        <td>68.6 <span class="grade grade-b">B</span></td>
-        <td>59.1 <span class="grade grade-c">C</span></td>
-        <td>72.7 <span class="grade grade-b">B</span></td>
-      </tr>
-      <tr>
-        <td><strong>Health Impact</strong> <small>(location)</small></td>
-        <td>87.6 <span class="grade grade-a">A</span></td>
-        <td>87.6 <span class="grade grade-a">A</span></td>
-        <td>87.6 <span class="grade grade-a">A</span></td>
-        <td>87.6 <span class="grade grade-a">A</span></td>
-        <td>87.6 <span class="grade grade-a">A</span></td>
-      </tr>
-      <tr>
-        <td><strong>Socioeconomic</strong> <small>(location)</small></td>
-        <td>52.9 <span class="grade grade-c">C</span></td>
-        <td>52.9 <span class="grade grade-c">C</span></td>
-        <td>52.9 <span class="grade grade-c">C</span></td>
-        <td>52.9 <span class="grade grade-c">C</span></td>
-        <td>52.9 <span class="grade grade-c">C</span></td>
-      </tr>
-      <tr>
-        <td><strong>Walkability</strong> <small>(location)</small></td>
-        <td>65.4 <span class="grade grade-b">B</span></td>
-        <td>65.4 <span class="grade grade-b">B</span></td>
-        <td>65.4 <span class="grade grade-b">B</span></td>
-        <td>65.4 <span class="grade grade-b">B</span></td>
-        <td>65.4 <span class="grade grade-b">B</span></td>
-      </tr>
-      <tr class="row-highlight">
-        <td><strong>Composite</strong></td>
-        <td><strong>42.9</strong> <span class="grade grade-c">C</span></td>
-        <td><strong>62.9</strong> <span class="grade grade-b">B</span></td>
-        <td><strong>75.4</strong> <span class="grade grade-b">B</span></td>
-        <td><strong>75.2</strong> <span class="grade grade-b">B</span></td>
-        <td><strong>81.6</strong> <span class="grade grade-a">A</span></td>
-      </tr>
-    </tbody>
-  </table>
+  <p>The five construction profiles, scored side by side at the same Cooper-Young location by the live API (<code>/presets</code>) — so this comparison never drifts from the scoring engine.</p>
+  <div id="sfc-live"><p class="sfc-loading" style="text-align:center;color:var(--muted);padding:1rem;">Loading live comparison&hellip;</p></div>
 
   <h3>Key Metrics</h3>
   <table class="comparison">
@@ -750,6 +666,42 @@
     if (form.requestSubmit) form.requestSubmit();
     else form.dispatchEvent(new Event("submit", { cancelable: true }));
   }
+
+  // ── Live Single-Family Comparison (scored by /presets, never drifts) ───────
+  (function () {
+    var host = document.getElementById("sfc-live");
+    if (!host) return;
+    if (!API_BASE) { host.innerHTML = '<p class="meta">Set a scoring API (see below) to load the live comparison.</p>'; return; }
+    function gsp(g) {
+      var c = (g || "").toLowerCase();
+      return "abcdf".indexOf(c) >= 0 && c.length === 1 ? '<span class="grade grade-' + c + '">' + esc(g) + '</span>' : esc(g);
+    }
+    function cell(d) { return !d || d.score == null ? '<span class="na">N/A</span>' : d.score.toFixed(1) + ' ' + gsp(d.national_grade); }
+    fetch(API_BASE + "/presets")
+      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function (data) {
+        var ps = (data && data.presets) || [];
+        if (!ps.length) throw new Error("no presets returned");
+        var dims = ps[0].dimensions || [];
+        var byKey = ps.map(function (p) { var m = {}; (p.dimensions || []).forEach(function (d) { m[d.key] = d; }); return m; });
+        var head = '<tr><th>Metric</th>' + ps.map(function (p) {
+          return '<th>' + esc(p.name) + '<br><small>' + esc(p.description || "") + '</small></th>';
+        }).join("") + '</tr>';
+        var rows = dims.map(function (d) {
+          return '<tr><td><strong>' + esc(d.label) + '</strong></td>'
+            + byKey.map(function (m) { return '<td>' + cell(m[d.key]) + '</td>'; }).join("") + '</tr>';
+        }).join("");
+        rows += '<tr class="row-highlight"><td><strong>Composite</strong></td>' + ps.map(function (p) {
+          return '<td><strong>' + (p.composite_score == null ? "N/A" : p.composite_score.toFixed(1)) + '</strong> '
+            + gsp(p.composite_national_grade) + '</td>';
+        }).join("") + '</tr>';
+        host.innerHTML = '<table class="comparison"><thead>' + head + '</thead><tbody>' + rows + '</tbody></table>';
+      })
+      .catch(function (err) {
+        host.innerHTML = '<p class="meta">Live comparison unavailable (' + esc(err.message)
+          + '). The scoring API may be temporarily unavailable &mdash; reload to retry.</p>';
+      });
+  })();
 })();
 </script>
 </body>

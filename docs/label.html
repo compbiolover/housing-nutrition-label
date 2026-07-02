@@ -10,6 +10,16 @@
   <link rel="stylesheet" href="label-core.css">
   <style>
     .disclaimer { max-width: 640px; margin: 1.5rem auto 0; }
+    .label-addr-form { max-width: 640px; margin: 0 auto 1.25rem; display: flex; flex-wrap: wrap; gap: 0.6rem; }
+    .label-addr-form input { flex: 1 1 300px; font: inherit; padding: 0.6rem 0.8rem;
+      border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); color: var(--text); }
+    .label-addr-form .go { font: inherit; font-weight: 600; padding: 0.6rem 1.2rem; border: none;
+      border-radius: var(--radius); background: var(--navy); color: #fff; cursor: pointer; }
+    .label-addr-form .reset { font: inherit; padding: 0.6rem 1rem; border: 1px solid var(--border);
+      border-radius: var(--radius); background: var(--card); color: var(--text); cursor: pointer; }
+    .label-loc { text-align: center; color: var(--muted); font-size: 0.85rem; margin: -0.5rem auto 1rem; }
+    .label-loc strong { color: var(--navy); }
+    @media (prefers-color-scheme: dark) { .label-loc strong { color: #e2e8f0; } }
   </style>
 </head>
 <body>
@@ -29,7 +39,14 @@
 
 <section>
   <h2>Interactive Nutrition Label</h2>
-  <p>The nine scored dimensions as a single at-a-glance label, scored live by the same API that powers the home-page address search. Pick a construction profile to see how building choices move each dimension. All profiles sit at the same Memphis location &mdash; the walkable Cooper-Young neighborhood (lat&nbsp;35.13, lon&nbsp;&minus;89.99) &mdash; so the location-driven dimensions stay fixed while the construction-driven ones change. A <strong>&ldquo;cost over a mortgage&rdquo;</strong> strip present-values the dollar difference in energy and expected disaster losses against a typical comparable, and <strong>Compare</strong> mode puts two profiles side by side with a per-dimension delta.</p>
+  <p>The nine scored dimensions as a single at-a-glance label, scored live by the same API that powers the home-page address search. Pick a construction profile to see how building choices move each dimension. By default all profiles sit at the walkable Cooper-Young neighborhood in Memphis &mdash; or <strong>enter any U.S. address</strong> below to compare the same construction profiles at your location (the location-driven dimensions shift while the construction-driven ones stay comparable). A <strong>&ldquo;cost over a mortgage&rdquo;</strong> strip present-values the dollar difference in energy and expected disaster losses against a typical comparable, and <strong>Compare</strong> mode puts two profiles side by side with a per-dimension delta.</p>
+
+  <form class="label-addr-form" id="label-addr-form">
+    <input type="text" id="label-addr" aria-label="U.S. address to score the profiles at"
+           placeholder="Score these profiles at any U.S. address &mdash; or leave blank for Cooper-Young, Memphis">
+    <button type="submit" class="go">Score here</button>
+    <button type="button" class="reset" id="label-addr-reset">Reset</button>
+  </form>
 
   <div id="label-app"><div class="loading">Scoring construction profiles&hellip;</div></div>
 
@@ -56,7 +73,7 @@
     return (window.HOUSING_LABEL_API || "").replace(/\/+$/, "");
   })();
 
-  var state = { mode: "single", idx: 0, idxA: 0, idxB: 0, presets: null, error: null };
+  var state = { mode: "single", idx: 0, idxA: 0, idxB: 0, presets: null, error: null, initialized: false };
 
   function findIdx(re) {
     for (var i = 0; i < state.presets.length; i++) { if (re.test(state.presets[i].name)) return i; }
@@ -106,7 +123,10 @@
     }
     if (!state.presets) { app.innerHTML = '<div class="loading">Scoring construction profiles&hellip;</div>'; return; }
 
-    var html = toggleBar();
+    var loc0 = (state.presets[0] || {}).location || {};
+    var locName = loc0.label || loc0.county_name || "";
+    var html = locName ? '<div class="label-loc">Profiles scored at <strong>' + esc(locName) + '</strong></div>' : "";
+    html += toggleBar();
     if (state.mode === "single") {
       html += '<div class="picker"><label for="p-sel">Construction profile:</label>' + pickerSel("p-sel", state.idx) + '</div>';
       html += cardFor(state.idx, baselineCost());
@@ -141,24 +161,45 @@
     render();
   });
 
-  function boot() {
+  // Pick sensible defaults on the first load only, so re-scoring at a new
+  // address keeps the user's profile selection (the 5 presets are stable).
+  function applyDefaults() {
+    if (state.initialized) return;
+    var base = findIdx(/baseline/i), cheap = findIdx(/icf|passive/i);
+    if (base >= 0) state.idxA = base;                     // baseline = the comparable
+    if (cheap >= 0) { state.idx = cheap; state.idxB = cheap; }  // lead on a cheaper build
+    else if (state.presets.length > 1) state.idxB = state.presets.length - 1;
+    state.initialized = true;
+  }
+
+  // Score the presets at `address` (or the default Cooper-Young location when null).
+  function load(address) {
     if (!API_BASE) { state.error = "no scoring API configured"; render(); return; }
+    state.presets = null; state.error = null;
     render();  // loading state
-    fetch(API_BASE + "/presets")
-      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    var url = API_BASE + "/presets" + (address ? "?address=" + encodeURIComponent(address) : "");
+    fetch(url)
+      .then(function (r) {
+        if (!r.ok) return r.json().then(
+          function (j) { throw new Error(j.detail || ("HTTP " + r.status)); },
+          function () { throw new Error("HTTP " + r.status); });
+        return r.json();
+      })
       .then(function (data) {
         state.presets = (data && data.presets) || [];
         if (!state.presets.length) throw new Error("no presets returned");
-        // Lead the demo on a cheaper build (positive "you save" cost headline).
-        var base = findIdx(/baseline/i), cheap = findIdx(/icf|passive/i);
-        if (base >= 0) state.idxA = base;
-        if (cheap >= 0) { state.idx = cheap; state.idxB = cheap; }
-        else if (state.presets.length > 1) state.idxB = state.presets.length - 1;
+        applyDefaults();
         render();
       })
       .catch(function (err) { state.error = err.message; render(); });
   }
-  boot();
+
+  var addrForm = document.getElementById("label-addr-form");
+  var addrInput = document.getElementById("label-addr");
+  addrForm.addEventListener("submit", function (e) { e.preventDefault(); load(addrInput.value.trim() || null); });
+  document.getElementById("label-addr-reset").addEventListener("click", function () { addrInput.value = ""; load(null); });
+
+  load(null);
 })();
 </script>
 </body>
