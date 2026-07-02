@@ -274,12 +274,15 @@ The composite already *silently* drops N/A dimensions. That silence is the probl
 **coverage factor**:
 
 ```
-coverage = n_scored / n_total          (e.g. 6 / 9 = 0.67 on the shipped Memphis label)
+coverage = n_scored / n_total          (e.g. 7 / 9 = 0.78 on the shipped Memphis label)
 composite_confidence = tier_rollup(a) × coverage
 ```
 
-and, for legibility, degrade the *tier* by coverage bands: **full coverage (9/9)** keeps the rollup
-tier; **≤ ~⅔ coverage** drops it one tier; **≤ ~⅓** forces Low. On the shipped sample (Socioeconomic +
+and, for legibility, degrade the *tier* by **how many dimensions are missing**: **at most one
+missing** keeps the rollup tier (a near-complete label should not be penalized for a single gap —
+e.g. 8/9 keeps its tier); **two or more missing** drops it one tier; **≤ ~⅓ coverage** forces Low.
+Using the missing *count* (not a raw coverage ratio) avoids the ambiguous middle band. On the shipped
+sample (Socioeconomic +
 Walkability absent → 7/9 scored, and Socioeconomic/Walkability are the Low ones anyway), the composite
 should read **"Moderate confidence · 7 of 9 dimensions scored,"** never a bare grade that hides the
 two gaps. This directly implements the handbook's warning about indicator count as an uncertainty
@@ -290,8 +293,9 @@ source.
 Included dimensions and tiers (§3.3): Resilience High, Energy High, Durability High, Environmental
 Moderate, Infrastructure Moderate, Health High, Climate Moderate — Socioeconomic and Walkability are
 N/A (excluded). Averaged confidence ≈ (High,High,High,Mod,Mod,High,Mod) → skew High/Moderate ≈ 0.75;
-weakest included = Moderate → cap at High is not triggered; coverage = 7/9 ≈ 0.78 → drops one tier.
-**Composite: "Moderate confidence · 7 of 9 scored."** Honest, and it moves the moment a key is added.
+weakest included = Moderate → cap at High is not triggered; **two dimensions missing** (7/9 scored) →
+drops one tier. **Composite: "Moderate confidence · 7 of 9 scored."** Honest, and it moves the moment
+a key is added.
 
 ---
 
