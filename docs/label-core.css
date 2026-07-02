@@ -67,6 +67,17 @@
 .delta-table .down { color: #dc2626; font-weight: 700; }
 .delta-table .flat { color: var(--muted); }
 
+/* ── Address autocomplete (shared: addr-suggest.js) ─────────────────────────*/
+.addr-ac { position: relative; flex: 1 1 320px; }
+.addr-ac input[type=text] { width: 100%; box-sizing: border-box; }
+.addr-suggest { position: absolute; top: 100%; left: 0; right: 0; z-index: 50;
+  background: var(--card); border: 1px solid var(--border); border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius); box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  max-height: 16rem; overflow-y: auto; list-style: none; margin: 0; padding: 0; text-align: left; }
+.addr-suggest li { padding: 0.5rem 0.8rem; cursor: pointer; font-size: 0.9rem; color: var(--text); }
+.addr-suggest li.active, .addr-suggest li:hover { background: #f1f5f9; }
+.addr-suggest[hidden] { display: none; }
+
 /* ── Grade legend + page states ─────────────────────────────────────────────*/
 .legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; justify-content: center; margin-top: 1.5rem; font-size: 0.8rem; color: var(--muted); }
 .legend .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 0.35rem; vertical-align: middle; }
@@ -79,4 +90,5 @@
   .cost-delta, .delta-table thead th, .picker label { color: #e2e8f0; }
   .cost-delta .cheaper, .delta-table .up { color: #4ade80; }
   .cost-delta .pricier, .delta-table .down { color: #f87171; }
+  .addr-suggest li.active, .addr-suggest li:hover { background: #334155; }
 }
