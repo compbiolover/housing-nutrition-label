@@ -43,6 +43,8 @@ window.AddrSuggest = (function () {
     function setExpanded(v) { if (wrap) wrap.setAttribute("aria-expanded", v ? "true" : "false"); }
 
     function close() {
+      clearTimeout(timer);   // cancel a pending debounced fetch
+      seq++;                 // invalidate any in-flight /suggest response (mine !== seq)
       box.hidden = true; box.innerHTML = ""; items = []; active = -1;
       setExpanded(false);
       input.setAttribute("aria-activedescendant", "");
