@@ -681,7 +681,10 @@
     var i = confInfo((data.confidence || {})[key]);
     if (!i) return "";
     var note = (data.confidence_notes || {})[key] || "";
-    return '<span class="conf-dot" title="' + esc(i.label + " confidence" + (note ? " — " + note : "")) + '">' + i.glyph + '</span>';
+    var lbl = i.label + " confidence" + (note ? " — " + note : "");
+    // Focusable + labelled so the provenance is available to keyboard/screen-
+    // reader users, not just on hover.
+    return '<span class="conf-dot" role="img" tabindex="0" aria-label="' + esc(lbl) + '" title="' + esc(lbl) + '">' + i.glyph + '</span>';
   }
 
   function dimRow(d, data) {
@@ -749,8 +752,10 @@
     var cc = compositeConfidence(data);
     if (cc) {
       var ci = confInfo(cc.tier);
-      html += '<div class="composite-conf" title="' + esc(data.confidence_legend || "") + '">'
-        + '<span class="conf-dot">' + ci.glyph + '</span> ' + ci.label + ' confidence &middot; '
+      var ccLbl = ci.label + " confidence, " + cc.nScored + " of " + cc.nTotal
+        + " dimensions scored. " + (data.confidence_legend || "");
+      html += '<div class="composite-conf" tabindex="0" aria-label="' + esc(ccLbl) + '" title="' + esc(data.confidence_legend || "") + '">'
+        + '<span class="conf-dot" aria-hidden="true">' + ci.glyph + '</span> ' + ci.label + ' confidence &middot; '
         + cc.nScored + ' of ' + cc.nTotal + ' dimensions scored</div>';
     }
 

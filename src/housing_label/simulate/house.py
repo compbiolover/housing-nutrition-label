@@ -1281,7 +1281,7 @@ def label_payload(cfg: dict, r: dict, label: dict) -> dict:
         # Data-quality confidence channel (research/uncertainty-confidence-research.md).
         "confidence": confidence_for_label(label),
         "bands": bands_for_label(label),
-        "confidence_notes": CONFIDENCE_NOTES,
+        "confidence_notes": dict(CONFIDENCE_NOTES),  # copy — never hand out the shared constant
         "confidence_legend": CONFIDENCE_LEGEND,
         # Annual $ flows for the lifetime-cost strip (delta vs. a baseline is
         # added by the API, which scores a typical comparable at this location).
