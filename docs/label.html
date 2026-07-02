@@ -387,7 +387,8 @@ function confInfo(tier) { return CONFIDENCE[tier] || null; }
 
 // Coverage-penalized composite confidence (research doc §5): average the tiers
 // of the *scored* dimensions, cap one tier above the weakest included one, then
-// degrade for missing dimensions (any gap drops a tier; ≤⅓ coverage → Low).
+// degrade for missing dimensions (≥2 missing drops a tier; ≤⅓ coverage → Low;
+// a single gap keeps the tier — see §5.2).
 function compositeConfidence(parcel, dimensions) {
   const conf = parcel.confidence || {};
   const nTotal = dimensions.length;

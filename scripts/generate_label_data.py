@@ -134,7 +134,7 @@ CONFIDENCE_NOTES = {
     "environmental": "Operational leg strong (metered-equivalent × eGRID2022); embodied-carbon leg flagged low confidence (order-of-magnitude).",
     "infrastructure": "Density cost model calibrated to county spending; documented ±30% on absolute dollars.",
     "health": "CDC PLACES model-based estimates.",
-    "socioeconomic": "Census ACS income/poverty/education (uniform placeholder + excluded from composite when no API key).",
+    "socioeconomic": "Census ACS (income/poverty/education); unavailable and excluded from the composite without an API key — not a fabricated value.",
     "walkability": "Walk Score API (unavailable without an API key).",
     "climate": "CMIP6-LOCA2 tract-level projection; scenario band SSP2-4.5 → SSP5-8.5 (mid-century).",
 }
