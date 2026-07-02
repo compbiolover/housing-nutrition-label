@@ -17,6 +17,7 @@
       border-radius: var(--radius); background: var(--navy); color: #fff; cursor: pointer; }
     .label-addr-form .reset { font: inherit; padding: 0.6rem 1rem; border: 1px solid var(--border);
       border-radius: var(--radius); background: var(--card); color: var(--text); cursor: pointer; }
+    .label-privacy { max-width: 640px; margin: -0.75rem auto 1rem; color: var(--muted); font-size: 0.8rem; text-align: center; }
     .label-loc { text-align: center; color: var(--muted); font-size: 0.85rem; margin: -0.5rem auto 1rem; }
     .label-loc strong { color: var(--navy); }
     @media (prefers-color-scheme: dark) { .label-loc strong { color: #e2e8f0; } }
@@ -47,11 +48,13 @@
     <button type="submit" class="go">Score here</button>
     <button type="button" class="reset" id="label-addr-reset">Reset</button>
   </form>
+  <p id="label-addr-privacy" class="label-privacy" style="display:none;"></p>
+  <div class="insight warn" id="label-addr-warn" style="display:none; max-width:640px; margin:-0.5rem auto 1rem;"></div>
 
   <div id="label-app"><div class="loading">Scoring construction profiles&hellip;</div></div>
 
   <div class="insight disclaimer">
-    <strong>About this data:</strong> Every profile here is scored live by the project's HTTP API (the CLI simulator behind HTTP) at the Cooper-Young location. The five construction-driven dimensions &mdash; resilience, energy, durability, environmental footprint, and infrastructure burden &mdash; are modeled from each build's configuration. Location-driven dimensions are fetched for this Memphis location: <strong>Health</strong> comes from CDC PLACES; <strong>Socioeconomic</strong> (Census ACS) and <strong>Walkability</strong> (Walk Score) require API keys and show <em>N/A</em> when unset &mdash; excluded from the composite rather than filled with a placeholder, so a strong build isn't unfairly penalized for a missing input. <strong>Climate Projections</strong> is a sub-county downscaled climate-hazard score (USGS CMIP6-LOCA2 ensemble mean for heat, precipitation &amp; drought, SSP2-4.5 to SSP5-8.5, mid-century, plus an Argonne ClimRR 12&nbsp;km Fire Weather Index fire leg) sampled at this location's census tract, identical across profiles. The composite is the mean of the scored dimensions. National grades use the absolute thresholds A&nbsp;&ge;&nbsp;80, B&nbsp;&ge;&nbsp;60, C&nbsp;&ge;&nbsp;40, D&nbsp;&ge;&nbsp;20, F&nbsp;&lt;&nbsp;20; local (percentile) grades require the full county dataset and are omitted here. The <strong>&ldquo;cost over a mortgage&rdquo;</strong> figure is a comparative present value of only the two dollar-defensible flows &mdash; modeled <strong>energy cost</strong> and <strong>expected annual disaster loss</strong> &mdash; discounted in constant (real) dollars at ~4% real (homeowner mortgage opportunity cost; ~2% OMB social rate shown as the band), with no real cost escalation. It deliberately excludes purchase price, property tax, maintenance, and the qualitative dimensions, so it answers &ldquo;which home is cheaper to <em>run and insure</em>,&rdquo; not &ldquo;which is cheaper all-in.&rdquo; Full methodology and citations: <a href="https://github.com/compbiolover/housing-nutrition-label/blob/main/research/lifetime-cost-research.md">research/lifetime-cost-research.md</a>. The small <strong>confidence dot</strong> on each row (&#9679;&nbsp;High, &#9680;&nbsp;Moderate, &#9675;&nbsp;Low) and the composite&rsquo;s <em>&ldquo;N of 9 scored&rdquo;</em> line report <strong>data quality</strong> &mdash; source, geographic resolution, completeness &mdash; on a channel kept deliberately <em>separate</em> from the grade, so &ldquo;high confidence&rdquo; never reads as &ldquo;good score&rdquo; (a parcel can be confidently an F). It is a provenance judgement, <em>not</em> a statistical margin; the only true numeric interval drawn is the faint <strong>whisker</strong> on Climate Projections, spanning the SSP2-4.5&nbsp;&rarr;&nbsp;SSP5-8.5 emissions-scenario range. Full methodology and citations: <a href="https://github.com/compbiolover/housing-nutrition-label/blob/main/research/uncertainty-confidence-research.md">research/uncertainty-confidence-research.md</a>.
+    <strong>About this data:</strong> Every profile here is scored live by the project's HTTP API (the CLI simulator behind HTTP) at the location you enter above &mdash; Cooper-Young, Memphis by default. The five construction-driven dimensions &mdash; resilience, energy, durability, environmental footprint, and infrastructure burden &mdash; are modeled from each build's configuration and stay comparable across locations. Location-driven dimensions are fetched for the scored location: <strong>Health</strong> comes from CDC PLACES; <strong>Socioeconomic</strong> (Census ACS) and <strong>Walkability</strong> (Walk Score) require API keys and show <em>N/A</em> when unset &mdash; excluded from the composite rather than filled with a placeholder, so a strong build isn't unfairly penalized for a missing input. <strong>Climate Projections</strong> is a sub-county downscaled climate-hazard score (USGS CMIP6-LOCA2 ensemble mean for heat, precipitation &amp; drought, SSP2-4.5 to SSP5-8.5, mid-century, plus an Argonne ClimRR 12&nbsp;km Fire Weather Index fire leg) sampled at this location's census tract, identical across profiles. The composite is the mean of the scored dimensions. National grades use the absolute thresholds A&nbsp;&ge;&nbsp;80, B&nbsp;&ge;&nbsp;60, C&nbsp;&ge;&nbsp;40, D&nbsp;&ge;&nbsp;20, F&nbsp;&lt;&nbsp;20; local (percentile) grades require the full county dataset and are omitted here. The <strong>&ldquo;cost over a mortgage&rdquo;</strong> figure is a comparative present value of only the two dollar-defensible flows &mdash; modeled <strong>energy cost</strong> and <strong>expected annual disaster loss</strong> &mdash; discounted in constant (real) dollars at ~4% real (homeowner mortgage opportunity cost; ~2% OMB social rate shown as the band), with no real cost escalation. It deliberately excludes purchase price, property tax, maintenance, and the qualitative dimensions, so it answers &ldquo;which home is cheaper to <em>run and insure</em>,&rdquo; not &ldquo;which is cheaper all-in.&rdquo; Full methodology and citations: <a href="https://github.com/compbiolover/housing-nutrition-label/blob/main/research/lifetime-cost-research.md">research/lifetime-cost-research.md</a>. The small <strong>confidence dot</strong> on each row (&#9679;&nbsp;High, &#9680;&nbsp;Moderate, &#9675;&nbsp;Low) and the composite&rsquo;s <em>&ldquo;N of 9 scored&rdquo;</em> line report <strong>data quality</strong> &mdash; source, geographic resolution, completeness &mdash; on a channel kept deliberately <em>separate</em> from the grade, so &ldquo;high confidence&rdquo; never reads as &ldquo;good score&rdquo; (a parcel can be confidently an F). It is a provenance judgement, <em>not</em> a statistical margin; the only true numeric interval drawn is the faint <strong>whisker</strong> on Climate Projections, spanning the SSP2-4.5&nbsp;&rarr;&nbsp;SSP5-8.5 emissions-scenario range. Full methodology and citations: <a href="https://github.com/compbiolover/housing-nutrition-label/blob/main/research/uncertainty-confidence-research.md">research/uncertainty-confidence-research.md</a>.
   </div>
 </section>
 
@@ -68,10 +71,24 @@
   var app = document.getElementById("label-app");
   var esc = LabelCore.esc;
 
-  var API_BASE = (function () {
-    try { var q = new URLSearchParams(location.search).get("api"); if (q) return q.replace(/\/+$/, ""); } catch (e) {}
-    return (window.HOUSING_LABEL_API || "").replace(/\/+$/, "");
-  })();
+  var apiFromQuery = null;
+  try { apiFromQuery = new URLSearchParams(location.search).get("api"); } catch (e) {}
+  var API_BASE = ((apiFromQuery || window.HOUSING_LABEL_API || "")).replace(/\/+$/, "");
+  function apiHost() { try { return new URL(API_BASE).host || API_BASE; } catch (e) { return API_BASE; } }
+
+  // Disclose where typed addresses are sent — and warn more loudly when the
+  // endpoint came from a shared ?api= link (mirrors the home page).
+  var privEl = document.getElementById("label-addr-privacy");
+  var warnEl = document.getElementById("label-addr-warn");
+  if (API_BASE && apiFromQuery) {
+    warnEl.textContent = "Heads up: addresses you enter here are sent to the API at " + apiHost()
+      + " (set via this link's ?api= parameter).";
+    warnEl.style.display = "";
+  } else if (API_BASE) {
+    privEl.textContent = "Addresses you enter here are sent to our scoring API (" + apiHost()
+      + ") to look up location data.";
+    privEl.style.display = "";
+  }
 
   var state = { mode: "single", idx: 0, idxA: 0, idxB: 0, presets: null, error: null, initialized: false };
 
@@ -172,9 +189,13 @@
     state.initialized = true;
   }
 
+  function clampIdx(i) { return Math.max(0, Math.min(i, state.presets.length - 1)); }
+
+  var reqSeq = 0;   // request sequence — drop out-of-order responses from rapid submits
   // Score the presets at `address` (or the default Cooper-Young location when null).
   function load(address) {
     if (!API_BASE) { state.error = "no scoring API configured"; render(); return; }
+    var seq = ++reqSeq;
     state.presets = null; state.error = null;
     render();  // loading state
     var url = API_BASE + "/presets" + (address ? "?address=" + encodeURIComponent(address) : "");
@@ -186,12 +207,16 @@
         return r.json();
       })
       .then(function (data) {
-        state.presets = (data && data.presets) || [];
-        if (!state.presets.length) throw new Error("no presets returned");
+        if (seq !== reqSeq) return;   // a newer request superseded this one
+        var ps = (data && data.presets) || [];
+        if (!ps.length) throw new Error("no presets returned");
+        state.presets = ps;
         applyDefaults();
+        // Keep any prior selection valid if the returned set differs in size.
+        state.idx = clampIdx(state.idx); state.idxA = clampIdx(state.idxA); state.idxB = clampIdx(state.idxB);
         render();
       })
-      .catch(function (err) { state.error = err.message; render(); });
+      .catch(function (err) { if (seq === reqSeq) { state.error = err.message; render(); } });
   }
 
   var addrForm = document.getElementById("label-addr-form");

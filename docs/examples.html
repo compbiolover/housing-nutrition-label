@@ -682,14 +682,27 @@
       .then(function (data) {
         var ps = (data && data.presets) || [];
         if (!ps.length) throw new Error("no presets returned");
-        var dims = ps[0].dimensions || [];
-        var byKey = ps.map(function (p) { var m = {}; (p.dimensions || []).forEach(function (d) { m[d.key] = d; }); return m; });
+        // Per-preset key→dimension maps, tolerant of a non-array or missing dims.
+        var byKey = ps.map(function (p) {
+          var m = {}, ds = Array.isArray(p.dimensions) ? p.dimensions : [];
+          ds.forEach(function (d) { if (d && d.key) m[d.key] = d; });
+          return m;
+        });
+        // Canonical dimension list = union across all presets (first-seen order),
+        // so a dimension missing from the first preset never drops a whole row.
+        var order = [], seen = {}, labels = {};
+        ps.forEach(function (p) {
+          (Array.isArray(p.dimensions) ? p.dimensions : []).forEach(function (d) {
+            if (d && d.key && !seen[d.key]) { seen[d.key] = 1; order.push(d.key); labels[d.key] = d.label || d.key; }
+          });
+        });
+        if (!order.length) throw new Error("no dimensions returned");
         var head = '<tr><th>Metric</th>' + ps.map(function (p) {
           return '<th>' + esc(p.name) + '<br><small>' + esc(p.description || "") + '</small></th>';
         }).join("") + '</tr>';
-        var rows = dims.map(function (d) {
-          return '<tr><td><strong>' + esc(d.label) + '</strong></td>'
-            + byKey.map(function (m) { return '<td>' + cell(m[d.key]) + '</td>'; }).join("") + '</tr>';
+        var rows = order.map(function (key) {
+          return '<tr><td><strong>' + esc(labels[key]) + '</strong></td>'
+            + byKey.map(function (m) { return '<td>' + cell(m[key]) + '</td>'; }).join("") + '</tr>';
         }).join("");
         rows += '<tr class="row-highlight"><td><strong>Composite</strong></td>' + ps.map(function (p) {
           return '<td><strong>' + (p.composite_score == null ? "N/A" : p.composite_score.toFixed(1)) + '</strong> '
