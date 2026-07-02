@@ -106,6 +106,14 @@
     .delta-table .up { color: #16a34a; font-weight: 700; }
     .delta-table .down { color: #dc2626; font-weight: 700; }
     .delta-table .flat { color: var(--muted); }
+
+    /* ── Confidence (data-quality) channel ─────────────────────────────────── */
+    .composite-conf { font-size: 0.78rem; color: var(--muted); margin-top: 0.35rem; cursor: help; }
+    .composite-conf .conf-glyph { color: var(--muted); font-size: 0.85rem; }
+    .composite-conf .conf-cov { color: var(--muted); }
+    .conf-legend { margin-top: 0.5rem; }
+    .conf-legend .conf-glyph { color: var(--muted); }
+    .conf-legend .conf-note { font-style: italic; }
     /* Dark mode: re-light the navy-as-text bits and soften the navy borders.
        The D3 chart reads its colors from CSS vars at render time (see script). */
     @media (prefers-color-scheme: dark) {
@@ -144,7 +152,7 @@
   <div id="root"><div class="loading">Loading visualization&hellip;</div></div>
 
   <div class="insight disclaimer">
-    <strong>About this data:</strong> Every score here is produced by the CLI simulator (<code>scripts/generate_label_data.py</code>). The five construction-driven dimensions &mdash; resilience, energy, durability, environmental footprint, and infrastructure burden &mdash; are modeled from each house's configuration. Location-driven dimensions are fetched live for this Memphis location: <strong>Health</strong> comes from CDC PLACES; <strong>Socioeconomic</strong> (Census ACS) and <strong>Walkability</strong> (Walk Score) require API keys and show <em>N/A</em> &mdash; excluded from the composite rather than filled with a placeholder, so a strong build isn't unfairly penalized for a missing input. <strong>Climate Projections</strong> is a sub-county downscaled climate-hazard score (USGS CMIP6-LOCA2 ensemble mean for heat, precipitation &amp; drought, SSP2-4.5 to SSP5-8.5, mid-century, plus an Argonne ClimRR 12&nbsp;km Fire Weather Index fire leg) sampled at this Memphis location's census tract, identical across profiles. The composite is the mean of the scored dimensions. National grades use the absolute thresholds A&nbsp;&ge;&nbsp;80, B&nbsp;&ge;&nbsp;60, C&nbsp;&ge;&nbsp;40, D&nbsp;&ge;&nbsp;20, F&nbsp;&lt;&nbsp;20; local (percentile) grades require the full county dataset and are omitted here. The <strong>&ldquo;cost over a mortgage&rdquo;</strong> figure is a comparative present value of only the two dollar-defensible flows &mdash; modeled <strong>energy cost</strong> and <strong>expected annual disaster loss</strong> &mdash; discounted in constant (real) dollars at ~4% real (homeowner mortgage opportunity cost; ~2% OMB social rate shown as the band), with no real cost escalation. It deliberately excludes purchase price, property tax, maintenance, and the qualitative dimensions, so it answers &ldquo;which home is cheaper to <em>run and insure</em>,&rdquo; not &ldquo;which is cheaper all-in.&rdquo; Full methodology and citations: <a href="https://github.com/compbiolover/housing-nutrition-label/blob/main/research/lifetime-cost-research.md">research/lifetime-cost-research.md</a>.
+    <strong>About this data:</strong> Every score here is produced by the CLI simulator (<code>scripts/generate_label_data.py</code>). The five construction-driven dimensions &mdash; resilience, energy, durability, environmental footprint, and infrastructure burden &mdash; are modeled from each house's configuration. Location-driven dimensions are fetched live for this Memphis location: <strong>Health</strong> comes from CDC PLACES; <strong>Socioeconomic</strong> (Census ACS) and <strong>Walkability</strong> (Walk Score) require API keys and show <em>N/A</em> &mdash; excluded from the composite rather than filled with a placeholder, so a strong build isn't unfairly penalized for a missing input. <strong>Climate Projections</strong> is a sub-county downscaled climate-hazard score (USGS CMIP6-LOCA2 ensemble mean for heat, precipitation &amp; drought, SSP2-4.5 to SSP5-8.5, mid-century, plus an Argonne ClimRR 12&nbsp;km Fire Weather Index fire leg) sampled at this Memphis location's census tract, identical across profiles. The composite is the mean of the scored dimensions. National grades use the absolute thresholds A&nbsp;&ge;&nbsp;80, B&nbsp;&ge;&nbsp;60, C&nbsp;&ge;&nbsp;40, D&nbsp;&ge;&nbsp;20, F&nbsp;&lt;&nbsp;20; local (percentile) grades require the full county dataset and are omitted here. The <strong>&ldquo;cost over a mortgage&rdquo;</strong> figure is a comparative present value of only the two dollar-defensible flows &mdash; modeled <strong>energy cost</strong> and <strong>expected annual disaster loss</strong> &mdash; discounted in constant (real) dollars at ~4% real (homeowner mortgage opportunity cost; ~2% OMB social rate shown as the band), with no real cost escalation. It deliberately excludes purchase price, property tax, maintenance, and the qualitative dimensions, so it answers &ldquo;which home is cheaper to <em>run and insure</em>,&rdquo; not &ldquo;which is cheaper all-in.&rdquo; Full methodology and citations: <a href="https://github.com/compbiolover/housing-nutrition-label/blob/main/research/lifetime-cost-research.md">research/lifetime-cost-research.md</a>. The small <strong>confidence dot</strong> on each row (&#9679;&nbsp;High, &#9680;&nbsp;Moderate, &#9675;&nbsp;Low) and the composite&rsquo;s <em>&ldquo;N of 9 scored&rdquo;</em> line report <strong>data quality</strong> &mdash; source, geographic resolution, completeness &mdash; on a channel kept deliberately <em>separate</em> from the grade, so &ldquo;high confidence&rdquo; never reads as &ldquo;good score&rdquo; (a parcel can be confidently an F). It is a provenance judgement, <em>not</em> a statistical margin; the only true numeric interval drawn is the faint <strong>whisker</strong> on Climate Projections, spanning the SSP2-4.5&nbsp;&rarr;&nbsp;SSP5-8.5 emissions-scenario range. Full methodology and citations: <a href="https://github.com/compbiolover/housing-nutrition-label/blob/main/research/uncertainty-confidence-research.md">research/uncertainty-confidence-research.md</a>.
   </div>
 </section>
 
@@ -366,9 +374,44 @@ function DeltaTable({ a, b, dimensions }) {
   );
 }
 
+// ── Per-dimension confidence (data quality, NOT the score) ──────────────────
+// A provenance/pedigree tier shown on a separate, neutral visual channel from
+// the grade — "confident" must never read as "good" (a parcel can be
+// confidently an F). See research/uncertainty-confidence-research.md.
+const CONFIDENCE = {
+  high:     { glyph: "●", label: "High",     rank: 3 }, // ●
+  moderate: { glyph: "◐", label: "Moderate", rank: 2 }, // ◐
+  low:      { glyph: "○", label: "Low",      rank: 1 }, // ○
+};
+function confInfo(tier) { return CONFIDENCE[tier] || null; }
+
+// Coverage-penalized composite confidence (research doc §5): average the tiers
+// of the *scored* dimensions, cap one tier above the weakest included one, then
+// degrade for missing dimensions (≥2 missing drops a tier; ≤⅓ coverage → Low;
+// a single gap keeps the tier — see §5.2).
+function compositeConfidence(parcel, dimensions) {
+  const conf = parcel.confidence || {};
+  const nTotal = dimensions.length;
+  const scored = dimensions.filter(d => typeof parcel.scores[d.key] === "number");
+  const ranks = scored.map(d => (confInfo(conf[d.key]) || {}).rank).filter(r => typeof r === "number");
+  if (!ranks.length) return { tier: null, nScored: scored.length, nTotal };
+  const avg = Math.round(ranks.reduce((a, b) => a + b, 0) / ranks.length);
+  const capped = Math.min(avg, Math.min(...ranks) + 1);
+  const coverage = scored.length / nTotal;
+  const nMissing = nTotal - scored.length;
+  // Coverage penalty (research doc §5.2): at most one missing dimension keeps
+  // the rollup tier (don't over-penalize a near-complete label); two or more
+  // missing drops one tier; ≤⅓ coverage forces Low.
+  let rank = capped;
+  if (coverage <= 1 / 3) rank = 1;
+  else if (nMissing >= 2) rank = Math.max(1, capped - 1);
+  const tier = ["low", "moderate", "high"][rank - 1];
+  return { tier, nScored: scored.length, nTotal };
+}
+
 // D3-rendered horizontal bar chart for the nine dimensions.
 // React owns the <svg> node; D3 owns everything inside it and animates on data change.
-function DimensionChart({ dimensions, scores }) {
+function DimensionChart({ dimensions, scores, confidence, bands, notes }) {
   const ref = useRef(null);
   const [theme, setTheme] = useState(0);
 
@@ -393,26 +436,35 @@ function DimensionChart({ dimensions, scores }) {
     const C_TRACK = css.getPropertyValue("--border").trim() || "#e2e8f0";
     const C_MUTED = css.getPropertyValue("--muted").trim()  || "#94a3b8";
 
-    const rowH = 38, gap = 10, labelW = 170, valueW = 64, top = 8, bottom = 8;
+    const rowH = 38, gap = 10, labelW = 170, valueW = 64, dotW = 22, top = 8, bottom = 8;
     const width = 600;
     const barX = labelW;
-    const barW = width - labelW - valueW;
+    const barW = width - labelW - valueW - dotW;
+    const valueEndX = width - dotW;   // score/grade text ends here
+    const dotX = width - dotW / 2;    // confidence dot centered here
     const height = top + bottom + dimensions.length * rowH + (dimensions.length - 1) * gap;
 
     const svg = d3.select(ref.current);
     svg.attr("viewBox", `0 0 ${width} ${height}`)
        .attr("preserveAspectRatio", "xMinYMin meet")
        .attr("role", "img")
-       .attr("aria-label", "Per-dimension scores");
+       .attr("aria-label", "Per-dimension scores with data-quality confidence");
 
     const x = d3.scaleLinear().domain([0, 100]).range([0, barW]);
 
     // A null/missing score means the dimension was not scored (e.g. a
     // location dimension with no API key) — render it muted as "N/A", not 0.
+    // conf = data-quality tier; band = a real score-space interval (climate SSP
+    // spread) drawn as a whisker; note = provenance for the dot's tooltip.
     const data = dimensions.map(d => {
       const raw = scores[d.key];
       const score = (typeof raw === "number") ? raw : null;
-      return { key: d.key, label: d.label, score };
+      return {
+        key: d.key, label: d.label, score,
+        conf: confidence ? confidence[d.key] : null,
+        band: (bands && bands[d.key]) || null,
+        note: (notes && notes[d.key]) || null,
+      };
     });
 
     const rows = svg.selectAll("g.row").data(data, d => d.key);
@@ -440,12 +492,27 @@ function DimensionChart({ dimensions, scores }) {
       .attr("x", barX).attr("y", (rowH - 14) / 2)
       .attr("rx", 7).attr("height", 14).attr("width", 0);
 
+    // Uncertainty whisker (drawn over the fill; only for dims with a real band)
+    const wg = rowsEnter.append("g").attr("class", "whisker");
+    wg.append("line").attr("class", "wk-line");
+    wg.append("line").attr("class", "wk-cap wk-lo");
+    wg.append("line").attr("class", "wk-cap wk-hi");
+
     // Score value + grade letter
     rowsEnter.append("text")
       .attr("class", "dim-value")
-      .attr("x", width).attr("y", rowH / 2)
+      .attr("x", valueEndX).attr("y", rowH / 2)
       .attr("text-anchor", "end").attr("dominant-baseline", "middle")
       .attr("font-size", 13).attr("font-weight", 700);
+
+    // Confidence dot (neutral color — a separate channel from the grade).
+    // The <title> tooltip is (re)created in the merge step below, because
+    // setting the glyph via .text() replaces textContent and would drop it.
+    rowsEnter.append("text")
+      .attr("class", "conf-dot")
+      .attr("x", dotX).attr("y", rowH / 2)
+      .attr("text-anchor", "middle").attr("dominant-baseline", "central")
+      .attr("font-size", 13);
 
     const merged = rowsEnter.merge(rows);
 
@@ -465,16 +532,46 @@ function DimensionChart({ dimensions, scores }) {
     merged.select("text.dim-label")
       .attr("fill", d => d.score === null ? C_MUTED : C_TEXT);
 
+    // Confidence dot — neutral hue, deliberately NOT the grade color.
+    // Set the glyph, then (re)append the <title>: .text() sets textContent and
+    // would otherwise wipe a nested <title>, killing the tooltip on re-render.
+    merged.select("text.conf-dot")
+      .attr("fill", d => confInfo(d.conf) ? C_MUTED : "transparent")
+      .each(function(d) {
+        const i = confInfo(d.conf);
+        const sel = d3.select(this);
+        sel.text(i ? i.glyph : "");
+        sel.append("title").text(i ? `${i.label} confidence${d.note ? " — " + d.note : ""}` : "");
+      });
+
+    // Uncertainty whisker — only where a real score-space interval exists
+    // (climate SSP2-4.5 → SSP5-8.5 band). Hidden otherwise.
+    const capH = 5, cy = rowH / 2;
+    const wLo = d => barX + x(d.band.low), wHi = d => barX + x(d.band.high);
+    merged.select("g.whisker").attr("opacity", d => (d.band && d.score !== null) ? 1 : 0);
+    merged.select(".wk-line")
+      .attr("x1", d => d.band ? wLo(d) : 0).attr("x2", d => d.band ? wHi(d) : 0)
+      .attr("y1", cy).attr("y2", cy).attr("stroke", C_TEXT).attr("stroke-width", 1.5);
+    merged.select(".wk-lo")
+      .attr("x1", d => d.band ? wLo(d) : 0).attr("x2", d => d.band ? wLo(d) : 0)
+      .attr("y1", cy - capH).attr("y2", cy + capH).attr("stroke", C_TEXT).attr("stroke-width", 1.5);
+    merged.select(".wk-hi")
+      .attr("x1", d => d.band ? wHi(d) : 0).attr("x2", d => d.band ? wHi(d) : 0)
+      .attr("y1", cy - capH).attr("y2", cy + capH).attr("stroke", C_TEXT).attr("stroke-width", 1.5);
+
     rows.exit().remove();
-  }, [dimensions, scores, theme]);
+  }, [dimensions, scores, confidence, bands, notes, theme]);
 
   return <svg ref={ref} className="dim-chart" style={{ width: "100%", height: "auto" }} />;
 }
 
-function NutritionLabel({ parcel, dimensions, costStrip }) {
+function NutritionLabel({ parcel, dimensions, costStrip, meta }) {
   // null when no dimension has a numeric score (e.g. partial/empty data); render
   // "N/A" and skip the grade badge rather than crashing on null.toFixed().
   const composite = compositeOf(parcel, dimensions);
+  const cc = compositeConfidence(parcel, dimensions);
+  const ccInfo = confInfo(cc.tier);
+  const notes = meta && meta.confidenceNotes;
 
   return (
     <div className="label-card">
@@ -491,6 +588,12 @@ function NutritionLabel({ parcel, dimensions, costStrip }) {
               ? <span style={{color:"var(--muted)",fontStyle:"italic"}}>N/A</span>
               : <>{composite.toFixed(1)}<span style={{fontSize:"1rem",color:"var(--muted)"}}> / 100</span></>}
           </div>
+          {ccInfo && (
+            <div className="composite-conf" title={meta && meta.confidenceLegend}>
+              <span className="conf-glyph">{ccInfo.glyph}</span> {ccInfo.label} confidence
+              <span className="conf-cov"> · {cc.nScored} of {cc.nTotal} dimensions scored</span>
+            </div>
+          )}
         </div>
         {composite !== null && <GradeBadge score={composite} large />}
       </div>
@@ -505,7 +608,13 @@ function NutritionLabel({ parcel, dimensions, costStrip }) {
         </div>
       )}
 
-      <DimensionChart dimensions={dimensions} scores={parcel.scores} />
+      <DimensionChart
+        dimensions={dimensions}
+        scores={parcel.scores}
+        confidence={parcel.confidence}
+        bands={parcel.bands}
+        notes={notes}
+      />
     </div>
   );
 }
@@ -523,10 +632,18 @@ function ParcelPicker({ id, label, value, onChange, parcels }) {
 
 function Legend() {
   return (
-    <div className="legend">
-      {["A", "B", "C", "D", "F"].map(g => (
-        <span key={g}><span className="swatch" style={{ background: GRADE_COLORS[g] }}></span>{g}</span>
-      ))}
+    <div>
+      <div className="legend">
+        {["A", "B", "C", "D", "F"].map(g => (
+          <span key={g}><span className="swatch" style={{ background: GRADE_COLORS[g] }}></span>{g}</span>
+        ))}
+      </div>
+      <div className="legend conf-legend">
+        {["high", "moderate", "low"].map(t => (
+          <span key={t}><span className="conf-glyph">{CONFIDENCE[t].glyph}</span> {CONFIDENCE[t].label}</span>
+        ))}
+        <span className="conf-note">confidence = data quality, separate from the score; whisker = climate scenario range</span>
+      </div>
     </div>
   );
 }
@@ -595,6 +712,7 @@ function App() {
           <NutritionLabel
             parcel={parcels[idx]}
             dimensions={dimensions}
+            meta={data.meta}
             costStrip={<LifetimeCostStrip parcel={parcels[idx]} baseline={baseline} {...rateCtl} />}
           />
           <Legend />
@@ -611,8 +729,8 @@ function App() {
           </div>
 
           <div className="compare-grid">
-            <NutritionLabel parcel={parcels[idxA]} dimensions={dimensions} />
-            <NutritionLabel parcel={parcels[idxB]} dimensions={dimensions} />
+            <NutritionLabel parcel={parcels[idxA]} dimensions={dimensions} meta={data.meta} />
+            <NutritionLabel parcel={parcels[idxB]} dimensions={dimensions} meta={data.meta} />
           </div>
 
           <DeltaTable a={parcels[idxA]} b={parcels[idxB]} dimensions={dimensions} />
