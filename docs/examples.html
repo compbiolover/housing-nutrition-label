@@ -176,94 +176,10 @@
 
 <section>
   <h2>Single-Family Comparison</h2>
-  <table class="comparison">
-    <thead>
-      <tr>
-        <th>Metric</th>
-        <th>Worst Case<br><small>1945 frame, AE zone</small></th>
-        <th>Baseline<br><small>2000 frame</small></th>
-        <th>Premium<br><small>2026 brick</small></th>
-        <th>FORTIFIED Gold<br><small>2026 frame + Gold</small></th>
-        <th>ICF Passive<br><small>2026 ICF + solar + all</small></th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><strong>Disaster Resilience</strong></td>
-        <td>32.8 <span class="grade grade-d">D</span></td>
-        <td>72.8 <span class="grade grade-b">B</span></td>
-        <td>80.3 <span class="grade grade-a">A</span></td>
-        <td>81.9 <span class="grade grade-a">A</span></td>
-        <td>95.6 <span class="grade grade-a">A</span></td>
-      </tr>
-      <tr>
-        <td><strong>Energy Efficiency</strong></td>
-        <td>28.8 <span class="grade grade-d">D</span></td>
-        <td>74.8 <span class="grade grade-b">B</span></td>
-        <td>85.9 <span class="grade grade-a">A</span></td>
-        <td>83.9 <span class="grade grade-a">A</span></td>
-        <td>100.0 <span class="grade grade-a">A</span></td>
-      </tr>
-      <tr>
-        <td><strong>Durability</strong></td>
-        <td>13.5 <span class="grade grade-f">F</span></td>
-        <td>46.1 <span class="grade grade-c">C</span></td>
-        <td>100.0 <span class="grade grade-a">A</span></td>
-        <td>99.2 <span class="grade grade-a">A</span></td>
-        <td>100.0 <span class="grade grade-a">A</span></td>
-      </tr>
-      <tr>
-        <td><strong>Environmental Footprint</strong></td>
-        <td>44.1 <span class="grade grade-c">C</span></td>
-        <td>67.2 <span class="grade grade-b">B</span></td>
-        <td>62.8 <span class="grade grade-b">B</span></td>
-        <td>71.6 <span class="grade grade-b">B</span></td>
-        <td>78.5 <span class="grade grade-b">B</span></td>
-      </tr>
-      <tr>
-        <td><strong>Infrastructure Burden</strong></td>
-        <td>17.8 <span class="grade grade-f">F</span></td>
-        <td>36.5 <span class="grade grade-c">C</span></td>
-        <td>68.6 <span class="grade grade-b">B</span></td>
-        <td>59.1 <span class="grade grade-c">C</span></td>
-        <td>72.7 <span class="grade grade-b">B</span></td>
-      </tr>
-      <tr>
-        <td><strong>Health Impact</strong> <small>(location)</small></td>
-        <td>87.6 <span class="grade grade-a">A</span></td>
-        <td>87.6 <span class="grade grade-a">A</span></td>
-        <td>87.6 <span class="grade grade-a">A</span></td>
-        <td>87.6 <span class="grade grade-a">A</span></td>
-        <td>87.6 <span class="grade grade-a">A</span></td>
-      </tr>
-      <tr>
-        <td><strong>Socioeconomic</strong> <small>(location)</small></td>
-        <td>52.9 <span class="grade grade-c">C</span></td>
-        <td>52.9 <span class="grade grade-c">C</span></td>
-        <td>52.9 <span class="grade grade-c">C</span></td>
-        <td>52.9 <span class="grade grade-c">C</span></td>
-        <td>52.9 <span class="grade grade-c">C</span></td>
-      </tr>
-      <tr>
-        <td><strong>Walkability</strong> <small>(location)</small></td>
-        <td>65.4 <span class="grade grade-b">B</span></td>
-        <td>65.4 <span class="grade grade-b">B</span></td>
-        <td>65.4 <span class="grade grade-b">B</span></td>
-        <td>65.4 <span class="grade grade-b">B</span></td>
-        <td>65.4 <span class="grade grade-b">B</span></td>
-      </tr>
-      <tr class="row-highlight">
-        <td><strong>Composite</strong></td>
-        <td><strong>42.9</strong> <span class="grade grade-c">C</span></td>
-        <td><strong>62.9</strong> <span class="grade grade-b">B</span></td>
-        <td><strong>75.4</strong> <span class="grade grade-b">B</span></td>
-        <td><strong>75.2</strong> <span class="grade grade-b">B</span></td>
-        <td><strong>81.6</strong> <span class="grade grade-a">A</span></td>
-      </tr>
-    </tbody>
-  </table>
+  <p>The five construction profiles, scored side by side at the same Cooper-Young location by the live API (<code>/presets</code>) — so <em>this table</em> always reflects the current scoring model. (The Key Metrics table and the specific figures cited elsewhere on this page are illustrative examples, and may differ slightly from the live values above as the model evolves.)</p>
+  <div id="sfc-live"><p class="sfc-loading" style="text-align:center;color:var(--muted);padding:1rem;">Loading live comparison&hellip;</p></div>
 
-  <h3>Key Metrics</h3>
+  <h3>Key Metrics <small style="font-weight:400;color:var(--muted);">(illustrative)</small></h3>
   <table class="comparison">
     <thead>
       <tr>
@@ -374,60 +290,24 @@
 </section>
 
 <section>
-  <h2>Real Scenario: Andrew's ICF Duplex in Cooper-Young</h2>
-  <p>A realistic build scenario: ICF duplex on a 0.12-acre lot in walkable Cooper-Young, Memphis. 900 sqft per unit, $330K total value. Solar panels, hurricane straps, hip roof, sealed roof deck. No passive house certification (keeping it affordable).</p>
+  <h2>Case Study: An ICF Passive-Standard Duplex vs. a Traditional Duplex</h2>
+  <p>A hypothetical comparison of two duplexes on the same 0.12-acre lot in walkable Cooper-Young, Memphis &mdash; 900 sqft per unit &mdash; built two different ways. First, an <strong>ICF duplex built to passive-house standard</strong> ($330K total value): insulated concrete forms, a passive-house-standard envelope, solar panels, hurricane straps, hip roof, and sealed roof deck.</p>
 
-  <div class="card" style="max-width:500px;">
-    <h3>Cooper-Young ICF Duplex</h3>
-    <div class="score-bar-container">
-      <div class="score-bar-label"><span>Disaster Resilience</span><span>93.6 / A</span></div>
-      <div class="score-bar"><div class="fill green" style="width:93.6%"></div></div>
-    </div>
-    <div class="score-bar-container">
-      <div class="score-bar-label"><span>Flood EAL</span><span>$1/yr</span></div>
-      <div class="score-bar"><div class="fill green" style="width:98%"></div></div>
-    </div>
-    <div class="score-bar-container">
-      <div class="score-bar-label"><span>Tornado EAL</span><span>$2/yr</span></div>
-      <div class="score-bar"><div class="fill green" style="width:97%"></div></div>
-    </div>
-    <div class="score-bar-container">
-      <div class="score-bar-label"><span>Seismic EAL</span><span>$8/yr</span></div>
-      <div class="score-bar"><div class="fill green" style="width:90%"></div></div>
-    </div>
-    <p style="margin-top:1rem;"><strong>Total EAL:</strong> $12/yr on $330K &mdash; 0.004% annual loss rate</p>
-    <p><strong>National:</strong> <span class="grade grade-a">A</span> &nbsp; <strong>Local:</strong> <span class="grade grade-a">A</span> (100th percentile)</p>
-  </div>
+  <div id="duplex-icf"><p class="sfc-loading" style="text-align:center;color:var(--muted);padding:1rem;">Scoring the ICF duplex&hellip;</p></div>
 
   <div class="insight" style="margin-top:1.5rem;">
-    <strong>The house-hack math:</strong> $330K at 6.5% = ~$2,087/mo PITI. Rent unit 2 at $950/mo &rarr; effective payment $1,137/mo. With solar, your unit's energy is ~$10&ndash;15/mo. Less than renting a 1BR in the same neighborhood, while building equity in a tornado-proof, near-zero-energy building.
+    <strong>The owner-occupant math:</strong> $330K at 6.5% &asymp; ~$2,087/mo PITI. Renting the second unit at $950/mo &rarr; an effective payment of ~$1,137/mo &mdash; less than renting a 1BR in the same neighborhood, while building equity in a tornado-resistant, near-zero-energy building whose modeled per-unit energy cost is shown on the label above.
   </div>
 </section>
 
 <section>
-  <h2>What the Conventional Frame Duplex Looks Like</h2>
-  <p>Same location, same lot, but conventional wood-frame construction at $250K:</p>
+  <h2>The Traditional Frame Duplex, Same Lot</h2>
+  <p>Now the same duplex on the same lot, but built with conventional wood-frame construction at $250K:</p>
 
-  <div class="card" style="max-width:500px;">
-    <h3>Cooper-Young Frame Duplex</h3>
-    <div class="score-bar-container">
-      <div class="score-bar-label"><span>Disaster Resilience</span><span>76.1 / B</span></div>
-      <div class="score-bar"><div class="fill yellow" style="width:76.1%"></div></div>
-    </div>
-    <div class="score-bar-container">
-      <div class="score-bar-label"><span>Tornado EAL</span><span>$30/yr (15&times; higher)</span></div>
-      <div class="score-bar"><div class="fill orange" style="width:55%"></div></div>
-    </div>
-    <div class="score-bar-container">
-      <div class="score-bar-label"><span>Seismic EAL</span><span>$35/yr (4.4&times; higher)</span></div>
-      <div class="score-bar"><div class="fill orange" style="width:50%"></div></div>
-    </div>
-    <p style="margin-top:1rem;"><strong>Total EAL:</strong> $68/yr &mdash; 7.6&times; higher than ICF</p>
-    <p><strong>National:</strong> <span class="grade grade-b">B</span> &nbsp; <strong>Local:</strong> <span class="grade grade-c">C</span> (58th percentile)</p>
-  </div>
+  <div id="duplex-frame"><p class="sfc-loading" style="text-align:center;color:var(--muted);padding:1rem;">Scoring the frame duplex&hellip;</p></div>
 
   <div class="insight warn">
-    <strong>The $80K question:</strong> The ICF duplex costs ~$80K more upfront but saves ~$49,000 per unit in energy over 30 years ($98K total across both units), plus lower insurance premiums, dramatically lower disaster risk, and the marketing advantage of a $6/mo utility bill for tenants.
+    <strong>The ~$80K question:</strong> the ICF duplex costs about $80K more upfront ($330K vs. $250K) &mdash; but the labels above put a number on what that buys. The ICF card's <strong>&ldquo;cost over a mortgage&rdquo;</strong> figure is its live 30-year operating&nbsp;+ expected-loss savings vs. this frame duplex, on top of lower insurance premiums and dramatically lower disaster risk. All three location dimensions are identical (same lot) &mdash; the entire difference is the build.
   </div>
 </section>
 
@@ -750,6 +630,116 @@
     if (form.requestSubmit) form.requestSubmit();
     else form.dispatchEvent(new Event("submit", { cancelable: true }));
   }
+
+  // Resolve a fetch Response to JSON, or reject with the API's {detail:…}
+  // message (falling back to the HTTP status when the body isn't JSON).
+  function okJson(r) {
+    if (r.ok) return r.json();
+    return r.json().then(
+      function (j) { throw new Error((j && j.detail) || ("HTTP " + r.status)); },
+      function () { throw new Error("HTTP " + r.status); });
+  }
+
+  // ── Live Single-Family Comparison (scored by /presets, stays in sync) ──────
+  (function () {
+    var host = document.getElementById("sfc-live");
+    if (!host) return;
+    if (!API_BASE) { host.innerHTML = '<p class="meta">Set a scoring API (see below) to load the live comparison.</p>'; return; }
+    function gsp(g) {
+      var c = (g || "").toLowerCase();
+      return "abcdf".indexOf(c) >= 0 && c.length === 1 ? '<span class="grade grade-' + c + '">' + esc(g) + '</span>' : esc(g);
+    }
+    function cell(d) { return !d || d.score == null ? '<span class="na">N/A</span>' : d.score.toFixed(1) + ' ' + gsp(d.national_grade); }
+    fetch(API_BASE + "/presets")
+      .then(okJson)
+      .then(function (data) {
+        var ps = (data && data.presets) || [];
+        if (!ps.length) throw new Error("no presets returned");
+        // Per-preset key→dimension maps, tolerant of a non-array or missing dims.
+        var byKey = ps.map(function (p) {
+          var m = {}, ds = Array.isArray(p.dimensions) ? p.dimensions : [];
+          ds.forEach(function (d) { if (d && d.key) m[d.key] = d; });
+          return m;
+        });
+        // Canonical dimension list = union across all presets (first-seen order),
+        // so a dimension missing from the first preset never drops a whole row.
+        var order = [], seen = {}, labels = {};
+        ps.forEach(function (p) {
+          (Array.isArray(p.dimensions) ? p.dimensions : []).forEach(function (d) {
+            if (d && d.key && !seen[d.key]) { seen[d.key] = 1; order.push(d.key); labels[d.key] = d.label || d.key; }
+          });
+        });
+        if (!order.length) throw new Error("no dimensions returned");
+        var head = '<tr><th>Metric</th>' + ps.map(function (p) {
+          return '<th>' + esc(p.name) + '<br><small>' + esc(p.description || "") + '</small></th>';
+        }).join("") + '</tr>';
+        var rows = order.map(function (key) {
+          return '<tr><td><strong>' + esc(labels[key]) + '</strong></td>'
+            + byKey.map(function (m) { return '<td>' + cell(m[key]) + '</td>'; }).join("") + '</tr>';
+        }).join("");
+        rows += '<tr class="row-highlight"><td><strong>Composite</strong></td>' + ps.map(function (p) {
+          var c = p.composite_score;
+          return '<td>' + (c == null ? '<span class="na">N/A</span>'
+            : '<strong>' + c.toFixed(1) + '</strong> ' + gsp(p.composite_national_grade)) + '</td>';
+        }).join("") + '</tr>';
+        host.innerHTML = '<table class="comparison"><thead>' + head + '</thead><tbody>' + rows + '</tbody></table>';
+      })
+      .catch(function (err) {
+        host.innerHTML = '<p class="meta">Live comparison unavailable (' + esc(err.message)
+          + '). The scoring API may be temporarily unavailable &mdash; reload to retry.</p>';
+      });
+  })();
+
+  // ── Live duplex case study (ICF passive-standard vs. traditional frame) ────
+  // Both scored via /label on the same Cooper-Young lot (2 units, 0.12 ac,
+  // 1800 sqft), so the case study stays in sync with the scoring engine. The
+  // ICF card shows the live 30-yr operating delta vs. the frame duplex.
+  (function () {
+    var icfHost = document.getElementById("duplex-icf");
+    var frameHost = document.getElementById("duplex-frame");
+    if (!icfHost && !frameHost) return;
+    function fail(host, msg) { if (host) host.innerHTML = '<p class="meta">Live score unavailable (' + esc(msg) + ').</p>'; }
+    if (!API_BASE) { fail(icfHost, "no scoring API configured"); fail(frameHost, "no scoring API configured"); return; }
+    var LOC = "lat=35.13&lon=-89.99";
+    function get(params) {
+      return fetch(API_BASE + "/label?" + LOC + "&" + params).then(okJson);
+    }
+    Promise.allSettled([
+      get("preset=icf-passive&units=2&value=330000&sqft=1800&lot_acres=0.12"),
+      get("construction=frame&units=2&value=250000&sqft=1800&lot_acres=0.12&year_built=2010&condition=good")
+    ]).then(function (res) {
+      var icf = res[0].status === "fulfilled" ? res[0].value : null;
+      var frame = res[1].status === "fulfilled" ? res[1].value : null;
+      if (icfHost) {
+        if (!icf) fail(icfHost, (res[0].reason && res[0].reason.message) || "scoring failed");
+        else {
+          // Compare the ICF duplex's cost against the frame duplex (not the API's
+          // default single-family baseline) so the strip answers this case study.
+          if (frame && frame.cost) {
+            icf.baseline_cost = {
+              annualEnergyCost: frame.cost.annualEnergyCost,
+              expectedAnnualLoss: frame.cost.expectedAnnualLoss,
+              label: "the traditional frame duplex"
+            };
+          } else { icf.baseline_cost = null; }
+          icfHost.innerHTML = LabelCore.renderCard(icf, {
+            heading: "ICF Passive-Standard Duplex",
+            subline: "2026 &middot; ICF, passive-house standard &middot; 2 units &middot; 0.12 ac"
+          });
+        }
+      }
+      if (frameHost) {
+        if (!frame) fail(frameHost, (res[1].reason && res[1].reason.message) || "scoring failed");
+        else {
+          frame.baseline_cost = null;   // no cost strip on the frame card
+          frameHost.innerHTML = LabelCore.renderCard(frame, {
+            heading: "Traditional Frame Duplex",
+            subline: "wood frame &middot; 2 units &middot; 0.12 ac"
+          });
+        }
+      }
+    });
+  })();
 })();
 </script>
 </body>
