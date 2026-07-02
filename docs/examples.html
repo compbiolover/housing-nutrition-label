@@ -176,10 +176,10 @@
 
 <section>
   <h2>Single-Family Comparison</h2>
-  <p>The five construction profiles, scored side by side at the same Cooper-Young location by the live API (<code>/presets</code>) — so this comparison never drifts from the scoring engine.</p>
+  <p>The five construction profiles, scored side by side at the same Cooper-Young location by the live API (<code>/presets</code>) — so <em>this table</em> always reflects the current scoring model. (The Key Metrics table and the specific figures cited elsewhere on this page are illustrative examples, and may differ slightly from the live values above as the model evolves.)</p>
   <div id="sfc-live"><p class="sfc-loading" style="text-align:center;color:var(--muted);padding:1rem;">Loading live comparison&hellip;</p></div>
 
-  <h3>Key Metrics</h3>
+  <h3>Key Metrics <small style="font-weight:400;color:var(--muted);">(illustrative)</small></h3>
   <table class="comparison">
     <thead>
       <tr>
@@ -640,7 +640,7 @@
       function () { throw new Error("HTTP " + r.status); });
   }
 
-  // ── Live Single-Family Comparison (scored by /presets, never drifts) ───────
+  // ── Live Single-Family Comparison (scored by /presets, stays in sync) ──────
   (function () {
     var host = document.getElementById("sfc-live");
     if (!host) return;
