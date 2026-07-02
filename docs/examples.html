@@ -293,30 +293,10 @@
   <h2>Case Study: An ICF Passive-Standard Duplex vs. a Traditional Duplex</h2>
   <p>A hypothetical comparison of two duplexes on the same 0.12-acre lot in walkable Cooper-Young, Memphis &mdash; 900 sqft per unit &mdash; built two different ways. First, an <strong>ICF duplex built to passive-house standard</strong> ($330K total value): insulated concrete forms, a passive-house-standard envelope, solar panels, hurricane straps, hip roof, and sealed roof deck.</p>
 
-  <div class="card" style="max-width:500px;">
-    <h3>ICF Passive-Standard Duplex</h3>
-    <div class="score-bar-container">
-      <div class="score-bar-label"><span>Disaster Resilience</span><span>93.6 / A</span></div>
-      <div class="score-bar"><div class="fill green" style="width:93.6%"></div></div>
-    </div>
-    <div class="score-bar-container">
-      <div class="score-bar-label"><span>Flood EAL</span><span>$1/yr</span></div>
-      <div class="score-bar"><div class="fill green" style="width:98%"></div></div>
-    </div>
-    <div class="score-bar-container">
-      <div class="score-bar-label"><span>Tornado EAL</span><span>$2/yr</span></div>
-      <div class="score-bar"><div class="fill green" style="width:97%"></div></div>
-    </div>
-    <div class="score-bar-container">
-      <div class="score-bar-label"><span>Seismic EAL</span><span>$8/yr</span></div>
-      <div class="score-bar"><div class="fill green" style="width:90%"></div></div>
-    </div>
-    <p style="margin-top:1rem;"><strong>Total EAL:</strong> $12/yr on $330K &mdash; 0.004% annual loss rate</p>
-    <p><strong>National:</strong> <span class="grade grade-a">A</span> &nbsp; <strong>Local:</strong> <span class="grade grade-a">A</span> (100th percentile)</p>
-  </div>
+  <div id="duplex-icf"><p class="sfc-loading" style="text-align:center;color:var(--muted);padding:1rem;">Scoring the ICF duplex&hellip;</p></div>
 
   <div class="insight" style="margin-top:1.5rem;">
-    <strong>The owner-occupant math:</strong> $330K at 6.5% = ~$2,087/mo PITI. Renting the second unit at $950/mo &rarr; an effective payment of ~$1,137/mo. With solar, the owner's unit runs ~$10&ndash;15/mo on energy &mdash; less than renting a 1BR in the same neighborhood, while building equity in a tornado-resistant, near-zero-energy building.
+    <strong>The owner-occupant math:</strong> $330K at 6.5% &asymp; ~$2,087/mo PITI. Renting the second unit at $950/mo &rarr; an effective payment of ~$1,137/mo &mdash; less than renting a 1BR in the same neighborhood, while building equity in a tornado-resistant, near-zero-energy building whose modeled per-unit energy cost is shown on the label above.
   </div>
 </section>
 
@@ -324,26 +304,10 @@
   <h2>The Traditional Frame Duplex, Same Lot</h2>
   <p>Now the same duplex on the same lot, but built with conventional wood-frame construction at $250K:</p>
 
-  <div class="card" style="max-width:500px;">
-    <h3>Traditional Frame Duplex</h3>
-    <div class="score-bar-container">
-      <div class="score-bar-label"><span>Disaster Resilience</span><span>76.1 / B</span></div>
-      <div class="score-bar"><div class="fill yellow" style="width:76.1%"></div></div>
-    </div>
-    <div class="score-bar-container">
-      <div class="score-bar-label"><span>Tornado EAL</span><span>$30/yr (15&times; higher)</span></div>
-      <div class="score-bar"><div class="fill orange" style="width:55%"></div></div>
-    </div>
-    <div class="score-bar-container">
-      <div class="score-bar-label"><span>Seismic EAL</span><span>$35/yr (4.4&times; higher)</span></div>
-      <div class="score-bar"><div class="fill orange" style="width:50%"></div></div>
-    </div>
-    <p style="margin-top:1rem;"><strong>Total EAL:</strong> $68/yr &mdash; 7.6&times; higher than ICF</p>
-    <p><strong>National:</strong> <span class="grade grade-b">B</span> &nbsp; <strong>Local:</strong> <span class="grade grade-c">C</span> (58th percentile)</p>
-  </div>
+  <div id="duplex-frame"><p class="sfc-loading" style="text-align:center;color:var(--muted);padding:1rem;">Scoring the frame duplex&hellip;</p></div>
 
   <div class="insight warn">
-    <strong>The $80K question:</strong> The ICF duplex costs ~$80K more upfront but saves ~$49,000 per unit in energy over 30 years ($98K total across both units), plus lower insurance premiums, dramatically lower disaster risk, and the marketing advantage of a $6/mo utility bill for tenants.
+    <strong>The ~$80K question:</strong> the ICF duplex costs about $80K more upfront ($330K vs. $250K) &mdash; but the labels above put a number on what that buys. The ICF card's <strong>&ldquo;cost over a mortgage&rdquo;</strong> figure is its live 30-year operating&nbsp;+ expected-loss savings vs. this frame duplex, on top of lower insurance premiums and dramatically lower disaster risk. All three location dimensions are identical (same lot) &mdash; the entire difference is the build.
   </div>
 </section>
 
@@ -715,6 +679,58 @@
         host.innerHTML = '<p class="meta">Live comparison unavailable (' + esc(err.message)
           + '). The scoring API may be temporarily unavailable &mdash; reload to retry.</p>';
       });
+  })();
+
+  // ── Live duplex case study (ICF passive-standard vs. traditional frame) ────
+  // Both scored via /label on the same Cooper-Young lot (2 units, 0.12 ac,
+  // 1800 sqft), so the case study stays in sync with the scoring engine. The
+  // ICF card shows the live 30-yr operating delta vs. the frame duplex.
+  (function () {
+    var icfHost = document.getElementById("duplex-icf");
+    var frameHost = document.getElementById("duplex-frame");
+    if (!icfHost && !frameHost) return;
+    function fail(host, msg) { if (host) host.innerHTML = '<p class="meta">Live score unavailable (' + esc(msg) + ').</p>'; }
+    if (!API_BASE) { fail(icfHost, "no scoring API configured"); fail(frameHost, "no scoring API configured"); return; }
+    var LOC = "lat=35.13&lon=-89.99";
+    function get(params) {
+      return fetch(API_BASE + "/label?" + LOC + "&" + params)
+        .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); });
+    }
+    Promise.allSettled([
+      get("preset=icf-passive&units=2&value=330000&sqft=1800&lot_acres=0.12"),
+      get("construction=frame&units=2&value=250000&sqft=1800&lot_acres=0.12&year_built=2010&condition=good")
+    ]).then(function (res) {
+      var icf = res[0].status === "fulfilled" ? res[0].value : null;
+      var frame = res[1].status === "fulfilled" ? res[1].value : null;
+      if (icfHost) {
+        if (!icf) fail(icfHost, "scoring failed");
+        else {
+          // Compare the ICF duplex's cost against the frame duplex (not the API's
+          // default single-family baseline) so the strip answers this case study.
+          if (frame && frame.cost) {
+            icf.baseline_cost = {
+              annualEnergyCost: frame.cost.annualEnergyCost,
+              expectedAnnualLoss: frame.cost.expectedAnnualLoss,
+              label: "the traditional frame duplex"
+            };
+          } else { icf.baseline_cost = null; }
+          icfHost.innerHTML = LabelCore.renderCard(icf, {
+            heading: "ICF Passive-Standard Duplex",
+            subline: "2026 &middot; ICF, passive-house standard &middot; 2 units &middot; 0.12 ac"
+          });
+        }
+      }
+      if (frameHost) {
+        if (!frame) fail(frameHost, "scoring failed");
+        else {
+          frame.baseline_cost = null;   // no cost strip on the frame card
+          frameHost.innerHTML = LabelCore.renderCard(frame, {
+            heading: "Traditional Frame Duplex",
+            subline: "wood frame &middot; 2 units &middot; 0.12 ac"
+          });
+        }
+      }
+    });
   })();
 })();
 </script>
