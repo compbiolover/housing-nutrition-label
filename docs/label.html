@@ -62,7 +62,11 @@
     for (var i = 0; i < state.presets.length; i++) { if (re.test(state.presets[i].name)) return i; }
     return -1;
   }
-  function clone(o) { var c = {}; for (var k in o) if (o.hasOwnProperty(k)) c[k] = o[k]; return c; }
+  function clone(o) {
+    var c = {}, has = Object.prototype.hasOwnProperty;
+    for (var k in o) if (has.call(o, k)) c[k] = o[k];  // safe vs. shadowed/absent hasOwnProperty
+    return c;
+  }
 
   function gradeLegend() {
     return '<div class="legend">' + ["A", "B", "C", "D", "F"].map(function (g) {

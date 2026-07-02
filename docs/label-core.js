@@ -153,7 +153,7 @@ window.LabelCore = (function () {
 
   function legendHtml() {
     return '<div class="conf-legend">● High &nbsp; ◐ Moderate &nbsp; ○ Low &mdash; '
-      + 'confidence = data quality, separate from the score; bracket = climate scenario range</div>';
+      + 'confidence = data quality, separate from the score; whisker = climate scenario range</div>';
   }
 
   // Full label card. `opts` may carry {heading, subline} to override the header
