@@ -97,13 +97,13 @@ interval that can honestly be drawn as a whisker.
 
 | # | Dimension | Dominant uncertainty type | Concrete drivers in the code |
 |---|---|---|---|
-| 1 | **Disaster Resilience** | Model/parametric + input-quality | EAL = Σ(freq × damage-ratio) × BRM; damage ratios and hazard frequencies are model constants; BRM feature bonuses are flagged *"v1 estimates, pending literature review"* (`simulate/house.py`, `simulate/dimensions.py`); wildfire leg resolves tract→county→us (`wildfire_geo_level`); tornado is sparse/spatially noisy (scoring-research.md §6 warns tornado "has higher uncertainty"). |
+| 1 | **Disaster Resilience** | Model/parametric + input-quality | EAL = Σ(freq × damage-ratio) × BRM; damage ratios and hazard frequencies are model constants; BRM feature bonuses are flagged *"v1 estimates, pending literature review"* (`src/housing_label/simulate/house.py`, `src/housing_label/simulate/dimensions.py`); wildfire leg resolves tract→county→us (`wildfire_geo_level`); tornado is sparse/spatially noisy (scoring-research.md §6 warns tornado "has higher uncertainty"). |
 | 2 | **Energy Efficiency** | Model/parametric | Modeled EUI from ResStock archetypes × vintage × construction × IECC climate zone. No metered data; envelope/passive factors are v1 estimates. Deterministic point estimate. |
 | 3 | **Durability** | Model/parametric + completeness | Component-lifespan / effective-age model + assessor condition. **NaN (unscored)** for vacant/non-residential parcels with no CAMA building data. |
 | 4 | **Environmental Footprint** | Model/parametric, *heterogeneous by leg* | Operational leg = strongest (metered-equivalent kWh/therms × EPA eGRID2022 factors); embodied leg **explicitly flagged "LOW CONFIDENCE"** in `env_data_source` (sparse US single-family benchmarks, order-of-magnitude); water leg locally favorable. eGRID **vintage** stored. |
 | 5 | **Infrastructure Burden** | Model/parametric (**quantified**) + input-quality | Header documents **±30%** on absolute dollars; per-county calibration (Census of Governments) and property-tax rate (Census ACS) each with a **national-average fallback** when the county is unmapped. |
 | 6 | **Health Impact** | Statistical/aleatory + input-quality | CDC PLACES tract-level *model-based* chronic-disease estimates (carry their own CIs upstream); `location_notes` records `"CDC PLACES (tract …)"` vs `"no PLACES data for tract …"`. |
-| 7 | **Socioeconomic** | Statistical/aleatory + completeness | Census ACS income/poverty/education — ACS estimates ship with **published margins of error**. When no `CENSUS_API_KEY`, falls back to a **uniform placeholder (50)** and is **excluded from the composite** (`SOCIO_PLACEHOLDER`, `all_dimensions.py`). |
+| 7 | **Socioeconomic** | Statistical/aleatory + completeness | Census ACS income/poverty/education — ACS estimates ship with **published margins of error**. When no `CENSUS_API_KEY`, falls back to a **uniform placeholder (50)** and is **excluded from the composite** (`SOCIO_PLACEHOLDER`, `src/housing_label/score/all_dimensions.py`). |
 | 8 | **Walkability** | Input-quality (present/absent) | Walk Score API; **N/A** when no `WALKSCORE_API_KEY` (`location_notes: "no WALKSCORE_API_KEY"`). When present, a defensible measured index. |
 | 9 | **Climate Projections** | **Scenario** (+ resolution) | SSP2-4.5 (low, headline) → SSP5-8.5 (high) **band already computed** (`score_low`/`score_high`); ensemble-mean over CMIP6-LOCA2 models; tract→county→us (`geo_level`); sub-county but **not parcel-scale**; fire leg is a single RCP8.5 pathway (no scenario spread). |
 
@@ -123,7 +123,7 @@ from the **NUSAP** system (Numeral, Unit, Spread, Assessment, Pedigree), introdu
 Ravetz (1990)** and operationalized for model-based environmental assessment by **van der Sluijs et
 al. (2005)**. NUSAP extends a bare number with a qualitative, multi-criteria judgement of the
 *strength* of its underpinning
-([van der Sluijs et al. 2005, *Water Science & Technology* / Saltelli mirror PDF](http://www.andreasaltelli.eu/file/repository/08_vdSluijs_et_al2005.pdf);
+([van der Sluijs et al. 2005, *Risk Analysis* 25(2) / Saltelli mirror PDF](http://www.andreasaltelli.eu/file/repository/08_vdSluijs_et_al2005.pdf);
 [NUSAP overview](https://en.wikipedia.org/wiki/NUSAP)).
 The **pedigree matrix** scores each parameter on a small set of criteria, each on a **0–4** scale from
 well-founded to speculative
@@ -226,7 +226,7 @@ intensity) — a pedigree tier is the honest statement there.
 
 ## 5. Composite confidence — proposed method
 
-The composite is the **mean of the scored dimensions** (`add_composite`, `all_dimensions.py`), which
+The composite is the **mean of the scored dimensions** (`add_composite`, `src/housing_label/score/all_dimensions.py`), which
 already **skips N/A dimensions**. The authoritative reference for uncertainty in exactly this kind of
 construction is the **OECD/JRC *Handbook on Constructing Composite Indicators*** (2008), whose **Step 7,
 "Uncertainty and sensitivity analysis,"** states that uncertainty analysis *"focuses on how
@@ -261,7 +261,7 @@ independent:  σ_composite² = (1/n²) · Σ σᵢ²
 correlated:   σ_composite² = (1/n²) · [ Σ σᵢ² + Σ_{i≠j} ρ_ij · σᵢ · σⱼ ]
 ```
 
-Crucially, the dimensions are **not** independent — `all_dimensions.py` already computes a **Pearson
+Crucially, the dimensions are **not** independent — `src/housing_label/score/all_dimensions.py` already computes a **Pearson
 correlation matrix** across dimension scores in `print_summary`, so the `ρ_ij` are in hand. Positive
 correlation (e.g. resilience ↔ durability for a well-built home) *widens* the composite band relative
 to the naïve independent formula; ignoring it would overstate confidence. Until Monte Carlo exists,
@@ -312,8 +312,8 @@ precision. Reuse existing tokens (`--navy`, `--muted`, `--border`, `.grade-*`), 
    ([McGill OSS on PoP misperception](https://www.mcgill.ca/oss/article/environment/problematic-perceptions-probability-precipitation)).
 2. **Honest whiskers on the two dimensions that have a real interval.** For **Climate** draw a faint
    error bar from `score_low` (SSP2-4.5) to `score_high` (SSP5-8.5) over the fill — the data is already
-   in the band (`simulate/dimensions.py` surfaces `"Climate band (SSP2-4.5–5-8.5, mid-century)"`). For
-   **Infrastructure**, draw ±30% around the fill (documented in `enrich/infrastructure.py`). Do **not**
+   in the band (`src/housing_label/simulate/dimensions.py` surfaces `"Climate band (SSP2-4.5–5-8.5, mid-century)"`). For
+   **Infrastructure**, draw ±30% around the fill (documented in `src/housing_label/enrich/infrastructure.py`). Do **not**
    draw whiskers on dimensions whose only uncertainty is a provenance tier — that would fake a CI.
 3. **A composite confidence line** — beside the big composite grade, one muted line:
    *"Moderate confidence · 7 of 9 dimensions scored"* (§5.2), with the two missing dimensions named on
@@ -357,8 +357,8 @@ the confidence indicator with the grade palette (conflates "certain" with "good"
 | Per-dimension **provenance/pedigree tier** (High/Moderate/Low) | ✅ **Yes** | `geo_level`, `*_data_source`, `location_notes`, placeholder/N/A flags — all already stored. |
 | Per-row **confidence dot** on the label | ✅ Yes (presentation) | Tier from the rubric; `location_notes` for tooltip. |
 | **Climate** scenario whisker (SSP2-4.5 → SSP5-8.5) | ✅ Yes | `score_low`/`score_high` already computed; surfaced as a band string. |
-| **Infrastructure** ±30% whisker | ✅ Yes | Documented constant in `enrich/infrastructure.py`. |
-| **Coverage-penalized composite confidence** ("7 of 9 scored") | ✅ Yes | `n_scored` already tracked in `simulate/dimensions.py`. |
+| **Infrastructure** ±30% whisker | ✅ Yes | Documented constant in `src/housing_label/enrich/infrastructure.py`. |
+| **Coverage-penalized composite confidence** ("7 of 9 scored") | ✅ Yes | `n_scored` already tracked in `src/housing_label/simulate/dimensions.py`. |
 | Composite band from **correlated** per-dimension variances | ⚠️ Partial | Correlation matrix exists (`print_summary`) but per-dimension **variances do not** — needs Monte Carlo. |
 | **Monte Carlo 90% band** on Resilience / Energy scores | ❌ New modeling | Needs defensible input distributions (damage ratios, EUI spread, BRM v1 ranges). |
 | **Statistical CIs** on Health / Socioeconomic | ⚠️ Upstream only | CDC PLACES & ACS publish margins of error, but the pipeline does not currently carry them through — a fetch/plumbing change, not new modeling. |
@@ -468,7 +468,7 @@ the confidence indicator with the grade palette (conflates "certain" with "good"
 - `src/housing_label/score/all_dimensions.py` (`add_composite`, correlation matrix, `SOCIO_PLACEHOLDER`)
 - `src/housing_label/simulate/dimensions.py` (`location_notes`, `n_scored`, climate band)
 - `src/housing_label/enrich/environmental.py` (`env_data_source` "LOW CONFIDENCE" embodied flag)
-- `src/housing_label/enrich/infrastructure.py` (±30% documented), `data/climate_projections.py` (`geo_level`, SSP band)
+- `src/housing_label/enrich/infrastructure.py` (±30% documented), `src/housing_label/data/climate_projections.py` (`geo_level`, SSP band)
 
 ---
 
