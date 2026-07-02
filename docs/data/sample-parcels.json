@@ -69,6 +69,10 @@
         "Monthly Energy": "$297",
         "Fiscal Ratio": "0.13"
       },
+      "cost": {
+        "annualEnergyCost": 3564,
+        "expectedAnnualLoss": 736
+      },
       "scores": {
         "resilience": 21.4,
         "energy": 33.0,
@@ -90,6 +94,10 @@
         "EUI": "26.9 kBTU/sqft/yr",
         "Monthly Energy": "$133",
         "Fiscal Ratio": "0.26"
+      },
+      "cost": {
+        "annualEnergyCost": 1596,
+        "expectedAnnualLoss": 115
       },
       "scores": {
         "resilience": 64.1,
@@ -113,6 +121,10 @@
         "Monthly Energy": "$101",
         "Fiscal Ratio": "0.74"
       },
+      "cost": {
+        "annualEnergyCost": 1212,
+        "expectedAnnualLoss": 173
+      },
       "scores": {
         "resilience": 71.9,
         "energy": 87.9,
@@ -135,6 +147,10 @@
         "Monthly Energy": "$107",
         "Fiscal Ratio": "0.58"
       },
+      "cost": {
+        "annualEnergyCost": 1284,
+        "expectedAnnualLoss": 141
+      },
       "scores": {
         "resilience": 71.3,
         "energy": 85.9,
@@ -156,6 +172,10 @@
         "EUI": "10.6 kBTU/sqft/yr",
         "Monthly Energy": "$52",
         "Fiscal Ratio": "0.82"
+      },
+      "cost": {
+        "annualEnergyCost": 624,
+        "expectedAnnualLoss": 72
       },
       "scores": {
         "resilience": 82.6,
