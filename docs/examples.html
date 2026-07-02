@@ -631,6 +631,15 @@
     else form.dispatchEvent(new Event("submit", { cancelable: true }));
   }
 
+  // Resolve a fetch Response to JSON, or reject with the API's {detail:…}
+  // message (falling back to the HTTP status when the body isn't JSON).
+  function okJson(r) {
+    if (r.ok) return r.json();
+    return r.json().then(
+      function (j) { throw new Error((j && j.detail) || ("HTTP " + r.status)); },
+      function () { throw new Error("HTTP " + r.status); });
+  }
+
   // ── Live Single-Family Comparison (scored by /presets, never drifts) ───────
   (function () {
     var host = document.getElementById("sfc-live");
@@ -642,7 +651,7 @@
     }
     function cell(d) { return !d || d.score == null ? '<span class="na">N/A</span>' : d.score.toFixed(1) + ' ' + gsp(d.national_grade); }
     fetch(API_BASE + "/presets")
-      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(okJson)
       .then(function (data) {
         var ps = (data && data.presets) || [];
         if (!ps.length) throw new Error("no presets returned");
@@ -693,8 +702,7 @@
     if (!API_BASE) { fail(icfHost, "no scoring API configured"); fail(frameHost, "no scoring API configured"); return; }
     var LOC = "lat=35.13&lon=-89.99";
     function get(params) {
-      return fetch(API_BASE + "/label?" + LOC + "&" + params)
-        .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); });
+      return fetch(API_BASE + "/label?" + LOC + "&" + params).then(okJson);
     }
     Promise.allSettled([
       get("preset=icf-passive&units=2&value=330000&sqft=1800&lot_acres=0.12"),
@@ -703,7 +711,7 @@
       var icf = res[0].status === "fulfilled" ? res[0].value : null;
       var frame = res[1].status === "fulfilled" ? res[1].value : null;
       if (icfHost) {
-        if (!icf) fail(icfHost, "scoring failed");
+        if (!icf) fail(icfHost, (res[0].reason && res[0].reason.message) || "scoring failed");
         else {
           // Compare the ICF duplex's cost against the frame duplex (not the API's
           // default single-family baseline) so the strip answers this case study.
@@ -721,7 +729,7 @@
         }
       }
       if (frameHost) {
-        if (!frame) fail(frameHost, "scoring failed");
+        if (!frame) fail(frameHost, (res[1].reason && res[1].reason.message) || "scoring failed");
         else {
           frame.baseline_cost = null;   // no cost strip on the frame card
           frameHost.innerHTML = LabelCore.renderCard(frame, {
