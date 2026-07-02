@@ -236,20 +236,33 @@ function LifetimeCostStrip({ parcel, baseline, years, rate, onYears, onRate }) {
   if (!hasCost(parcel) || !hasCost(baseline)) return null;
 
   const pf = costFlows(parcel), bf = costFlows(baseline);
-  const dEnergy = (bf.energy || 0) - (pf.energy || 0);
-  const dLoss   = (bf.loss   || 0) - (pf.loss   || 0);
+  // Only compare a component when BOTH sides carry it — otherwise a missing
+  // flow (e.g. no modeled energy on one side) would masquerade as a $0 match
+  // and skew the delta. If neither component is comparable, hide the strip.
+  const comparable = {
+    energy: pf.energy !== null && bf.energy !== null,
+    loss:   pf.loss   !== null && bf.loss   !== null,
+  };
+  if (!comparable.energy && !comparable.loss) return null;
+  const dEnergy = comparable.energy ? bf.energy - pf.energy : 0;
+  const dLoss   = comparable.loss   ? bf.loss   - pf.loss   : 0;
   const dAnnual = dEnergy + dLoss;
 
   const a = annuityFactor(years, REAL_RATES[rate]);
   const pv = dAnnual * a;
   const pvs = Object.keys(REAL_RATES).map(r => dAnnual * annuityFactor(years, REAL_RATES[r]));
-  const lo = Math.min(...pvs), hi = Math.max(...pvs);
+  // Order the band by absolute magnitude so it never renders reversed (e.g.
+  // "$22.7k–$17.6k") or drops its sign when the home is the pricier one.
+  const absPvs = pvs.map(Math.abs);
+  const bandLo = Math.min(...absPvs), bandHi = Math.max(...absPvs);
 
+  const same = Math.abs(pv) < 1;   // treat |PV| < $1 as "about the same"
   const cheaper = pv > 0;
-  const cls = Math.abs(pv) < 1 ? "" : (cheaper ? "cheaper" : "pricier");
-  const dir = cheaper ? "lower" : "higher";
+  const cls = same ? "" : (cheaper ? "cheaper" : "pricier");
+  const dir = same ? "about the same" : (cheaper ? "lower" : "higher");
 
   const segVals = { energy: Math.abs(dEnergy * a), loss: Math.abs(dLoss * a) };
+  const segs = COST_SEGMENTS.filter(s => comparable[s.key]);
   const tot = (segVals.energy + segVals.loss) || 1;
 
   return (
@@ -258,9 +271,13 @@ function LifetimeCostStrip({ parcel, baseline, years, rate, onYears, onRate }) {
         <div>
           <div className="cost-cap">Cost over a {years}-year mortgage</div>
           <div className={"cost-delta " + cls}>
-            {fmtMoney(roundMoney(pv))} <span className="dir">{dir}</span>
+            {same
+              ? "About the same"
+              : <>{fmtMoney(roundMoney(pv))} <span className="dir">{dir}</span></>}
           </div>
-          <div className="cost-band">{fmtK(lo)}–{fmtK(hi)} across 2%–4% real discount rates</div>
+          {!same && (
+            <div className="cost-band">{fmtK(bandLo)}–{fmtK(bandHi)} {dir} across 2%–4% real discount rates</div>
+          )}
         </div>
       </div>
       <div className="cost-vs">
@@ -268,14 +285,14 @@ function LifetimeCostStrip({ parcel, baseline, years, rate, onYears, onRate }) {
       </div>
 
       <div className="cost-breakdown" role="img"
-           aria-label={`Delta driven by energy ${fmtMoney(segVals.energy)} and expected losses ${fmtMoney(segVals.loss)}`}>
-        {COST_SEGMENTS.map(s => segVals[s.key] > 0 && (
+           aria-label={segs.map(s => `${s.label} ${fmtMoney(segVals[s.key])}`).join(", ")}>
+        {segs.map(s => segVals[s.key] > 0 && (
           <div key={s.key} className="seg"
                style={{ width: (100 * segVals[s.key] / tot) + "%", background: s.color }} />
         ))}
       </div>
       <div className="cost-legend">
-        {COST_SEGMENTS.map(s => (
+        {segs.map(s => (
           <span key={s.key}><span className="sw" style={{ background: s.color }} />
             {s.label}: {fmtMoney(segVals[s.key])}</span>
         ))}
@@ -287,7 +304,7 @@ function LifetimeCostStrip({ parcel, baseline, years, rate, onYears, onRate }) {
             <label>Horizon</label>
             <span className="seg-toggle">
               {[15, 30].map(y => (
-                <button key={y} className={years === y ? "on" : ""}
+                <button key={y} aria-pressed={years === y} className={years === y ? "on" : ""}
                         onClick={() => onYears(y)}>{y} yr</button>
               ))}
             </span>
@@ -545,16 +562,19 @@ function App() {
   if (!data) return <div className="loading">Loading visualization&hellip;</div>;
 
   const { parcels, dimensions } = data;
-  const baselineIdx = Math.max(0, parcels.findIndex(p => /baseline/i.test(p.name)));
-  const baseline = parcels[baselineIdx];
+  if (!parcels.length) return <div className="error">No parcels in dataset.</div>;
+  // Prefer the "Baseline" preset as the typical comparable; fall back to the
+  // first parcel only if none is named Baseline (explicit, not a Math.max trick).
+  const foundBaselineIdx = parcels.findIndex(p => /baseline/i.test(p.name));
+  const baseline = parcels[foundBaselineIdx >= 0 ? foundBaselineIdx : 0];
 
   const rateCtl = { years, rate, onYears: setYears, onRate: setRate };
 
   return (
     <div>
-      <div className="mode-toggle" role="tablist" aria-label="View mode">
-        <button className={mode === "single" ? "on" : ""} onClick={() => setMode("single")}>Single</button>
-        <button className={mode === "compare" ? "on" : ""} onClick={() => setMode("compare")}>Compare</button>
+      <div className="mode-toggle" role="group" aria-label="View mode">
+        <button aria-pressed={mode === "single"} className={mode === "single" ? "on" : ""} onClick={() => setMode("single")}>Single</button>
+        <button aria-pressed={mode === "compare"} className={mode === "compare" ? "on" : ""} onClick={() => setMode("compare")}>Compare</button>
       </div>
 
       {mode === "single" ? (
