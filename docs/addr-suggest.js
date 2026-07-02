@@ -91,6 +91,9 @@ window.AddrSuggest = (function () {
       if (picked) { picked = null; onPick(null); }   // editing invalidates a prior pick
       var q = input.value.trim();
       clearTimeout(timer);
+      // Drop any highlight from the now-stale list so a fast Enter (before the
+      // debounced fetch returns) can't select a suggestion for the old query.
+      setActive(-1);
       if (!apiBase || q.length < minChars) { close(); return; }
       timer = setTimeout(function () { fetchSuggest(q); }, 250);
     });
