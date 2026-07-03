@@ -83,7 +83,7 @@
       <tr><td>Energy Efficiency</td><td>Modeled energy use intensity vs. a climate-zone benchmark</td><td>IECC climate zone + construction model</td><td><span class="tag county">county</span> <span class="tag config">+ config</span></td></tr>
       <tr><td>Durability</td><td>Building longevity from materials, build quality &amp; condition</td><td>Construction model</td><td><span class="tag config">config</span></td></tr>
       <tr><td>Environmental Footprint</td><td>Embodied + operational carbon over the building's life</td><td>Material carbon + eGRID2022 subregion grid factor</td><td><span class="tag county">county</span> <span class="tag config">+ config</span></td></tr>
-      <tr><td>Infrastructure Burden</td><td>Fiscal cost-to-serve vs. the revenue the parcel generates</td><td>Memphis calibration / national tax model</td><td><span class="tag county">county</span></td></tr>
+      <tr><td>Infrastructure Burden</td><td>Fiscal cost-to-serve vs. the revenue the parcel generates</td><td>Census of Governments spending + ACS tax model (per county)</td><td><span class="tag county">county</span></td></tr>
       <tr><td>Health Impact</td><td>Neighborhood health outcomes index (percentile)</td><td>CDC PLACES</td><td><span class="tag tract">tract</span></td></tr>
       <tr><td>Socioeconomic</td><td>Neighborhood socioeconomic index (percentile)</td><td>Census ACS</td><td><span class="tag tract">tract</span></td></tr>
       <tr><td>Walkability</td><td>How walkable the location is</td><td>Walk Score API</td><td><span class="tag point">point</span></td></tr>
@@ -257,7 +257,7 @@
   <p>Every variable above is settable three ways: the <a href="examples.html">Examples</a> search form, the <code>housing-simulate</code> CLI, and the <code>/label</code> HTTP API (see <a href="setup.html#api">Setup</a>).</p>
 
   <h3>CLI</h3>
-  <pre><code>housing-simulate --address "123 Main St, Memphis, TN" \
+  <pre><code>housing-simulate --address "123 Main St, Columbus, OH" \
     --construction icf --year-built 2026 --condition excellent \
     --foundation slab --sqft 1800 --value 350000 \
     --solar --hurricane-straps --fire-sprinklers --json</code></pre>
