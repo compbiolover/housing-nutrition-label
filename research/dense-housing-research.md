@@ -178,11 +178,15 @@ Per-dimension methodology:
 - **Phase 0 — Correctness floor + honesty (this PR).** Remove the false shared-wall
   energy claim from the docs; add a caveat that fires for multi-unit input warning that
   several dimensions use single-family assumptions; commit this research doc.
-- **Phase 1 — Detect structure type + unit count from an address.** New
-  `enrich/structure.py` + national data (USA Structures / NSI), spatial join on the
-  geocoded point, add `structure_type`/`num_units`/`stories` to `Location`, expose in the
-  payload, and add a web-form building-type + unit-count field. *The highest-leverage
-  unlock.*
+- **Phase 1 — Detect structure type + unit count from an address (implemented).**
+  `enrich/structure.py` queries the **USACE NSI** live API (keyless) for the nearest
+  structure, mapping Hazus `occtype` → `structure_type` plus `resunits`/`num_story`/
+  `bldgtype`. `resolve_location` populates `structure_type`/`num_units`/`stories`/
+  `bldg_material` on `Location`; the payload exposes a `structure` block; the
+  dense-housing caveat now fires on *detected* multi-family (not just a `units` param);
+  the label shows a "Detected here: N-unit building" line; and the home-page form gained
+  a dwelling-units field. Detection is informational — the scores are still modeled
+  single-family (flagged by the caveat); Phase 2 lets it drive scoring.
 - **Phase 2 — Per-dimension multifamily methodology** (Resilience / Energy / Durability /
   Environmental / Infrastructure) per Part 3. Confirm the unit-of-analysis framing first.
 - **Phase 3 — Value / tax basis** for condos and apartments (Part 3).

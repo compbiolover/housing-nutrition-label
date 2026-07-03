@@ -187,10 +187,20 @@ window.LabelCore = (function () {
       return bits.length ? esc(bits.join(" · ")) : "";
     })();
 
+    // Detected building context (NSI). Shown only for multi-unit buildings — for
+    // a single-family home it just confirms the default assumption, so it's noise.
+    var st = data.structure, structLine = "";
+    if (st && (st.structure_type === "multifamily" || (st.num_units && st.num_units > 1))) {
+      var sbits = [(st.num_units ? st.num_units + "-unit " : "") + "building"];
+      if (st.stories) sbits.push(st.stories + (st.stories === 1 ? " story" : " stories"));
+      structLine = "Detected here: " + esc(sbits.join(" · ")) + " (" + esc(st.source || "NSI") + ")";
+    }
+
     var html = '<div class="label-card"><div class="label-head"><div>'
       + '<div style="font-weight:700;color:var(--navy);">' + esc(heading) + '</div>'
       + '<div class="meta">' + metaParts.join(" &middot; ") + '</div>'
       + (subline ? '<div class="build-line">' + subline + '</div>' : '')
+      + (structLine ? '<div class="build-line">' + structLine + '</div>' : '')
       + '</div><div style="text-align:right;"><div class="composite-num">'
       + (comp == null ? "N/A" : comp.toFixed(1)) + '</div>'
       + '<span class="grade-lg" style="background:' + color + '">' + esc(compGrade) + '</span></div></div>';
