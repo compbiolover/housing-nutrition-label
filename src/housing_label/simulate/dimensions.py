@@ -150,15 +150,23 @@ def build_parcel_row(cfg: dict) -> pd.Series:
     })
 
 
-def _adjusted_energy(cfg: dict, row: pd.Series, climate_zone: str | None = None) -> dict:
+def _adjusted_energy(cfg: dict, row: pd.Series, climate_zone: str | None = None,
+                     elec_rate: float | None = None, gas_rate: float | None = None) -> dict:
     """Run the energy model, then apply the high-performance feature factors.
 
     Returns the energy dict with eui / kwh / therms scaled, plus a separate
     ``env_kwh`` that additionally folds in the rooftop-solar offset for the
     environmental operational-carbon calculation. ``climate_zone`` (IECC label)
     scales the base EUI for the location; None falls back to the 4A baseline.
+    ``elec_rate``/``gas_rate`` are the property's local utility rates; None keeps
+    the energy model's Memphis/TVA pilot defaults.
     """
-    energy = model_parcel_energy(row, climate_zone)
+    rate_kw = {}
+    if elec_rate is not None:
+        rate_kw["elec_rate"] = elec_rate
+    if gas_rate is not None:
+        rate_kw["gas_rate"] = gas_rate
+    energy = model_parcel_energy(row, climate_zone, **rate_kw)
     factor = 1.0
     factor *= ENVELOPE_EUI_FACTOR.get(cfg["construction"], 1.0)
     if cfg.get("passive_house"):
@@ -181,16 +189,19 @@ def _adjusted_energy(cfg: dict, row: pd.Series, climate_zone: str | None = None)
 # ── Construction-driven dimensions (offline) ───────────────────────────────────
 def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
                                     grid_factor: float | None = None,
-                                    infra_params: dict | None = None) -> dict:
+                                    infra_params: dict | None = None,
+                                    elec_rate: float | None = None,
+                                    gas_rate: float | None = None) -> dict:
     """Compute energy / durability / environmental / infrastructure scores
     (0–100, or None when the model cannot score the parcel).
 
     ``climate_zone`` (IECC) scales the energy model; ``grid_factor`` (kgCO2e/kWh)
-    drives the environmental operational-carbon leg; ``infra_params`` overrides the
-    Memphis infrastructure calibration with a national-average one. All fall back
-    to the Shelby/4A pilot defaults when None."""
+    drives the environmental operational-carbon leg; ``elec_rate``/``gas_rate`` are
+    the property's local utility rates for the energy-cost estimate; ``infra_params``
+    overrides the Memphis infrastructure calibration with a national-average one. All
+    fall back to the Shelby/4A/Memphis pilot defaults when None."""
     row = build_parcel_row(cfg)
-    energy = _adjusted_energy(cfg, row, climate_zone)
+    energy = _adjusted_energy(cfg, row, climate_zone, elec_rate=elec_rate, gas_rate=gas_rate)
 
     # Energy: lower EUI → higher score (same breakpoints as the pipeline).
     eui = energy.get("eui_kbtu_sqft_yr")
@@ -396,6 +407,14 @@ def simulate_all_dimensions(
     grid_factor = location.egrid_factor if location else None
     tract = location.tract if location else None
 
+    # Energy cost: use the property's state residential utility rates (EIA) instead
+    # of the Memphis/TVA pilot constants; unknown state falls back to the US average.
+    elec_rate = gas_rate = None
+    if location and location.state_fips:
+        from housing_label.data.utility_rates import utility_rates_for_state
+        _rates = utility_rates_for_state(location.state_fips)
+        elec_rate, gas_rate = _rates["elec_per_kwh"], _rates["gas_per_therm"]
+
     # Infrastructure: for confirmed non-Shelby locations, recalibrate the cost
     # curves to the county's local-government spending (Census of Governments,
     # cost side) and use the county's effective property-tax rate (Census ACS,
@@ -421,7 +440,7 @@ def simulate_all_dimensions(
 
     construction = compute_construction_dimensions(
         cfg, climate_zone=climate_zone, grid_factor=grid_factor,
-        infra_params=infra_params)
+        infra_params=infra_params, elec_rate=elec_rate, gas_rate=gas_rate)
     location_dims = fetch_location_dimensions(
         cfg["lat"], cfg["lon"], tract,
         allow_network=allow_network, overrides=overrides,

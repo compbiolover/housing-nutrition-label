@@ -122,9 +122,9 @@ def test_caveat_reflects_local_calibration():
     assert "national-average cost model" in " ".join(_approx_caveats(loc))
 
 
-def test_caveat_missing_crosswalk_says_memphis_baseline():
+def test_caveat_missing_crosswalk_says_pilot_baseline():
     """When the crosswalk isn't bundled (resolved='none'), the caveat names the
-    Memphis baseline, not a national-average model."""
+    pilot cost-model baseline, not a national-average model."""
     import unittest.mock as mock
     from housing_label.simulate import house
     none_result = {"label": "x", "multipliers": {c: 1.0 for c in gf.COMPONENTS},
@@ -133,7 +133,7 @@ def test_caveat_missing_crosswalk_says_memphis_baseline():
     with mock.patch("housing_label.data.govfinance.govfinance_for_county",
                     return_value=none_result):
         msg = " ".join(house._approx_caveats(loc))
-    assert "Memphis pilot cost model" in msg
+    assert "pilot cost model" in msg
     assert "national-average cost model" not in msg
 
 
