@@ -84,6 +84,32 @@ GRADE_BY_CONSTRUCTION = {
 #   • Passive-house certification targets ~40–60% below code (PHIUS / RMI).
 ENVELOPE_EUI_FACTOR = {"icf": 0.92, "sip": 0.95}
 PASSIVE_HOUSE_EUI_FACTOR = 0.55
+
+# Shared-wall / multi-family envelope credit. A dwelling unit attached to (or
+# stacked with) others exposes far less exterior surface per unit — shared party
+# walls, floors, and ceilings are adiabatic — so its heating/cooling EUI is lower
+# than an otherwise-identical detached home. EIA RECS finds apartments in
+# multi-family buildings use ~30% less energy than detached homes *of similar
+# size*, with larger buildings saving the most; this is that shared-surface effect
+# on top of the size factor the model already applies. Keyed by the building's
+# residential unit count (2, 3–4, 5–9, 10–19, 20+). 1 unit (detached) = no credit.
+# https://www.eia.gov/todayinenergy/detail.php?id=11731
+_MULTIFAMILY_EUI_FACTOR = [(2, 0.90), (4, 0.86), (9, 0.81), (19, 0.77)]
+_MULTIFAMILY_EUI_FLOOR = 0.73   # 20+ units
+
+
+def attachment_eui_factor(units) -> float:
+    """Shared-wall EUI multiplier (<=1) for a unit in an ``units``-unit building."""
+    try:
+        n = int(units or 1)
+    except (TypeError, ValueError):
+        return 1.0
+    if n <= 1:
+        return 1.0
+    for hi, f in _MULTIFAMILY_EUI_FACTOR:
+        if n <= hi:
+            return f
+    return _MULTIFAMILY_EUI_FLOOR
 # Rooftop solar offsets grid electricity for the *operational-carbon* leg of the
 # environmental score (net-metering). It does not change the envelope EUI used
 # for the energy-efficiency dimension. ~70% of annual electricity offset.
@@ -151,7 +177,8 @@ def build_parcel_row(cfg: dict) -> pd.Series:
 
 
 def _adjusted_energy(cfg: dict, row: pd.Series, climate_zone: str | None = None,
-                     elec_rate: float | None = None, gas_rate: float | None = None) -> dict:
+                     elec_rate: float | None = None, gas_rate: float | None = None,
+                     mf_units: int | None = None) -> dict:
     """Run the energy model, then apply the high-performance feature factors.
 
     Returns the energy dict with eui / kwh / therms scaled, plus a separate
@@ -159,7 +186,9 @@ def _adjusted_energy(cfg: dict, row: pd.Series, climate_zone: str | None = None,
     environmental operational-carbon calculation. ``climate_zone`` (IECC label)
     scales the base EUI for the location; None falls back to the 4A baseline.
     ``elec_rate``/``gas_rate`` are the property's local utility rates; None keeps
-    the energy model's Memphis/TVA pilot defaults.
+    the energy model's Memphis/TVA pilot defaults. ``mf_units`` (the building's
+    residential unit count) applies the shared-wall envelope credit for attached /
+    stacked dwelling units.
     """
     rate_kw = {}
     if elec_rate is not None:
@@ -171,6 +200,7 @@ def _adjusted_energy(cfg: dict, row: pd.Series, climate_zone: str | None = None,
     factor *= ENVELOPE_EUI_FACTOR.get(cfg["construction"], 1.0)
     if cfg.get("passive_house"):
         factor *= PASSIVE_HOUSE_EUI_FACTOR
+    factor *= attachment_eui_factor(mf_units)   # shared-wall credit for multi-unit
 
     # The monthly cost is proportional to energy use, so it scales by the same
     # factor as the EUI/kWh/therms (keeps the displayed cost consistent with the
@@ -191,17 +221,21 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
                                     grid_factor: float | None = None,
                                     infra_params: dict | None = None,
                                     elec_rate: float | None = None,
-                                    gas_rate: float | None = None) -> dict:
+                                    gas_rate: float | None = None,
+                                    mf_units: int | None = None) -> dict:
     """Compute energy / durability / environmental / infrastructure scores
     (0–100, or None when the model cannot score the parcel).
 
     ``climate_zone`` (IECC) scales the energy model; ``grid_factor`` (kgCO2e/kWh)
     drives the environmental operational-carbon leg; ``elec_rate``/``gas_rate`` are
-    the property's local utility rates for the energy-cost estimate; ``infra_params``
-    overrides the Memphis infrastructure calibration with a national-average one. All
-    fall back to the Shelby/4A/Memphis pilot defaults when None."""
+    the property's local utility rates for the energy-cost estimate; ``mf_units`` is
+    the building's residential unit count (drives the shared-wall energy credit);
+    ``infra_params`` overrides the Memphis infrastructure calibration with a
+    national-average one. All fall back to the single-family / Shelby / 4A / Memphis
+    pilot defaults when None."""
     row = build_parcel_row(cfg)
-    energy = _adjusted_energy(cfg, row, climate_zone, elec_rate=elec_rate, gas_rate=gas_rate)
+    energy = _adjusted_energy(cfg, row, climate_zone, elec_rate=elec_rate,
+                              gas_rate=gas_rate, mf_units=mf_units)
 
     # Energy: lower EUI → higher score (same breakpoints as the pipeline).
     eui = energy.get("eui_kbtu_sqft_yr")
@@ -439,9 +473,20 @@ def simulate_all_dimensions(
             "cost_multipliers": gov["multipliers"],
         }
 
+    # Shared-wall energy credit: score a representative unit in its building
+    # context — use the caller's explicit unit count when > 1, else the detected
+    # multi-family unit count from the resolved location.
+    cfg_units = int(cfg.get("units", 1) or 1)
+    mf_units = cfg_units if cfg_units > 1 else None
+    if mf_units is None and location and getattr(location, "structure_type", None) == "multifamily":
+        det = getattr(location, "num_units", None)
+        if det and det > 1:
+            mf_units = det
+
     construction = compute_construction_dimensions(
         cfg, climate_zone=climate_zone, grid_factor=grid_factor,
-        infra_params=infra_params, elec_rate=elec_rate, gas_rate=gas_rate)
+        infra_params=infra_params, elec_rate=elec_rate, gas_rate=gas_rate,
+        mf_units=mf_units)
     location_dims = fetch_location_dimensions(
         cfg["lat"], cfg["lon"], tract,
         allow_network=allow_network, overrides=overrides,

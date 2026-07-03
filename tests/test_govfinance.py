@@ -147,7 +147,7 @@ def test_multi_unit_caveat_fires_only_above_one_unit():
 
     msg = " ".join(house._approx_caveats(loc, 4)).lower()
     assert "multi-unit" in msg
-    assert "single detached" in msg
+    assert "single-family" in msg
     # Still fires when the location can't be resolved.
     assert any("multi-unit" in c.lower() for c in house._approx_caveats(None, 2))
 

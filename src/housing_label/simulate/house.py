@@ -1116,8 +1116,9 @@ def _approx_caveats(location, units: int = 1) -> list[str]:
     caveats: list[str] = []
 
     # Dense-housing caveat: fires when the caller asked for multiple units OR the
-    # building was detected as multi-family (NSI). The scores are still modeled
-    # single-family, so flag them as approximate for apartments/townhomes/condos.
+    # building was detected as multi-family (NSI). Energy now credits shared walls
+    # for multi-unit buildings; Resilience and Durability still assume a detached
+    # home, so flag those as approximate for apartments/townhomes/condos.
     detected_units = getattr(location, "num_units", None)
     detected_mf = getattr(location, "structure_type", None) == "multifamily"
     if int(units or 1) > 1 or detected_mf or (detected_units and detected_units > 1):
@@ -1127,10 +1128,10 @@ def _approx_caveats(location, units: int = 1) -> list[str]:
                       + (f" (~{detected_units} units)" if detected_units and detected_units > 1 else "")
                       + ", detected from the National Structure Inventory.")
         caveats.append(
-            "Modeled as a single detached home: for a multi-unit building "
-            "(apartment, townhome, or condo) the Resilience, Durability, and Energy "
-            "dimensions use single-family assumptions and are approximate — dense "
-            "housing isn't fully supported yet." + detail
+            "Partial multi-unit support: Energy now accounts for the shared walls of "
+            "a multi-unit building, but Resilience and Durability still use "
+            "single-family assumptions and are approximate for an apartment, townhome, "
+            "or condo." + detail
         )
 
     if location is None:
