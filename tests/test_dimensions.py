@@ -159,6 +159,28 @@ def test_upgrades_flow_through_build_label_parts():
     assert spr["fire_adj"] < base["fire_adj"]          # fire-specific sprinkler effect
 
 
+def test_attachment_eui_factor_schedule():
+    """The shared-wall credit is 1.0 for a detached home and grows with unit count."""
+    from housing_label.simulate.dimensions import attachment_eui_factor
+    assert attachment_eui_factor(1) == 1.0
+    assert attachment_eui_factor(None) == 1.0
+    assert attachment_eui_factor(2) < 1.0                       # duplex gets a credit
+    assert attachment_eui_factor(50) < attachment_eui_factor(3)  # bigger building → bigger credit
+
+
+def test_multifamily_energy_credit_improves_score():
+    """A unit in a multi-unit building scores better on Energy than the same unit
+    modeled as detached, because shared walls lower its EUI."""
+    cfg = _cfg("baseline")
+    detached = compute_construction_dimensions(cfg)["energy"]
+    small_mf = compute_construction_dimensions(cfg, mf_units=3)["energy"]
+    large_mf = compute_construction_dimensions(cfg, mf_units=50)["energy"]
+    assert small_mf > detached
+    assert large_mf > small_mf
+    # Single-family (units default 1) is unchanged by the credit.
+    assert compute_construction_dimensions(cfg, mf_units=1)["energy"] == detached
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

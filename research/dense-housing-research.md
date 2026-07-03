@@ -188,7 +188,16 @@ Per-dimension methodology:
   a dwelling-units field. Detection is informational — the scores are still modeled
   single-family (flagged by the caveat); Phase 2 lets it drive scoring.
 - **Phase 2 — Per-dimension multifamily methodology** (Resilience / Energy / Durability /
-  Environmental / Infrastructure) per Part 3. Confirm the unit-of-analysis framing first.
+  Environmental / Infrastructure) per Part 3, on the confirmed *representative-unit-in-
+  building-context* framing.
+  - **Energy — implemented.** A shared-wall EUI credit (`attachment_eui_factor` in
+    `simulate/dimensions.py`) lowers a unit's energy use for attached/stacked homes —
+    ~10% (duplex) to ~27% (20+ units), tracking EIA RECS. The building's unit count is
+    the caller's explicit `units` when > 1, else the detected multi-family count; it
+    threads through `compute_construction_dimensions` → `_adjusted_energy` and flows into
+    the energy score, monthly cost, and environmental operational carbon. The caveat now
+    drops Energy from the single-family-assumption list.
+  - Resilience / Durability / Environmental / Infrastructure — still to do.
 - **Phase 3 — Value / tax basis** for condos and apartments (Part 3).
 - **Phase 4 — UX & presentation** — building-type-aware presets, building context on the
   label, per-unit framing, confidence flags.

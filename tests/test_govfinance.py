@@ -138,8 +138,8 @@ def test_caveat_missing_crosswalk_says_pilot_baseline():
 
 
 def test_multi_unit_caveat_fires_only_above_one_unit():
-    """A dense-housing caveat appears when units > 1 and warns that the models
-    use single-family assumptions; it stays absent for a single-family home."""
+    """A dense-housing caveat appears when units > 1 and warns that Resilience and
+    Durability use single-family assumptions; it stays absent for a single-family home."""
     from housing_label.simulate import house
     loc = SimpleNamespace(county_fips="06037", egrid_subregion="CAMX")
 
@@ -147,7 +147,7 @@ def test_multi_unit_caveat_fires_only_above_one_unit():
 
     msg = " ".join(house._approx_caveats(loc, 4)).lower()
     assert "multi-unit" in msg
-    assert "single detached" in msg
+    assert "single-family" in msg
     # Still fires when the location can't be resolved.
     assert any("multi-unit" in c.lower() for c in house._approx_caveats(None, 2))
 
