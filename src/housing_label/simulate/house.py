@@ -1108,8 +1108,9 @@ def _approx_caveats(location, units: int = 1) -> list[str]:
     county maps, and the US-average factor otherwise — flagged off the actually
     resolved subregion so the fallback is never reported incorrectly.
 
-    A multi-unit building (``units`` > 1, or a detected multi-family structure)
-    adds a dense-housing caveat: Energy now credits shared walls, but Resilience and
+    A multi-unit building — the caller passing ``units`` > 1, or the resolved
+    location being detected as multi-family or carrying a unit count > 1 — adds a
+    dense-housing caveat: Energy now credits shared walls, but Resilience and
     Durability still assume a detached home, so they are only approximate for
     apartments, townhomes, and condos until further dense-housing support lands."""
     from housing_label.data.egrid import US_AVG_LABEL

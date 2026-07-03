@@ -476,7 +476,7 @@ def simulate_all_dimensions(
     # Shared-wall energy credit: score a representative unit in its building
     # context — use the caller's explicit unit count when > 1, else the detected
     # multi-family unit count from the resolved location.
-    cfg_units = int(cfg.get("units", 1) or 1)
+    cfg_units = max(int(cfg.get("units", 1) or 1), 1)   # clamp like build_parcel_row
     mf_units = cfg_units if cfg_units > 1 else None
     if mf_units is None and location and getattr(location, "structure_type", None) == "multifamily":
         det = getattr(location, "num_units", None)
