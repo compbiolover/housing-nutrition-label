@@ -71,6 +71,10 @@ def test_structure_for_point_offline_and_empty(monkeypatch):
     # No structures returned → None.
     _patch_nsi(monkeypatch, [])
     assert S.structure_for_point(41.9, -87.6) is None
+    # Features present but all missing usable coordinates → None (no silent
+    # mis-detection of the first feature).
+    _patch_nsi(monkeypatch, [{"properties": {"occtype": "RES1", "x": None, "y": None}}])
+    assert S.structure_for_point(41.9, -87.6) is None
 
 
 def test_detected_multifamily_fires_caveat():

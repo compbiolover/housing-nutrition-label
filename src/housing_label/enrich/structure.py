@@ -92,7 +92,11 @@ def _nsi_nearest(lat: float, lon: float, half: float) -> dict | None:
                     return (float(p["y"]) - lat) ** 2 + (float(p["x"]) - lon) ** 2
                 except (KeyError, TypeError, ValueError):
                     return float("inf")
-            return (min(feats, key=d2).get("properties") or {})
+            best = min(feats, key=d2)
+            # No feature had usable coordinates → can't identify a structure.
+            if d2(best) == float("inf"):
+                return None
+            return best.get("properties") or None
         except Exception:  # noqa: BLE001
             if attempt == RETRIES:
                 return None
