@@ -150,12 +150,17 @@ GRADE_MIDPOINT = 40.0
 GRADE_SLOPE    = 0.0033
 GRADE_MIN_F, GRADE_MAX_F = 0.90, 1.10
 
-# ── Water (EPA WaterSense benchmarks; Memphis aquifer = low embedded energy) ───
+# ── Water (EPA WaterSense benchmarks) ─────────────────────────────────────────
 INDOOR_GPCD            = 75.0   # modeled indoor gallons/capita/day (EPA ~82 nominal)
 DEFAULT_OCCUPANCY      = 2.65   # avg US household when RMBED is missing
-OUTDOOR_GAL_PER_SQFT_YR = 2.0   # modeled irrigation over irrigable lot area (humid Mid-South)
+OUTDOOR_GAL_PER_SQFT_YR = 2.0   # modeled irrigation over irrigable lot area
 IRRIGABLE_CAP_SQFT     = 43560.0   # cap irrigable area at 1 acre (outlier guard)
-WATER_EMBEDDED_KWH_PER_KGAL = 5.0  # supply+treatment+wastewater, LOW for artesian Memphis Sand
+# Embedded energy of supply + treatment + distribution + wastewater, per 1,000
+# gallons. National-average default (~4-15 kWh/kgal across the energy-water-nexus
+# literature; pumping-heavy/arid regions run high, minimal-treatment groundwater
+# low). A coarse national estimate pending a regional table; only affects the
+# reported total-CO2e figure (the water sub-score is consumption/gpcd based).
+WATER_EMBEDDED_KWH_PER_KGAL = 8.0
 
 # ── Sub-score breakpoints (lower footprint metric → higher 0-100 score) ───────
 # Operational emissions intensity, kg CO2e/m2/yr:
@@ -268,12 +273,15 @@ def water_use_gal_yr(rmbed, fixbath, sfla, stories, calc_acre, acre_outlier) -> 
 
 # ── Per-parcel model ──────────────────────────────────────────────────────────
 def model_parcel_environment(row: pd.Series,
-                             grid_factor: float = EF_GRID_KG_PER_KWH) -> dict:
+                             grid_factor: float = EF_GRID_KG_PER_KWH,
+                             water_embedded_kwh_per_kgal: float = WATER_EMBEDDED_KWH_PER_KGAL) -> dict:
     """Compute environmental-footprint metrics. Returns all-None when the parcel
     has no living area (vacant / non-residential).
 
     `grid_factor` is the grid CO2 emission factor (kgCO2e/kWh) for the location;
     defaults to the Shelby/TVA eGRID value used by the pilot pipeline.
+    `water_embedded_kwh_per_kgal` is the embedded energy of water/wastewater;
+    defaults to a national average (a regional table can override it later).
     """
     sfla = _num(row.get("SFLA"))
     if sfla is None or sfla <= 0:
@@ -298,7 +306,7 @@ def model_parcel_environment(row: pd.Series,
     water_gal, occupancy = water_use_gal_yr(
         row.get("RMBED"), row.get("FIXBATH"), sfla,
         row.get("STORIES"), row.get("CALC_ACRE"), row.get("acre_outlier"))
-    water_co2e = (water_gal / 1000.0) * WATER_EMBEDDED_KWH_PER_KGAL * grid_factor
+    water_co2e = (water_gal / 1000.0) * water_embedded_kwh_per_kgal * grid_factor
     gpcd = water_gal / occupancy / 365.0
 
     total_co2e = operational + emb_annual + water_co2e

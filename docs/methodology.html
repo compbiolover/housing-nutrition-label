@@ -5,6 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Methodology &mdash; Housing Nutrition Label</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* Layered reading: a plain-language lead everyone can read, with the
+       technical detail one click away in a <details> for those who want it. */
+    .plain { border-left: 4px solid var(--green); background: #f0fdf4;
+      padding: 0.75rem 1.25rem; border-radius: 0 var(--radius) var(--radius) 0; margin: 0 0 1rem; }
+    .plain strong { color: var(--navy); }
+    details.tech { margin-top: 0.5rem; }
+    details.tech > summary { cursor: pointer; font-weight: 600; color: var(--navy);
+      font-size: 0.9rem; padding: 0.35rem 0; }
+    details.tech[open] > summary { margin-bottom: 0.75rem; }
+    @media (prefers-color-scheme: dark) {
+      .plain { background: #0e2417; }
+      .plain strong, details.tech > summary { color: #e2e8f0; }
+    }
+  </style>
 </head>
 <body>
 <nav>
@@ -22,21 +37,26 @@
 </nav>
 
 <section>
-  <h2>Scoring Methodology</h2>
-  <p>Every dimension produces a 0&ndash;100 score using transparent, reproducible methods grounded in published data and peer-reviewed research. This page documents the approach for each dimension.</p>
+  <h2>How the scores work</h2>
+  <p>Each of the nine dimensions is scored from 0 to 100. Every score starts with a short, plain-language summary of what it tells you; open <strong>&ldquo;How it&rsquo;s calculated&rdquo;</strong> under any dimension for the full method, data sources, and formulas. Everything is built from public data and documented so the numbers can be checked.</p>
+  <div class="insight"><strong>Where the data comes from:</strong> the label scores any U.S. address using national datasets &mdash; FEMA, USGS, EPA, CDC, the Census Bureau, and the EIA. It began as a pilot in one county (Shelby County, TN), and a few inputs are still being generalized nationwide: the reference set used for the <em>local</em> (neighbor-to-neighbor) grades, and some cost-model baselines. Wherever one of those still applies, the label flags it &mdash; so a score is never presented as more locally precise than it is.</p>
+  </div>
 </section>
 
 <section>
   <div class="method-section">
     <h3>1. Disaster Resilience</h3>
-    <p>The resilience score uses an <strong>Expected Annual Loss (EAL)</strong> framework &mdash; the standard approach used by FEMA's National Risk Index, Hazus, and the insurance catastrophe modeling industry.</p>
+    <p class="plain"><strong>What this tells you:</strong> how much damage the home is likely to suffer from floods, tornadoes, earthquakes, and fire in a typical year &mdash; and how much its construction (age, materials, and upgrades like a reinforced roof) lowers or raises that risk. A higher score means less expected damage.</p>
+
+    <details class="tech"><summary>How it&rsquo;s calculated</summary>
+    <p>The resilience score uses an <strong>Expected Annual Loss (EAL)</strong> framework &mdash; the standard approach used by FEMA's National Risk Index, Hazus, and the insurance catastrophe-modeling industry.</p>
 
     <h4>Four Hazard Pillars</h4>
     <p>Disaster Resilience covers four perils &mdash; <strong>flood, tornado, earthquake, and fire</strong>. (It does not measure general wear-out or longevity; that is the separate <em>Durability</em> dimension.)</p>
     <p><strong>Flood:</strong> FEMA NFHL zone codes map to annual exceedance probabilities. Zone AE = 1% annual chance &times; 28% damage ratio = 0.28% EAL rate. Zone X (minimal) = 0.04% &times; 5% = 0.002% EAL rate.</p>
-    <p><strong>Tornado:</strong> SPC historical tornado data (1950&ndash;2023) provides frequency. Point-strike probability = tornado path width &divide; 25-mile circle area. EF-based damage ratios: EF0=2%, EF1=10%, EF2=30%, EF3=60%, EF4=90%.</p>
-    <p><strong>Seismic:</strong> USGS National Seismic Hazard Model PGA values with simplified fragility curves. Memphis sits on the New Madrid Seismic Zone with PGA 0.45&ndash;0.54g at the 2%-in-50-year level.</p>
-    <p><strong>Fire:</strong> two contributions summed as one EAL rate. A <em>structural/electrical</em> base rate (&asymp;0.02%/yr, from NFPA home-fire loss data) plus the location's <em>wildfire</em> EAL rate from the <strong>FEMA National Risk Index</strong> (<code>WFIR_AFREQ &times; WFIR_HLRB</code>), resolved at the census tract (county/national fallback) from a bundled national crosswalk. Both are scaled by a fire-specific modifier: <em>wiring era</em> (pre-1950 knob-and-tube = 1.5&times;, NEC&nbsp;2002+ AFCI = 0.85&times;), <em>construction combustibility</em> (wood frame = 1.10&times;, masonry/concrete = 0.80&times;), and <em>condition</em> (same factor as the other perils). Residential sprinklers cut the peril ~60% (0.40&times;) in the simulator. The wildfire term makes fire genuinely location-aware &mdash; near-zero in Memphis, but the dominant peril in the fire-prone West (e.g. Los Angeles County, "Very High").</p>
+    <p><strong>Tornado:</strong> SPC historical tornado data (1950&ndash;2023) provides frequency near the address. Point-strike probability = tornado path width &divide; 25-mile circle area. EF-based damage ratios: EF0=2%, EF1=10%, EF2=30%, EF3=60%, EF4=90%.</p>
+    <p><strong>Seismic:</strong> the USGS National Seismic Hazard Model supplies the local peak ground acceleration (PGA) for any U.S. address, run through simplified fragility curves. High-seismic regions (the West Coast, and the New Madrid zone in the Mid-South) get proportionally higher seismic loss than the low-hazard interior.</p>
+    <p><strong>Fire:</strong> two contributions summed as one EAL rate. A <em>structural/electrical</em> base rate (&asymp;0.02%/yr, from NFPA home-fire loss data) plus the location's <em>wildfire</em> EAL rate from the <strong>FEMA National Risk Index</strong> (<code>WFIR_AFREQ &times; WFIR_HLRB</code>), resolved at the census tract (county/national fallback) from a bundled national crosswalk. Both are scaled by a fire-specific modifier: <em>wiring era</em> (pre-1950 knob-and-tube = 1.5&times;, NEC&nbsp;2002+ AFCI = 0.85&times;), <em>construction combustibility</em> (wood frame = 1.10&times;, masonry/concrete = 0.80&times;), and <em>condition</em> (same factor as the other perils). Residential sprinklers cut the peril ~60% (0.40&times;) in the simulator. The wildfire term makes fire genuinely location-aware &mdash; near-zero across much of the country, but the dominant peril in the fire-prone West (e.g. Los Angeles County, &ldquo;Very High&rdquo;).</p>
 
     <div class="formula">Total EAL Rate = Flood EAL + Tornado EAL + Seismic EAL + Fire EAL<br>(independent-hazards assumption)</div>
 
@@ -60,119 +80,152 @@
 
     <h4>Score Mapping</h4>
     <p>Total EAL rate maps to 0&ndash;100 via log-linear interpolation: score 100 at EAL &le; 0.001%, score 80 at 0.02%, score 60 at 0.1%, score 40 at 0.3%, score 20 at 1%, score 0 at &ge; 2%.</p>
+    </details>
   </div>
 
   <div class="method-section">
     <h3>2. Energy Efficiency</h3>
-    <p>Score based on <strong>Energy Use Intensity (EUI)</strong> in kBTU/sqft/yr, using DOE Building America and EIA RECS 2020 benchmarks for IECC Climate Zone 4A.</p>
+    <p class="plain"><strong>What this tells you:</strong> roughly how much energy the home uses and what that costs each month at local utility rates &mdash; driven by its age, size, construction, and heating/cooling system. A higher score means it uses less energy.</p>
+
+    <details class="tech"><summary>How it&rsquo;s calculated</summary>
+    <p>Score based on <strong>Energy Use Intensity (EUI)</strong> in kBTU/sqft/yr, using DOE Building America and EIA RECS 2020 benchmarks, adjusted for the property's IECC climate zone (looked up nationally by county; e.g. 4A mixed-humid, 5B cool-dry).</p>
 
     <h4>EUI Lookup by Building Archetype</h4>
-    <p>Each parcel maps to an archetype via year built (vintage bin), square footage (size bin), construction type, and HVAC system from the Shelby County CAMA database.</p>
-    <p>Published CZ 4A EUI benchmarks by vintage: Pre-1950 = 75 kBTU/sqft/yr, 1950&ndash;1979 = 55, 1980&ndash;1999 = 40, 2000&ndash;2009 = 30, 2010+ = 25, Passive House = 12.</p>
+    <p>Each home maps to an archetype via year built (vintage bin), square footage (size bin), construction type, and heating/cooling system from the property record.</p>
+    <p>Published EUI benchmarks by vintage (for a mixed-humid baseline, then scaled by the local climate zone): Pre-1950 = 75 kBTU/sqft/yr, 1950&ndash;1979 = 55, 1980&ndash;1999 = 40, 2000&ndash;2009 = 30, 2010+ = 25, Passive House = 12.</p>
     <p>Construction modifiers: ICF = 0.65&times; (superior thermal mass), SIP = 0.70&times;. Multi-unit shared-wall bonus: 2 units = 0.85&times;, 3&ndash;4 = 0.80&times;, 5+ = 0.75&times;. Passive house certification = 0.40&times;. Solar = 60% electricity cost offset.</p>
 
     <h4>Cost Estimation</h4>
-    <p>Memphis Light Gas &amp; Water / TVA rates: $0.105/kWh electricity, $1.10/therm gas. Electric/gas split based on heating system type from CAMA data.</p>
+    <p>Monthly cost uses the property's <strong>state residential utility rates</strong> (EIA averages for electricity and natural gas), so the estimate reflects local prices &mdash; roughly $0.10/kWh in the lowest-cost states to $0.20&ndash;$0.30/kWh in the highest. The electricity/gas split follows the home's heating-system type.</p>
 
     <h4>Score Mapping</h4>
     <div class="formula">Score 100 at EUI &le; 15 (passive house), 80 at 25, 60 at 40, 40 at 55, 20 at 70, 0 at &ge; 90</div>
+    </details>
   </div>
 
   <div class="method-section">
     <h3>3. Durability</h3>
+    <p class="plain"><strong>What this tells you:</strong> how much useful life the home's major systems &mdash; structure, roof, HVAC, plumbing, and so on &mdash; have left, adjusted for the home's observed condition. A higher score means more life left before big repairs.</p>
+
+    <details class="tech"><summary>How it&rsquo;s calculated</summary>
     <p>A <strong>component-lifespan / effective-age</strong> model &mdash; how much usable service life the building has left, tempered by the assessor's observed condition. (Distinct from Disaster Resilience, which measures hazard loss rather than wear-out.)</p>
 
     <h4>Component Service-Life Basket</h4>
     <p>Eight major systems each carry a typical service life and a replacement-cost weight; the long-lived shell dominates and short-cycle systems contribute less:</p>
     <p><strong>Structural shell</strong> 100&nbsp;yr (0.30) &middot; <strong>plumbing</strong> 55&nbsp;yr (0.10) &middot; <strong>electrical</strong> 35&nbsp;yr (0.10) &middot; <strong>roof covering</strong> 25&nbsp;yr (0.15) &middot; <strong>windows</strong> 25&nbsp;yr (0.08) &middot; <strong>interior finishes</strong> 20&nbsp;yr (0.10) &middot; <strong>HVAC</strong> 18&nbsp;yr (0.12) &middot; <strong>water heater</strong> 12&nbsp;yr (0.05).</p>
-    <p>Each system's remaining-life fraction is <code>clamp((service_life &minus; effective_age) / service_life, 0..1)</code>, using the assessor's <strong>effective year built</strong> (EFFYR, which folds in major renovations) rather than the original year. The age score is the weighted mean &times; 100.</p>
+    <p>Each system's remaining-life fraction is <code>clamp((service_life &minus; effective_age) / service_life, 0..1)</code>, using the assessor's <strong>effective year built</strong> (which folds in major renovations) rather than the original year. The age score is the weighted mean &times; 100.</p>
 
     <h4>Condition &amp; Adjustments</h4>
     <div class="formula">base = 0.55 &times; condition_score + 0.45 &times; age_score</div>
-    <p>Condition comes from the CAMA <strong>CDU</strong> rating (Excellent = 100, Average = 60, Unsound = 0; the numeric COND 0&ndash;5 field is the fallback) and is weighted slightly above pure age because an inspector's observation captures real-world maintenance. The base is then scaled by exterior-wall material and by construction grade (linear around the dataset midpoint, clamped 0.90&ndash;1.12&times;).</p>
-    <p>Parcels with neither a build year nor a condition rating &mdash; vacant / non-residential land &mdash; are left <em>unscored</em> and excluded from the composite rather than guessed.</p>
+    <p>Condition comes from the assessor's condition rating (Excellent = 100, Average = 60, Unsound = 0) and is weighted slightly above pure age because an inspector's observation captures real-world maintenance. The base is then scaled by exterior-wall material and by construction grade (clamped to 0.90&ndash;1.12&times;).</p>
+    <p>Homes with neither a build year nor a condition rating &mdash; vacant / non-residential land &mdash; are left <em>unscored</em> and excluded from the composite rather than guessed.</p>
+    </details>
   </div>
 
   <div class="method-section">
     <h3>4. Environmental Footprint</h3>
+    <p class="plain"><strong>What this tells you:</strong> the home's yearly climate impact &mdash; from the energy it uses day to day, the carbon built into its materials, and its water use. A higher score means a smaller footprint.</p>
+
+    <details class="tech"><summary>How it&rsquo;s calculated</summary>
     <p>A life-cycle CO&#8322;e score blending three components &mdash; <strong>0.50 operational + 0.30 embodied + 0.20 water</strong> &mdash; each normalized 0&ndash;100 against published good-vs-poor benchmarks (log-linear; higher score = lower footprint).</p>
 
     <h4>Operational</h4>
-    <div class="formula">operational = annual_kWh &times; 0.423 kg&nbsp;CO&#8322;e/kWh + annual_therms &times; 5.3 kg&nbsp;CO&#8322;e/therm</div>
-    <p>The grid factor is <strong>EPA eGRID2022</strong>, subregion SRTV (SERC / Tennessee Valley); the gas factor is from the EPA GHG Emission Factors Hub. Energy use is the same model the Energy dimension produces. <em>(The grid factor is a dated constant &mdash; refresh it on each eGRID release as the grid decarbonizes.)</em></p>
+    <div class="formula">operational = annual_kWh &times; grid&nbsp;factor + annual_therms &times; 5.3 kg&nbsp;CO&#8322;e/therm</div>
+    <p>The grid factor is the property's <strong>EPA eGRID2022</strong> subregion emission rate (looked up nationally by county, with a US-average fallback), so a home on a coal-heavy grid carries more operational carbon than one on a clean grid. Energy use is the same model the Energy dimension produces; the gas factor is from the EPA GHG Emission Factors Hub.</p>
 
     <h4>Embodied &amp; Water</h4>
     <p><strong>Embodied:</strong> a material/size estimator keyed on exterior wall and construction grade, calibrated to the verified US single-family band of <strong>~39&ndash;121 kg&nbsp;CO&#8322;e/m&sup2;</strong>, then amortized over the shell's expected service life (EN&nbsp;15978 / RICS 60-year reference study period) &mdash; so more durable construction spreads its upfront carbon over more years.</p>
-    <p><strong>Water:</strong> EPA WaterSense usage benchmarks, with the Memphis Sand aquifer's low embedded-energy advantage.</p>
-    <p>Parcels with no living area (vacant / non-residential) are left <em>unscored</em>.</p>
+    <p><strong>Water:</strong> EPA WaterSense usage benchmarks, with a national-average estimate for the energy embedded in water supply and wastewater treatment.</p>
+    <p>Homes with no living area (vacant / non-residential) are left <em>unscored</em>.</p>
+    </details>
   </div>
 
   <div class="method-section">
     <h3>5. Infrastructure Burden</h3>
-    <p>Models the annual municipal cost to serve each parcel using a <strong>density-based cost allocation</strong> approach. Inspired by the Halifax cost-of-sprawl study, Strong Towns fiscal analysis, and Smart City Memphis's density-budget research.</p>
+    <p class="plain"><strong>What this tells you:</strong> whether the home pays its own way for the city services it needs &mdash; roads, water, sewer, fire, and police. Denser housing shares those costs across more homes, so it scores better. A higher score means more of its cost is covered by the taxes it generates.</p>
+
+    <details class="tech"><summary>How it&rsquo;s calculated</summary>
+    <p>Models the annual municipal cost to serve each parcel using a <strong>density-based cost allocation</strong> approach, inspired by the Halifax cost-of-sprawl study, Strong Towns fiscal analysis, and municipal density-budget research.</p>
 
     <h4>Per-Service Cost Model</h4>
-    <p>The shared, linear-network services (roads, water/sewer) fall with density (dwelling units per acre) along a <strong>continuous log-log cost curve</strong> &mdash; the published Halifax band costs placed at each band's geometric-mean density and <strong>extended past 12 DU/acre</strong>, so per-household cost keeps amortizing as the same frontage and mains are shared across more homes (rather than flooring at a triplex). Per-household services (trash, parks) stay flat; fire and police scale by distance/density modifier:</p>
+    <p>The shared, linear-network services (roads, water/sewer) fall with density (dwelling units per acre) along a <strong>continuous log-log cost curve</strong> &mdash; the published band costs placed at each band's geometric-mean density and <strong>extended past 12 DU/acre</strong>, so per-household cost keeps amortizing as the same frontage and mains are shared across more homes (rather than flooring at a triplex). Per-household services (trash, parks) stay flat; fire and police scale by a distance/density modifier:</p>
     <p><strong>Roads:</strong> ~$2,400/yr at &lt;1 DU/ac &rarr; ~$700 at 8 &rarr; ~$400 at 12 &rarr; ~$150 at 48 DU/ac<br>
     <strong>Water/sewer:</strong> ~$1,500/yr at &lt;1 DU/ac &rarr; ~$500 at 8 &rarr; ~$350 at 12 &rarr; ~$135 at 48 DU/ac<br>
     <strong>Fire/EMS:</strong> ~$800 base &times; distance modifier<br>
     <strong>Police:</strong> ~$1,200 base &times; density modifier (most efficient at 16+ DU/ac)<br>
-    <strong>Sanitation:</strong> $504/unit (Memphis's actual fee)<br>
+    <strong>Sanitation:</strong> ~$500/unit (a representative municipal fee)<br>
     <strong>Parks:</strong> $300/unit</p>
 
     <h4>Local Calibration (per county)</h4>
-    <p>These per-household figures are the Memphis pilot calibration, which sets the cost-to-serve <em>shape</em> (how cost falls with density). The cost <em>level</em> is then scaled to each county's actual local-government spending using the U.S. <strong>Census of Governments</strong> &mdash; per-capita direct expenditure by function (roads, water/sewer, fire, police, sanitation, parks), normalized to Shelby County. So a county that spends 2&times; the Memphis per-capita rate on roads gets 2&times; the road cost. Shelby is 1.0 on every function (the pilot is unchanged); Los Angeles County, for example, runs ~2.0&times; on roads and ~2.6&times; on water/sewer (2022 census). Counties not in the crosswalk fall back to the national average.</p>
+    <p>These per-household figures set the cost-to-serve <em>shape</em> (how cost falls with density). The cost <em>level</em> is then scaled to each county's actual local-government spending using the U.S. <strong>Census of Governments</strong> &mdash; per-capita direct expenditure by function (roads, water/sewer, fire, police, sanitation, parks). So a county that spends 2&times; the reference per-capita rate on roads gets 2&times; the road cost. Los Angeles County, for example, runs ~2.0&times; on roads and ~2.6&times; on water/sewer (2022 census). Counties not in the crosswalk fall back to the national average.</p>
 
     <h4>Fiscal Ratio</h4>
-    <div class="formula">Fiscal Ratio = Municipal Property-Tax Revenue / Non-School Infrastructure Cost<br>Property Tax (Shelby) = Appraised Value &times; 25% assessment &times; $3.19/$100 (Memphis rate)</div>
-    <p>A ratio &gt; 1.0 = net contributor to the city. The median Shelby County parcel has a ratio of 0.27 &mdash; generating only 27 cents per dollar of infrastructure cost.</p>
-    <p><strong>Outside Shelby:</strong> both sides of the ratio are localized per county and put on a like-for-like <em>non-school</em> basis. The cost side is the Census of Governments municipal spending (above, schools excluded). The revenue side starts from each county's <em>effective property-tax rate</em> (median real-estate taxes &divide; median home value, U.S. Census ACS), then <strong>nets out the school-district share</strong> of property tax (also Census of Governments; ~41% nationally) so it matches the school-excluded cost side &mdash; and where a county funds schools through its general government (a "dependent" system with no separate district, so the school share reads ~0), the national-average share is used instead. The home value defaults to the <strong>county median</strong> when you don't enter one, so the revenue estimate reflects the local market. These remain county-level estimates (a county median, not a parcel's actual millage or value); sub-county / per-jurisdiction millage (state DOR tables) is a future precision refinement.</p>
+    <div class="formula">Fiscal Ratio = Municipal Property-Tax Revenue / Non-School Infrastructure Cost<br>Property Tax = Appraised Value &times; the state's assessment ratio &times; the county's effective tax rate</div>
+    <p>A ratio &gt; 1.0 = net contributor to the city. Both sides are localized per county and put on a like-for-like <em>non-school</em> basis. The cost side is the Census of Governments municipal spending (schools excluded). The revenue side starts from each county's <em>effective property-tax rate</em> (median real-estate taxes &divide; median home value, U.S. Census ACS), then <strong>nets out the school-district share</strong> of property tax (~41% nationally) so it matches the school-excluded cost side &mdash; and where a county funds schools through its general government (a &ldquo;dependent&rdquo; system with no separate district), the national-average share is used instead. The home value defaults to the <strong>county median</strong> when you don't enter one, so the revenue estimate reflects the local market. These remain county-level estimates (a county median, not a parcel's actual millage or value).</p>
 
     <h4>Score Mapping</h4>
     <div class="formula">Score 100 at ratio &ge; 1.05, 80 at 0.54, 60 at 0.37, 40 at 0.26, 20 at 0.17, 0 at &le; 0.09</div>
-    <p>These breakpoints are anchored to the <strong>national distribution</strong> of fiscal ratios &mdash; a population-weighted reference over U.S. counties &times; residential-density archetypes, computed with the localized non-school cost &amp; revenue model &mdash; so the score tracks national percentile rank (A = top ~20%, B = 60&ndash;80th, C = 40&ndash;60th, D = 20&ndash;40th, F = bottom ~20%). On the non-school basis the national median fiscal ratio is ~0.31 (the typical U.S. home covers only about a third of its non-school municipal cost from non-school property tax), so a typical home scores around 50 (C). This replaced the original Shelby-pilot-anchored thresholds once cost and revenue were localized per county.</p>
+    <p>These breakpoints are anchored to the <strong>national distribution</strong> of fiscal ratios &mdash; a population-weighted reference over U.S. counties &times; residential-density archetypes &mdash; so the score tracks national percentile rank (A = top ~20%, B = 60&ndash;80th, C = 40&ndash;60th, D = 20&ndash;40th, F = bottom ~20%). On the non-school basis the national median fiscal ratio is ~0.31 (the typical U.S. home covers only about a third of its non-school municipal cost from non-school property tax), so a typical home scores around 50 (C).</p>
 
     <h4>Density on this parcel (the density dividend)</h4>
-    <p>Because the cost model is density-driven, the same lot scores very differently as a single-family home, a duplex, a triplex, or a quadplex. The <strong>density comparison</strong> holds the <em>location and lot fixed</em> and varies the number of dwelling units, keeping the <em>per-unit value constant</em> (so total appraised value scales with units). As units increase, the same land and municipal services are shared across more homes, so per-unit cost-to-serve falls and the fiscal ratio &mdash; and Infrastructure Burden grade &mdash; improve. That gap is the <strong>density dividend</strong>.</p>
-    <p>The per-unit fiscal ratio understates the case for infill, though, because the headline gain is on the <em>revenue</em> side. So the comparison also reports <strong>fiscal productivity per acre</strong>: revenue per acre, cost per acre, and net fiscal yield per acre. On a fixed lot at constant per-unit value, a quadplex generates roughly <strong>4&times; the property-tax revenue per acre</strong> on the same road frontage and the same water main &mdash; the &ldquo;value per acre&rdquo; lens that makes small-scale infill's productivity visible even when each individual unit still doesn't fully cover its cost. It's available from the <code>density_comparison()</code> helper, the <code>housing-simulate --density</code> CLI flag, the <code>GET /density</code> API endpoint (e.g. <code>?address=&hellip;&amp;units=1,2,4</code>), and the &ldquo;What if this parcel were denser?&rdquo; button under the address search on the home and examples pages.</p>
+    <p>Because the cost model is density-driven, the same lot scores very differently as a single-family home, a duplex, a triplex, or a quadplex. The <strong>density comparison</strong> holds the <em>location and lot fixed</em> and varies the number of dwelling units, keeping the <em>per-unit value constant</em> (so total value scales with units). As units increase, the same land and services are shared across more homes, so per-unit cost-to-serve falls and the fiscal ratio &mdash; and Infrastructure Burden grade &mdash; improve. That gap is the <strong>density dividend</strong>.</p>
+    <p>The per-unit fiscal ratio understates the case for infill, though, because the headline gain is on the <em>revenue</em> side. So the comparison also reports <strong>value per acre</strong>: on a fixed lot at constant per-unit value, a quadplex generates roughly <strong>4&times; the property-tax revenue per acre</strong> on the same road frontage and water main &mdash; the lens that makes small-scale infill's productivity visible even when each individual unit still doesn't fully cover its cost. Try it with the &ldquo;What if this parcel were denser?&rdquo; button under the address search on the home and examples pages.</p>
+    </details>
   </div>
 
   <div class="method-section">
     <h3>6. Health Impact</h3>
+    <p class="plain"><strong>What this tells you:</strong> how healthy the surrounding neighborhood is, based on local rates of conditions like obesity, diabetes, high blood pressure, and asthma. A higher score means a healthier area. (This describes the neighborhood, not the building.)</p>
+
+    <details class="tech"><summary>How it&rsquo;s calculated</summary>
     <p>Uses <strong>CDC PLACES</strong> census-tract-level health estimates. Nine measures: obesity, diabetes, high blood pressure, asthma, coronary heart disease, mental distress, physical inactivity, stroke, COPD.</p>
-    <p>Each parcel is assigned to its census tract via the Census Bureau geocoder. Health index = average of inverted percentile ranks across all measures (lower prevalence = higher score). Range in Shelby County: 0.7 to 95.5 &mdash; nearly the full 0&ndash;100 spectrum, reflecting extreme neighborhood health disparities.</p>
-    <div class="insight"><strong>Key finding:</strong> Obesity ranges from 28% to 58% and diabetes from 7% to 34% between the healthiest and least healthy Memphis neighborhoods &mdash; a 2&times; to 5&times; gap within the same county.</div>
+    <p>Each address is assigned to its census tract via the Census Bureau geocoder, and the health index is the average of inverted percentile ranks across all nine measures, ranked within the address's own county (lower prevalence = higher score). Within a single county the index can span nearly the full 0&ndash;100 range, reflecting how sharply neighborhood health can differ block to block.</p>
+    <div class="insight"><strong>Why it matters:</strong> within a single county, obesity can range from under 30% to nearly 60%, and diabetes from under 10% to over 30%, between the healthiest and least healthy neighborhoods &mdash; a 2&times; to 5&times; gap over a few miles.</div>
+    </details>
   </div>
 
   <div class="method-section">
     <h3>7. Socioeconomic</h3>
-    <p>Census ACS 5-year estimates at the census tract level. Indicators include median household income, poverty rate, educational attainment (bachelor's degree or higher), and unemployment rate. Indexed using inverted percentile ranks (higher income, lower poverty = higher score).</p>
+    <p class="plain"><strong>What this tells you:</strong> the economic profile of the neighborhood &mdash; income, poverty, education, and jobs. A higher score means stronger local economic opportunity. (Like Health, this describes the area, not the building.)</p>
+
+    <details class="tech"><summary>How it&rsquo;s calculated</summary>
+    <p>Census ACS 5-year estimates at the census tract level. Indicators include median household income, poverty rate, educational attainment (bachelor's degree or higher), and unemployment rate. Indexed using inverted percentile ranks within the address's own county (higher income, lower poverty = higher score).</p>
+    </details>
   </div>
 
   <div class="method-section">
     <h3>8. Walkability</h3>
-    <p>Uses the <strong>Walk Score API</strong>, which returns three 0&ndash;100 sub-scores for a parcel's coordinates: a <strong>Walk Score</strong> (access to daily errands on foot), a <strong>Transit Score</strong> (proximity and quality of public transit), and a <strong>Bike Score</strong> (bike infrastructure and terrain).</p>
+    <p class="plain"><strong>What this tells you:</strong> how easy it is to get around from this address on foot, by transit, or by bike. A higher score means more of daily life is reachable without a car.</p>
+
+    <details class="tech"><summary>How it&rsquo;s calculated</summary>
+    <p>Uses the <strong>Walk Score API</strong>, which returns three 0&ndash;100 sub-scores for an address's coordinates: a <strong>Walk Score</strong> (access to daily errands on foot), a <strong>Transit Score</strong> (proximity and quality of public transit), and a <strong>Bike Score</strong> (bike infrastructure and terrain).</p>
 
     <h4>Composite Weighting</h4>
-    <p>Walk Score is already a 0&ndash;100 score, so the raw Walk Score is used directly as the dimension score. Where a parcel also has a transit and bike score, a weighted composite is taken &mdash; deliberately weighted toward walkability, since walking access to daily needs matters most for everyday life:</p>
-    <div class="formula">Walkability = 0.60 &times; Walk + 0.25 &times; Transit + 0.15 &times; Bike<br>(parcels missing transit or bike fall back to the raw Walk Score)</div>
-    <p>The result carries the same dual grading as every other dimension &mdash; a national absolute grade and a local percentile grade within Shelby County. Because the Walk Score is already nationally calibrated (0 = car-dependent, 90&ndash;100 = a "walker's paradise"), the national grade is directly comparable across cities.</p>
-    <div class="insight"><strong>Context:</strong> Shelby County is overwhelmingly car-dependent suburban and exurban development, so most parcels score low on the national absolute scale. The local percentile grade is what surfaces the genuinely more walkable pockets &mdash; older street-grid neighborhoods near Midtown and Downtown Memphis &mdash; relative to their neighbors.</div>
+    <p>Walk Score is already a 0&ndash;100 score, so it is used directly as the dimension score. Where an address also has a transit and bike score, a weighted composite is taken &mdash; deliberately weighted toward walking, since walking access to daily needs matters most for everyday life:</p>
+    <div class="formula">Walkability = 0.60 &times; Walk + 0.25 &times; Transit + 0.15 &times; Bike<br>(addresses missing transit or bike fall back to the raw Walk Score)</div>
+    <p>The result carries the same dual grading as every other dimension &mdash; a national absolute grade and a local percentile grade within its own county. Because Walk Score is already nationally calibrated (0 = car-dependent, 90&ndash;100 = a &ldquo;walker's paradise&rdquo;), the national grade is directly comparable across cities.</p>
+    <div class="insight"><strong>Context:</strong> much of the country is car-dependent suburban and exurban development, so most addresses score low on the national absolute scale. The local percentile grade is what surfaces the genuinely more walkable pockets &mdash; older street-grid neighborhoods near a downtown or town center &mdash; relative to their neighbors.</div>
+    </details>
   </div>
 
   <div class="method-section">
     <h3>9. Climate Projections</h3>
-    <p>Sub-county downscaled climate-hazard projections from the USGS <a href="https://doi.org/10.5066/P13OV6GY">CMIP6-LOCA2</a> threshold/extreme-event metrics &mdash; the Weighted Multi-Model Mean (an ensemble mean over CMIP6 LOCA2-downscaled models, ~6&nbsp;km), sampled at each census tract's internal point (county = the mean of its tracts). Three hazard legs are blended equally into a 0&ndash;100 score (higher = less projected hazard): <strong>extreme heat</strong> (annual days &gt; 95&deg;F and &gt; 100&deg;F), <strong>heavy precipitation &amp; flood</strong> (days &gt; 1&Prime; and the annual max 5-day total), and <strong>drought</strong> (max consecutive dry days). Each metric is scored against national breakpoints anchored to the SSP2-4.5 mid-century distribution. The dimension is reported as a low/high band from SSP2-4.5 &rarr; SSP5-8.5 at mid-century (2040&ndash;2069), with the SSP2-4.5 value as the headline.</p>
-    <div class="insight"><strong>Caveat:</strong> the ~6&nbsp;km grid is sampled at a tract's <em>internal point</em> &mdash; a real sub-county value, but <em>not parcel-resolution precision</em>. Values are a multi-model ensemble mean; a tract resolves at tract level, falling back to its parent county then the national average where the grid has no data (e.g. outside CONUS).</div>
-    <div class="insight"><strong>Tracts vs. the CMRA tract layer:</strong> these tract values come from sampling the LOCA2 ~6&nbsp;km grid, so tracts within a large, diverse county genuinely differ (San&nbsp;Bernardino spans coast to desert). That is the inverse of CMRA's ArcGIS tract layer, which we found broadcasts the single county value onto every tract polygon (zero sub-county signal) and so was deliberately not used.</div>
+    <p class="plain"><strong>What this tells you:</strong> how the local climate is projected to change by mid-century &mdash; more extreme heat, heavier rain and flooding, and drought. A higher score means less projected climate hazard. The label shows a range, because how much it changes depends on future emissions.</p>
+
+    <details class="tech"><summary>How it&rsquo;s calculated</summary>
+    <p>Sub-county downscaled climate-hazard projections from the USGS <a href="https://doi.org/10.5066/P13OV6GY">CMIP6-LOCA2</a> threshold/extreme-event metrics &mdash; the Weighted Multi-Model Mean (an ensemble mean over CMIP6 LOCA2-downscaled models, ~6&nbsp;km), sampled at each census tract's internal point (county = the mean of its tracts). Three hazard legs are blended equally into a 0&ndash;100 score (higher = less projected hazard): <strong>extreme heat</strong> (annual days &gt; 95&deg;F and &gt; 100&deg;F), <strong>heavy precipitation &amp; flood</strong> (days &gt; 1&Prime; and the annual max 5-day total), and <strong>drought</strong> (max consecutive dry days). Each metric is scored against national breakpoints anchored to the SSP2-4.5 mid-century distribution. The dimension is reported as a low/high band from SSP2-4.5 &rarr; SSP5-8.5 (a lower- vs higher-emissions future) at mid-century (2040&ndash;2069), with the SSP2-4.5 value as the headline.</p>
+    <div class="insight"><strong>Caveat:</strong> the ~6&nbsp;km grid is sampled at a tract's <em>internal point</em> &mdash; a real sub-county value, but <em>not parcel-resolution precision</em>. Values are a multi-model ensemble mean; a tract resolves at tract level, falling back to its parent county then the national average where the grid has no data (e.g. outside the contiguous US).</div>
+    <div class="insight"><strong>Sub-county detail:</strong> because these tract values come from sampling the ~6&nbsp;km grid, tracts within a large, diverse county genuinely differ (San&nbsp;Bernardino spans coast to desert) &mdash; unlike layers that broadcast a single county value onto every tract.</div>
+    </details>
   </div>
 </section>
 
 <section>
-  <h2>Dual Grading Details</h2>
-  <p><strong>National absolute grade:</strong> A &ge; 80, B &ge; 60, C &ge; 40, D &ge; 20, F &lt; 20. Calibrated for national comparison &mdash; a Grade B in Memphis means the same thing as a Grade B in Phoenix.</p>
-  <p><strong>Local percentile grade:</strong> A = top 10%, B = next 25% (65th&ndash;90th percentile), C = next 30% (35th&ndash;65th), D = next 25% (10th&ndash;35th), F = bottom 10%. All five grades are always populated by construction.</p>
-  <p><strong>Composite score:</strong> Simple NaN-skipping mean of all active dimension scores.</p>
+  <h2>The two grades</h2>
+  <p class="plain">Every dimension gets <strong>two</strong> grades. The <strong>national grade</strong> says how the home compares to the whole country. The <strong>local grade</strong> says how it compares to its own neighbors &mdash; useful when you're choosing between homes in the same area.</p>
+  <p><strong>National absolute grade:</strong> A &ge; 80, B &ge; 60, C &ge; 40, D &ge; 20, F &lt; 20. Calibrated for national comparison &mdash; a Grade B means the same thing anywhere in the country.</p>
+  <p><strong>Local percentile grade:</strong> A = top 10%, B = next 25% (65th&ndash;90th percentile), C = next 30% (35th&ndash;65th), D = next 25% (10th&ndash;35th), F = bottom 10%, ranked against nearby properties.</p>
+  <p><strong>Composite score:</strong> the average of the dimensions that could be scored. Dimensions with no data (for example, walkability where no Walk Score is available) are left out rather than counted as zero, so a strong home isn't dragged down by a missing input.</p>
 </section>
 
 <footer>

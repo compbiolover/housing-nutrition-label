@@ -264,7 +264,12 @@ ENERGY_COLS = [
 ]
 
 
-def model_parcel_energy(row: pd.Series, climate_zone: str = DEFAULT_CLIMATE_ZONE) -> dict:
+def model_parcel_energy(
+    row: pd.Series,
+    climate_zone: str | None = DEFAULT_CLIMATE_ZONE,
+    elec_rate: float = ELEC_RATE_PER_KWH,
+    gas_rate: float = GAS_RATE_PER_THERM,
+) -> dict:
     """Compute energy metrics for a single parcel.
 
     Steps
@@ -276,6 +281,8 @@ def model_parcel_energy(row: pd.Series, climate_zone: str = DEFAULT_CLIMATE_ZONE
     5. Compute estimated monthly cost at utility rates.
 
     `climate_zone` is an IECC zone label (e.g. "5B"); defaults to 4A (the pilot).
+    `elec_rate` ($/kWh) and `gas_rate` ($/therm) default to the Memphis/TVA pilot
+    constants; the live path passes the property's state rates (data/utility_rates).
     """
     # --- Vintage (base EUI is calibrated to 4A; scale for the actual zone) ---
     vbin = vintage_bin(row.get("YRBLT"))
@@ -299,8 +306,8 @@ def model_parcel_energy(row: pd.Series, climate_zone: str = DEFAULT_CLIMATE_ZONE
     annual_kwh    = round(annual_kbtu * elec_frac / KBTU_PER_KWH, 1)
     annual_therms = round(annual_kbtu * gas_frac  / KBTU_PER_THERM, 1)
 
-    # --- Monthly cost ---
-    annual_cost   = annual_kwh * ELEC_RATE_PER_KWH + annual_therms * GAS_RATE_PER_THERM
+    # --- Monthly cost (at the property's local utility rates) ---
+    annual_cost   = annual_kwh * elec_rate + annual_therms * gas_rate
     monthly_cost  = round(annual_cost / 12, 2)
 
     # --- Archetype label ---

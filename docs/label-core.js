@@ -110,9 +110,9 @@ window.LabelCore = (function () {
       : fmtMoney(roundMoney(pv)) + ' <span class="' + (cheaper ? "cheaper" : "pricier") + '">' + dir + '</span>';
     return '<div class="cost-strip"><div class="cost-cap">Cost over a 30-year mortgage</div>'
       + '<div class="cost-delta">' + head + '</div>'
-      + (same ? "" : '<div class="cost-band">' + fmtK(lo) + '–' + fmtK(hi) + ' ' + dir + ' across 2%–4% real discount rates</div>')
+      + (same ? "" : '<div class="cost-band">' + fmtK(lo) + '–' + fmtK(hi) + ' ' + dir + ' depending on how future costs are weighed</div>')
       + '<div class="cost-vs">vs. ' + esc((baseline.label) || "a typical comparable here")
-      + ' &mdash; energy + expected losses only, in today’s dollars</div></div>';
+      + ' &mdash; counts only energy bills and likely disaster losses, in today’s dollars</div></div>';
   }
 
   // ── Per-dimension row (bar + grade + confidence dot + climate whisker) ─────
@@ -153,7 +153,7 @@ window.LabelCore = (function () {
 
   function legendHtml() {
     return '<div class="conf-legend">● High &nbsp; ◐ Moderate &nbsp; ○ Low &mdash; '
-      + 'confidence = data quality, separate from the score; whisker = climate scenario range</div>';
+      + 'the dot shows how solid the data is (not how good the score is); the whisker shows the climate range</div>';
   }
 
   // Full label card. `opts` may carry {heading, subline} to override the header

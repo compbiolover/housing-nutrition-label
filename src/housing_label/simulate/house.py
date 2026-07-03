@@ -710,8 +710,14 @@ def resolve_config(args: argparse.Namespace) -> dict:
 
 # ── Core simulation ────────────────────────────────────────────────────────────
 
-def simulate(cfg: dict) -> dict:
-    """Run the full EAL + BRM + bonus calculation. Returns a results dict."""
+def simulate(cfg: dict, local_compare: bool = True) -> dict:
+    """Run the full EAL + BRM + bonus calculation. Returns a results dict.
+
+    ``local_compare`` controls the resilience *local grade* — a percentile rank
+    against the bundled Shelby County dataset, which is only meaningful for a
+    Shelby address. build_label_parts passes False off-Shelby so the rank isn't
+    computed (and the CSV isn't read) for locations it doesn't describe.
+    """
     r = {}
 
     # ── Hazard parameters from location ───────────────────────────────────────
@@ -858,10 +864,11 @@ def simulate(cfg: dict) -> dict:
     r["fire_loss"]    = fire_adj    * v
     r["total_loss"]   = total_eal   * v
 
-    # ── Local comparison against scored dataset ───────────────────────────────
-    if SCORED_CSV.exists():
-        scored = pd.read_csv(SCORED_CSV, usecols=["resilience_score"], low_memory=False)
-        scores = scored["resilience_score"].dropna()
+    # ── Local comparison against scored dataset (Shelby pilot only) ───────────
+    scored = pd.read_csv(SCORED_CSV, usecols=["resilience_score"], low_memory=False) \
+        if (local_compare and SCORED_CSV.exists()) else None
+    scores = scored["resilience_score"].dropna() if scored is not None else None
+    if scores is not None and len(scores):
         local_pct = compute_local_percentile(r["total_score"], scored)
         r["local_pct"]   = local_pct
         r["local_grade"] = percentile_to_local_grade(local_pct)
@@ -1083,9 +1090,10 @@ def print_scorecard(cfg: dict, r: dict) -> None:
 
 # ── Full nutrition label (all dimensions) ───────────────────────────────────────
 
-# Shelby County (Memphis) — the region the seismic/tornado/infrastructure models
-# are calibrated to. Those dimensions are flagged approximate everywhere else
-# until the national generalization (Phase 2) lands.
+# The pilot county. Seismic (USGS), tornado (SPC), energy rates (EIA), grid factor
+# (eGRID), and infrastructure cost/tax are all resolved nationally per address; this
+# FIPS only anchors the bundled resilience reference dataset and the cost-model
+# numeraire, and picks the local-comparison branch.
 CALIBRATED_COUNTY_FIPS = "47157"
 
 
@@ -1104,7 +1112,7 @@ def _approx_caveats(location) -> list[str]:
     if location is None:
         return [
             "Location could not be resolved: Infrastructure Burden and the "
-            "Environmental grid factor fall back to the Memphis pilot defaults.",
+            "Environmental grid factor fall back to the pilot default calibration.",
         ]
 
     caveats: list[str] = []
@@ -1112,7 +1120,7 @@ def _approx_caveats(location) -> list[str]:
     if fips is None:
         caveats.append(
             "County could not be resolved: Infrastructure Burden may be approximate "
-            "(it falls back to the Memphis cost model)."
+            "(it falls back to the pilot cost model)."
         )
     elif fips != CALIBRATED_COUNTY_FIPS:
         from housing_label.data.govfinance import govfinance_for_county
@@ -1138,7 +1146,7 @@ def _approx_caveats(location) -> list[str]:
             )
         else:  # "none" — the local-finance crosswalk isn't bundled
             caveats.append(
-                "Infrastructure Burden falls back to the Memphis pilot cost model (the "
+                "Infrastructure Burden falls back to the pilot cost model (the "
                 "local-finance crosswalk is unavailable) — treat it as an estimate."
             )
 
@@ -1388,7 +1396,10 @@ def build_label_parts(*, address: str | None = None,
             cfg["value"] = median_value
             cfg["value_source"] = "county median (ACS)"
 
-    r = simulate(cfg)
+    # The resilience local grade ranks against the bundled Shelby dataset, so it's
+    # only meaningful for a Shelby address; compute it only then (N/A elsewhere).
+    is_shelby = getattr(location, "county_fips", None) == CALIBRATED_COUNTY_FIPS
+    r = simulate(cfg, local_compare=is_shelby)
     label = simulate_all_dimensions(
         cfg, r["total_score"], location=location,
         allow_network=allow_network, overrides=overrides,

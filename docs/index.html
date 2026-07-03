@@ -101,7 +101,7 @@
 <div class="hero">
   <div class="badge">Open source &middot; 9 dimensions &middot; any U.S. address</div>
   <h1>Housing Nutrition Label</h1>
-  <p class="tagline">An open-source platform that scores residential properties across nine dimensions &mdash; disaster resilience, energy efficiency, durability, environmental footprint, infrastructure burden, health, socioeconomic context, walkability, and climate projections &mdash; like a nutrition label for your home.</p>
+  <p class="tagline">A free, nutrition-label-style scorecard for any U.S. home. It rates nine things that shape what a place costs to live in and how well it holds up &mdash; disaster risk, energy use, durability, environmental footprint, city-service costs, neighborhood health, the local economy, walkability, and a changing climate.</p>
   <div class="addr-search">
     <form class="addr-form" id="addr-form">
       <div class="addr-ac" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-owns="addr-suggest">
@@ -167,22 +167,22 @@
     </div>
 
     <div class="insight" id="addr-config-note" style="display:none;">
-      <strong>Set the API endpoint:</strong> this search calls a small scoring API (the CLI behind HTTP). Configure its URL by appending <code>?api=https://your-api-host</code> to this page's URL, or set <code>window.HOUSING_LABEL_API</code>. See <a href="setup.html#api">Setup &rarr; Address-search API</a>.
+      <strong>Set the scoring service:</strong> this search needs a scoring service to call. Point it at one by adding <code>?api=https://your-api-host</code> to this page's URL, or set <code>window.HOUSING_LABEL_API</code>. See <a href="setup.html#api">Setup &rarr; Address-search API</a>.
     </div>
   </div>
 
-  <p style="margin-top:0.75rem;font-size:0.9rem;">Generates a live label for that location, pick a construction profile and tweak the details &mdash; or <a href="https://github.com/compbiolover/housing-nutrition-label">view the project on GitHub</a>.</p>
+  <p style="margin-top:0.75rem;font-size:0.9rem;">Enter an address to see its live label. Pick a construction type to compare how building choices move the scores &mdash; or <a href="https://github.com/compbiolover/housing-nutrition-label">view the project on GitHub</a>.</p>
 </div>
 
 <section>
-  <h2>The Problem</h2>
-  <p>There is a massive information asymmetry in housing markets. Buyers cannot evaluate construction quality, lifecycle costs, disaster resilience, or the true cost of ownership. Builders have no incentive to build well because the market cannot distinguish quality. Cities cannot demonstrate the true infrastructure cost differential between dense infill and sprawl.</p>
-  <p>Nobody has built a unified, open-source, multi-dimensional lifecycle scoring platform with API distribution to listing platforms. <strong>The field is wide open.</strong></p>
+  <h2>The problem</h2>
+  <p>A home is one of the biggest purchases people make &mdash; yet it's surprisingly hard to judge. Buyers can't easily see how well a home is built, what it will cost to run and maintain, or how exposed it is to disasters. Builders get little credit for doing better, because the market can't tell the difference. And cities struggle to show how much cheaper it is to serve compact neighborhoods than sprawl.</p>
+  <p>No one has put all of that into a single, open scorecard for every home. <strong>That's what this project is building.</strong></p>
 </section>
 
 <section>
-  <h2>The Vision</h2>
-  <p>A standardized, color-coded scorecard for every property &mdash; showing how it performs across multiple dimensions that matter to buyers, communities, and cities. Each dimension scored 0&ndash;100 with dual grades: a national absolute grade and a local percentile-based grade for within-market comparison.</p>
+  <h2>The idea</h2>
+  <p>A clear, color-coded scorecard for any home &mdash; showing how it does on the things that matter to buyers, neighborhoods, and cities. Each of the nine dimensions is scored from 0 to 100 and gets two grades: one comparing the home to the whole country, and one comparing it to nearby homes.</p>
 </section>
 
 <section>
@@ -191,47 +191,47 @@
     <div class="card">
       <div class="icon">&#x1F3D7;</div>
       <h3>Disaster Resilience</h3>
-      <p>Expected Annual Loss (EAL) across flood, tornado, earthquake, and fire hazards. Adjusted for construction type, building code era, foundation, and condition using a Building Resilience Modifier with literature-backed ICF and FORTIFIED Home modifiers.</p>
+      <p>How much damage floods, tornadoes, earthquakes, and fire are likely to cause in a typical year &mdash; and how much the home's construction, age, and upgrades (like a reinforced roof) change that. Built on FEMA and USGS hazard data.</p>
     </div>
     <div class="card">
       <div class="icon">&#x26A1;</div>
       <h3>Energy Efficiency</h3>
-      <p>Energy Use Intensity (kBTU/sqft/yr) based on DOE/EIA ResStock benchmarks, adjusted for building vintage, construction type, and HVAC system. Estimated monthly cost at Memphis/TVA utility rates.</p>
+      <p>How much energy the home is likely to use, and what that costs each month at local utility rates &mdash; based on its age, size, construction, and heating and cooling system. Benchmarked to U.S. Department of Energy data.</p>
     </div>
     <div class="card">
       <div class="icon">&#x1F6E0;</div>
       <h3>Durability</h3>
-      <p>A component-lifespan / effective-age model blending the remaining service life of eight major building systems (structural shell, roof, HVAC, plumbing, electrical, windows, finishes, water heater) with the assessor's condition rating, then adjusted for exterior-wall material and construction grade.</p>
+      <p>How much useful life the home's major systems &mdash; structure, roof, HVAC, plumbing, wiring, windows &mdash; have left, adjusted for its condition. A longevity score, kept separate from disaster risk.</p>
     </div>
     <div class="card">
       <div class="icon">&#x1F33F;</div>
       <h3>Environmental Footprint</h3>
-      <p>Lifecycle CO&#8322;e blended 50% operational / 30% embodied / 20% water: operational emissions from modeled energy use &times; EPA eGRID2022 grid + natural-gas factors, embodied carbon from materials &amp; size amortized over a 60-year study period, and water use from EPA WaterSense benchmarks.</p>
+      <p>The home's yearly climate impact: the energy it uses (on the local power grid), the carbon built into its materials, and its water use. A higher score means a smaller footprint.</p>
     </div>
     <div class="card">
       <div class="icon">&#x1F3D8;</div>
       <h3>Infrastructure Burden</h3>
-      <p>Annual municipal cost to serve each parcel (roads, water/sewer, fire, police, sanitation) based on density. Fiscal ratio shows property tax revenue vs. infrastructure cost &mdash; revealing which properties pay their way.</p>
+      <p>Whether the home covers the cost of the city services it needs &mdash; roads, water, sewer, fire, police. Compact housing shares those costs across more homes, so it scores better.</p>
     </div>
     <div class="card">
       <div class="icon">&#x2764;</div>
       <h3>Health Impact</h3>
-      <p>CDC PLACES census-tract health metrics: obesity, diabetes, high blood pressure, physical inactivity, mental distress, asthma, coronary heart disease, stroke, and COPD prevalence. Indexed 0&ndash;100.</p>
+      <p>How healthy the surrounding neighborhood is, from local rates of conditions like obesity, diabetes, high blood pressure, and asthma (CDC data). This describes the area, not the building.</p>
     </div>
     <div class="card">
       <div class="icon">&#x1F4CA;</div>
       <h3>Socioeconomic</h3>
-      <p>Census ACS indicators including median household income, poverty rate, educational attainment, and unemployment by census tract. Reflects neighborhood economic opportunity.</p>
+      <p>The neighborhood's economic profile &mdash; income, poverty, education, and jobs (Census data). Like the health score, this reflects the area, not the building itself.</p>
     </div>
     <div class="card">
       <div class="icon">&#x1F6B6;</div>
       <h3>Walkability</h3>
-      <p>Walk Score API walk, transit, and bike scores. The 0&ndash;100 Walk Score is used directly; where transit and bike scores exist, a composite is taken (60% walk + 25% transit + 15% bike), weighted toward walkability since it matters most for daily errands.</p>
+      <p>How easy it is to run daily errands on foot, by transit, or by bike (Walk Score). Weighted toward walking, since that's what matters most day to day.</p>
     </div>
     <div class="card">
       <div class="icon">&#x1F321;</div>
       <h3>Climate Projections</h3>
-      <p>Sub-county downscaled climate-hazard projections from the USGS CMIP6-LOCA2 ensemble mean (~6&nbsp;km grid, sampled at each census tract's internal point): extreme heat, heavy precipitation &amp; flood, and drought, blended into a 0&ndash;100 score with an SSP2-4.5&ndash;5-8.5 mid-century (2040&ndash;2069) band. <em>(Tracts within a county genuinely differ; tract&nbsp;&rarr;&nbsp;county&nbsp;&rarr;&nbsp;national fallback.)</em></p>
+      <p>How the local climate is projected to shift by mid-century &mdash; more extreme heat, heavy rain and flooding, and drought (USGS downscaled projections). Shown as a range for lower- vs. higher-emissions futures.</p>
     </div>
   </div>
 </section>
@@ -242,21 +242,21 @@
   <div class="card-grid">
     <div class="card">
       <h3>National Grade</h3>
-      <p>Absolute thresholds (A&ge;80, B&ge;60, C&ge;40, D&ge;20, F&lt;20). Tells you how a Memphis property compares to the rest of the country. Useful for cross-city comparisons.</p>
+      <p>Fixed thresholds (A&ge;80, B&ge;60, C&ge;40, D&ge;20, F&lt;20). Tells you how the home compares to the rest of the country &mdash; useful for comparing across cities.</p>
       <p><span class="grade grade-a">A</span> <span class="grade grade-b">B</span> <span class="grade grade-c">C</span> <span class="grade grade-d">D</span> <span class="grade grade-f">F</span></p>
     </div>
     <div class="card">
       <h3>Local Grade</h3>
-      <p>Percentile-based within Shelby County (A=top 10%, B=next 25%, C=next 30%, D=next 25%, F=bottom 10%). Tells you how a property compares to its neighbors. Useful for home-shopping.</p>
+      <p>Ranked against nearby homes (A=top 10%, B=next 25%, C=next 30%, D=next 25%, F=bottom 10%). Tells you how the home compares to its neighbors &mdash; useful when home-shopping in one area.</p>
       <p><span class="grade grade-a">A</span> <span class="grade grade-b">B</span> <span class="grade grade-c">C</span> <span class="grade grade-d">D</span> <span class="grade grade-f">F</span></p>
     </div>
   </div>
 </section>
 
 <section>
-  <h2>Current Status</h2>
-  <p>Score <strong>any U.S. address across nine dimensions</strong> in real time via the live API (try the box above), backed by ~1,000 Shelby County (Memphis, TN) parcels scored offline from public data. A CLI house simulator models construction profiles &mdash; including multi-unit buildings (duplexes, quadplexes) and 20+ above-code construction features &mdash; and the climate, grid-carbon, and seismic reference layers are built from keyless, reproducible scripts.</p>
-  <p>The scoring engine, data pipeline, simulator, and address-search API are all open-source under the MIT license.</p>
+  <h2>Where the project stands</h2>
+  <p>You can score <strong>any U.S. address across all nine dimensions</strong> right now (try the box above). The scores draw on national public datasets &mdash; FEMA, USGS, EPA, CDC, the Census Bureau, and the EIA. The project began as a pilot in Shelby County, TN, and a few inputs &mdash; the reference set for the <em>local</em> (neighbor-to-neighbor) grades, and some cost baselines &mdash; are still being generalized to the whole country; the label flags those where they apply. You can also model construction choices, including multi-unit buildings (duplexes, quadplexes) and 20+ above-code upgrades.</p>
+  <p>The scoring engine, data pipeline, and address-search service are all open-source under the MIT license.</p>
 </section>
 
 <section>
@@ -264,13 +264,14 @@
   <table class="data-table">
     <thead><tr><th>Source</th><th>Provides</th><th>Access</th></tr></thead>
     <tbody>
-      <tr><td>Shelby County Assessor ArcGIS</td><td>Parcels, CAMA building data, appraisal values</td><td class="free">Free, no key</td></tr>
+      <tr><td>County assessor records</td><td>Parcels, building characteristics, appraisal values</td><td class="free">Free, public</td></tr>
       <tr><td>FEMA NFHL</td><td>Flood zone designations</td><td class="free">Free, no key</td></tr>
       <tr><td>NOAA Climate Normals</td><td>Temperature, degree days, precipitation</td><td class="free">Free, no key</td></tr>
       <tr><td>SPC Historical Tornadoes</td><td>Tornado frequency &amp; intensity</td><td class="free">Free, no key</td></tr>
       <tr><td>USGS NSHM</td><td>Seismic hazard (PGA values)</td><td class="free">Free, no key</td></tr>
       <tr><td>FEMA National Risk Index</td><td>Wildfire expected annual loss (fire peril)</td><td class="free">Free, no key</td></tr>
       <tr><td>DOE/EIA ResStock</td><td>Energy use intensity benchmarks</td><td class="free">Free, reference data</td></tr>
+      <tr><td>EIA state utility rates</td><td>Residential electricity &amp; gas prices by state</td><td class="free">Free, reference data</td></tr>
       <tr><td>EPA eGRID2022</td><td>Grid carbon intensity (environmental footprint)</td><td class="free">Free, reference data</td></tr>
       <tr><td>USGS CMIP6-LOCA2</td><td>Sub-county climate-hazard projections</td><td class="free">Free, no key</td></tr>
       <tr><td>CDC PLACES</td><td>Health metrics by census tract</td><td class="free">Free, no key</td></tr>
