@@ -1115,12 +1115,22 @@ def _approx_caveats(location, units: int = 1) -> list[str]:
 
     caveats: list[str] = []
 
-    if int(units or 1) > 1:
+    # Dense-housing caveat: fires when the caller asked for multiple units OR the
+    # building was detected as multi-family (NSI). The scores are still modeled
+    # single-family, so flag them as approximate for apartments/townhomes/condos.
+    detected_units = getattr(location, "num_units", None)
+    detected_mf = getattr(location, "structure_type", None) == "multifamily"
+    if int(units or 1) > 1 or detected_mf or (detected_units and detected_units > 1):
+        detail = ""
+        if detected_mf or (detected_units and detected_units > 1):
+            detail = (" This address looks like a multi-unit building"
+                      + (f" (~{detected_units} units)" if detected_units and detected_units > 1 else "")
+                      + ", detected from the National Structure Inventory.")
         caveats.append(
             "Modeled as a single detached home: for a multi-unit building "
             "(apartment, townhome, or condo) the Resilience, Durability, and Energy "
             "dimensions use single-family assumptions and are approximate — dense "
-            "housing isn't fully supported yet."
+            "housing isn't fully supported yet." + detail
         )
 
     if location is None:
@@ -1323,6 +1333,17 @@ def label_payload(cfg: dict, r: dict, label: dict) -> dict:
             "in_urban_area": loc.in_urban_area,
             "notes": loc.notes,
         }
+        # Detected building context (USACE NSI): what kind of building is here.
+        # Informational in Phase 1 — the scores are still modeled single-family
+        # (flagged by the multi-unit caveat); Phase 2+ will let it drive scoring.
+        if getattr(loc, "structure_source", None):
+            payload["structure"] = {
+                "structure_type": loc.structure_type,
+                "num_units": loc.num_units,
+                "stories": loc.stories,
+                "bldg_material": loc.bldg_material,
+                "source": loc.structure_source,
+            }
         # Wildfire hazard behind the fire peril (FEMA NRI; rating + EAL rate).
         wf = getattr(loc, "wildfire", None)
         if wf is not None:

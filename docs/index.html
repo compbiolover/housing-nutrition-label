@@ -141,6 +141,9 @@
         <label>Living area (sqft)
           <input type="number" id="d-sqft" min="200" max="20000" step="50" placeholder="e.g. 2000">
         </label>
+        <label>Dwelling units
+          <input type="number" id="d-units" min="1" max="500" step="1" placeholder="e.g. 1 (house), 4 (quadplex)">
+        </label>
       </div>
       <fieldset class="addr-upgrades">
         <legend>Resilience upgrades</legend>
@@ -471,9 +474,11 @@
     var year = document.getElementById("d-year").value.trim();
     var constr = document.getElementById("d-construction").value;
     var sqft = document.getElementById("d-sqft").value.trim();
+    var unitsIn = document.getElementById("d-units").value.trim();
     if (year)   params.set("year_built", year);
     if (constr) params.set("construction", constr);
     if (sqft)   params.set("sqft", sqft);
+    if (unitsIn) params.set("units", unitsIn);
     var ups = Array.prototype.slice
       .call(document.querySelectorAll(".addr-upgrades input:checked"))
       .map(function (c) { return c.value; });
@@ -483,7 +488,7 @@
     // than the selected base profile. Capture context for the result header.
     var ctx = {
       presetLabel: preset.options[preset.selectedIndex].text,
-      isCustom: !!(year || constr || sqft || ups.length),
+      isCustom: !!(year || constr || sqft || unitsIn || ups.length),
       upgradeLabels: ups.map(function (v) { return UPGRADE_LABELS[v] || v; })
     };
 

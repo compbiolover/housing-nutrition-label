@@ -54,6 +54,13 @@ class Location:
     egrid_factor: float | None = None     # kg CO2e / kWh
     climate_projection: dict | None = None  # CMIP6-LOCA2 hazard projection (tract→county→US)
     wildfire: dict | None = None          # FEMA NRI wildfire hazard (tract→county→US)
+    # Building structure at this point (USACE National Structure Inventory). Best
+    # effort — all None when NSI is unavailable or the point isn't a building.
+    structure_type: str | None = None     # single_family | multifamily | manufactured | ...
+    num_units: int | None = None          # residential unit count
+    stories: int | None = None
+    bldg_material: str | None = None      # wood | masonry | concrete | steel
+    structure_source: str | None = None   # "NSI" when detected
     notes: dict = field(default_factory=dict)
 
     @property
@@ -204,6 +211,23 @@ def resolve_location(
     if loc.county_fips and not loc.wildfire.get("resolved"):
         notes["wildfire"] = (
             f"county {loc.county_fips} not in NRI wildfire crosswalk; using US average")
+
+    # Building structure (USACE NSI, live keyless API): what kind of building sits
+    # here — single-family, multi-family, unit count, stories. Best effort; leaves
+    # the fields None (with a note) when NSI is unavailable or off-network.
+    if allow_network:
+        from housing_label.enrich.structure import structure_for_point
+        s = structure_for_point(loc.lat, loc.lon, allow_network=True)
+        if s:
+            loc.structure_type = s.get("structure_type")
+            loc.num_units = s.get("num_units")
+            loc.stories = s.get("stories")
+            loc.bldg_material = s.get("bldg_material")
+            loc.structure_source = s.get("source")
+        else:
+            notes["structure"] = "no NSI structure match; building type unknown"
+    else:
+        notes["structure"] = "skipped (no network)"
 
     return loc
 
