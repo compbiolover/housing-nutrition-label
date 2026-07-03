@@ -408,9 +408,10 @@ def simulate_all_dimensions(
     tract = location.tract if location else None
 
     # Energy cost: use the property's state residential utility rates (EIA) instead
-    # of the Memphis/TVA pilot constants; unknown state falls back to the US average.
+    # of the Memphis/TVA pilot constants. Run whenever a location resolved — a
+    # missing/None state_fips returns the US-average pair, never the pilot rates.
     elec_rate = gas_rate = None
-    if location and location.state_fips:
+    if location:
         from housing_label.data.utility_rates import utility_rates_for_state
         _rates = utility_rates_for_state(location.state_fips)
         elec_rate, gas_rate = _rates["elec_per_kwh"], _rates["gas_per_therm"]

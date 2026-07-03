@@ -84,9 +84,39 @@ def test_resilience_local_grade_gated_to_shelby():
         os.unlink(empty)
 
 
+def test_resolved_location_without_state_uses_us_average():
+    """A Location that resolves but has no state_fips must use the US-average
+    rates, not silently fall back to the Memphis/TVA pilot constants."""
+    from argparse import Namespace
+    from housing_label.simulate.house import resolve_config
+    from housing_label.simulate.dimensions import (
+        simulate_all_dimensions, build_parcel_row, _adjusted_energy,
+    )
+    from housing_label.simulate.location import Location
+    from housing_label.data.utility_rates import US_AVG_ELEC_PER_KWH, US_AVG_GAS_PER_THERM
+
+    fields = ["year_built", "construction", "foundation", "condition",
+              "value", "units", "sqft", "lot_acres"]
+    cfg = resolve_config(Namespace(preset="baseline", lat=34.0, lon=-118.0,
+                                   flood_zone="X", **{f: None for f in fields}))
+    loc = Location(lat=34.0, lon=-118.0)          # resolved but state_fips is None
+    assert loc.state_fips is None
+
+    label = simulate_all_dimensions(cfg, 50.0, location=loc, allow_network=False)
+    got = label["metrics"]["est_monthly_energy_cost"]
+
+    row = build_parcel_row(cfg)
+    us_avg = _adjusted_energy(cfg, row, None, elec_rate=US_AVG_ELEC_PER_KWH,
+                              gas_rate=US_AVG_GAS_PER_THERM)["est_monthly_energy_cost"]
+    memphis = _adjusted_energy(cfg, row, None)["est_monthly_energy_cost"]
+    assert got == us_avg              # used the US-average rates
+    assert got != memphis             # not the pilot constants
+
+
 if __name__ == "__main__":
     test_state_lookup_returns_local_rates()
     test_unknown_state_falls_back_to_us_average()
     test_energy_cost_scales_with_rate()
     test_resilience_local_grade_gated_to_shelby()
+    test_resolved_location_without_state_uses_us_average()
     print("utility-rate tests passed")
