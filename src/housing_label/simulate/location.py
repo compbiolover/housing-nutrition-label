@@ -59,7 +59,7 @@ class Location:
     structure_type: str | None = None     # single_family | multifamily | manufactured | ...
     num_units: int | None = None          # residential unit count
     stories: int | None = None
-    bldg_material: str | None = None      # wood | masonry | concrete | steel
+    bldg_material: str | None = None      # wood | masonry | concrete | steel | manufactured | other
     structure_source: str | None = None   # "NSI" when detected
     notes: dict = field(default_factory=dict)
 
@@ -225,7 +225,7 @@ def resolve_location(
             loc.bldg_material = s.get("bldg_material")
             loc.structure_source = s.get("source")
         else:
-            notes["structure"] = "no NSI structure match; building type unknown"
+            notes["structure"] = "building type unknown (no NSI match, or NSI unavailable)"
     else:
         notes["structure"] = "skipped (no network)"
 

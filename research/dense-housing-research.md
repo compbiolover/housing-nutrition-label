@@ -178,7 +178,7 @@ Per-dimension methodology:
 - **Phase 0 — Correctness floor + honesty (this PR).** Remove the false shared-wall
   energy claim from the docs; add a caveat that fires for multi-unit input warning that
   several dimensions use single-family assumptions; commit this research doc.
-- **Phase 1 — Detect structure type + unit count from an address. *(Implemented.)***
+- **Phase 1 — Detect structure type + unit count from an address (implemented).**
   `enrich/structure.py` queries the **USACE NSI** live API (keyless) for the nearest
   structure, mapping Hazus `occtype` → `structure_type` plus `resunits`/`num_story`/
   `bldgtype`. `resolve_location` populates `structure_type`/`num_units`/`stories`/
