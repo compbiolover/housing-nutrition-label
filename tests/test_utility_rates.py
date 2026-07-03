@@ -72,6 +72,17 @@ def test_resilience_local_grade_gated_to_shelby():
         house.SCORED_CSV = orig
         os.unlink(tmp)
 
+    # An empty dataset (header only, no scores) must not divide-by-zero → N/A.
+    with tempfile.NamedTemporaryFile("w", suffix=".csv", delete=False) as fh:
+        fh.write("resilience_score\n")
+        empty = fh.name
+    try:
+        house.SCORED_CSV = pathlib.Path(empty)
+        assert simulate(cfg, local_compare=True)["local_grade"] == "N/A"
+    finally:
+        house.SCORED_CSV = orig
+        os.unlink(empty)
+
 
 if __name__ == "__main__":
     test_state_lookup_returns_local_rates()

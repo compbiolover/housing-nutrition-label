@@ -865,9 +865,10 @@ def simulate(cfg: dict, local_compare: bool = True) -> dict:
     r["total_loss"]   = total_eal   * v
 
     # ── Local comparison against scored dataset (Shelby pilot only) ───────────
-    if local_compare and SCORED_CSV.exists():
-        scored = pd.read_csv(SCORED_CSV, usecols=["resilience_score"], low_memory=False)
-        scores = scored["resilience_score"].dropna()
+    scored = pd.read_csv(SCORED_CSV, usecols=["resilience_score"], low_memory=False) \
+        if (local_compare and SCORED_CSV.exists()) else None
+    scores = scored["resilience_score"].dropna() if scored is not None else None
+    if scores is not None and len(scores):
         local_pct = compute_local_percentile(r["total_score"], scored)
         r["local_pct"]   = local_pct
         r["local_grade"] = percentile_to_local_grade(local_pct)

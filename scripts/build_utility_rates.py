@@ -59,7 +59,9 @@ def electricity_by_state() -> tuple[dict[str, float], float]:
     for x in rows[2:]:
         if x[0] == year and x[2] == "Total Electric Industry" and isinstance(x[3], (int, float)):
             out[x[1]] = round(x[3] / 100, 4)
-    return out, out.pop("US", 0.0) or out.get("US", 0.0)
+    if "US" not in out:
+        raise ValueError("EIA electricity workbook has no US total row — cannot set US-average fallback")
+    return out, out.pop("US")
 
 
 def gas_by_state() -> tuple[dict[str, float], float]:
@@ -79,7 +81,9 @@ def gas_by_state() -> tuple[dict[str, float], float]:
             if isinstance(v, (int, float)) and v:
                 out[postal] = round(v / THERMS_PER_MCF, 3)
                 break
-    return out, out.pop("US", 0.0)
+    if "US" not in out:
+        raise ValueError("EIA gas workbook has no US column — cannot set US-average fallback")
+    return out, out.pop("US")
 
 
 def main() -> None:

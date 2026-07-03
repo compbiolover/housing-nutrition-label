@@ -266,7 +266,7 @@ ENERGY_COLS = [
 
 def model_parcel_energy(
     row: pd.Series,
-    climate_zone: str = DEFAULT_CLIMATE_ZONE,
+    climate_zone: str | None = DEFAULT_CLIMATE_ZONE,
     elec_rate: float = ELEC_RATE_PER_KWH,
     gas_rate: float = GAS_RATE_PER_THERM,
 ) -> dict:
