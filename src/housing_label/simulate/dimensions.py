@@ -99,7 +99,7 @@ _MULTIFAMILY_EUI_FLOOR = 0.73   # 20+ units
 
 
 def attachment_eui_factor(units) -> float:
-    """Shared-wall EUI multiplier (<=1) for a unit in an ``units``-unit building."""
+    """Shared-wall EUI multiplier (<=1) for a unit in a building of ``units`` units."""
     try:
         n = int(units or 1)
     except (TypeError, ValueError):
