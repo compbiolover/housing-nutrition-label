@@ -29,6 +29,9 @@ concurrency:
 
 jobs:
   deploy:
+    # workflow_dispatch can target any branch; only ever deploy main's docs/ to
+    # the production github-pages environment (and the housinglabel.dev domain).
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
