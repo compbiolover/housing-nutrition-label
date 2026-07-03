@@ -29,8 +29,9 @@ concurrency:
 
 jobs:
   deploy:
-    # workflow_dispatch can target any branch; only ever deploy main's docs/ to
-    # the production github-pages environment (and the housinglabel.dev domain).
+    # workflow_dispatch can target any branch. Publish only from main: a dispatch
+    # started on any other branch skips this job entirely (deploys nothing), so a
+    # non-main tree can never reach the github-pages environment / custom domain.
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
