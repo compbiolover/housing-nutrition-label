@@ -93,7 +93,7 @@
     <h4>EUI Lookup by Building Archetype</h4>
     <p>Each home maps to an archetype via year built (vintage bin), square footage (size bin), construction type, and heating/cooling system from the property record.</p>
     <p>Published EUI benchmarks by vintage (for a mixed-humid baseline, then scaled by the local climate zone): Pre-1950 = 75 kBTU/sqft/yr, 1950&ndash;1979 = 55, 1980&ndash;1999 = 40, 2000&ndash;2009 = 30, 2010+ = 25, Passive House = 12.</p>
-    <p>Construction modifiers: ICF = 0.65&times; (superior thermal mass), SIP = 0.70&times;. Multi-unit shared-wall bonus: 2 units = 0.85&times;, 3&ndash;4 = 0.80&times;, 5+ = 0.75&times;. Passive house certification = 0.40&times;. Solar = 60% electricity cost offset.</p>
+    <p>Construction modifiers applied to the energy-use estimate: ICF = 0.92&times; and SIP = 0.95&times; (tighter, higher-mass envelopes), and Passive House = 0.55&times;. Rooftop solar is credited to the Environmental footprint's operational-carbon leg, not to the energy-use score. <em>(A shared-wall efficiency credit for attached and stacked multi-unit homes is planned but not yet modeled &mdash; see the dense-housing roadmap.)</em></p>
 
     <h4>Cost Estimation</h4>
     <p>Monthly cost uses the property's <strong>state residential utility rates</strong> (EIA averages for electricity and natural gas), so the estimate reflects local prices &mdash; roughly $0.10/kWh in the lowest-cost states to $0.20&ndash;$0.30/kWh in the highest. The electricity/gas split follows the home's heating-system type.</p>

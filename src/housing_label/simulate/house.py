@@ -1097,7 +1097,7 @@ def print_scorecard(cfg: dict, r: dict) -> None:
 CALIBRATED_COUNTY_FIPS = "47157"
 
 
-def _approx_caveats(location) -> list[str]:
+def _approx_caveats(location, units: int = 1) -> list[str]:
     """Caveats for dimensions that aren't locally calibrated.
 
     Seismic (USGS) and tornado (SPC) are nationwide. Infrastructure is calibrated
@@ -1106,16 +1106,30 @@ def _approx_caveats(location) -> list[str]:
     in it, and the Memphis pilot baseline if the crosswalk isn't bundled at all. The
     Environmental grid factor is the county's eGRID2022 subregion rate when the
     county maps, and the US-average factor otherwise — flagged off the actually
-    resolved subregion so the fallback is never reported incorrectly."""
+    resolved subregion so the fallback is never reported incorrectly.
+
+    ``units`` > 1 adds a dense-housing caveat: the models assume a single detached
+    home, so Resilience, Durability, and Energy are only approximate for multi-unit
+    buildings (apartments, townhomes, condos) until the dense-housing support lands."""
     from housing_label.data.egrid import US_AVG_LABEL
 
-    if location is None:
-        return [
-            "Location could not be resolved: Infrastructure Burden and the "
-            "Environmental grid factor fall back to the pilot default calibration.",
-        ]
-
     caveats: list[str] = []
+
+    if int(units or 1) > 1:
+        caveats.append(
+            "Modeled as a single detached home: for a multi-unit building "
+            "(apartment, townhome, or condo) the Resilience, Durability, and Energy "
+            "dimensions use single-family assumptions and are approximate — dense "
+            "housing isn't fully supported yet."
+        )
+
+    if location is None:
+        caveats.append(
+            "Location could not be resolved: Infrastructure Burden and the "
+            "Environmental grid factor fall back to the pilot default calibration."
+        )
+        return caveats
+
     fips = getattr(location, "county_fips", None)
     if fips is None:
         caveats.append(
@@ -1237,7 +1251,7 @@ def print_label(cfg: dict, label: dict) -> None:
                 print(row(f"    • {d['label']:<22}: {note}"))
 
     # Honest caveat: some dimensions are not yet location-generalized.
-    caveats = _approx_caveats(label.get("location"))
+    caveats = _approx_caveats(label.get("location"), cfg.get("units", 1))
     if caveats:
         print(row(f"    {'─'*54}"))
         print(row("  ⚠ Approximate outside Shelby County:"))
@@ -1317,7 +1331,7 @@ def label_payload(cfg: dict, r: dict, label: dict) -> dict:
                 "eal_rate": wf.get("eal_rate"),
                 "geo_level": wf.get("geo_level"),
             }
-    payload["caveats"] = _approx_caveats(loc)
+    payload["caveats"] = _approx_caveats(loc, cfg.get("units", 1))
     return payload
 
 
