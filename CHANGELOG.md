@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.16](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.15...v0.1.16) (2026-07-03)
+
+
+### Features
+
+* generalize scoring beyond the Memphis pilot + plain-language pages ([#69](https://github.com/compbiolover/housing-nutrition-label/issues/69)) ([445b875](https://github.com/compbiolover/housing-nutrition-label/commit/445b87529aef24b6a82a343977fe0520b6d40db4))
+
 ## [0.1.15](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.14...v0.1.15) (2026-07-03)
 
 
