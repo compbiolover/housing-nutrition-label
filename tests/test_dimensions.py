@@ -115,6 +115,21 @@ def test_dollar_eal_uses_the_same_per_unit_value_as_infrastructure():
     assert per_unit_home_value(sf) == 250_000
     assert abs(simulate(sf)["total_loss"] - simulate(sf)["total_eal"] * 250_000) < 1e-6
 
+    # An already-per-unit auto-fill (county median / value-per-door) with units > 1 is
+    # used as-is — NOT divided again — so the EAL stays consistent with infrastructure.
+    from housing_label.simulate.dimensions import (
+        AUTOFILL_VALUE_SOURCE, VALUE_PER_DOOR_SOURCE,
+    )
+    for src in (AUTOFILL_VALUE_SOURCE, VALUE_PER_DOOR_SOURCE):
+        af = _cfg("baseline")
+        af["units"] = 12
+        af["value"] = 200_000
+        af["value_source"] = src
+        assert per_unit_home_value(af) == 200_000            # not 200k / 12
+        assert abs(build_parcel_row(af)["RTOTAPR"] - 200_000) < 1e-6
+        af_r = simulate(af)
+        assert abs(af_r["total_loss"] - af_r["total_eal"] * 200_000) < 1e-6
+
 
 def test_parcel_row_mapping():
     """Config vocabulary maps to the expected CAMA codes (incl. per-unit split)."""
