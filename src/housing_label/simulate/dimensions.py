@@ -49,6 +49,14 @@ from housing_label.enrich.environmental import model_parcel_environment
 from housing_label.enrich.infrastructure import enrich_row as infra_enrich_row
 
 
+# Marker set on cfg["value_source"] when the home value was auto-filled from the
+# county single-family median. That figure is already a *per-home* value, so it must
+# NOT be split again across the unit count (doing so collapses the per-unit value —
+# and the Infrastructure fiscal ratio — for a multi-unit building). An explicitly
+# supplied value (preset case studies / CLI) keeps the total-building convention.
+AUTOFILL_VALUE_SOURCE = "county median (ACS)"
+
+
 # ── Config vocabulary → CAMA codes ─────────────────────────────────────────────
 # EXTWALL codes (energy / durability / environmental). ICF maps to block/concrete
 # (3) as the closest masonry-shell proxy; SIP to frame (7). The extra thermal
@@ -145,14 +153,20 @@ def _loglin(x: float, xs: list[float], ys: list[float]) -> float:
 def build_parcel_row(cfg: dict) -> pd.Series:
     """Translate a simulator config dict into a one-parcel CAMA-style Series.
 
-    Per-unit framing: value and lot area are divided by the unit count so the
-    infrastructure fiscal ratio and environmental water/footprint are reported
-    per dwelling unit (matching how the multi-unit case studies are presented).
+    Per-unit framing: lot area is divided by the unit count (land is shared), so the
+    infrastructure fiscal ratio and environmental water/footprint are reported per
+    dwelling unit. The value is divided too when it is a *total-building* figure (the
+    multi-unit case-study presets / an explicit value), but NOT when it was
+    auto-filled from the county single-family median — that is already a per-home
+    value, and dividing it again would collapse the per-unit value (and fiscal ratio)
+    for a multi-unit building.
     """
     units = max(int(cfg.get("units", 1) or 1), 1)
     construction = cfg["construction"]
     per_unit_acres = float(cfg.get("lot_acres", 0.25)) / units
-    per_unit_value = float(cfg.get("value", 160_000)) / units
+    value = float(cfg.get("value", 160_000))
+    value_is_per_home = cfg.get("value_source") == AUTOFILL_VALUE_SOURCE
+    per_unit_value = value if value_is_per_home else value / units
 
     return pd.Series({
         "YRBLT":     cfg["year_built"],
