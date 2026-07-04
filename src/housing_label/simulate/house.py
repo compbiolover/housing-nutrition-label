@@ -1389,8 +1389,10 @@ def label_payload(cfg: dict, r: dict, label: dict) -> dict:
             "notes": loc.notes,
         }
         # Detected building context (USACE NSI): what kind of building is here.
-        # Informational in Phase 1 — the scores are still modeled single-family
-        # (flagged by the multi-unit caveat); Phase 2+ will let it drive scoring.
+        # As of Phase 2, Energy consumes the detected unit count (shared-wall EUI
+        # credit) and Resilience consumes the material + stories (material-driven
+        # factors, floor-aware flood); Durability and the remaining dimensions still
+        # use single-family assumptions (flagged by the multi-unit caveat).
         if getattr(loc, "structure_source", None):
             payload["structure"] = {
                 "structure_type": loc.structure_type,

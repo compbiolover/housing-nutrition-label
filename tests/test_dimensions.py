@@ -232,7 +232,7 @@ def test_floor_aware_flood_only_for_multifamily():
     assert tall["flood_adj"] < sf["flood_adj"]
 
     # A detected single-family structure gets no floor reduction.
-    sf_struct = simulate(cfg, structure={"structure_type": "single-family",
+    sf_struct = simulate(cfg, structure={"structure_type": "single_family",
                                          "bldg_material": "wood", "stories": 2})
     assert sf_struct["flood_floor"] == 1.0
 
