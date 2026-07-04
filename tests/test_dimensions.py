@@ -28,9 +28,7 @@ def test_autofilled_value_not_divided_across_units():
     """An auto-filled county median is a per-home value, so it must not be split
     again across the unit count (which collapsed the fiscal ratio to ~0 for a
     multi-unit building). An explicit/total value keeps the per-unit division."""
-    from housing_label.simulate.dimensions import (
-        build_parcel_row, compute_construction_dimensions, AUTOFILL_VALUE_SOURCE,
-    )
+    from housing_label.simulate.dimensions import AUTOFILL_VALUE_SOURCE
     cfg = _cfg("baseline")
     cfg["units"] = 30
     cfg["value"] = 250_000

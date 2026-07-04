@@ -77,7 +77,7 @@ per-unit sqft, not from any shared-wall model.
   form has no units or building-type field; everything defaults to `units=1, sqft=2000`
   detached (`simulate/location.py:41-57`, `house.py:665`, `dimensions.py:126`).
 - **P0 — value auto-fill is the ACS single-family/owner-occupied median** (B25077,
-  `house.py:1392-1397` → `propertytax.py:84-93`). For an apartment building every dollar
+  `house.py:1502-1507` → `propertytax.py:84-93`). For an apartment building every dollar
   figure is off by ~N units; for a condo the per-unit split double-divides a value that
   is already one unit. **Partially fixed:** `build_parcel_row` no longer divides an
   auto-filled median (a per-home figure, flagged by `value_source == AUTOFILL_VALUE_SOURCE`)
