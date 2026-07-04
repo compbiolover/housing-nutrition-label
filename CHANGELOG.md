@@ -9,6 +9,14 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.18](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.17...v0.1.18) (2026-07-04)
+
+
+### Features
+
+* multifamily environmental water — dense-housing Phase 2 (complete) ([#79](https://github.com/compbiolover/housing-nutrition-label/issues/79)) ([edd9771](https://github.com/compbiolover/housing-nutrition-label/commit/edd9771d81ae97bffbb7229b7266f1a6ec7914d0))
+* multifamily infrastructure density — dense-housing Phase 2 ([#77](https://github.com/compbiolover/housing-nutrition-label/issues/77)) ([9e11177](https://github.com/compbiolover/housing-nutrition-label/commit/9e1117787226b661cb49b9338d6860d05e557779))
+
 ## [0.1.17](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.16...v0.1.17) (2026-07-04)
 
 
