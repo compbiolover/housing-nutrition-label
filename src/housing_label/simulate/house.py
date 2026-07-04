@@ -1719,7 +1719,7 @@ def print_density(comp: dict) -> None:
     print(row(f"  {place[:60]}"))
     print(row(f"  Fixed {comp['lot_acres']:.2f}-ac lot · per-unit value "
               f"${comp['per_unit_value']:,.0f}"
-              + ("  (county median, ACS)" if comp.get("value_source") else "")))
+              + (f"  ({comp['value_source']})" if comp.get("value_source") else "")))
     print(SEP)
     print(row(f"  {'Scenario':<14}{'Value':>11}{'Infra':>9}{'Fiscal':>8}"
               f"{'Energy':>7}{'Comp':>7}"))
