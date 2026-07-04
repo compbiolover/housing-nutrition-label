@@ -32,7 +32,9 @@ import sys
 import numpy as np
 import pandas as pd
 
-from housing_label.simulate.dimensions import simulate_all_dimensions, AUTOFILL_VALUE_SOURCE
+from housing_label.simulate.dimensions import (
+    simulate_all_dimensions, AUTOFILL_VALUE_SOURCE, VALUE_PER_DOOR_SOURCE,
+)
 from housing_label.confidence import (
     confidence_for_label, bands_for_label, CONFIDENCE_NOTES, CONFIDENCE_LEGEND,
 )
@@ -1162,13 +1164,15 @@ def _approx_caveats(location, units: int = 1) -> list[str]:
     much we know about the building. When the structure is *detected* (NSI multi-
     family), Energy credits shared walls, Resilience reflects the detected material
     and building height, Durability lengthens the shared structural shell,
-    Infrastructure reflects the building's unit density, and Environmental drops the
-    private-yard water use — the remaining approximation is the per-unit property
-    value, still estimated from a single-family median (Phase 3). When the caller
-    only passes ``units`` > 1 on an *undetected* building, the per-unit Energy,
-    Infrastructure, and Environmental framing follows the entered count, but the
-    material- and height-driven Resilience/Durability enhancements can't run (we
-    have no structure), so those stay single-family."""
+    Infrastructure reflects the building's unit density, Environmental drops the
+    private-yard water use, and the per-unit value is an income-based value-per-door
+    estimate (local rent capitalized by the income / cap-rate method) rather than
+    the single-family median — a neighborhood-average approximation, not an appraisal. When the caller only passes
+    ``units`` > 1 on an *undetected* building, the per-unit Energy, Infrastructure,
+    and Environmental framing follows the entered count, but the material- and
+    height-driven Resilience/Durability enhancements can't run (we have no
+    structure), so those stay single-family, and the value stays the single-family
+    median."""
     from housing_label.data.egrid import US_AVG_LABEL
 
     caveats: list[str] = []
@@ -1176,9 +1180,9 @@ def _approx_caveats(location, units: int = 1) -> list[str]:
     # Dense-housing caveat: fires when the caller asked for multiple units OR the
     # building was detected as multi-family (NSI). Energy (shared walls),
     # Infrastructure (per-unit density), and Environmental (no private yard) follow
-    # any unit count; the Resilience/Durability enhancements are driven by the
-    # *detected* structure (material, stories), so they only apply on the detected
-    # path. The per-unit value basis is still a single-family median (Phase 3).
+    # any unit count; the Resilience/Durability enhancements and the value-per-door
+    # value are driven by the *detected* structure, so they only apply on the
+    # detected path. A manual unit count keeps the single-family median value.
     detected_units = getattr(location, "num_units", None)
     detected_mf = getattr(location, "structure_type", None) == "multifamily"
     if int(units or 1) > 1 or detected_mf or (detected_units and detected_units > 1):
@@ -1187,13 +1191,14 @@ def _approx_caveats(location, units: int = 1) -> list[str]:
                       + (f" (~{detected_units} units)" if detected_units and detected_units > 1 else "")
                       + ", detected from the National Structure Inventory.")
             caveats.append(
-                "Partial multi-unit support: this multi-unit building is scored in its "
-                "building context — Energy credits its shared walls, Resilience its "
-                "detected material and height, Durability its shared structural shell, "
-                "Infrastructure its unit density, and Environmental drops the private-"
-                "yard water use — but the per-unit value is still estimated from a "
-                "single-family median, so the fiscal and dollar figures are approximate "
-                "for an apartment, townhome, or condo." + detail
+                "Multi-unit building: scored in its building context — Energy credits "
+                "its shared walls, Resilience its detected material and height, "
+                "Durability its shared structural shell, Infrastructure its unit "
+                "density, and Environmental drops the private-yard water use. The "
+                "per-unit value is an income-based value-per-door estimate (local rent "
+                "capitalized by the income / cap-rate method), a neighborhood-average "
+                "approximation rather than an appraisal, so its dollar figures are "
+                "approximate for an apartment or condo." + detail
             )
         else:
             caveats.append(
@@ -1495,16 +1500,25 @@ def build_label_parts(*, address: str | None = None,
     if location is not None and getattr(location, "wildfire", None):
         cfg["wildfire_eal_base"] = location.wildfire.get("eal_rate") or 0.0
 
-    # Auto-fill the home value from the county median when the caller didn't
-    # specify one, so the Infrastructure fiscal ratio (and dollar EALs) reflect
-    # the local market instead of the construction profile's flat default. An
-    # explicit value (CLI --value / API value=) always wins.
+    # Auto-fill the home value when the caller didn't specify one, so the
+    # Infrastructure fiscal ratio (and dollar EALs) reflect the local market instead
+    # of the construction profile's flat default. An explicit value (CLI --value /
+    # API value=) always wins. For a building detected as multi-family, the
+    # single-family owner-occupied median is wrong (a rental building carries no such
+    # value), so use the income-based value-per-door estimate (rent-derived NOI ÷ cap
+    # rate) instead; other addresses keep the single-family county median.
     if location is not None and fields.get("value") is None:
-        from housing_label.data.propertytax import median_home_value_for_county
-        median_value = median_home_value_for_county(getattr(location, "county_fips", None))
-        if median_value:
-            cfg["value"] = median_value
-            cfg["value_source"] = AUTOFILL_VALUE_SOURCE
+        county_fips = getattr(location, "county_fips", None)
+        if getattr(location, "structure_type", None) == "multifamily":
+            from housing_label.data.multifamily_value import value_per_door_for_county
+            cfg["value"] = value_per_door_for_county(county_fips)["value_per_door"]
+            cfg["value_source"] = VALUE_PER_DOOR_SOURCE
+        else:
+            from housing_label.data.propertytax import median_home_value_for_county
+            median_value = median_home_value_for_county(county_fips)
+            if median_value:
+                cfg["value"] = median_value
+                cfg["value_source"] = AUTOFILL_VALUE_SOURCE
 
     # The resilience local grade ranks against the bundled Shelby dataset, so it's
     # only meaningful for a Shelby address; compute it only then (N/A elsewhere).
@@ -1705,7 +1719,7 @@ def print_density(comp: dict) -> None:
     print(row(f"  {place[:60]}"))
     print(row(f"  Fixed {comp['lot_acres']:.2f}-ac lot · per-unit value "
               f"${comp['per_unit_value']:,.0f}"
-              + ("  (county median, ACS)" if comp.get("value_source") else "")))
+              + (f"  ({comp['value_source']})" if comp.get("value_source") else "")))
     print(SEP)
     print(row(f"  {'Scenario':<14}{'Value':>11}{'Infra':>9}{'Fiscal':>8}"
               f"{'Energy':>7}{'Comp':>7}"))

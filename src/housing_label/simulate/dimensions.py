@@ -49,12 +49,15 @@ from housing_label.enrich.environmental import model_parcel_environment
 from housing_label.enrich.infrastructure import enrich_row as infra_enrich_row
 
 
-# Marker set on cfg["value_source"] when the home value was auto-filled from the
-# county single-family median. That figure is already a *per-home* value, so it must
-# NOT be split again across the unit count (doing so collapses the per-unit value —
-# and the Infrastructure fiscal ratio — for a multi-unit building). An explicitly
-# supplied value (preset case studies / CLI) keeps the total-building convention.
+# Markers set on cfg["value_source"] when the home value is an auto-filled *per-unit*
+# figure — the county single-family median (per home) or the dense-housing
+# value-per-door income estimate (per door). Neither may be split again across the
+# unit count (doing so collapses the per-unit value — and the Infrastructure fiscal
+# ratio — for a multi-unit building). An explicitly supplied value (preset case
+# studies / CLI) keeps the total-building convention and is divided by units.
 AUTOFILL_VALUE_SOURCE = "county median (ACS)"
+VALUE_PER_DOOR_SOURCE = "value-per-door (ACS rent)"
+_PER_UNIT_VALUE_SOURCES = frozenset({AUTOFILL_VALUE_SOURCE, VALUE_PER_DOOR_SOURCE})
 
 
 # ── Config vocabulary → CAMA codes ─────────────────────────────────────────────
@@ -157,16 +160,17 @@ def build_parcel_row(cfg: dict) -> pd.Series:
     infrastructure fiscal ratio and environmental water/footprint are reported per
     dwelling unit. The value is divided too when it is a *total-building* figure (the
     multi-unit case-study presets / an explicit value), but NOT when it was
-    auto-filled from the county single-family median — that is already a per-home
-    value, and dividing it again would collapse the per-unit value (and fiscal ratio)
-    for a multi-unit building.
+    auto-filled as a per-unit figure — the county single-family median or the
+    dense-housing value-per-door estimate — because those are already per-unit, and
+    dividing again would collapse the per-unit value (and fiscal ratio) for a
+    multi-unit building.
     """
     units = max(int(cfg.get("units", 1) or 1), 1)
     construction = cfg["construction"]
     per_unit_acres = float(cfg.get("lot_acres", 0.25)) / units
     value = float(cfg.get("value", 160_000))
-    value_is_per_home = cfg.get("value_source") == AUTOFILL_VALUE_SOURCE
-    per_unit_value = value if value_is_per_home else value / units
+    value_is_per_unit = cfg.get("value_source") in _PER_UNIT_VALUE_SOURCES
+    per_unit_value = value if value_is_per_unit else value / units
 
     return pd.Series({
         "YRBLT":     cfg["year_built"],
