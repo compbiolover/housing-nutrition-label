@@ -249,13 +249,20 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
     dur = model_parcel_durability(row, mf_material=mf_material)
     durability_score = dur.get("durability_score")
 
+    # A multi-unit building (explicit count > 1 or a detected multi-family) — its
+    # representative unit is stacked/attached, which the water and density models
+    # below use to drop the single-family private yard.
+    is_mf_building = bool(mf_units and mf_units > 1)
+
     # Environmental: feed the solar/envelope-adjusted electricity in so the
-    # operational-carbon leg reflects the high-performance features.
+    # operational-carbon leg reflects the high-performance features. A multi-unit
+    # building's representative unit carries no private-yard irrigation load.
     env_row = row.copy()
     env_row["est_annual_kwh"] = energy.get("env_kwh")
     env_row["est_annual_therms"] = energy.get("est_annual_therms")
-    env = (model_parcel_environment(env_row, grid_factor) if grid_factor is not None
-           else model_parcel_environment(env_row))
+    env = (model_parcel_environment(env_row, grid_factor, is_multifamily=is_mf_building)
+           if grid_factor is not None
+           else model_parcel_environment(env_row, is_multifamily=is_mf_building))
     environmental_score = env.get("environmental_score")
 
     # Infrastructure: fiscal ratio → score (higher ratio → higher score).

@@ -243,9 +243,15 @@ def service_life_years(extwall) -> float:
     return SERVICE_LIFE_BY_WALL.get(int(code), DEFAULT_SERVICE_LIFE_YR)
 
 
-def water_use_gal_yr(rmbed, fixbath, sfla, stories, calc_acre, acre_outlier) -> tuple[float, float]:
+def water_use_gal_yr(rmbed, fixbath, sfla, stories, calc_acre, acre_outlier,
+                     is_multifamily: bool = False) -> tuple[float, float]:
     """Return (annual water gallons, occupancy). Indoor by occupancy+fixtures,
-    outdoor by irrigable lot area."""
+    outdoor by irrigable lot area.
+
+    ``is_multifamily`` drops the private-yard outdoor irrigation: a unit in a
+    stacked or attached multi-unit building doesn't have the single-family private
+    yard this model otherwise imputes from the (per-unit) lot area — any shared
+    landscaping is common area, not the unit's own irrigation load."""
     rb = _num(rmbed)
     occupancy = (rb + 1.0) if rb is not None else DEFAULT_OCCUPANCY
 
@@ -257,10 +263,12 @@ def water_use_gal_yr(rmbed, fixbath, sfla, stories, calc_acre, acre_outlier) -> 
     indoor = occupancy * INDOOR_GPCD * fixture_factor * 365.0
 
     # Outdoor: irrigable area = lot − building footprint, capped at 1 acre and
-    # guarded against the institutional acre outliers.
+    # guarded against the institutional acre outliers. A multi-unit building's
+    # representative unit carries no private yard, so its outdoor load is dropped.
     outdoor = 0.0
     acre = _num(calc_acre)
-    if acre is not None and not (acre_outlier is True or str(acre_outlier).lower() == "true"):
+    if not is_multifamily and acre is not None and not (
+            acre_outlier is True or str(acre_outlier).lower() == "true"):
         lot_sqft = acre * 43560.0
         area = _num(sfla) or 0.0
         st = _num(stories) or 1.0
@@ -274,7 +282,8 @@ def water_use_gal_yr(rmbed, fixbath, sfla, stories, calc_acre, acre_outlier) -> 
 # ── Per-parcel model ──────────────────────────────────────────────────────────
 def model_parcel_environment(row: pd.Series,
                              grid_factor: float = EF_GRID_KG_PER_KWH,
-                             water_embedded_kwh_per_kgal: float = WATER_EMBEDDED_KWH_PER_KGAL) -> dict:
+                             water_embedded_kwh_per_kgal: float = WATER_EMBEDDED_KWH_PER_KGAL,
+                             is_multifamily: bool = False) -> dict:
     """Compute environmental-footprint metrics. Returns all-None when the parcel
     has no living area (vacant / non-residential).
 
@@ -282,6 +291,8 @@ def model_parcel_environment(row: pd.Series,
     defaults to the Shelby/TVA eGRID value used by the pilot pipeline.
     `water_embedded_kwh_per_kgal` is the embedded energy of water/wastewater;
     defaults to a national average (a regional table can override it later).
+    `is_multifamily` drops the private-yard outdoor irrigation for a unit in a
+    stacked/attached multi-unit building (no private yard).
     """
     sfla = _num(row.get("SFLA"))
     if sfla is None or sfla <= 0:
@@ -305,7 +316,8 @@ def model_parcel_environment(row: pd.Series,
     # --- Water ---
     water_gal, occupancy = water_use_gal_yr(
         row.get("RMBED"), row.get("FIXBATH"), sfla,
-        row.get("STORIES"), row.get("CALC_ACRE"), row.get("acre_outlier"))
+        row.get("STORIES"), row.get("CALC_ACRE"), row.get("acre_outlier"),
+        is_multifamily=is_multifamily)
     water_co2e = (water_gal / 1000.0) * water_embedded_kwh_per_kgal * grid_factor
     gpcd = water_gal / occupancy / 365.0
 
