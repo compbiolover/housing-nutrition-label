@@ -237,6 +237,45 @@ def test_floor_aware_flood_only_for_multifamily():
     assert sf_struct["flood_floor"] == 1.0
 
 
+def test_age_basket_shell_life_override():
+    """Lengthening the structural-shell service life raises the weighted
+    remaining-life for an aged building and can pull a past-life shell back within
+    life."""
+    from housing_label.enrich.durability import age_basket
+    base_score, base_past = age_basket(105.0)               # shell past its 100 yr life
+    mf_score, mf_past = age_basket(105.0, shell_life=120.0)  # concrete/steel shell
+    assert mf_score > base_score
+    assert mf_past < base_past                               # shell no longer past-life
+    # A shorter age below every life leaves the shell not-yet-past either way.
+    assert age_basket(10.0, shell_life=120.0)[0] > age_basket(10.0)[0]
+
+
+def test_multifamily_durable_shell_improves_durability():
+    """A detected multi-family building with a concrete/steel/masonry shell scores
+    higher on Durability than the same unit with the wood-frame baseline; a
+    wood-framed (or unknown) multi-family is unchanged."""
+    from housing_label.enrich.durability import model_parcel_durability
+    row = build_parcel_row(_cfg("baseline"))                 # has a build year
+
+    base = model_parcel_durability(row)["durability_score"]
+    concrete = model_parcel_durability(row, mf_material="concrete")["durability_score"]
+    masonry = model_parcel_durability(row, mf_material="masonry")["durability_score"]
+    wood = model_parcel_durability(row, mf_material="wood")["durability_score"]
+
+    assert concrete > base
+    assert masonry > base
+    assert concrete >= masonry                               # concrete/steel life ≥ masonry
+    assert wood == base                                      # no profile → baseline
+
+
+def test_durability_shell_flows_through_dimensions():
+    """The material-driven shell threads through compute_construction_dimensions."""
+    cfg = _cfg("baseline")
+    base = compute_construction_dimensions(cfg)["durability"]
+    mf = compute_construction_dimensions(cfg, mf_material="steel")["durability"]
+    assert mf > base
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

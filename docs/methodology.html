@@ -122,6 +122,9 @@
     <div class="formula">base = 0.55 &times; condition_score + 0.45 &times; age_score</div>
     <p>Condition comes from the assessor's condition rating (Excellent = 100, Average = 60, Unsound = 0) and is weighted slightly above pure age because an inspector's observation captures real-world maintenance. The base is then scaled by exterior-wall material and by construction grade (clamped to 0.90&ndash;1.12&times;).</p>
     <p>Homes with neither a build year nor a condition rating &mdash; vacant / non-residential land &mdash; are left <em>unscored</em> and excluded from the composite rather than guessed.</p>
+
+    <h4>Multi-Unit Buildings</h4>
+    <p>When the address is detected as a <strong>multi-unit building</strong> (National Structure Inventory), the structural shell is a <strong>shared, building-level</strong> element rather than one house's wood frame. A reinforced-concrete or steel mid-rise frame &mdash; or a load-bearing masonry shell &mdash; is a fundamentally longer-lived building element, so the representative unit's shell decays more slowly: its service life is lengthened to 110&ndash;120&nbsp;yr (concrete/steel 120, masonry 110) from the 100&nbsp;yr wood-frame baseline. Only the shared shell changes; the shorter-cycle unit-level systems (roof covering, interior finishes, in-unit HVAC and water heater) keep their per-unit schedules, and a wood-framed multi-family keeps the baseline. <span class="source-tag">ISO 15686 / CIRIA design service lives</span> <span class="source-tag">InterNACHI / Fannie Mae structural schedules</span></p>
     </details>
   </div>
 

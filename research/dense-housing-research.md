@@ -207,7 +207,17 @@ Per-dimension methodology:
     P-259), floored at 0.15. A wood-framed multi-family keeps the single-family factors.
     The `structure` dict (type, material, stories) threads from `build_label_parts` into
     `simulate`. The caveat now drops Resilience from the single-family-assumption list.
-  - Durability / Environmental / Infrastructure — still to do.
+  - **Durability — implemented.** For a detected multi-family building, the shared
+    structural shell (foundation, frame, load-bearing walls) is a building-level element,
+    not one house's wood frame, so its service life is driven by the detected material
+    (`_MF_SHELL_SERVICE_LIFE` in `enrich/durability.py`): concrete/steel 120 yr, masonry
+    110 yr, vs the 100 yr wood-frame baseline (ISO 15686 / CIRIA design service lives). Only
+    the 0.30-weighted `structural_shell` component is lengthened (via `age_basket`'s
+    `shell_life` override); the shorter-cycle unit-level systems (roof, interior finishes,
+    in-unit HVAC/water heater) keep their per-unit schedules, and wood/unknown multi-family
+    keeps the baseline. `mf_material` threads through `compute_construction_dimensions` →
+    `model_parcel_durability`. The caveat now drops Durability from the single-family list.
+  - Environmental / Infrastructure — still to do.
 - **Phase 3 — Value / tax basis** for condos and apartments (Part 3).
 - **Phase 4 — UX & presentation** — building-type-aware presets, building context on the
   label, per-unit framing, confidence flags.
