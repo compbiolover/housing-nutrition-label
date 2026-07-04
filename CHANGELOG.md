@@ -9,6 +9,19 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.20](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.19...v0.1.20) (2026-07-04)
+
+
+### Features
+
+* value dense housing by value-per-door income estimate — Phase 3b ([#84](https://github.com/compbiolover/housing-nutrition-label/issues/84)) ([ba19ff5](https://github.com/compbiolover/housing-nutrition-label/commit/ba19ff59ccdba2cb2e338d98b46c106c586bbabe))
+* value-per-door data + lookup for dense housing — Phase 3a ([#82](https://github.com/compbiolover/housing-nutrition-label/issues/82)) ([6252dc0](https://github.com/compbiolover/housing-nutrition-label/commit/6252dc0b33393e34d998b056050f20fbf894de78))
+
+
+### Bug Fixes
+
+* put the dollar EAL on the per-unit value — dense-housing Phase 3c ([#85](https://github.com/compbiolover/housing-nutrition-label/issues/85)) ([590a037](https://github.com/compbiolover/housing-nutrition-label/commit/590a037719ba342d5ebfc95b2410045766b2d8c6))
+
 ## [0.1.19](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.18...v0.1.19) (2026-07-04)
 
 
