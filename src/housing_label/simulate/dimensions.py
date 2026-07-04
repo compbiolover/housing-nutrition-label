@@ -222,7 +222,8 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
                                     infra_params: dict | None = None,
                                     elec_rate: float | None = None,
                                     gas_rate: float | None = None,
-                                    mf_units: int | None = None) -> dict:
+                                    mf_units: int | None = None,
+                                    mf_material: str | None = None) -> dict:
     """Compute energy / durability / environmental / infrastructure scores
     (0–100, or None when the model cannot score the parcel).
 
@@ -230,6 +231,8 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
     drives the environmental operational-carbon leg; ``elec_rate``/``gas_rate`` are
     the property's local utility rates for the energy-cost estimate; ``mf_units`` is
     the building's residential unit count (drives the shared-wall energy credit);
+    ``mf_material`` is the detected building material for a multi-family building
+    (lengthens the durability model's shared structural-shell service life);
     ``infra_params`` overrides the Memphis infrastructure calibration with a
     national-average one. All fall back to the single-family / Shelby / 4A / Memphis
     pilot defaults when None."""
@@ -241,8 +244,9 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
     eui = energy.get("eui_kbtu_sqft_yr")
     energy_score = round(_loglin(eui, ENERGY_XS, ENERGY_YS), 1) if eui is not None else None
 
-    # Durability: passthrough 0–100 from the component-lifespan model.
-    dur = model_parcel_durability(row)
+    # Durability: passthrough 0–100 from the component-lifespan model. A detected
+    # multi-family building's durable material lengthens its shared structural shell.
+    dur = model_parcel_durability(row, mf_material=mf_material)
     durability_score = dur.get("durability_score")
 
     # Environmental: feed the solar/envelope-adjusted electricity in so the
@@ -478,15 +482,21 @@ def simulate_all_dimensions(
     # multi-family unit count from the resolved location.
     cfg_units = max(int(cfg.get("units", 1) or 1), 1)   # clamp like build_parcel_row
     mf_units = cfg_units if cfg_units > 1 else None
-    if mf_units is None and location and getattr(location, "structure_type", None) == "multifamily":
+    is_detected_mf = bool(location and getattr(location, "structure_type", None) == "multifamily")
+    if mf_units is None and is_detected_mf:
         det = getattr(location, "num_units", None)
         if det and det > 1:
             mf_units = det
 
+    # Durability's shared structural shell: use the detected building material only
+    # when the address is actually a multi-family building (a manual unit count
+    # alone doesn't tell us the shell material).
+    mf_material = getattr(location, "bldg_material", None) if is_detected_mf else None
+
     construction = compute_construction_dimensions(
         cfg, climate_zone=climate_zone, grid_factor=grid_factor,
         infra_params=infra_params, elec_rate=elec_rate, gas_rate=gas_rate,
-        mf_units=mf_units)
+        mf_units=mf_units, mf_material=mf_material)
     location_dims = fetch_location_dimensions(
         cfg["lat"], cfg["lon"], tract,
         allow_network=allow_network, overrides=overrides,

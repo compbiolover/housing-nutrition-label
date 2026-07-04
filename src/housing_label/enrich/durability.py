@@ -124,6 +124,21 @@ COMPONENTS: list[tuple[str, float, float]] = [
     ("water_heater",      12.0, 0.05),   # tank water heater
 ]
 
+# ── Multi-family shared structural shell ──────────────────────────────────────
+# For a building detected as multi-family (NSI), the structural shell — foundation,
+# frame, and load-bearing walls — is a *shared, building-level* element, not a
+# single wood-framed house's. A reinforced-concrete or steel mid-rise frame (and a
+# load-bearing masonry shell) is a fundamentally longer-lived building element, so
+# a representative unit's shell decays more slowly than the wood-frame baseline.
+# Only the 0.30-weighted structural_shell life is lengthened; the shorter-cycle
+# unit-level systems (roof covering, interior finishes, in-unit HVAC/water heater)
+# keep their per-unit schedules. Wood/unknown multi-family keeps the 100 yr
+# baseline (a wood multi-family shell is no longer-lived per unit than a house).
+# Service lives: reinforced-concrete & structural-steel frames ~100–120 yr and
+# load-bearing masonry ~100+ yr (ISO 15686 / CIRIA design service lives; InterNACHI
+# & Fannie Mae structural schedules).
+_MF_SHELL_SERVICE_LIFE = {"concrete": 120.0, "steel": 120.0, "masonry": 110.0}
+
 # ── Blend weights (condition weighted slightly over the pure-age basket) ──────
 COND_WEIGHT = 0.55
 AGE_WEIGHT  = 0.45
@@ -201,11 +216,17 @@ def effective_year(yrblt, effyr) -> float | None:
     return None
 
 
-def age_basket(effective_age: float) -> tuple[float, int]:
-    """Return (weighted remaining-life % 0-100, count of components past life)."""
+def age_basket(effective_age: float, shell_life: float | None = None) -> tuple[float, int]:
+    """Return (weighted remaining-life % 0-100, count of components past life).
+
+    ``shell_life`` overrides the structural_shell component's service life (used
+    for a detected multi-family building's longer-lived shared shell); the other
+    components keep their per-unit schedules."""
     weighted = 0.0
     past = 0
-    for _label, life, weight in COMPONENTS:
+    for label, life, weight in COMPONENTS:
+        if label == "structural_shell" and shell_life is not None:
+            life = shell_life
         remaining = (life - effective_age) / life
         if remaining <= 0.0:
             past += 1
@@ -243,8 +264,14 @@ def grade_factor(grade) -> float:
 
 
 # ── Per-parcel durability model ───────────────────────────────────────────────
-def model_parcel_durability(row: pd.Series) -> dict:
+def model_parcel_durability(row: pd.Series, mf_material: str | None = None) -> dict:
     """Compute durability metrics for a single parcel.
+
+    ``mf_material`` is the detected building material (NSI ``bldg_material``) when
+    the address is a multi-family building; a durable material (concrete/steel/
+    masonry) lengthens the shared structural shell's service life for the
+    representative unit. None (single-family, or wood/unknown multi-family) keeps
+    the wood-frame baseline.
 
     Returns all-None (unscored) when the parcel has neither a build year nor a
     condition rating — i.e. it carries no CAMA building data (vacant land / non-
@@ -256,10 +283,14 @@ def model_parcel_durability(row: pd.Series) -> dict:
     if eff_yr is None and cond_s is None:
         return {c: None for c in DURABILITY_COLS}
 
+    # A detected multi-family building's shared shell (concrete/steel/masonry) is
+    # longer-lived than a single wood-framed house; other components stay per-unit.
+    shell_life = _MF_SHELL_SERVICE_LIFE.get(mf_material) if mf_material else None
+
     # --- Age-based component basket (only if we have a build year) ---
     if eff_yr is not None:
         eff_age = max(0.0, REFERENCE_YEAR - eff_yr)
-        age_s, past = age_basket(eff_age)
+        age_s, past = age_basket(eff_age, shell_life=shell_life)
     else:
         eff_age, age_s, past = None, None, None
 

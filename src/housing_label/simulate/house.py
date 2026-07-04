@@ -1160,19 +1160,20 @@ def _approx_caveats(location, units: int = 1) -> list[str]:
 
     A multi-unit building — the caller passing ``units`` > 1, or the resolved
     location being detected as multi-family or carrying a unit count > 1 — adds a
-    dense-housing caveat: Energy credits shared walls and Resilience now reflects
-    the detected material and building height, but Durability still assumes a
-    detached home, so it is only approximate for apartments, townhomes, and condos
-    until further dense-housing support lands."""
+    dense-housing caveat: Energy credits shared walls, Resilience reflects the
+    detected material and building height, and Durability lengthens the shared
+    structural shell, but Infrastructure still assumes a detached home, so it is
+    only approximate for apartments, townhomes, and condos until further dense-
+    housing support lands."""
     from housing_label.data.egrid import US_AVG_LABEL
 
     caveats: list[str] = []
 
     # Dense-housing caveat: fires when the caller asked for multiple units OR the
-    # building was detected as multi-family (NSI). Energy credits shared walls and
-    # Resilience now reflects the detected material and building height; Durability
-    # still assumes a detached home, so flag it as approximate for
-    # apartments/townhomes/condos.
+    # building was detected as multi-family (NSI). Energy credits shared walls,
+    # Resilience reflects the detected material/height, and Durability lengthens the
+    # shared shell; Infrastructure still assumes a detached home, so flag it as
+    # approximate for apartments/townhomes/condos.
     detected_units = getattr(location, "num_units", None)
     detected_mf = getattr(location, "structure_type", None) == "multifamily"
     if int(units or 1) > 1 or detected_mf or (detected_units and detected_units > 1):
@@ -1183,9 +1184,10 @@ def _approx_caveats(location, units: int = 1) -> list[str]:
                       + ", detected from the National Structure Inventory.")
         caveats.append(
             "Partial multi-unit support: Energy accounts for the shared walls of a "
-            "multi-unit building and Resilience now reflects its detected material and "
-            "height, but Durability still uses single-family assumptions and is "
-            "approximate for an apartment, townhome, or condo." + detail
+            "multi-unit building, Resilience reflects its detected material and height, "
+            "and Durability credits its longer-lived shared structural shell, but "
+            "Infrastructure still uses single-family assumptions and is approximate "
+            "for an apartment, townhome, or condo." + detail
         )
 
     if location is None:
