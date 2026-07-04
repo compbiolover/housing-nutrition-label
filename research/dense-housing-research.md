@@ -247,6 +247,21 @@ Per-dimension methodology:
     housing dollar error is the per-unit value basis (Phase 3).
 - **Phase 3 — Value / tax basis** — the single-family median value applied to dense
   buildings is the last major dollar error; folds the Infrastructure revenue side in too.
+  - **Data layer implemented (3a).** A per-unit "value-per-door" is derived by the
+    standard apartment income / cap-rate method: `value = annual_rent × occupancy ×
+    (1 − opex) / cap_rate`. `data/multifamily_value.py` (mirroring `propertytax.py`)
+    reads a bundled `rent_county.csv` — ACS B25064 median gross rent, built by
+    `scripts/build_rent.py` — and applies bundled constants (occupancy 0.93, opex 0.40,
+    cap rate 0.055; CBRE/Statista/Census-sourced). A `monthly_rent` override is the
+    **HUD-FMR seam**: a future `fmr_county.csv` (HUD Fair Market Rents, 40th-percentile
+    market rent, the preferred input — HUD's bulk files are keyless but were blocked by
+    egress policy at build time) drops in with no formula change. Not yet wired into
+    scoring — that is 3b.
+  - **3b (next):** use `value_per_door_for_county` for a *detected* multi-family building
+    in the `build_label_parts` auto-fill instead of the single-family median.
+  - **3c:** make the dollar-EAL path per-unit consistent — `simulate()` (`house.py:910`)
+    uses raw `cfg["value"]` with no per-unit gating, so expected-loss dollars don't scale
+    per unit like the infrastructure basis does.
 - **Phase 3 — Value / tax basis** for condos and apartments (Part 3).
 - **Phase 4 — UX & presentation** — building-type-aware presets, building context on the
   label, per-unit framing, confidence flags.
