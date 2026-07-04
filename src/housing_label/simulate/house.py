@@ -1158,37 +1158,45 @@ def _approx_caveats(location, units: int = 1) -> list[str]:
     county maps, and the US-average factor otherwise — flagged off the actually
     resolved subregion so the fallback is never reported incorrectly.
 
-    A multi-unit building — the caller passing ``units`` > 1, or the resolved
-    location being detected as multi-family or carrying a unit count > 1 — adds a
-    dense-housing caveat: Energy credits shared walls, Resilience reflects the
-    detected material and building height, and Durability lengthens the shared
-    structural shell, but Infrastructure still assumes a detached home, so it is
-    only approximate for apartments, townhomes, and condos until further dense-
-    housing support lands."""
+    A multi-unit building adds a dense-housing caveat, whose text depends on how
+    much we know about the building. When the structure is *detected* (NSI multi-
+    family), Energy credits shared walls, Resilience reflects the detected material
+    and building height, and Durability lengthens the shared structural shell —
+    only Infrastructure still assumes a detached home. When the caller only passes
+    ``units`` > 1 on an *undetected* building, the material- and height-driven
+    Resilience/Durability enhancements can't run (we have no structure), so only
+    Energy's shared-wall credit applies and the rest stay single-family."""
     from housing_label.data.egrid import US_AVG_LABEL
 
     caveats: list[str] = []
 
     # Dense-housing caveat: fires when the caller asked for multiple units OR the
-    # building was detected as multi-family (NSI). Energy credits shared walls,
-    # Resilience reflects the detected material/height, and Durability lengthens the
-    # shared shell; Infrastructure still assumes a detached home, so flag it as
-    # approximate for apartments/townhomes/condos.
+    # building was detected as multi-family (NSI). The Resilience/Durability
+    # enhancements are driven by the *detected* structure (material, stories), so
+    # they only apply on the detected path — a manual unit count alone gets Energy's
+    # shared-wall credit but leaves Resilience/Durability single-family.
     detected_units = getattr(location, "num_units", None)
     detected_mf = getattr(location, "structure_type", None) == "multifamily"
     if int(units or 1) > 1 or detected_mf or (detected_units and detected_units > 1):
-        detail = ""
-        if detected_mf or (detected_units and detected_units > 1):
+        if detected_mf:
             detail = (" This address looks like a multi-unit building"
                       + (f" (~{detected_units} units)" if detected_units and detected_units > 1 else "")
                       + ", detected from the National Structure Inventory.")
-        caveats.append(
-            "Partial multi-unit support: Energy accounts for the shared walls of a "
-            "multi-unit building, Resilience reflects its detected material and height, "
-            "and Durability credits its longer-lived shared structural shell, but "
-            "Infrastructure still uses single-family assumptions and is approximate "
-            "for an apartment, townhome, or condo." + detail
-        )
+            caveats.append(
+                "Partial multi-unit support: Energy accounts for the shared walls of a "
+                "multi-unit building, Resilience reflects its detected material and "
+                "height, and Durability credits its longer-lived shared structural "
+                "shell, but Infrastructure still uses single-family assumptions and is "
+                "approximate for an apartment, townhome, or condo." + detail
+            )
+        else:
+            caveats.append(
+                "Partial multi-unit support: Energy accounts for the shared walls of a "
+                "multi-unit building, but Resilience, Durability, and Infrastructure "
+                "still use single-family assumptions and are approximate for an "
+                "apartment, townhome, or condo — the building's structure (material, "
+                "height) wasn't detected from the address, which those dimensions need."
+            )
 
     if location is None:
         caveats.append(
