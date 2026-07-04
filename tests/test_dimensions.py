@@ -324,6 +324,9 @@ def test_multifamily_environmental_score_improves():
     assert mf > detached
     assert compute_construction_dimensions(cfg, mf_units=1)["environmental"] == detached
     assert compute_construction_dimensions(cfg, mf_units=None)["environmental"] == detached
+    # A detected multi-family with no reliable unit count (mf_material set, mf_units
+    # None) still drops the private yard, matching the caveat.
+    assert compute_construction_dimensions(cfg, mf_material="concrete")["environmental"] > detached
 
 
 def _run_all():

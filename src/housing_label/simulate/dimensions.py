@@ -249,10 +249,12 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
     dur = model_parcel_durability(row, mf_material=mf_material)
     durability_score = dur.get("durability_score")
 
-    # A multi-unit building (explicit count > 1 or a detected multi-family) — its
-    # representative unit is stacked/attached, which the water and density models
-    # below use to drop the single-family private yard.
-    is_mf_building = bool(mf_units and mf_units > 1)
+    # A multi-unit building — an explicit count > 1, or a detected multi-family.
+    # Detection always carries a material (mf_material), even when NSI gives no
+    # reliable unit count (mf_units stays None), so its presence marks the detected
+    # multi-family path. Its representative unit is stacked/attached, so the water
+    # model below drops the single-family private yard.
+    is_mf_building = bool(mf_units and mf_units > 1) or mf_material is not None
 
     # Environmental: feed the solar/envelope-adjusted electricity in so the
     # operational-carbon leg reflects the high-performance features. A multi-unit
