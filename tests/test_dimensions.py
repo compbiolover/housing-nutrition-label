@@ -238,9 +238,9 @@ def test_floor_aware_flood_only_for_multifamily():
 
 
 def test_age_basket_shell_life_override():
-    """Lengthening the structural-shell service life raises the weighted remaining-
-    life for an aged building and can pull a past-life shell back within life."""
-    from housing_label.simulate.dimensions import build_parcel_row  # noqa: F401
+    """Lengthening the structural-shell service life raises the weighted
+    remaining-life for an aged building and can pull a past-life shell back within
+    life."""
     from housing_label.enrich.durability import age_basket
     base_score, base_past = age_basket(105.0)               # shell past its 100 yr life
     mf_score, mf_past = age_basket(105.0, shell_life=120.0)  # concrete/steel shell
