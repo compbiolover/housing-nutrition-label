@@ -257,11 +257,18 @@ Per-dimension methodology:
     market rent, the preferred input — HUD's bulk files are keyless but were blocked by
     egress policy at build time) drops in with no formula change. Not yet wired into
     scoring — that is 3b.
-  - **3b (next):** use `value_per_door_for_county` for a *detected* multi-family building
-    in the `build_label_parts` auto-fill instead of the single-family median.
-  - **3c:** make the dollar-EAL path per-unit consistent — `simulate()` (`house.py:910`)
-    uses raw `cfg["value"]` with no per-unit gating, so expected-loss dollars don't scale
-    per unit like the infrastructure basis does.
+  - **Wiring implemented (3b).** `build_label_parts` auto-fill now branches on the
+    detected structure: a **multi-family** address uses `value_per_door_for_county`
+    (income-based value-per-door) instead of the single-family owner median, tagged
+    `value_source = VALUE_PER_DOOR_SOURCE`. `build_parcel_row` treats both auto-fill
+    sources (median and value-per-door) as already-per-unit via `_PER_UNIT_VALUE_SOURCES`,
+    so neither is re-divided across units. Effect: a detected LA apartment is valued at
+    ~$220k/door (income estimate) rather than the ~$732k county single-family median —
+    each unit is no longer priced as a whole house. Caveat/methodology updated; a
+    single-family or manual-unit address keeps the median.
+  - **3c (next):** make the dollar-EAL path per-unit consistent — `simulate()`
+    (`house.py:910`) uses raw `cfg["value"]` with no per-unit gating, so expected-loss
+    dollars don't scale per unit like the infrastructure basis does.
 - **Phase 3 — Value / tax basis** for condos and apartments (Part 3).
 - **Phase 4 — UX & presentation** — building-type-aware presets, building context on the
   label, per-unit framing, confidence flags.

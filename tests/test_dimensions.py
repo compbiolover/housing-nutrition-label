@@ -42,8 +42,50 @@ def test_autofilled_value_not_divided_across_units():
     autofill = build_parcel_row(cfg)
     assert abs(autofill["RTOTAPR"] - 250_000) < 1e-6
 
+    # The value-per-door estimate is likewise per-unit → not divided either.
+    from housing_label.simulate.dimensions import VALUE_PER_DOOR_SOURCE
+    cfg["value_source"] = VALUE_PER_DOOR_SOURCE
+    vpd = build_parcel_row(cfg)
+    assert abs(vpd["RTOTAPR"] - 250_000) < 1e-6
+
     # The fiscal ratio no longer collapses to a 0.0 / F Infrastructure score.
     assert compute_construction_dimensions(cfg)["infrastructure"] > 20
+
+
+def test_detected_multifamily_autofills_value_per_door():
+    """A building detected as multi-family auto-fills the income-based value-per-door
+    (not the single-family owner median), so a unit isn't valued as a whole house."""
+    import unittest.mock as mock
+    from housing_label.simulate import house
+    from housing_label.simulate.location import Location
+    from housing_label.data.multifamily_value import value_per_door_for_county
+    from housing_label.data.propertytax import median_home_value_for_county
+
+    def loc(structure_type):
+        return Location(
+            lat=34.05, lon=-118.24, state_fips="06", county_fips="06037",
+            county_name="LA", tract=None, place_label="LA", in_urban_area=True,
+            climate_zone=None, egrid_subregion="CAMX", egrid_factor=None,
+            climate_projection=None, wildfire=None, structure_type=structure_type,
+            num_units=20 if structure_type == "multifamily" else 1, stories=6,
+            bldg_material="concrete", structure_source="NSI", notes=None)
+
+    def cfg_for(structure_type):
+        with mock.patch("housing_label.simulate.location.resolve_location",
+                        return_value=loc(structure_type)):
+            cfg, _, _ = house.build_label_parts(
+                lat=34.05, lon=-118.24, preset="baseline", allow_network=False)
+        return cfg
+
+    mf = cfg_for("multifamily")
+    assert mf["value_source"] == "value-per-door (ACS rent)"
+    assert abs(mf["value"] - value_per_door_for_county("06037")["value_per_door"]) < 1.0
+    # A detected apartment unit is valued far below the county single-family median.
+    assert mf["value"] < median_home_value_for_county("06037")
+    # A single-family address at the same county keeps the owner-occupied median.
+    sf = cfg_for("single_family")
+    assert sf["value_source"] == "county median (ACS)"
+    assert abs(sf["value"] - median_home_value_for_county("06037")) < 1.0
 
 
 def test_parcel_row_mapping():
