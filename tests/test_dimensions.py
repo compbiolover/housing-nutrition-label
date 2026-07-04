@@ -91,6 +91,31 @@ def test_detected_multifamily_autofills_value_per_door():
     assert abs(sf["value"] - median_home_value_for_county("06037")) < 1.0
 
 
+def test_dollar_eal_uses_the_same_per_unit_value_as_infrastructure():
+    """The dollar-denominated EAL is on one representative unit's value — the same
+    per-unit basis the Infrastructure fiscal ratio uses — so a multi-unit label
+    doesn't mix per-unit and whole-building dollars."""
+    from housing_label.simulate.house import simulate
+    from housing_label.simulate.dimensions import per_unit_home_value, build_parcel_row
+
+    cfg = _cfg("baseline")
+    cfg["units"] = 4
+    cfg["value"] = 600_000                       # explicit total-building value
+
+    # per_unit_home_value splits a total value across units, matching the infra basis.
+    assert abs(per_unit_home_value(cfg) - 150_000) < 1e-6
+    assert abs(build_parcel_row(cfg)["RTOTAPR"] - 150_000) < 1e-6
+
+    r = simulate(cfg)
+    assert abs(r["total_loss"] - r["total_eal"] * 150_000) < 1e-6      # per-unit, not 600k
+
+    # Single-family (units 1) is unchanged — the full value is the per-unit value.
+    sf = _cfg("baseline")
+    sf["value"] = 250_000
+    assert per_unit_home_value(sf) == 250_000
+    assert abs(simulate(sf)["total_loss"] - simulate(sf)["total_eal"] * 250_000) < 1e-6
+
+
 def test_parcel_row_mapping():
     """Config vocabulary maps to the expected CAMA codes (incl. per-unit split)."""
     cfg = _cfg("icf-quadplex")          # 4 units, icf, excellent, 0.20 ac, $600k

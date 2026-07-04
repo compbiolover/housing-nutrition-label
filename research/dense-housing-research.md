@@ -266,9 +266,17 @@ Per-dimension methodology:
     ~$220k/door (income estimate) rather than the ~$732k county single-family median —
     each unit is no longer priced as a whole house. Caveat/methodology updated; a
     single-family or manual-unit address keeps the median.
-  - **3c (next):** make the dollar-EAL path per-unit consistent — `simulate()`
-    (`house.py:910`) uses raw `cfg["value"]` with no per-unit gating, so expected-loss
-    dollars don't scale per unit like the infrastructure basis does.
+  - **Dollar-EAL consistency implemented (3c).** `simulate()` used raw `cfg["value"]`
+    for the dollar EAL, so a multi-unit label mixed whole-building loss dollars with a
+    per-unit infrastructure basis. A shared `per_unit_home_value(cfg)` now backs both
+    `build_parcel_row` and the EAL: a total-building value is split across units, an
+    already-per-unit auto-fill (median / value-per-door) is used as-is. Every dollar
+    figure on the label is now on the same representative-unit basis (e.g. a $500k
+    quadplex: EAL on $125k/unit, matching the fiscal ratio, not the whole $500k).
+    Single-family is unchanged.
+  - **Phase 3 core complete** (3a data, 3b wiring, 3c dollar consistency). Remaining
+    optional Phase 3 work: a multifamily/commercial **assessment class** (5+ units
+    often assessed at a higher ratio) and swapping in **HUD FMR** rent via the seam.
 - **Phase 3 — Value / tax basis** for condos and apartments (Part 3).
 - **Phase 4 — UX & presentation** — building-type-aware presets, building context on the
   label, per-unit framing, confidence flags.

@@ -152,6 +152,23 @@ def _loglin(x: float, xs: list[float], ys: list[float]) -> float:
     return float(np.interp(np.log10(max(float(x), 1e-9)), np.log10(xs), ys))
 
 
+def per_unit_home_value(cfg: dict) -> float:
+    """The value of one representative dwelling unit.
+
+    A *total-building* value (the multi-unit case-study presets / an explicit value)
+    is split across the unit count; an already-per-unit auto-fill — the county
+    single-family median or the dense-housing value-per-door estimate — is used as-is.
+    Shared by the infrastructure parcel row (``build_parcel_row``) and the dollar-EAL
+    calc (``simulate``) so both report the same per-unit basis for a multi-unit
+    building instead of mixing per-unit and whole-building dollars on one label.
+    """
+    units = max(int(cfg.get("units", 1) or 1), 1)
+    value = float(cfg.get("value", 160_000))
+    if cfg.get("value_source") in _PER_UNIT_VALUE_SOURCES:
+        return value
+    return value / units
+
+
 # ── Build a synthetic CAMA parcel row from the simulator config ─────────────────
 def build_parcel_row(cfg: dict) -> pd.Series:
     """Translate a simulator config dict into a one-parcel CAMA-style Series.
@@ -168,9 +185,7 @@ def build_parcel_row(cfg: dict) -> pd.Series:
     units = max(int(cfg.get("units", 1) or 1), 1)
     construction = cfg["construction"]
     per_unit_acres = float(cfg.get("lot_acres", 0.25)) / units
-    value = float(cfg.get("value", 160_000))
-    value_is_per_unit = cfg.get("value_source") in _PER_UNIT_VALUE_SOURCES
-    per_unit_value = value if value_is_per_unit else value / units
+    per_unit_value = per_unit_home_value(cfg)
 
     return pd.Series({
         "YRBLT":     cfg["year_built"],
