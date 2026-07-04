@@ -58,6 +58,9 @@ def test_detected_multifamily_autofills_value_per_door():
     import unittest.mock as mock
     from housing_label.simulate import house
     from housing_label.simulate.location import Location
+    from housing_label.simulate.dimensions import (
+        AUTOFILL_VALUE_SOURCE, VALUE_PER_DOOR_SOURCE,
+    )
     from housing_label.data.multifamily_value import value_per_door_for_county
     from housing_label.data.propertytax import median_home_value_for_county
 
@@ -78,13 +81,13 @@ def test_detected_multifamily_autofills_value_per_door():
         return cfg
 
     mf = cfg_for("multifamily")
-    assert mf["value_source"] == "value-per-door (ACS rent)"
+    assert mf["value_source"] == VALUE_PER_DOOR_SOURCE
     assert abs(mf["value"] - value_per_door_for_county("06037")["value_per_door"]) < 1.0
     # A detected apartment unit is valued far below the county single-family median.
     assert mf["value"] < median_home_value_for_county("06037")
     # A single-family address at the same county keeps the owner-occupied median.
     sf = cfg_for("single_family")
-    assert sf["value_source"] == "county median (ACS)"
+    assert sf["value_source"] == AUTOFILL_VALUE_SOURCE
     assert abs(sf["value"] - median_home_value_for_county("06037")) < 1.0
 
 

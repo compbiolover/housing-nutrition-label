@@ -1166,8 +1166,8 @@ def _approx_caveats(location, units: int = 1) -> list[str]:
     and building height, Durability lengthens the shared structural shell,
     Infrastructure reflects the building's unit density, Environmental drops the
     private-yard water use, and the per-unit value is an income-based value-per-door
-    estimate (local rent × cap rate) rather than the single-family median — a
-    neighborhood-average approximation, not an appraisal. When the caller only passes
+    estimate (local rent capitalized by the income / cap-rate method) rather than
+    the single-family median — a neighborhood-average approximation, not an appraisal. When the caller only passes
     ``units`` > 1 on an *undetected* building, the per-unit Energy, Infrastructure,
     and Environmental framing follows the entered count, but the material- and
     height-driven Resilience/Durability enhancements can't run (we have no
@@ -1196,9 +1196,9 @@ def _approx_caveats(location, units: int = 1) -> list[str]:
                 "Durability its shared structural shell, Infrastructure its unit "
                 "density, and Environmental drops the private-yard water use. The "
                 "per-unit value is an income-based value-per-door estimate (local rent "
-                "× cap rate), a neighborhood-average approximation rather than an "
-                "appraisal, so its dollar figures are approximate for an apartment or "
-                "condo." + detail
+                "capitalized by the income / cap-rate method), a neighborhood-average "
+                "approximation rather than an appraisal, so its dollar figures are "
+                "approximate for an apartment or condo." + detail
             )
         else:
             caveats.append(
@@ -1505,8 +1505,8 @@ def build_label_parts(*, address: str | None = None,
     # of the construction profile's flat default. An explicit value (CLI --value /
     # API value=) always wins. For a building detected as multi-family, the
     # single-family owner-occupied median is wrong (a rental building carries no such
-    # value), so use the income-based value-per-door estimate (local rent × cap rate)
-    # instead; other addresses keep the single-family county median.
+    # value), so use the income-based value-per-door estimate (rent-derived NOI ÷ cap
+    # rate) instead; other addresses keep the single-family county median.
     if location is not None and fields.get("value") is None:
         county_fips = getattr(location, "county_fips", None)
         if getattr(location, "structure_type", None) == "multifamily":
