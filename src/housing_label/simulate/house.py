@@ -196,6 +196,37 @@ CONDITION_FACTOR = {
     "excellent": 0.8,  # Superior maintenance/upgrades; maximum loss reduction
 }
 
+# ── Detected multi-family building material → resilience factors ───────────────
+# For a building the NSI detects as multi-family, its actual construction material
+# is ground truth and drives resilience better than the (often defaulted) single-
+# family construction profile. Grounded in HAZUS building classes: reinforced
+# concrete (C) and steel (S) mid-rises are far less wind/seismic-vulnerable than
+# wood frame; reinforced masonry (M) is intermediate. Keys: ``ctf`` (tornado /
+# seismic), ``flood`` (structure survives inundation; finishes still damaged),
+# ``fire`` (combustibility), ``floor`` (BRM floor). Wood/manufactured/other are
+# absent → keep the construction-profile factors (a wood multi-family is no more
+# wind-robust per unit than a wood house).
+_MATERIAL_RESILIENCE = {
+    "concrete": {"ctf": 0.30, "flood": 0.45, "fire": 0.65, "floor": 0.15},
+    "steel":    {"ctf": 0.35, "flood": 0.55, "fire": 0.60, "floor": 0.20},
+    "masonry":  {"ctf": 0.90, "flood": 0.90, "fire": 0.80, "floor": 0.40},
+}
+
+
+def flood_floor_factor(stories) -> float:
+    """Flood-exposure multiplier for a representative unit in a stacked multi-family
+    building. Flood damage is concentrated on the lowest floor (FEMA P-259 depth-
+    damage), so a unit averaged over ``stories`` floors has ~1/stories the exposure
+    — floored at 0.15 because ground-floor lobbies, parking, and mechanicals never
+    reach zero. 1 story (or unknown) = no reduction."""
+    try:
+        s = int(stories or 1)
+    except (TypeError, ValueError):
+        return 1.0
+    if s <= 1:
+        return 1.0
+    return max(round(1.0 / s, 3), 0.15)
+
 # ── Bonus feature modifiers ───────────────────────────────────────────────────
 # All values are v1 estimates, pending literature review.
 # Applied multiplicatively on top of BRM-adjusted EAL rates.
@@ -710,8 +741,13 @@ def resolve_config(args: argparse.Namespace) -> dict:
 
 # ── Core simulation ────────────────────────────────────────────────────────────
 
-def simulate(cfg: dict, local_compare: bool = True) -> dict:
+def simulate(cfg: dict, local_compare: bool = True, structure: dict | None = None) -> dict:
     """Run the full EAL + BRM + bonus calculation. Returns a results dict.
+
+    ``structure`` (from the resolved Location) carries the detected building type,
+    material, and stories. For a detected multi-family building its material drives
+    the construction resilience factors, and flood exposure is reduced for the
+    representative unit by the building's height (only the lowest floors flood).
 
     ``local_compare`` controls the resilience *local grade* — a percentile rank
     against the bundled Shelby County dataset, which is only meaningful for a
@@ -744,19 +780,33 @@ def simulate(cfg: dict, local_compare: bool = True) -> dict:
 
     # ── BRM components ────────────────────────────────────────────────────────
     cef      = code_era_factor(cfg["year_built"])
-    ctf      = CONSTRUCTION_FACTOR[cfg["construction"]]       # tornado/seismic
-    ctf_flood = FLOOD_CONSTRUCTION_FACTOR[cfg["construction"]] # flood (ICF differs)
+    # Construction resilience factors. For a building detected as multi-family, its
+    # actual material (NSI) drives resilience better than the (often defaulted)
+    # single-family construction profile; wood/unknown multi-family keeps the
+    # profile factors (a wood multi-family is no more wind-robust per unit).
+    is_mf = bool(structure and structure.get("structure_type") == "multifamily")
+    mat_res = _MATERIAL_RESILIENCE.get(structure.get("bldg_material")) if is_mf else None
+    if mat_res:
+        ctf, ctf_flood, fire_ctf = mat_res["ctf"], mat_res["flood"], mat_res["fire"]
+        brm_floor = mat_res["floor"]
+    else:
+        ctf       = CONSTRUCTION_FACTOR[cfg["construction"]]        # tornado/seismic
+        ctf_flood = FLOOD_CONSTRUCTION_FACTOR[cfg["construction"]]  # flood (ICF differs)
+        fire_ctf  = FIRE_CONSTRUCTION_FACTOR[cfg["construction"]]
+        brm_floor = BRM_FLOOR.get(cfg["construction"], 0.50)
     ff       = FOUNDATION_FACTOR[cfg["foundation"]]
     cf       = CONDITION_FACTOR[cfg["condition"]]
-    brm_floor = BRM_FLOOR.get(cfg["construction"], 0.50)
 
     flood_brm        = max(cef * ctf_flood * ff * cf, brm_floor)   # floor only, no ceiling
     wind_seismic_brm = max(cef * ctf * cf,            brm_floor)
-    fire_brm         = max(fire_age_factor(cfg["year_built"])
-                           * FIRE_CONSTRUCTION_FACTOR[cfg["construction"]] * cf, FIRE_BRM_FLOOR)
+    fire_brm         = max(fire_age_factor(cfg["year_built"]) * fire_ctf * cf, FIRE_BRM_FLOOR)
+
+    # Floor-aware flood exposure: a stacked multi-family unit isn't all on the
+    # ground floor, so only a fraction of the building's units actually flood.
+    flood_floor = flood_floor_factor(structure.get("stories")) if is_mf else 1.0
 
     r.update(cef=cef, ctf=ctf, ctf_flood=ctf_flood, ff=ff, cf=cf,
-             brm_floor=brm_floor,
+             brm_floor=brm_floor, flood_floor=flood_floor,
              flood_brm=flood_brm, wind_seismic_brm=wind_seismic_brm, fire_brm=fire_brm)
 
     # ── Raw EAL rates (before BRM) ────────────────────────────────────────────
@@ -779,7 +829,7 @@ def simulate(cfg: dict, local_compare: bool = True) -> dict:
     r["wildfire_eal_base"] = wildfire_base
 
     # ── BRM-adjusted EAL rates ────────────────────────────────────────────────
-    flood_adj   = flood_raw   * flood_brm
+    flood_adj   = flood_raw   * flood_brm * flood_floor
     tornado_adj = tornado_raw * wind_seismic_brm
     seismic_adj = seismic_raw * wind_seismic_brm
     fire_adj    = fire_raw    * fire_brm
@@ -1110,17 +1160,19 @@ def _approx_caveats(location, units: int = 1) -> list[str]:
 
     A multi-unit building — the caller passing ``units`` > 1, or the resolved
     location being detected as multi-family or carrying a unit count > 1 — adds a
-    dense-housing caveat: Energy now credits shared walls, but Resilience and
-    Durability still assume a detached home, so they are only approximate for
-    apartments, townhomes, and condos until further dense-housing support lands."""
+    dense-housing caveat: Energy credits shared walls and Resilience now reflects
+    the detected material and building height, but Durability still assumes a
+    detached home, so it is only approximate for apartments, townhomes, and condos
+    until further dense-housing support lands."""
     from housing_label.data.egrid import US_AVG_LABEL
 
     caveats: list[str] = []
 
     # Dense-housing caveat: fires when the caller asked for multiple units OR the
-    # building was detected as multi-family (NSI). Energy now credits shared walls
-    # for multi-unit buildings; Resilience and Durability still assume a detached
-    # home, so flag those as approximate for apartments/townhomes/condos.
+    # building was detected as multi-family (NSI). Energy credits shared walls and
+    # Resilience now reflects the detected material and building height; Durability
+    # still assumes a detached home, so flag it as approximate for
+    # apartments/townhomes/condos.
     detected_units = getattr(location, "num_units", None)
     detected_mf = getattr(location, "structure_type", None) == "multifamily"
     if int(units or 1) > 1 or detected_mf or (detected_units and detected_units > 1):
@@ -1130,10 +1182,10 @@ def _approx_caveats(location, units: int = 1) -> list[str]:
                       + (f" (~{detected_units} units)" if detected_units and detected_units > 1 else "")
                       + ", detected from the National Structure Inventory.")
         caveats.append(
-            "Partial multi-unit support: Energy now accounts for the shared walls of "
-            "a multi-unit building, but Resilience and Durability still use "
-            "single-family assumptions and are approximate for an apartment, townhome, "
-            "or condo." + detail
+            "Partial multi-unit support: Energy accounts for the shared walls of a "
+            "multi-unit building and Resilience now reflects its detected material and "
+            "height, but Durability still uses single-family assumptions and is "
+            "approximate for an apartment, townhome, or condo." + detail
         )
 
     if location is None:
@@ -1437,7 +1489,15 @@ def build_label_parts(*, address: str | None = None,
     # The resilience local grade ranks against the bundled Shelby dataset, so it's
     # only meaningful for a Shelby address; compute it only then (N/A elsewhere).
     is_shelby = getattr(location, "county_fips", None) == CALIBRATED_COUNTY_FIPS
-    r = simulate(cfg, local_compare=is_shelby)
+    structure = None
+    if location is not None:
+        structure = {
+            "structure_type": getattr(location, "structure_type", None),
+            "num_units": getattr(location, "num_units", None),
+            "stories": getattr(location, "stories", None),
+            "bldg_material": getattr(location, "bldg_material", None),
+        }
+    r = simulate(cfg, local_compare=is_shelby, structure=structure)
     label = simulate_all_dimensions(
         cfg, r["total_score"], location=location,
         allow_network=allow_network, overrides=overrides,

@@ -69,6 +69,9 @@
 
     <p>There is <strong>no upper cap</strong> on the BRM, so old, poorly-built, and poor-condition stock can compound well above the code-current baseline (a pre-1940 unsound frame house can exceed 2.5&times;). Construction-type-specific <em>floors</em> still prevent over-crediting: wood frame floor = 0.50, ICF floor = 0.15 (85% max EAL reduction).</p>
 
+    <h4>Multi-Unit Buildings</h4>
+    <p>When the address is detected as a <strong>multi-unit building</strong> (National Structure Inventory), two things change. First, the building's actual <strong>structural material</strong> &mdash; reinforced concrete or steel for a mid-rise, load-bearing masonry otherwise &mdash; drives the construction factor instead of the (often defaulted) single-family type, because a concrete or steel frame is far more wind-, seismic-, and fire-resistant than wood. Second, flood exposure becomes <strong>floor-aware</strong>: flood damage concentrates on the lowest floors (FEMA P-259 depth-damage), so a representative unit averaged over the building's height carries roughly 1/stories of the ground-floor exposure, floored at 0.15 (lobbies, parking, and mechanicals never reach zero). A wood-framed multi-family keeps the single-family factors. <span class="source-tag">FEMA Hazus building types</span> <span class="source-tag">FEMA P-259</span></p>
+
     <h4>Above-Code Feature Modifiers</h4>
     <p>20+ toggleable features with literature-backed multipliers:</p>
     <p><strong>Wind:</strong> Hurricane straps (0.70), hip roof (0.55), impact garage door (0.75), sealed roof deck (0.80), metal roof (0.75) <span class="source-tag">IBHS research</span><br>
