@@ -33,7 +33,8 @@ import numpy as np
 import pandas as pd
 
 from housing_label.simulate.dimensions import (
-    simulate_all_dimensions, AUTOFILL_VALUE_SOURCE, VALUE_PER_DOOR_SOURCE,
+    simulate_all_dimensions, per_unit_home_value,
+    AUTOFILL_VALUE_SOURCE, VALUE_PER_DOOR_SOURCE,
 )
 from housing_label.confidence import (
     confidence_for_label, bands_for_label, CONFIDENCE_NOTES, CONFIDENCE_LEGEND,
@@ -909,7 +910,12 @@ def simulate(cfg: dict, local_compare: bool = True, structure: dict | None = Non
     r["national_grade"] = score_to_national_grade(r["total_score"])
 
     # ── Dollar-denominated EAL ────────────────────────────────────────────────
-    v = cfg["value"]
+    # Per the representative-unit framing, the dollar loss is on ONE unit's value:
+    # a total-building value is split across the units, an already-per-unit value
+    # (county median / value-per-door) is used as-is — the same basis the
+    # Infrastructure fiscal ratio uses, so a multi-unit label doesn't mix per-unit
+    # and whole-building dollars.
+    v = per_unit_home_value(cfg)
     r["flood_loss"]   = flood_adj   * v
     r["tornado_loss"] = tornado_adj * v
     r["seismic_loss"] = seismic_adj * v
