@@ -22,6 +22,7 @@ dist/
 .loca2_cache/
 .proptax_cache/
 .fwi_cache/
+.rent_cache/
 
 # macOS
 .DS_Store
