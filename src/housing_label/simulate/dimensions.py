@@ -259,7 +259,17 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
     environmental_score = env.get("environmental_score")
 
     # Infrastructure: fiscal ratio → score (higher ratio → higher score).
-    infra = infra_enrich_row(row, **infra_params) if infra_params else infra_enrich_row(row)
+    # build_parcel_row already splits lot area per unit for an explicit unit count.
+    # For a building only *detected* as multi-family (no explicit units), fold the
+    # detected unit count into the DU/acre density here so it isn't scored as
+    # single-family sprawl. Only the density (lot area per unit) changes; the
+    # per-unit value/tax basis is left for Phase 3.
+    infra_row = row
+    cfg_units = max(int(cfg.get("units", 1) or 1), 1)
+    if mf_units and mf_units > cfg_units:
+        infra_row = row.copy()
+        infra_row["CALC_ACRE"] = row["CALC_ACRE"] * (cfg_units / mf_units)
+    infra = infra_enrich_row(infra_row, **infra_params) if infra_params else infra_enrich_row(infra_row)
     fr = infra.get("fiscal_ratio")
     infrastructure_score = (
         round(_loglin(fr, INFRA_XS, INFRA_YS), 1)

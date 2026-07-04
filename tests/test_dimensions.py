@@ -276,6 +276,31 @@ def test_durability_shell_flows_through_dimensions():
     assert mf > base
 
 
+def test_detected_multifamily_density_improves_infrastructure():
+    """A building only *detected* as multi-family folds its unit count into the
+    DU/acre density, so its shared land/services amortize and Infrastructure scores
+    higher than the same lot read as a single detached home."""
+    cfg = _cfg("baseline")                                   # no explicit units → 1
+    base = compute_construction_dimensions(cfg)["infrastructure"]
+    small = compute_construction_dimensions(cfg, mf_units=4)["infrastructure"]
+    large = compute_construction_dimensions(cfg, mf_units=24)["infrastructure"]
+    assert small > base
+    assert large > small
+    # A detected count of 1 (or None) is a no-op — single-family is unchanged.
+    assert compute_construction_dimensions(cfg, mf_units=1)["infrastructure"] == base
+    assert compute_construction_dimensions(cfg, mf_units=None)["infrastructure"] == base
+
+
+def test_explicit_units_not_double_counted_by_detection():
+    """When the unit count is already entered (build_parcel_row splits the lot),
+    a detected count that isn't larger doesn't scale the density a second time."""
+    cfg = _cfg("icf-quadplex")                               # 4 units entered
+    base = compute_construction_dimensions(cfg)["infrastructure"]
+    # mf_units equal to (or below) the entered count → no extra scaling.
+    assert compute_construction_dimensions(cfg, mf_units=4)["infrastructure"] == base
+    assert compute_construction_dimensions(cfg, mf_units=2)["infrastructure"] == base
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:
