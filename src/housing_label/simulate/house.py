@@ -1161,20 +1161,23 @@ def _approx_caveats(location, units: int = 1) -> list[str]:
     A multi-unit building adds a dense-housing caveat, whose text depends on how
     much we know about the building. When the structure is *detected* (NSI multi-
     family), Energy credits shared walls, Resilience reflects the detected material
-    and building height, and Durability lengthens the shared structural shell —
-    only Infrastructure still assumes a detached home. When the caller only passes
-    ``units`` > 1 on an *undetected* building, the material- and height-driven
-    Resilience/Durability enhancements can't run (we have no structure), so only
-    Energy's shared-wall credit applies and the rest stay single-family."""
+    and building height, Durability lengthens the shared structural shell, and
+    Infrastructure reflects the building's unit density — the remaining
+    approximation is the per-unit property value, still estimated from a single-
+    family median (Phase 3). When the caller only passes ``units`` > 1 on an
+    *undetected* building, the per-unit Energy and Infrastructure framing follows
+    the entered count, but the material- and height-driven Resilience/Durability
+    enhancements can't run (we have no structure), so those stay single-family."""
     from housing_label.data.egrid import US_AVG_LABEL
 
     caveats: list[str] = []
 
     # Dense-housing caveat: fires when the caller asked for multiple units OR the
-    # building was detected as multi-family (NSI). The Resilience/Durability
-    # enhancements are driven by the *detected* structure (material, stories), so
-    # they only apply on the detected path — a manual unit count alone gets Energy's
-    # shared-wall credit but leaves Resilience/Durability single-family.
+    # building was detected as multi-family (NSI). Energy (shared walls) and
+    # Infrastructure (per-unit density) follow any unit count; the Resilience/
+    # Durability enhancements are driven by the *detected* structure (material,
+    # stories), so they only apply on the detected path. The per-unit value basis
+    # is still a single-family median (Phase 3) either way.
     detected_units = getattr(location, "num_units", None)
     detected_mf = getattr(location, "structure_type", None) == "multifamily"
     if int(units or 1) > 1 or detected_mf or (detected_units and detected_units > 1):
@@ -1185,17 +1188,20 @@ def _approx_caveats(location, units: int = 1) -> list[str]:
             caveats.append(
                 "Partial multi-unit support: Energy accounts for the shared walls of a "
                 "multi-unit building, Resilience reflects its detected material and "
-                "height, and Durability credits its longer-lived shared structural "
-                "shell, but Infrastructure still uses single-family assumptions and is "
-                "approximate for an apartment, townhome, or condo." + detail
+                "height, Durability credits its longer-lived shared structural shell, "
+                "and Infrastructure reflects its unit density, but the per-unit value "
+                "is still estimated from a single-family median, so the fiscal and "
+                "dollar figures are approximate for an apartment, townhome, or condo."
+                + detail
             )
         else:
             caveats.append(
-                "Partial multi-unit support: Energy accounts for the shared walls of a "
-                "multi-unit building, but Resilience, Durability, and Infrastructure "
-                "still use single-family assumptions and are approximate for an "
-                "apartment, townhome, or condo — the building's structure (material, "
-                "height) wasn't detected from the address, which those dimensions need."
+                "Partial multi-unit support: Energy (shared walls) and Infrastructure "
+                "(per-unit density and cost) reflect the unit count you entered, but "
+                "Resilience and Durability still use single-family assumptions — they "
+                "need the building's structure (material, height), which wasn't detected "
+                "from the address — and the per-unit value uses a single-family median, "
+                "so figures are approximate for an apartment, townhome, or condo."
             )
 
     if location is None:

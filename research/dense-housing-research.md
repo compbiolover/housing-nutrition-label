@@ -217,7 +217,19 @@ Per-dimension methodology:
     in-unit HVAC/water heater) keep their per-unit schedules, and wood/unknown multi-family
     keeps the baseline. `mf_material` threads through `compute_construction_dimensions` →
     `model_parcel_durability`. The caveat now drops Durability from the single-family list.
-  - Environmental / Infrastructure — still to do.
+  - **Infrastructure — implemented (density side).** `build_parcel_row` already splits
+    lot area per unit for an explicit unit count; the gap was a building only *detected*
+    as multi-family (no entered units), which was scored as one detached home on the lot.
+    `compute_construction_dimensions` now folds the detected unit count (`mf_units`) into
+    the DU/acre density (scaling the infra row's `CALC_ACRE`), so a detected apartment's
+    shared land and services amortize across its real units instead of reading as
+    single-family sprawl. Only the density changes; the per-unit *value/tax basis* is
+    still the single-family county median and is deferred to Phase 3 (value-per-door /
+    per-unit comparable). The caveat now says Infrastructure reflects the building's unit
+    density, with the value basis as the remaining approximation.
+  - Environmental — still to do (per-unit water/yard, occupancy).
+- **Phase 3 — Value / tax basis** — the single-family median value applied to dense
+  buildings is the last major dollar error; folds the Infrastructure revenue side in too.
 - **Phase 3 — Value / tax basis** for condos and apartments (Part 3).
 - **Phase 4 — UX & presentation** — building-type-aware presets, building context on the
   label, per-unit framing, confidence flags.
