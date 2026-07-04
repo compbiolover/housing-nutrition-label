@@ -301,6 +301,34 @@ def test_explicit_units_not_double_counted_by_detection():
     assert compute_construction_dimensions(cfg, mf_units=2)["infrastructure"] == base
 
 
+def test_multifamily_drops_private_yard_water():
+    """A stacked/attached multi-unit unit carries no private-yard irrigation, so its
+    water use is indoor-only and lower than the same parcel as a detached home."""
+    from housing_label.enrich.environmental import water_use_gal_yr
+    args = dict(rmbed=3, fixbath=2, sfla=2000, stories=1, calc_acre=0.25,
+                acre_outlier=False)
+    detached, _ = water_use_gal_yr(**args)
+    mf, _ = water_use_gal_yr(**args, is_multifamily=True)
+    assert mf < detached                                     # outdoor irrigation gone
+    # Indoor-only water is unchanged whatever the lot area for a multi-unit unit.
+    mf_big_lot, _ = water_use_gal_yr(**{**args, "calc_acre": 5.0}, is_multifamily=True)
+    assert mf_big_lot == mf
+
+
+def test_multifamily_environmental_score_improves():
+    """Dropping the private-yard water raises the Environmental score for a detected
+    or entered multi-unit building; single-family (units 1/None) is unchanged."""
+    cfg = _cfg("baseline")
+    detached = compute_construction_dimensions(cfg)["environmental"]
+    mf = compute_construction_dimensions(cfg, mf_units=4)["environmental"]
+    assert mf > detached
+    assert compute_construction_dimensions(cfg, mf_units=1)["environmental"] == detached
+    assert compute_construction_dimensions(cfg, mf_units=None)["environmental"] == detached
+    # A detected multi-family with no reliable unit count (mf_material set, mf_units
+    # None) still drops the private yard, matching the caveat.
+    assert compute_construction_dimensions(cfg, mf_material="concrete")["environmental"] > detached
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

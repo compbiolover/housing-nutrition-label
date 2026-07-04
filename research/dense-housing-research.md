@@ -227,7 +227,19 @@ Per-dimension methodology:
     still the single-family county median and is deferred to Phase 3 (value-per-door /
     per-unit comparable). The caveat now says Infrastructure reflects the building's unit
     density, with the value basis as the remaining approximation.
-  - Environmental — still to do (per-unit water/yard, occupancy).
+  - **Environmental — implemented (water side).** A unit in a stacked/attached
+    multi-unit building carries no private-yard irrigation, so `water_use_gal_yr`
+    (`enrich/environmental.py`) drops the outdoor load when `is_multifamily` — its
+    water footprint is indoor-only, making an apartment/condo unit greener on water
+    than a detached home of the same size (per-unit/per-capita framing the plan
+    called for). `compute_construction_dimensions` sets the flag from the effective
+    unit count (explicit > 1 or a detected multi-family). Occupancy still uses the
+    bedroom-count proxy (national default when bedrooms are unknown), since detection
+    doesn't carry per-unit bedrooms; noted for a future refinement. The caveat now
+    lists Environmental among the building-context dimensions.
+  - **Phase 2 is complete** for all construction-driven dimensions (Energy,
+    Resilience, Durability, Infrastructure, Environmental). The remaining dense-
+    housing dollar error is the per-unit value basis (Phase 3).
 - **Phase 3 — Value / tax basis** — the single-family median value applied to dense
   buildings is the last major dollar error; folds the Infrastructure revenue side in too.
 - **Phase 3 — Value / tax basis** for condos and apartments (Part 3).
