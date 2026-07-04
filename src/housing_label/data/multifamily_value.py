@@ -45,6 +45,7 @@ from functools import lru_cache
 
 DATA_VINTAGE = "Census ACS 2022 5-yr median gross rent (B25064)"
 RENT_SOURCE_LABEL = "value-per-door (income method, ACS rent)"
+OVERRIDE_SOURCE_LABEL = "value-per-door (income method, rent override)"
 
 # Income-method valuation constants (see module docstring for sources).
 OCCUPANCY = 0.93
@@ -112,7 +113,12 @@ def _gross_rent_for_county(county_fips: str | None) -> tuple[float, str]:
 
 def value_from_rent(monthly_rent: float, *, occupancy: float = OCCUPANCY,
                     opex_ratio: float = OPEX_RATIO, cap_rate: float = CAP_RATE) -> float:
-    """Per-door value from monthly market rent via the income / cap-rate method."""
+    """Per-door value from monthly market rent via the income / cap-rate method.
+
+    A non-positive ``cap_rate`` is nonsensical (and would divide by zero), so it
+    falls back to the module default rather than crashing the caller."""
+    if cap_rate <= 0:
+        cap_rate = CAP_RATE
     annual_noi = monthly_rent * 12.0 * occupancy * (1.0 - opex_ratio)
     return max(VALUE_FLOOR, annual_noi / cap_rate)
 
@@ -126,7 +132,8 @@ def value_per_door_for_county(county_fips: str | None,
     rent is used, with the national row as fallback.
 
     Always returns a dict: ``value_per_door``, ``monthly_rent``, ``cap_rate``,
-    ``resolved`` (``"county"`` | ``"national"``), ``source`` (label), ``geo_level``.
+    ``resolved`` (``"county"`` | ``"national"`` | ``"override"``), ``source``
+    (label — names the rent origin, ACS vs. an override), ``geo_level``.
     """
     if monthly_rent is not None and monthly_rent > 0:
         rent = _clamp_rent(monthly_rent) or _national_rent()
@@ -139,6 +146,6 @@ def value_per_door_for_county(county_fips: str | None,
         "monthly_rent": round(rent, 2),
         "cap_rate": CAP_RATE,
         "resolved": resolved,
-        "source": RENT_SOURCE_LABEL,
+        "source": OVERRIDE_SOURCE_LABEL if resolved == "override" else RENT_SOURCE_LABEL,
         "geo_level": "county" if resolved == "county" else "us",
     }

@@ -47,6 +47,12 @@ def test_value_floor_guards_tiny_rents():
     assert value_from_rent(1.0) == mv.VALUE_FLOOR
 
 
+def test_nonpositive_cap_rate_does_not_crash():
+    """A zero/negative cap rate falls back to the default instead of dividing by zero."""
+    assert value_from_rent(1500, cap_rate=0) == value_from_rent(1500)
+    assert value_from_rent(1500, cap_rate=-0.05) == value_from_rent(1500)
+
+
 # ── County resolution ───────────────────────────────────────────────────────────
 def test_mapped_county_resolves_local():
     la = value_per_door_for_county("06037")
@@ -70,6 +76,9 @@ def test_monthly_rent_override_is_the_hud_seam():
     hi = value_per_door_for_county("47157", monthly_rent=base["monthly_rent"] * 2)
     assert hi["resolved"] == "override"
     assert _approx(hi["value_per_door"], base["value_per_door"] * 2, tol=2.0)
+    # The source label names the override, not ACS, so consumers can tell them apart.
+    assert hi["source"] == mv.OVERRIDE_SOURCE_LABEL
+    assert base["source"] == mv.RENT_SOURCE_LABEL
 
 
 def test_rent_clamp_bounds_outliers():
