@@ -79,6 +79,9 @@ def test_monthly_rent_override_is_the_hud_seam():
     # The source label names the override, not ACS, so consumers can tell them apart.
     assert hi["source"] == mv.OVERRIDE_SOURCE_LABEL
     assert base["source"] == mv.RENT_SOURCE_LABEL
+    # A county-scoped override reports county geo_level; a context-free one is national.
+    assert hi["geo_level"] == "county"
+    assert value_per_door_for_county(None, monthly_rent=1500)["geo_level"] == "us"
 
 
 def test_rent_clamp_bounds_outliers():

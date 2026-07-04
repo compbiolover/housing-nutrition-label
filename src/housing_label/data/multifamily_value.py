@@ -141,11 +141,15 @@ def value_per_door_for_county(county_fips: str | None,
     else:
         rent, resolved = _gross_rent_for_county(county_fips)
 
+    # geo_level tracks the geography of the estimate: a county lookup is county-
+    # scoped; an override is county-scoped when the caller supplied a county context
+    # (the common HUD-FMR-per-county seam), else national.
+    is_county_scoped = resolved == "county" or (resolved == "override" and bool(county_fips))
     return {
         "value_per_door": round(value_from_rent(rent), 2),
         "monthly_rent": round(rent, 2),
         "cap_rate": CAP_RATE,
         "resolved": resolved,
         "source": OVERRIDE_SOURCE_LABEL if resolved == "override" else RENT_SOURCE_LABEL,
-        "geo_level": "county" if resolved == "county" else "us",
+        "geo_level": "county" if is_county_scoped else "us",
     }
