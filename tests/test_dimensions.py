@@ -181,6 +181,62 @@ def test_multifamily_energy_credit_improves_score():
     assert compute_construction_dimensions(cfg, mf_units=1)["energy"] == detached
 
 
+def test_flood_floor_factor_schedule():
+    """The floor-aware flood factor is 1.0 for a 1-story (or unknown) building and
+    shrinks toward the 0.15 floor as the building gets taller."""
+    from housing_label.simulate.house import flood_floor_factor
+    assert flood_floor_factor(1) == 1.0
+    assert flood_floor_factor(None) == 1.0
+    assert flood_floor_factor("bad") == 1.0
+    assert flood_floor_factor(2) == 0.5
+    assert flood_floor_factor(4) == 0.25
+    assert flood_floor_factor(100) == 0.15          # floored, never zero
+    assert flood_floor_factor(20) < flood_floor_factor(3)
+
+
+def test_multifamily_material_improves_resilience():
+    """A detected multi-family building scored with a concrete/masonry structure is
+    more resilient (higher score, lower EAL) than the same unit modeled with the
+    single-family construction profile; a wood-framed multi-family is unchanged."""
+    cfg = _cfg("baseline")          # frame construction, single-family defaults
+
+    sf = simulate(cfg)
+    concrete = simulate(cfg, structure={"structure_type": "multifamily",
+                                         "bldg_material": "concrete", "stories": 4})
+    masonry = simulate(cfg, structure={"structure_type": "multifamily",
+                                       "bldg_material": "masonry", "stories": 3})
+    wood = simulate(cfg, structure={"structure_type": "multifamily",
+                                    "bldg_material": "wood", "stories": 3})
+
+    assert concrete["total_score"] > sf["total_score"]
+    assert masonry["total_score"] > sf["total_score"]
+    assert concrete["total_score"] > masonry["total_score"]   # concrete beats masonry
+    # A material we don't have a resilience profile for keeps the single-family
+    # wind/seismic factors (only the height-based flood term still applies).
+    assert wood["wind_seismic_brm"] == sf["wind_seismic_brm"]
+    single_story_wood = simulate(cfg, structure={"structure_type": "multifamily",
+                                                 "bldg_material": "wood", "stories": 1})
+    assert single_story_wood["total_score"] == sf["total_score"]
+
+
+def test_floor_aware_flood_only_for_multifamily():
+    """Flood exposure drops with building height for a detected multi-family unit,
+    but a single-family home (no structure) keeps full ground-floor exposure."""
+    cfg = _cfg("baseline")
+    sf = simulate(cfg)
+    assert sf["flood_floor"] == 1.0
+
+    tall = simulate(cfg, structure={"structure_type": "multifamily",
+                                    "bldg_material": "concrete", "stories": 5})
+    assert tall["flood_floor"] == 0.2
+    assert tall["flood_adj"] < sf["flood_adj"]
+
+    # A detected single-family structure gets no floor reduction.
+    sf_struct = simulate(cfg, structure={"structure_type": "single_family",
+                                         "bldg_material": "wood", "stories": 2})
+    assert sf_struct["flood_floor"] == 1.0
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

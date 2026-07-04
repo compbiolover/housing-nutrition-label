@@ -197,7 +197,17 @@ Per-dimension methodology:
     threads through `compute_construction_dimensions` → `_adjusted_energy` and flows into
     the energy score, monthly cost, and environmental operational carbon. The caveat now
     drops Energy from the single-family-assumption list.
-  - Resilience / Durability / Environmental / Infrastructure — still to do.
+  - **Resilience — implemented.** For a detected multi-family building, its structural
+    material (`_MATERIAL_RESILIENCE` in `simulate/house.py`) drives the construction
+    resilience factors instead of the single-family type — reinforced concrete/steel for
+    a mid-rise, load-bearing masonry otherwise — because a concrete or steel frame is far
+    more wind-, seismic-, and fire-resistant than wood (FEMA Hazus building types). Flood
+    exposure is also **floor-aware** (`flood_floor_factor`): a representative unit averaged
+    over the building's `stories` carries ~1/stories of the ground-floor exposure (FEMA
+    P-259), floored at 0.15. A wood-framed multi-family keeps the single-family factors.
+    The `structure` dict (type, material, stories) threads from `build_label_parts` into
+    `simulate`. The caveat now drops Resilience from the single-family-assumption list.
+  - Durability / Environmental / Infrastructure — still to do.
 - **Phase 3 — Value / tax basis** for condos and apartments (Part 3).
 - **Phase 4 — UX & presentation** — building-type-aware presets, building context on the
   label, per-unit framing, confidence flags.
