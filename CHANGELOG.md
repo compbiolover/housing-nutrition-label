@@ -9,6 +9,21 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.17](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.16...v0.1.17) (2026-07-04)
+
+
+### Features
+
+* detect building type + unit count from an address (dense-housing Phase 1) ([#73](https://github.com/compbiolover/housing-nutrition-label/issues/73)) ([024b9fb](https://github.com/compbiolover/housing-nutrition-label/commit/024b9fb7e994ea67b7b34e74f8537abbad0cba3c))
+* multifamily durability (shared structural shell) — dense-housing Phase 2 ([#76](https://github.com/compbiolover/housing-nutrition-label/issues/76)) ([2da5081](https://github.com/compbiolover/housing-nutrition-label/commit/2da50814908a481a785ebca50fe6f15e15d9ea0e))
+* multifamily resilience (material + floor-aware flood) — dense-housing Phase 2 ([#75](https://github.com/compbiolover/housing-nutrition-label/issues/75)) ([7c7a6a5](https://github.com/compbiolover/housing-nutrition-label/commit/7c7a6a5caba3b2d66d1005aef192ca68cf97f9d5))
+* shared-wall energy credit for multi-unit homes (dense-housing Phase 2) ([#74](https://github.com/compbiolover/housing-nutrition-label/issues/74)) ([d82f267](https://github.com/compbiolover/housing-nutrition-label/commit/d82f267b5089aed69319a21d1f3eeb08ee8f623c))
+
+
+### Bug Fixes
+
+* flag multi-unit homes as approximate + dense-housing research (Phase 0) ([#71](https://github.com/compbiolover/housing-nutrition-label/issues/71)) ([e880983](https://github.com/compbiolover/housing-nutrition-label/commit/e8809837f67c996df7af041d67a9210f3173279a))
+
 ## [0.1.16](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.15...v0.1.16) (2026-07-03)
 
 
