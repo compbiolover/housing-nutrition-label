@@ -292,7 +292,7 @@ def test_detected_multifamily_density_improves_infrastructure():
 
 
 def test_explicit_units_not_double_counted_by_detection():
-    """When the unit count is already entered (build_parcel_row split the lot),
+    """When the unit count is already entered (build_parcel_row splits the lot),
     a detected count that isn't larger doesn't scale the density a second time."""
     cfg = _cfg("icf-quadplex")                               # 4 units entered
     base = compute_construction_dimensions(cfg)["infrastructure"]

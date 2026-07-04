@@ -1163,8 +1163,8 @@ def _approx_caveats(location, units: int = 1) -> list[str]:
     family), Energy credits shared walls, Resilience reflects the detected material
     and building height, Durability lengthens the shared structural shell, and
     Infrastructure reflects the building's unit density — the remaining
-    approximation is the per-unit property value, still estimated from a single-
-    family median (Phase 3). When the caller only passes ``units`` > 1 on an
+    approximation is the per-unit property value, still estimated from a
+    single-family median (Phase 3). When the caller only passes ``units`` > 1 on an
     *undetected* building, the per-unit Energy and Infrastructure framing follows
     the entered count, but the material- and height-driven Resilience/Durability
     enhancements can't run (we have no structure), so those stay single-family."""
