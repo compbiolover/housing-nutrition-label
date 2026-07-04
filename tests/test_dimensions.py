@@ -24,6 +24,30 @@ def _cfg(preset):
     return resolve_config(args)
 
 
+def test_autofilled_value_not_divided_across_units():
+    """An auto-filled county median is a per-home value, so it must not be split
+    again across the unit count (which collapsed the fiscal ratio to ~0 for a
+    multi-unit building). An explicit/total value keeps the per-unit division."""
+    from housing_label.simulate.dimensions import (
+        build_parcel_row, compute_construction_dimensions, AUTOFILL_VALUE_SOURCE,
+    )
+    cfg = _cfg("baseline")
+    cfg["units"] = 30
+    cfg["value"] = 250_000
+
+    # Explicit (total-building) value → divided across the 30 units, as before.
+    explicit = build_parcel_row(cfg)
+    assert abs(explicit["RTOTAPR"] - 250_000 / 30) < 1e-6
+
+    # Auto-filled per-home median → used as the per-unit value, not divided.
+    cfg["value_source"] = AUTOFILL_VALUE_SOURCE
+    autofill = build_parcel_row(cfg)
+    assert abs(autofill["RTOTAPR"] - 250_000) < 1e-6
+
+    # The fiscal ratio no longer collapses to a 0.0 / F Infrastructure score.
+    assert compute_construction_dimensions(cfg)["infrastructure"] > 20
+
+
 def test_parcel_row_mapping():
     """Config vocabulary maps to the expected CAMA codes (incl. per-unit split)."""
     cfg = _cfg("icf-quadplex")          # 4 units, icf, excellent, 0.20 ac, $600k

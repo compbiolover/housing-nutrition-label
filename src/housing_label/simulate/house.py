@@ -32,7 +32,7 @@ import sys
 import numpy as np
 import pandas as pd
 
-from housing_label.simulate.dimensions import simulate_all_dimensions
+from housing_label.simulate.dimensions import simulate_all_dimensions, AUTOFILL_VALUE_SOURCE
 from housing_label.confidence import (
     confidence_for_label, bands_for_label, CONFIDENCE_NOTES, CONFIDENCE_LEGEND,
 )
@@ -1504,7 +1504,7 @@ def build_label_parts(*, address: str | None = None,
         median_value = median_home_value_for_county(getattr(location, "county_fips", None))
         if median_value:
             cfg["value"] = median_value
-            cfg["value_source"] = "county median (ACS)"
+            cfg["value_source"] = AUTOFILL_VALUE_SOURCE
 
     # The resilience local grade ranks against the bundled Shelby dataset, so it's
     # only meaningful for a Shelby address; compute it only then (N/A elsewhere).

@@ -79,7 +79,12 @@ per-unit sqft, not from any shared-wall model.
 - **P0 — value auto-fill is the ACS single-family/owner-occupied median** (B25077,
   `house.py:1392-1397` → `propertytax.py:84-93`). For an apartment building every dollar
   figure is off by ~N units; for a condo the per-unit split double-divides a value that
-  is already one unit.
+  is already one unit. **Partially fixed:** `build_parcel_row` no longer divides an
+  auto-filled median (a per-home figure, flagged by `value_source == AUTOFILL_VALUE_SOURCE`)
+  across the unit count — that double-division was collapsing the Infrastructure fiscal
+  ratio to a 0.0 / F for a multi-unit address. An explicit *total-building* value still
+  divides. The remaining Phase 3 work is a real per-unit / value-per-door basis (a
+  single-family median is still only an approximation of an apartment's per-door value).
 - **P1 — Durability** credits each stacked unit its own roof/foundation/structural shell
   (`durability.py:116-125`) — meaningless for a 4th-floor condo.
 - **P1 — Energy** uses NREL ResStock detached-single-family archetypes with no
