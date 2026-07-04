@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.19](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.18...v0.1.19) (2026-07-04)
+
+
+### Bug Fixes
+
+* stop double-dividing the auto-filled home value across units ([#80](https://github.com/compbiolover/housing-nutrition-label/issues/80)) ([aee850d](https://github.com/compbiolover/housing-nutrition-label/commit/aee850db4ee9071bd4be7fc3486469055f714ce1))
+
 ## [0.1.18](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.17...v0.1.18) (2026-07-04)
 
 
