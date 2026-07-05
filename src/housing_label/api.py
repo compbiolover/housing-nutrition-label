@@ -242,9 +242,10 @@ def label(
                       ("foundation", foundation), ("condition", condition),
                       ("flood_zone", flood_zone)):
         _validate(name, val)
-    if bldg_material is not None and bldg_material.lower() not in (
-            "wood", "masonry", "concrete", "steel"):
-        raise HTTPException(400, "bldg_material must be one of: wood, masonry, concrete, steel")
+    if bldg_material is not None:
+        bldg_material = bldg_material.strip().lower()   # normalize once, then validate + forward
+        if bldg_material not in ("wood", "masonry", "concrete", "steel"):
+            raise HTTPException(400, "bldg_material must be one of: wood, masonry, concrete, steel")
     if stories is not None and stories < 1:
         raise HTTPException(400, "stories must be a positive integer")
 
@@ -421,9 +422,10 @@ def density(
                       ("foundation", foundation), ("condition", condition),
                       ("flood_zone", flood_zone)):
         _validate(name, val)
-    if bldg_material is not None and bldg_material.lower() not in (
-            "wood", "masonry", "concrete", "steel"):
-        raise HTTPException(400, "bldg_material must be one of: wood, masonry, concrete, steel")
+    if bldg_material is not None:
+        bldg_material = bldg_material.strip().lower()   # normalize once, then validate + forward
+        if bldg_material not in ("wood", "masonry", "concrete", "steel"):
+            raise HTTPException(400, "bldg_material must be one of: wood, masonry, concrete, steel")
     if stories is not None and stories < 1:
         raise HTTPException(400, "stories must be a positive integer")
 
