@@ -84,7 +84,7 @@ def test_detected_multifamily_fires_caveat():
     from housing_label.simulate import house
     loc = SimpleNamespace(county_fips="17031", egrid_subregion="RFCW",
                           structure_type="multifamily", num_units=12)
-    msg = " ".join(house._approx_caveats(loc, units=1)).lower()
+    msg = " ".join(house._approx_caveats(loc, {"units": 1})).lower()
     assert "multi-unit building" in msg
     assert "12 units" in msg
 

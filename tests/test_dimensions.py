@@ -131,6 +131,45 @@ def test_dollar_eal_uses_the_same_per_unit_value_as_infrastructure():
         assert abs(af_r["total_loss"] - af_r["total_eal"] * 200_000) < 1e-6
 
 
+def test_effective_structure_merges_entered_over_detected():
+    """The effective structure trusts an entered unit count as multi-family (even
+    when NSI mislabels the site) and uses entered material/stories, ignoring an
+    unreliable single-family NSI reading."""
+    from types import SimpleNamespace
+    from housing_label.simulate.dimensions import effective_structure
+
+    # No location, single unit → single-family, nothing multi-family.
+    sf = effective_structure({"units": 1})
+    assert sf["is_multifamily"] is False and sf["mf_units"] is None and sf["mf_material"] is None
+
+    # Entered 16 units, no material → multi-family, but no material/stories to score
+    # Resilience/Durability with.
+    e = effective_structure({"units": 16})
+    assert e["is_multifamily"] and e["mf_units"] == 16
+    assert e["mf_material"] is None and e["stories"] is None
+
+    # Entered material + stories → carried through (drives Resilience/Durability).
+    em = effective_structure({"units": 16, "bldg_material": "Concrete", "stories": 4})
+    assert em["mf_material"] == "concrete" and em["stories"] == 4       # normalized lower
+
+    # NSI mislabels the garden complex single-family: its wood/1-story is ignored for
+    # a caller-declared multi-unit building — only entered values count.
+    mislabel = SimpleNamespace(structure_type="single_family", num_units=1,
+                               bldg_material="wood", stories=1)
+    m = effective_structure({"units": 16}, mislabel)
+    assert m["is_multifamily"] and m["bldg_material"] is None and m["stories"] is None
+
+    # A genuinely detected multi-family uses its detected material/stories as the base.
+    detected = SimpleNamespace(structure_type="multifamily", num_units=12,
+                               bldg_material="concrete", stories=5)
+    d = effective_structure({"units": 1}, detected)
+    assert d["is_multifamily"] and d["mf_material"] == "concrete" and d["stories"] == 5
+    assert d["mf_units"] == 12
+
+    # An unrecognized material is dropped rather than trusted.
+    assert effective_structure({"units": 4, "bldg_material": "adobe"})["mf_material"] is None
+
+
 def test_parcel_row_mapping():
     """Config vocabulary maps to the expected CAMA codes (incl. per-unit split)."""
     cfg = _cfg("icf-quadplex")          # 4 units, icf, excellent, 0.20 ac, $600k

@@ -152,6 +152,60 @@ def _loglin(x: float, xs: list[float], ys: list[float]) -> float:
     return float(np.interp(np.log10(max(float(x), 1e-9)), np.log10(xs), ys))
 
 
+_MF_MATERIALS = frozenset({"wood", "masonry", "concrete", "steel"})
+
+
+def effective_structure(cfg: dict, location=None) -> dict:
+    """Merge the caller-entered building fields over the NSI-detected structure.
+
+    A building counts as multi-family when NSI detected it as such **or** the caller
+    entered a unit count > 1 — NSI misses garden-apartment complexes it models as
+    clusters of single-family structures, so an entered unit count is authoritative.
+
+    When NSI did **not** detect multi-family, its ``bldg_material``/``stories``
+    describe that (mis)reading of the site, so they are ignored for a caller-declared
+    multi-unit building; only caller-entered material/stories drive the material- and
+    height-based Resilience/Durability adjustments there. For a genuinely detected
+    multi-family building the detected values are the base and the caller can override.
+
+    Returns: ``structure_type``, ``is_multifamily``, ``num_units``, ``stories``,
+    ``bldg_material``, ``mf_units`` (unit count when it should drive per-unit
+    density/credits, else None), ``mf_material`` (shell material when multi-family).
+    """
+    entered_units = max(int(cfg.get("units", 1) or 1), 1)
+    det_type = getattr(location, "structure_type", None)
+    det_mf = det_type == "multifamily"
+    is_mf = det_mf or entered_units > 1
+
+    # Detected material/stories are only trustworthy when NSI actually saw MF.
+    base_material = getattr(location, "bldg_material", None) if det_mf else None
+    base_stories = getattr(location, "stories", None) if det_mf else None
+
+    material = cfg.get("bldg_material") or base_material
+    if material is not None:
+        material = str(material).strip().lower()
+        if material not in _MF_MATERIALS:
+            material = None
+    try:
+        stories = int(cfg.get("stories") or base_stories or 0) or None
+    except (TypeError, ValueError):
+        stories = None
+
+    num_units = entered_units if entered_units > 1 else (
+        getattr(location, "num_units", None) if det_mf else 1)
+    mf_units = num_units if (is_mf and num_units and num_units > 1) else None
+
+    return {
+        "structure_type": "multifamily" if is_mf else det_type,
+        "is_multifamily": is_mf,
+        "num_units": num_units,
+        "stories": stories,
+        "bldg_material": material,
+        "mf_units": mf_units,
+        "mf_material": material if is_mf else None,
+    }
+
+
 def per_unit_home_value(cfg: dict) -> float:
     """The value of one representative dwelling unit.
 
@@ -532,18 +586,14 @@ def simulate_all_dimensions(
     # Shared-wall energy credit: score a representative unit in its building
     # context — use the caller's explicit unit count when > 1, else the detected
     # multi-family unit count from the resolved location.
-    cfg_units = max(int(cfg.get("units", 1) or 1), 1)   # clamp like build_parcel_row
-    mf_units = cfg_units if cfg_units > 1 else None
-    is_detected_mf = bool(location and getattr(location, "structure_type", None) == "multifamily")
-    if mf_units is None and is_detected_mf:
-        det = getattr(location, "num_units", None)
-        if det and det > 1:
-            mf_units = det
-
-    # Durability's shared structural shell: use the detected building material only
-    # when the address is actually a multi-family building (a manual unit count
-    # alone doesn't tell us the shell material).
-    mf_material = getattr(location, "bldg_material", None) if is_detected_mf else None
+    # Effective building context: caller-entered units/material/stories merged over
+    # the NSI-detected structure. An entered unit count > 1 makes it multi-family
+    # even when NSI mislabels the site (e.g. a garden-apartment complex modeled as
+    # single-family structures); the shell material only drives Durability when it is
+    # detected or entered for such a building.
+    es = effective_structure(cfg, location)
+    mf_units = es["mf_units"]
+    mf_material = es["mf_material"]
 
     construction = compute_construction_dimensions(
         cfg, climate_zone=climate_zone, grid_factor=grid_factor,

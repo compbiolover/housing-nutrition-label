@@ -225,12 +225,16 @@ def label(
     sqft: float | None = None,
     lot_acres: float | None = None,
     flood_zone: str | None = None,
+    bldg_material: str | None = None,
+    stories: int | None = None,
     upgrades: str | None = None,
 ) -> dict:
     """Return the full nutrition-label payload for an address or lat/lon.
 
     `upgrades` is a comma-separated list of resilience-upgrade flags (see
     BONUS_FLAGS), e.g. ``upgrades=solar,fortified_roof,hurricane_straps``.
+    `bldg_material` (wood|masonry|concrete|steel) and `stories` describe a
+    multi-unit building's shell for Resilience/Durability when NSI didn't detect it.
     """
     if not address and (lat is None or lon is None):
         raise HTTPException(400, "Provide ?address= or both ?lat= and ?lon=")
@@ -238,6 +242,11 @@ def label(
                       ("foundation", foundation), ("condition", condition),
                       ("flood_zone", flood_zone)):
         _validate(name, val)
+    if bldg_material is not None and bldg_material.lower() not in (
+            "wood", "masonry", "concrete", "steel"):
+        raise HTTPException(400, "bldg_material must be one of: wood, masonry, concrete, steel")
+    if stories is not None and stories < 1:
+        raise HTTPException(400, "stories must be a positive integer")
 
     upgrade_list = [u.strip() for u in upgrades.split(",") if u.strip()] if upgrades else []
     bad = [u for u in upgrade_list if u not in BONUS_FLAGS]
@@ -254,6 +263,7 @@ def label(
             allow_network=True,
             year_built=year_built, construction=construction, foundation=foundation,
             condition=condition, value=value, units=units, sqft=sqft, lot_acres=lot_acres,
+            bldg_material=bldg_material, stories=stories,
         )
     except ValueError as exc:
         raise HTTPException(400, str(exc))
@@ -266,7 +276,7 @@ def label(
     # already-computed house cost instead of a redundant second scoring pass.
     is_self_baseline = preset == "baseline" and not any((
         year_built, construction, foundation, condition, value, units, sqft,
-        lot_acres, upgrade_list,
+        lot_acres, bldg_material, stories, upgrade_list,
     ))
     _attach_baseline_cost(payload, lbl, self_baseline=is_self_baseline)
     return payload
