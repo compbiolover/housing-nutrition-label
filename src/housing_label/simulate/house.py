@@ -28,6 +28,7 @@ import json
 import math
 import pathlib
 import sys
+from functools import lru_cache
 
 import numpy as np
 import pandas as pd
@@ -454,10 +455,22 @@ def compute_tornado_rate(lat: float, lon: float,
     national 1950–2023 record) and divides by the record length. The national SPC
     dataset is downloaded and cached on first use. Falls back to a national
     average only if the dataset is unavailable.
+
+    The count is a full-table scan of the ~68k-row SPC set, so the result is memoized
+    per coordinate (rounded to ~110 m, well inside the 25-mi radius) to avoid
+    re-scanning — and re-allocating masks over — the whole table on every request.
     """
-    df = _load_spc(allow_network)
-    if df is None:
+    # Resolve (and one-time cache) the SPC table here, NOT inside the memoized helper,
+    # so a transient load failure returns the national fallback WITHOUT poisoning the
+    # per-coordinate cache — once the table loads, later calls scan it and memoize.
+    if _load_spc(allow_network) is None:
         return NATIONAL_AVG_TORNADO_RATE, "national average (SPC dataset unavailable)"
+    return _tornado_rate_cached(round(lat, 3), round(lon, 3))
+
+
+@lru_cache(maxsize=4096)
+def _tornado_rate_cached(lat: float, lon: float) -> tuple[float, str]:
+    df = _load_spc()   # the singleton table, guaranteed loaded by the caller
 
     # Coarse bbox pre-filter around the query point, then exact distance.
     # Longitude degrees shrink with latitude, so widen the lon half-window by
@@ -469,12 +482,20 @@ def compute_tornado_rate(lat: float, lon: float,
     ]
     if nearby.empty:
         return 0.0, "SPC 1950-2023 (0 tornadoes in 25 mi)"
-    dists = nearby.apply(
-        lambda row: haversine_miles(lat, lon, row["slat"], row["slon"]), axis=1
-    )
+    # Vectorized haversine over the pre-filtered subset (no per-row Python apply).
+    dists = _haversine_miles_np(lat, lon, nearby["slat"].to_numpy(), nearby["slon"].to_numpy())
     count = int((dists <= RADIUS_25_MI).sum())
     rate  = round(count / SPC_DATA_YEARS, 3)
     return rate, f"SPC 1950-2023 ({count} tornadoes in 25 mi)"
+
+
+def _haversine_miles_np(lat1: float, lon1: float, lat2, lon2):
+    """Vectorized great-circle distance (miles) from one point to arrays of points."""
+    r1, l1 = math.radians(lat1), math.radians(lon1)
+    r2, l2 = np.radians(lat2), np.radians(lon2)
+    a = np.sin((r2 - r1) / 2) ** 2 + math.cos(r1) * np.cos(r2) * np.sin((l2 - l1) / 2) ** 2
+    a = np.clip(a, 0.0, 1.0)     # guard arcsin against FP drift > 1 (near-antipodal)
+    return 2 * 3958.8 * np.arcsin(np.sqrt(a))
 
 
 def pga_to_damage_ratio(pga_g: float) -> float:
