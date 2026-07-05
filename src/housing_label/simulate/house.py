@@ -33,7 +33,7 @@ import numpy as np
 import pandas as pd
 
 from housing_label.simulate.dimensions import (
-    simulate_all_dimensions, per_unit_home_value,
+    simulate_all_dimensions, per_unit_home_value, effective_structure,
     AUTOFILL_VALUE_SOURCE, VALUE_PER_DOOR_SOURCE,
 )
 from housing_label.confidence import (
@@ -601,6 +601,12 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Heated area per unit (sqft). Default: 2,000.")
     p.add_argument("--lot-acres",  type=float, default=None,
                    help="Lot size (acres). Default: 0.25.")
+    p.add_argument("--building-material", dest="bldg_material",
+                   choices=["wood", "masonry", "concrete", "steel"], default=None,
+                   help="Structural shell material for a multi-unit building (drives "
+                        "Resilience/Durability when NSI didn't detect the building).")
+    p.add_argument("--stories",    type=int,   default=None,
+                   help="Number of floors, for a multi-unit building (floor-aware flood).")
 
     # ── Existing bonus feature flags ──────────────────────────────────────────────
     p.add_argument("--solar",             action="store_true", help="Solar panels.")
@@ -697,6 +703,10 @@ def resolve_config(args: argparse.Namespace) -> dict:
         "year_built": 2024, "construction": "frame", "foundation": "slab",
         "condition": "average", "value": 160_000,
         "units": 1, "sqft": 2000, "lot_acres": 0.25,
+        # Multi-family structure inputs (optional): the building's shell material and
+        # its height, used to score Resilience/Durability for a multi-unit building
+        # the NSI lookup didn't (or couldn't) classify. Default absent → single-family.
+        "bldg_material": None, "stories": None,
     }
     cfg = dict(PRESETS[args.preset]) if args.preset else {}
 
@@ -710,6 +720,8 @@ def resolve_config(args: argparse.Namespace) -> dict:
         "units":        args.units,
         "sqft":         args.sqft,
         "lot_acres":    args.lot_acres,
+        "bldg_material": getattr(args, "bldg_material", None),
+        "stories":      getattr(args, "stories", None),
     }
     for key, cli_val in CLI_FIELDS.items():
         if cli_val is not None:
@@ -1155,7 +1167,7 @@ def print_scorecard(cfg: dict, r: dict) -> None:
 CALIBRATED_COUNTY_FIPS = "47157"
 
 
-def _approx_caveats(location, units: int = 1) -> list[str]:
+def _approx_caveats(location, cfg: dict | None = None) -> list[str]:
     """Caveats for dimensions that aren't locally calibrated.
 
     Seismic (USGS) and tornado (SPC) are nationwide. Infrastructure is calibrated
@@ -1166,55 +1178,59 @@ def _approx_caveats(location, units: int = 1) -> list[str]:
     county maps, and the US-average factor otherwise — flagged off the actually
     resolved subregion so the fallback is never reported incorrectly.
 
-    A multi-unit building adds a dense-housing caveat, whose text depends on how
-    much we know about the building. When the structure is *detected* (NSI multi-
-    family), Energy credits shared walls, Resilience reflects the detected material
-    and building height, Durability lengthens the shared structural shell,
-    Infrastructure reflects the building's unit density, Environmental drops the
-    private-yard water use, and the per-unit value is an income-based value-per-door
-    estimate (local rent capitalized by the income / cap-rate method) rather than
-    the single-family median — a neighborhood-average approximation, not an appraisal. When the caller only passes
-    ``units`` > 1 on an *undetected* building, the per-unit Energy, Infrastructure,
-    and Environmental framing follows the entered count, but the material- and
-    height-driven Resilience/Durability enhancements can't run (we have no
-    structure), so those stay single-family, and the value stays the single-family
-    median."""
+    A multi-unit building (NSI-detected, or declared by the caller's unit count)
+    adds a dense-housing caveat. Energy, Infrastructure, Environmental, and the
+    income-based value-per-door always reflect it. Resilience and Durability need
+    the building's material and height: present for a detected building or when the
+    caller enters them, otherwise those two stay on single-family assumptions and the
+    caveat prompts for the missing inputs. ``cfg`` carries the caller's entered
+    ``units``/``bldg_material``/``stories`` (merged with detection via
+    ``effective_structure``)."""
     from housing_label.data.egrid import US_AVG_LABEL
 
     caveats: list[str] = []
+    struct = effective_structure(cfg or {}, location)
 
-    # Dense-housing caveat: fires when the caller asked for multiple units OR the
-    # building was detected as multi-family (NSI). Energy (shared walls),
-    # Infrastructure (per-unit density), and Environmental (no private yard) follow
-    # any unit count; the Resilience/Durability enhancements and the value-per-door
-    # value are driven by the *detected* structure, so they only apply on the
-    # detected path. A manual unit count keeps the single-family median value.
-    detected_units = getattr(location, "num_units", None)
-    detected_mf = getattr(location, "structure_type", None) == "multifamily"
-    if int(units or 1) > 1 or detected_mf or (detected_units and detected_units > 1):
+    # Dense-housing caveat: fires for any multi-family building (detected or entered).
+    # Energy/Infrastructure/Environmental and the value-per-door value always apply;
+    # Resilience/Durability apply only with the building's material and height.
+    if struct["is_multifamily"]:
+        detected_mf = getattr(location, "structure_type", None) == "multifamily"
+        has_material = bool(struct.get("bldg_material"))
+        has_stories = bool(struct.get("stories"))
+        detail = ""
         if detected_mf:
+            # Report NSI's *detected* unit count here (not a caller override) so the
+            # "detected from the National Structure Inventory" attribution stays honest.
+            det_n = getattr(location, "num_units", None)
             detail = (" This address looks like a multi-unit building"
-                      + (f" (~{detected_units} units)" if detected_units and detected_units > 1 else "")
+                      + (f" (~{det_n} units)" if det_n and det_n > 1 else "")
                       + ", detected from the National Structure Inventory.")
+        # The material/height-driven Resilience & Durability adjustments only run when
+        # we actually have both — for a detected building NSI may give an unusable
+        # material ("other") or no stories, so gate the "full" caveat on the values
+        # being present, not merely on detection.
+        if has_material and has_stories:
             caveats.append(
                 "Multi-unit building: scored in its building context — Energy credits "
-                "its shared walls, Resilience its detected material and height, "
-                "Durability its shared structural shell, Infrastructure its unit "
-                "density, and Environmental drops the private-yard water use. The "
-                "per-unit value is an income-based value-per-door estimate (local rent "
-                "capitalized by the income / cap-rate method), a neighborhood-average "
-                "approximation rather than an appraisal, so its dollar figures are "
-                "approximate for an apartment or condo." + detail
+                "its shared walls, Resilience its material and height, Durability its "
+                "shared structural shell, Infrastructure its unit density, and "
+                "Environmental drops the private-yard water use. The per-unit value is "
+                "an income-based value-per-door estimate (local rent capitalized by the "
+                "income / cap-rate method), a neighborhood-average approximation rather "
+                "than an appraisal, so its dollar figures are approximate for an "
+                "apartment or condo." + detail
             )
         else:
+            missing = ([] if has_material else ["construction material"]) + \
+                      ([] if has_stories else ["number of stories"])
             caveats.append(
-                "Partial multi-unit support: Energy (shared walls), Infrastructure "
-                "(per-unit density and cost), and Environmental (no private-yard water) "
-                "reflect the multi-unit count you entered, but Resilience and Durability "
-                "still use single-family assumptions — they need the building's structure "
-                "(material, height), which wasn't detected from the address — and the "
-                "per-unit value uses a single-family median, so figures are approximate "
-                "for an apartment, townhome, or condo."
+                "Multi-unit building: Energy (shared walls), Infrastructure (per-unit "
+                "density), Environmental (no private-yard water), and the per-unit "
+                "value-per-door estimate reflect it, but Resilience and Durability still "
+                "use single-family assumptions — add the building's "
+                + " and ".join(missing) + " to score those too. Figures are approximate "
+                "for an apartment, townhome, or condo." + detail
             )
 
     if location is None:
@@ -1345,7 +1361,7 @@ def print_label(cfg: dict, label: dict) -> None:
                 print(row(f"    • {d['label']:<22}: {note}"))
 
     # Honest caveat: some dimensions are not yet location-generalized.
-    caveats = _approx_caveats(label.get("location"), cfg.get("units", 1))
+    caveats = _approx_caveats(label.get("location"), cfg)
     if caveats:
         print(row(f"    {'─'*54}"))
         print(row("  ⚠ Approximate outside Shelby County:"))
@@ -1418,17 +1434,22 @@ def label_payload(cfg: dict, r: dict, label: dict) -> dict:
             "notes": loc.notes,
         }
         # Detected building context (USACE NSI): what kind of building is here.
-        # As of Phase 2, Energy consumes the detected unit count (shared-wall EUI
-        # credit) and Resilience consumes the material + stories (material-driven
-        # factors, floor-aware flood); Durability and the remaining dimensions still
-        # use single-family assumptions (flagged by the multi-unit caveat).
-        if getattr(loc, "structure_source", None):
+        # Report the *effective* building context actually used for scoring — the
+        # caller's entered units/material/stories merged over the NSI detection — so
+        # the payload matches how the dimensions were computed. ``source`` names where
+        # the multi-family classification came from (NSI detection vs. entered count).
+        est = effective_structure(cfg, loc)
+        if getattr(loc, "structure_source", None) or est["is_multifamily"]:
+            detected_mf = getattr(loc, "structure_type", None) == "multifamily"
+            source = (getattr(loc, "structure_source", None) if detected_mf
+                      else "entered" if est["is_multifamily"]
+                      else getattr(loc, "structure_source", None))
             payload["structure"] = {
-                "structure_type": loc.structure_type,
-                "num_units": loc.num_units,
-                "stories": loc.stories,
-                "bldg_material": loc.bldg_material,
-                "source": loc.structure_source,
+                "structure_type": est["structure_type"],
+                "num_units": est["num_units"],
+                "stories": est["stories"],
+                "bldg_material": est["bldg_material"],
+                "source": source,
             }
         # Wildfire hazard behind the fire peril (FEMA NRI; rating + EAL rate).
         wf = getattr(loc, "wildfire", None)
@@ -1438,7 +1459,7 @@ def label_payload(cfg: dict, r: dict, label: dict) -> dict:
                 "eal_rate": wf.get("eal_rate"),
                 "geo_level": wf.get("geo_level"),
             }
-    payload["caveats"] = _approx_caveats(loc, cfg.get("units", 1))
+    payload["caveats"] = _approx_caveats(loc, cfg)
     return payload
 
 
@@ -1489,6 +1510,7 @@ def build_label_parts(*, address: str | None = None,
         foundation=fields.get("foundation"), condition=fields.get("condition"),
         value=fields.get("value"), units=fields.get("units"),
         sqft=fields.get("sqft"), lot_acres=fields.get("lot_acres"),
+        bldg_material=fields.get("bldg_material"), stories=fields.get("stories"),
     )
     for flag in BONUS_FLAGS:            # resilience upgrades → Namespace booleans
         setattr(ns, flag, flag in (upgrades or []))
@@ -1509,13 +1531,15 @@ def build_label_parts(*, address: str | None = None,
     # Auto-fill the home value when the caller didn't specify one, so the
     # Infrastructure fiscal ratio (and dollar EALs) reflect the local market instead
     # of the construction profile's flat default. An explicit value (CLI --value /
-    # API value=) always wins. For a building detected as multi-family, the
-    # single-family owner-occupied median is wrong (a rental building carries no such
-    # value), so use the income-based value-per-door estimate (rent-derived NOI ÷ cap
-    # rate) instead; other addresses keep the single-family county median.
+    # API value=) always wins. For a multi-family building — detected by NSI OR
+    # declared by the caller's unit count — the single-family owner-occupied median
+    # is wrong (a rental building carries no such value), so use the income-based
+    # value-per-door estimate (rent-derived NOI ÷ cap rate); other addresses keep the
+    # single-family county median.
+    struct = effective_structure(cfg, location)
     if location is not None and fields.get("value") is None:
         county_fips = getattr(location, "county_fips", None)
-        if getattr(location, "structure_type", None) == "multifamily":
+        if struct["is_multifamily"]:
             from housing_label.data.multifamily_value import value_per_door_for_county
             cfg["value"] = value_per_door_for_county(county_fips)["value_per_door"]
             cfg["value_source"] = VALUE_PER_DOOR_SOURCE
@@ -1529,14 +1553,12 @@ def build_label_parts(*, address: str | None = None,
     # The resilience local grade ranks against the bundled Shelby dataset, so it's
     # only meaningful for a Shelby address; compute it only then (N/A elsewhere).
     is_shelby = getattr(location, "county_fips", None) == CALIBRATED_COUNTY_FIPS
-    structure = None
-    if location is not None:
-        structure = {
-            "structure_type": getattr(location, "structure_type", None),
-            "num_units": getattr(location, "num_units", None),
-            "stories": getattr(location, "stories", None),
-            "bldg_material": getattr(location, "bldg_material", None),
-        }
+    structure = {
+        "structure_type": struct["structure_type"],
+        "num_units": struct["num_units"],
+        "stories": struct["stories"],
+        "bldg_material": struct["bldg_material"],
+    }
     r = simulate(cfg, local_compare=is_shelby, structure=structure)
     label = simulate_all_dimensions(
         cfg, r["total_score"], location=location,
@@ -1831,6 +1853,7 @@ def main() -> None:
             year_built=args.year_built, construction=args.construction,
             foundation=args.foundation, condition=args.condition,
             value=args.value, units=args.units, sqft=args.sqft, lot_acres=args.lot_acres,
+            bldg_material=args.bldg_material, stories=args.stories,
         )
     except ValueError as exc:
         parser.error(str(exc))

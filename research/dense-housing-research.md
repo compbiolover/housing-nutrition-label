@@ -277,6 +277,19 @@ Per-dimension methodology:
   - **Phase 3 core complete** (3a data, 3b wiring, 3c dollar consistency). Remaining
     optional Phase 3 work: a multifamily/commercial **assessment class** (5+ units
     often assessed at a higher ratio) and swapping in **HUD FMR** rent via the seam.
+- **Trust caller-entered structure (detection-miss fallback).** NSI mislabels many
+  garden-apartment complexes as clusters of single-family structures (verified: 3720
+  Spruce Ridge Way, Knoxville → 93 identical `RES1` at the address, no `RES3` to find),
+  so nearest-structure detection can't recover multi-family there. Fix: an
+  `effective_structure(cfg, location)` helper (`simulate/dimensions.py`) merges a
+  caller-entered unit count / `bldg_material` / `stories` over the NSI reading and
+  treats **units > 1 as multi-family** even when NSI didn't. A declared multi-unit
+  building now gets value-per-door (only needs county rent); entering the shell
+  **material** and **height** additionally drives Resilience (material factors +
+  floor-aware flood) and Durability (shell service life). When those aren't supplied,
+  the caveat prompts for them instead of silently using single-family assumptions.
+  Exposed as `--building-material`/`--stories` (CLI) and `bldg_material`/`stories`
+  (API `/label`); the web-form inputs are a follow-up.
 - **Phase 3 — Value / tax basis** for condos and apartments (Part 3).
 - **Phase 4 — UX & presentation** — building-type-aware presets, building context on the
   label, per-unit framing, confidence flags.

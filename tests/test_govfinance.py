@@ -143,13 +143,19 @@ def test_multi_unit_caveat_fires_only_above_one_unit():
     from housing_label.simulate import house
     loc = SimpleNamespace(county_fips="06037", egrid_subregion="CAMX")
 
-    assert not any("multi-unit" in c.lower() for c in house._approx_caveats(loc, 1))
+    assert not any("multi-unit" in c.lower() for c in house._approx_caveats(loc, {"units": 1}))
 
-    msg = " ".join(house._approx_caveats(loc, 4)).lower()
+    msg = " ".join(house._approx_caveats(loc, {"units": 4})).lower()
     assert "multi-unit" in msg
     assert "single-family" in msg
     # Still fires when the location can't be resolved.
-    assert any("multi-unit" in c.lower() for c in house._approx_caveats(None, 2))
+    assert any("multi-unit" in c.lower() for c in house._approx_caveats(None, {"units": 2}))
+    # Entering the building's material + height clears the single-family flag on
+    # Resilience/Durability (the caveat becomes the full building-context one).
+    full = " ".join(house._approx_caveats(loc, {"units": 4, "bldg_material": "concrete",
+                                                "stories": 4})).lower()
+    assert "single-family" not in full
+    assert "value-per-door" in full
 
 
 def _run_all():
