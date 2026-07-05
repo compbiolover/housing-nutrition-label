@@ -437,7 +437,12 @@ def _load_spc(allow_network: bool = True):
             return None
     if not SPC_CACHE.exists():
         return None
-    df = pd.read_csv(SPC_CACHE, low_memory=False)
+    # The tornado rate only needs the touchdown coordinates, so read just those two
+    # columns — the full 29-column SPC table is ~28 MB resident, the two-column slice
+    # ~1 MB, which matters on a 512 MB instance. usecols matches on the stripped header
+    # so it's robust to any leading/trailing whitespace in the CSV.
+    df = pd.read_csv(SPC_CACHE, usecols=lambda c: c.strip() in ("slat", "slon"),
+                     low_memory=False)
     df.columns = df.columns.str.strip()
     df = df[df["slat"].notna() & df["slon"].notna() & (df["slat"] != 0)].copy()
     df["slat"] = df["slat"].astype(float)
