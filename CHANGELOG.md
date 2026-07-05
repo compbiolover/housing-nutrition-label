@@ -9,6 +9,18 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.22](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.21...v0.1.22) (2026-07-05)
+
+
+### Features
+
+* web-form building-material + stories inputs for multi-unit buildings ([#88](https://github.com/compbiolover/housing-nutrition-label/issues/88)) ([f44833a](https://github.com/compbiolover/housing-nutrition-label/commit/f44833a9d96d67d35ee77108166eea7dbd41cd59))
+
+
+### Performance Improvements
+
+* curb Render memory growth (glibc trim + memoized tornado scan) ([#89](https://github.com/compbiolover/housing-nutrition-label/issues/89)) ([2899d53](https://github.com/compbiolover/housing-nutrition-label/commit/2899d53050f2a06ade9854076480307f813b94dd))
+
 ## [0.1.21](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.20...v0.1.21) (2026-07-05)
 
 
