@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.23](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.22...v0.1.23) (2026-07-05)
+
+
+### Performance Improvements
+
+* load only the two SPC columns the tornado rate needs (~27 MB saved) ([#91](https://github.com/compbiolover/housing-nutrition-label/issues/91)) ([23299ff](https://github.com/compbiolover/housing-nutrition-label/commit/23299ffb05952a27623bd591c3d60c0912719f12))
+
 ## [0.1.22](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.21...v0.1.22) (2026-07-05)
 
 
