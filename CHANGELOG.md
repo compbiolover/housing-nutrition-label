@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.21](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.20...v0.1.21) (2026-07-05)
+
+
+### Features
+
+* trust a caller-entered structure when NSI misses multi-family ([#86](https://github.com/compbiolover/housing-nutrition-label/issues/86)) ([25d9c16](https://github.com/compbiolover/housing-nutrition-label/commit/25d9c163c07b7af9b2e585dbb7b5e23f003dc1f6))
+
 ## [0.1.20](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.19...v0.1.20) (2026-07-04)
 
 
