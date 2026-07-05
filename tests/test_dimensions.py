@@ -482,6 +482,41 @@ def test_multifamily_environmental_score_improves():
     assert compute_construction_dimensions(cfg, mf_material="concrete")["environmental"] > detached
 
 
+def test_density_comparison_threads_material_and_stories():
+    """The density what-if forwards entered material/stories to each scenario, so a
+    multi-unit scenario's Resilience reflects the building (not single-family), while
+    the 1-unit scenario stays single-family (1 unit isn't a multi-unit building)."""
+    import unittest.mock as mock
+    from housing_label.simulate import house
+    from housing_label.simulate.location import Location
+
+    def loc():
+        return Location(
+            lat=35.94, lon=-83.93, state_fips="47", county_fips="47093", county_name="Knox",
+            tract=None, place_label="Knox", in_urban_area=True, climate_zone=None,
+            egrid_subregion="SRTV", egrid_factor=None, climate_projection=None, wildfire=None,
+            structure_type="single_family", num_units=1, stories=1, bldg_material="wood",
+            structure_source="NSI", notes=None)
+
+    def resilience(scn):
+        dims = scn.get("dimensions") or []
+        hit = [d["score"] for d in dims if d["key"] == "resilience"]
+        return hit[0] if hit else scn.get("resilience")
+
+    with mock.patch("housing_label.simulate.location.resolve_location", return_value=loc()):
+        plain = house.density_comparison(lat=35.94, lon=-83.93, preset="baseline",
+                                         allow_network=False, unit_counts=[1, 4])
+        conc = house.density_comparison(lat=35.94, lon=-83.93, preset="baseline",
+                                        allow_network=False, unit_counts=[1, 4],
+                                        bldg_material="concrete", stories=4)
+
+    by_units = lambda d: {s["units"]: resilience(s) for s in d["scenarios"]}
+    plain_r, conc_r = by_units(plain), by_units(conc)
+    # 4-unit scenario improves with a concrete shell; the 1-unit scenario is unchanged.
+    assert conc_r[4] > plain_r[4]
+    assert conc_r[1] == plain_r[1]
+
+
 def test_vectorized_haversine_matches_scalar():
     """The numpy haversine used by the memoized tornado scan matches the scalar one
     (so caching/vectorizing the tornado rate didn't change results)."""

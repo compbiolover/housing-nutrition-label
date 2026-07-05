@@ -242,9 +242,10 @@ def label(
                       ("foundation", foundation), ("condition", condition),
                       ("flood_zone", flood_zone)):
         _validate(name, val)
-    if bldg_material is not None and bldg_material.lower() not in (
-            "wood", "masonry", "concrete", "steel"):
-        raise HTTPException(400, "bldg_material must be one of: wood, masonry, concrete, steel")
+    if bldg_material is not None:
+        bldg_material = bldg_material.strip().lower()   # normalize once, then validate + forward
+        if bldg_material not in ("wood", "masonry", "concrete", "steel"):
+            raise HTTPException(400, "bldg_material must be one of: wood, masonry, concrete, steel")
     if stories is not None and stories < 1:
         raise HTTPException(400, "stories must be a positive integer")
 
@@ -403,6 +404,8 @@ def density(
     lot_acres: float | None = None,
     flood_zone: str | None = None,
     units: str | None = None,
+    bldg_material: str | None = None,
+    stories: int | None = None,
     upgrades: str | None = None,
 ) -> dict:
     """Compare this parcel at several densities (fixed lot, vary dwelling units).
@@ -419,6 +422,12 @@ def density(
                       ("foundation", foundation), ("condition", condition),
                       ("flood_zone", flood_zone)):
         _validate(name, val)
+    if bldg_material is not None:
+        bldg_material = bldg_material.strip().lower()   # normalize once, then validate + forward
+        if bldg_material not in ("wood", "masonry", "concrete", "steel"):
+            raise HTTPException(400, "bldg_material must be one of: wood, masonry, concrete, steel")
+    if stories is not None and stories < 1:
+        raise HTTPException(400, "stories must be a positive integer")
 
     upgrade_list = [u.strip() for u in upgrades.split(",") if u.strip()] if upgrades else []
     bad = [u for u in upgrade_list if u not in BONUS_FLAGS]
@@ -448,6 +457,7 @@ def density(
             per_unit_value=per_unit_value,
             year_built=year_built, construction=construction, foundation=foundation,
             condition=condition, value=value, sqft=sqft, lot_acres=lot_acres,
+            bldg_material=bldg_material, stories=stories,
         )
     except ValueError as exc:
         raise HTTPException(400, str(exc))
