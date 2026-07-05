@@ -1205,7 +1205,11 @@ def _approx_caveats(location, cfg: dict | None = None) -> list[str]:
             detail = (" This address looks like a multi-unit building"
                       + (f" (~{n} units)" if n and n > 1 else "")
                       + ", detected from the National Structure Inventory.")
-        if detected_mf or (has_material and has_stories):
+        # The material/height-driven Resilience & Durability adjustments only run when
+        # we actually have both — for a detected building NSI may give an unusable
+        # material ("other") or no stories, so gate the "full" caveat on the values
+        # being present, not merely on detection.
+        if has_material and has_stories:
             caveats.append(
                 "Multi-unit building: scored in its building context — Energy credits "
                 "its shared walls, Resilience its material and height, Durability its "
@@ -1220,12 +1224,12 @@ def _approx_caveats(location, cfg: dict | None = None) -> list[str]:
             missing = ([] if has_material else ["construction material"]) + \
                       ([] if has_stories else ["number of stories"])
             caveats.append(
-                "Multi-unit building (from the unit count you entered): Energy (shared "
-                "walls), Infrastructure (per-unit density), Environmental (no private-yard "
-                "water), and the per-unit value-per-door estimate all reflect it, but "
-                "Resilience and Durability still use single-family assumptions — add the "
-                "building's " + " and ".join(missing) + " to score those too. Figures are "
-                "approximate for an apartment, townhome, or condo."
+                "Multi-unit building: Energy (shared walls), Infrastructure (per-unit "
+                "density), Environmental (no private-yard water), and the per-unit "
+                "value-per-door estimate reflect it, but Resilience and Durability still "
+                "use single-family assumptions — add the building's "
+                + " and ".join(missing) + " to score those too. Figures are approximate "
+                "for an apartment, townhome, or condo." + detail
             )
 
     if location is None:

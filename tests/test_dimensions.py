@@ -169,6 +169,11 @@ def test_effective_structure_merges_entered_over_detected():
     # An unrecognized material is dropped rather than trusted.
     assert effective_structure({"units": 4, "bldg_material": "adobe"})["mf_material"] is None
 
+    # An invalid (< 1) story count is treated as unknown, not propagated.
+    assert effective_structure({"units": 4, "stories": -3})["stories"] is None
+    assert effective_structure({"units": 4, "stories": 0})["stories"] is None
+    assert effective_structure({"units": 4, "stories": 1})["stories"] == 1
+
 
 def test_parcel_row_mapping():
     """Config vocabulary maps to the expected CAMA codes (incl. per-unit split)."""

@@ -187,7 +187,8 @@ def effective_structure(cfg: dict, location=None) -> dict:
         if material not in _MF_MATERIALS:
             material = None
     try:
-        stories = int(cfg.get("stories") or base_stories or 0) or None
+        s = int(cfg.get("stories") or base_stories or 0)
+        stories = s if s >= 1 else None          # a story count < 1 is invalid → unknown
     except (TypeError, ValueError):
         stories = None
 

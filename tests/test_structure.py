@@ -87,6 +87,17 @@ def test_detected_multifamily_fires_caveat():
     msg = " ".join(house._approx_caveats(loc, {"units": 1})).lower()
     assert "multi-unit building" in msg
     assert "12 units" in msg
+    # NSI gave no usable material/stories here, so Resilience/Durability can't adjust:
+    # the caveat prompts for those rather than over-claiming the full building context.
+    assert "number of stories" in msg
+    assert "single-family" in msg
+    # With a usable material + height, it becomes the full building-context caveat.
+    loc_full = SimpleNamespace(county_fips="17031", egrid_subregion="RFCW",
+                               structure_type="multifamily", num_units=12,
+                               bldg_material="concrete", stories=5)
+    full = " ".join(house._approx_caveats(loc_full, {"units": 1})).lower()
+    assert "single-family" not in full
+    assert "12 units" in full
 
 
 if __name__ == "__main__":
