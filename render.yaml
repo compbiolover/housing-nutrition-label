@@ -15,6 +15,15 @@ services:
     envVars:
       - key: ALLOWED_ORIGINS
         value: https://housinglabel.dev
+      # Keep the glibc allocator from hoarding freed memory. A pandas/numpy request
+      # path allocates and frees many short-lived buffers; by default glibc keeps
+      # them in per-thread arenas and rarely returns them to the OS, so RSS ratchets
+      # upward for days until the instance OOMs. Capping arenas and lowering the
+      # trim threshold makes freed memory actually go back — flattening the climb.
+      - key: MALLOC_ARENA_MAX
+        value: "2"
+      - key: MALLOC_TRIM_THRESHOLD_
+        value: "65536"
       - key: CENSUS_API_KEY
         sync: false
       - key: WALKSCORE_API_KEY
