@@ -144,7 +144,20 @@
         <label>Dwelling units
           <input type="number" id="d-units" min="1" max="500" step="1" placeholder="e.g. 1 (house), 4 (quadplex)">
         </label>
+        <label>Building material
+          <select id="d-material">
+            <option value="">(if a multi-unit building)</option>
+            <option value="wood">Wood frame</option>
+            <option value="masonry">Load-bearing masonry</option>
+            <option value="concrete">Reinforced concrete</option>
+            <option value="steel">Steel frame</option>
+          </select>
+        </label>
+        <label>Stories
+          <input type="number" id="d-stories" min="1" max="150" step="1" placeholder="floors (if multi-unit)">
+        </label>
       </div>
+      <p class="addr-hint" style="margin:0.35rem 0 0;font-size:0.82rem;opacity:0.8;">For an apartment/condo the address doesn't detect as multi-unit, enter its <strong>units</strong>, <strong>material</strong>, and <strong>stories</strong> so Resilience &amp; Durability score the real building.</p>
       <fieldset class="addr-upgrades">
         <legend>Resilience upgrades</legend>
         <label><input type="checkbox" value="solar"> Solar panels</label>
@@ -475,10 +488,14 @@
     var constr = document.getElementById("d-construction").value;
     var sqft = document.getElementById("d-sqft").value.trim();
     var unitsIn = document.getElementById("d-units").value.trim();
+    var material = document.getElementById("d-material").value;
+    var stories = document.getElementById("d-stories").value.trim();
     if (year)   params.set("year_built", year);
     if (constr) params.set("construction", constr);
     if (sqft)   params.set("sqft", sqft);
     if (unitsIn) params.set("units", unitsIn);
+    if (material) params.set("bldg_material", material);
+    if (stories) params.set("stories", stories);
     var ups = Array.prototype.slice
       .call(document.querySelectorAll(".addr-upgrades input:checked"))
       .map(function (c) { return c.value; });
@@ -488,7 +505,7 @@
     // than the selected base profile. Capture context for the result header.
     var ctx = {
       presetLabel: preset.options[preset.selectedIndex].text,
-      isCustom: !!(year || constr || sqft || unitsIn || ups.length),
+      isCustom: !!(year || constr || sqft || unitsIn || material || stories || ups.length),
       upgradeLabels: ups.map(function (v) { return UPGRADE_LABELS[v] || v; })
     };
 

@@ -288,8 +288,9 @@ Per-dimension methodology:
   **material** and **height** additionally drives Resilience (material factors +
   floor-aware flood) and Durability (shell service life). When those aren't supplied,
   the caveat prompts for them instead of silently using single-family assumptions.
-  Exposed as `--building-material`/`--stories` (CLI) and `bldg_material`/`stories`
-  (API `/label`); the web-form inputs are a follow-up.
+  Exposed as `--building-material`/`--stories` (CLI), `bldg_material`/`stories`
+  (API `/label`), and **Building material + Stories inputs on the web form**
+  (`docs/index.html`), which post through to the API alongside the unit count.
 - **Phase 3 — Value / tax basis** for condos and apartments (Part 3).
 - **Phase 4 — UX & presentation** — building-type-aware presets, building context on the
   label, per-unit framing, confidence flags.
