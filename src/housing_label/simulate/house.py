@@ -1187,7 +1187,6 @@ def _approx_caveats(location, cfg: dict | None = None) -> list[str]:
     ``units``/``bldg_material``/``stories`` (merged with detection via
     ``effective_structure``)."""
     from housing_label.data.egrid import US_AVG_LABEL
-    from housing_label.simulate.dimensions import effective_structure
 
     caveats: list[str] = []
     struct = effective_structure(cfg or {}, location)
@@ -1197,13 +1196,15 @@ def _approx_caveats(location, cfg: dict | None = None) -> list[str]:
     # Resilience/Durability apply only with the building's material and height.
     if struct["is_multifamily"]:
         detected_mf = getattr(location, "structure_type", None) == "multifamily"
-        n = struct.get("num_units")
         has_material = bool(struct.get("bldg_material"))
         has_stories = bool(struct.get("stories"))
         detail = ""
         if detected_mf:
+            # Report NSI's *detected* unit count here (not a caller override) so the
+            # "detected from the National Structure Inventory" attribution stays honest.
+            det_n = getattr(location, "num_units", None)
             detail = (" This address looks like a multi-unit building"
-                      + (f" (~{n} units)" if n and n > 1 else "")
+                      + (f" (~{det_n} units)" if det_n and det_n > 1 else "")
                       + ", detected from the National Structure Inventory.")
         # The material/height-driven Resilience & Durability adjustments only run when
         # we actually have both — for a detected building NSI may give an unusable

@@ -138,9 +138,11 @@ def test_effective_structure_merges_entered_over_detected():
     from types import SimpleNamespace
     from housing_label.simulate.dimensions import effective_structure
 
-    # No location, single unit → single-family, nothing multi-family.
-    sf = effective_structure({"units": 1})
+    # No location, single unit → single-family, nothing multi-family. Entered
+    # material/stories are multi-unit-only and must not leak into a single-family row.
+    sf = effective_structure({"units": 1, "bldg_material": "concrete", "stories": 3})
     assert sf["is_multifamily"] is False and sf["mf_units"] is None and sf["mf_material"] is None
+    assert sf["bldg_material"] is None and sf["stories"] is None
 
     # Entered 16 units, no material → multi-family, but no material/stories to score
     # Resilience/Durability with.

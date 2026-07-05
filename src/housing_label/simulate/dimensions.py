@@ -196,6 +196,11 @@ def effective_structure(cfg: dict, location=None) -> dict:
         getattr(location, "num_units", None) if det_mf else 1)
     mf_units = num_units if (is_mf and num_units and num_units > 1) else None
 
+    # Material/stories are multi-unit-only context; drop them for a single-family
+    # building so they don't leak into the structure payload for non-MF cases.
+    if not is_mf:
+        material = stories = None
+
     return {
         "structure_type": "multifamily" if is_mf else det_type,
         "is_multifamily": is_mf,
@@ -203,7 +208,7 @@ def effective_structure(cfg: dict, location=None) -> dict:
         "stories": stories,
         "bldg_material": material,
         "mf_units": mf_units,
-        "mf_material": material if is_mf else None,
+        "mf_material": material,
     }
 
 
