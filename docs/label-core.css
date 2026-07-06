@@ -39,6 +39,12 @@
 .dim-row { margin: 0.5rem 0; }
 .dim-row > summary { cursor: pointer; list-style: none; padding: 3px 6px; margin: 0 -6px;
   border-radius: 6px; -webkit-tap-highlight-color: transparent; }
+/* iOS Safari only toggles a <details> when the tap lands on the <summary> itself,
+   not on a descendant. This summary is filled with nested divs/spans (the bar,
+   score, dot), so without this a tap always hits a child and nothing opens on
+   iPhone. Make the children transparent to pointer events so every tap registers
+   on the summary. (Keyboard focus is unaffected.) */
+.dim-row > summary * { pointer-events: none; }
 .dim-row > summary::-webkit-details-marker { display: none; }   /* Safari */
 .dim-row > summary::marker { content: ""; }
 .dim-row > summary:hover { background: var(--bg); }
