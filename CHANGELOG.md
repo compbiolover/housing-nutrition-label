@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.26](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.25...v0.1.26) (2026-07-06)
+
+
+### Bug Fixes
+
+* expandable label rows now open on tap on iOS Safari ([#98](https://github.com/compbiolover/housing-nutrition-label/issues/98)) ([ea3c3f7](https://github.com/compbiolover/housing-nutrition-label/commit/ea3c3f7f9a8575558641d01302fee72184efb65a))
+
 ## [0.1.25](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.24...v0.1.25) (2026-07-06)
 
 
