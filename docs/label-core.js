@@ -40,6 +40,21 @@ window.LabelCore = (function () {
 
   function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML; }
 
+  // ── Plain-language "what this row measures" (one sentence per dimension) ────
+  // Static editorial copy (the numbers behind each score come from the API's
+  // per-dimension `details`); shown when a row is expanded.
+  var DIM_ABOUT = {
+    resilience: "The average yearly dollar loss this home faces from local natural disasters — flood, wind/tornado, earthquake, and wildfire — as a share of its value. Lower expected loss scores higher.",
+    energy: "How much energy the home needs per square foot each year (its Energy Use Intensity), from its age, construction, and local climate zone. Less energy per square foot scores higher.",
+    durability: "How much service life the home's major components — structure, roof, systems — still have, from its material, age, grade, and condition. More remaining life scores higher.",
+    environmental: "The home's yearly climate footprint: operational carbon from energy, embodied carbon from materials (spread over the building's life), and water use. A smaller total scores higher.",
+    infrastructure: "The property tax this home generates versus the public cost to serve it (roads, water, sewer, fire, police). A ratio above ~1 means it pays its own way. Higher is better.",
+    health: "A neighborhood health index (CDC PLACES) — the census tract's percentile within its county across chronic-disease and health-outcome measures. Higher means a healthier local context.",
+    socioeconomic: "A census-tract socioeconomic index (Census ACS: income, education, employment), ranked within the county. Higher is a stronger local socioeconomic profile.",
+    walkability: "How easy it is to run daily errands on foot and by transit (Walk Score API — walk, transit, and bike blended). Higher means more walkable.",
+    climate: "How exposed this location is to worsening climate hazards by mid-century (CMIP6-LOCA2 downscaled projections). Higher means less projected hazard."
+  };
+
   // ── Confidence (data quality, separate from the grade) ─────────────────────
   var CONFIDENCE = {
     high: { glyph: "●", label: "High" },
@@ -115,28 +130,58 @@ window.LabelCore = (function () {
       + ' &mdash; counts only energy bills and likely disaster losses, in today’s dollars</div></div>';
   }
 
-  // ── Per-dimension row (bar + grade + confidence dot + climate whisker) ─────
+  // Expandable detail panel body: plain-language "what this measures" + the real
+  // per-dimension numbers from the API + a data-quality provenance line.
+  function dimDetail(d, data) {
+    var html = "";
+    var about = DIM_ABOUT[d.key];
+    if (about) html += '<p class="dim-about">' + esc(about) + '</p>';
+    var rows = (data.details || {})[d.key] || [];
+    if (rows.length) {
+      html += '<dl class="dim-nums">';
+      rows.forEach(function (row) {
+        html += '<div class="dim-num"><dt>' + esc(row.label) + '</dt><dd>' + esc(row.value) + '</dd></div>';
+      });
+      html += '</dl>';
+    }
+    var ci = confInfo((data.confidence || {})[d.key]);
+    if (ci) {
+      var note = (data.confidence_notes || {})[d.key];
+      html += '<p class="dim-prov"><span class="conf-dot" aria-hidden="true">' + ci.glyph + '</span> Data quality: '
+        + '<strong>' + esc(ci.label) + '</strong>' + (note ? ' &mdash; ' + esc(note) : '') + '</p>';
+    }
+    return html;
+  }
+
+  // ── Per-dimension row — a tap/click-to-expand disclosure (native <details>) ──
+  // The summary is the score bar + grade + confidence dot; expanding reveals what
+  // the category measures and the actual numbers behind the score. Native
+  // <details> gives free mobile-tap, mouse-click, and keyboard/screen-reader
+  // support with no JS wiring and no inline handlers (CSP-safe).
   function dimRow(d, data) {
     var dot = confDot(data, d.key);
+    var chev = '<span class="dim-chevron" aria-hidden="true">&#9656;</span>';
+    var right, bar;
     if (d.score == null) {
-      return '<div class="score-bar-container"><div class="score-bar-label">'
-        + '<span>' + esc(d.label) + '</span><span class="na">N/A' + dot + '</span></div>'
-        + '<div class="score-bar"></div></div>';
+      right = '<span class="na">N/A' + dot + chev + '</span>';
+      bar = '<div class="score-bar"></div>';
+    } else {
+      var sc = Number(d.score);
+      if (!isFinite(sc)) sc = 0;
+      sc = Math.max(0, Math.min(100, sc));
+      var band = (data.bands || {})[d.key], whisker = "";
+      if (band && isFinite(band.low) && isFinite(band.high)) {
+        var wlo = Math.max(0, Math.min(100, band.low)), whi = Math.max(0, Math.min(100, band.high));
+        whisker = '<div class="ci-whisker" style="left:' + wlo + '%;width:' + Math.max(0, whi - wlo)
+          + '%"><div class="ci-line"></div></div>';
+      }
+      right = '<span>' + sc.toFixed(1) + ' / ' + esc(d.national_grade) + dot + chev + '</span>';
+      bar = '<div class="score-bar"><div class="fill ' + fillClass(sc)
+        + '" style="width:' + sc + '%"></div>' + whisker + '</div>';
     }
-    var sc = Number(d.score);
-    if (!isFinite(sc)) sc = 0;
-    sc = Math.max(0, Math.min(100, sc));
-    var band = (data.bands || {})[d.key], whisker = "";
-    if (band && isFinite(band.low) && isFinite(band.high)) {
-      var wlo = Math.max(0, Math.min(100, band.low)), whi = Math.max(0, Math.min(100, band.high));
-      whisker = '<div class="ci-whisker" style="left:' + wlo + '%;width:' + Math.max(0, whi - wlo)
-        + '%"><div class="ci-line"></div></div>';
-    }
-    return '<div class="score-bar-container"><div class="score-bar-label">'
-      + '<span>' + esc(d.label) + '</span><span>' + sc.toFixed(1) + ' / '
-      + esc(d.national_grade) + dot + '</span></div>'
-      + '<div class="score-bar"><div class="fill ' + fillClass(sc)
-      + '" style="width:' + sc + '%"></div>' + whisker + '</div></div>';
+    return '<details class="score-bar-container dim-row"><summary class="dim-summary">'
+      + '<div class="score-bar-label"><span>' + esc(d.label) + '</span>' + right + '</div>'
+      + bar + '</summary><div class="dim-detail">' + dimDetail(d, data) + '</div></details>';
   }
 
   function compositeConfLine(data) {
@@ -152,7 +197,8 @@ window.LabelCore = (function () {
   }
 
   function legendHtml() {
-    return '<div class="conf-legend">● High &nbsp; ◐ Moderate &nbsp; ○ Low &mdash; '
+    return '<div class="conf-legend"><strong>Tap any row</strong> for what it measures and the numbers behind it. '
+      + '&nbsp;●&nbsp;High &nbsp;◐&nbsp;Moderate &nbsp;○&nbsp;Low &mdash; '
       + 'the dot shows how solid the data is (not how good the score is); the whisker shows the climate range</div>';
   }
 

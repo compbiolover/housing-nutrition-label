@@ -16,7 +16,8 @@ for _p in (_ROOT, _ROOT / "src"):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
-from housing_label.simulate.house import label_payload, cost_flows  # noqa: E402
+from housing_label.simulate.house import (  # noqa: E402
+    label_payload, cost_flows, dimension_details)
 
 
 def _parts():
@@ -65,6 +66,83 @@ def test_cost_flows_without_energy():
     _cfg, r, label = _parts()
     label["metrics"].pop("est_monthly_energy_cost")
     assert cost_flows(r, label) == {"expectedAnnualLoss": 115}
+
+
+def _rich_parts():
+    """A fixture with the driver metrics the models emit, so the per-dimension
+    detail rows are fully populated."""
+    cfg, r, label = _parts()
+    r.update({"flood_loss": 60.2, "tornado_loss": 40.0, "seismic_loss": 1.1})
+    label["metrics"].update({
+        "eui_kbtu_sqft_yr": 42.3, "fiscal_ratio": 1.12,
+        "est_property_tax": 2100.0, "est_annual_infra_cost": 1875.0,
+        "durability_material_class": "wood frame", "durability_remaining_life_pct": 78.0,
+        "durability_components_past_life": 1, "durability_condition": "average",
+        "env_total_co2e_kg_yr": 8421.0, "env_operational_co2e_kg_yr": 6100.0,
+        "env_embodied_co2e_kg_yr": 1800.0, "env_water_gal_yr": 41000.0,
+    })
+    return cfg, r, label
+
+
+def _rowmap(rows):
+    return {row["label"]: row["value"] for row in rows}
+
+
+def test_details_present_for_every_dimension():
+    cfg, r, label = _rich_parts()
+    det = label_payload(cfg, r, label)["details"]
+    for key in ("resilience", "energy", "durability", "environmental",
+                "infrastructure", "health", "socioeconomic", "walkability", "climate"):
+        assert key in det, key
+        assert isinstance(det[key], list)
+
+
+def test_details_carry_real_formatted_numbers():
+    cfg, r, label = _rich_parts()
+    det = dimension_details(cfg, r, label)
+    res = _rowmap(det["resilience"])
+    assert res["Expected annual loss"] == "$115/yr"
+    assert res["Flood"] == "$60/yr" and res["Wildfire"] == "$7/yr"
+    assert _rowmap(det["energy"])["Energy use intensity"] == "42.3 kBTU/sqft·yr"
+    assert _rowmap(det["durability"])["Remaining service life"] == "78%"
+    assert _rowmap(det["environmental"])["Total carbon footprint"] == "8,421 kg CO₂e/yr"
+    assert _rowmap(det["infrastructure"])["Fiscal ratio (tax ÷ cost to serve)"] == "1.12"
+
+
+def test_details_explain_unscored_and_omit_missing():
+    cfg, r, label = _rich_parts()
+    det = dimension_details(cfg, r, label)
+    # Socioeconomic is None here → a single explanatory Status row with the note.
+    socio = _rowmap(det["socioeconomic"])
+    assert "Not scored here" in socio["Status"] and "CENSUS_API_KEY" in socio["Status"]
+    # Climate is scored → carries the mid-century band from metrics, and the
+    # projection score shows 1 decimal (matching the row summary, not rounded to 0).
+    climate = _rowmap(det["climate"])
+    assert climate["Projection score"] == "49.6 / 100"
+    assert climate["Mid-century band (SSP2-4.5 – 5-8.5)"] == "49.6–47.0"
+    # A row whose value is unavailable is dropped, never emitted blank.
+    assert all(row["value"] is not None for rows in det.values() for row in rows)
+
+
+def test_details_drop_non_finite_values():
+    """Metrics can arrive as NaN from pandas/numpy — those rows must be dropped,
+    never formatted into a user-visible '$nan' / 'nan kg CO₂e/yr'."""
+    import math
+    cfg, r, label = _rich_parts()
+    label["metrics"]["est_property_tax"] = float("nan")       # money
+    label["metrics"]["env_total_co2e_kg_yr"] = float("nan")   # qty
+    label["metrics"]["eui_kbtu_sqft_yr"] = float("inf")       # inline float
+    r["total_loss"] = math.nan                                # money in resilience
+    det = dimension_details(cfg, r, label)
+    flat = {row["label"]: row["value"] for rows in det.values() for row in rows}
+    assert not any("nan" in str(v).lower() or "inf" in str(v).lower() for v in flat.values())
+    # The affected rows are omitted entirely, not blanked.
+    assert "Est. property tax (per unit)" not in flat
+    assert "Total carbon footprint" not in flat
+    assert "Energy use intensity" not in flat
+    assert "Expected annual loss" not in flat
+    # A sibling finite row on the same dimension still renders.
+    assert flat.get("Est. public cost to serve (per unit)") == "$1,875/yr"
 
 
 def _run_all():

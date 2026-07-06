@@ -1415,6 +1415,121 @@ def cost_flows(r: dict, label: dict) -> dict:
     return out
 
 
+def _finite(v):
+    """Coerce to float, or None if missing / non-finite (NaN, ±inf). Metrics can
+    originate from pandas/numpy, so a NaN must read as "unavailable" (row dropped),
+    not format into a user-visible ``$nan``."""
+    if v is None:
+        return None
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return f if math.isfinite(f) else None
+
+
+def _money(v, suffix: str = "") -> str | None:
+    """Format a dollar figure like ``$1,234`` (+ optional ``/yr`` etc.)."""
+    v = _finite(v)
+    return None if v is None else f"${v:,.0f}{suffix}"
+
+
+def dimension_details(cfg: dict, r: dict, label: dict) -> dict:
+    """Per-dimension "what drove this score" detail: for each dimension, a list of
+    pre-formatted ``{label, value}`` rows built from the *real* model outputs
+    (never reconstructed on the front-end), keyed by dimension key.
+
+    These render inside each expandable label row so a reader can see the actual
+    numbers behind the grade. Values are formatted here — one source of truth — so
+    the client only prints them. Rows whose value is unavailable are dropped.
+    """
+    m = label.get("metrics") or {}
+    loc_notes = label.get("location_notes") or {}
+    scores = {d["key"]: d.get("score") for d in label.get("dimensions", [])}
+
+    def rows(*pairs) -> list:
+        return [{"label": lbl, "value": val} for lbl, val in pairs if val is not None]
+
+    def qty(v, unit: str) -> str | None:
+        v = _finite(v)
+        return None if v is None else f"{v:,.0f} {unit}"
+
+    details: dict = {}
+
+    # Resilience — expected annual dollar loss by peril, on one unit's value (the
+    # same per-unit basis the dollar EAL uses elsewhere).
+    details["resilience"] = rows(
+        ("Expected annual loss", _money(r.get("total_loss"), "/yr")),
+        ("Flood", _money(r.get("flood_loss"), "/yr")),
+        ("Wind / tornado", _money(r.get("tornado_loss"), "/yr")),
+        ("Earthquake", _money(r.get("seismic_loss"), "/yr")),
+        ("Wildfire", _money(r.get("fire_loss"), "/yr")),
+        ("On a home value of", _money(per_unit_home_value(cfg))),
+    )
+
+    # Energy — modeled energy-use intensity and the resulting cost.
+    eui = _finite(m.get("eui_kbtu_sqft_yr"))
+    details["energy"] = rows(
+        ("Energy use intensity", None if eui is None else f"{eui:.1f} kBTU/sqft·yr"),
+        ("Est. energy cost", _money(m.get("est_monthly_energy_cost"), "/mo")),
+    )
+
+    # Durability — component-lifespan drivers.
+    past = _finite(m.get("durability_components_past_life"))
+    rem = _finite(m.get("durability_remaining_life_pct"))
+    details["durability"] = rows(
+        ("Structural material", m.get("durability_material_class")),
+        ("Remaining service life", None if rem is None else f"{rem:.0f}%"),
+        ("Components past service life", None if past is None else str(int(past))),
+        ("Condition", m.get("durability_condition")),
+    )
+
+    # Environmental — annual carbon legs + water.
+    details["environmental"] = rows(
+        ("Total carbon footprint", qty(m.get("env_total_co2e_kg_yr"), "kg CO₂e/yr")),
+        ("— operational (energy)", qty(m.get("env_operational_co2e_kg_yr"), "kg CO₂e/yr")),
+        ("— embodied (materials)", qty(m.get("env_embodied_co2e_kg_yr"), "kg CO₂e/yr")),
+        ("Water use", qty(m.get("env_water_gal_yr"), "gal/yr")),
+    )
+
+    # Infrastructure — the fiscal ratio and the two sides that make it (per unit).
+    fr = _finite(m.get("fiscal_ratio"))
+    details["infrastructure"] = rows(
+        ("Fiscal ratio (tax ÷ cost to serve)", None if fr is None else f"{fr:.2f}"),
+        ("Est. property tax (per unit)", _money(m.get("est_property_tax"), "/yr")),
+        ("Est. public cost to serve (per unit)", _money(m.get("est_annual_infra_cost"), "/yr")),
+    )
+
+    # Location dimensions — the score is a within-county percentile index; show it
+    # with its provenance, or explain why it isn't scored at this location.
+    def location_rows(key: str, index_label: str, source: str) -> list:
+        # Show the score to 1 decimal — matching the row summary and the precision
+        # dimensions.py already stored — and guard non-finite as unavailable.
+        s, note = _finite(scores.get(key)), loc_notes.get(key)
+        if s is not None:
+            return rows((index_label, f"{s:.1f} / 100"), ("Source", note or source))
+        return rows(("Status", "Not scored here" + (f" — {note}" if note else "")))
+
+    details["health"] = location_rows("health", "Neighborhood health index", "CDC PLACES")
+    details["socioeconomic"] = location_rows("socioeconomic", "Socioeconomic index", "Census ACS")
+    details["walkability"] = location_rows(
+        "walkability", "Walkability (walk / transit / bike)", "Walk Score API")
+
+    # Climate — projection score, the mid-century warming band, and provenance.
+    cs = _finite(scores.get("climate"))
+    if cs is not None:
+        details["climate"] = rows(
+            ("Projection score", f"{cs:.1f} / 100"),
+            ("Mid-century band (SSP2-4.5 – 5-8.5)",
+             m.get("Climate band (SSP2-4.5–5-8.5, mid-century)")),
+            ("Source", loc_notes.get("climate") or "CMIP6-LOCA2"),
+        )
+    else:
+        details["climate"] = location_rows("climate", "Projection score", "CMIP6-LOCA2")
+
+    return details
+
+
 def label_payload(cfg: dict, r: dict, label: dict) -> dict:
     """Build the full nutrition-label payload (JSON-serializable) shared by the
     CLI's --json output and the HTTP API."""
@@ -1436,6 +1551,9 @@ def label_payload(cfg: dict, r: dict, label: dict) -> dict:
             "lon": cfg["lon"],
         },
         "dimensions": label["dimensions"],
+        # Per-dimension "what drove this score" detail rows (real model numbers),
+        # keyed by dimension key — rendered inside each expandable label row.
+        "details": dimension_details(cfg, r, label),
         "composite_score": label["composite_score"],
         "composite_national_grade": label["composite_national_grade"],
         "n_scored": label["n_scored"],

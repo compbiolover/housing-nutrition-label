@@ -383,13 +383,25 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
         "durability": durability_score,
         "environmental": environmental_score,
         "infrastructure": infrastructure_score,
-        # Side metrics surfaced on the label / for debugging.
+        # Side metrics surfaced on the label / for debugging. The per-dimension
+        # "what drove this score" detail rows (dimension_details) read from here, so
+        # each model's headline drivers are surfaced alongside the score.
         "_metrics": {
             "eui_kbtu_sqft_yr": eui,
             "est_monthly_energy_cost": energy.get("est_monthly_energy_cost"),
             "fiscal_ratio": None if fr is None or pd.isna(fr) else round(float(fr), 2),
             "est_annual_infra_cost": infra.get("est_annual_infra_cost"),
             "est_property_tax": infra.get("est_property_tax"),
+            # Durability drivers (component-lifespan model).
+            "durability_material_class": dur.get("durability_material_class"),
+            "durability_remaining_life_pct": dur.get("durability_remaining_life_pct"),
+            "durability_components_past_life": dur.get("durability_components_past_life"),
+            "durability_condition": dur.get("durability_condition"),
+            # Environmental drivers (annual CO2e legs + water).
+            "env_total_co2e_kg_yr": env.get("env_total_co2e_kg_yr"),
+            "env_operational_co2e_kg_yr": env.get("env_operational_co2e_kg_yr"),
+            "env_embodied_co2e_kg_yr": env.get("env_embodied_co2e_kg_yr"),
+            "env_water_gal_yr": env.get("env_water_gal_yr"),
         },
     }
 
