@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.25](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.24...v0.1.25) (2026-07-06)
+
+
+### Features
+
+* tap/click any label row to reveal what it measures and the numbers behind it ([#96](https://github.com/compbiolover/housing-nutrition-label/issues/96)) ([ac6e4bb](https://github.com/compbiolover/housing-nutrition-label/commit/ac6e4bbc11c7ebe5102d9fa5f7aa1486ca2fe51f))
+
 ## [0.1.24](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.23...v0.1.24) (2026-07-06)
 
 
