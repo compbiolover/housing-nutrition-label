@@ -33,6 +33,29 @@
 .ci-whisker .ci-line {
   position: absolute; top: 50%; left: 0; right: 0; height: 1.5px; background: var(--text); transform: translateY(-50%); }
 
+/* ── Expandable per-dimension rows (tap/click to reveal the numbers) ─────────*/
+/* Each row is a native <details>; the summary is the score bar, the panel holds
+   what the category measures + the real numbers behind the score. */
+.dim-row { margin: 0.5rem 0; }
+.dim-row > summary { cursor: pointer; list-style: none; padding: 3px 6px; margin: 0 -6px;
+  border-radius: 6px; -webkit-tap-highlight-color: transparent; }
+.dim-row > summary::-webkit-details-marker { display: none; }   /* Safari */
+.dim-row > summary::marker { content: ""; }
+.dim-row > summary:hover { background: var(--bg); }
+.dim-row > summary:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.dim-chevron { display: inline-block; font-size: 0.7em; color: var(--muted);
+  margin-left: 0.35rem; transition: transform 0.15s ease; }
+.dim-row[open] > summary .dim-chevron { transform: rotate(90deg); }
+.dim-detail { background: var(--bg); border-radius: 6px; padding: 0.6rem 0.8rem;
+  margin: 0.4rem 0 0.2rem; font-size: 0.85rem; }
+.dim-about { color: var(--text); margin: 0 0 0.5rem; line-height: 1.5; }
+.dim-nums { display: grid; grid-template-columns: 1fr auto; gap: 0.2rem 1rem; margin: 0.4rem 0 0; }
+.dim-num { display: contents; }
+.dim-num dt { color: var(--muted); }
+.dim-num dd { text-align: right; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.dim-prov { margin: 0.55rem 0 0; font-size: 0.75rem; color: var(--muted); }
+.dim-prov .conf-dot { cursor: default; margin-left: 0; }
+
 /* ── Lifetime "cost over a mortgage" strip ──────────────────────────────────*/
 .cost-strip { border-top: 2px solid var(--border); border-bottom: 2px solid var(--border);
   padding: 0.7rem 0; margin: 0.75rem 0; }
