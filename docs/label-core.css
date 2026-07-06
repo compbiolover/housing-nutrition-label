@@ -43,8 +43,12 @@
    not on a descendant. This summary is filled with nested divs/spans (the bar,
    score, dot), so without this a tap always hits a child and nothing opens on
    iPhone. Make the children transparent to pointer events so every tap registers
-   on the summary. (Keyboard focus is unaffected.) */
-.dim-row > summary * { pointer-events: none; }
+   on the summary. (Keyboard focus is unaffected.) Scoped to touch / coarse-pointer
+   devices — desktop toggles fine on a descendant click, and there the rule would
+   otherwise swallow the confidence dot's hover tooltip. */
+@media (hover: none), (pointer: coarse) {
+  .dim-row > summary * { pointer-events: none; }
+}
 .dim-row > summary::-webkit-details-marker { display: none; }   /* Safari */
 .dim-row > summary::marker { content: ""; }
 .dim-row > summary:hover { background: var(--bg); }
