@@ -152,7 +152,15 @@ def _structure_at(lat: float, lon: float, allow_network: bool) -> dict | None:
     feature collections in memory."""
     if not allow_network:
         return None
-    props_list = _nsi_query(lat, lon, _BOX_DEG) or _nsi_query(lat, lon, _BOX_DEG_WIDE)
+    # Try the narrow box, then widen once — including when the narrow query returned
+    # features but none had usable centroids (else those incomplete features would
+    # short-circuit the wider query that might have valid ones).
+    return (_classify_site(_nsi_query(lat, lon, _BOX_DEG), lat, lon)
+            or _classify_site(_nsi_query(lat, lon, _BOX_DEG_WIDE), lat, lon))
+
+
+def _classify_site(props_list: list[dict], lat: float, lon: float) -> dict | None:
+    """Classify the site from a box of NSI features, or None if none are usable."""
     if not props_list:
         return None
 

@@ -107,6 +107,22 @@ def test_single_family_not_false_flagged(monkeypatch):
     assert out["detection"] == "nsi" and out["units_confidence"] == "detected"
 
 
+def test_widens_box_when_narrow_query_has_no_usable_coords(monkeypatch):
+    """The narrow box returns features but none with usable centroids; the wider box
+    has a valid RES3. Detection must widen rather than give up (no false negative)."""
+    S._structure_at.cache_clear()
+
+    def fake_query(lat, lon, half):
+        if half == S._BOX_DEG:
+            return [{"occtype": "RES1", "x": None, "y": None}]          # present but unusable
+        return [{"occtype": "RES3B", "resunits": 3, "num_story": 4,
+                 "sqft": 4600, "bldgtype": "M", "x": lon, "y": lat}]    # valid in wide box
+    monkeypatch.setattr(S, "_nsi_query", fake_query)
+    out = S.structure_for_point(41.9436, -87.6531)
+    assert out is not None
+    assert out["structure_type"] == "multifamily" and out["num_units"] == 3
+
+
 def test_structure_for_point_offline_and_empty(monkeypatch):
     # Offline never touches the network.
     assert S.structure_for_point(41.9, -87.6, allow_network=False) is None
