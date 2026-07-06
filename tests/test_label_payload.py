@@ -115,8 +115,10 @@ def test_details_explain_unscored_and_omit_missing():
     # Socioeconomic is None here → a single explanatory Status row with the note.
     socio = _rowmap(det["socioeconomic"])
     assert "Not scored here" in socio["Status"] and "CENSUS_API_KEY" in socio["Status"]
-    # Climate is scored → carries the mid-century band from metrics.
+    # Climate is scored → carries the mid-century band from metrics, and the
+    # projection score shows 1 decimal (matching the row summary, not rounded to 0).
     climate = _rowmap(det["climate"])
+    assert climate["Projection score"] == "49.6 / 100"
     assert climate["Mid-century band (SSP2-4.5 – 5-8.5)"] == "49.6–47.0"
     # A row whose value is unavailable is dropped, never emitted blank.
     assert all(row["value"] is not None for rows in det.values() for row in rows)

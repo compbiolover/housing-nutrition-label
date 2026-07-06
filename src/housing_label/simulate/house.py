@@ -1503,9 +1503,11 @@ def dimension_details(cfg: dict, r: dict, label: dict) -> dict:
     # Location dimensions — the score is a within-county percentile index; show it
     # with its provenance, or explain why it isn't scored at this location.
     def location_rows(key: str, index_label: str, source: str) -> list:
-        s, note = scores.get(key), loc_notes.get(key)
+        # Show the score to 1 decimal — matching the row summary and the precision
+        # dimensions.py already stored — and guard non-finite as unavailable.
+        s, note = _finite(scores.get(key)), loc_notes.get(key)
         if s is not None:
-            return rows((index_label, f"{float(s):.0f} / 100"), ("Source", note or source))
+            return rows((index_label, f"{s:.1f} / 100"), ("Source", note or source))
         return rows(("Status", "Not scored here" + (f" — {note}" if note else "")))
 
     details["health"] = location_rows("health", "Neighborhood health index", "CDC PLACES")
@@ -1514,10 +1516,10 @@ def dimension_details(cfg: dict, r: dict, label: dict) -> dict:
         "walkability", "Walkability (walk / transit / bike)", "Walk Score API")
 
     # Climate — projection score, the mid-century warming band, and provenance.
-    cs = scores.get("climate")
+    cs = _finite(scores.get("climate"))
     if cs is not None:
         details["climate"] = rows(
-            ("Projection score", f"{float(cs):.0f} / 100"),
+            ("Projection score", f"{cs:.1f} / 100"),
             ("Mid-century band (SSP2-4.5 – 5-8.5)",
              m.get("Climate band (SSP2-4.5–5-8.5, mid-century)")),
             ("Source", loc_notes.get("climate") or "CMIP6-LOCA2"),
