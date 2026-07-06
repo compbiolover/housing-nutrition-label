@@ -1415,9 +1415,23 @@ def cost_flows(r: dict, label: dict) -> dict:
     return out
 
 
+def _finite(v):
+    """Coerce to float, or None if missing / non-finite (NaN, ±inf). Metrics can
+    originate from pandas/numpy, so a NaN must read as "unavailable" (row dropped),
+    not format into a user-visible ``$nan``."""
+    if v is None:
+        return None
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return f if math.isfinite(f) else None
+
+
 def _money(v, suffix: str = "") -> str | None:
     """Format a dollar figure like ``$1,234`` (+ optional ``/yr`` etc.)."""
-    return None if v is None else f"${float(v):,.0f}{suffix}"
+    v = _finite(v)
+    return None if v is None else f"${v:,.0f}{suffix}"
 
 
 def dimension_details(cfg: dict, r: dict, label: dict) -> dict:
@@ -1437,7 +1451,8 @@ def dimension_details(cfg: dict, r: dict, label: dict) -> dict:
         return [{"label": lbl, "value": val} for lbl, val in pairs if val is not None]
 
     def qty(v, unit: str) -> str | None:
-        return None if v is None else f"{float(v):,.0f} {unit}"
+        v = _finite(v)
+        return None if v is None else f"{v:,.0f} {unit}"
 
     details: dict = {}
 
@@ -1453,19 +1468,18 @@ def dimension_details(cfg: dict, r: dict, label: dict) -> dict:
     )
 
     # Energy — modeled energy-use intensity and the resulting cost.
-    eui = m.get("eui_kbtu_sqft_yr")
-    monthly = m.get("est_monthly_energy_cost")
+    eui = _finite(m.get("eui_kbtu_sqft_yr"))
     details["energy"] = rows(
-        ("Energy use intensity", None if eui is None else f"{float(eui):.1f} kBTU/sqft·yr"),
-        ("Est. energy cost", _money(monthly, "/mo")),
+        ("Energy use intensity", None if eui is None else f"{eui:.1f} kBTU/sqft·yr"),
+        ("Est. energy cost", _money(m.get("est_monthly_energy_cost"), "/mo")),
     )
 
     # Durability — component-lifespan drivers.
-    past = m.get("durability_components_past_life")
-    rem = m.get("durability_remaining_life_pct")
+    past = _finite(m.get("durability_components_past_life"))
+    rem = _finite(m.get("durability_remaining_life_pct"))
     details["durability"] = rows(
         ("Structural material", m.get("durability_material_class")),
-        ("Remaining service life", None if rem is None else f"{float(rem):.0f}%"),
+        ("Remaining service life", None if rem is None else f"{rem:.0f}%"),
         ("Components past service life", None if past is None else str(int(past))),
         ("Condition", m.get("durability_condition")),
     )
@@ -1479,9 +1493,9 @@ def dimension_details(cfg: dict, r: dict, label: dict) -> dict:
     )
 
     # Infrastructure — the fiscal ratio and the two sides that make it (per unit).
-    fr = m.get("fiscal_ratio")
+    fr = _finite(m.get("fiscal_ratio"))
     details["infrastructure"] = rows(
-        ("Fiscal ratio (tax ÷ cost to serve)", None if fr is None else f"{float(fr):.2f}"),
+        ("Fiscal ratio (tax ÷ cost to serve)", None if fr is None else f"{fr:.2f}"),
         ("Est. property tax (per unit)", _money(m.get("est_property_tax"), "/yr")),
         ("Est. public cost to serve (per unit)", _money(m.get("est_annual_infra_cost"), "/yr")),
     )

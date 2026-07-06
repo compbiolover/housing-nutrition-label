@@ -122,6 +122,27 @@ def test_details_explain_unscored_and_omit_missing():
     assert all(row["value"] is not None for rows in det.values() for row in rows)
 
 
+def test_details_drop_non_finite_values():
+    """Metrics can arrive as NaN from pandas/numpy — those rows must be dropped,
+    never formatted into a user-visible '$nan' / 'nan kg CO₂e/yr'."""
+    import math
+    cfg, r, label = _rich_parts()
+    label["metrics"]["est_property_tax"] = float("nan")       # money
+    label["metrics"]["env_total_co2e_kg_yr"] = float("nan")   # qty
+    label["metrics"]["eui_kbtu_sqft_yr"] = float("inf")       # inline float
+    r["total_loss"] = math.nan                                # money in resilience
+    det = dimension_details(cfg, r, label)
+    flat = {row["label"]: row["value"] for rows in det.values() for row in rows}
+    assert not any("nan" in str(v).lower() or "inf" in str(v).lower() for v in flat.values())
+    # The affected rows are omitted entirely, not blanked.
+    assert "Est. property tax (per unit)" not in flat
+    assert "Total carbon footprint" not in flat
+    assert "Energy use intensity" not in flat
+    assert "Expected annual loss" not in flat
+    # A sibling finite row on the same dimension still renders.
+    assert flat.get("Est. public cost to serve (per unit)") == "$1,875/yr"
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:
