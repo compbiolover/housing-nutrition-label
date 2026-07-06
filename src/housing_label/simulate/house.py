@@ -1487,8 +1487,14 @@ def label_payload(cfg: dict, r: dict, label: dict) -> dict:
                 "stories": est["stories"],
                 "bldg_material": est["bldg_material"],
                 "source": source,
-                "detection": getattr(loc, "structure_source", None) and
-                             ("nsi-cluster" if units_conf == "estimated" else "nsi"),
+                # ``detection`` names the NSI method behind the building-type
+                # classification, so it reflects the *original* NSI signal and is
+                # emitted only when the classification came from NSI (source == "NSI").
+                # A caller units override changes the count, not the detection method,
+                # so it reads loc.units_confidence rather than the override-nulled one.
+                "detection": (("nsi-cluster"
+                               if getattr(loc, "units_confidence", None) == "estimated"
+                               else "nsi") if source == "NSI" else None),
                 "units_confidence": units_conf,
             }
         # Wildfire hazard behind the fire peril (FEMA NRI; rating + EAL rate).

@@ -186,8 +186,13 @@ def _classify_site(props_list: list[dict], lat: float, lon: float) -> dict | Non
     # RES3 that just isn't the nearest centroid — either pattern is a multi-unit
     # site the nearest-structure classification alone would miss.
     res = [p for p in props_list if str(p.get("occtype", "")).upper().startswith("RES")]
+    res1 = [p for p in res if str(p.get("occtype", "")).upper().startswith("RES1")]
     res3 = [p for p in res if str(p.get("occtype", "")).upper().startswith("RES3")]
-    footprints = Counter(round(v) for v in (_num(p.get("sqft")) for p in res) if v)
+    # Count identical footprints among RES1 only — the mislabel signature is NSI
+    # modeling an apartment complex as a cluster of single-family (RES1) structures.
+    # RES3 density is handled as the separate district signal below, so it is not
+    # folded into the footprint count (which would broaden it into false positives).
+    footprints = Counter(round(v) for v in (_num(p.get("sqft")) for p in res1) if v)
     cluster = footprints.most_common(1)[0][1] if footprints else 0
     if cluster >= _CLUSTER_MIN or len(res3) >= _RES3_DISTRICT_MIN:
         return _result(nearest, "multifamily", _estimate_units(res3),
