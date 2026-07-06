@@ -291,6 +291,33 @@ Per-dimension methodology:
   Exposed as `--building-material`/`--stories` (CLI), `bldg_material`/`stories`
   (API `/label`), and **Building material + Stories inputs on the web form**
   (`docs/index.html`), which post through to the API alongside the unit count.
+- **Auto-detect the NSI-mislabeled complexes (no entry needed).** Rather than only
+  reading the nearest structure, `structure_for_point` (`enrich/structure.py`) now
+  inspects the whole NSI box and recognizes a multi-unit *site* the nearest-structure
+  classification misses. Empirical discriminator study (Knoxville / LA / Montpelier;
+  see below) found the clean signal is an **identical-footprint cluster** — NSI's
+  signature for a templated apartment complex it modeled as single-family structures.
+  Detection fires when the nearest is `RES3` (as before), OR ≥8 residential structures
+  share one footprint, OR ≥15 `RES3` structures sit in the box (a dense apartment
+  district where the nearest centroid is a house). Structure *density* was rejected as
+  a signal — a dense small-town single-family street (Montpelier: 13 structures within
+  50 m) matches an apartment complex on that axis. Measured separation:
+
+  | address | identical footprints | `RES3` nearby | verdict |
+  |---|---|---|---|
+  | 3720 Spruce Ridge Way (apartments) | 30 | 0 | multi-family (cluster) |
+  | Lake Ave, Knoxville (apartments) | 13 | 32 | multi-family (cluster / district) |
+  | W Blount Ave (condos) | 22 | 57 | multi-family |
+  | single-family (Scenic/Sherwood/Woodbine/Montpelier) | 1–2 | 0–8 | single-family |
+
+  The exact per-building unit count is **not** recoverable (the box spans the whole
+  community), so a heuristically detected site carries an **estimated** count (median
+  nearby `RES3` bin, else a representative default of 8), `units_confidence="estimated"`,
+  `detection="nsi-cluster"`, and no shell material/height (the nearest structure is a
+  mislabeled house). Value-per-door + per-unit framing engage automatically; the caveat
+  says the count is estimated and prompts to confirm it (Energy/Infrastructure) and to
+  add material/height (Resilience/Durability). Result: **3720 Spruce Ridge Way now
+  auto-scores as a multi-unit building at ~$134k/door with no manual entry.**
 - **Phase 3 — Value / tax basis** for condos and apartments (Part 3).
 - **Phase 4 — UX & presentation** — building-type-aware presets, building context on the
   label, per-unit framing, confidence flags.
