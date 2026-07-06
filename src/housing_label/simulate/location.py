@@ -61,6 +61,7 @@ class Location:
     stories: int | None = None
     bldg_material: str | None = None      # wood | masonry | concrete | steel | manufactured | other
     structure_source: str | None = None   # "NSI" when detected
+    units_confidence: str | None = None   # "detected" (from NSI) | "estimated" (cluster heuristic)
     notes: dict = field(default_factory=dict)
 
     @property
@@ -224,6 +225,7 @@ def resolve_location(
             loc.stories = s.get("stories")
             loc.bldg_material = s.get("bldg_material")
             loc.structure_source = s.get("source")
+            loc.units_confidence = s.get("units_confidence")
         else:
             notes["structure"] = "building type unknown (no NSI match, or NSI unavailable)"
     else:

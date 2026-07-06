@@ -1228,10 +1228,16 @@ def _approx_caveats(location, cfg: dict | None = None) -> list[str]:
         if detected_mf:
             # Report NSI's *detected* unit count here (not a caller override) so the
             # "detected from the National Structure Inventory" attribution stays honest.
+            # When the count is only estimated (NSI mislabeled the complex and we
+            # recognized it from the building cluster), say so and prompt to confirm.
             det_n = getattr(location, "num_units", None)
-            detail = (" This address looks like a multi-unit building"
-                      + (f" (~{det_n} units)" if det_n and det_n > 1 else "")
-                      + ", detected from the National Structure Inventory.")
+            estimated = getattr(location, "units_confidence", None) == "estimated"
+            unit_str = ""
+            if det_n and det_n > 1:
+                unit_str = (f" (~{det_n} units, estimated — enter the actual count to refine"
+                            " Energy & Infrastructure)" if estimated else f" (~{det_n} units)")
+            detail = (" This address was recognized as a multi-unit building" + unit_str
+                      + ", from the National Structure Inventory.")
         # The material/height-driven Resilience & Durability adjustments only run when
         # we actually have both — for a detected building NSI may give an unusable
         # material ("other") or no stories, so gate the "full" caveat on the values
@@ -1470,12 +1476,20 @@ def label_payload(cfg: dict, r: dict, label: dict) -> dict:
             source = (getattr(loc, "structure_source", None) if detected_mf
                       else "entered" if est["is_multifamily"]
                       else getattr(loc, "structure_source", None))
+            # Units are "estimated" only when NSI's heuristic count stands (no caller
+            # override); an entered count is authoritative.
+            entered_units = int(cfg.get("units") or 1) > 1
+            units_conf = (None if entered_units
+                          else getattr(loc, "units_confidence", None))
             payload["structure"] = {
                 "structure_type": est["structure_type"],
                 "num_units": est["num_units"],
                 "stories": est["stories"],
                 "bldg_material": est["bldg_material"],
                 "source": source,
+                "detection": getattr(loc, "structure_source", None) and
+                             ("nsi-cluster" if units_conf == "estimated" else "nsi"),
+                "units_confidence": units_conf,
             }
         # Wildfire hazard behind the fire peril (FEMA NRI; rating + EAL rate).
         wf = getattr(loc, "wildfire", None)

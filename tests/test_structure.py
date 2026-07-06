@@ -40,7 +40,7 @@ class _FakeResp:
 
 
 def _patch_nsi(monkeypatch, features):
-    S._nsi_nearest.cache_clear()
+    S._structure_at.cache_clear()
     monkeypatch.setattr(S.requests, "get",
                         lambda *a, **k: _FakeResp({"type": "FeatureCollection",
                                                    "features": features}))
@@ -63,6 +63,48 @@ def test_structure_for_point_multifamily(monkeypatch):
     assert out["stories"] == 4
     assert out["bldg_material"] == "masonry"
     assert out["source"] == "NSI"
+
+
+def test_cluster_of_mislabeled_res1_detects_multifamily(monkeypatch):
+    """NSI models a garden-apartment complex as many identical single-family
+    footprints (the Spruce Ridge case). The identical-footprint cluster is detected
+    as multi-family with an *estimated* unit count and no (unreliable) shell."""
+    # 10 RES1 structures all sharing the same 1332 sqft footprint, near the point.
+    feats = [_feat("RES1-1SNB", 1, 1, x=-83.9288 + i * 1e-4, y=35.9373, sqft=1332)
+             for i in range(10)]
+    _patch_nsi(monkeypatch, feats)
+    out = S.structure_for_point(35.9373, -83.9288)
+    assert out["structure_type"] == "multifamily"
+    assert out["detection"] == "nsi-cluster"
+    assert out["units_confidence"] == "estimated"
+    assert out["num_units"] == S._DEFAULT_MF_UNITS          # no RES3 → default estimate
+    assert out["bldg_material"] is None and out["stories"] is None   # shell unreliable
+
+
+def test_res3_district_detects_multifamily_when_nearest_is_a_house(monkeypatch):
+    """An apartment district where the nearest centroid is a single house is still
+    detected as multi-family via the RES3-count signal, with an estimated count."""
+    feats = [_feat("RES1-1SNB", 1, 1, x=-87.6531, y=41.9436, sqft=1500)]      # nearest house
+    feats += [_feat("RES3D", None, 5, x=-87.6531 + (i + 1) * 2e-4, y=41.9436, sqft=9000)
+              for i in range(16)]                                            # 16 RES3 → district
+    _patch_nsi(monkeypatch, feats)
+    out = S.structure_for_point(41.9436, -87.6531)
+    assert out["structure_type"] == "multifamily"
+    assert out["detection"] == "nsi-cluster"
+    assert out["units_confidence"] == "estimated"
+    assert out["num_units"] == 14                            # median RES3D bin (10–19 → 14)
+
+
+def test_single_family_not_false_flagged(monkeypatch):
+    """A normal single-family address — a house plus a few varied-footprint
+    neighbors — stays single-family (no cluster, no RES3 district)."""
+    feats = [_feat("RES1-1SNB", 1, 1, x=-83.90, y=35.90, sqft=1800),         # the house
+             _feat("RES1-2SNB", 1, 2, x=-83.9002, y=35.9001, sqft=2400),
+             _feat("RES1-1SNB", 1, 1, x=-83.8998, y=35.9002, sqft=1600)]
+    _patch_nsi(monkeypatch, feats)
+    out = S.structure_for_point(35.90, -83.90)
+    assert out["structure_type"] == "single_family"
+    assert out["detection"] == "nsi" and out["units_confidence"] == "detected"
 
 
 def test_structure_for_point_offline_and_empty(monkeypatch):
