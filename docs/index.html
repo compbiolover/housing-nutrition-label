@@ -138,8 +138,8 @@
             <option value="vinyl">Vinyl-sided frame</option>
           </select>
         </label>
-        <label>Living area (sqft)
-          <input type="number" id="d-sqft" min="200" max="20000" step="50" placeholder="e.g. 2000">
+        <label>Living area (sqft, per unit)
+          <input type="number" id="d-sqft" min="200" max="20000" step="50" placeholder="e.g. 2000 — one unit, not the whole building">
         </label>
         <label>Dwelling units
           <input type="number" id="d-units" min="1" max="500" step="1" placeholder="e.g. 1 (house), 4 (quadplex)">
@@ -157,7 +157,7 @@
           <input type="number" id="d-stories" min="1" max="150" step="1" placeholder="floors (if multi-unit)">
         </label>
       </div>
-      <p class="addr-hint" style="margin:0.35rem 0 0;font-size:0.82rem;opacity:0.8;">For an apartment or condo that the address doesn't detect as multi-unit, enter its <strong>units</strong>, <strong>material</strong>, and <strong>stories</strong> so Resilience &amp; Durability score the real building.</p>
+      <p class="addr-hint" style="margin:0.35rem 0 0;font-size:0.82rem;opacity:0.8;">For an apartment or condo that the address doesn't detect as multi-unit, enter its <strong>units</strong>, <strong>material</strong>, and <strong>stories</strong> so Resilience &amp; Durability score the real building. Living area is <strong>per unit</strong> &mdash; one representative dwelling, not the whole building.</p>
       <fieldset class="addr-upgrades">
         <legend>Resilience upgrades</legend>
         <label><input type="checkbox" value="solar"> Solar panels</label>
