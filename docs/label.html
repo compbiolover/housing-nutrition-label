@@ -18,6 +18,8 @@
     .label-addr-form .reset { font: inherit; padding: 0.6rem 1rem; border: 1px solid var(--border);
       border-radius: var(--radius); background: var(--card); color: var(--text); cursor: pointer; }
     .label-privacy { max-width: 640px; margin: -0.75rem auto 1rem; color: var(--muted); font-size: 0.8rem; text-align: center; }
+    .label-privacy.err { color: #b91c1c; }
+    @media (prefers-color-scheme: dark) { .label-privacy.err { color: #f87171; } }
     .label-loc { text-align: center; color: var(--muted); font-size: 0.85rem; margin: -0.5rem auto 1rem; }
     .label-loc strong { color: var(--navy); }
     @media (prefers-color-scheme: dark) { .label-loc strong { color: #e2e8f0; } }
@@ -40,7 +42,7 @@
 
 <section>
   <h2>Interactive Nutrition Label</h2>
-  <p>The nine scored dimensions as a single at-a-glance label, scored live by the same API that powers the home-page address search. Pick a construction profile to see how building choices move each dimension. By default all profiles sit at the walkable Cooper-Young neighborhood in Memphis &mdash; or <strong>enter any U.S. address</strong> below to compare the same construction profiles at your location (the location-driven dimensions shift while the construction-driven ones stay comparable). A <strong>&ldquo;cost over a mortgage&rdquo;</strong> strip present-values the dollar difference in energy and expected disaster losses against a typical comparable, and <strong>Compare</strong> mode puts two profiles side by side with a per-dimension delta.</p>
+  <p>The nine scored dimensions as a single at-a-glance label, scored live by the same API that powers the home-page address search. Pick a construction profile to see how building choices move each dimension. By default all profiles sit at the walkable Cooper-Young neighborhood in Memphis &mdash; or <strong>enter any U.S. address</strong> below (or <strong>use your current location</strong>) to compare the same construction profiles at your location (the location-driven dimensions shift while the construction-driven ones stay comparable). Your scored location is kept in the page link, so you can bookmark or share it, and it&rsquo;s remembered on your next visit. A <strong>&ldquo;cost over a mortgage&rdquo;</strong> strip present-values the dollar difference in energy and expected disaster losses against a typical comparable, and <strong>Compare</strong> mode puts two profiles side by side with a per-dimension delta.</p>
 
   <form class="label-addr-form" id="label-addr-form">
     <div class="addr-ac" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-owns="label-addr-suggest">
@@ -50,8 +52,10 @@
       <ul class="addr-suggest" id="label-addr-suggest" role="listbox" hidden></ul>
     </div>
     <button type="submit" class="go">Score here</button>
+    <button type="button" class="reset" id="label-addr-locate">Use my location</button>
     <button type="button" class="reset" id="label-addr-reset">Reset</button>
   </form>
+  <p id="label-addr-geo" class="label-privacy" style="display:none;"></p>
   <p id="label-addr-privacy" class="label-privacy" style="display:none;"></p>
   <div class="insight warn" id="label-addr-warn" style="display:none; max-width:640px; margin:-0.5rem auto 1rem;"></div>
 
@@ -197,22 +201,71 @@
   function clampIdx(i) { return Math.max(0, Math.min(i, state.presets.length - 1)); }
 
   var reqSeq = 0;   // request sequence — drop out-of-order responses from rapid submits
-  // Score the presets at a location. `coords` ({lat, lon}) is used when the user
-  // picked an autocomplete suggestion (skips a redundant server-side geocode);
-  // otherwise `address` is geocoded, or the default Cooper-Young location if null.
-  function load(address, coords) {
+  var LS_KEY = "hlabel:lastLocation";
+
+  // A location "descriptor" is one of:
+  //   null                    → the default Cooper-Young location
+  //   { address: "<text>" }   → geocode this typed address server-side
+  //   { lat, lon, label? }    → score these coords directly (a picked suggestion,
+  //                             a shared ?lat,lon link, or "use my location")
+  function descQuery(desc) {
+    if (desc && desc.lat != null && desc.lon != null)
+      return "?lat=" + encodeURIComponent(desc.lat) + "&lon=" + encodeURIComponent(desc.lon);
+    if (desc && desc.address) return "?address=" + encodeURIComponent(desc.address);
+    return "";
+  }
+
+  // Mirror the scored location into the page URL (bookmarkable / shareable)
+  // without a reload, preserving any ?api= override. Default → a clean URL.
+  function syncUrl(desc) {
+    if (!window.history || !history.replaceState) return;
+    var params;
+    try { params = new URLSearchParams(location.search); } catch (e) { return; }
+    params.delete("address"); params.delete("lat"); params.delete("lon");
+    if (desc && desc.lat != null && desc.lon != null) {
+      params.set("lat", desc.lat); params.set("lon", desc.lon);
+    } else if (desc && desc.address) {
+      params.set("address", desc.address);
+    }
+    var qs = params.toString();
+    try { history.replaceState(null, "", location.pathname + (qs ? "?" + qs : "") + location.hash); } catch (e) {}
+  }
+
+  // Remember the last scored location across visits (the visitor's own browser).
+  function saveLast(desc) {
+    try {
+      if (desc && (desc.address || (desc.lat != null && desc.lon != null)))
+        localStorage.setItem(LS_KEY, JSON.stringify(desc));
+      else localStorage.removeItem(LS_KEY);   // default location clears the memory
+    } catch (e) {}
+  }
+  function loadLast() {
+    try {
+      var d = JSON.parse(localStorage.getItem(LS_KEY));
+      if (d && (d.address || (d.lat != null && d.lon != null))) return d;
+    } catch (e) {}
+    return null;
+  }
+
+  // Parse a deep-link location from the page URL (?lat=&lon= wins over ?address=).
+  function descFromUrl() {
+    var p;
+    try { p = new URLSearchParams(location.search); } catch (e) { return null; }
+    var la = parseFloat(p.get("lat")), lo = parseFloat(p.get("lon"));
+    if (!isNaN(la) && !isNaN(lo)) return { lat: la, lon: lo };
+    var a = p.get("address");
+    if (a && a.trim()) return { address: a.trim() };
+    return null;
+  }
+
+  // Score the presets at `desc` (see above). On success we mirror the location
+  // into the URL and localStorage so it's shareable and remembered next visit.
+  function load(desc) {
     if (!API_BASE) { state.error = "no scoring API configured"; render(); return; }
     var seq = ++reqSeq;
     state.presets = null; state.error = null;
     render();  // loading state
-    var query = "";
-    if (coords && coords.lat != null && coords.lon != null) {
-      query = "?lat=" + encodeURIComponent(coords.lat) + "&lon=" + encodeURIComponent(coords.lon);
-    } else if (address) {
-      query = "?address=" + encodeURIComponent(address);
-    }
-    var url = API_BASE + "/presets" + query;
-    fetch(url)
+    fetch(API_BASE + "/presets" + descQuery(desc))
       .then(function (r) {
         if (!r.ok) return r.json().then(
           function (j) { throw new Error(j.detail || ("HTTP " + r.status)); },
@@ -227,6 +280,7 @@
         applyDefaults();
         // Keep any prior selection valid if the returned set differs in size.
         state.idx = clampIdx(state.idx); state.idxA = clampIdx(state.idxA); state.idxB = clampIdx(state.idxB);
+        syncUrl(desc || null); saveLast(desc || null);   // only persist a location that scored
         render();
       })
       .catch(function (err) { if (seq === reqSeq) { state.error = err.message; render(); } });
@@ -234,27 +288,62 @@
 
   var addrForm = document.getElementById("label-addr-form");
   var addrInput = document.getElementById("label-addr");
+  var geoEl = document.getElementById("label-addr-geo");
   var ac = AddrSuggest.attach({
     input: addrInput,
     box: document.getElementById("label-addr-suggest"),
     apiBase: API_BASE,
     idPrefix: "label-addr-opt-"
   });
+
+  function geoStatus(msg, isError) {
+    if (!geoEl) return;
+    geoEl.textContent = msg || "";
+    geoEl.style.display = msg ? "" : "none";
+    geoEl.classList.toggle("err", !!isError);
+  }
+
   addrForm.addEventListener("submit", function (e) {
     e.preventDefault();
-    ac.close();
+    ac.close(); geoStatus("");
     var addr = addrInput.value.trim();
     var p = ac.picked();
-    // A picked suggestion carries coordinates — score there directly and skip
-    // a second geocode; otherwise geocode the typed text (or default if blank).
-    if (p && p.label === addr) load(addr, { lat: p.lat, lon: p.lon });
-    else load(addr || null);
-  });
-  document.getElementById("label-addr-reset").addEventListener("click", function () {
-    ac.close(); addrInput.value = ""; load(null);
+    // A picked suggestion carries coordinates — score there directly and skip a
+    // second geocode; otherwise geocode the typed text (or default if blank).
+    if (p && p.label === addr) load({ lat: p.lat, lon: p.lon, label: p.label });
+    else load(addr ? { address: addr } : null);
   });
 
-  load(null);
+  document.getElementById("label-addr-reset").addEventListener("click", function () {
+    ac.close(); addrInput.value = ""; geoStatus(""); load(null);   // load(null) clears URL + memory
+  });
+
+  // "Use my location" — browser geolocation → score those coords directly.
+  var locateBtn = document.getElementById("label-addr-locate");
+  locateBtn.addEventListener("click", function () {
+    if (!navigator.geolocation) { geoStatus("Your browser doesn't support location sharing.", true); return; }
+    geoStatus("Locating…"); locateBtn.disabled = true;
+    navigator.geolocation.getCurrentPosition(
+      function (pos) {
+        locateBtn.disabled = false; geoStatus("");
+        ac.close(); addrInput.value = "";
+        load({ lat: pos.coords.latitude, lon: pos.coords.longitude, label: "your location" });
+      },
+      function (err) {
+        locateBtn.disabled = false;
+        geoStatus(err && err.code === 1
+          ? "Location permission denied — enter an address instead."
+          : "Couldn't get your location — enter an address instead.", true);
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 }
+    );
+  });
+
+  // Initial location precedence: a shared URL (?lat,lon or ?address=) > the last
+  // visit (localStorage) > the default Cooper-Young location.
+  var initDesc = descFromUrl() || loadLast();
+  if (initDesc && initDesc.address) addrInput.value = initDesc.address;
+  load(initDesc || null);
 })();
 </script>
 </body>
