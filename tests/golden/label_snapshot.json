@@ -1,0 +1,350 @@
+{
+  "baseline_la": {
+    "composite_national_grade": "C",
+    "composite_score": 58.1,
+    "cost": {
+      "annualEnergyCost": 2111,
+      "expectedAnnualLoss": 137
+    },
+    "dimensions": [
+      {
+        "key": "resilience",
+        "national_grade": "B",
+        "score": 61.9
+      },
+      {
+        "key": "energy",
+        "national_grade": "B",
+        "score": 74.8
+      },
+      {
+        "key": "durability",
+        "national_grade": "C",
+        "score": 46.1
+      },
+      {
+        "key": "environmental",
+        "national_grade": "B",
+        "score": 69.7
+      },
+      {
+        "key": "infrastructure",
+        "national_grade": "D",
+        "score": 38.0
+      },
+      {
+        "key": "health",
+        "national_grade": "\u2014",
+        "score": null
+      },
+      {
+        "key": "socioeconomic",
+        "national_grade": "\u2014",
+        "score": null
+      },
+      {
+        "key": "walkability",
+        "national_grade": "\u2014",
+        "score": null
+      },
+      {
+        "key": "climate",
+        "national_grade": "\u2014",
+        "score": null
+      }
+    ],
+    "fire_loss": 95.51,
+    "n_scored": 5,
+    "total_loss": 137.04
+  },
+  "baseline_shelby": {
+    "composite_national_grade": "C",
+    "composite_score": 58.5,
+    "cost": {
+      "annualEnergyCost": 2111,
+      "expectedAnnualLoss": 137
+    },
+    "dimensions": [
+      {
+        "key": "resilience",
+        "national_grade": "B",
+        "score": 61.9
+      },
+      {
+        "key": "energy",
+        "national_grade": "B",
+        "score": 74.8
+      },
+      {
+        "key": "durability",
+        "national_grade": "C",
+        "score": 46.1
+      },
+      {
+        "key": "environmental",
+        "national_grade": "B",
+        "score": 69.7
+      },
+      {
+        "key": "infrastructure",
+        "national_grade": "C",
+        "score": 40.2
+      },
+      {
+        "key": "health",
+        "national_grade": "\u2014",
+        "score": null
+      },
+      {
+        "key": "socioeconomic",
+        "national_grade": "\u2014",
+        "score": null
+      },
+      {
+        "key": "walkability",
+        "national_grade": "\u2014",
+        "score": null
+      },
+      {
+        "key": "climate",
+        "national_grade": "\u2014",
+        "score": null
+      }
+    ],
+    "fire_loss": 95.51,
+    "n_scored": 5,
+    "total_loss": 137.04
+  },
+  "fortified_gold_shelby": {
+    "composite_national_grade": "A",
+    "composite_score": 81.2,
+    "cost": {
+      "annualEnergyCost": 1689,
+      "expectedAnnualLoss": 192
+    },
+    "dimensions": [
+      {
+        "key": "resilience",
+        "national_grade": "B",
+        "score": 67.4
+      },
+      {
+        "key": "energy",
+        "national_grade": "A",
+        "score": 83.9
+      },
+      {
+        "key": "durability",
+        "national_grade": "A",
+        "score": 99.2
+      },
+      {
+        "key": "environmental",
+        "national_grade": "B",
+        "score": 73.7
+      },
+      {
+        "key": "infrastructure",
+        "national_grade": "A",
+        "score": 81.8
+      },
+      {
+        "key": "health",
+        "national_grade": "\u2014",
+        "score": null
+      },
+      {
+        "key": "socioeconomic",
+        "national_grade": "\u2014",
+        "score": null
+      },
+      {
+        "key": "walkability",
+        "national_grade": "\u2014",
+        "score": null
+      },
+      {
+        "key": "climate",
+        "national_grade": "\u2014",
+        "score": null
+      }
+    ],
+    "fire_loss": 142.06,
+    "n_scored": 5,
+    "total_loss": 192.37
+  },
+  "icf_passive_la": {
+    "composite_national_grade": "A",
+    "composite_score": 89.0,
+    "cost": {
+      "annualEnergyCost": 829,
+      "expectedAnnualLoss": 148
+    },
+    "dimensions": [
+      {
+        "key": "resilience",
+        "national_grade": "B",
+        "score": 75.2
+      },
+      {
+        "key": "energy",
+        "national_grade": "A",
+        "score": 100.0
+      },
+      {
+        "key": "durability",
+        "national_grade": "A",
+        "score": 100.0
+      },
+      {
+        "key": "environmental",
+        "national_grade": "B",
+        "score": 78.5
+      },
+      {
+        "key": "infrastructure",
+        "national_grade": "A",
+        "score": 91.1
+      },
+      {
+        "key": "health",
+        "national_grade": "\u2014",
+        "score": null
+      },
+      {
+        "key": "socioeconomic",
+        "national_grade": "\u2014",
+        "score": null
+      },
+      {
+        "key": "walkability",
+        "national_grade": "\u2014",
+        "score": null
+      },
+      {
+        "key": "climate",
+        "national_grade": "\u2014",
+        "score": null
+      }
+    ],
+    "fire_loss": 135.66,
+    "n_scored": 5,
+    "total_loss": 147.61
+  },
+  "icf_passive_shelby": {
+    "composite_national_grade": "A",
+    "composite_score": 89.3,
+    "cost": {
+      "annualEnergyCost": 829,
+      "expectedAnnualLoss": 148
+    },
+    "dimensions": [
+      {
+        "key": "resilience",
+        "national_grade": "B",
+        "score": 75.2
+      },
+      {
+        "key": "energy",
+        "national_grade": "A",
+        "score": 100.0
+      },
+      {
+        "key": "durability",
+        "national_grade": "A",
+        "score": 100.0
+      },
+      {
+        "key": "environmental",
+        "national_grade": "B",
+        "score": 78.5
+      },
+      {
+        "key": "infrastructure",
+        "national_grade": "A",
+        "score": 92.6
+      },
+      {
+        "key": "health",
+        "national_grade": "\u2014",
+        "score": null
+      },
+      {
+        "key": "socioeconomic",
+        "national_grade": "\u2014",
+        "score": null
+      },
+      {
+        "key": "walkability",
+        "national_grade": "\u2014",
+        "score": null
+      },
+      {
+        "key": "climate",
+        "national_grade": "\u2014",
+        "score": null
+      }
+    ],
+    "fire_loss": 135.66,
+    "n_scored": 5,
+    "total_loss": 147.61
+  },
+  "worst_case_shelby": {
+    "composite_national_grade": "D",
+    "composite_score": 24.5,
+    "cost": {
+      "annualEnergyCost": 4706,
+      "expectedAnnualLoss": 762
+    },
+    "dimensions": [
+      {
+        "key": "resilience",
+        "national_grade": "D",
+        "score": 20.8
+      },
+      {
+        "key": "energy",
+        "national_grade": "D",
+        "score": 28.8
+      },
+      {
+        "key": "durability",
+        "national_grade": "F",
+        "score": 13.5
+      },
+      {
+        "key": "environmental",
+        "national_grade": "C",
+        "score": 47.4
+      },
+      {
+        "key": "infrastructure",
+        "national_grade": "F",
+        "score": 12.1
+      },
+      {
+        "key": "health",
+        "national_grade": "\u2014",
+        "score": null
+      },
+      {
+        "key": "socioeconomic",
+        "national_grade": "\u2014",
+        "score": null
+      },
+      {
+        "key": "walkability",
+        "national_grade": "\u2014",
+        "score": null
+      },
+      {
+        "key": "climate",
+        "national_grade": "\u2014",
+        "score": null
+      }
+    ],
+    "fire_loss": 93.12,
+    "n_scored": 5,
+    "total_loss": 761.93
+  }
+}

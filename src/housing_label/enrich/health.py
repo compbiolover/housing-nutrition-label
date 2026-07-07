@@ -61,6 +61,8 @@ Columns added
   health_index            0–100 composite (100 = healthiest vs. county peers)
 """
 
+from __future__ import annotations
+
 import argparse, logging, pathlib, sys, time
 import requests, pandas as pd
 
@@ -166,7 +168,30 @@ def fetch_places_data(county_fips: str = COUNTY_FIPS) -> pd.DataFrame:
 
     log.info("  %d raw records received from PLACES API", len(records))
 
+    return compute_health_index(records, county_fips)
+
+
+def compute_health_index(records: list, county_fips: str | None = None) -> pd.DataFrame:
+    """Pivot raw PLACES records to a tract × measure frame with a health_index.
+
+    Split out from ``fetch_places_data`` (the network half) so the composite —
+    the part with the actual scoring logic — is unit-testable offline. ``records``
+    is the CDC PLACES JSON list (dicts with locationid/measureid/data_value/year).
+    ``county_fips`` (optional) is used only to make the empty-input error message
+    accurate for whichever county was queried. Returns a DataFrame indexed by
+    locationid (11-digit GEOID) with one crude-prevalence column per measure plus
+    the percentile-ranked ``health_index``.
+    """
+    where = f" for county FIPS {county_fips}" if county_fips else ""
     df = pd.DataFrame(records)
+    # An empty (or malformed) response yields a column-less frame; guard before
+    # indexing so it raises a clear RuntimeError instead of a bare KeyError.
+    required = {"data_value", "year", "measureid", "locationid"}
+    if df.empty or not required.issubset(df.columns):
+        raise RuntimeError(
+            f"No CDC PLACES records returned{where}. "
+            "Check that the dataset ID (cwsq-ngmh) is still current."
+        )
     df["data_value"] = pd.to_numeric(df["data_value"], errors="coerce")
     df["year"]       = pd.to_numeric(df["year"],        errors="coerce")
 
@@ -174,7 +199,7 @@ def fetch_places_data(county_fips: str = COUNTY_FIPS) -> pd.DataFrame:
     df = df[df["measureid"].isin(MEASURE_MAP)].copy()
     if df.empty:
         raise RuntimeError(
-            "No matching CDC PLACES measures found for Shelby County. "
+            f"No matching CDC PLACES measures found{where}. "
             "Check that the dataset ID (cwsq-ngmh) is still current."
         )
 

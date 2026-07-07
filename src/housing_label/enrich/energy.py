@@ -66,7 +66,9 @@ Columns added
   energy_data_source      Citation for the EUI benchmark used
 """
 
-import argparse, logging, math, pathlib, sys
+from __future__ import annotations
+
+import argparse, logging, pathlib, sys
 import pandas as pd
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(message)s")

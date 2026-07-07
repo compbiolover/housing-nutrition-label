@@ -26,6 +26,8 @@ Flood risk classification
   unknown  : D  (area of undetermined flood hazard) or no polygon found
 """
 
+from __future__ import annotations
+
 import argparse, json, logging, sys, time, pathlib
 import requests, pandas as pd
 

@@ -533,13 +533,25 @@ def test_vectorized_haversine_matches_scalar():
 def test_tornado_rate_is_memoized_per_coordinate():
     """Repeated tornado-rate calls for the same point hit the cache instead of
     re-scanning the full SPC table."""
+    import pandas as pd
+    from housing_label.simulate import house
     from housing_label.simulate.house import compute_tornado_rate, _tornado_rate_cached
-    _tornado_rate_cached.cache_clear()
-    a = compute_tornado_rate(35.15, -89.85, allow_network=False)
-    b = compute_tornado_rate(35.15, -89.85, allow_network=False)
-    assert a == b
-    info = _tornado_rate_cached.cache_info()
-    assert info.hits >= 1 and info.misses == 1
+    # Seed the process-level SPC singleton with a tiny synthetic table so the test
+    # is deterministic offline: a fresh clone / CI has no downloaded SPC cache, in
+    # which case compute_tornado_rate returns the national fallback WITHOUT touching
+    # the per-coordinate memo (nothing to scan), and the assertion below could never hold.
+    saved = house._SPC_DF
+    house._SPC_DF = pd.DataFrame({"slat": [35.15, 35.16], "slon": [-89.85, -89.86]})
+    try:
+        _tornado_rate_cached.cache_clear()
+        a = compute_tornado_rate(35.15, -89.85, allow_network=False)
+        b = compute_tornado_rate(35.15, -89.85, allow_network=False)
+        assert a == b
+        info = _tornado_rate_cached.cache_info()
+        assert info.hits >= 1 and info.misses == 1
+    finally:
+        house._SPC_DF = saved
+        _tornado_rate_cached.cache_clear()
 
 
 def _run_all():

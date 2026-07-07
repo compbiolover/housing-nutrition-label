@@ -66,6 +66,8 @@ Columns added
                             minor burden / major burden)
 """
 
+from __future__ import annotations
+
 import argparse
 import logging
 import math

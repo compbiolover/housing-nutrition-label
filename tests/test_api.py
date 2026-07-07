@@ -169,6 +169,80 @@ def test_presets_coord_validation():
     assert client.get("/presets", params={"lon": -75}).status_code == 400
 
 
+def test_label_result_is_cached():
+    """A repeated identical /label request is served from the cache — the
+    expensive scoring fan-out runs once, not twice."""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_label_result_is_cached (fastapi not installed)")
+        return
+    import housing_label.api as api
+
+    if not api._result_cache.enabled:
+        # Caching can be turned off (LABEL_CACHE_SIZE/TTL <= 0); this test asserts
+        # cache behavior, so it's not meaningful in that configuration.
+        print("  skip test_label_result_is_cached (result cache disabled)")
+        return
+
+    calls = {"n": 0}
+    real = api.build_label_parts
+
+    def counting(**kw):
+        calls["n"] += 1
+        kw["allow_network"] = False        # offline → deterministic, no network in the test
+        return real(**kw)
+
+    api._result_cache.clear()
+    api.build_label_parts = counting
+    try:
+        client = TestClient(api.app)
+        params = {"lat": 35.13, "lon": -89.99, "preset": "baseline"}
+        r1 = client.get("/label", params=params)
+        r2 = client.get("/label", params=params)
+        assert r1.status_code == 200 and r2.status_code == 200
+        assert r1.json() == r2.json()
+        assert calls["n"] == 1, f"expected one scoring pass, got {calls['n']}"
+        # A different location is a distinct key → a fresh scoring pass.
+        client.get("/label", params={**params, "lat": 34.05, "lon": -118.24})
+        assert calls["n"] == 2
+    finally:
+        api.build_label_parts = real
+        api._result_cache.clear()
+
+
+def test_rate_limit_returns_429():
+    """Past the configured per-IP limit, scoring endpoints return 429 while the
+    exempt health probe keeps answering 200."""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_rate_limit_returns_429 (fastapi not installed)")
+        return
+    import importlib
+    import os
+    import housing_label.api as api
+
+    prev = os.environ.get("RATE_LIMIT")
+    os.environ["RATE_LIMIT"] = "3/minute"
+    try:
+        importlib.reload(api)                 # rebuild app + limiter at the low limit
+        client = TestClient(api.app)
+        # /label with no args is a 400 before any network, but each request still
+        # counts against the limit — so the 4th trips 429.
+        codes = [client.get("/label").status_code for _ in range(5)]
+        assert 429 in codes, codes
+        assert codes.index(429) == 3, codes         # first three allowed, 4th blocked
+        # /healthz is exempt: still 200 even after the limit is exhausted.
+        assert client.get("/healthz").status_code == 200
+    finally:
+        if prev is None:
+            os.environ.pop("RATE_LIMIT", None)
+        else:
+            os.environ["RATE_LIMIT"] = prev
+        importlib.reload(api)                 # restore the default-limit module state
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

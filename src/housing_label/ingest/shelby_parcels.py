@@ -10,6 +10,8 @@ Pulls:
 and joins all three on PARID.
 """
 
+from __future__ import annotations
+
 import argparse, logging, sys, time, pathlib, math
 import requests, pandas as pd
 

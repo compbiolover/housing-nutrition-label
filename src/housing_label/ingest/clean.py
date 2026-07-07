@@ -21,6 +21,8 @@ property-location fields (CITY/ZIP2) against the owner-mailing fields
 (CITYNAME/ZIP1) and demonstrating geocodable address construction.
 """
 
+from __future__ import annotations
+
 import argparse
 import logging
 import pathlib

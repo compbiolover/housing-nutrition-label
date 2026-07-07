@@ -64,6 +64,8 @@ Columns added
   socioeconomic_index      0–100 composite (100 = least stressed vs. peers)
 """
 
+from __future__ import annotations
+
 import argparse, logging, os, pathlib, sys, time
 import requests, pandas as pd
 
