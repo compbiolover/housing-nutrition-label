@@ -24,6 +24,10 @@ services:
         value: "2"
       - key: MALLOC_TRIM_THRESHOLD_
         value: "65536"
+      # Per-IP rate limit on the scoring endpoints (protects the keyed/free
+      # upstreams they proxy). "" or "0" disables it; /healthz is always exempt.
+      - key: RATE_LIMIT
+        value: "30/minute"
       - key: CENSUS_API_KEY
         sync: false
       - key: WALKSCORE_API_KEY

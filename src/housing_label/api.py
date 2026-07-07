@@ -28,16 +28,30 @@ Endpoints::
 
 CORS is restricted to https://housinglabel.dev by default; set the
 ALLOWED_ORIGINS env var (comma-separated) to allow other origins or local dev.
+
+Operational env vars::
+
+    RATE_LIMIT         per-IP limit on every endpoint except /healthz
+                       (default "30/minute"; "" or "0" disables it)
+    LABEL_CACHE_SIZE   max cached label results (default 512; 0 disables)
+    LABEL_CACHE_TTL    cache entry lifetime in seconds (default 21600 = 6 h)
 """
 
 from __future__ import annotations
 
 import logging
 import os
+import threading
+import time
+from collections import OrderedDict
 
 import requests
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
 
 from housing_label.config import HEADERS, PHOTON_URL, GEOAPIFY_URL, GEOAPIFY_API_KEY
 from housing_label.simulate.house import (
@@ -82,8 +96,81 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Rate limiting ────────────────────────────────────────────────────────────────
+# Every scoring request fans out to ~7 live upstreams — two of them keyed
+# (Geoapify, Walk Score) and several free government APIs that throttle. Without
+# a limit, one unauthenticated caller can drive cost and get the free endpoints
+# blocked for everyone. A per-IP token bucket (default 30/min, override with the
+# RATE_LIMIT env var; set it to "" / "0" to disable) fronts every endpoint via
+# SlowAPIMiddleware; /healthz is exempted so probes are never throttled.
+RATE_LIMIT = os.environ.get("RATE_LIMIT", "30/minute").strip()
+_default_limits = [RATE_LIMIT] if RATE_LIMIT and RATE_LIMIT.lower() not in ("0", "off", "none") else []
+limiter = Limiter(key_func=get_remote_address, default_limits=_default_limits)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
+
+# ── Result cache ─────────────────────────────────────────────────────────────────
+# A scored label is stable for a location over a day (health/socio/walk/climate
+# don't move intra-day), yet each request re-geocodes and re-scores end to end —
+# and /label scores a second (baseline) pass on top. A bounded TTL+LRU cache of
+# the finished payloads, keyed by the normalized request params, collapses repeat
+# lookups (a shared address, a page reload, the same preset grid) to one fan-out.
+# Bounded so it can't grow unbounded on the 512 MB host (see render.yaml).
+_CACHE_MAXSIZE = int(os.environ.get("LABEL_CACHE_SIZE", "512"))
+_CACHE_TTL = float(os.environ.get("LABEL_CACHE_TTL", "21600"))   # seconds (6 h)
+
+
+class _TTLCache:
+    """A small thread-safe bounded LRU cache with per-entry TTL. Disabled (always
+    a miss) when maxsize or ttl is non-positive, so caching can be turned off with
+    LABEL_CACHE_SIZE=0 or LABEL_CACHE_TTL=0."""
+
+    def __init__(self, maxsize: int, ttl: float):
+        self._maxsize = maxsize
+        self._ttl = ttl
+        self._store: OrderedDict = OrderedDict()
+        self._lock = threading.Lock()
+
+    @property
+    def enabled(self) -> bool:
+        return self._maxsize > 0 and self._ttl > 0
+
+    def get(self, key):
+        if not self.enabled:
+            return None
+        now = time.monotonic()
+        with self._lock:
+            hit = self._store.get(key)
+            if hit is None:
+                return None
+            ts, value = hit
+            if now - ts > self._ttl:
+                del self._store[key]
+                return None
+            self._store.move_to_end(key)
+            return value
+
+    def put(self, key, value) -> None:
+        if not self.enabled:
+            return
+        with self._lock:
+            self._store[key] = (time.monotonic(), value)
+            self._store.move_to_end(key)
+            while len(self._store) > self._maxsize:
+                self._store.popitem(last=False)   # evict least-recently-used
+
+    def clear(self) -> None:
+        with self._lock:
+            self._store.clear()
+
+
+_result_cache = _TTLCache(_CACHE_MAXSIZE, _CACHE_TTL)
+
 
 @app.get("/healthz")
+@limiter.exempt
 def healthz() -> dict:
     return {"ok": True}
 
@@ -257,6 +344,13 @@ def label(
     if sum(u in ELEVATION_FLAGS for u in upgrade_list) > 1:
         raise HTTPException(400, "at most one flood elevation tier may be selected")
 
+    cache_key = ("label", address, lat, lon, preset, construction, year_built,
+                 foundation, condition, value, units, sqft, lot_acres, flood_zone,
+                 bldg_material, stories, tuple(sorted(upgrade_list)))
+    cached = _result_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     try:
         cfg, r, lbl = build_label_parts(
             address=address, lat=lat, lon=lon, preset=preset, flood_zone=flood_zone,
@@ -280,6 +374,7 @@ def label(
         lot_acres, bldg_material, stories, upgrade_list,
     ))
     _attach_baseline_cost(payload, lbl, self_baseline=is_self_baseline)
+    _result_cache.put(cache_key, payload)
     return payload
 
 
@@ -352,6 +447,11 @@ def presets(
         elif lat is None or lon is None:
             raise HTTPException(400, "Provide both ?lat= and ?lon= (or ?address=, or neither)")
 
+    cache_key = ("presets", address, lat, lon)
+    cached = _result_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     out = []
     resolved = None
     loc_overrides = None
@@ -380,7 +480,9 @@ def presets(
         entry["preset"] = preset
         entry["description"] = desc
         out.append(entry)
-    return {"location": out[0].get("location") if out else None, "presets": out}
+    result = {"location": out[0].get("location") if out else None, "presets": out}
+    _result_cache.put(cache_key, result)
+    return result
 
 
 # Cap how many density scenarios one request can fan out into (each is a full
@@ -450,8 +552,16 @@ def density(
             raise HTTPException(400, f"at most {_DENSITY_MAX_SCENARIOS} unit counts "
                                      "may be compared at once")
 
+    cache_key = ("density", address, lat, lon, preset, construction, year_built,
+                 foundation, condition, value, per_unit_value, sqft, lot_acres,
+                 flood_zone, bldg_material, stories, tuple(sorted(upgrade_list)),
+                 tuple(unit_counts) if unit_counts is not None else None)
+    cached = _result_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     try:
-        return density_comparison(
+        result = density_comparison(
             address=address, lat=lat, lon=lon, preset=preset, flood_zone=flood_zone,
             upgrades=upgrade_list, allow_network=True, unit_counts=unit_counts,
             per_unit_value=per_unit_value,
@@ -464,6 +574,8 @@ def density(
     except Exception:  # noqa: BLE001 — don't leak internals; log server-side
         log.exception("density failed (address=%r lat=%r lon=%r)", address, lat, lon)
         raise HTTPException(502, "density comparison failed")
+    _result_cache.put(cache_key, result)
+    return result
 
 
 def serve() -> None:
