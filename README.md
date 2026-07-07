@@ -107,7 +107,7 @@ CDC PLACES census-tract chronic-disease prevalence rolled into a 0–100 composi
 <details>
 <summary><strong>👥 Socioeconomic</strong> — Census ACS income / poverty / education</summary>
 
-Census ACS income, poverty, and education indicators combined into a 0–100 composite index. Falls back to a uniform placeholder when no ACS data (or API key) is available.
+Census ACS income, poverty, and education indicators combined into a 0–100 composite index. When no ACS data (or API key) is available it is reported unscored and excluded from the composite — never filled with a placeholder value.
 
 </details>
 

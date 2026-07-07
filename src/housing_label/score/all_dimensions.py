@@ -91,8 +91,6 @@ WALK_COLS    = ["walk_score", "transit_score", "bike_score"]
 WALK_WEIGHTS = {"walk_score": 0.60, "transit_score": 0.25, "bike_score": 0.15}
 
 SHELBY_COUNTY_FIPS  = "47157"  # the single-county pilot; per-row county FIPS when present
-SOCIO_PLACEHOLDER   = 50.0   # uniform socioeconomic fallback when ACS data is absent
-                             # (e.g. no Census API key); excluded from the composite.
 
 
 # ---------------------------------------------------------------------------
@@ -254,11 +252,11 @@ def score_walkability(df: pd.DataFrame) -> pd.Series:
     return pd.Series(out, index=df.index).round(1)
 
 
-def const_scorer(value: float):
-    """A scorer that returns a uniform constant for every parcel (placeholder)."""
-    def _fn(df: pd.DataFrame) -> pd.Series:
-        return pd.Series(float(value), index=df.index)
-    return _fn
+def unscored_scorer(df: pd.DataFrame) -> pd.Series:
+    """A scorer that leaves every parcel unscored (NaN) — used when a dimension's
+    source is absent but we still want it *present and honestly blank* (grade
+    "—", excluded from the composite) rather than dropped or faked."""
+    return pd.Series(float("nan"), index=df.index)
 
 
 # ---------------------------------------------------------------------------
@@ -266,14 +264,17 @@ def const_scorer(value: float):
 # `composite` flags whether the dimension feeds the composite average.
 # ---------------------------------------------------------------------------
 class Dimension:
-    def __init__(self, key, label, scorer, requires, composite=True, fallback=None):
+    def __init__(self, key, label, scorer, requires, composite=True,
+                 unscored_if_missing=False):
         self.key = key
         self.label = label
         self.scorer = scorer
         self.requires = requires        # source column that must exist, or None
         self.composite = composite      # whether it feeds the composite average
-        self.fallback = fallback        # constant placeholder score to use if
-                                        # `requires` is absent (None = skip instead)
+        # When `requires` is absent: True → keep the dimension but report it
+        # unscored ("—", excluded from the composite); False → skip it entirely.
+        # Never a fabricated constant — a missing input must not read as a score.
+        self.unscored_if_missing = unscored_if_missing
 
 
 DIMENSIONS: list[Dimension] = [
@@ -283,11 +284,41 @@ DIMENSIONS: list[Dimension] = [
     Dimension("environmental",  "Environmental Footprint", score_passthrough("environmental_score"), "environmental_score"),
     Dimension("infrastructure", "Infrastructure Burden", score_infrastructure,                   "fiscal_ratio"),
     Dimension("health",         "Health Impact",        score_passthrough("health_index"),       "health_index"),
+    # Socioeconomic needs the Census ACS join (socioeconomic_index). When it's
+    # absent (e.g. no CENSUS_API_KEY), report it unscored rather than a uniform
+    # 50 — matching the live API path, which returns None and excludes it from
+    # the composite (research/uncertainty-confidence-research.md: a missing input
+    # must never masquerade as a middling score).
     Dimension("socioeconomic",  "Socioeconomic",        score_passthrough("socioeconomic_index"), "socioeconomic_index",
-              fallback=SOCIO_PLACEHOLDER),
+              unscored_if_missing=True),
     Dimension("walkability",    "Walkability",          score_walkability,                       "walk_score"),
     Dimension("climate",        "Climate Projections",  score_climate,                           None),
 ]
+
+
+def resolve_active_dimensions(columns) -> list[Dimension]:
+    """Select the dimensions scoreable against the available `columns`.
+
+    A dimension whose required source column is missing is either kept but
+    reported unscored (``unscored_if_missing``) or skipped entirely — never
+    filled with a placeholder constant. Split out of ``main`` so the
+    missing-source policy is unit-testable without a CSV.
+    """
+    active: list[Dimension] = []
+    for dim in DIMENSIONS:
+        if dim.requires is not None and dim.requires not in columns:
+            if dim.unscored_if_missing:
+                log.warning("Dimension '%s' source column '%s' missing — reported "
+                            "unscored (—), excluded from the composite (no fabricated "
+                            "value).", dim.key, dim.requires)
+                active.append(Dimension(dim.key, dim.label, unscored_scorer,
+                                        requires=None, composite=False))
+            else:
+                log.warning("Dimension '%s' skipped — missing source column '%s'.",
+                            dim.key, dim.requires)
+            continue
+        active.append(dim)
+    return active
 
 
 # ---------------------------------------------------------------------------
@@ -471,22 +502,9 @@ def main() -> None:
         log.info("Limited to first %s rows.", f"{len(df):,}")
 
     # --- Validate required source columns. A dimension whose source is missing
-    #     either falls back to a uniform placeholder (if it defines one, e.g.
-    #     socioeconomic with no Census API key) or is skipped entirely. ---------
-    active: list[Dimension] = []
-    for dim in DIMENSIONS:
-        if dim.requires is not None and dim.requires not in df.columns:
-            if dim.fallback is not None:
-                log.warning("Dimension '%s' source column '%s' missing — using "
-                            "uniform placeholder %.0f (excluded from composite).",
-                            dim.key, dim.requires, dim.fallback)
-                dim = Dimension(dim.key, dim.label, const_scorer(dim.fallback),
-                                requires=None, composite=False)
-            else:
-                log.warning("Dimension '%s' skipped — missing source column '%s'.",
-                            dim.key, dim.requires)
-                continue
-        active.append(dim)
+    #     is either reported unscored (socioeconomic with no Census API key) or
+    #     skipped entirely — never filled with a fabricated placeholder. --------
+    active = resolve_active_dimensions(df.columns)
 
     composite_keys = [d.key for d in active if d.composite]
     if not composite_keys:
