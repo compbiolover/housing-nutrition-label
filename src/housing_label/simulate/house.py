@@ -1082,7 +1082,7 @@ def print_scorecard(cfg: dict, r: dict) -> None:
     if active_bonuses:
         bonus_str = ", ".join(BONUS_LABELS[b] for b in active_bonuses)
         # Wrap long bonus list across multiple lines
-        words, line_parts, lines = bonus_str.split(", "), [], []
+        words, lines = bonus_str.split(", "), []
         cur = ""
         for w in words:
             test = cur + (", " if cur else "") + w

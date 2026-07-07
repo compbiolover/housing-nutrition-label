@@ -39,9 +39,18 @@ version is tracked in `.release-please-manifest.json`.
 ## Tests
 
 ```bash
-pip install -e .                       # editable install (adds housing_label + scripts to the path)
-for t in tests/*.py; do python "$t"; done
+pip install -e ".[api,dev]"            # editable install + FastAPI + pytest/ruff/httpx
+pytest                                 # run the whole suite
+ruff check .                           # lint (pyflakes: unused imports/vars, undefined names)
 ```
+
+The `[api]` extra lets the API tests run (they self-skip when FastAPI is absent);
+`[dev]` pulls in pytest, ruff, and httpx (which Starlette's `TestClient` needs.)
+Every test file also keeps a `_run_all()` runner, so an individual stage stays
+runnable as a plain script (`python tests/test_dimensions.py`) with no pytest.
+
+**CI** (`.github/workflows/ci.yml`) runs `ruff check` + `pytest` on every push and
+pull request across Python 3.9 and 3.12, so regressions are caught before merge.
 
 Regenerating the bundled climate data needs the build extra (`pip install -e ".[build]"`,
 heavy: `xarray`/`netCDF4`) and is documented in `scripts/build_climate_projections.py`.
