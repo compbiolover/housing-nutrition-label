@@ -7,8 +7,6 @@ directly (python tests/test_health.py) or via pytest.
 
 from __future__ import annotations
 
-import pandas as pd
-
 from housing_label.enrich import health as H
 
 

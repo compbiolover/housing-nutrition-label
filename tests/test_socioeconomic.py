@@ -7,7 +7,6 @@ Execute directly (python tests/test_socioeconomic.py) or via pytest.
 
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
 
 from housing_label.enrich import socioeconomic as S
