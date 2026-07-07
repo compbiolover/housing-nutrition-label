@@ -242,8 +242,20 @@
   function loadLast() {
     try {
       var d = JSON.parse(localStorage.getItem(LS_KEY));
-      if (d && (d.address || (d.lat != null && d.lon != null))) return d;
+      if (d && d.address && String(d.address).trim()) return { address: String(d.address).trim() };
+      var c = coord(d && d.lat, d && d.lon);
+      if (c) return c;
     } catch (e) {}
+    return null;
+  }
+
+  // Validate an untrusted lat/lon pair (from the URL or localStorage): both must
+  // be finite and in range, else there's no usable coordinate descriptor. Guards
+  // against ?lat=Infinity / out-of-range values producing broken /presets links.
+  function coord(lat, lon) {
+    var la = parseFloat(lat), lo = parseFloat(lon);
+    if (isFinite(la) && isFinite(lo) && Math.abs(la) <= 90 && Math.abs(lo) <= 180)
+      return { lat: la, lon: lo };
     return null;
   }
 
@@ -251,8 +263,8 @@
   function descFromUrl() {
     var p;
     try { p = new URLSearchParams(location.search); } catch (e) { return null; }
-    var la = parseFloat(p.get("lat")), lo = parseFloat(p.get("lon"));
-    if (!isNaN(la) && !isNaN(lo)) return { lat: la, lon: lo };
+    var c = coord(p.get("lat"), p.get("lon"));
+    if (c) return c;
     var a = p.get("address");
     if (a && a.trim()) return { address: a.trim() };
     return null;
