@@ -33,7 +33,7 @@ The goal: give homebuyers, renters, insurers, and policymakers an at-a-glance un
 
 > **Phase 1 complete — Shelby County, TN (Memphis) pilot with 9 scored dimensions.**
 
-The full data ingestion → enrichment → multi-dimension scoring pipeline is operational end to end. Every parcel in the pilot dataset carries nine scored dimensions plus a rolled-up composite score, each with both a national (absolute) and a local (percentile) letter grade. A **React-free nutrition label visualization** is live on the project site — [housinglabel.dev/label.html](https://housinglabel.dev/label.html). Future phases will extend coverage to additional counties.
+The full data ingestion → enrichment → multi-dimension scoring pipeline is operational end to end. Every parcel in the pilot dataset carries nine scored dimensions plus a rolled-up composite score, each with both a national (absolute) and a local (percentile) letter grade. An **interactive nutrition label visualization** is live on the project site — [housinglabel.dev/label.html](https://housinglabel.dev/label.html). Future phases will extend coverage to additional counties.
 
 ## Quick Start
 
