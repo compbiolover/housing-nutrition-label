@@ -93,6 +93,8 @@ Columns added
   durability_data_source        Citation for the methodology used
 """
 
+from __future__ import annotations
+
 import argparse, logging, pathlib, sys
 import pandas as pd
 

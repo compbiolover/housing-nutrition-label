@@ -61,6 +61,8 @@ Columns added
   health_index            0–100 composite (100 = healthiest vs. county peers)
 """
 
+from __future__ import annotations
+
 import argparse, logging, pathlib, sys, time
 import requests, pandas as pd
 

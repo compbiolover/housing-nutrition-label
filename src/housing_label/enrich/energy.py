@@ -66,6 +66,8 @@ Columns added
   energy_data_source      Citation for the EUI benchmark used
 """
 
+from __future__ import annotations
+
 import argparse, logging, pathlib, sys
 import pandas as pd
 

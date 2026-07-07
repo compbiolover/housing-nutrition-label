@@ -23,6 +23,8 @@ Methodology mirrors score_resilience.py exactly:
   Local grade = percentile rank vs. shelby_parcels_scored.csv.
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import math
