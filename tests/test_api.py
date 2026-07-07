@@ -179,6 +179,12 @@ def test_label_result_is_cached():
         return
     import housing_label.api as api
 
+    if not api._result_cache.enabled:
+        # Caching can be turned off (LABEL_CACHE_SIZE/TTL <= 0); this test asserts
+        # cache behavior, so it's not meaningful in that configuration.
+        print("  skip test_label_result_is_cached (result cache disabled)")
+        return
+
     calls = {"n": 0}
     real = api.build_label_parts
 

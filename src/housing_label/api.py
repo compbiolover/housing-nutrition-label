@@ -118,8 +118,22 @@ app.add_middleware(SlowAPIMiddleware)
 # the finished payloads, keyed by the normalized request params, collapses repeat
 # lookups (a shared address, a page reload, the same preset grid) to one fan-out.
 # Bounded so it can't grow unbounded on the 512 MB host (see render.yaml).
-_CACHE_MAXSIZE = int(os.environ.get("LABEL_CACHE_SIZE", "512"))
-_CACHE_TTL = float(os.environ.get("LABEL_CACHE_TTL", "21600"))   # seconds (6 h)
+def _env_num(name: str, default, cast):
+    """Read a numeric operational knob from the environment, falling back to the
+    default (with a warning) on a malformed value — a bad env var must never
+    crash API startup."""
+    raw = os.environ.get(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        return cast(raw)
+    except (TypeError, ValueError):
+        log.warning("Invalid %s=%r; using default %r.", name, raw, default)
+        return default
+
+
+_CACHE_MAXSIZE = _env_num("LABEL_CACHE_SIZE", 512, int)
+_CACHE_TTL = _env_num("LABEL_CACHE_TTL", 21600.0, float)   # seconds (6 h)
 
 
 class _TTLCache:
@@ -336,7 +350,10 @@ def label(
     if stories is not None and stories < 1:
         raise HTTPException(400, "stories must be a positive integer")
 
-    upgrade_list = [u.strip() for u in upgrades.split(",") if u.strip()] if upgrades else []
+    # Deduplicate + sort once: a repeated flag (e.g. upgrades=solar,solar) must not
+    # double-count in the elevation check below, nor split the cache into distinct
+    # keys for semantically identical requests.
+    upgrade_list = sorted({u.strip() for u in upgrades.split(",") if u.strip()}) if upgrades else []
     bad = [u for u in upgrade_list if u not in BONUS_FLAGS]
     if bad:
         raise HTTPException(400, f"unknown upgrade(s): {', '.join(bad)}; "
@@ -346,7 +363,7 @@ def label(
 
     cache_key = ("label", address, lat, lon, preset, construction, year_built,
                  foundation, condition, value, units, sqft, lot_acres, flood_zone,
-                 bldg_material, stories, tuple(sorted(upgrade_list)))
+                 bldg_material, stories, tuple(upgrade_list))   # already sorted + unique
     cached = _result_cache.get(cache_key)
     if cached is not None:
         return cached
@@ -531,7 +548,10 @@ def density(
     if stories is not None and stories < 1:
         raise HTTPException(400, "stories must be a positive integer")
 
-    upgrade_list = [u.strip() for u in upgrades.split(",") if u.strip()] if upgrades else []
+    # Deduplicate + sort once: a repeated flag (e.g. upgrades=solar,solar) must not
+    # double-count in the elevation check below, nor split the cache into distinct
+    # keys for semantically identical requests.
+    upgrade_list = sorted({u.strip() for u in upgrades.split(",") if u.strip()}) if upgrades else []
     bad = [u for u in upgrade_list if u not in BONUS_FLAGS]
     if bad:
         raise HTTPException(400, f"unknown upgrade(s): {', '.join(bad)}; "
@@ -554,7 +574,7 @@ def density(
 
     cache_key = ("density", address, lat, lon, preset, construction, year_built,
                  foundation, condition, value, per_unit_value, sqft, lot_acres,
-                 flood_zone, bldg_material, stories, tuple(sorted(upgrade_list)),
+                 flood_zone, bldg_material, stories, tuple(upgrade_list),   # sorted + unique
                  tuple(unit_counts) if unit_counts is not None else None)
     cached = _result_cache.get(cache_key)
     if cached is not None:
