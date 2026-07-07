@@ -55,7 +55,7 @@
     <button type="button" class="reset" id="label-addr-locate">Use my location</button>
     <button type="button" class="reset" id="label-addr-reset">Reset</button>
   </form>
-  <p id="label-addr-geo" class="label-privacy" style="display:none;"></p>
+  <p id="label-addr-geo" class="label-privacy" role="status" aria-live="polite" style="display:none;"></p>
   <p id="label-addr-privacy" class="label-privacy" style="display:none;"></p>
   <div class="insight warn" id="label-addr-warn" style="display:none; max-width:640px; margin:-0.5rem auto 1rem;"></div>
 
@@ -315,7 +315,11 @@
   });
 
   document.getElementById("label-addr-reset").addEventListener("click", function () {
-    ac.close(); addrInput.value = ""; geoStatus(""); load(null);   // load(null) clears URL + memory
+    ac.close(); addrInput.value = ""; geoStatus("");
+    // Clear the shared URL + remembered location immediately — Reset must forget
+    // even if the API is down (load()'s success handler may never run).
+    syncUrl(null); saveLast(null);
+    load(null);
   });
 
   // "Use my location" — browser geolocation → score those coords directly.
