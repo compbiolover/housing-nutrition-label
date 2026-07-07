@@ -166,6 +166,18 @@ def fetch_places_data(county_fips: str = COUNTY_FIPS) -> pd.DataFrame:
 
     log.info("  %d raw records received from PLACES API", len(records))
 
+    return compute_health_index(records)
+
+
+def compute_health_index(records: list) -> pd.DataFrame:
+    """Pivot raw PLACES records to a tract × measure frame with a health_index.
+
+    Split out from ``fetch_places_data`` (the network half) so the composite —
+    the part with the actual scoring logic — is unit-testable offline. ``records``
+    is the CDC PLACES JSON list (dicts with locationid/measureid/data_value/year).
+    Returns a DataFrame indexed by locationid (11-digit GEOID) with one crude-
+    prevalence column per measure plus the percentile-ranked ``health_index``.
+    """
     df = pd.DataFrame(records)
     df["data_value"] = pd.to_numeric(df["data_value"], errors="coerce")
     df["year"]       = pd.to_numeric(df["year"],        errors="coerce")
