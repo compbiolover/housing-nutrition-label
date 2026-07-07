@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.27](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.26...v0.1.27) (2026-07-07)
+
+
+### Features
+
+* **label:** shareable location URLs, "use my location", and remembered address ([#102](https://github.com/compbiolover/housing-nutrition-label/issues/102)) ([a305ca5](https://github.com/compbiolover/housing-nutrition-label/commit/a305ca5c16b3947a91e56d112412229547ec138a))
+
 ## [0.1.26](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.25...v0.1.26) (2026-07-06)
 
 
