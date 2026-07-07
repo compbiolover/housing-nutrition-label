@@ -333,11 +333,40 @@ you invoke an individual stage.
 
 ## Roadmap
 
-**Planned:**
+The board below is the at-a-glance view; expand the sections under it for details. It's a live [Mermaid](https://mermaid.js.org/syntax/kanban.html) diagram — moving an item between columns is a one-line edit here in the README.
 
-- **Methodology "show-your-math" drill-down** — expandable per-dimension provenance on the label (sources, the EAL/BRM breakdown, the exact eGRID subregion, the calibrating county's spending), so a curious user can trace any score to its inputs.
+```mermaid
+kanban
+  shipped[✅ Shipped]
+    s1[9-dimension scoring pipeline + dual national/local grades]
+    s2[Live scoring API + unified label renderer]
+    s3[Per-dimension confidence display]
+    s4[Lifetime-cost strip + A/B compare mode]
+    s5[Sub-county climate + Fire Weather Index leg]
+    s6[Locally-calibrated Infrastructure Burden]
+    s7[Wildfire hazard in Disaster Resilience]
+  next[🚧 Next up]
+    n1[Address input on the label page]
+    n2[Methodology 'show-your-math' drill-down]
+  exploring[🔭 Exploring]
+    e1[Rust scoring engine]
+    e2[Scale beyond Shelby County]
+```
+
+<details>
+<summary><strong>🚧 Next up & 🔭 Exploring</strong> — what each planned card means</summary>
+
+**Next up**
+
 - **Address input on the label page** — the Label page renderer is now API-fed and `/presets` already accepts an `address=`/`lat,lon`, so letting a visitor score their own address on that page (instead of the fixed Cooper-Young presets) is a small remaining UI step.
+- **Methodology "show-your-math" drill-down** — expandable per-dimension provenance on the label (sources, the EAL/BRM breakdown, the exact eGRID subregion, the calibrating county's spending), so a curious user can trace any score to its inputs.
+
+**Exploring**
+
 - **Rust scoring engine** — port the hot scoring path for performance at scale.
+- **Scale beyond Shelby County** — parameterize the pipeline to extend coverage past the Memphis pilot to additional US counties.
+
+</details>
 
 <details>
 <summary><strong>✅ Shipped</strong> — completed roadmap items with methodology notes</summary>
