@@ -50,7 +50,7 @@ Every test file also keeps a `_run_all()` runner, so an individual stage stays
 runnable as a plain script (`python tests/test_dimensions.py`) with no pytest.
 
 **CI** (`.github/workflows/ci.yml`) runs `ruff check` + `pytest` on every push and
-pull request across Python 3.9 and 3.12, so regressions are caught before merge.
+pull request across Python 3.10 and 3.12, so regressions are caught before merge.
 
 Regenerating the bundled climate data needs the build extra (`pip install -e ".[build]"`,
 heavy: `xarray`/`netCDF4`) and is documented in `scripts/build_climate_projections.py`.
