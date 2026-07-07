@@ -337,20 +337,20 @@ The board below is the at-a-glance view; expand the sections under it for detail
 
 | ✅ Shipped | 🚧 Next up | 🔭 Exploring |
 |---|---|---|
-| 9-dimension scoring pipeline + dual national / local grades | Address input on the label page | Rust scoring engine |
-| Live scoring API + unified label renderer | Methodology "show-your-math" drill-down | Scale beyond Shelby County |
+| 9-dimension scoring pipeline + dual national / local grades | Methodology "show-your-math" drill-down | Rust scoring engine |
+| Live scoring API + unified label renderer | | Scale beyond Shelby County |
 | Per-dimension confidence display | | |
 | Lifetime-cost strip + A/B compare | | |
 | Sub-county climate + Fire Weather Index | | |
 | Locally-calibrated Infrastructure Burden | | |
 | Wildfire hazard in Disaster Resilience | | |
+| Address input on the label page | | |
 
 <details>
 <summary><strong>🚧 Next up & 🔭 Exploring</strong> — what each planned card means</summary>
 
 **Next up**
 
-- **Address input on the label page** — the Label page renderer is now API-fed and `/presets` already accepts an `address=`/`lat,lon`, so letting a visitor score their own address on that page (instead of the fixed Cooper-Young presets) is a small remaining UI step.
 - **Methodology "show-your-math" drill-down** — expandable per-dimension provenance on the label (sources, the EAL/BRM breakdown, the exact eGRID subregion, the calibrating county's spending), so a curious user can trace any score to its inputs.
 
 **Exploring**
@@ -362,6 +362,13 @@ The board below is the at-a-glance view; expand the sections under it for detail
 
 <details>
 <summary><strong>✅ Shipped</strong> — completed roadmap items with methodology notes</summary>
+
+<details>
+<summary>Address input on the label page</summary>
+
+The Label page ([`docs/label.html`](docs/label.html)) now lets a visitor **score any U.S. address** (or their **current location**) instead of only the fixed Cooper-Young presets: the page geocodes the typed address — or uses a picked autocomplete suggestion's coordinates — and scores the standard construction profiles there via `GET /presets?address=…` / `?lat=&lon=`, reusing the shared [`docs/addr-suggest.js`](docs/addr-suggest.js) typeahead. The scored location is mirrored into the page URL (`history.replaceState`, preserving any `?api=` override) so results are **bookmarkable and shareable**, remembered across visits via `localStorage` (precedence URL > last visit > default), and cleared by Reset. A **"Use my location"** button scores the visitor's current position via the browser geolocation API, with a graceful message when permission is denied or unavailable.
+
+</details>
 
 <details>
 <summary>Unified label renderer fed by the live API</summary>
