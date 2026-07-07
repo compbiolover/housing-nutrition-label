@@ -50,6 +50,13 @@ packages = [
 testpaths = ["tests"]
 # Each test file also keeps its own `_run_all()` runner so a stage stays runnable
 # as a plain script (`python tests/test_x.py`); pytest just collects them all.
+filterwarnings = [
+    # Starlette 1.3+ nudges its TestClient toward an `httpx2` backend. We keep the
+    # standard `httpx` on purpose — the runtime uses `requests`, so httpx is a
+    # test-only dependency — so silence just this one third-party deprecation to
+    # keep CI output clean. Drop this line if/when we adopt httpx2.
+    "ignore:Using .httpx. with .starlette.testclient. is deprecated:",
+]
 
 [tool.ruff.lint]
 # Scoped deliberately narrow: the codebase leans on compact one-line idioms
