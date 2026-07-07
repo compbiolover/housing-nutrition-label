@@ -333,24 +333,20 @@ you invoke an individual stage.
 
 ## Roadmap
 
-The board below is the at-a-glance view; expand the sections under it for details. It's a live [Mermaid](https://mermaid.js.org/syntax/kanban.html) diagram — moving an item between columns is a one-line edit here in the README.
+The timeline below is the at-a-glance view; expand the sections under it for details. It's a live [Mermaid](https://mermaid.js.org/syntax/timeline.html) diagram (rendered inline by GitHub) — moving an item between sections is a one-line edit here in the README.
 
 ```mermaid
-kanban
-  shipped[✅ Shipped]
-    s1[9-dimension scoring pipeline + dual national/local grades]
-    s2[Live scoring API + unified label renderer]
-    s3[Per-dimension confidence display]
-    s4[Lifetime-cost strip + A/B compare mode]
-    s5[Sub-county climate + Fire Weather Index leg]
-    s6[Locally-calibrated Infrastructure Burden]
-    s7[Wildfire hazard in Disaster Resilience]
-  next[🚧 Next up]
-    n1[Address input on the label page]
-    n2[Methodology 'show-your-math' drill-down]
-  exploring[🔭 Exploring]
-    e1[Rust scoring engine]
-    e2[Scale beyond Shelby County]
+timeline
+    title Roadmap
+    section ✅ Shipped
+        Scoring : 9-dimension pipeline + dual national / local grades : Per-dimension confidence display
+        Delivery : Live scoring API + unified label renderer : Lifetime-cost strip + A/B compare
+        Data depth : Sub-county climate + Fire Weather Index : Locally-calibrated Infrastructure Burden : Wildfire hazard in Disaster Resilience
+    section 🚧 Next up
+        Label page : Address input on the label page : Methodology 'show-your-math' drill-down
+    section 🔭 Exploring
+        Performance : Rust scoring engine
+        Coverage : Scale beyond Shelby County
 ```
 
 <details>
