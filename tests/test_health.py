@@ -77,6 +77,16 @@ def test_compute_health_index_empty_raises():
     raise AssertionError("expected RuntimeError on no matching measures")
 
 
+def test_compute_health_index_empty_list_raises():
+    """A truly empty PLACES response yields a column-less frame; it must raise a
+    clear RuntimeError, not a bare KeyError on a missing column."""
+    try:
+        H.compute_health_index([])
+    except RuntimeError:
+        return
+    raise AssertionError("expected RuntimeError on an empty records list")
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

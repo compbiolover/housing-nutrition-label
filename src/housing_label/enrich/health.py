@@ -182,14 +182,22 @@ def compute_health_index(records: list, county_fips: str | None = None) -> pd.Da
     locationid (11-digit GEOID) with one crude-prevalence column per measure plus
     the percentile-ranked ``health_index``.
     """
+    where = f" for county FIPS {county_fips}" if county_fips else ""
     df = pd.DataFrame(records)
+    # An empty (or malformed) response yields a column-less frame; guard before
+    # indexing so it raises a clear RuntimeError instead of a bare KeyError.
+    required = {"data_value", "year", "measureid", "locationid"}
+    if df.empty or not required.issubset(df.columns):
+        raise RuntimeError(
+            f"No CDC PLACES records returned{where}. "
+            "Check that the dataset ID (cwsq-ngmh) is still current."
+        )
     df["data_value"] = pd.to_numeric(df["data_value"], errors="coerce")
     df["year"]       = pd.to_numeric(df["year"],        errors="coerce")
 
     # Keep only the measures we care about
     df = df[df["measureid"].isin(MEASURE_MAP)].copy()
     if df.empty:
-        where = f" for county FIPS {county_fips}" if county_fips else ""
         raise RuntimeError(
             f"No matching CDC PLACES measures found{where}. "
             "Check that the dataset ID (cwsq-ngmh) is still current."
