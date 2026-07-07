@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.28](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.27...v0.1.28) (2026-07-07)
+
+
+### Features
+
+* foundations & hardening — CI test gate, golden regression, dimension coverage, API cache + rate limiting ([#105](https://github.com/compbiolover/housing-nutrition-label/issues/105)) ([e7d55e6](https://github.com/compbiolover/housing-nutrition-label/commit/e7d55e6f983a28949e287378aad65c2809d801f9))
+
 ## [0.1.27](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.26...v0.1.27) (2026-07-07)
 
 
