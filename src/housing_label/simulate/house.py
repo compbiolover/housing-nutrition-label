@@ -151,7 +151,7 @@ CONSTRUCTION_FACTOR = {
 # depth-damage curves for concrete; "ICF flood: structural 80-95% reduction;
 # finishes still vulnerable."
 FLOOD_CONSTRUCTION_FACTOR = {
-    **{k: v for k, v in CONSTRUCTION_FACTOR.items()},  # default: same as wind/seismic
+    **CONSTRUCTION_FACTOR,  # default: same as wind/seismic
     "icf": 0.45,  # NFIP Class 5; concrete survives, finishes still damaged
 }
 
@@ -588,9 +588,35 @@ def fire_age_factor(year_built: int) -> float:
     return 0.85                  # NEC 2002+ AFCI / tamper-resistant requirements
 
 
-def compute_local_percentile(sim_score: float, scored_df: pd.DataFrame) -> float:
-    """Fraction of county parcels with resilience_score < sim_score (×100)."""
-    scores = scored_df["resilience_score"].dropna().values
+@lru_cache(maxsize=4)
+def _load_local_scores(path_str: str):
+    """Load + clean the ``resilience_score`` column from ``path_str`` (cached).
+
+    Keyed on the path so it's read/parsed once per process — the bundled
+    scored-parcels CSV is invariant and ``simulate()`` runs up to ~6× per API
+    request, so re-reading the whole column every call was pure waste. Keying on
+    the path (rather than a no-arg cache) also lets tests point ``SCORED_CSV`` at
+    a fixture and still get a fresh load. Returns ``None`` if the file is absent.
+    """
+    path = pathlib.Path(path_str)
+    if not path.exists():
+        return None
+    col = pd.read_csv(path, usecols=["resilience_score"],
+                      low_memory=False)["resilience_score"].dropna()
+    return col.to_numpy()
+
+
+def _local_scores():
+    """Cached county ``resilience_score`` array for the local-percentile compare,
+    or ``None`` when the (Shelby-only) scored CSV isn't present."""
+    return _load_local_scores(str(SCORED_CSV))
+
+
+def compute_local_percentile(sim_score: float, scores) -> float:
+    """Fraction of county parcels with resilience_score < sim_score (×100).
+
+    ``scores`` is a 1-D array of already-clean county resilience scores.
+    """
     return round((scores < sim_score).sum() / len(scores) * 100, 1)
 
 
@@ -811,13 +837,12 @@ def simulate(cfg: dict, local_compare: bool = True, structure: dict | None = Non
     else:
         pga_2pct, pga_10pct, _ = compute_seismic_pga(cfg["lat"], cfg["lon"])
         pga_source = "New Madrid model (no USGS/grid)"
-    nmsz_dist = haversine_miles(cfg["lat"], cfg["lon"], NMSZ_LAT, NMSZ_LON)
 
     tornado_rate, tornado_src       = compute_tornado_rate(cfg["lat"], cfg["lon"],
                                                             allow_network=allow_network)
     flood_risk = FLOOD_ZONE_TO_RISK[cfg["flood_zone"]]
 
-    r.update(pga_2pct=pga_2pct, pga_10pct=pga_10pct, nmsz_dist=nmsz_dist,
+    r.update(pga_2pct=pga_2pct, pga_10pct=pga_10pct,
              pga_source=pga_source,
              tornado_rate=tornado_rate, tornado_src=tornado_src, flood_risk=flood_risk)
 
@@ -963,17 +988,15 @@ def simulate(cfg: dict, local_compare: bool = True, structure: dict | None = Non
     r["total_loss"]   = total_eal   * v
 
     # ── Local comparison against scored dataset (Shelby pilot only) ───────────
-    scored = pd.read_csv(SCORED_CSV, usecols=["resilience_score"], low_memory=False) \
-        if (local_compare and SCORED_CSV.exists()) else None
-    scores = scored["resilience_score"].dropna() if scored is not None else None
+    scores = _local_scores() if local_compare else None
     if scores is not None and len(scores):
-        local_pct = compute_local_percentile(r["total_score"], scored)
+        local_pct = compute_local_percentile(r["total_score"], scores)
         r["local_pct"]   = local_pct
         r["local_grade"] = percentile_to_local_grade(local_pct)
         r["n_parcels"]   = len(scores)
-        r["score_min"]   = scores.min()
-        r["score_max"]   = scores.max()
-        r["score_median"] = scores.median()
+        r["score_min"]   = float(scores.min())
+        r["score_max"]   = float(scores.max())
+        r["score_median"] = float(np.median(scores))
     else:
         r["local_pct"]   = None
         r["local_grade"] = "N/A"

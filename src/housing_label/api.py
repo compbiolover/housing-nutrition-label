@@ -277,7 +277,7 @@ def _geoapify_results_to_suggestions(results: list, limit: int) -> list[dict]:
         label = _geoapify_label(r)
         if not label:
             continue
-        out.append({"label": label, "lat": float(lat), "lon": float(lon)})
+        out.append({"label": label, "lat": lat, "lon": lon})
         if len(out) >= limit:
             break
     return out

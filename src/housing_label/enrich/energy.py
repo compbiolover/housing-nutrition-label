@@ -79,9 +79,6 @@ SCRIPT_DIR = pathlib.Path(__file__).resolve().parents[3]   # repo root; data liv
 IN_FILE  = SCRIPT_DIR / "shelby_parcels_seismic.csv"
 OUT_FILE = SCRIPT_DIR / "shelby_parcels_energy.csv"
 
-# ── IECC climate zone for all Shelby County parcels ───────────────────────────
-CLIMATE_ZONE = "4A"
-
 # ── Utility rates (MLGW / TVA territory, ~2024) ───────────────────────────────
 ELEC_RATE_PER_KWH  = 0.105   # $/kWh
 GAS_RATE_PER_THERM = 1.10    # $/therm

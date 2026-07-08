@@ -64,8 +64,9 @@ def fix_zip(series: pd.Series) -> pd.Series:
 
 def build_address(row: pd.Series) -> str | None:
     """Build a geocodable property-address string from a parcel row."""
-    adrno = str(row["ADRNO"]).strip().rstrip(".0") if pd.notna(row["ADRNO"]) else ""
-    # Convert float-like "2845.0" → "2845"
+    adrno = str(row["ADRNO"]).strip() if pd.notna(row["ADRNO"]) else ""
+    # Convert float-like "2845.0" → "2845" (int() drops the fractional part;
+    # a plain "2100" is left untouched — do NOT strip trailing zeros here).
     try:
         adrno = str(int(float(adrno))) if adrno else ""
     except (ValueError, TypeError):

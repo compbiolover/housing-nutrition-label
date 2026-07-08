@@ -633,6 +633,155 @@ def calc_brm_row(row):
 
 
 # ---------------------------------------------------------------------------
+# 6b. VECTORIZED EQUIVALENTS (used by main() over the whole parcel table)
+# ---------------------------------------------------------------------------
+# The scalar calc_* / *_factor functions above are the single-row reference
+# (used by the CLI simulator and the unit tests). main() scores the entire
+# parcel set, so it calls these column-wise equivalents instead of
+# df.apply(..., axis=1) — identical math, without a Python call per row.
+# tests/test_resilience_vectorized.py asserts the two paths agree on random
+# parcels, so any divergence fails the suite rather than silently shifting scores.
+
+# Tornado EAL is frequency × a fixed constant: every EF term is
+# freq · ef_frac · (path_area / circle_area) · damage_ratio and nothing but
+# ``freq`` depends on the row, so the per-frequency factor is precomputed once.
+_TORNADO_EAL_PER_FREQ = sum(
+    ef_frac
+    * ((EF_PATH_AREA_SQ_MI[ef][0] / 1760.0) * EF_PATH_AREA_SQ_MI[ef][1] / CIRCLE_AREA_SQ_MI)
+    * EF_DAMAGE_RATIO[ef]
+    for ef, ef_frac in EF_DISTRIBUTION.items()
+)
+
+_SCORE_LOG_EALS = np.log([e for _, e in SCORE_BREAKPOINTS])          # ascending in EAL
+_SCORE_VALUES   = np.array([s for s, _ in SCORE_BREAKPOINTS], float)  # descending score
+
+
+def _code_factor_vec(col, table, default=1.0):
+    """Vectorized ``table.get(int(x), default)`` with NaN → default (matches the
+    scalar *_factor helpers, which return the neutral default for missing/unknown)."""
+    xi = np.trunc(pd.to_numeric(col, errors="coerce").to_numpy())  # int() truncation
+    result = np.full(len(xi), float(default))
+    for k, v in table.items():
+        result[xi == k] = v   # NaN == k is False, so unknown/NaN keep the default
+    return result
+
+
+def _year_factor_vec(col, cuts, vals):
+    """Vectorized ascending-threshold year binning (NaN → 1.0), matching the
+    ``if yr < c0: .. elif yr < c1: .. else ..`` scalar era/age factors."""
+    xt = np.trunc(pd.to_numeric(col, errors="coerce").to_numpy())  # int(yr)
+    result = np.full(len(xt), float(vals[-1]))   # else-branch default
+    assigned = np.zeros(len(xt), dtype=bool)
+    for c, v in zip(cuts, vals[:-1]):
+        m = (~assigned) & (xt < c)               # first matching band wins (if/elif)
+        result[m] = v
+        assigned |= m
+    result[np.isnan(xt)] = 1.0                    # scalar pd.isna(yrblt) → 1.0
+    return result
+
+
+def _pga_damage_ratio_vec(pga):
+    """Vectorized pga_to_damage_ratio (NaN → 0.50, matching the scalar else-branch)."""
+    pga = np.asarray(pga, dtype=float)
+    return np.select(
+        [pga < 0.10, pga < 0.20, pga < 0.40, pga < 0.60],
+        [0.005, 0.03, 0.10, 0.25],
+        default=0.50,
+    )
+
+
+def flood_eal_vec(df):
+    """Column-wise calc_flood_eal."""
+    return df["flood_risk"].map(FLOOD_EAL).fillna(FLOOD_EAL["minimal"])
+
+
+def tornado_eal_vec(df):
+    """Column-wise calc_tornado_eal (freq × precomputed constant)."""
+    return df["avg_tornadoes_per_yr_25mi"] * _TORNADO_EAL_PER_FREQ
+
+
+def seismic_eal_vec(df):
+    """Column-wise calc_seismic_eal."""
+    dr_rare     = _pga_damage_ratio_vec(df["pga_2pct_50yr"])
+    dr_moderate = _pga_damage_ratio_vec(df["pga_10pct_50yr"])
+    return LAMBDA_2 * dr_rare + (LAMBDA_10 - LAMBDA_2) * dr_moderate
+
+
+def fire_eal_vec(df):
+    """Column-wise calc_fire_eal (structural baseline + clean wildfire rate)."""
+    if "wildfire_eal_rate" in df.columns:
+        w = pd.to_numeric(df["wildfire_eal_rate"], errors="coerce")
+        w = w.where(np.isfinite(w) & (w >= 0), 0.0)
+    else:
+        w = 0.0
+    return STRUCTURAL_FIRE_EAL_BASE + w
+
+
+def eal_rate_to_score_vec(rate):
+    """Column-wise eal_rate_to_score via log-linear interpolation (clamped at ends).
+
+    ``np.interp`` on ``log(rate)`` is exactly the scalar log-linear formula; rates
+    ≤ the lowest breakpoint clamp to 100 and ≥ the highest clamp to 0 (rate == 0 →
+    log −inf → 100, matching the scalar guard)."""
+    rate = np.asarray(rate, dtype=float)
+    with np.errstate(divide="ignore"):
+        return np.interp(np.log(rate), _SCORE_LOG_EALS, _SCORE_VALUES)
+
+
+def score_to_grade_vec(score):
+    """Column-wise score_to_grade (NaN → 'F', matching the scalar else-branch)."""
+    s = np.asarray(score, dtype=float)
+    return np.select([s >= 80, s >= 60, s >= 40, s >= 20], ["A", "B", "C", "D"], default="F")
+
+
+def percentile_to_local_grade_vec(pct):
+    """Column-wise percentile_to_local_grade (NaN → 'F')."""
+    p = np.asarray(pct, dtype=float)
+    return np.select([p >= 90, p >= 65, p >= 35, p >= 10], ["A", "B", "C", "D"], default="F")
+
+
+def brm_columns_vec(df):
+    """Column-wise calc_brm_row → DataFrame with the same eight columns.
+
+    Non-CAMA rows (no YRBLT) get all factors 1.0 and brm_source 'default', exactly
+    as the scalar early-return does."""
+    idx = df.index
+    nan = pd.Series(np.nan, index=idx)
+    yrblt   = df["YRBLT"]   if "YRBLT"   in df.columns else nan
+    extwall = df["EXTWALL"] if "EXTWALL" in df.columns else nan
+    bsmt    = df["BSMT"]    if "BSMT"    in df.columns else nan
+    cond    = df["COND"]    if "COND"    in df.columns else nan
+    has_cama = pd.to_numeric(yrblt, errors="coerce").notna().to_numpy()
+
+    cef      = _year_factor_vec(yrblt, [1970, 1990, 2003], [1.3, 1.1, 1.0, 0.85])
+    ctf      = _code_factor_vec(extwall, EXTWALL_FACTOR)
+    ff       = _code_factor_vec(bsmt, BSMT_FLOOD_FACTOR)
+    cf       = _code_factor_vec(cond, COND_FACTOR)
+    fire_age = _year_factor_vec(yrblt, [1950, 1975, 2002], [1.5, 1.2, 1.0, 0.85])
+    fire_ctf = _code_factor_vec(extwall, FIRE_EXTWALL_FACTOR)
+
+    ew = np.trunc(pd.to_numeric(extwall, errors="coerce").to_numpy())
+    brm_floor = np.full(len(df), float(DEFAULT_BRM_FLOOR))
+    for k, v in EXTWALL_BRM_FLOOR.items():
+        brm_floor[ew == k] = v
+
+    flood_brm        = np.clip(cef * ctf * ff * cf, brm_floor, BRM_MAX)
+    wind_seismic_brm = np.clip(cef * ctf * cf,      brm_floor, BRM_MAX)
+    fire_brm         = np.clip(fire_age * fire_ctf * cf, FIRE_BRM_FLOOR, BRM_MAX)
+
+    out = pd.DataFrame(index=idx)
+    out["code_era_factor"]     = np.where(has_cama, cef, 1.0)
+    out["construction_factor"] = np.where(has_cama, ctf, 1.0)
+    out["foundation_factor"]   = np.where(has_cama, ff, 1.0)
+    out["condition_factor"]    = np.where(has_cama, cf, 1.0)
+    out["flood_brm"]           = np.where(has_cama, flood_brm, 1.0)
+    out["wind_seismic_brm"]    = np.where(has_cama, wind_seismic_brm, 1.0)
+    out["fire_brm"]            = np.where(has_cama, fire_brm, 1.0)
+    out["brm_source"]          = np.where(has_cama, "cama", "default")
+    return out
+
+
+# ---------------------------------------------------------------------------
 # 7. MAIN — apply to all parcels, save output
 # ---------------------------------------------------------------------------
 
@@ -734,14 +883,13 @@ def main() -> None:
              f"{rtotapr_median:,.0f}", df["RTOTAPR"].isna().sum())
 
     # --- Compute raw per-hazard EAL rates (before BRM) ---
-    df["flood_eal_rate_raw"]   = df.apply(calc_flood_eal,   axis=1)
-    df["tornado_eal_rate_raw"] = df.apply(calc_tornado_eal, axis=1)
-    df["seismic_eal_rate_raw"] = df.apply(calc_seismic_eal, axis=1)
-    df["fire_eal_rate_raw"]    = df.apply(calc_fire_eal,    axis=1)
+    df["flood_eal_rate_raw"]   = flood_eal_vec(df)
+    df["tornado_eal_rate_raw"] = tornado_eal_vec(df)
+    df["seismic_eal_rate_raw"] = seismic_eal_vec(df)
+    df["fire_eal_rate_raw"]    = fire_eal_vec(df)
 
     # --- Compute BRM for every parcel ---
-    brm_df = df.apply(calc_brm_row, axis=1, result_type="expand")
-    df = pd.concat([df, brm_df], axis=1)
+    df = pd.concat([df, brm_columns_vec(df)], axis=1)
 
     # --- Apply BRM: adjusted_eal = raw_eal × BRM ---
     df["flood_eal_rate"]   = df["flood_eal_rate_raw"]   * df["flood_brm"]
@@ -763,26 +911,25 @@ def main() -> None:
     df["total_eal_dollars"]   = df["total_eal_rate"]   * df["property_value"]
 
     # --- Map adjusted EAL rates to 0-100 scores ---
-    df["flood_score"]      = df["flood_eal_rate"].apply(eal_rate_to_score)
-    df["tornado_score"]    = df["tornado_eal_rate"].apply(eal_rate_to_score)
-    df["seismic_score"]    = df["seismic_eal_rate"].apply(eal_rate_to_score)
-    df["fire_score"]       = df["fire_eal_rate"].apply(eal_rate_to_score)
-    df["resilience_score"] = df["total_eal_rate"].apply(eal_rate_to_score)
+    df["flood_score"]      = eal_rate_to_score_vec(df["flood_eal_rate"])
+    df["tornado_score"]    = eal_rate_to_score_vec(df["tornado_eal_rate"])
+    df["seismic_score"]    = eal_rate_to_score_vec(df["seismic_eal_rate"])
+    df["fire_score"]       = eal_rate_to_score_vec(df["fire_eal_rate"])
+    df["resilience_score"] = eal_rate_to_score_vec(df["total_eal_rate"])
 
     # --- National absolute grade (cross-city comparison) ---
-    df["national_grade"] = df["resilience_score"].apply(score_to_grade)
+    df["national_grade"] = score_to_grade_vec(df["resilience_score"])
 
     # --- Percentile rank within Shelby County dataset (0-100) ---
     df["percentile_rank"] = df["resilience_score"].rank(pct=True) * 100
 
     # --- Local percentile-based grade (within-market comparison) ---
-    df["local_grade"] = df["percentile_rank"].apply(percentile_to_local_grade)
+    df["local_grade"] = percentile_to_local_grade_vec(df["percentile_rank"])
 
     # --- Per-hazard local grades (same percentile bands applied per sub-score) ---
-    df["flood_local_grade"]   = (df["flood_score"].rank(pct=True) * 100).apply(percentile_to_local_grade)
-    df["tornado_local_grade"] = (df["tornado_score"].rank(pct=True) * 100).apply(percentile_to_local_grade)
-    df["seismic_local_grade"] = (df["seismic_score"].rank(pct=True) * 100).apply(percentile_to_local_grade)
-    df["fire_local_grade"]    = (df["fire_score"].rank(pct=True) * 100).apply(percentile_to_local_grade)
+    for h in ("flood", "tornado", "seismic", "fire"):
+        df[f"{h}_local_grade"] = percentile_to_local_grade_vec(
+            df[f"{h}_score"].rank(pct=True) * 100)
 
     # --- Save ---
     df.to_csv(output_path, index=False)
