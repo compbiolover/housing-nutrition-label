@@ -27,8 +27,9 @@ dist/
 # macOS
 .DS_Store
 
-# Claude Code internals
-.claude/
+# Claude Code internals (keep shared plugin/marketplace config tracked)
+.claude/*
+!.claude/settings.json
 
 # Auth / credential files
 *.txt
