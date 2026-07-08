@@ -383,10 +383,11 @@ def main() -> None:
 
     log.info("Modelling durability for %d parcels (reference year %d) …",
              len(df), REFERENCE_YEAR)
-    results = [model_parcel_durability(row) for _, row in df.iterrows()]
+    # to_dict("records") skips the per-row Series boxing that iterrows does; the
+    # model reads columns via row.get(...), which dicts support identically.
+    results = [model_parcel_durability(row) for row in df.to_dict("records")]
     enriched = pd.DataFrame(results, index=df.index)
-    for col in DURABILITY_COLS:
-        df[col] = enriched[col]
+    df[DURABILITY_COLS] = enriched[DURABILITY_COLS]   # one assignment, no fragmentation
 
     df.to_csv(out_file, index=False)
     log.info("Saved → %s", out_file)

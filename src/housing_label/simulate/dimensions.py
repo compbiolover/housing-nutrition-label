@@ -428,6 +428,16 @@ def _tract_for(lat: float, lon: float) -> str | None:
     return health_mod.get_census_tract(lat, lon)
 
 
+@lru_cache(maxsize=256)
+def _walk_scores(lat: float, lon: float) -> dict:
+    """Walk Score API result (walk/transit/bike) for a coordinate, cached per
+    process — Walk Score is a *paid* key, so repeat/nearby lookups must not re-hit
+    it. Mirrors the caching the other two live location dimensions already use."""
+    api_key = os.environ.get("WALKSCORE_API_KEY", "").strip()
+    from housing_label.enrich import walkscore as walk_mod
+    return walk_mod.fetch_scores(api_key, lat, lon, "")
+
+
 def fetch_location_dimensions(
     lat: float,
     lon: float,
@@ -517,8 +527,7 @@ def fetch_location_dimensions(
             notes["walkability"] = "no WALKSCORE_API_KEY"
         else:
             try:
-                from housing_label.enrich import walkscore as walk_mod
-                s = walk_mod.fetch_scores(api_key, lat, lon, "")
+                s = _walk_scores(round(lat, 6), round(lon, 6))
                 walk = s.get("walk_score")
                 transit = s.get("transit_score")
                 bike = s.get("bike_score")

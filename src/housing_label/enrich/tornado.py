@@ -34,7 +34,7 @@ Tornado columns added
 """
 
 import argparse, logging, math, pathlib, sys
-import requests, pandas as pd
+import requests, pandas as pd, numpy as np
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(message)s")
 log = logging.getLogger(__name__)
@@ -77,6 +77,17 @@ def haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> float
     return 2 * _R * math.asin(math.sqrt(a))
 
 
+def _haversine_np(lat: float, lon: float, slat, slon):
+    """Great-circle miles from one point to arrays of lat/lon (same formula as
+    haversine_miles, vectorized so a parcel's distance to every nearby tornado is
+    one numpy op instead of a per-row Python apply)."""
+    lat1, lon1 = math.radians(lat), math.radians(lon)
+    lat2, lon2 = np.radians(slat), np.radians(slon)
+    dlat, dlon = lat2 - lat1, lon2 - lon1
+    a = np.sin(dlat / 2) ** 2 + math.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
+    return 2 * _R * np.arcsin(np.sqrt(a))
+
+
 # ── SPC data download & load ──────────────────────────────────────────────────
 def load_spc_data(cache_file: pathlib.Path = CACHE_FILE) -> pd.DataFrame:
     """Download (or load cached) SPC tornado CSV and return a cleaned DataFrame."""
@@ -116,9 +127,8 @@ def load_spc_data(cache_file: pathlib.Path = CACHE_FILE) -> pd.DataFrame:
 # ── Per-parcel enrichment ─────────────────────────────────────────────────────
 def enrich_parcel(lat: float, lon: float, tornadoes: pd.DataFrame) -> dict[str, object]:
     """Compute tornado metrics for a single parcel location."""
-    dists = tornadoes.apply(
-        lambda r: haversine_miles(lat, lon, r["slat"], r["slon"]), axis=1
-    )
+    dists = _haversine_np(lat, lon, tornadoes["slat"].to_numpy(),
+                          tornadoes["slon"].to_numpy())
     w25 = dists <= RADIUS_25
     w10 = dists <= RADIUS_10
 

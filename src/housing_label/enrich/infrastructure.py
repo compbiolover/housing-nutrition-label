@@ -268,17 +268,6 @@ def interp_cost(density: float, anchors: list[tuple]) -> float:
     return float(anchors[-1][1])
 
 
-def fire_cost(base: float, dist_mi: float) -> float:
-    """Apply distance multiplier to base fire cost."""
-    if dist_mi < FIRE_DIST_MULTIPLIER_INNER:  # variable name collision guard
-        mult = FIRE_DIST_MULTIPLIER_INNER
-    elif dist_mi < FIRE_OUTER_THRESHOLD_MI:
-        mult = FIRE_DIST_MULTIPLIER_MID
-    else:
-        mult = FIRE_DIST_MULTIPLIER_OUTER
-    return base * mult
-
-
 def police_cost(base: float, density: float) -> float:
     """Apply density multiplier to base police cost."""
     for max_du, mult in POLICE_DENSITY_MULTIPLIERS:
@@ -299,10 +288,9 @@ def _fire_dist_multiplier(dist_mi: float) -> float:
     """Return the correct fire multiplier for a given distance."""
     if dist_mi < FIRE_INNER_THRESHOLD_MI:
         return FIRE_DIST_MULTIPLIER_INNER
-    elif dist_mi < FIRE_OUTER_THRESHOLD_MI:
+    if dist_mi < FIRE_OUTER_THRESHOLD_MI:
         return FIRE_DIST_MULTIPLIER_MID
-    else:
-        return FIRE_DIST_MULTIPLIER_OUTER
+    return FIRE_DIST_MULTIPLIER_OUTER
 
 
 # ══════════════════════════════════════════════════════════════════════════════

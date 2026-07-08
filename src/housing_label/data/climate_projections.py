@@ -176,13 +176,7 @@ def _band_score(row: dict, band: str) -> float | None:
     return round(sum(leg_scores) / len(leg_scores), 1)
 
 
-def _num(v) -> float | None:
-    if v is None or v == "":
-        return None
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return None
+from housing_label.data._util import num as _num  # shared CSV-cell float coercion
 
 
 def _load_rows(path: pathlib.Path, width: int) -> dict[str, dict]:

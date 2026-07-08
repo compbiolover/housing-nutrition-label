@@ -414,12 +414,8 @@ def main() -> None:
     w = 46
 
     # Identify out-of-county tracts (shouldn't start with COUNTY_FIPS)
-    out_county = (
-        df["census_tract"]
-        .dropna()
-        .loc[~df["census_tract"].dropna().str.startswith(COUNTY_FIPS)]
-        .count()
-    )
+    ct = df["census_tract"].dropna()
+    out_county = int((~ct.str.startswith(COUNTY_FIPS)).sum())
 
     print("\n╔══ HEALTH ENRICHMENT SUMMARY ══════════════════════════════════════╗")
     print(f"║ Total parcels                : {total:<{w}}║")

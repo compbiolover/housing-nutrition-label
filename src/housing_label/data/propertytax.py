@@ -45,13 +45,7 @@ _CSV = _DIR / "property_tax_county.csv"
 _NATIONAL_GEOID = "00000"
 
 
-def _num(v) -> float | None:
-    if v is None or v == "":
-        return None
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return None
+from housing_label.data._util import num as _num  # shared CSV-cell float coercion
 
 
 @lru_cache(maxsize=1)

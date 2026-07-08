@@ -79,6 +79,39 @@ def _validate(name: str, value: str | None) -> None:
             400, f"invalid {name}={value!r}; choose one of: {', '.join(sorted(allowed))}")
 
 
+def _validate_request(*, address, lat, lon, preset, construction, foundation,
+                      condition, flood_zone, bldg_material, stories, upgrades):
+    """Shared input validation for /label and /density (identical rules).
+
+    Returns ``(bldg_material, upgrade_list)`` — the normalized material and the
+    deduped+sorted upgrade flags — or raises HTTPException(400) on any bad field.
+    """
+    if not address and (lat is None or lon is None):
+        raise HTTPException(400, "Provide ?address= or both ?lat= and ?lon=")
+    for name, val in (("preset", preset), ("construction", construction),
+                      ("foundation", foundation), ("condition", condition),
+                      ("flood_zone", flood_zone)):
+        _validate(name, val)
+    if bldg_material is not None:
+        bldg_material = bldg_material.strip().lower()   # normalize once, then validate + forward
+        if bldg_material not in ("wood", "masonry", "concrete", "steel"):
+            raise HTTPException(400, "bldg_material must be one of: wood, masonry, concrete, steel")
+    if stories is not None and stories < 1:
+        raise HTTPException(400, "stories must be a positive integer")
+
+    # Deduplicate + sort once: a repeated flag (e.g. upgrades=solar,solar) must not
+    # double-count in the elevation check below, nor split the cache into distinct
+    # keys for semantically identical requests.
+    upgrade_list = sorted({u.strip() for u in upgrades.split(",") if u.strip()}) if upgrades else []
+    bad = [u for u in upgrade_list if u not in BONUS_FLAGS]
+    if bad:
+        raise HTTPException(400, f"unknown upgrade(s): {', '.join(bad)}; "
+                                 f"choose from: {', '.join(BONUS_FLAGS)}")
+    if sum(u in ELEVATION_FLAGS for u in upgrade_list) > 1:
+        raise HTTPException(400, "at most one flood elevation tier may be selected")
+    return bldg_material, upgrade_list
+
+
 # CORS: lock to the production site by default. Override with ALLOWED_ORIGINS
 # (comma-separated) for local dev or extra origins, e.g.
 #   ALLOWED_ORIGINS="https://housinglabel.dev,http://localhost:8000"
@@ -277,7 +310,7 @@ def _geoapify_results_to_suggestions(results: list, limit: int) -> list[dict]:
         label = _geoapify_label(r)
         if not label:
             continue
-        out.append({"label": label, "lat": float(lat), "lon": float(lon)})
+        out.append({"label": label, "lat": lat, "lon": lon})
         if len(out) >= limit:
             break
     return out
@@ -337,29 +370,10 @@ def label(
     `bldg_material` (wood|masonry|concrete|steel) and `stories` describe a
     multi-unit building's shell for Resilience/Durability when NSI didn't detect it.
     """
-    if not address and (lat is None or lon is None):
-        raise HTTPException(400, "Provide ?address= or both ?lat= and ?lon=")
-    for name, val in (("preset", preset), ("construction", construction),
-                      ("foundation", foundation), ("condition", condition),
-                      ("flood_zone", flood_zone)):
-        _validate(name, val)
-    if bldg_material is not None:
-        bldg_material = bldg_material.strip().lower()   # normalize once, then validate + forward
-        if bldg_material not in ("wood", "masonry", "concrete", "steel"):
-            raise HTTPException(400, "bldg_material must be one of: wood, masonry, concrete, steel")
-    if stories is not None and stories < 1:
-        raise HTTPException(400, "stories must be a positive integer")
-
-    # Deduplicate + sort once: a repeated flag (e.g. upgrades=solar,solar) must not
-    # double-count in the elevation check below, nor split the cache into distinct
-    # keys for semantically identical requests.
-    upgrade_list = sorted({u.strip() for u in upgrades.split(",") if u.strip()}) if upgrades else []
-    bad = [u for u in upgrade_list if u not in BONUS_FLAGS]
-    if bad:
-        raise HTTPException(400, f"unknown upgrade(s): {', '.join(bad)}; "
-                                 f"choose from: {', '.join(BONUS_FLAGS)}")
-    if sum(u in ELEVATION_FLAGS for u in upgrade_list) > 1:
-        raise HTTPException(400, "at most one flood elevation tier may be selected")
+    bldg_material, upgrade_list = _validate_request(
+        address=address, lat=lat, lon=lon, preset=preset, construction=construction,
+        foundation=foundation, condition=condition, flood_zone=flood_zone,
+        bldg_material=bldg_material, stories=stories, upgrades=upgrades)
 
     cache_key = ("label", address, lat, lon, preset, construction, year_built,
                  foundation, condition, value, units, sqft, lot_acres, flood_zone,
@@ -535,29 +549,10 @@ def density(
                            (else an explicit ``value`` is used as the per-unit
                            value, else the county median is auto-filled).
     """
-    if not address and (lat is None or lon is None):
-        raise HTTPException(400, "Provide ?address= or both ?lat= and ?lon=")
-    for name, val in (("preset", preset), ("construction", construction),
-                      ("foundation", foundation), ("condition", condition),
-                      ("flood_zone", flood_zone)):
-        _validate(name, val)
-    if bldg_material is not None:
-        bldg_material = bldg_material.strip().lower()   # normalize once, then validate + forward
-        if bldg_material not in ("wood", "masonry", "concrete", "steel"):
-            raise HTTPException(400, "bldg_material must be one of: wood, masonry, concrete, steel")
-    if stories is not None and stories < 1:
-        raise HTTPException(400, "stories must be a positive integer")
-
-    # Deduplicate + sort once: a repeated flag (e.g. upgrades=solar,solar) must not
-    # double-count in the elevation check below, nor split the cache into distinct
-    # keys for semantically identical requests.
-    upgrade_list = sorted({u.strip() for u in upgrades.split(",") if u.strip()}) if upgrades else []
-    bad = [u for u in upgrade_list if u not in BONUS_FLAGS]
-    if bad:
-        raise HTTPException(400, f"unknown upgrade(s): {', '.join(bad)}; "
-                                 f"choose from: {', '.join(BONUS_FLAGS)}")
-    if sum(u in ELEVATION_FLAGS for u in upgrade_list) > 1:
-        raise HTTPException(400, "at most one flood elevation tier may be selected")
+    bldg_material, upgrade_list = _validate_request(
+        address=address, lat=lat, lon=lon, preset=preset, construction=construction,
+        foundation=foundation, condition=condition, flood_zone=flood_zone,
+        bldg_material=bldg_material, stories=stories, upgrades=upgrades)
 
     unit_counts = None
     if units:
