@@ -70,11 +70,17 @@ US_AVG_FACTOR_KG_PER_KWH = round(827.5 * LB_PER_MWH_TO_KG_PER_KWH, 4)   # ≈ 0.
 US_AVG_LABEL = f"US average ({EGRID_VINTAGE})"
 
 
+# Convert each subregion's lb/MWh to kg/kWh once at import (the source table
+# above stays verbatim for provenance); egrid_for_county is not itself cached, so
+# this avoids a multiply+round on every lookup.
+_SUBREGION_FACTOR_KG_PER_KWH: dict[str, float] = {
+    acro: round(lb * LB_PER_MWH_TO_KG_PER_KWH, 4)
+    for acro, (_name, lb) in _SUBREGION_LB_PER_MWH.items()
+}
+
+
 def _factor_kg_per_kwh(acronym: str) -> float | None:
-    entry = _SUBREGION_LB_PER_MWH.get(acronym)
-    if entry is None:
-        return None
-    return round(entry[1] * LB_PER_MWH_TO_KG_PER_KWH, 4)
+    return _SUBREGION_FACTOR_KG_PER_KWH.get(acronym)
 
 
 def _label(acronym: str) -> str:
