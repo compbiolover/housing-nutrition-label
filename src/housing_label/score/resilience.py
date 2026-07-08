@@ -713,7 +713,7 @@ def fire_eal_vec(df):
         w = pd.to_numeric(df["wildfire_eal_rate"], errors="coerce")
         w = w.where(np.isfinite(w) & (w >= 0), 0.0)
     else:
-        w = 0.0
+        w = pd.Series(0.0, index=df.index)   # length-matched, never a bare scalar
     return STRUCTURAL_FIRE_EAL_BASE + w
 
 

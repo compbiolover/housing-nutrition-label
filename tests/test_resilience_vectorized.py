@@ -7,8 +7,9 @@ instead of ``df.apply(scalar, axis=1)`` (much less Python overhead). The scalar
 functions remain the single-row reference used by the CLI simulator and the
 other tests, so this file pins the two paths together: build a randomized parcel
 frame that exercises the edge cases (missing CAMA, unknown/NaN codes, zero
-tornado frequency, out-of-range PGA, absent/garbage wildfire column) and assert
-the vectorized output matches the apply output element-for-element.
+tornado frequency, out-of-range PGA, garbage wildfire values) and assert the
+vectorized output matches the apply output element-for-element. A separate case
+drops the wildfire column entirely.
 
 Runs directly too:  ``python tests/test_resilience_vectorized.py``.
 """
@@ -49,6 +50,17 @@ def test_eal_helpers_match_scalar():
         expected = df.apply(scalar, axis=1).to_numpy(dtype=float)
         got = np.asarray(vec(df), dtype=float)
         assert np.allclose(got, expected, rtol=1e-12, atol=0), f"{col} EAL mismatch"
+
+
+def test_fire_eal_missing_wildfire_column():
+    """The absent-``wildfire_eal_rate`` branch: fire_eal_vec must still return a
+    length-matched Series equal to the scalar (structural baseline for every row),
+    never a bare scalar."""
+    df = _random_frame().drop(columns=["wildfire_eal_rate"])
+    got = R.fire_eal_vec(df)
+    assert len(got) == len(df)          # a Series, not a broadcast scalar
+    expected = df.apply(R.calc_fire_eal, axis=1).to_numpy(dtype=float)
+    assert np.allclose(np.asarray(got, dtype=float), expected, rtol=1e-12, atol=0)
 
 
 def test_score_and_grade_helpers_match_scalar():

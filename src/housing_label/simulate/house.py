@@ -601,9 +601,11 @@ def _load_local_scores(path_str: str):
     path = pathlib.Path(path_str)
     if not path.exists():
         return None
-    col = pd.read_csv(path, usecols=["resilience_score"],
-                      low_memory=False)["resilience_score"].dropna()
-    return col.to_numpy()
+    col = pd.read_csv(path, usecols=["resilience_score"], low_memory=False)["resilience_score"]
+    # Coerce first: a stray non-numeric cell would otherwise make the column
+    # object dtype, and `scores < sim_score` / min/max/median would then raise or
+    # compare lexicographically. errors="coerce" turns junk into NaN, dropna drops it.
+    return pd.to_numeric(col, errors="coerce").dropna().to_numpy()
 
 
 def _local_scores():
