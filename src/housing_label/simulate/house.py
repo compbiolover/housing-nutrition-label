@@ -1071,15 +1071,22 @@ BONUS_MODIFIER_DESC = {
 }
 
 
-def print_scorecard(cfg: dict, r: dict) -> None:
-    """Print a clean, fixed-width resilience scorecard to stdout."""
-    INNER = 64   # width between ║ and ║ (content is padded to this)
-    TOP = "╔" + "═" * INNER + "╗"
-    SEP = "╠" + "═" * INNER + "╣"
-    BOT = "╚" + "═" * INNER + "╝"
+def _box(inner: int = 64):
+    """Return the (TOP, SEP, BOT, row) box-drawing pieces the fixed-width printers
+    share, so the border strings and padding width live in one place."""
+    top = "╔" + "═" * inner + "╗"
+    sep = "╠" + "═" * inner + "╣"
+    bot = "╚" + "═" * inner + "╝"
 
     def row(content: str = "") -> str:
-        return f"║{content:<{INNER}}║"
+        return f"║{content:<{inner}}║"
+
+    return top, sep, bot, row
+
+
+def print_scorecard(cfg: dict, r: dict) -> None:
+    """Print a clean, fixed-width resilience scorecard to stdout."""
+    TOP, SEP, BOT, row = _box()
 
     def section(title: str) -> str:
         return row(f"  {title}")
@@ -1358,13 +1365,7 @@ def _wrap(text: str, width: int) -> list[str]:
 
 def print_label(cfg: dict, label: dict) -> None:
     """Print the full multi-dimension nutrition label below the resilience card."""
-    INNER = 64
-    TOP = "╔" + "═" * INNER + "╗"
-    SEP = "╠" + "═" * INNER + "╣"
-    BOT = "╚" + "═" * INNER + "╝"
-
-    def row(content: str = "") -> str:
-        return f"║{content:<{INNER}}║"
+    TOP, SEP, BOT, row = _box()
 
     print(TOP)
     print(row("  FULL NUTRITION LABEL — ALL DIMENSIONS"))
@@ -1919,13 +1920,7 @@ def density_comparison(*, address: str | None = None,
 
 def print_density(comp: dict) -> None:
     """Print a fixed-width density comparison (units vs. key dimensions)."""
-    INNER = 64
-    TOP = "╔" + "═" * INNER + "╗"
-    SEP = "╠" + "═" * INNER + "╣"
-    BOT = "╚" + "═" * INNER + "╝"
-
-    def row(content: str = "") -> str:
-        return f"║{content:<{INNER}}║"
+    TOP, SEP, BOT, row = _box()
 
     loc = comp.get("location")
     place = (loc.get("label") if isinstance(loc, dict) else None) or "this parcel"

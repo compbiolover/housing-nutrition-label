@@ -240,8 +240,7 @@ def _acs_to_frame(records: list) -> pd.DataFrame:
     # Numeric coercion; ACS jam-values (large negatives) → NaN.
     for col in ACS_VARS:
         df[col] = pd.to_numeric(df[col], errors="coerce")
-        df.loc[df[col] < ACS_NULL_FLOOR, col] = pd.NA
-        df[col] = pd.to_numeric(df[col], errors="coerce")
+        df.loc[df[col] < ACS_NULL_FLOOR, col] = pd.NA   # float64 col keeps NA as NaN
 
     # Build the 11-digit tract GEOID from the geography component columns.
     df["census_tract"] = (
@@ -477,12 +476,8 @@ def _print_summary(df: pd.DataFrame, vintage: int, out_path: pathlib.Path):
     si             = df["socioeconomic_index"].dropna()
     w = 46
 
-    out_county = (
-        df["census_tract"]
-        .dropna()
-        .loc[~df["census_tract"].dropna().str.startswith(STATE_FIPS + COUNTY_FIPS)]
-        .count()
-    )
+    ct = df["census_tract"].dropna()
+    out_county = int((~ct.str.startswith(STATE_FIPS + COUNTY_FIPS)).sum())
 
     print("\n╔══ SOCIOECONOMIC ENRICHMENT SUMMARY ═══════════════════════════════╗")
     print(f"║ Total parcels                : {total:<{w}}║")
