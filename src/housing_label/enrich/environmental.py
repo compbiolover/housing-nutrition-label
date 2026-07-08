@@ -404,10 +404,11 @@ def main() -> None:
         return
 
     log.info("Modelling environmental footprint for %d parcels …", len(df))
-    results = [model_parcel_environment(row) for _, row in df.iterrows()]
+    # to_dict("records") skips the per-row Series boxing that iterrows does; the
+    # model reads columns via row.get(...), which dicts support identically.
+    results = [model_parcel_environment(row) for row in df.to_dict("records")]
     enriched = pd.DataFrame(results, index=df.index)
-    for col in ENV_COLS:
-        df[col] = enriched[col]
+    df[ENV_COLS] = enriched[ENV_COLS]   # one assignment, no fragmentation
 
     df.to_csv(out_file, index=False)
     log.info("Saved → %s", out_file)

@@ -384,10 +384,11 @@ def main() -> None:
         return
 
     log.info("Modelling energy for %d parcels …", len(df))
-    results = [model_parcel_energy(row) for _, row in df.iterrows()]
+    # to_dict("records") skips the per-row Series boxing that iterrows does; the
+    # model reads columns via row.get(...), which dicts support identically.
+    results = [model_parcel_energy(row) for row in df.to_dict("records")]
     enriched = pd.DataFrame(results, index=df.index)
-    for col in ENERGY_COLS:
-        df[col] = enriched[col]
+    df[ENERGY_COLS] = enriched[ENERGY_COLS]   # one assignment, no fragmentation
 
     df.to_csv(out_file, index=False)
     log.info("Saved → %s", out_file)
