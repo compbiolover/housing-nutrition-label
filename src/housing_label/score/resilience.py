@@ -654,6 +654,8 @@ _TORNADO_EAL_PER_FREQ = sum(
 
 _SCORE_LOG_EALS = np.log([e for _, e in SCORE_BREAKPOINTS])          # ascending in EAL
 _SCORE_VALUES   = np.array([s for s, _ in SCORE_BREAKPOINTS], float)  # descending score
+_SCORE_EAL_LO   = SCORE_BREAKPOINTS[0][1]    # ≤ this EAL → score 100
+_SCORE_EAL_HI   = SCORE_BREAKPOINTS[-1][1]   # ≥ this EAL → score 0
 
 
 def _code_factor_vec(col, table, default=1.0):
@@ -720,12 +722,16 @@ def fire_eal_vec(df):
 def eal_rate_to_score_vec(rate):
     """Column-wise eal_rate_to_score via log-linear interpolation (clamped at ends).
 
-    ``np.interp`` on ``log(rate)`` is exactly the scalar log-linear formula; rates
-    ≤ the lowest breakpoint clamp to 100 and ≥ the highest clamp to 0 (rate == 0 →
-    log −inf → 100, matching the scalar guard)."""
+    Matches the scalar exactly for every input: clamping into the breakpoint
+    domain before the log reproduces its ``≤ lowest → 100`` / ``≥ highest → 0``
+    guards (and folds negatives into the ``≤ lowest`` case), while NaN rates map to
+    0.0 — the scalar's fall-through when all its comparisons fail — rather than
+    propagating NaN into resilience_score/percentile_rank."""
     rate = np.asarray(rate, dtype=float)
-    with np.errstate(divide="ignore"):
-        return np.interp(np.log(rate), _SCORE_LOG_EALS, _SCORE_VALUES)
+    lo, hi = _SCORE_EAL_LO, _SCORE_EAL_HI
+    clamped = np.clip(rate, lo, hi)        # NaN stays NaN through clip
+    scores = np.interp(np.log(clamped), _SCORE_LOG_EALS, _SCORE_VALUES)
+    return np.where(np.isnan(rate), 0.0, scores)
 
 
 def score_to_grade_vec(score):

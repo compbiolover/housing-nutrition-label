@@ -65,10 +65,16 @@ def test_fire_eal_missing_wildfire_column():
 
 def test_score_and_grade_helpers_match_scalar():
     df = _random_frame()
-    rates = R.fire_eal_vec(df).to_numpy() + R.seismic_eal_vec(df)  # spread of rates
+    # Interior spread plus the edge inputs where the scalar's guards/fall-through
+    # matter: NaN (missing tornado rate) → 0.0, negatives and 0 → 100, the exact
+    # breakpoints, and values past both ends.
+    rates = np.concatenate([
+        R.fire_eal_vec(df).to_numpy() + R.seismic_eal_vec(df),
+        np.array([np.nan, -1.0, 0.0, 0.00005, 0.0002, 0.001, 0.020, 0.5, 1e-9]),
+    ])
     expected = np.array([R.eal_rate_to_score(x) for x in rates], dtype=float)
     got = R.eal_rate_to_score_vec(rates)
-    assert np.allclose(got, expected, rtol=1e-12, atol=1e-9)
+    assert np.allclose(got, expected, rtol=1e-12, atol=1e-9, equal_nan=True)
 
     scores = np.linspace(-5, 105, 223)
     assert list(R.score_to_grade_vec(scores)) == [R.score_to_grade(s) for s in scores]
