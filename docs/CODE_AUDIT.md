@@ -257,3 +257,41 @@ batch-scorer speedups.
 _Note: batch-path items (P2/P4/P5/P6, the enricher/scorer scaffolds) run in the
 CLI pipeline, not per API request — high absolute value on full-county pulls,
 lower urgency than the P1 request-path fix._
+
+---
+
+## Implementation status
+
+Everything below was applied on top of this audit, verified with the test suite
+(new `test_resilience_vectorized.py` pins the vectorized scorer to the scalar
+reference on random parcels).
+
+**Applied**
+- **B1, B2** — `clean.py` address `.rstrip(".0")` bug; deleted dead/buggy `fire_cost`.
+- **P1** — `SCORED_CSV` now read once behind a path-keyed `lru_cache`; double `dropna` removed.
+- **P2 / P6** — full `resilience.main()` vectorization (flood map, tornado freq×const,
+  seismic `np.select`, fire, `np.interp` score, `np.select`/loop grades, vectorized BRM);
+  scalar functions kept as the tested single-row reference.
+- **P3** — Walk Score cached behind `_walk_scores()` like its sibling location dims.
+- **P4** — tornado enrichment uses a vectorized numpy haversine.
+- **P5** — energy/environmental/durability iterate `to_dict("records")` + one-shot column assignment.
+- **P8** — eGRID subregion factors precomputed once at import.
+- **S2** — shared `_box()` for the three fixed-width printers.
+- **S3** — `_validate_request()` shared by `/label` and `/density`.
+- **S1 (data)** — `_num` centralized to `data/_util.num`.
+- **S5 (partial)** — dropped the redundant second `pd.to_numeric` per ACS column; single `dropna`.
+- **S7** — dead `nmsz_dist`, `CLIMATE_ZONE`, identity dict-comp, redundant `float()` casts.
+
+**Deliberately not applied (verification showed net-negative or unsafe)**
+- **`interp_cost` trailing `return`** — not dead: it's the NaN-density safety net
+  (both range guards are false for NaN, so the loop never matches). Kept.
+- **`_wrap` → `textwrap.wrap`** — not behavior-preserving: `_wrap` collapses internal
+  whitespace, `textwrap` preserves it. Kept `_wrap`.
+- **S1 haversine / geocoder consolidation, S4 enricher `main()` scaffold, S5 summary/geocode
+  loops** — these live in the `enrich/*` build scripts, which are deliberately standalone
+  (`python enrich/x.py`, no `housing_label` imports). Importing shared helpers would break
+  standalone execution for little runtime benefit (build-only code).
+- **`_load_rows` geoid-loader merge** — the wildfire and climate variants differ in
+  blank/missing-GEOID handling; unifying would change one module's output.
+- **S6 grade/interp cross-module merge, structure `d2` micro, P7 value/structure threading** —
+  low value relative to the coupling/churn; left for a follow-up if desired.
