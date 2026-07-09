@@ -21,8 +21,9 @@ Data source
     yr           – year
     mo / dy      – month / day
 
-  Strategy: download the full CSV once, cache it locally, then pre-filter to
-  a coarse bounding box around Shelby County before per-parcel Haversine math.
+  Strategy: download the full national CSV once, cache it locally, then for each
+  parcel pre-filter to a box centered on that parcel before Haversine math — so
+  the counts are correct for any US location, not just Shelby County.
 
 Tornado columns added
 ---------------------
@@ -30,7 +31,7 @@ Tornado columns added
   tornado_count_10mi       Total tornadoes within 10 miles since 1950
   max_ef_25mi              Highest EF/F rating within 25 miles (-1 = none)
   avg_tornadoes_per_yr_25mi  Annual average within 25 miles (tornado_count_25mi / years)
-  tornado_risk             high / moderate / low classification
+  tornado_risk             high / moderate / low (absolute national bands)
 """
 
 import argparse, logging, math, pathlib, sys
@@ -50,11 +51,12 @@ RADIUS_25   = 25.0   # miles
 RADIUS_10   = 10.0   # miles
 DATA_YEARS  = 2023 - 1950 + 1  # 74 years
 
-# Coarse bounding box for pre-filtering (degrees of lat/lon for 30 mi buffer)
-# Shelby County center ≈ 35.15°N, 89.98°W; 30 mi ≈ 0.44°
-SHELBY_LAT  = 35.15
-SHELBY_LON  = -89.98
-BBOX_DEG    = 0.50    # ±0.50° ≈ ~34 miles – generous pre-filter
+# Per-parcel pre-filter half-width. Each parcel's tornado count is taken over a
+# box centered on THAT parcel (not a fixed Shelby box), so the stage works for any
+# US location. ±0.50° latitude ≈ ~34 miles, comfortably covering the 25-mi radius;
+# the longitude half-width is widened by 1/cos(lat) so it stays ≥34 mi away from
+# the equator.
+BBOX_DEG    = 0.50
 
 TORNADO_COLS = [
     "tornado_count_25mi",
@@ -113,50 +115,83 @@ def load_spc_data(cache_file: pathlib.Path = CACHE_FILE) -> pd.DataFrame:
     df["slon"] = df["slon"].astype(float)
     df["mag"]  = pd.to_numeric(df["mag"], errors="coerce").fillna(-9).astype(int)
 
-    # Pre-filter to coarse bounding box around Shelby County
-    lat_lo, lat_hi = SHELBY_LAT - BBOX_DEG, SHELBY_LAT + BBOX_DEG
-    lon_lo, lon_hi = SHELBY_LON - BBOX_DEG, SHELBY_LON + BBOX_DEG
-    nearby = df[
-        (df["slat"] >= lat_lo) & (df["slat"] <= lat_hi) &
-        (df["slon"] >= lon_lo) & (df["slon"] <= lon_hi)
-    ].copy()
-    log.info("  Pre-filtered to %d tornadoes within bounding box of Shelby County.", len(nearby))
+    # Keep the full national table — the per-parcel pre-filter (enrich_parcel)
+    # is centered on each parcel, so no fixed county box is applied here.
+    nearby = df[["slat", "slon", "mag"]].copy()
+    log.info("  Retained %d national tornado records (point-centered per parcel).", len(nearby))
     return nearby
 
 
+# ── National tornado-risk classification ──────────────────────────────────────
+def _national_risk(avg_yr: float, max_ef: int) -> str:
+    """Absolute national tornado-risk label from the 25-mi annual rate + peak EF.
+
+    Replaces the old within-Shelby relative thresholds: the plains 'tornado alley'
+    lands 'high', most of the country 'low'. Display-only — the score reads
+    ``avg_tornadoes_per_yr_25mi`` directly.
+    """
+    if avg_yr >= 0.75 or max_ef >= 4:
+        return "high"
+    if avg_yr >= 0.25 or max_ef >= 3:
+        return "moderate"
+    return "low"
+
+
 # ── Per-parcel enrichment ─────────────────────────────────────────────────────
-def enrich_parcel(lat: float, lon: float, tornadoes: pd.DataFrame) -> dict[str, object]:
-    """Compute tornado metrics for a single parcel location."""
-    dists = _haversine_np(lat, lon, tornadoes["slat"].to_numpy(),
-                          tornadoes["slon"].to_numpy())
+def _sorted_arrays(tornadoes: pd.DataFrame):
+    """Extract latitude-ascending ``(slat, slon, mag)`` numpy arrays from the SPC
+    table. Prepared once per batch so the per-parcel scan below can binary-search
+    the latitude band instead of re-scanning every national record each call."""
+    slat = tornadoes["slat"].to_numpy()
+    order = np.argsort(slat, kind="stable")
+    return slat[order], tornadoes["slon"].to_numpy()[order], tornadoes["mag"].to_numpy()[order]
+
+
+def _point_counts(lat: float, lon: float, slat, slon, mags) -> dict[str, object]:
+    """Tornado metrics for one point from latitude-sorted arrays.
+
+    ``slat`` MUST be ascending (``slon``/``mags`` aligned). A ``searchsorted``
+    slice restricts work to the ±BBOX_DEG latitude band, then longitude is
+    compared with a dateline-safe modular difference (so parcels near ±180° aren't
+    undercounted) before exact great-circle distances within 25 / 10 miles.
+    """
+    i0 = int(np.searchsorted(slat, lat - BBOX_DEG, side="left"))
+    i1 = int(np.searchsorted(slat, lat + BBOX_DEG, side="right"))
+    blat, blon, bmag = slat[i0:i1], slon[i0:i1], mags[i0:i1]
+
+    lon_margin = BBOX_DEG / max(math.cos(math.radians(lat)), 0.1)
+    dlon = np.abs(((blon - lon + 180.0) % 360.0) - 180.0)   # absolute minimal Δlon, wraparound-safe
+    keep = dlon <= lon_margin
+    blat, blon, bmag = blat[keep], blon[keep], bmag[keep]
+
+    dists = _haversine_np(lat, lon, blat, blon)              # haversine is itself periodic-correct
     w25 = dists <= RADIUS_25
     w10 = dists <= RADIUS_10
 
     count_25 = int(w25.sum())
     count_10 = int(w10.sum())
-    mags_25  = tornadoes.loc[w25, "mag"]
-    valid_mags = mags_25[mags_25 >= 0]
-    max_ef  = int(valid_mags.max()) if not valid_mags.empty else -1
-    avg_yr  = round(count_25 / DATA_YEARS, 3)
-
-    # Risk classification – relative within Shelby County.
-    # The entire county is historically high-risk nationally; these thresholds
-    # capture within-county variation using the 10-mile count as the primary
-    # discriminator (range observed: ~12-27 tornadoes within 10 mi since 1950).
-    if count_10 >= 20 or max_ef >= 4:
-        risk = "high"
-    elif count_10 >= 14 or max_ef >= 3:
-        risk = "moderate"
-    else:
-        risk = "low"
+    valid_mags = bmag[w25][bmag[w25] >= 0]
+    max_ef  = int(valid_mags.max()) if valid_mags.size else -1
+    rate    = count_25 / DATA_YEARS          # classify on the unrounded rate…
 
     return {
         "tornado_count_25mi":       count_25,
         "tornado_count_10mi":       count_10,
         "max_ef_25mi":              max_ef,
-        "avg_tornadoes_per_yr_25mi": avg_yr,
-        "tornado_risk":             risk,
+        "avg_tornadoes_per_yr_25mi": round(rate, 3),   # …round only for export
+        "tornado_risk":             _national_risk(rate, max_ef),
     }
+
+
+def enrich_parcel(lat: float, lon: float, tornadoes: pd.DataFrame) -> dict[str, object]:
+    """Tornado metrics for a single parcel (box centered on this parcel).
+
+    Convenience wrapper that prepares the latitude-sorted arrays from the table on
+    each call — for a batch, prepare them once with ``_sorted_arrays`` and call
+    ``_point_counts`` directly (as ``main`` does) to avoid re-sorting per parcel.
+    """
+    slat, slon, mags = _sorted_arrays(tornadoes)
+    return _point_counts(lat, lon, slat, slon, mags)
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -218,18 +253,19 @@ def main() -> None:
         log.info("[dry-run]   output : %s", out_file)
         log.info("[dry-run]   cache  : %s", cache_file)
         log.info("[dry-run]   parcel rows to enrich : %d", len(df))
-        log.info("[dry-run]   nearby tornadoes (bbox): %d", len(tornadoes))
+        log.info("[dry-run]   national tornado records: %d", len(tornadoes))
         log.info("[dry-run] No output written.")
         return
 
     log.info("Enriching %d parcels with tornado risk data …", len(df))
+    slat, slon, mags = _sorted_arrays(tornadoes)   # prepared once for the whole batch
     results = []
     for i, (_, row) in enumerate(df.iterrows(), start=1):
         lat, lon = row.get("latitude"), row.get("longitude")
         if pd.isna(lat) or pd.isna(lon):
             results.append({c: None for c in TORNADO_COLS})
         else:
-            results.append(enrich_parcel(float(lat), float(lon), tornadoes))
+            results.append(_point_counts(float(lat), float(lon), slat, slon, mags))
         if i % 100 == 0 or i == len(df):
             log.info("  Progress: %d / %d", i, len(df))
 
@@ -255,7 +291,7 @@ def main() -> None:
     print("\n╔══ SPC TORNADO ENRICHMENT SUMMARY ═══════════════════════════╗")
     print(f"║ Total rows enriched     : {total:<{w}}║")
     print(f"║ SPC data range          : {'1950-2023':<{w}}║")
-    print(f"║ Nearby tornadoes (bbox) : {len(tornadoes):<{w}}║")
+    print(f"║ National tornado records: {len(tornadoes):<{w}}║")
     print(f"║ Search radii            : {'10 mi / 25 mi':<{w}}║")
     print("║ ── Tornado risk distribution ─────────────────────────────── ║")
     for label in ("high", "moderate", "low"):

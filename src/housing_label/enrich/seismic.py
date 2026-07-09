@@ -94,9 +94,71 @@ def haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> float
     return 2 * _R * math.asin(math.sqrt(a))
 
 
+# ── National seismic classification (from mapped PGA) ─────────────────────────
+def _national_risk(pga_2pct: float) -> str:
+    """Coarse national seismic-risk label from the mapped 2%/50yr PGA (g).
+
+    Absolute, nationwide bands (not the old within-Shelby relative split): the
+    stable interior lands 'low'/'very low', the New Madrid & West-Coast zones
+    'high'/'very high'. Display-only — the score reads the PGA columns directly.
+    """
+    if pga_2pct >= 0.60:
+        return "very high"
+    if pga_2pct >= 0.30:
+        return "high"
+    if pga_2pct >= 0.15:
+        return "moderate"
+    if pga_2pct >= 0.06:
+        return "low"
+    return "very low"
+
+
+def _national_sdc(pga_2pct: float) -> str:
+    """Approximate ASCE 7 Seismic Design Category from the mapped 2%/50yr PGA (g).
+
+    A coarse national proxy (true SDC needs Sds + risk category + site class);
+    kept for display continuity with the pilot's ``seismic_design_category``.
+    """
+    if pga_2pct >= 0.50:
+        return "E"
+    if pga_2pct >= 0.33:
+        return "D"
+    if pga_2pct >= 0.17:
+        return "C"
+    if pga_2pct >= 0.083:
+        return "B"
+    return "A"
+
+
 # ── Per-parcel enrichment ─────────────────────────────────────────────────────
-def enrich_parcel(lat: float, lon: float) -> dict:
+def enrich_parcel(lat: float, lon: float, allow_network: bool = True) -> dict:
     """Compute seismic hazard metrics for a single parcel location.
+
+    National path (default): the mapped 2%/50yr & 10%/50yr PGA come from
+    ``seismic_lookup.get_pga`` — the USGS ASCE7 design-maps service, correct
+    anywhere in the US, with a bundled coarse grid as an offline fallback. Risk +
+    design-category labels are derived from the mapped PGA on absolute national
+    bands. When neither USGS nor the grid is available (offline, no bundled grid),
+    it falls back to the legacy New-Madrid-only model below.
+    """
+    from housing_label.enrich.seismic_lookup import get_pga
+
+    res = get_pga(lat, lon, allow_network=allow_network)
+    if res is not None:
+        pga_2pct, pga_10pct, source = res
+        return {
+            "pga_2pct_50yr":           pga_2pct,
+            "pga_10pct_50yr":          pga_10pct,
+            "seismic_design_category": _national_sdc(pga_2pct),
+            "nmsz_distance_mi":        round(haversine_miles(lat, lon, NMSZ_LAT, NMSZ_LON), 1),
+            "seismic_risk":            _national_risk(pga_2pct),
+            "soil_amplification_note": f"{source}; site class B reference",
+        }
+    return _legacy_nmsz_parcel(lat, lon)
+
+
+def _legacy_nmsz_parcel(lat: float, lon: float) -> dict:
+    """Legacy New-Madrid-only interpolation (offline fallback for Shelby County).
 
     Methodology
     -----------
@@ -164,9 +226,13 @@ def main() -> None:
                         help="Output CSV path (relative paths resolve to script dir).")
     parser.add_argument("--limit", type=int, default=None,
                         help="Process at most N rows (for testing).")
+    parser.add_argument("--offline", action="store_true",
+                        help="Skip the live USGS lookup; use the bundled PGA grid, "
+                             "else the legacy New Madrid model.")
     parser.add_argument("--dry-run", action="store_true",
                         help="Load and validate input, log the plan, then exit without writing.")
     args = parser.parse_args()
+    allow_network = not args.offline
 
     in_file = _resolve_path(args.input)
     out_file = _resolve_path(args.output)
@@ -206,7 +272,7 @@ def main() -> None:
         if pd.isna(lat) or pd.isna(lon):
             results.append({c: None for c in SEISMIC_COLS})
         else:
-            results.append(enrich_parcel(float(lat), float(lon)))
+            results.append(enrich_parcel(float(lat), float(lon), allow_network=allow_network))
         if i % 200 == 0 or i == len(df):
             log.info("  Progress: %d / %d", i, len(df))
 
@@ -230,14 +296,13 @@ def main() -> None:
     pga10_max  = df["pga_10pct_50yr"].max()
     dist_min   = df["nmsz_distance_mi"].min()
     dist_max   = df["nmsz_distance_mi"].max()
-    alluvium_n = (df["soil_amplification_note"].str.startswith("Site Class D/E")).sum()
+    sdc_dist   = df["seismic_design_category"].value_counts().to_dict()
     w = 39
 
     print("\n╔══ USGS SEISMIC HAZARD ENRICHMENT SUMMARY ═══════════════════════╗")
     print(f"║ Total rows enriched        : {total:<{w}}║")
-    print(f"║ Data source                : {'NSHM 2023 reference values (Memphis)':<{w}}║")
-    print(f"║ Fault system               : {'New Madrid Seismic Zone (NMSZ)':<{w}}║")
-    print(f"║ NMSZ reference point       : {'36.5°N, 89.6°W':<{w}}║")
+    print(f"║ Data source                : {'USGS ASCE7 design maps (national)':<{w}}║")
+    print(f"║ Offline fallback           : {'bundled PGA grid → legacy NMSZ':<{w}}║")
     print("║ ── PGA 2% in 50 yr (2475-yr return period) ──────────────────── ║")
     print(f"║   min  : {pga2_min:.3f} g{'':<{w-12}}║")
     print(f"║   max  : {pga2_max:.3f} g{'':<{w-12}}║")
@@ -249,14 +314,15 @@ def main() -> None:
     print(f"║   nearest parcel : {dist_min:.1f} mi{'':<{w-16}}║")
     print(f"║   farthest parcel: {dist_max:.1f} mi{'':<{w-16}}║")
     print("║ ── Seismic risk distribution ─────────────────────────────────── ║")
-    for label in ("very high", "high"):
+    for label in ("very high", "high", "moderate", "low", "very low"):
         count = risk_dist.get(label, 0)
         pct   = count / total * 100 if total else 0
         print(f"║   {label:<12}: {count:>5}  ({pct:5.1f}%){'':>19}║")
-    print("║ ── Soil class ────────────────────────────────────────────────── ║")
-    print(f"║   Site D/E (alluvial) : {alluvium_n:>5}  ({alluvium_n/total*100:5.1f}%){'':>19}║")
-    print(f"║   Site C/D (upland)   : {total-alluvium_n:>5}  ({(total-alluvium_n)/total*100:5.1f}%){'':>19}║")
-    print(f"║ Seismic Design Category    : {'D (county-wide, per ASCE 7)':<{w}}║")
+    print("║ ── Seismic Design Category (approx, from PGA) ────────────────── ║")
+    for cat in ("E", "D", "C", "B", "A"):
+        count = sdc_dist.get(cat, 0)
+        if count:
+            print(f"║   SDC {cat:<8}: {count:>5}  ({count/total*100:5.1f}%){'':>19}║")
     print(f"║ New columns added          : {len(SEISMIC_COLS):<{w}}║")
     print(f"║ Output                     : {out_file.name:<{w}}║")
     print("╚══════════════════════════════════════════════════════════════════╝\n")

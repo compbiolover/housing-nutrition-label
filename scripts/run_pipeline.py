@@ -81,17 +81,18 @@ class Stage:
     input: str | None = None        # input CSV filename, or None for the ingest stage
     extra_args: list[str] = field(default_factory=list)  # always-on extra CLI args
     supports_limit: bool = True     # whether the stage honours --limit
+    supports_county_fips: bool = False  # whether the stage honours --county-fips
 
 
 STAGES: list[Stage] = [
     Stage("ingest",         "src/housing_label/ingest/shelby_parcels.py",  "shelby_parcels_sample.csv",         input=None),
     Stage("clean",          "src/housing_label/ingest/clean.py",           "shelby_parcels_clean.csv",          input="shelby_parcels_sample.csv",         supports_limit=False),
     Stage("flood",          "src/housing_label/enrich/fema_flood.py",      "shelby_parcels_flood.csv",          input="shelby_parcels_clean.csv"),
-    Stage("climate",        "src/housing_label/enrich/noaa_climate.py",    "shelby_parcels_climate.csv",        input="shelby_parcels_flood.csv"),
+    Stage("climate",        "src/housing_label/enrich/noaa_climate.py",    "shelby_parcels_climate.csv",        input="shelby_parcels_flood.csv", supports_county_fips=True),
     Stage("tornado",        "src/housing_label/enrich/tornado.py",         "shelby_parcels_tornado.csv",        input="shelby_parcels_climate.csv"),
     Stage("seismic",        "src/housing_label/enrich/seismic.py",         "shelby_parcels_seismic.csv",        input="shelby_parcels_tornado.csv"),
     Stage("energy",         "src/housing_label/enrich/energy.py",          "shelby_parcels_energy.csv",         input="shelby_parcels_seismic.csv"),
-    Stage("infrastructure", "src/housing_label/enrich/infrastructure.py",  "shelby_parcels_infrastructure.csv", input="shelby_parcels_energy.csv"),
+    Stage("infrastructure", "src/housing_label/enrich/infrastructure.py",  "shelby_parcels_infrastructure.csv", input="shelby_parcels_energy.csv", supports_county_fips=True),
     Stage("health",         "src/housing_label/enrich/health.py",          "shelby_parcels_health.csv",         input="shelby_parcels_infrastructure.csv"),
     Stage("socioeconomic",  "src/housing_label/enrich/socioeconomic.py",   "shelby_parcels_socioeconomic.csv",  input="shelby_parcels_health.csv"),
     Stage("durability",     "src/housing_label/enrich/durability.py",      "shelby_parcels_durability.csv",     input="shelby_parcels_socioeconomic.csv"),
@@ -156,13 +157,15 @@ def is_stale(stage: Stage, force: bool) -> tuple[bool, str]:
     return False, "fresh"
 
 
-def build_command(stage: Stage, limit: int | None) -> list[str]:
+def build_command(stage: Stage, limit: int | None, county_fips: str | None = None) -> list[str]:
     cmd = [sys.executable, str(_path(stage.script))]
     if stage.input is not None:
         cmd += ["--input", stage.input]
     cmd += ["--output", stage.output]
     if limit is not None and stage.supports_limit:
         cmd += ["--limit", str(limit)]
+    if county_fips and stage.supports_county_fips:
+        cmd += ["--county-fips", county_fips]
     cmd += stage.extra_args
     return cmd
 
@@ -195,9 +198,9 @@ class StageResult:
     reason: str = ""
 
 
-def run_stage(stage: Stage, limit: int | None) -> tuple[int, float]:
+def run_stage(stage: Stage, limit: int | None, county_fips: str | None = None) -> tuple[int, float]:
     """Execute a stage, streaming its output. Returns (returncode, seconds)."""
-    cmd = build_command(stage, limit)
+    cmd = build_command(stage, limit, county_fips)
     log.info("▶ %-14s : %s", stage.name, " ".join(cmd[1:]))
     start = time.perf_counter()
     proc = subprocess.run(cmd, cwd=str(SCRIPT_DIR))
@@ -219,6 +222,10 @@ def main() -> None:
                         help="Run this stage and all later stages. E.g. --from energy")
     parser.add_argument("--limit", type=int, default=None,
                         help="Pass --limit N to stages that support it (quick subset test).")
+    parser.add_argument("--county-fips", default=None,
+                        help="Score a county other than Shelby: passed to the climate + "
+                             "infrastructure stages to calibrate their location-driven "
+                             "fields nationally. Omit for the Memphis/Shelby defaults.")
     parser.add_argument("--continue-on-error", action="store_true",
                         help="Continue with later stages even if one fails.")
     parser.add_argument("--dry-run", action="store_true",
@@ -256,12 +263,12 @@ def main() -> None:
             continue
 
         if args.dry_run:
-            cmd = build_command(stage, args.limit)
+            cmd = build_command(stage, args.limit, args.county_fips)
             log.info("• %-14s : WOULD RUN (%s) → %s", stage.name, reason, " ".join(cmd[1:]))
             results.append(StageResult(stage.name, "planned", reason=reason))
             continue
 
-        rc, elapsed = run_stage(stage, args.limit)
+        rc, elapsed = run_stage(stage, args.limit, args.county_fips)
 
         if rc != 0:
             log.error("✖ %-14s : FAILED (exit %d) after %.1fs", stage.name, rc, elapsed)

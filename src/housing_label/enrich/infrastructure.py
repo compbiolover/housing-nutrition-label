@@ -399,6 +399,20 @@ ADDED_COLUMNS = [
 ]
 
 
+def _as_bool(v) -> bool:
+    """Parse a CSV cell into a bool. Python treats every non-empty string as
+    truthy, so ``"False"``/``"0"``/``"no"`` would wrongly read as urban — handle
+    the common string forms explicitly, else fall back to ``bool(v)`` (numbers,
+    real bools)."""
+    if isinstance(v, str):
+        s = v.strip().lower()
+        if s in ("true", "1", "yes", "y", "t"):
+            return True
+        if s in ("false", "0", "no", "n", "f", ""):
+            return False
+    return bool(v)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Enrich parcels with infrastructure cost burden"
@@ -409,6 +423,12 @@ def main() -> None:
                         help="Output CSV (default: %(default)s)")
     parser.add_argument("--limit", type=int, default=None,
                         help="Process only N rows (testing)")
+    parser.add_argument("--county-fips", default=None,
+                        help="5-digit county FIPS for all parcels — recalibrates the "
+                             "cost curves + property-tax rate to that county (Census of "
+                             "Governments + ACS). Omit for the Memphis-calibrated Shelby "
+                             "defaults; a per-parcel 'county_fips' column, if present, "
+                             "overrides this for that row.")
     parser.add_argument("--dry-run", action="store_true",
                         help="Validate and report plan without writing output")
     args = parser.parse_args()
@@ -444,8 +464,36 @@ def main() -> None:
         log.info("  Columns that would be added: %s", ADDED_COLUMNS)
         return
 
+    # Resolve per-county cost/tax params once per FIPS (Memphis defaults for
+    # Shelby/unknown). A per-parcel 'county_fips' column wins over --county-fips,
+    # so a multi-county national batch calibrates each row to its own county. The
+    # cached params are county-level only; 'in_urban_area' is parcel-level and is
+    # applied per row (from an optional 'in_urban_area' column), else left to
+    # enrich_row's distance-based fallback.
+    from housing_label.enrich.region_context import infra_params_for_county, normalize_fips
+    _params_cache: dict = {}
+
+    def _params_for(fips_norm) -> dict:
+        if fips_norm not in _params_cache:
+            _params_cache[fips_norm] = infra_params_for_county(fips_norm) or {}
+        return _params_cache[fips_norm]
+
+    has_fips_col = "county_fips" in df.columns
+    has_urban_col = "in_urban_area" in df.columns
+    default_fips = normalize_fips(args.county_fips)
+    if args.county_fips or has_fips_col:
+        log.info("National infrastructure calibration (county-fips=%s, per-parcel column=%s)",
+                 args.county_fips, has_fips_col)
+
+    def _enrich(row):
+        fips = normalize_fips(row.get("county_fips")) if has_fips_col else default_fips
+        params = dict(_params_for(fips))
+        if has_urban_col and pd.notna(row.get("in_urban_area")):
+            params["in_urban_area"] = _as_bool(row.get("in_urban_area"))
+        return enrich_row(row, **params)
+
     log.info("Computing infrastructure cost fields …")
-    enriched = df.apply(enrich_row, axis=1)
+    enriched = df.apply(_enrich, axis=1)
     df = pd.concat([df, enriched], axis=1)
 
     log.info("Writing %s", out_path)

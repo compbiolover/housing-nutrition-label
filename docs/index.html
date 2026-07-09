@@ -24,30 +24,9 @@
       border-radius: var(--radius); background: var(--green); color: #fff; cursor: pointer; }
     .addr-form button:disabled { opacity: 0.6; cursor: progress; }
     .addr-search { max-width: 640px; margin: 0 auto; text-align: left; }
-    .addr-details { margin: 0 0 0.5rem; }
-    .addr-details summary { cursor: pointer; color: var(--navy); font-weight: 600; font-size: 0.9rem; padding: 0.3rem 0; }
-    .addr-fields { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 0.6rem 0; }
-    .addr-fields label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem;
-      color: var(--muted); flex: 1 1 140px; }
-    .addr-fields input, .addr-fields select { font: inherit; padding: 0.45rem 0.6rem;
-      border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); color: var(--text); }
-    .field-tag { font-size: 0.68rem; font-weight: 600; padding: 0.05rem 0.4rem; border-radius: 999px;
-      vertical-align: middle; white-space: nowrap; }
-    .field-tag.confirmed { background: #dcfce7; color: #166534; }
-    .field-tag.estimated { background: #e0e7ff; color: #3730a3; }
-    .field-tag.assumed   { background: #f1f5f9; color: #475569; }
-    .refine-count { font-weight: 500; font-size: 0.82rem; color: var(--muted); }
-    @media (prefers-color-scheme: dark) {
-      .field-tag.confirmed { background: #14532d; color: #bbf7d0; }
-      .field-tag.estimated { background: #312e81; color: #c7d2fe; }
-      .field-tag.assumed   { background: #334155; color: #cbd5e1; }
-    }
-    .addr-upgrades { border: 1px solid var(--border); border-radius: var(--radius);
-      padding: 0.6rem 0.9rem; margin: 0.4rem 0; display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.35rem; }
-    .addr-upgrades legend { font-size: 0.85rem; font-weight: 600; color: var(--navy); padding: 0 0.3rem; }
-    .addr-upgrades label { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; }
-    .addr-upgrades input { width: auto; }
+    /* The refine-panel layout (.addr-details, .addr-fields, .field-tag*,
+       .refine-count, .addr-upgrades*) + its dark-mode tags are shared with the
+       Label page via label-core.css; only the dark-hero overrides stay here. */
     #addr-status { color: var(--muted); font-size: 0.9rem; margin: 0.25rem 0; min-height: 1.2em; }
     .addr-privacy { color: var(--muted); font-size: 0.8rem; margin: 0.25rem 0; }
     /* The home hero is dark navy, so re-light the bits that default to navy text
@@ -84,9 +63,9 @@
     #density-result:not(:empty) { margin-top: 0.6rem; }
     .density-table { width: 100%; }
     .density-table small { color: var(--muted); font-weight: 400; }
-    /* Dark mode: re-light the navy-as-text bits (suggestion hover is in label-core.css). */
+    /* Dark mode: re-light the navy-as-text bits (suggestion hover + the shared
+       refine-panel summary/legend are in label-core.css). */
     @media (prefers-color-scheme: dark) {
-      .addr-details summary, .addr-upgrades legend { color: #cbd5e1; }
       #addr-result .label-card { border-color: #475569; }
       #addr-result .composite-num,
       #addr-result .build-line strong { color: #e2e8f0; }
