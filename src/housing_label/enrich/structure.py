@@ -9,9 +9,10 @@ building, a FEMA Hazus occupancy class, residential unit count, stories, square
 footage, construction material, and year built.
 
 Source: the NSI web API (keyless), queried with a small polygon around the point;
-the nearest structure to the geocoded location is returned. Network/API failure
-degrades gracefully to ``None`` (the caller keeps its single-family default), so
-this is a best-effort enrichment, never a hard dependency.
+the structure whose footprint most likely contains the geocoded location is
+returned (see ``_select_structure``). Network/API failure degrades gracefully to
+``None`` (the caller keeps its single-family default), so this is a best-effort
+enrichment, never a hard dependency.
 
 Occupancy classes (Hazus): RES1 = single-family, RES2 = manufactured home,
 RES3A–RES3F = multi-family binned by unit count (2, 3–4, 5–9, 10–19, 20–49, 50+),
@@ -256,8 +257,8 @@ def _classify_site(props_list: list[dict], lat: float, lon: float) -> dict | Non
 
     # Otherwise inspect the whole site. NSI often models an apartment complex as a
     # cluster of identical single-family footprints, or the addressed building is a
-    # RES3 that just isn't the nearest centroid — either pattern is a multi-unit
-    # site the nearest-structure classification alone would miss.
+    # RES3 that the footprint selection didn't land on — either pattern is a
+    # multi-unit site the addressed-structure classification alone would miss.
     res = [p for p in props_list if str(p.get("occtype", "")).upper().startswith("RES")]
     res1 = [p for p in res if str(p.get("occtype", "")).upper().startswith("RES1")]
     res3 = [p for p in res if str(p.get("occtype", "")).upper().startswith("RES3")]
@@ -282,10 +283,11 @@ def structure_for_point(lat: float, lon: float,
                         allow_network: bool = True) -> dict | None:
     """Return the building at (lat, lon) from NSI, or None if unavailable.
 
-    Beyond the nearest structure's Hazus occupancy class, this recognizes a
-    multi-unit *site* the nearest-structure classification alone would miss: an
-    identical-footprint cluster (NSI's signature for a templated apartment complex
-    it modeled as single-family structures) or a dense RES3 district. In those
+    Beyond the addressed structure's Hazus occupancy class (chosen by footprint
+    containment, see ``_select_structure``), this recognizes a multi-unit *site*
+    that per-structure classification alone would miss: an identical-footprint
+    cluster (NSI's signature for a templated apartment complex it modeled as
+    single-family structures) or a dense RES3 district. In those
     cases ``units_confidence`` is ``"estimated"`` and ``detection`` is
     ``"nsi-cluster"``, and the shell material/height are left unset (the nearest
     structure is a mislabeled house).
