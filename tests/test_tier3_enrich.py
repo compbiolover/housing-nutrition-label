@@ -118,6 +118,15 @@ def test_tornado_point_centered_no_bleed():
     assert plains["avg_tornadoes_per_yr_25mi"] == round(5 / T.DATA_YEARS, 3)
 
 
+def test_tornado_dateline_wraparound():
+    """A parcel just west of +180° counts tornadoes just east of −180° (same place)."""
+    # Two records ~3 mi apart straddling the antimeridian near 52°N.
+    df = _tornado_df([(52.00, 179.98, 1), (52.00, -179.99, 2)])
+    r = T.enrich_parcel(52.00, 179.99, df)
+    assert r["tornado_count_25mi"] == 2           # both counted despite the ±180° seam
+    assert r["max_ef_25mi"] == 2
+
+
 # ── noaa_climate ──────────────────────────────────────────────────────────────
 def test_noaa_shelby_unchanged():
     row = N.climate_row_for_county(None)

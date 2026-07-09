@@ -138,29 +138,39 @@ def _national_risk(avg_yr: float, max_ef: int) -> str:
 
 
 # ── Per-parcel enrichment ─────────────────────────────────────────────────────
-def enrich_parcel(lat: float, lon: float, tornadoes: pd.DataFrame) -> dict[str, object]:
-    """Compute tornado metrics for a single parcel location.
-
-    Pre-filters the national table to a box centered on this parcel (widening the
-    longitude half-width by 1/cos(lat) so it stays ≥ the 25-mi radius away from the
-    equator), then counts exact great-circle distances within 25 / 10 miles.
-    """
-    lat_lo, lat_hi = lat - BBOX_DEG, lat + BBOX_DEG
-    lon_margin = BBOX_DEG / max(math.cos(math.radians(lat)), 0.1)
-    lon_lo, lon_hi = lon - lon_margin, lon + lon_margin
+def _sorted_arrays(tornadoes: pd.DataFrame):
+    """Extract latitude-ascending ``(slat, slon, mag)`` numpy arrays from the SPC
+    table. Prepared once per batch so the per-parcel scan below can binary-search
+    the latitude band instead of re-scanning every national record each call."""
     slat = tornadoes["slat"].to_numpy()
-    slon = tornadoes["slon"].to_numpy()
-    near = (slat >= lat_lo) & (slat <= lat_hi) & (slon >= lon_lo) & (slon <= lon_hi)
-    slat, slon = slat[near], slon[near]
-    mags = tornadoes["mag"].to_numpy()[near]
+    order = np.argsort(slat, kind="stable")
+    return slat[order], tornadoes["slon"].to_numpy()[order], tornadoes["mag"].to_numpy()[order]
 
-    dists = _haversine_np(lat, lon, slat, slon)
+
+def _point_counts(lat: float, lon: float, slat, slon, mags) -> dict[str, object]:
+    """Tornado metrics for one point from latitude-sorted arrays.
+
+    ``slat`` MUST be ascending (``slon``/``mags`` aligned). A ``searchsorted``
+    slice restricts work to the ±BBOX_DEG latitude band, then longitude is
+    compared with a dateline-safe modular difference (so parcels near ±180° aren't
+    undercounted) before exact great-circle distances within 25 / 10 miles.
+    """
+    i0 = int(np.searchsorted(slat, lat - BBOX_DEG, side="left"))
+    i1 = int(np.searchsorted(slat, lat + BBOX_DEG, side="right"))
+    blat, blon, bmag = slat[i0:i1], slon[i0:i1], mags[i0:i1]
+
+    lon_margin = BBOX_DEG / max(math.cos(math.radians(lat)), 0.1)
+    dlon = np.abs(((blon - lon + 180.0) % 360.0) - 180.0)   # signed minimal Δlon, wraparound-safe
+    keep = dlon <= lon_margin
+    blat, blon, bmag = blat[keep], blon[keep], bmag[keep]
+
+    dists = _haversine_np(lat, lon, blat, blon)              # haversine is itself periodic-correct
     w25 = dists <= RADIUS_25
     w10 = dists <= RADIUS_10
 
     count_25 = int(w25.sum())
     count_10 = int(w10.sum())
-    valid_mags = mags[w25][mags[w25] >= 0]
+    valid_mags = bmag[w25][bmag[w25] >= 0]
     max_ef  = int(valid_mags.max()) if valid_mags.size else -1
     avg_yr  = round(count_25 / DATA_YEARS, 3)
 
@@ -171,6 +181,17 @@ def enrich_parcel(lat: float, lon: float, tornadoes: pd.DataFrame) -> dict[str, 
         "avg_tornadoes_per_yr_25mi": avg_yr,
         "tornado_risk":             _national_risk(avg_yr, max_ef),
     }
+
+
+def enrich_parcel(lat: float, lon: float, tornadoes: pd.DataFrame) -> dict[str, object]:
+    """Tornado metrics for a single parcel (box centered on this parcel).
+
+    Convenience wrapper that prepares the latitude-sorted arrays from the table on
+    each call — for a batch, prepare them once with ``_sorted_arrays`` and call
+    ``_point_counts`` directly (as ``main`` does) to avoid re-sorting per parcel.
+    """
+    slat, slon, mags = _sorted_arrays(tornadoes)
+    return _point_counts(lat, lon, slat, slon, mags)
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -237,13 +258,14 @@ def main() -> None:
         return
 
     log.info("Enriching %d parcels with tornado risk data …", len(df))
+    slat, slon, mags = _sorted_arrays(tornadoes)   # prepared once for the whole batch
     results = []
     for i, (_, row) in enumerate(df.iterrows(), start=1):
         lat, lon = row.get("latitude"), row.get("longitude")
         if pd.isna(lat) or pd.isna(lon):
             results.append({c: None for c in TORNADO_COLS})
         else:
-            results.append(enrich_parcel(float(lat), float(lon), tornadoes))
+            results.append(_point_counts(float(lat), float(lon), slat, slon, mags))
         if i % 100 == 0 or i == len(df):
             log.info("  Progress: %d / %d", i, len(df))
 
