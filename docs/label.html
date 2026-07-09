@@ -471,6 +471,11 @@
     state.desc = desc || null;
     state.presets = null; state.detected = null; state.building = null; state.detectedCtx = null;
     touched = {}; applyBuilding(null);                 // clear the prior address's panel
+    // Reset the upgrade checkboxes too, else a new address inherits the prior
+    // build's upgrades and is scored as "custom".
+    Array.prototype.slice
+      .call(document.querySelectorAll("#label-refine .addr-upgrades input"))
+      .forEach(function (cb) { cb.checked = false; });
     ensureData();
   }
 
