@@ -1538,10 +1538,10 @@ def dimension_details(cfg: dict, r: dict, label: dict) -> dict:
             return rows((index_label, f"{s:.1f} / 100"), ("Source", note or source))
         return rows(("Status", "Not scored here" + (f" — {note}" if note else "")))
 
-    details["health"] = location_rows("health", "Neighborhood health index", "CDC PLACES")
-    details["socioeconomic"] = location_rows("socioeconomic", "Socioeconomic index", "Census ACS")
+    details["health"] = location_rows("health", "Neighborhood health index (national percentile)", "CDC PLACES")
+    details["socioeconomic"] = location_rows("socioeconomic", "Socioeconomic index (national percentile)", "Census ACS")
     details["walkability"] = location_rows(
-        "walkability", "Walkability (walk / transit / bike)", "Walk Score API")
+        "walkability", "Walkability (national index)", "EPA National Walkability Index")
 
     # Climate — projection score, the mid-century warming band, and provenance.
     cs = _finite(scores.get("climate"))

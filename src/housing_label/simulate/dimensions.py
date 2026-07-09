@@ -13,16 +13,18 @@ re-implementing them:
   • Durability         → enrich.durability.model_parcel_durability
   • Environmental      → enrich.environmental.model_parcel_environment
   • Infrastructure     → enrich.infrastructure.enrich_row
-  • Health             → enrich.health        (CDC PLACES, live fetch)
-  • Socioeconomic      → enrich.socioeconomic (Census ACS, live fetch)
-  • Walkability        → enrich.walkscore     (Walk Score API, live fetch)
+  • Health             → data.health          (CDC PLACES national percentile, bundled)
+  • Socioeconomic      → data.socioeconomic   (Census ACS national percentile, bundled)
+  • Walkability        → data.walkability     (EPA National Walkability Index, bundled)
 
 Construction-driven dimensions (energy, durability, environmental,
 infrastructure) are computed offline from the house config. The three
-location-driven dimensions (health, socioeconomic, walkability) are fetched
-live for the house's lat/lon. When a source is unavailable (no network, no API
-key, point outside the dataset) the dimension is returned as ``None`` and is
-*excluded* from the composite — it is never filled with a placeholder, so an
+location-driven dimensions (health, socioeconomic, walkability) are bundled
+NATIONAL references resolved by the house's census tract (offline, keyless,
+comparable across locations). When the tract can't be resolved (no network to
+geocode it, or a point outside the dataset) the dimension is returned as
+``None`` and is *excluded* from the composite — it is never filled with a
+placeholder, so an
 otherwise-excellent house is not unfairly down-weighted by a missing input.
 
 Config → CAMA mapping
@@ -430,13 +432,16 @@ def fetch_location_dimensions(
     """Return {health, socioeconomic, walkability} scores for a location.
 
     ``tract`` is the 11-digit census-tract GEOID (from the location resolver); if
-    omitted it is geocoded from lat/lon. The county/state FIPS for the CDC PLACES
-    and Census ACS queries are derived from the tract (GEOID = state+county+tract),
-    so health and socioeconomic are ranked within that location's own county.
+    omitted it is geocoded from lat/lon. Health, socioeconomic, and walkability are
+    then resolved from the bundled NATIONAL crosswalks (data/health.py,
+    data/socioeconomic.py, data/walkability.py) by that tract — a national
+    percentile comparable across locations, not a within-county rank — with a
+    tract -> county fallback.
 
-    Manual ``overrides`` always win. Otherwise each dimension is fetched live; any
-    failure yields ``None`` for that dimension (excluded from the composite, never
-    placeholdered). Also returns ``_tract`` and ``_notes``.
+    Manual ``overrides`` always win. Otherwise each dimension is a keyless offline
+    lookup; when the tract can't be resolved (or the point is outside the dataset)
+    the dimension is ``None`` (excluded from the composite, never placeholdered).
+    Also returns ``_tract`` and ``_notes``.
     """
     overrides = overrides or {}
     out: dict = {"health": None, "socioeconomic": None, "walkability": None,
