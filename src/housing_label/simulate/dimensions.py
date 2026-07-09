@@ -466,8 +466,11 @@ def fetch_location_dimensions(
         try:
             tract = _tract_for(round(float(lat), 6), round(float(lon), 6))
         except Exception as exc:  # noqa: BLE001
-            notes["health"] = notes.get("health") or f"geocoder failed: {exc}"
-            notes["socioeconomic"] = notes.get("socioeconomic") or f"geocoder failed: {exc}"
+            # All three location dimensions resolve by tract now, so a geocoder
+            # failure should surface as the real cause on each (not the vaguer
+            # "no census tract"). A manual override already set on a key wins.
+            for k in ("health", "socioeconomic", "walkability"):
+                notes[k] = notes.get(k) or f"geocoder failed: {exc}"
     out["_tract"] = tract
 
     # Health (CDC PLACES NATIONAL percentile index — bundled, offline). Works with
