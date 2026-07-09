@@ -582,9 +582,12 @@ def simulate_all_dimensions(
     # Assembled by the shared region-context helper (also used by the batch
     # enrich stage) so the live and batch paths score a county identically.
     from housing_label.enrich.region_context import infra_params_for_county
+    # Pass in_urban_area through as-is (bool | None): None means "unknown" and is
+    # omitted so enrich_row falls back to its distance model, rather than being
+    # forced to "rural" by bool(None).
     infra_params = infra_params_for_county(
         location.county_fips if location else None,
-        in_urban_area=bool(location.in_urban_area) if location else True,
+        in_urban_area=location.in_urban_area if location else None,
     )
 
     # Shared-wall energy credit: score a representative unit in its building
