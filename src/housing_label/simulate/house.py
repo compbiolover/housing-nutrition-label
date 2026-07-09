@@ -1713,10 +1713,14 @@ def _building_block(cfg: dict, struct: dict, explicit: set, autofilled: dict,
     stories = (struct.get("stories") if struct.get("stories") is not None
                else cfg.get("stories"))
     material = struct.get("bldg_material") or cfg.get("bldg_material")
+    # Units: show the *effective* count actually used for scoring (NSI-detected
+    # multi-family flows through struct, not cfg — cfg stays the default 1), so a
+    # detected 30-unit building doesn't display "1" while tagged estimated.
+    units = struct.get("num_units") if struct.get("num_units") is not None else cfg.get("units")
     vals = {
         "year_built": cfg.get("year_built"), "construction": cfg.get("construction"),
         "foundation": cfg.get("foundation"), "condition": cfg.get("condition"),
-        "sqft": cfg.get("sqft"), "units": cfg.get("units"), "stories": stories,
+        "sqft": cfg.get("sqft"), "units": units, "stories": stories,
         "lot_acres": cfg.get("lot_acres"), "value": cfg.get("value"),
         "bldg_material": material,
     }

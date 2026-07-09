@@ -532,8 +532,8 @@
         return;
       }
       total++;
-      if (info.status === "estimated") estimated++;
       var status = touched[field] ? "confirmed" : info.status;
+      if (status === "estimated") estimated++;   // count the DISPLAYED status (edits → confirmed)
       if (document.activeElement !== el) {
         el.value = info.value == null ? "" : info.value;
       }
@@ -598,6 +598,7 @@
     densWrap.hidden = true; densResult.innerHTML = ""; densStatus.textContent = "";
     ac.close();
     touched = {};                     // a new address is a fresh building
+    applyBuilding(null);              // clear the prior address's panel (no stale values in-flight/on error)
     var picked = ac.picked();
     currentLoc = (picked && picked.label === addr)
       ? { lat: picked.lat, lon: picked.lon } : { address: addr };
