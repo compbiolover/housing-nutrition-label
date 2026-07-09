@@ -20,6 +20,7 @@ RES4–RES6 = lodging / institutional, COM*/IND*/… = non-residential.
 
 from __future__ import annotations
 
+import math
 import time
 from collections import Counter
 from functools import lru_cache
@@ -102,6 +103,57 @@ def _num(v):
         return float(v)
     except (TypeError, ValueError):
         return None
+
+
+# ── Addressed-structure selection ─────────────────────────────────────────────
+# Nearest-centroid alone mis-selects downtown: a geocoded point can sit closer to
+# a small adjacent structure's centroid than to a large tower's centroid, which is
+# far from its own edges (verified: 67 Madison Ave, Memphis — a 12-story, 157-unit
+# tower flips to neighboring commercial structures under a ~40 m geocode shift). We
+# instead score each structure by *footprint containment* — distance normalized by
+# the structure's footprint radius — so a point inside a big building's footprint
+# picks that building. And because this is a *housing* label scored from a typed
+# residential address, a residential structure is preferred when several plausibly
+# contain the point (a substantial multi-family tower most of all).
+_FOOTPRINT_FLOOR_M = 10.0      # min "reach" so tiny/zero-sqft structures need a near-direct hit
+_RES_WEIGHT = 0.70            # residential preferred over non-residential (lower score = better)
+_RES3_WEIGHT = 0.55          # a multi-family (RES3) structure preferred even among residential
+
+
+def _footprint_radius_m(sqft) -> float:
+    """Radius (m) of a circle with the structure's footprint area (sqft → m²)."""
+    a = _num(sqft)
+    return math.sqrt(a * 0.092903 / math.pi) if a and a > 0 else 0.0
+
+
+def _dist_m(p: dict, lat: float, lon: float) -> float | None:
+    """Great-circle-ish metres from the point to a structure's centroid (x/y),
+    or None when the structure has no usable coordinates."""
+    try:
+        py, px = float(p["y"]), float(p["x"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    return math.hypot((py - lat) * 111320.0,
+                      (px - lon) * 111320.0 * math.cos(math.radians(lat)))
+
+
+def _select_structure(props_list: list[dict], lat: float, lon: float) -> dict | None:
+    """Pick the structure the address most likely refers to: the lowest
+    footprint-containment score, with a residential (esp. multi-family) preference."""
+    best, best_score = None, float("inf")
+    for p in props_list:
+        d = _dist_m(p, lat, lon)
+        if d is None:
+            continue
+        score = d / (_footprint_radius_m(p.get("sqft")) + _FOOTPRINT_FLOOR_M)
+        occ = str(p.get("occtype") or "").upper()
+        if occ.startswith("RES3"):
+            score *= _RES3_WEIGHT
+        elif occ.startswith("RES"):
+            score *= _RES_WEIGHT
+        if score < best_score:
+            best_score, best = score, p
+    return best
 
 
 def _nsi_query(lat: float, lon: float, half: float) -> list[dict]:
@@ -191,14 +243,8 @@ def _classify_site(props_list: list[dict], lat: float, lon: float) -> dict | Non
     if not props_list:
         return None
 
-    def d2(p: dict) -> float:
-        try:
-            return (float(p["y"]) - lat) ** 2 + (float(p["x"]) - lon) ** 2
-        except (KeyError, TypeError, ValueError):
-            return float("inf")
-
-    nearest = min(props_list, key=d2)
-    if d2(nearest) == float("inf"):     # no usable coordinates → can't identify a structure
+    nearest = _select_structure(props_list, lat, lon)
+    if nearest is None:                 # no usable coordinates → can't identify a structure
         return None
     nearest_type = _classify(nearest.get("occtype"))
 
