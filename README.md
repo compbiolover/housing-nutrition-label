@@ -100,21 +100,21 @@ Density-based municipal cost model producing a per-parcel fiscal ratio (revenue 
 <details>
 <summary><strong>❤️ Health Impact</strong> — CDC PLACES chronic-disease prevalence</summary>
 
-CDC PLACES census-tract chronic-disease prevalence rolled into a 0–100 composite health index.
+CDC PLACES census-tract chronic-disease prevalence (7 measures) scored against the **full national distribution of US census tracts** (population-weighted), not ranked within the local county — so a health score means the same thing in Memphis and in Denver. Bundled offline and keyless ([`data/health.py`](src/housing_label/data/health.py), built by [`scripts/build_health_ref.py`](scripts/build_health_ref.py)); resolves tract → county → national.
 
 </details>
 
 <details>
-<summary><strong>👥 Socioeconomic</strong> — Census ACS income / poverty / education</summary>
+<summary><strong>👥 Socioeconomic</strong> — Census ACS income / poverty / housing-cost burden</summary>
 
-Census ACS income, poverty, and education indicators combined into a 0–100 composite index. When no ACS data (or API key) is available it is reported unscored and excluded from the composite — never filled with a placeholder value.
+Census ACS poverty, income, and housing-cost-burden indicators scored against the **full national distribution of US census tracts** (household-weighted), not ranked within the local county. Bundled offline from the keyless ACS 5-year Summary File ([`data/socioeconomic.py`](src/housing_label/data/socioeconomic.py), built by [`scripts/build_socio_ref.py`](scripts/build_socio_ref.py)) — the live scoring path no longer needs a Census API key.
 
 </details>
 
 <details>
-<summary><strong>🚶 Walkability</strong> — Walk Score API composite</summary>
+<summary><strong>🚶 Walkability</strong> — EPA National Walkability Index</summary>
 
-Walk Score API. The 0–100 Walk Score is used directly; where transit and bike scores are also available, a composite is taken (60% walk + 25% transit + 15% bike), weighted toward walkability since it matters most for daily life.
+**EPA National Walkability Index** — public-domain, national (every US census block group), keyless, and freely storable. Its 1–20 index (intersection density + transit proximity + land-use mix) is scaled to 0–100 and aggregated to census tracts ([`data/walkability.py`](src/housing_label/data/walkability.py), built by [`scripts/build_walkability.py`](scripts/build_walkability.py)). This replaces the Walk Score API, whose Terms of Use prohibit storing scores and whose free tier caps at ~5,000 calls/day; an optional Walk Score enrichment is still honoured when present (60% walk + 25% transit + 15% bike).
 
 </details>
 
@@ -137,6 +137,8 @@ The fire leg is Argonne National Laboratory's [ClimRR](https://www.anl.gov/ccrds
 
 The national/local thresholds are identical across all dimensions, so a grade means exactly the same thing whether it's read from the resilience dimension, the composite, or any other.
 
+> **Nationally-anchored scores.** The location-driven dimensions — health, socioeconomic, and walkability — plus infrastructure and climate are scored against **national reference distributions** (bundled, versioned, and reproducible from the `scripts/build_*` builders), so a dimension's 0–100 score and its **absolute national grade are comparable across locations**. This replaces the earlier within-county percentile for health/socioeconomic, which re-baselined every county to a ~50 median and was not comparable place-to-place. The optional *local* percentile grade remains a rank within whatever dataset is loaded and is labelled with its reference population and vintage — never presented as a national percentile.
+
 ## Data Sources
 
 <details>
@@ -155,9 +157,10 @@ The national/local thresholds are identical across all dimensions, so a grade me
 | [Census of Governments](https://www.census.gov/programs-surveys/cog.html) + [Population Estimates](https://www.census.gov/programs-surveys/popest.html) | Per-county local-government spending by function (Infrastructure Burden cost calibration) | Free — no key (bulk files) |
 | [Census ACS 5-yr Summary File](https://www.census.gov/programs-surveys/acs/data/summary-file.html) | Per-county effective property-tax rate (Infrastructure Burden revenue calibration) | Free — no key (bulk table file) |
 | [DOE/EIA ResStock](https://resstock.nrel.gov/) | Residential energy use intensity benchmarks — reference data | Free — no key |
-| [CDC PLACES](https://www.cdc.gov/places/) | Census-tract health metrics | Free — no key |
-| [Census ACS](https://www.census.gov/programs-surveys/acs/) | Socioeconomic indicators (income, poverty, education) | **Requires key** ([census.gov](https://api.census.gov/data/key_signup.html)) |
-| [Walk Score API](https://www.walkscore.com/professional/api.php) | Walk / transit / bike scores | **Requires key** — *active* |
+| [CDC PLACES](https://www.cdc.gov/places/) | Census-tract health metrics (national Health Impact reference) | Free — no key (bundled) |
+| [Census ACS 5-yr Summary File](https://www.census.gov/programs-surveys/acs/data/summary-file.html) | Socioeconomic indicators (poverty, income, housing-cost burden) — national reference | Free — no key (bundled; the live scoring path needs no key) |
+| [EPA National Walkability Index](https://www.epa.gov/smartgrowth/national-walkability-index-user-guide-and-methodology) | Walkability (block-group index, aggregated to tract) | Free — public domain (bundled) |
+| [Walk Score API](https://www.walkscore.com/professional/api.php) | Walk / transit / bike scores — *optional*, opt-in only | **Optional key** (its Terms of Use prohibit storing scores) |
 
 > Tract geocoding for the health and socioeconomic joins uses the free [FCC Area API](https://geo.fcc.gov/api/census/) (no key).
 
