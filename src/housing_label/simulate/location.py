@@ -60,7 +60,16 @@ class Location:
     num_units: int | None = None          # residential unit count
     stories: int | None = None
     bldg_material: str | None = None      # wood | masonry | concrete | steel | manufactured | other
+    # Auto-derived construction profile from NSI (best-effort estimates the user
+    # can override). year_built is a census-area MEDIAN (not the real year); sqft
+    # and foundation are from the addressed structure; construction is a coarse
+    # wall-type guess from the Hazus material class.
+    year_built: int | None = None
+    sqft: float | None = None
+    foundation: str | None = None         # slab | crawl | partial-basement | full-basement
+    construction: str | None = None       # frame | vinyl | brick | block | stone | icf | sip (coarse)
     structure_source: str | None = None   # "NSI" when detected
+    structure_attr_source: str | None = None  # NSI provenance: "P" parcel/observed, else modeled
     units_confidence: str | None = None   # "detected" (from NSI) | "estimated" (cluster heuristic)
     notes: dict = field(default_factory=dict)
 
@@ -224,7 +233,14 @@ def resolve_location(
             loc.num_units = s.get("num_units")
             loc.stories = s.get("stories")
             loc.bldg_material = s.get("bldg_material")
+            # Auto-derived construction profile (best-effort estimates; NSI already
+            # returns these — previously they were fetched but discarded).
+            loc.year_built = s.get("year_built")
+            loc.sqft = s.get("sqft")
+            loc.foundation = s.get("foundation")
+            loc.construction = s.get("construction")
             loc.structure_source = s.get("source")
+            loc.structure_attr_source = s.get("attr_source")
             loc.units_confidence = s.get("units_confidence")
         else:
             notes["structure"] = "building type unknown (no NSI match, or NSI unavailable)"

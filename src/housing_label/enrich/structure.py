@@ -43,6 +43,20 @@ _RES3_UNITS = {"RES3A": 2, "RES3B": 3, "RES3C": 7, "RES3D": 14, "RES3E": 30, "RE
 _MATERIAL = {"W": "wood", "M": "masonry", "C": "concrete", "S": "steel",
              "H": "manufactured", "MH": "manufactured"}
 
+# NSI ``bldgtype`` (5-class Hazus material) → a single-family *construction* /
+# exterior-wall value from our vocabulary. This is a coarse mapping — NSI cannot
+# distinguish brick vs. block vs. stone, or ICF/SIP — so an auto-filled
+# construction is always surfaced as an *estimate*, editable by the user.
+_CONSTRUCTION = {"W": "frame", "M": "brick", "C": "block", "S": "frame",
+                 "H": "frame", "MH": "frame"}
+
+# NSI ``found_type`` code → our foundation vocabulary. S=slab, C=crawl,
+# B=basement, P=pier, I=pile, F=fill, W=solid wall. Piers/piles read closest to a
+# crawlspace (elevated, open below); fill reads as slab-on-grade; a solid
+# perimeter wall reads as a partial/unfinished basement.
+_FOUND_TYPE = {"S": "slab", "C": "crawl", "B": "full-basement", "P": "crawl",
+               "I": "crawl", "F": "slab", "W": "partial-basement"}
+
 
 def _classify(occtype: str) -> str:
     """Hazus occupancy string → coarse structure_type category."""
@@ -130,15 +144,28 @@ def _result(props: dict, structure_type, num_units, *, units_confidence, detecti
     where the nearest structure is a mislabeled house and its shell is unreliable."""
     stories = _num(props.get("num_story"))
     yr = _num(props.get("med_yr_blt"))
-    material = _MATERIAL.get((props.get("bldgtype") or "").upper(), "other")
+    btype = (props.get("bldgtype") or "").upper()
+    material = _MATERIAL.get(btype, "other")
+    construction = _CONSTRUCTION.get(btype)
+    foundation = _FOUND_TYPE.get((props.get("found_type") or "").upper())
+    # NSI per-structure provenance: "P" = from parcel data (observed), otherwise
+    # modeled/imputed. Drives the auto-fill's per-field confidence.
+    attr_source = (props.get("source") or "").strip().upper() or None
     return {
         "structure_type": structure_type,
         "num_units": num_units,
         "stories": None if drop_shell else (int(stories) if stories else None),
         "sqft": _num(props.get("sqft")),
         "bldg_material": None if drop_shell else material,
+        # Shell attributes of the specific (possibly mislabeled) structure — dropped
+        # for a cluster-detected site, like material/stories.
+        "construction": None if drop_shell else construction,
+        "foundation": None if drop_shell else foundation,
         "occtype": props.get("occtype"),
+        # med_yr_blt is a census-area MEDIAN, not this building's real year — a
+        # plausible estimate only (the true yrbuilt is a restricted NSI field).
         "year_built": int(yr) if yr else None,
+        "attr_source": attr_source,
         "source": "NSI",
         "detection": detection,
         "units_confidence": units_confidence,
@@ -219,7 +246,10 @@ def structure_for_point(lat: float, lon: float,
 
     Result keys: ``structure_type`` (single_family | manufactured | multifamily |
     other_residential | non_residential), ``num_units``, ``stories``, ``sqft``,
-    ``bldg_material``, ``occtype`` (raw Hazus), ``year_built``, ``source``,
+    ``bldg_material``, ``construction`` (coarse single-family wall type from the
+    Hazus material class), ``foundation`` (from NSI ``found_type``), ``occtype``
+    (raw Hazus), ``year_built`` (a census-area median, an estimate), ``attr_source``
+    (NSI provenance: ``P`` = parcel/observed, else modeled), ``source`` (``NSI``),
     ``detection`` (``nsi`` | ``nsi-cluster``), ``units_confidence`` (``detected`` |
     ``estimated``).
     """
