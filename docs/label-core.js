@@ -176,7 +176,7 @@ window.LabelCore = (function () {
           + '%"><div class="ci-line"></div></div>';
       }
       var pctStr = "";
-      if (typeof d.national_percentile === "number") {
+      if (typeof d.national_percentile === "number" && isFinite(d.national_percentile)) {
         var p = d.national_percentile, o = p % 10, t = Math.floor(p / 10) % 10;
         var suf = (t === 1) ? "th" : (o === 1 ? "st" : o === 2 ? "nd" : o === 3 ? "rd" : "th");
         pctStr = ' <span class="natl-pct" title="About the ' + p + suf

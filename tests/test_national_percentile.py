@@ -49,6 +49,12 @@ def test_none_and_clamp():
     assert NP.national_percentile("nonexistent-dim", 50) is None
 
 
+def test_non_finite_and_non_numeric_return_none():
+    for bad in (float("nan"), float("inf"), float("-inf"), "n/a", object()):
+        for dim in ("energy", "health", "walkability"):
+            assert NP.national_percentile(dim, bad) is None
+
+
 def test_interp_helper():
     assert NP._interp(5, [0, 10], [0, 100]) == 50.0
     assert NP._interp(-1, [0, 10], [0, 100]) == 0.0     # flat extrapolation

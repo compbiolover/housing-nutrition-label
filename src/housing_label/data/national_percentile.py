@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import csv
 import gzip
+import math
 import pathlib
 from functools import lru_cache
 
@@ -132,7 +133,13 @@ def national_percentile(dimension: str, score) -> int | None:
     for a dimension's 0-100 ``score``, or None when it can't be resolved."""
     if score is None:
         return None
-    s = _clamp(float(score))
+    try:
+        s = float(score)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(s):          # NaN / inf (e.g. from pandas) → unscored
+        return None
+    s = _clamp(s)
     if dimension in CONSTRUCTION_DIMS:
         curve = _construction_curves().get(dimension)
         return round(_interp(s, curve[0], curve[1])) if curve else None
