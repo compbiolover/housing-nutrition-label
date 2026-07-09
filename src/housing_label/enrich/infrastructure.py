@@ -409,6 +409,12 @@ def main() -> None:
                         help="Output CSV (default: %(default)s)")
     parser.add_argument("--limit", type=int, default=None,
                         help="Process only N rows (testing)")
+    parser.add_argument("--county-fips", default=None,
+                        help="5-digit county FIPS for all parcels — recalibrates the "
+                             "cost curves + property-tax rate to that county (Census of "
+                             "Governments + ACS). Omit for the Memphis-calibrated Shelby "
+                             "defaults; a per-parcel 'county_fips' column, if present, "
+                             "overrides this for that row.")
     parser.add_argument("--dry-run", action="store_true",
                         help="Validate and report plan without writing output")
     args = parser.parse_args()
@@ -444,8 +450,29 @@ def main() -> None:
         log.info("  Columns that would be added: %s", ADDED_COLUMNS)
         return
 
+    # Resolve per-county cost/tax params once per FIPS (Memphis defaults for
+    # Shelby/unknown). A per-parcel 'county_fips' column wins over --county-fips,
+    # so a multi-county national batch calibrates each row to its own county.
+    from housing_label.enrich.region_context import infra_params_for_county
+    _params_cache: dict = {}
+
+    def _params_for(fips) -> dict:
+        key = str(fips).strip().zfill(5) if fips and str(fips).strip() else None
+        if key not in _params_cache:
+            _params_cache[key] = infra_params_for_county(key) or {}
+        return _params_cache[key]
+
+    has_fips_col = "county_fips" in df.columns
+    if args.county_fips or has_fips_col:
+        log.info("National infrastructure calibration (county-fips=%s, per-parcel column=%s)",
+                 args.county_fips, has_fips_col)
+
+    def _enrich(row):
+        fips = row.get("county_fips") if has_fips_col and pd.notna(row.get("county_fips")) else args.county_fips
+        return enrich_row(row, **_params_for(fips))
+
     log.info("Computing infrastructure cost fields …")
-    enriched = df.apply(enrich_row, axis=1)
+    enriched = df.apply(_enrich, axis=1)
     df = pd.concat([df, enriched], axis=1)
 
     log.info("Writing %s", out_path)

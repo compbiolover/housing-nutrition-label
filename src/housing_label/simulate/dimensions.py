@@ -579,22 +579,13 @@ def simulate_all_dimensions(
     # revenue side) — each with a national-average fallback. The Memphis
     # calibration is kept for Shelby (multipliers there are 1.0 by construction)
     # and when the county is unknown.
-    infra_params = None
-    if location and location.county_fips and location.county_fips != SHELBY_COUNTY_FIPS:
-        from housing_label.data.govfinance import govfinance_for_county
-        from housing_label.data.propertytax import property_tax_for_county
-        gov = govfinance_for_county(location.county_fips)
-        tax = property_tax_for_county(location.county_fips)
-        # Net the school-district share out of the property-tax rate so the
-        # revenue side is like-for-like with the non-school cost side (the cost
-        # model excludes school spending). municipal_rate = ACS rate × (1 − school%).
-        municipal_rate = tax["effective_tax_rate"] * (1.0 - gov["school_tax_share"])
-        infra_params = {
-            "assess_ratio": 1.0,
-            "tax_rate": municipal_rate,
-            "in_urban_area": bool(location.in_urban_area),
-            "cost_multipliers": gov["multipliers"],
-        }
+    # Assembled by the shared region-context helper (also used by the batch
+    # enrich stage) so the live and batch paths score a county identically.
+    from housing_label.enrich.region_context import infra_params_for_county
+    infra_params = infra_params_for_county(
+        location.county_fips if location else None,
+        in_urban_area=bool(location.in_urban_area) if location else True,
+    )
 
     # Shared-wall energy credit: score a representative unit in its building
     # context — use the caller's explicit unit count when > 1, else the detected

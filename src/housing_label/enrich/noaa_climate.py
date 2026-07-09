@@ -63,6 +63,32 @@ MEMPHIS_CLIMATE = {
 CLIMATE_COLS = list(MEMPHIS_CLIMATE.keys())
 
 
+def climate_row_for_county(county_fips: str | None) -> dict:
+    """Return the climate-normals column dict for a county.
+
+    Shelby (or None) keeps the full Memphis normals unchanged. For any other
+    county, the IECC ``climate_zone`` + ``climate_zone_desc`` come from the
+    bundled DOE/PNNL crosswalk (the one field with a national bundle); the
+    degree-day / temperature / precip normals have no bundled national source
+    (the NOAA CDO API is the documented upgrade path), so they are left null
+    rather than stamped with Memphis values that don't apply elsewhere.
+    """
+    from housing_label.enrich.region_context import (
+        SHELBY_COUNTY_FIPS, climate_zone_for_county_fips,
+    )
+
+    fips = str(county_fips).strip().zfill(5) if county_fips and str(county_fips).strip() else None
+    if not fips or fips == SHELBY_COUNTY_FIPS:
+        return dict(MEMPHIS_CLIMATE)
+
+    zone, desc = climate_zone_for_county_fips(fips)
+    row = {c: None for c in CLIMATE_COLS}
+    row["climate_zone"] = zone
+    row["climate_zone_desc"] = desc
+    row["climate_station"] = "IECC crosswalk (per-location normals: NOAA CDO API)"
+    return row
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 def resolve_path(raw: str) -> pathlib.Path:
     """Resolve a path; bare (non-absolute) paths are taken relative to SCRIPT_DIR."""
@@ -80,6 +106,12 @@ def main() -> None:
                         help="Output CSV path (default: shelby_parcels_climate.csv).")
     parser.add_argument("--limit", type=int, default=None,
                         help="Process at most N rows (for testing).")
+    parser.add_argument("--county-fips", default=None,
+                        help="5-digit county FIPS for all parcels — sets the IECC "
+                             "climate zone from the national crosswalk (degree-day/temp "
+                             "normals are left null; NOAA CDO API is the upgrade path). "
+                             "Omit for the Memphis/Shelby normals; a per-parcel "
+                             "'county_fips' column, if present, overrides this per row.")
     parser.add_argument("--dry-run", action="store_true",
                         help="Validate and log the plan without writing output.")
     args = parser.parse_args()
@@ -109,13 +141,27 @@ def main() -> None:
         log.info("  Columns that WOULD be added: %s", list(MEMPHIS_CLIMATE))
         return
 
-    log.info("Applying Memphis / Shelby County climate normals  "
-             "(station %s, %s normals) …",
-             MEMPHIS_CLIMATE["climate_station"],
-             MEMPHIS_CLIMATE["climate_normals_period"])
+    has_fips_col = "county_fips" in df.columns
+    if has_fips_col:
+        # Multi-county batch: resolve each parcel's climate row by its own FIPS.
+        log.info("Applying per-parcel climate zones from the 'county_fips' column …")
+        _cache: dict = {}
 
-    for col, val in MEMPHIS_CLIMATE.items():
-        df[col] = val
+        def _row_for(fips):
+            key = str(fips).strip().zfill(5) if fips and str(fips).strip() else None
+            if key not in _cache:
+                _cache[key] = climate_row_for_county(key)
+            return _cache[key]
+
+        rows = [_row_for(f) for f in df["county_fips"]]
+        for col in CLIMATE_COLS:
+            df[col] = [r[col] for r in rows]
+    else:
+        row = climate_row_for_county(args.county_fips)
+        log.info("Applying climate normals for county %s (zone %s) …",
+                 args.county_fips or "Shelby (default)", row["climate_zone"])
+        for col in CLIMATE_COLS:
+            df[col] = row[col]
 
     df.to_csv(out_file, index=False)
     log.info("Saved → %s", out_file)
@@ -126,19 +172,21 @@ def main() -> None:
     # ── Summary ───────────────────────────────────────────────────────────────
     total = len(df)
     w = 33
+    s = df.iloc[0] if total else {c: None for c in CLIMATE_COLS}   # representative row
+    def _fmt(v): return "—" if v is None or pd.isna(v) else v
     print("\n╔══ NOAA CLIMATE ENRICHMENT SUMMARY ══════════════════════╗")
     print(f"║ Total rows enriched  : {total:<{w}}║")
-    print(f"║ Reference station    : {MEMPHIS_CLIMATE['climate_station']:<{w}}║")
-    print(f"║ Normals period       : {MEMPHIS_CLIMATE['climate_normals_period']:<{w}}║")
-    zone_label = f"{MEMPHIS_CLIMATE['climate_zone']} – {MEMPHIS_CLIMATE['climate_zone_desc']}"
+    print(f"║ Reference station    : {str(_fmt(s['climate_station'])):<{w}}║")
+    print(f"║ Normals period       : {str(_fmt(s['climate_normals_period'])):<{w}}║")
+    zone_label = f"{_fmt(s['climate_zone'])} – {_fmt(s['climate_zone_desc'])}"
     print(f"║ IECC climate zone    : {zone_label:<{w}}║")
-    print(f"║ Heating degree days  : {MEMPHIS_CLIMATE['hdd_annual']:<{w}}║")
-    print(f"║ Cooling degree days  : {MEMPHIS_CLIMATE['cdd_annual']:<{w}}║")
-    print(f"║ Avg Jan low (°F)     : {MEMPHIS_CLIMATE['avg_jan_low_f']:<{w}}║")
-    print(f"║ Avg Jul high (°F)    : {MEMPHIS_CLIMATE['avg_jul_high_f']:<{w}}║")
-    print(f"║ Annual precip (in)   : {MEMPHIS_CLIMATE['precip_annual_in']:<{w}}║")
-    print(f"║ Extreme heat days/yr : {MEMPHIS_CLIMATE['extreme_heat_days']:<{w}}║")
-    print(f"║ Freeze days/yr       : {MEMPHIS_CLIMATE['freeze_days']:<{w}}║")
+    print(f"║ Heating degree days  : {str(_fmt(s['hdd_annual'])):<{w}}║")
+    print(f"║ Cooling degree days  : {str(_fmt(s['cdd_annual'])):<{w}}║")
+    print(f"║ Avg Jan low (°F)     : {str(_fmt(s['avg_jan_low_f'])):<{w}}║")
+    print(f"║ Avg Jul high (°F)    : {str(_fmt(s['avg_jul_high_f'])):<{w}}║")
+    print(f"║ Annual precip (in)   : {str(_fmt(s['precip_annual_in'])):<{w}}║")
+    print(f"║ Extreme heat days/yr : {str(_fmt(s['extreme_heat_days'])):<{w}}║")
+    print(f"║ Freeze days/yr       : {str(_fmt(s['freeze_days'])):<{w}}║")
     print(f"║ New columns added    : {len(CLIMATE_COLS):<{w}}║")
     print(f"║ Total columns        : {len(df.columns):<{w}}║")
     print(f"║ Output               : {out_file.name:<{w}}║")

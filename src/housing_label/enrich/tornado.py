@@ -21,8 +21,9 @@ Data source
     yr           – year
     mo / dy      – month / day
 
-  Strategy: download the full CSV once, cache it locally, then pre-filter to
-  a coarse bounding box around Shelby County before per-parcel Haversine math.
+  Strategy: download the full national CSV once, cache it locally, then for each
+  parcel pre-filter to a box centered on that parcel before Haversine math — so
+  the counts are correct for any US location, not just Shelby County.
 
 Tornado columns added
 ---------------------
@@ -30,7 +31,7 @@ Tornado columns added
   tornado_count_10mi       Total tornadoes within 10 miles since 1950
   max_ef_25mi              Highest EF/F rating within 25 miles (-1 = none)
   avg_tornadoes_per_yr_25mi  Annual average within 25 miles (tornado_count_25mi / years)
-  tornado_risk             high / moderate / low classification
+  tornado_risk             high / moderate / low (absolute national bands)
 """
 
 import argparse, logging, math, pathlib, sys
@@ -50,11 +51,12 @@ RADIUS_25   = 25.0   # miles
 RADIUS_10   = 10.0   # miles
 DATA_YEARS  = 2023 - 1950 + 1  # 74 years
 
-# Coarse bounding box for pre-filtering (degrees of lat/lon for 30 mi buffer)
-# Shelby County center ≈ 35.15°N, 89.98°W; 30 mi ≈ 0.44°
-SHELBY_LAT  = 35.15
-SHELBY_LON  = -89.98
-BBOX_DEG    = 0.50    # ±0.50° ≈ ~34 miles – generous pre-filter
+# Per-parcel pre-filter half-width. Each parcel's tornado count is taken over a
+# box centered on THAT parcel (not a fixed Shelby box), so the stage works for any
+# US location. ±0.50° latitude ≈ ~34 miles, comfortably covering the 25-mi radius;
+# the longitude half-width is widened by 1/cos(lat) so it stays ≥34 mi away from
+# the equator.
+BBOX_DEG    = 0.50
 
 TORNADO_COLS = [
     "tornado_count_25mi",
@@ -113,49 +115,61 @@ def load_spc_data(cache_file: pathlib.Path = CACHE_FILE) -> pd.DataFrame:
     df["slon"] = df["slon"].astype(float)
     df["mag"]  = pd.to_numeric(df["mag"], errors="coerce").fillna(-9).astype(int)
 
-    # Pre-filter to coarse bounding box around Shelby County
-    lat_lo, lat_hi = SHELBY_LAT - BBOX_DEG, SHELBY_LAT + BBOX_DEG
-    lon_lo, lon_hi = SHELBY_LON - BBOX_DEG, SHELBY_LON + BBOX_DEG
-    nearby = df[
-        (df["slat"] >= lat_lo) & (df["slat"] <= lat_hi) &
-        (df["slon"] >= lon_lo) & (df["slon"] <= lon_hi)
-    ].copy()
-    log.info("  Pre-filtered to %d tornadoes within bounding box of Shelby County.", len(nearby))
+    # Keep the full national table — the per-parcel pre-filter (enrich_parcel)
+    # is centered on each parcel, so no fixed county box is applied here.
+    nearby = df[["slat", "slon", "mag"]].copy()
+    log.info("  Retained %d national tornado records (point-centered per parcel).", len(nearby))
     return nearby
+
+
+# ── National tornado-risk classification ──────────────────────────────────────
+def _national_risk(avg_yr: float, max_ef: int) -> str:
+    """Absolute national tornado-risk label from the 25-mi annual rate + peak EF.
+
+    Replaces the old within-Shelby relative thresholds: the plains 'tornado alley'
+    lands 'high', most of the country 'low'. Display-only — the score reads
+    ``avg_tornadoes_per_yr_25mi`` directly.
+    """
+    if avg_yr >= 0.75 or max_ef >= 4:
+        return "high"
+    if avg_yr >= 0.25 or max_ef >= 3:
+        return "moderate"
+    return "low"
 
 
 # ── Per-parcel enrichment ─────────────────────────────────────────────────────
 def enrich_parcel(lat: float, lon: float, tornadoes: pd.DataFrame) -> dict[str, object]:
-    """Compute tornado metrics for a single parcel location."""
-    dists = _haversine_np(lat, lon, tornadoes["slat"].to_numpy(),
-                          tornadoes["slon"].to_numpy())
+    """Compute tornado metrics for a single parcel location.
+
+    Pre-filters the national table to a box centered on this parcel (widening the
+    longitude half-width by 1/cos(lat) so it stays ≥ the 25-mi radius away from the
+    equator), then counts exact great-circle distances within 25 / 10 miles.
+    """
+    lat_lo, lat_hi = lat - BBOX_DEG, lat + BBOX_DEG
+    lon_margin = BBOX_DEG / max(math.cos(math.radians(lat)), 0.1)
+    lon_lo, lon_hi = lon - lon_margin, lon + lon_margin
+    slat = tornadoes["slat"].to_numpy()
+    slon = tornadoes["slon"].to_numpy()
+    near = (slat >= lat_lo) & (slat <= lat_hi) & (slon >= lon_lo) & (slon <= lon_hi)
+    slat, slon = slat[near], slon[near]
+    mags = tornadoes["mag"].to_numpy()[near]
+
+    dists = _haversine_np(lat, lon, slat, slon)
     w25 = dists <= RADIUS_25
     w10 = dists <= RADIUS_10
 
     count_25 = int(w25.sum())
     count_10 = int(w10.sum())
-    mags_25  = tornadoes.loc[w25, "mag"]
-    valid_mags = mags_25[mags_25 >= 0]
-    max_ef  = int(valid_mags.max()) if not valid_mags.empty else -1
+    valid_mags = mags[w25][mags[w25] >= 0]
+    max_ef  = int(valid_mags.max()) if valid_mags.size else -1
     avg_yr  = round(count_25 / DATA_YEARS, 3)
-
-    # Risk classification – relative within Shelby County.
-    # The entire county is historically high-risk nationally; these thresholds
-    # capture within-county variation using the 10-mile count as the primary
-    # discriminator (range observed: ~12-27 tornadoes within 10 mi since 1950).
-    if count_10 >= 20 or max_ef >= 4:
-        risk = "high"
-    elif count_10 >= 14 or max_ef >= 3:
-        risk = "moderate"
-    else:
-        risk = "low"
 
     return {
         "tornado_count_25mi":       count_25,
         "tornado_count_10mi":       count_10,
         "max_ef_25mi":              max_ef,
         "avg_tornadoes_per_yr_25mi": avg_yr,
-        "tornado_risk":             risk,
+        "tornado_risk":             _national_risk(avg_yr, max_ef),
     }
 
 
@@ -218,7 +232,7 @@ def main() -> None:
         log.info("[dry-run]   output : %s", out_file)
         log.info("[dry-run]   cache  : %s", cache_file)
         log.info("[dry-run]   parcel rows to enrich : %d", len(df))
-        log.info("[dry-run]   nearby tornadoes (bbox): %d", len(tornadoes))
+        log.info("[dry-run]   national tornado records: %d", len(tornadoes))
         log.info("[dry-run] No output written.")
         return
 
@@ -255,7 +269,7 @@ def main() -> None:
     print("\n╔══ SPC TORNADO ENRICHMENT SUMMARY ═══════════════════════════╗")
     print(f"║ Total rows enriched     : {total:<{w}}║")
     print(f"║ SPC data range          : {'1950-2023':<{w}}║")
-    print(f"║ Nearby tornadoes (bbox) : {len(tornadoes):<{w}}║")
+    print(f"║ National tornado records: {len(tornadoes):<{w}}║")
     print(f"║ Search radii            : {'10 mi / 25 mi':<{w}}║")
     print("║ ── Tornado risk distribution ─────────────────────────────── ║")
     for label in ("high", "moderate", "low"):
