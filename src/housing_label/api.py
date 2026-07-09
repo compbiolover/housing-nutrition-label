@@ -507,7 +507,7 @@ def presets(
             resolved = lbl.get("location")
             main = {d["key"]: d.get("score") for d in lbl.get("dimensions", [])}
             loc_overrides = {k: main.get(k) for k in ("health", "socioeconomic", "walkability")}
-        entry = label_payload(cfg, r, lbl)
+        entry = label_payload(cfg, r, lbl, include_building=False)
         entry["name"] = name
         entry["preset"] = preset
         entry["description"] = desc

@@ -526,7 +526,11 @@
       var el = fieldEl(field), tag = document.getElementById("tag-" + field);
       var info = building && building[field];
       if (!el || !tag) return;
-      if (!info) { tag.className = "field-tag"; tag.textContent = ""; return; }
+      if (!info) {                       // field not derivable here — clear stale value + tag
+        tag.className = "field-tag"; tag.textContent = "";
+        if (document.activeElement !== el) el.value = "";
+        return;
+      }
       total++;
       if (info.status === "estimated") estimated++;
       var status = touched[field] ? "confirmed" : info.status;

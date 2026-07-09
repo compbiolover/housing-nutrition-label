@@ -1558,9 +1558,13 @@ def dimension_details(cfg: dict, r: dict, label: dict) -> dict:
     return details
 
 
-def label_payload(cfg: dict, r: dict, label: dict) -> dict:
+def label_payload(cfg: dict, r: dict, label: dict, include_building: bool = True) -> dict:
     """Build the full nutrition-label payload (JSON-serializable) shared by the
-    CLI's --json output and the HTTP API."""
+    CLI's --json output and the HTTP API.
+
+    ``include_building=False`` omits the per-field construction-profile provenance
+    block — used by the /presets grid, which scores fixed hypothetical profiles and
+    has no "detected from the address" panel to feed."""
     payload = {
         "house": {
             "year_built": cfg["year_built"],
@@ -1598,11 +1602,12 @@ def label_payload(cfg: dict, r: dict, label: dict) -> dict:
         "cost": cost_flows(r, label),
         "total_loss": round(r["total_loss"], 2),
         "fire_loss": round(r["fire_loss"], 2),
-        # Per-field construction-profile provenance (value + estimated/confirmed/
-        # assumed + source) for the "Refine building details" panel. Absent for the
-        # preset grid (/presets), present for address/point scoring.
-        "building": label.get("building"),
     }
+    # Per-field construction-profile provenance (value + estimated/confirmed/assumed
+    # + source) for the "Refine building details" panel — present for address/point
+    # scoring, omitted for the /presets grid (include_building=False).
+    if include_building and label.get("building"):
+        payload["building"] = label.get("building")
     loc = label.get("location")
     if loc is not None:
         payload["location"] = {
