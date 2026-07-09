@@ -26,7 +26,6 @@ percentile is an honest estimate, versioned by its build.
 from __future__ import annotations
 
 import csv
-import gzip
 import math
 import pathlib
 from functools import lru_cache
@@ -35,7 +34,6 @@ from housing_label.data._util import num as _num
 
 _DIR = pathlib.Path(__file__).resolve().parent
 _CURVE_CSV = _DIR / "construction_percentiles.csv"
-_WALK_TRACTS = _DIR / "walkability_tracts.csv.gz"
 
 CONSTRUCTION_DIMS = frozenset({"energy", "durability", "environmental", "resilience"})
 # Scores that already express national standing (no remapping needed).
@@ -89,16 +87,21 @@ def _construction_curves() -> dict[str, tuple[list[float], list[float]]]:
 @lru_cache(maxsize=1)
 def _walkability_curve() -> tuple[list[float], list[float]] | None:
     """(score_at_each_percentile, percentile) from the household-weighted national
-    distribution of the bundled walkability crosswalk."""
-    if not _WALK_TRACTS.exists():
+    distribution of the bundled walkability crosswalk.
+
+    Reuses ``data/walkability``'s already-cached tract table rather than re-reading
+    and re-decompressing the same ``walkability_tracts.csv.gz`` (avoids duplicate
+    cold-start I/O)."""
+    from housing_label.data import walkability as _walk
+    table = _walk._tract_table()
+    if not table:
         return None
     pairs: list[tuple[float, float]] = []
-    with gzip.open(_WALK_TRACTS, "rt", newline="") as f:
-        for row in csv.DictReader(f):
-            s = _num(row.get("walkability_score"))
-            w = _num(row.get("households"))
-            if s is not None and w and w > 0:
-                pairs.append((s, w))
+    for row in table.values():
+        s = _num(row.get("walkability_score"))
+        w = _num(row.get("households"))
+        if s is not None and w and w > 0:
+            pairs.append((s, w))
     if not pairs:
         return None
     pairs.sort()
