@@ -411,10 +411,11 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
 
 
 # ── Location-driven dimensions ──────────────────────────────────────────────────
-# Health and Socioeconomic are now bundled, offline NATIONAL lookups
-# (data/health.py, data/socioeconomic.py) — no live CDC/ACS fetch, no
-# CENSUS_API_KEY, and no within-county ranking — so they are comparable across
-# locations. Only tract geocoding and (optional) Walk Score still hit the network.
+# Health, Socioeconomic, and Walkability are now bundled, offline NATIONAL lookups
+# (data/health.py, data/socioeconomic.py, data/walkability.py) — no live CDC/ACS/
+# Walk Score fetch, no CENSUS_API_KEY, and no within-county ranking — so they are
+# comparable across locations. The only network access left is geocoding the tract
+# (when one isn't supplied by the resolved location).
 @lru_cache(maxsize=256)
 def _tract_for(lat: float, lon: float) -> str | None:
     from housing_label.enrich import health as health_mod
@@ -454,11 +455,13 @@ def fetch_location_dimensions(
             out[key] = round(float(overrides[key]), 1)
             notes[key] = "manual override"
 
-    need_tract = any(out[k] is None for k in ("health", "socioeconomic"))
+    # All three location dimensions now resolve by census tract, so any of them
+    # being unscored means we still need the tract (to geocode if it wasn't passed).
+    need_tract = any(out[k] is None for k in ("health", "socioeconomic", "walkability"))
     walk_override = "walkability" in notes
 
-    # Census tract (shared by health + socioeconomic). A tract passed in from the
-    # resolved location is used offline; geocoding a missing one needs the network.
+    # Census tract (shared by all three location dimensions). A tract passed in from
+    # the resolved location is used offline; geocoding a missing one needs network.
     if tract is None and need_tract and allow_network:
         try:
             tract = _tract_for(round(float(lat), 6), round(float(lon), 6))

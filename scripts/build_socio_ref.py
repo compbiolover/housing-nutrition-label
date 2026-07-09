@@ -179,7 +179,12 @@ def derive_metrics(b17001: dict, b19013: dict, b25106: dict) -> pd.DataFrame:
 
 
 def _wpct(values: pd.Series, weights: pd.Series) -> pd.Series:
-    """Household-weighted percentile in [0,1] (fraction below, mid-rank). NaN kept."""
+    """Household-weighted percentile in [0,1] (fraction below). NaN kept.
+
+    Tied values share one **group** mid-rank percentile — ``(weight below the
+    group + half the group's weight) / total`` — so the percentile does not
+    depend on the arbitrary order of ties.
+    """
     v = pd.to_numeric(values, errors="coerce")
     w = pd.to_numeric(weights, errors="coerce").fillna(0.0).clip(lower=0.0)
     mask = v.notna() & (w > 0)
@@ -187,14 +192,11 @@ def _wpct(values: pd.Series, weights: pd.Series) -> pd.Series:
     if not mask.any():
         return out
     vv, ww = v[mask], w[mask]
-    order = np.argsort(vv.to_numpy(), kind="mergesort")
-    ws = ww.to_numpy()[order]
-    total = ws.sum()
-    cum_below = np.cumsum(ws) - ws
-    pct_sorted = (cum_below + 0.5 * ws) / total
-    pct = np.empty_like(pct_sorted)
-    pct[order] = pct_sorted
-    out.loc[mask] = pct
+    total = float(ww.sum())
+    gw = ww.groupby(vv).sum().sort_index()   # summed weight per distinct value
+    below = gw.cumsum() - gw                  # weight strictly below each group
+    mid = (below + 0.5 * gw) / total          # one mid-rank percentile per group
+    out.loc[mask] = vv.map(mid)
     return out
 
 

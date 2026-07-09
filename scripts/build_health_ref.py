@@ -146,8 +146,11 @@ def weighted_percentile_score(values: pd.Series, weights: pd.Series) -> pd.Serie
     """Population-weighted national percentile, inverted to a 0-100 score.
 
     ``score = (1 - pct) * 100`` where ``pct`` is the population-weighted fraction
-    of tracts with a *lower* value (mid-rank for ties). Higher value (worse
-    disease burden) -> lower score. NaN inputs stay NaN.
+    of tracts with a *lower* value. Tied values (common with rounded prevalences)
+    share a single **group** mid-rank percentile — ``(weight below the group +
+    half the group's weight) / total`` — so the result does not depend on the
+    arbitrary order of ties. Higher value (worse disease burden) -> lower score.
+    NaN inputs stay NaN.
     """
     v = pd.to_numeric(values, errors="coerce")
     w = pd.to_numeric(weights, errors="coerce").fillna(0.0).clip(lower=0.0)
@@ -156,15 +159,11 @@ def weighted_percentile_score(values: pd.Series, weights: pd.Series) -> pd.Serie
     if not mask.any():
         return out
     vv, ww = v[mask], w[mask]
-    order = np.argsort(vv.to_numpy(), kind="mergesort")
-    ws = ww.to_numpy()[order]
-    total = ws.sum()
-    cum_below = np.cumsum(ws) - ws          # weight strictly below each sorted item
-    # mid-rank: half of each item's own weight counts as "below"
-    pct_sorted = (cum_below + 0.5 * ws) / total
-    pct = np.empty_like(pct_sorted)
-    pct[order] = pct_sorted
-    out.loc[mask] = (1.0 - pct) * 100.0
+    total = float(ww.sum())
+    gw = ww.groupby(vv).sum().sort_index()   # summed weight per distinct value
+    below = gw.cumsum() - gw                  # weight strictly below each group
+    mid = (below + 0.5 * gw) / total          # one mid-rank percentile per group
+    out.loc[mask] = (1.0 - vv.map(mid)) * 100.0
     return out.round(1)
 
 

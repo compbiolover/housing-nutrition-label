@@ -306,7 +306,10 @@ DIMENSIONS: list[Dimension] = [
     # must never masquerade as a middling score).
     Dimension("socioeconomic",  "Socioeconomic",        score_passthrough("socioeconomic_index"), "socioeconomic_index",
               unscored_if_missing=True),
-    Dimension("walkability",    "Walkability",          score_walkability,                       "census_tract"),
+    # No single required column: score_walkability sources from an optional Walk
+    # Score enrichment (walk_score) OR the bundled EPA NWI by census tract, so it
+    # stays scoreable whenever either is present (and is honestly blank otherwise).
+    Dimension("walkability",    "Walkability",          score_walkability,                       None),
     Dimension("climate",        "Climate Projections",  score_climate,                           None),
 ]
 

@@ -2,24 +2,28 @@
 """Tests for the EPA National Walkability Index dimension: the bundled loader
 (data/walkability.py) and the build scaling (scripts/build_walkability).
 
-Locks in the replacement of the quota-capped, cache-prohibited Walk Score API
-with the public-domain, storable EPA NWI.
+Pure computation over the bundled crosswalk — no network. Runs without pytest
+(``python tests/test_walkability_national.py``) or via pytest, matching the
+convention of the other test modules in this repo.
 """
 
 from __future__ import annotations
 
 import pandas as pd
-import pytest
 
 import scripts.build_walkability as B
 from housing_label.data import walkability as wref
+
+
+def _close(a: float, b: float, tol: float = 1e-3) -> bool:
+    return abs(a - b) <= tol
 
 
 # ── Build scaling: NWI 1-20 → 0-100 ───────────────────────────────────────────
 def test_scale_endpoints_and_clamp():
     assert B._scale(1.0) == 0.0
     assert B._scale(20.0) == 100.0
-    assert B._scale(10.5) == pytest.approx(50.0)
+    assert _close(B._scale(10.5), 50.0)
     assert B._scale(0.0) == 0.0        # clamps below 1
     assert B._scale(25.0) == 100.0     # clamps above 20
 
@@ -27,9 +31,9 @@ def test_scale_endpoints_and_clamp():
 def test_wmean_household_weighted():
     v = pd.Series([2.0, 18.0])
     w = pd.Series([9.0, 1.0])          # heavily weight the low-walk block group
-    assert B._wmean(v, w) == pytest.approx((2 * 9 + 18 * 1) / 10)
+    assert _close(B._wmean(v, w), (2 * 9 + 18 * 1) / 10)
     # all-zero weights → simple mean fallback
-    assert B._wmean(pd.Series([4.0, 8.0]), pd.Series([0.0, 0.0])) == pytest.approx(6.0)
+    assert _close(B._wmean(pd.Series([4.0, 8.0]), pd.Series([0.0, 0.0])), 6.0)
 
 
 # ── Loader: tract → county → national resolution ──────────────────────────────
@@ -52,6 +56,14 @@ def test_manhattan_more_walkable_than_national_median():
         wref.walkability_for_county(None)["walkability_score"]
 
 
+def _run_all():
+    tests = [v for k, v in sorted(globals().items())
+             if k.startswith("test_") and callable(v)]
+    for t in tests:
+        t()
+        print(f"  ok  {t.__name__}")
+    print(f"\n{len(tests)} tests passed.")
+
+
 if __name__ == "__main__":
-    import sys
-    sys.exit(pytest.main([__file__, "-q"]))
+    _run_all()
