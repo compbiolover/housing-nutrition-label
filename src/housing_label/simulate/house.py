@@ -1558,9 +1558,13 @@ def dimension_details(cfg: dict, r: dict, label: dict) -> dict:
     return details
 
 
-def label_payload(cfg: dict, r: dict, label: dict) -> dict:
+def label_payload(cfg: dict, r: dict, label: dict, include_building: bool = True) -> dict:
     """Build the full nutrition-label payload (JSON-serializable) shared by the
-    CLI's --json output and the HTTP API."""
+    CLI's --json output and the HTTP API.
+
+    ``include_building=False`` omits the per-field construction-profile provenance
+    block — used by the /presets grid, which scores fixed hypothetical profiles and
+    has no "detected from the address" panel to feed."""
     payload = {
         "house": {
             "year_built": cfg["year_built"],
@@ -1599,6 +1603,11 @@ def label_payload(cfg: dict, r: dict, label: dict) -> dict:
         "total_loss": round(r["total_loss"], 2),
         "fire_loss": round(r["fire_loss"], 2),
     }
+    # Per-field construction-profile provenance (value + estimated/confirmed/assumed
+    # + source) for the "Refine building details" panel — present for address/point
+    # scoring, omitted for the /presets grid (include_building=False).
+    if include_building and label.get("building"):
+        payload["building"] = label.get("building")
     loc = label.get("location")
     if loc is not None:
         payload["location"] = {
@@ -1661,6 +1670,98 @@ def emit_json(cfg: dict, r: dict, label: dict) -> None:
 
 
 # ── Shared orchestration (used by the CLI and the HTTP API) ──────────────────────
+
+# Editable construction-profile fields surfaced on the label's "Refine building
+# details" panel, each with provenance (confirmed / estimated / assumed).
+_EDITABLE_FIELDS = ["year_built", "construction", "foundation", "condition",
+                    "sqft", "units", "stories", "lot_acres", "value", "bldg_material"]
+
+
+def _autofill_construction_from_nsi(cfg: dict, explicit: set, location) -> dict:
+    """Fill year_built / sqft / construction / foundation from the NSI-detected
+    Location when the user left them unset. Returns ``{field: (source, confidence)}``
+    for the fields that were auto-filled, so the label can tag them as estimates.
+
+    year_built is a census-area MEDIAN and construction is a coarse 5-class guess,
+    so both are always low-confidence estimates; sqft/foundation ride NSI's
+    per-structure provenance (parcel-observed → higher confidence than modeled)."""
+    filled: dict = {}
+    if location is None:
+        return filled
+    observed = getattr(location, "structure_attr_source", None) == "P"
+    plan = [
+        ("year_built",   "year_built",   "NSI · neighborhood median (estimated)", "low"),
+        ("sqft",         "sqft",         "NSI · structure record", "high" if observed else "moderate"),
+        ("construction", "construction", "NSI · material class (coarse estimate)", "low"),
+        ("foundation",   "foundation",   "NSI · structure record", "moderate" if observed else "low"),
+    ]
+    for field, attr, source, conf in plan:
+        if field not in explicit:
+            val = getattr(location, attr, None)
+            if val is not None:
+                cfg[field] = val
+                filled[field] = (source, conf)
+    return filled
+
+
+def _building_block(cfg: dict, struct: dict, explicit: set, autofilled: dict,
+                    location) -> dict:
+    """Per-field provenance for the construction profile — what the UI renders as a
+    prefilled, editable panel. Each field: ``{value, status, source, confidence}``
+    where status is ``confirmed`` (user-entered), ``estimated`` (derived from public
+    data), or ``assumed`` (a typical default we couldn't derive)."""
+    stories = (struct.get("stories") if struct.get("stories") is not None
+               else cfg.get("stories"))
+    material = struct.get("bldg_material") or cfg.get("bldg_material")
+    # Units: show the *effective* count actually used for scoring (NSI-detected
+    # multi-family flows through struct, not cfg — cfg stays the default 1), so a
+    # detected 30-unit building doesn't display "1" while tagged estimated.
+    units = struct.get("num_units") if struct.get("num_units") is not None else cfg.get("units")
+    vals = {
+        "year_built": cfg.get("year_built"), "construction": cfg.get("construction"),
+        "foundation": cfg.get("foundation"), "condition": cfg.get("condition"),
+        "sqft": cfg.get("sqft"), "units": units, "stories": stories,
+        "lot_acres": cfg.get("lot_acres"), "value": cfg.get("value"),
+        "bldg_material": material,
+    }
+    # A supplied units of 1 is not a real override (1 is the default), so it must
+    # not tag the field "confirmed" — especially when NSI detected a multi-unit
+    # building and the *displayed* value is the detected count, not 1.
+    eff_explicit = set(explicit)
+    try:
+        if "units" in eff_explicit and int(cfg.get("units") or 1) <= 1:
+            eff_explicit.discard("units")
+    except (TypeError, ValueError):
+        pass
+
+    # Fields NSI detects even when a preset is chosen (units/stories/material feed
+    # the multifamily path); mark them estimated when detected and not user-set.
+    detected: dict = {}
+    if location is not None:
+        if getattr(location, "num_units", None) and location.num_units != 1 \
+                and "units" not in eff_explicit:
+            detected["units"] = ("NSI · structure record", "moderate")
+        if struct.get("stories") is not None and "stories" not in eff_explicit:
+            detected["stories"] = ("NSI · structure record", "moderate")
+        if struct.get("bldg_material") and "bldg_material" not in eff_explicit:
+            detected["bldg_material"] = ("NSI · structure record", "moderate")
+
+    out: dict = {}
+    for field, value in vals.items():
+        if value is None:
+            continue
+        if field in eff_explicit:
+            out[field] = {"value": value, "status": "confirmed",
+                          "source": "you entered", "confidence": "high"}
+        elif field in autofilled or field in detected:
+            source, conf = autofilled.get(field) or detected[field]
+            out[field] = {"value": value, "status": "estimated",
+                          "source": source, "confidence": conf}
+        else:
+            out[field] = {"value": value, "status": "assumed",
+                          "source": "typical default", "confidence": "low"}
+    return out
+
 
 def build_label_parts(*, address: str | None = None,
                       lat: float | None = None, lon: float | None = None,
@@ -1729,6 +1830,8 @@ def build_label_parts(*, address: str | None = None,
     # value-per-door estimate (rent-derived NOI ÷ cap rate); other addresses keep the
     # single-family county median.
     struct = effective_structure(cfg, location)
+    explicit = {f for f in _EDITABLE_FIELDS if fields.get(f) is not None}
+    autofilled: dict = {}
     if location is not None and fields.get("value") is None:
         county_fips = getattr(location, "county_fips", None)
         if struct["is_multifamily"]:
@@ -1741,6 +1844,17 @@ def build_label_parts(*, address: str | None = None,
             if median_value:
                 cfg["value"] = median_value
                 cfg["value_source"] = AUTOFILL_VALUE_SOURCE
+    if cfg.get("value_source"):
+        autofilled["value"] = (cfg["value_source"], "low")   # a county-area estimate
+
+    # Auto-fill the rest of the construction profile from the NSI-detected building
+    # when the caller is scoring a real address (no hypothetical preset) and didn't
+    # supply the field — so "type an address" needs no manual entry. Each stays a
+    # tagged, editable estimate. A preset means the user wants a hypothetical build,
+    # so its values win (no NSI override).
+    if preset is None:
+        autofilled.update(_autofill_construction_from_nsi(cfg, explicit, location))
+    building = _building_block(cfg, struct, explicit, autofilled, location)
 
     # The resilience local grade ranks against the bundled Shelby dataset, so it's
     # only meaningful for a Shelby address; compute it only then (N/A elsewhere).
@@ -1756,6 +1870,7 @@ def build_label_parts(*, address: str | None = None,
         cfg, r["total_score"], location=location,
         allow_network=allow_network, overrides=overrides,
     )
+    label["building"] = building     # per-field provenance for the "Refine details" panel
     return cfg, r, label
 
 

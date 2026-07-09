@@ -175,7 +175,15 @@ window.LabelCore = (function () {
         whisker = '<div class="ci-whisker" style="left:' + wlo + '%;width:' + Math.max(0, whi - wlo)
           + '%"><div class="ci-line"></div></div>';
       }
-      right = '<span>' + sc.toFixed(1) + ' / ' + esc(d.national_grade) + dot + chev + '</span>';
+      var pctStr = "";
+      if (typeof d.national_percentile === "number" && isFinite(d.national_percentile)) {
+        var p = d.national_percentile, o = p % 10, t = Math.floor(p / 10) % 10;
+        var suf = (t === 1) ? "th" : (o === 1 ? "st" : o === 2 ? "nd" : o === 3 ? "rd" : "th");
+        pctStr = ' <span class="natl-pct" title="About the ' + p + suf
+          + ' percentile nationally — better than ~' + p + '% of US homes (modeled estimate)">'
+          + p + suf + ' US</span>';
+      }
+      right = '<span>' + sc.toFixed(1) + ' / ' + esc(d.national_grade) + pctStr + dot + chev + '</span>';
       bar = '<div class="score-bar"><div class="fill ' + fillClass(sc)
         + '" style="width:' + sc + '%"></div>' + whisker + '</div>';
     }
