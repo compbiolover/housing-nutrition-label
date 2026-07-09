@@ -33,12 +33,29 @@ def test_infra_params_shelby_and_unknown_are_none():
     assert RC.infra_params_for_county("47157".zfill(5)) is None
 
 
+def test_normalize_fips():
+    assert RC.normalize_fips(None) is None
+    assert RC.normalize_fips(float("nan")) is None
+    assert RC.normalize_fips("") is None
+    assert RC.normalize_fips("nan") is None
+    assert RC.normalize_fips(47157.0) == "47157"        # float-parsed CSV
+    assert RC.normalize_fips(6037) == "06037"           # lost leading zero
+    assert RC.normalize_fips("06037.0") == "06037"      # float-string
+    assert RC.normalize_fips(" 6037 ") == "06037"
+    assert RC.normalize_fips("47157") == "47157"
+
+
 def test_infra_params_national_county():
     p = RC.infra_params_for_county("06037", in_urban_area=True)   # Los Angeles County
     assert p is not None
     assert set(p) == {"assess_ratio", "tax_rate", "in_urban_area", "cost_multipliers"}
     assert p["assess_ratio"] == 1.0 and p["in_urban_area"] is True
     assert isinstance(p["tax_rate"], float) and p["tax_rate"] > 0
+    # in_urban_area is parcel-level → omitted (not forced) when not supplied
+    p2 = RC.infra_params_for_county("06037")
+    assert "in_urban_area" not in p2
+    assert RC.infra_params_for_county(47157.0) is None            # float Shelby → defaults
+    assert RC.infra_params_for_county(float("nan")) is None       # NaN → defaults
     # municipal_rate = ACS effective rate × (1 − school share)
     from housing_label.data.govfinance import govfinance_for_county
     from housing_label.data.propertytax import property_tax_for_county
@@ -141,6 +158,13 @@ def test_noaa_national_zone_nulls_degree_days():
     assert row["avg_jul_high_f"] is None
     assert set(row) == set(N.CLIMATE_COLS)         # same column set, just nulled
     assert "NOAA CDO API" in row["climate_station"]
+
+
+def test_noaa_missing_fips_falls_back_to_shelby():
+    """NaN / float Shelby FIPS resolve correctly (not '00nan' / '47157.0')."""
+    assert N.climate_row_for_county(float("nan")) == N.MEMPHIS_CLIMATE
+    assert N.climate_row_for_county(47157.0)["hdd_annual"] == 3082      # float Shelby
+    assert N.climate_row_for_county(6037.0)["climate_zone"] == "3B"     # float LA
 
 
 def _run_all():

@@ -74,10 +74,10 @@ def climate_row_for_county(county_fips: str | None) -> dict:
     rather than stamped with Memphis values that don't apply elsewhere.
     """
     from housing_label.enrich.region_context import (
-        SHELBY_COUNTY_FIPS, climate_zone_for_county_fips,
+        SHELBY_COUNTY_FIPS, climate_zone_for_county_fips, normalize_fips,
     )
 
-    fips = str(county_fips).strip().zfill(5) if county_fips and str(county_fips).strip() else None
+    fips = normalize_fips(county_fips)
     if not fips or fips == SHELBY_COUNTY_FIPS:
         return dict(MEMPHIS_CLIMATE)
 
@@ -145,10 +145,11 @@ def main() -> None:
     if has_fips_col:
         # Multi-county batch: resolve each parcel's climate row by its own FIPS.
         log.info("Applying per-parcel climate zones from the 'county_fips' column …")
+        from housing_label.enrich.region_context import normalize_fips
         _cache: dict = {}
 
         def _row_for(fips):
-            key = str(fips).strip().zfill(5) if fips and str(fips).strip() else None
+            key = normalize_fips(fips)
             if key not in _cache:
                 _cache[key] = climate_row_for_county(key)
             return _cache[key]

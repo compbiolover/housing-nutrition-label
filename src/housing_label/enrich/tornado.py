@@ -172,14 +172,14 @@ def _point_counts(lat: float, lon: float, slat, slon, mags) -> dict[str, object]
     count_10 = int(w10.sum())
     valid_mags = bmag[w25][bmag[w25] >= 0]
     max_ef  = int(valid_mags.max()) if valid_mags.size else -1
-    avg_yr  = round(count_25 / DATA_YEARS, 3)
+    rate    = count_25 / DATA_YEARS          # classify on the unrounded rate…
 
     return {
         "tornado_count_25mi":       count_25,
         "tornado_count_10mi":       count_10,
         "max_ef_25mi":              max_ef,
-        "avg_tornadoes_per_yr_25mi": avg_yr,
-        "tornado_risk":             _national_risk(avg_yr, max_ef),
+        "avg_tornadoes_per_yr_25mi": round(rate, 3),   # …round only for export
+        "tornado_risk":             _national_risk(rate, max_ef),
     }
 
 

@@ -452,24 +452,31 @@ def main() -> None:
 
     # Resolve per-county cost/tax params once per FIPS (Memphis defaults for
     # Shelby/unknown). A per-parcel 'county_fips' column wins over --county-fips,
-    # so a multi-county national batch calibrates each row to its own county.
-    from housing_label.enrich.region_context import infra_params_for_county
+    # so a multi-county national batch calibrates each row to its own county. The
+    # cached params are county-level only; 'in_urban_area' is parcel-level and is
+    # applied per row (from an optional 'in_urban_area' column), else left to
+    # enrich_row's distance-based fallback.
+    from housing_label.enrich.region_context import infra_params_for_county, normalize_fips
     _params_cache: dict = {}
 
-    def _params_for(fips) -> dict:
-        key = str(fips).strip().zfill(5) if fips and str(fips).strip() else None
-        if key not in _params_cache:
-            _params_cache[key] = infra_params_for_county(key) or {}
-        return _params_cache[key]
+    def _params_for(fips_norm) -> dict:
+        if fips_norm not in _params_cache:
+            _params_cache[fips_norm] = infra_params_for_county(fips_norm) or {}
+        return _params_cache[fips_norm]
 
     has_fips_col = "county_fips" in df.columns
+    has_urban_col = "in_urban_area" in df.columns
+    default_fips = normalize_fips(args.county_fips)
     if args.county_fips or has_fips_col:
         log.info("National infrastructure calibration (county-fips=%s, per-parcel column=%s)",
                  args.county_fips, has_fips_col)
 
     def _enrich(row):
-        fips = row.get("county_fips") if has_fips_col and pd.notna(row.get("county_fips")) else args.county_fips
-        return enrich_row(row, **_params_for(fips))
+        fips = normalize_fips(row.get("county_fips")) if has_fips_col else default_fips
+        params = dict(_params_for(fips))
+        if has_urban_col and pd.notna(row.get("in_urban_area")):
+            params["in_urban_area"] = bool(row.get("in_urban_area"))
+        return enrich_row(row, **params)
 
     log.info("Computing infrastructure cost fields …")
     enriched = df.apply(_enrich, axis=1)

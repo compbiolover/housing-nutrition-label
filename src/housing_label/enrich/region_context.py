@@ -19,8 +19,27 @@ from __future__ import annotations
 SHELBY_COUNTY_FIPS = "47157"  # the single-county pilot; Memphis-calibrated defaults
 
 
+def normalize_fips(value) -> str | None:
+    """Best-effort 5-digit county FIPS from a messy CSV cell.
+
+    Returns ``None`` for missing / NaN so the caller falls back to defaults;
+    accepts floats that lost their leading zero or gained a ``.0`` from CSV type
+    inference (``6037.0`` → ``"06037"``) and zero-pads short strings.
+    """
+    if value is None or value != value:              # None or NaN (NaN != NaN)
+        return None
+    if isinstance(value, (int, float)):              # incl. numpy float64 (a float subclass)
+        return str(int(value)).zfill(5)
+    s = str(value).strip()
+    if not s or s.lower() == "nan":
+        return None
+    if s.endswith(".0"):                             # "47157.0" from float-parsed CSV
+        s = s[:-2]
+    return s.zfill(5)
+
+
 def infra_params_for_county(
-    county_fips: str | None, *, in_urban_area: bool = True
+    county_fips: str | None, *, in_urban_area: bool | None = None
 ) -> dict | None:
     """Build the infrastructure-enrichment params for a county, or ``None`` for
     Shelby / unknown counties (which keep the Memphis-calibrated defaults that
@@ -33,8 +52,13 @@ def infra_params_for_county(
     of the tax rate so the revenue side is like-for-like with the non-school
     cost model. Mirrors the assembly the live path uses in
     ``simulate/dimensions.py`` so both paths score a county identically.
+
+    ``in_urban_area`` is parcel-level, not county-level, so it is only included
+    when the caller passes a concrete value (the live path does, from the resolved
+    Location); left as ``None`` it is omitted so ``enrich_row`` uses its own
+    distance-based fallback rather than assuming every parcel is urban.
     """
-    fips = str(county_fips).strip().zfill(5) if county_fips else None
+    fips = normalize_fips(county_fips)
     if not fips or fips == SHELBY_COUNTY_FIPS:
         return None
     from housing_label.data.govfinance import govfinance_for_county
@@ -43,12 +67,14 @@ def infra_params_for_county(
     gov = govfinance_for_county(fips)
     tax = property_tax_for_county(fips)
     municipal_rate = tax["effective_tax_rate"] * (1.0 - gov["school_tax_share"])
-    return {
+    params = {
         "assess_ratio": 1.0,
         "tax_rate": municipal_rate,
-        "in_urban_area": bool(in_urban_area),
         "cost_multipliers": gov["multipliers"],
     }
+    if in_urban_area is not None:
+        params["in_urban_area"] = bool(in_urban_area)
+    return params
 
 
 def climate_zone_for_county_fips(county_fips: str | None) -> tuple[str | None, str | None]:
@@ -60,7 +86,7 @@ def climate_zone_for_county_fips(county_fips: str | None) -> tuple[str | None, s
     (the NOAA CDO API is the documented upgrade path), so the batch stage nulls
     those for non-Shelby counties rather than stamping Memphis values on them.
     """
-    fips = str(county_fips).strip().zfill(5) if county_fips else None
+    fips = normalize_fips(county_fips)
     if not fips:
         return None, None
     from housing_label.data.climate import climate_zone_for_county
