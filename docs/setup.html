@@ -35,22 +35,21 @@ python scripts/run_pipeline.py      # run the full pipeline</code></pre>
 
 <section>
   <h2>API Keys</h2>
-  <p>Most data sources are free and require no authentication. Two require free API keys:</p>
+  <p>The live scoring path (any US address) needs <strong>no API keys</strong> &mdash; health, socioeconomic, and walkability are bundled national references. The keys below are optional and only relevant to the offline Shelby parcel pipeline / optional Walk Score enrichment:</p>
 
   <div class="card-grid">
     <div class="card">
-      <h3>Census ACS (Required for socioeconomic)</h3>
+      <h3>Census ACS (Optional &mdash; offline parcel pipeline only)</h3>
       <p>Free signup: <a href="https://api.census.gov/data/key_signup.html">api.census.gov/data/key_signup.html</a></p>
       <pre><code>export CENSUS_API_KEY=your_key_here</code></pre>
-      <p>Without this key, the socioeconomic step will be skipped and the composite score will be computed from the remaining dimensions.</p>
+      <p>The <strong>live</strong> socioeconomic score is a bundled national percentile (keyless). This key is only used by the offline Shelby parcel pipeline to attach each tract's raw ACS metric columns; the socioeconomic <em>score</em> is national either way.</p>
     </div>
     <div class="card">
-      <h3>Walk Score (Active &mdash; required for walkability)</h3>
+      <h3>Walk Score (Optional &mdash; not used by default)</h3>
       <p>Signup: <a href="https://www.walkscore.com/professional/api.php">walkscore.com/professional/api.php</a></p>
       <pre><code>export WALKSCORE_API_KEY=your_key_here
-python src/housing_label/enrich/walkscore.py            # all parcels (resumable)
-python src/housing_label/enrich/walkscore.py --limit 10 # quick test first</code></pre>
-      <p>Walk Score requires a URL associated with your account &mdash; use your project's GitHub URL or housinglabel.dev. This step runs out of band from the main pipeline (it is API-gated and resumable, so it isn't re-run on every pass) and writes <code>shelby_parcels_enriched.csv</code>. The <code>score/all_dimensions</code> stage merges the walk / transit / bike scores back in on <code>PARID</code> to produce the walkability dimension. Without this key, walkability is skipped and the composite is computed from the remaining dimensions.</p>
+python src/housing_label/enrich/walkscore.py            # optional enrichment (resumable)</code></pre>
+      <p>Walkability defaults to the bundled, public-domain <strong>EPA National Walkability Index</strong> &mdash; no key, no quota, and safe to store (unlike the Walk Score API, whose Terms of Use prohibit storing scores). Running the Walk Score enrichment above is optional; when its <code>walk_score</code> columns are present the pipeline honours them instead.</p>
     </div>
   </div>
 </section>
@@ -130,7 +129,7 @@ housing-pipeline --force</code></pre>
   <h2>House Simulator</h2>
   <p>The CLI simulator lets you define a hypothetical house and see its full nutrition label &mdash; all nine dimensions &mdash; instantly.</p>
 
-  <p>The five <strong>construction-driven</strong> dimensions (resilience, energy, durability, environmental, infrastructure) are modeled offline from the house configuration. The four <strong>location-driven</strong> dimensions depend on where the house sits: health, socioeconomic, and walkability are fetched live for the house's lat/lon from CDC PLACES, Census ACS, and Walk Score (sources needing a key &mdash; <code>CENSUS_API_KEY</code>, <code>WALKSCORE_API_KEY</code> &mdash; show <em>N/A</em> and are excluded from the composite, never filled with a placeholder), while climate projections come from a bundled per-county lookup (no API key) once the county is resolved &mdash; a known-but-unmapped county uses a national-average fallback, but like the other location dimensions it is excluded under <code>--no-fetch</code>, since resolving the county still needs the geocoder.</p>
+  <p>The five <strong>construction-driven</strong> dimensions (resilience, energy, durability, environmental, infrastructure) are modeled offline from the house configuration. The four <strong>location-driven</strong> dimensions depend on where the house sits: health (CDC PLACES), socioeconomic (Census ACS), and walkability (EPA National Walkability Index) are bundled <strong>national</strong> references resolved by the house's census tract &mdash; no API key needed, and comparable across locations; where a tract can't be resolved they show <em>N/A</em> and are excluded from the composite, never filled with a placeholder. Climate projections likewise come from a bundled per-county lookup (no API key) once the county is resolved &mdash; a known-but-unmapped county uses a national-average fallback, but like the other location dimensions it is excluded under <code>--no-fetch</code>, since resolving the county still needs the geocoder.</p>
 
   <h3>Full-Label Flags</h3>
   <pre><code># Emit the whole label (all dimensions + composite) as JSON

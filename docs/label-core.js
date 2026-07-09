@@ -49,9 +49,9 @@ window.LabelCore = (function () {
     durability: "How much service life the home's major components — structure, roof, systems — still have, from its material, age, grade, and condition. More remaining life scores higher.",
     environmental: "The home's yearly climate footprint: operational carbon from energy, embodied carbon from materials (spread over the building's life), and water use. A smaller total scores higher.",
     infrastructure: "The property tax this home generates versus the public cost to serve it (roads, water, sewer, fire, police). A ratio above ~1 means it pays its own way. Higher is better.",
-    health: "A neighborhood health index (CDC PLACES) — the census tract's percentile within its county across chronic-disease and health-outcome measures. Higher means a healthier local context.",
-    socioeconomic: "A census-tract socioeconomic index (Census ACS: income, education, employment), ranked within the county. Higher is a stronger local socioeconomic profile.",
-    walkability: "How easy it is to run daily errands on foot and by transit (Walk Score API — walk, transit, and bike blended). Higher means more walkable.",
+    health: "A neighborhood health index (CDC PLACES) — the census tract's percentile against the national distribution of US tracts across chronic-disease and health-outcome measures, so it's comparable across cities. Higher means a healthier local context.",
+    socioeconomic: "A census-tract socioeconomic index (Census ACS: poverty, income, housing-cost burden) scored against the national distribution of US tracts, comparable across locations. Higher is a stronger local socioeconomic profile.",
+    walkability: "How easy it is to run daily errands on foot and by transit (EPA National Walkability Index — intersection density, transit proximity, and land-use mix). Higher means more walkable.",
     climate: "How exposed this location is to worsening climate hazards by mid-century (CMIP6-LOCA2 downscaled projections). Higher means less projected hazard."
   };
 

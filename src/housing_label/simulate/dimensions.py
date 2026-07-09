@@ -13,16 +13,18 @@ re-implementing them:
   • Durability         → enrich.durability.model_parcel_durability
   • Environmental      → enrich.environmental.model_parcel_environment
   • Infrastructure     → enrich.infrastructure.enrich_row
-  • Health             → enrich.health        (CDC PLACES, live fetch)
-  • Socioeconomic      → enrich.socioeconomic (Census ACS, live fetch)
-  • Walkability        → enrich.walkscore     (Walk Score API, live fetch)
+  • Health             → data.health          (CDC PLACES national percentile, bundled)
+  • Socioeconomic      → data.socioeconomic   (Census ACS national percentile, bundled)
+  • Walkability        → data.walkability     (EPA National Walkability Index, bundled)
 
 Construction-driven dimensions (energy, durability, environmental,
 infrastructure) are computed offline from the house config. The three
-location-driven dimensions (health, socioeconomic, walkability) are fetched
-live for the house's lat/lon. When a source is unavailable (no network, no API
-key, point outside the dataset) the dimension is returned as ``None`` and is
-*excluded* from the composite — it is never filled with a placeholder, so an
+location-driven dimensions (health, socioeconomic, walkability) are bundled
+NATIONAL references resolved by the house's census tract (offline, keyless,
+comparable across locations). When the tract can't be resolved (no network to
+geocode it, or a point outside the dataset) the dimension is returned as
+``None`` and is *excluded* from the composite — it is never filled with a
+placeholder, so an
 otherwise-excellent house is not unfairly down-weighted by a missing input.
 
 Config → CAMA mapping
@@ -34,7 +36,6 @@ condition="excellent"); the enrichment models speak Shelby County CAMA codes
 
 from __future__ import annotations
 
-import os
 from functools import lru_cache
 
 import numpy as np
@@ -47,6 +48,9 @@ from housing_label.enrich.energy import model_parcel_energy
 from housing_label.enrich.durability import model_parcel_durability
 from housing_label.enrich.environmental import model_parcel_environment
 from housing_label.enrich.infrastructure import enrich_row as infra_enrich_row
+from housing_label.data import health as health_data
+from housing_label.data import socioeconomic as socio_data
+from housing_label.data import walkability as walk_data
 
 
 # Markers set on cfg["value_source"] when the home value is an auto-filled *per-unit*
@@ -406,36 +410,16 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
     }
 
 
-# ── Location-driven dimensions (live fetch, cached per process) ─────────────────
-@lru_cache(maxsize=8)
-def _places_table(county_fips: str):
-    """CDC PLACES table (tract → health_index) for a county. Cached per process."""
-    from housing_label.enrich import health as health_mod
-    return health_mod.fetch_places_data(county_fips)
-
-
-@lru_cache(maxsize=8)
-def _acs_table(state_fips: str, county3: str):
-    """Census ACS table (tract → socioeconomic_index) for a county. Cached."""
-    from housing_label.enrich import socioeconomic as socio_mod
-    table, _vintage = socio_mod.fetch_acs_data(socio_mod.DEFAULT_YEAR, state_fips, county3)
-    return table
-
-
+# ── Location-driven dimensions ──────────────────────────────────────────────────
+# Health, Socioeconomic, and Walkability are now bundled, offline NATIONAL lookups
+# (data/health.py, data/socioeconomic.py, data/walkability.py) — no live CDC/ACS/
+# Walk Score fetch, no CENSUS_API_KEY, and no within-county ranking — so they are
+# comparable across locations. The only network access left is geocoding the tract
+# (when one isn't supplied by the resolved location).
 @lru_cache(maxsize=256)
 def _tract_for(lat: float, lon: float) -> str | None:
     from housing_label.enrich import health as health_mod
     return health_mod.get_census_tract(lat, lon)
-
-
-@lru_cache(maxsize=256)
-def _walk_scores(lat: float, lon: float) -> dict:
-    """Walk Score API result (walk/transit/bike) for a coordinate, cached per
-    process — Walk Score is a *paid* key, so repeat/nearby lookups must not re-hit
-    it. Mirrors the caching the other two live location dimensions already use."""
-    api_key = os.environ.get("WALKSCORE_API_KEY", "").strip()
-    from housing_label.enrich import walkscore as walk_mod
-    return walk_mod.fetch_scores(api_key, lat, lon, "")
 
 
 def fetch_location_dimensions(
@@ -449,13 +433,16 @@ def fetch_location_dimensions(
     """Return {health, socioeconomic, walkability} scores for a location.
 
     ``tract`` is the 11-digit census-tract GEOID (from the location resolver); if
-    omitted it is geocoded from lat/lon. The county/state FIPS for the CDC PLACES
-    and Census ACS queries are derived from the tract (GEOID = state+county+tract),
-    so health and socioeconomic are ranked within that location's own county.
+    omitted it is geocoded from lat/lon. Health, socioeconomic, and walkability are
+    then resolved from the bundled NATIONAL crosswalks (data/health.py,
+    data/socioeconomic.py, data/walkability.py) by that tract — a national
+    percentile comparable across locations, not a within-county rank — with a
+    tract -> county fallback.
 
-    Manual ``overrides`` always win. Otherwise each dimension is fetched live; any
-    failure yields ``None`` for that dimension (excluded from the composite, never
-    placeholdered). Also returns ``_tract`` and ``_notes``.
+    Manual ``overrides`` always win. Otherwise each dimension is a keyless offline
+    lookup; when the tract can't be resolved (or the point is outside the dataset)
+    the dimension is ``None`` (excluded from the composite, never placeholdered).
+    Also returns ``_tract`` and ``_notes``.
     """
     overrides = overrides or {}
     out: dict = {"health": None, "socioeconomic": None, "walkability": None,
@@ -468,80 +455,79 @@ def fetch_location_dimensions(
             out[key] = round(float(overrides[key]), 1)
             notes[key] = "manual override"
 
-    need_tract = any(out[k] is None for k in ("health", "socioeconomic"))
+    # All three location dimensions now resolve by census tract, so any of them
+    # being unscored means we still need the tract (to geocode if it wasn't passed).
+    need_tract = any(out[k] is None for k in ("health", "socioeconomic", "walkability"))
     walk_override = "walkability" in notes
 
-    if not allow_network:
-        for k in ("health", "socioeconomic", "walkability"):
-            notes.setdefault(k, "skipped (--no-fetch)")
-        return out
-
-    # Census tract (shared by health + socioeconomic) — geocode only if needed.
-    if tract is None and need_tract:
+    # Census tract (shared by all three location dimensions). A tract passed in from
+    # the resolved location is used offline; geocoding a missing one needs network.
+    if tract is None and need_tract and allow_network:
         try:
             tract = _tract_for(round(float(lat), 6), round(float(lon), 6))
         except Exception as exc:  # noqa: BLE001
-            notes["health"] = notes.get("health") or f"geocoder failed: {exc}"
-            notes["socioeconomic"] = notes.get("socioeconomic") or f"geocoder failed: {exc}"
+            # All three location dimensions resolve by tract now, so a geocoder
+            # failure should surface as the real cause on each (not the vaguer
+            # "no census tract"). A manual override already set on a key wins.
+            for k in ("health", "socioeconomic", "walkability"):
+                notes[k] = notes.get(k) or f"geocoder failed: {exc}"
     out["_tract"] = tract
-    county5 = tract[:5] if tract else None       # state(2)+county(3) from GEOID
 
-    # Health (CDC PLACES percentile index for the tract, ranked within its county).
+    # Health (CDC PLACES NATIONAL percentile index — bundled, offline). Works with
+    # or without network as long as a tract is known; scored against the full
+    # national distribution of US tracts (population-weighted), not ranked within
+    # the county, so a value is comparable across locations. Resolves tract ->
+    # county; a national-only fallback (no local data) is left unscored rather
+    # than filled with a placeholder.
     if out["health"] is None:
-        if tract and county5:
-            try:
-                table = _places_table(county5)
-                if tract in table.index and not pd.isna(table.loc[tract, "health_index"]):
-                    out["health"] = round(float(table.loc[tract, "health_index"]), 1)
-                    notes["health"] = f"CDC PLACES (tract {tract})"
-                else:
-                    notes["health"] = f"no PLACES data for tract {tract}"
-            except Exception as exc:  # noqa: BLE001
-                notes["health"] = f"PLACES fetch failed: {exc}"
+        if tract:
+            res = health_data.health_for_tract(tract)
+            if res["resolved"] and res["health_index"] is not None:
+                out["health"] = round(float(res["health_index"]), 1)
+                notes["health"] = res["label"]
+            else:
+                notes["health"] = f"no health data for tract {tract}"
+        elif not allow_network:
+            notes.setdefault("health", "skipped (--no-fetch)")
         else:
             notes.setdefault("health", "no census tract")
 
-    # Socioeconomic (Census ACS percentile index for the tract).
-    # The Census ACS API now requires a key — short-circuit with a clear note
-    # rather than burning retries on the missing-key redirect.
+    # Socioeconomic (Census ACS NATIONAL percentile index — bundled, offline). No
+    # live ACS call and no CENSUS_API_KEY: the value is a national percentile from
+    # the bundled crosswalk, not a within-county rank, so it is comparable across
+    # locations. Resolves tract -> county; a national-only fallback (no local data)
+    # is left unscored rather than filled with a placeholder.
     if out["socioeconomic"] is None:
-        if not os.environ.get("CENSUS_API_KEY", "").strip():
-            notes["socioeconomic"] = "no CENSUS_API_KEY"
-        elif tract and county5:
-            try:
-                table = _acs_table(county5[:2], county5[2:])
-                if tract in table.index and not pd.isna(table.loc[tract, "socioeconomic_index"]):
-                    out["socioeconomic"] = round(float(table.loc[tract, "socioeconomic_index"]), 1)
-                    notes["socioeconomic"] = f"Census ACS (tract {tract})"
-                else:
-                    notes["socioeconomic"] = f"no ACS data for tract {tract}"
-            except Exception as exc:  # noqa: BLE001
-                notes["socioeconomic"] = f"ACS fetch failed: {exc}"
+        if tract:
+            res = socio_data.socio_for_tract(tract)
+            if res["resolved"] and res["socioeconomic_index"] is not None:
+                out["socioeconomic"] = round(float(res["socioeconomic_index"]), 1)
+                notes["socioeconomic"] = res["label"]
+            else:
+                notes["socioeconomic"] = f"no socioeconomic data for tract {tract}"
+        elif not allow_network:
+            notes.setdefault("socioeconomic", "skipped (--no-fetch)")
         else:
             notes.setdefault("socioeconomic", "no census tract")
 
-    # Walkability (Walk Score API — requires a paid key).
+    # Walkability (EPA National Walkability Index — bundled, offline, public
+    # domain). Replaces the Walk Score API, whose Terms of Use prohibit storing
+    # scores and whose free tier caps at ~5,000 calls/day; NWI needs no key or
+    # quota. Resolves tract -> county; a national-only fallback (no local data) is
+    # left unscored. A caller can still inject a Walk Score (or any walkability
+    # value) via overrides["walkability"].
     if not walk_override:
-        api_key = os.environ.get("WALKSCORE_API_KEY", "").strip()
-        if not api_key:
-            notes["walkability"] = "no WALKSCORE_API_KEY"
+        if tract:
+            res = walk_data.walkability_for_tract(tract)
+            if res["resolved"] and res["walkability_score"] is not None:
+                out["walkability"] = round(float(res["walkability_score"]), 1)
+                notes["walkability"] = res["label"]
+            else:
+                notes["walkability"] = f"no walkability data for tract {tract}"
+        elif not allow_network:
+            notes.setdefault("walkability", "skipped (--no-fetch)")
         else:
-            try:
-                s = _walk_scores(round(lat, 6), round(lon, 6))
-                walk = s.get("walk_score")
-                transit = s.get("transit_score")
-                bike = s.get("bike_score")
-                if walk is not None:
-                    if transit is not None and bike is not None:
-                        composite = 0.60 * walk + 0.25 * transit + 0.15 * bike
-                    else:
-                        composite = float(walk)
-                    out["walkability"] = round(composite, 1)
-                    notes["walkability"] = "Walk Score API"
-                else:
-                    notes["walkability"] = "Walk Score returned no data"
-            except Exception as exc:  # noqa: BLE001
-                notes["walkability"] = f"Walk Score fetch failed: {exc}"
+            notes.setdefault("walkability", "no census tract")
 
     return out
 

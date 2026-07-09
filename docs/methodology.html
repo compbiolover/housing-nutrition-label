@@ -188,8 +188,8 @@
     <p class="plain"><strong>What this tells you:</strong> how healthy the surrounding neighborhood is, based on local rates of conditions like obesity, diabetes, high blood pressure, and asthma. A higher score means a healthier area. (This describes the neighborhood, not the building.)</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
-    <p>Uses <strong>CDC PLACES</strong> census-tract-level health estimates. Nine measures: obesity, diabetes, high blood pressure, asthma, coronary heart disease, mental distress, physical inactivity, stroke, COPD.</p>
-    <p>Each address is assigned to its census tract via the Census Bureau geocoder, and the health index is the average of inverted percentile ranks across all nine measures, ranked within the address's own county (lower prevalence = higher score). Within a single county the index can span nearly the full 0&ndash;100 range, reflecting how sharply neighborhood health can differ block to block.</p>
+    <p>Uses <strong>CDC PLACES</strong> census-tract-level health estimates. Seven measures: obesity, diabetes, high blood pressure, asthma, coronary heart disease, mental distress, and physical inactivity.</p>
+    <p>Each address is assigned to its census tract, and the health index is the average of the seven measures' inverted percentile ranks against the <strong>full national distribution of US census tracts</strong> (population-weighted) &mdash; lower prevalence = higher score. Because it is a national percentile rather than a within-county rank, a score means the same thing in every metro, so neighborhoods are comparable across cities. The reference distribution is bundled and versioned (CDC PLACES 2023).</p>
     <div class="insight"><strong>Why it matters:</strong> within a single county, obesity can range from under 30% to nearly 60%, and diabetes from under 10% to over 30%, between the healthiest and least healthy neighborhoods &mdash; a 2&times; to 5&times; gap over a few miles.</div>
     </details>
   </div>
@@ -199,7 +199,7 @@
     <p class="plain"><strong>What this tells you:</strong> the economic profile of the neighborhood &mdash; income, poverty, education, and jobs. A higher score means stronger local economic opportunity. (Like Health, this describes the area, not the building.)</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
-    <p>Census ACS 5-year estimates at the census tract level. Indicators include median household income, poverty rate, educational attainment (bachelor's degree or higher), and unemployment rate. Indexed using inverted percentile ranks within the address's own county (higher income, lower poverty = higher score).</p>
+    <p>Census ACS 5-year estimates at the census tract level: poverty rate, median household income, and housing-cost burden. Scored against the <strong>full national distribution of US census tracts</strong> (household-weighted) &mdash; higher income, lower poverty and cost burden = higher score &mdash; so a score is comparable across locations rather than ranked within the address's own county. Sourced from the keyless ACS 5-year Summary File (2023), so the live scoring path needs no Census API key.</p>
     </details>
   </div>
 
@@ -208,13 +208,10 @@
     <p class="plain"><strong>What this tells you:</strong> how easy it is to get around from this address on foot, by transit, or by bike. A higher score means more of daily life is reachable without a car.</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
-    <p>Uses the <strong>Walk Score API</strong>, which returns three 0&ndash;100 sub-scores for an address's coordinates: a <strong>Walk Score</strong> (access to daily errands on foot), a <strong>Transit Score</strong> (proximity and quality of public transit), and a <strong>Bike Score</strong> (bike infrastructure and terrain).</p>
+    <p>Uses the <strong>EPA National Walkability Index</strong> (NWI) &mdash; a public-domain national index covering every US census block group, built from three built-environment measures: street-intersection density, proximity to transit, and diversity of land use. Its 1&ndash;20 index is scaled to 0&ndash;100 (higher = more walkable) and aggregated from block groups to the census tract (household-weighted).</p>
 
-    <h4>Composite Weighting</h4>
-    <p>Walk Score is already a 0&ndash;100 score, so it is used directly as the dimension score. Where an address also has a transit and bike score, a weighted composite is taken &mdash; deliberately weighted toward walking, since walking access to daily needs matters most for everyday life:</p>
-    <div class="formula">Walkability = 0.60 &times; Walk + 0.25 &times; Transit + 0.15 &times; Bike<br>(addresses missing transit or bike fall back to the raw Walk Score)</div>
-    <p>The result carries the same dual grading as every other dimension &mdash; a national absolute grade and a local percentile grade within its own county. Because Walk Score is already nationally calibrated (0 = car-dependent, 90&ndash;100 = a &ldquo;walker's paradise&rdquo;), the national grade is directly comparable across cities.</p>
-    <div class="insight"><strong>Context:</strong> much of the country is car-dependent suburban and exurban development, so most addresses score low on the national absolute scale. The local percentile grade is what surfaces the genuinely more walkable pockets &mdash; older street-grid neighborhoods near a downtown or town center &mdash; relative to their neighbors.</div>
+    <p>Because the NWI is a national index (0 = car-dependent, 100 = highly walkable), the national grade is directly comparable across cities, and no per-address API call is made &mdash; the value is a bundled, storable lookup. This replaces the Walk Score API, whose Terms of Use prohibit storing scores and whose free tier caps at ~5,000 calls/day; an optional Walk Score enrichment (0.60 &times; Walk + 0.25 &times; Transit + 0.15 &times; Bike) is still honoured when one has been supplied.</p>
+    <div class="insight"><strong>Context:</strong> much of the country is car-dependent suburban and exurban development, so most addresses score low on the national absolute scale &mdash; the genuinely walkable pockets are older street-grid neighborhoods near a downtown or town center. A finer in-house OpenStreetMap amenity-access score is a documented future upgrade.</div>
     </details>
   </div>
 
@@ -235,7 +232,7 @@
   <p class="plain">Every dimension gets <strong>two</strong> grades. The <strong>national grade</strong> says how the home compares to the whole country. The <strong>local grade</strong> says how it compares to its own neighbors &mdash; useful when you're choosing between homes in the same area.</p>
   <p><strong>National absolute grade:</strong> A &ge; 80, B &ge; 60, C &ge; 40, D &ge; 20, F &lt; 20. Calibrated for national comparison &mdash; a Grade B means the same thing anywhere in the country.</p>
   <p><strong>Local percentile grade:</strong> A = top 10%, B = next 25% (65th&ndash;90th percentile), C = next 30% (35th&ndash;65th), D = next 25% (10th&ndash;35th), F = bottom 10%, ranked against nearby properties.</p>
-  <p><strong>Composite score:</strong> the average of the dimensions that could be scored. Dimensions with no data (for example, walkability where no Walk Score is available) are left out rather than counted as zero, so a strong home isn't dragged down by a missing input.</p>
+  <p><strong>Composite score:</strong> the average of the dimensions that could be scored. Dimensions with no data (for example, a location dimension whose census tract can't be resolved) are left out rather than counted as zero, so a strong home isn't dragged down by a missing input.</p>
 </section>
 
 <footer>

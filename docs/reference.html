@@ -63,8 +63,8 @@
   <table class="data-table">
     <thead><tr><th>Resolution</th><th>What's resolved at this level</th></tr></thead>
     <tbody>
-      <tr><td><span class="tag point">Address point</span></td><td>Flood zone (FEMA NFHL), tornado frequency (SPC, within 25&nbsp;mi), seismic PGA (USGS), and <strong>Walkability</strong> (Walk Score)</td></tr>
-      <tr><td><span class="tag tract">Census tract</span></td><td><strong>Health</strong> (CDC PLACES) and <strong>Socioeconomic</strong> (Census ACS) &mdash; each ranked <em>within the address's own county</em></td></tr>
+      <tr><td><span class="tag point">Address point</span></td><td>Flood zone (FEMA NFHL), tornado frequency (SPC, within 25&nbsp;mi), seismic PGA (USGS)</td></tr>
+      <tr><td><span class="tag tract">Census tract</span></td><td><strong>Health</strong> (CDC PLACES), <strong>Socioeconomic</strong> (Census ACS), and <strong>Walkability</strong> (EPA National Walkability Index) &mdash; each scored against the <em>national</em> distribution of US tracts, comparable across locations</td></tr>
       <tr><td><span class="tag county">County</span></td><td>Energy climate zone (IECC) and Infrastructure Burden (cost / property-tax model)</td></tr>
       <tr><td><span class="tag county">County</span></td><td>Environmental grid-carbon factor (kg&nbsp;CO&#8322;e/kWh) &mdash; the location's eGRID2022 subregion rate via a bundled county&rarr;subregion crosswalk (US-average fallback for unmapped counties)</td></tr>
       <tr><td><span class="tag config">Your house only</span></td><td>Durability, embodied carbon, and the <strong>fire</strong> peril &mdash; driven by construction / year / condition, identical at any location</td></tr>
@@ -84,9 +84,9 @@
       <tr><td>Durability</td><td>Building longevity from materials, build quality &amp; condition</td><td>Construction model</td><td><span class="tag config">config</span></td></tr>
       <tr><td>Environmental Footprint</td><td>Embodied + operational carbon over the building's life</td><td>Material carbon + eGRID2022 subregion grid factor</td><td><span class="tag county">county</span> <span class="tag config">+ config</span></td></tr>
       <tr><td>Infrastructure Burden</td><td>Fiscal cost-to-serve vs. the revenue the parcel generates</td><td>Census of Governments spending + ACS tax model (per county)</td><td><span class="tag county">county</span></td></tr>
-      <tr><td>Health Impact</td><td>Neighborhood health outcomes index (percentile)</td><td>CDC PLACES</td><td><span class="tag tract">tract</span></td></tr>
-      <tr><td>Socioeconomic</td><td>Neighborhood socioeconomic index (percentile)</td><td>Census ACS</td><td><span class="tag tract">tract</span></td></tr>
-      <tr><td>Walkability</td><td>How walkable the location is</td><td>Walk Score API</td><td><span class="tag point">point</span></td></tr>
+      <tr><td>Health Impact</td><td>Neighborhood health outcomes (national percentile)</td><td>CDC PLACES</td><td><span class="tag tract">tract</span></td></tr>
+      <tr><td>Socioeconomic</td><td>Neighborhood socioeconomic index (national percentile)</td><td>Census ACS</td><td><span class="tag tract">tract</span></td></tr>
+      <tr><td>Walkability</td><td>How walkable the location is</td><td>EPA National Walkability Index</td><td><span class="tag tract">tract</span></td></tr>
       <tr><td>Climate Projections</td><td>Projected extreme heat, heavy precip/flood &amp; drought (RCP4.5&ndash;8.5, mid-century)</td><td>NOAA/DOI CMRA (LOCA/NCA4)</td><td><span class="tag county">county</span></td></tr>
     </tbody>
   </table>
