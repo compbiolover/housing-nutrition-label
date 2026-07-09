@@ -643,6 +643,7 @@ def simulate_all_dimensions(
             f"{climate_proj['score_low']}–{climate_proj['score_high']}")
 
     dims = []
+    from housing_label.data.national_percentile import national_percentile
     for key, label in DIMENSIONS:
         score = scores[key]
         dims.append({
@@ -650,6 +651,8 @@ def simulate_all_dimensions(
             "label": label,
             "score": None if score is None else round(float(score), 1),
             "national_grade": score_to_grade(score) if score is not None else "—",
+            # National percentile ("vs US homes", higher = better than more homes).
+            "national_percentile": national_percentile(key, score),
             "kind": "location" if key in LOCATION_DRIVEN else "construction",
         })
 
