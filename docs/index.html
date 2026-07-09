@@ -31,6 +31,17 @@
       color: var(--muted); flex: 1 1 140px; }
     .addr-fields input, .addr-fields select { font: inherit; padding: 0.45rem 0.6rem;
       border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); color: var(--text); }
+    .field-tag { font-size: 0.68rem; font-weight: 600; padding: 0.05rem 0.4rem; border-radius: 999px;
+      vertical-align: middle; white-space: nowrap; }
+    .field-tag.confirmed { background: #dcfce7; color: #166534; }
+    .field-tag.estimated { background: #e0e7ff; color: #3730a3; }
+    .field-tag.assumed   { background: #f1f5f9; color: #475569; }
+    .refine-count { font-weight: 500; font-size: 0.82rem; color: var(--muted); }
+    @media (prefers-color-scheme: dark) {
+      .field-tag.confirmed { background: #14532d; color: #bbf7d0; }
+      .field-tag.estimated { background: #312e81; color: #c7d2fe; }
+      .field-tag.assumed   { background: #334155; color: #cbd5e1; }
+    }
     .addr-upgrades { border: 1px solid var(--border); border-radius: var(--radius);
       padding: 0.6rem 0.9rem; margin: 0.4rem 0; display: grid;
       grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.35rem; }
@@ -110,24 +121,28 @@
         <ul class="addr-suggest" id="addr-suggest" role="listbox" hidden></ul>
       </div>
       <select id="addr-preset" aria-label="Construction profile">
-        <option value="baseline">Baseline (2000 frame)</option>
-        <option value="premium">Premium (2026 brick)</option>
-        <option value="icf-passive">ICF Passive (2026, solar)</option>
-        <option value="fortified-gold">FORTIFIED Gold (2026 frame)</option>
-        <option value="worst-case">Worst Case (1945 frame)</option>
+        <option value="detected" selected>Detected from address</option>
+        <option value="baseline">Hypothetical: Baseline (2000 frame)</option>
+        <option value="premium">Hypothetical: Premium (2026 brick)</option>
+        <option value="icf-passive">Hypothetical: ICF Passive (2026, solar)</option>
+        <option value="fortified-gold">Hypothetical: FORTIFIED Gold (2026 frame)</option>
+        <option value="worst-case">Hypothetical: Worst Case (1945 frame)</option>
       </select>
       <button type="submit" id="addr-btn">Score it</button>
     </form>
 
-    <details class="addr-details">
-      <summary>Construction details (optional &mdash; these override the profile)</summary>
+    <details class="addr-details" id="addr-refine">
+      <summary><span id="refine-title">Refine building details</span> <span id="refine-count" class="refine-count"></span></summary>
+      <p class="addr-hint" id="refine-lead" style="margin:0 0 0.5rem;font-size:0.82rem;opacity:0.85;">
+        We estimate these from public data (USACE structure records + Census) and score with them. Anything looks off? Edit it and the label updates. Living area is <strong>per unit</strong>.
+      </p>
       <div class="addr-fields">
-        <label>Year built
+        <label>Year built <span class="field-tag" id="tag-year_built"></span>
           <input type="number" id="d-year" min="1850" max="2030" step="1" placeholder="e.g. 1998">
         </label>
-        <label>Wall type
+        <label>Wall type <span class="field-tag" id="tag-construction"></span>
           <select id="d-construction">
-            <option value="">(use profile)</option>
+            <option value="">(unknown)</option>
             <option value="frame">Wood frame</option>
             <option value="brick">Brick (masonry)</option>
             <option value="brick-frame">Brick veneer / frame</option>
@@ -138,13 +153,39 @@
             <option value="vinyl">Vinyl-sided frame</option>
           </select>
         </label>
-        <label>Living area (sqft, per unit)
-          <input type="number" id="d-sqft" min="200" max="20000" step="50" placeholder="e.g. 2000 — one unit, not the whole building">
+        <label>Foundation <span class="field-tag" id="tag-foundation"></span>
+          <select id="d-foundation">
+            <option value="">(unknown)</option>
+            <option value="slab">Slab on grade</option>
+            <option value="crawl">Crawlspace</option>
+            <option value="partial-basement">Partial basement</option>
+            <option value="full-basement">Full basement</option>
+          </select>
         </label>
-        <label>Dwelling units
-          <input type="number" id="d-units" min="1" max="500" step="1" placeholder="e.g. 1 (house), 4 (quadplex)">
+        <label>Condition <span class="field-tag" id="tag-condition"></span>
+          <select id="d-condition">
+            <option value="">(unknown)</option>
+            <option value="excellent">Excellent</option>
+            <option value="good">Good</option>
+            <option value="average">Average</option>
+            <option value="fair">Fair</option>
+            <option value="poor">Poor</option>
+            <option value="unsound">Unsound</option>
+          </select>
         </label>
-        <label>Building material
+        <label>Living area (sqft, per unit) <span class="field-tag" id="tag-sqft"></span>
+          <input type="number" id="d-sqft" min="200" max="20000" step="50" placeholder="one unit, not the whole building">
+        </label>
+        <label>Home value ($) <span class="field-tag" id="tag-value"></span>
+          <input type="number" id="d-value" min="1000" max="100000000" step="1000" placeholder="market value">
+        </label>
+        <label>Lot size (acres) <span class="field-tag" id="tag-lot_acres"></span>
+          <input type="number" id="d-lot_acres" min="0.01" max="1000" step="0.01" placeholder="e.g. 0.18">
+        </label>
+        <label>Dwelling units <span class="field-tag" id="tag-units"></span>
+          <input type="number" id="d-units" min="1" max="500" step="1" placeholder="1 (house), 4 (quadplex)">
+        </label>
+        <label>Building material <span class="field-tag" id="tag-bldg_material"></span>
           <select id="d-material">
             <option value="">(if a multi-unit building)</option>
             <option value="wood">Wood frame</option>
@@ -153,11 +194,10 @@
             <option value="steel">Steel frame</option>
           </select>
         </label>
-        <label>Stories
-          <input type="number" id="d-stories" min="1" max="150" step="1" placeholder="floors (if multi-unit)">
+        <label>Stories <span class="field-tag" id="tag-stories"></span>
+          <input type="number" id="d-stories" min="1" max="150" step="1" placeholder="floors">
         </label>
       </div>
-      <p class="addr-hint" style="margin:0.35rem 0 0;font-size:0.82rem;opacity:0.8;">For an apartment or condo that the address doesn't detect as multi-unit, enter its <strong>units</strong>, <strong>material</strong>, and <strong>stories</strong> so Resilience &amp; Durability score the real building. Living area is <strong>per unit</strong> &mdash; one representative dwelling, not the whole building.</p>
       <fieldset class="addr-upgrades">
         <legend>Resilience upgrades</legend>
         <label><input type="checkbox" value="solar"> Solar panels</label>
@@ -280,7 +320,7 @@
   <table class="data-table">
     <thead><tr><th>Source</th><th>Provides</th><th>Access</th></tr></thead>
     <tbody>
-      <tr><td>County assessor records</td><td>Parcels, building characteristics, appraisal values</td><td class="free">Free, public</td></tr>
+      <tr><td>USACE National Structure Inventory</td><td>Building details auto-filled from the address (sqft, stories, foundation, material, year)</td><td class="free">Free, public</td></tr>
       <tr><td>FEMA NFHL</td><td>Flood zone designations</td><td class="free">Free, no key</td></tr>
       <tr><td>NOAA Climate Normals</td><td>Temperature, degree days, precipitation</td><td class="free">Free, no key</td></tr>
       <tr><td>SPC Historical Tornadoes</td><td>Tornado frequency &amp; intensity</td><td class="free">Free, no key</td></tr>
@@ -461,6 +501,90 @@
       .finally(function () { densBtn.disabled = false; });
   });
 
+  // ── Auto-fill "Refine building details" panel ────────────────────────────────
+  // Each construction-profile field maps to its input. Untouched fields are
+  // auto-derived server-side from the address (NSI + Census); only fields the user
+  // actually edits are sent as overrides, so the rest keep auto-deriving.
+  var FIELD_IDS = {
+    year_built: "d-year", construction: "d-construction", foundation: "d-foundation",
+    condition: "d-condition", sqft: "d-sqft", value: "d-value", lot_acres: "d-lot_acres",
+    units: "d-units", bldg_material: "d-material", stories: "d-stories"
+  };
+  var TAG_LABEL = { confirmed: "you edited", estimated: "estimated", assumed: "default" };
+  var refine = document.getElementById("addr-refine");
+  var refineCount = document.getElementById("refine-count");
+  var touched = {};         // field -> true when the user has edited it
+  var currentLoc = null;    // {lat,lon} or {address} of the scored point, reused on re-score
+
+  function fieldEl(field) { return document.getElementById(FIELD_IDS[field]); }
+
+  // Reflect the server's per-field provenance into the panel: set each input's
+  // value (unless the user is mid-edit) and its confidence tag; summarise coverage.
+  function applyBuilding(building) {
+    var estimated = 0, total = 0;
+    Object.keys(FIELD_IDS).forEach(function (field) {
+      var el = fieldEl(field), tag = document.getElementById("tag-" + field);
+      var info = building && building[field];
+      if (!el || !tag) return;
+      if (!info) { tag.className = "field-tag"; tag.textContent = ""; return; }
+      total++;
+      if (info.status === "estimated") estimated++;
+      var status = touched[field] ? "confirmed" : info.status;
+      if (document.activeElement !== el) {
+        el.value = info.value == null ? "" : info.value;
+      }
+      tag.className = "field-tag " + status;
+      tag.textContent = TAG_LABEL[status] || status;
+      tag.title = (info.source || "") + (info.confidence ? " · " + info.confidence + " confidence" : "");
+    });
+    refineCount.textContent = total
+      ? "— " + estimated + " of " + total + " estimated from public data (edit any to refine)"
+      : "";
+    if (total && !refine.open) refine.open = true;   // reveal the prefilled panel
+  }
+
+  function buildParams() {
+    var params = new URLSearchParams();
+    if (currentLoc.lat != null) { params.set("lat", currentLoc.lat); params.set("lon", currentLoc.lon); }
+    else { params.set("address", currentLoc.address); }
+    // A hypothetical preset overrides address auto-fill; "detected" sends none.
+    if (preset.value && preset.value !== "detected") params.set("preset", preset.value);
+    // Only user-edited fields are sent as overrides (the rest auto-derive).
+    Object.keys(FIELD_IDS).forEach(function (field) {
+      if (!touched[field]) return;
+      var v = fieldEl(field).value.trim ? fieldEl(field).value.trim() : fieldEl(field).value;
+      if (v !== "") params.set(field, v);
+    });
+    var ups = Array.prototype.slice
+      .call(document.querySelectorAll(".addr-upgrades input:checked"))
+      .map(function (c) { return c.value; });
+    if (ups.length) params.set("upgrades", ups.join(","));
+    return { params: params, ups: ups };
+  }
+
+  function score() {
+    if (!API_BASE) { status.textContent = ""; note.style.display = ""; return; }
+    var built = buildParams();
+    var edited = Object.keys(touched).length > 0;
+    var isPreset = preset.value && preset.value !== "detected";
+    var ctx = {
+      presetLabel: isPreset ? preset.options[preset.selectedIndex].text : "This home",
+      isCustom: edited || built.ups.length > 0,
+      upgradeLabels: built.ups.map(function (v) { return UPGRADE_LABELS[v] || v; })
+    };
+    status.textContent = "Scoring …"; btn.disabled = true;
+    fetch(API_BASE + "/label?" + built.params.toString())
+      .then(function (r) { if (!r.ok) return r.json().then(function (j) { throw new Error(j.detail || ("HTTP " + r.status)); }); return r.json(); })
+      .then(function (data) {
+        status.textContent = ""; render(data, ctx);
+        applyBuilding(data.building);
+        lastParams = built.params.toString();
+        densWrap.hidden = false;
+      })
+      .catch(function (err) { status.textContent = "Could not score that address: " + err.message; })
+      .finally(function () { btn.disabled = false; });
+  }
+
   form.addEventListener("submit", function (e) {
     e.preventDefault();
     var addr = input.value.trim();
@@ -468,58 +592,28 @@
     if (!API_BASE) { status.textContent = ""; note.style.display = ""; return; }
     result.innerHTML = "";
     densWrap.hidden = true; densResult.innerHTML = ""; densStatus.textContent = "";
-    status.textContent = "Scoring " + addr + " …";
-    btn.disabled = true;
     ac.close();
-
-    // Optional construction details override the chosen profile.
-    var params = new URLSearchParams();
-    // A picked suggestion carries exact coords — score that point directly (no
-    // re-geocode). Otherwise fall back to geocoding the typed address server-side.
+    touched = {};                     // a new address is a fresh building
     var picked = ac.picked();
-    if (picked && picked.label === addr) {
-      params.set("lat", picked.lat);
-      params.set("lon", picked.lon);
-    } else {
-      params.set("address", addr);
-    }
-    params.set("preset", preset.value);
-    var year = document.getElementById("d-year").value.trim();
-    var constr = document.getElementById("d-construction").value;
-    var sqft = document.getElementById("d-sqft").value.trim();
-    var unitsIn = document.getElementById("d-units").value.trim();
-    var material = document.getElementById("d-material").value;
-    var stories = document.getElementById("d-stories").value.trim();
-    if (year)   params.set("year_built", year);
-    if (constr) params.set("construction", constr);
-    if (sqft)   params.set("sqft", sqft);
-    if (unitsIn) params.set("units", unitsIn);
-    if (material) params.set("bldg_material", material);
-    if (stories) params.set("stories", stories);
-    var ups = Array.prototype.slice
-      .call(document.querySelectorAll(".addr-upgrades input:checked"))
-      .map(function (c) { return c.value; });
-    if (ups.length) params.set("upgrades", ups.join(","));
-
-    // Any override (field or upgrade) makes the scored build "Custom" rather
-    // than the selected base profile. Capture context for the result header.
-    var ctx = {
-      presetLabel: preset.options[preset.selectedIndex].text,
-      isCustom: !!(year || constr || sqft || unitsIn || material || stories || ups.length),
-      upgradeLabels: ups.map(function (v) { return UPGRADE_LABELS[v] || v; })
-    };
-
-    var url = API_BASE + "/label?" + params.toString();
-    fetch(url)
-      .then(function (r) { if (!r.ok) return r.json().then(function (j) { throw new Error(j.detail || ("HTTP " + r.status)); }); return r.json(); })
-      .then(function (data) {
-        status.textContent = ""; render(data, ctx);
-        lastParams = params.toString();   // reuse the exact inputs for /density
-        densWrap.hidden = false;
-      })
-      .catch(function (err) { status.textContent = "Could not score that address: " + err.message; })
-      .finally(function () { btn.disabled = false; });
+    currentLoc = (picked && picked.label === addr)
+      ? { lat: picked.lat, lon: picked.lon } : { address: addr };
+    status.textContent = "Scoring " + addr + " …";
+    score();
   });
+
+  // Editing any detail marks it user-confirmed and re-scores; clearing it lets the
+  // field auto-derive again. A blank <select>/<input> means "unknown → re-derive".
+  Object.keys(FIELD_IDS).forEach(function (field) {
+    var el = fieldEl(field);
+    if (!el) return;
+    el.addEventListener("change", function () {
+      var v = (el.value || "").trim();
+      if (v === "") { delete touched[field]; } else { touched[field] = true; }
+      if (currentLoc) score();
+    });
+  });
+  // Switching the construction profile (detected ↔ hypothetical) re-scores.
+  preset.addEventListener("change", function () { if (currentLoc) score(); });
 
   // Deep link: ?address=... prefills the field and runs the search automatically.
   // ?preset= optionally picks a profile.
