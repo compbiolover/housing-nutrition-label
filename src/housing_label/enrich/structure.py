@@ -194,7 +194,7 @@ def _result(props: dict, structure_type, num_units, *, units_confidence, detecti
     """Assemble the structure result dict from the addressed structure's props.
 
     ``drop_shell`` clears the material/stories for a heuristically detected site,
-    where the nearest structure is a mislabeled house and its shell is unreliable."""
+    where the selected structure is a mislabeled house and its shell is unreliable."""
     stories = _num(props.get("num_story"))
     yr = _num(props.get("med_yr_blt"))
     btype = (props.get("bldgtype") or "").upper()
@@ -244,15 +244,15 @@ def _classify_site(props_list: list[dict], lat: float, lon: float) -> dict | Non
     if not props_list:
         return None
 
-    nearest = _select_structure(props_list, lat, lon)
-    if nearest is None:                 # no usable coordinates → can't identify a structure
+    selected = _select_structure(props_list, lat, lon)
+    if selected is None:                # no usable coordinates → can't identify a structure
         return None
-    nearest_type = _classify(nearest.get("occtype"))
+    selected_type = _classify(selected.get("occtype"))
 
     # A genuine RES3 at the address → reliable multi-family detection.
-    if nearest_type == "multifamily":
-        return _result(nearest, "multifamily",
-                       _units_for(nearest.get("occtype"), nearest.get("resunits")),
+    if selected_type == "multifamily":
+        return _result(selected, "multifamily",
+                       _units_for(selected.get("occtype"), selected.get("resunits")),
                        units_confidence="detected", detection="nsi")
 
     # Otherwise inspect the whole site. NSI often models an apartment complex as a
@@ -269,13 +269,13 @@ def _classify_site(props_list: list[dict], lat: float, lon: float) -> dict | Non
     footprints = Counter(round(v) for v in (_num(p.get("sqft")) for p in res1) if v)
     cluster = footprints.most_common(1)[0][1] if footprints else 0
     if cluster >= _CLUSTER_MIN or len(res3) >= _RES3_DISTRICT_MIN:
-        return _result(nearest, "multifamily", _estimate_units(res3),
+        return _result(selected, "multifamily", _estimate_units(res3),
                        units_confidence="estimated", detection="nsi-cluster",
                        drop_shell=True)
 
     # Single-family / manufactured / other — classify from the addressed structure.
-    return _result(nearest, nearest_type,
-                   _units_for(nearest.get("occtype"), nearest.get("resunits")),
+    return _result(selected, selected_type,
+                   _units_for(selected.get("occtype"), selected.get("resunits")),
                    units_confidence="detected", detection="nsi")
 
 
@@ -289,7 +289,7 @@ def structure_for_point(lat: float, lon: float,
     cluster (NSI's signature for a templated apartment complex it modeled as
     single-family structures) or a dense RES3 district. In those
     cases ``units_confidence`` is ``"estimated"`` and ``detection`` is
-    ``"nsi-cluster"``, and the shell material/height are left unset (the nearest
+    ``"nsi-cluster"``, and the shell material/height are left unset (the selected
     structure is a mislabeled house).
 
     Result keys: ``structure_type`` (single_family | manufactured | multifamily |
