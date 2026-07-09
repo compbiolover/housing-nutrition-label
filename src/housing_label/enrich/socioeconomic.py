@@ -39,19 +39,16 @@ ACS measures used
 
 socioeconomic_index
 -------------------
-  Three headline metrics are each ranked 0–100 percentile relative to ALL
-  Shelby County tracts in the ACS dataset (not just the parcel sample), then
-  oriented so 100 = least economic stress:
+  The socioeconomic_index is a NATIONAL percentile score (0–100, 100 = least
+  economic stress), scored against the full national distribution of US census
+  tracts — household-weighted — from the bundled crosswalk
+  (data/socioeconomic.py, built by scripts/build_socio_ref.py). It blends three
+  metrics (poverty & housing-cost-burden inverted, income direct) and is NOT a
+  within-county rank, so a value means the same thing in Memphis and in Denver.
+  The raw three metric columns are still the tract's own ACS values.
 
-    poverty_rate_pct        inverted  (lower poverty  → higher score)
-    median_household_income direct    (higher income  → higher score)
-    housing_cost_burden_pct inverted  (lower burden   → higher score)
-
-  socioeconomic_index = mean of the three 0–100 scores.
-  Range: 0–100   |   100 = least economically stressed vs. county peers.
-
-  This answers: "How does this neighborhood rank for economic security
-  compared to every other census tract in Shelby County?"
+  This answers: "How does this neighborhood's economic security compare to every
+  census tract in the United States?"
 
 Columns added
 -------------
@@ -61,7 +58,7 @@ Columns added
   housing_cost_burden_pct  % of households paying ≥ 30 % of income on housing
   cost_burden_owner_pct    same, owner-occupied households only
   cost_burden_renter_pct   same, renter-occupied households only
-  socioeconomic_index      0–100 composite (100 = least stressed vs. peers)
+  socioeconomic_index      0–100 composite (100 = least stressed vs. all US tracts)
 """
 
 from __future__ import annotations
@@ -171,8 +168,9 @@ def fetch_acs_data(year: int, state_fips: str = STATE_FIPS,
 
     Tries the requested `year` and steps back up to YEAR_FALLBACK vintages if
     that release is not yet published.  Returns a DataFrame indexed by 11-digit
-    tract GEOID with the headline metrics plus a pre-computed socioeconomic_index
-    (percentile-ranked across all county tracts), and the vintage actually used.
+    tract GEOID with the headline metrics plus the socioeconomic_index (a NATIONAL
+    percentile from the bundled crosswalk, not a within-county rank), and the
+    vintage actually used.
 
     `state_fips` (2-digit) and `county_fips` (3-digit) default to Shelby County.
     """
@@ -250,7 +248,8 @@ def _acs_to_frame(records: list) -> pd.DataFrame:
 
 
 def _compute_socio(df: pd.DataFrame) -> pd.DataFrame:
-    """Derive headline metrics and the percentile-ranked socioeconomic_index."""
+    """Derive headline ACS metrics; socioeconomic_index is the NATIONAL percentile
+    from the bundled crosswalk (data/socioeconomic.py), not a within-county rank."""
     out = pd.DataFrame(index=df.index)
 
     # Poverty rate.
@@ -272,18 +271,25 @@ def _compute_socio(df: pd.DataFrame) -> pd.DataFrame:
     out["cost_burden_renter_pct"]  = _safe_div(renter_30, renter_den)
     out["housing_cost_burden_pct"] = _safe_div(owner_30 + renter_30, total_den)
 
-    # ── Percentile scores (computed across all county tracts) ─────────────────
-    # rank(pct=True) → 0–1.  Orient every component so 100 = least stressed.
-    pov_rank    = out["poverty_rate_pct"].rank(pct=True, na_option="keep")
-    burden_rank = out["housing_cost_burden_pct"].rank(pct=True, na_option="keep")
-    inc_rank    = out["median_household_income"].rank(pct=True, na_option="keep")
+    # ── National socioeconomic index (bundled, offline) ───────────────────────
+    # socioeconomic_index is scored against the FULL NATIONAL distribution of US
+    # census tracts (household-weighted), NOT ranked within this county — so a
+    # value is comparable across locations (the old within-county rank made a
+    # median tract score ~50 in every county). From the bundled crosswalk
+    # (data/socioeconomic.py, built by scripts/build_socio_ref.py); tracts absent
+    # from it fall back tract -> county, and a national-only fallback (no local
+    # data) is left unscored (NaN) rather than filled with a placeholder. The raw
+    # metric columns above remain the tract's own ACS values.
+    from housing_label.data import socioeconomic as socio_ref
 
-    score_pov    = (1.0 - pov_rank)    * 100.0   # lower poverty → higher score
-    score_burden = (1.0 - burden_rank) * 100.0   # lower burden  → higher score
-    score_inc    = inc_rank            * 100.0   # higher income → higher score
+    def _national_idx(geoid: str) -> float:
+        r = socio_ref.socio_for_tract(geoid)
+        return r["socioeconomic_index"] if r["resolved"] \
+            and r["socioeconomic_index"] is not None else float("nan")
 
-    scores = pd.concat([score_pov, score_inc, score_burden], axis=1)
-    out["socioeconomic_index"] = scores.mean(axis=1, skipna=True).round(1)
+    out["socioeconomic_index"] = pd.Series(
+        {g: _national_idx(g) for g in out.index}, dtype="float64"
+    ).round(1)
 
     # Reorder to the documented column layout (index holds census_tract).
     return out[[c for c in SOCIO_COLS if c != "census_tract"]]

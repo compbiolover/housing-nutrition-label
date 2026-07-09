@@ -35,3 +35,6 @@ dist/
 *.txt
 *.pdf
 Your Walk Score API Key.pdf
+
+# ACS Summary-File download cache for scripts/build_socio_ref.py
+.socio_cache/

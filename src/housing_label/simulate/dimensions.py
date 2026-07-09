@@ -48,6 +48,7 @@ from housing_label.enrich.durability import model_parcel_durability
 from housing_label.enrich.environmental import model_parcel_environment
 from housing_label.enrich.infrastructure import enrich_row as infra_enrich_row
 from housing_label.data import health as health_data
+from housing_label.data import socioeconomic as socio_data
 
 
 # Markers set on cfg["value_source"] when the home value is an auto-filled *per-unit*
@@ -408,16 +409,10 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
 
 
 # ── Location-driven dimensions ──────────────────────────────────────────────────
-# Health is now a bundled, offline NATIONAL lookup (data/health.py) — no live CDC
-# fetch and no within-county ranking — so it is comparable across locations.
-@lru_cache(maxsize=8)
-def _acs_table(state_fips: str, county3: str):
-    """Census ACS table (tract → socioeconomic_index) for a county. Cached."""
-    from housing_label.enrich import socioeconomic as socio_mod
-    table, _vintage = socio_mod.fetch_acs_data(socio_mod.DEFAULT_YEAR, state_fips, county3)
-    return table
-
-
+# Health and Socioeconomic are now bundled, offline NATIONAL lookups
+# (data/health.py, data/socioeconomic.py) — no live CDC/ACS fetch, no
+# CENSUS_API_KEY, and no within-county ranking — so they are comparable across
+# locations. Only tract geocoding and (optional) Walk Score still hit the network.
 @lru_cache(maxsize=256)
 def _tract_for(lat: float, lon: float) -> str | None:
     from housing_label.enrich import health as health_mod
@@ -476,7 +471,6 @@ def fetch_location_dimensions(
             notes["health"] = notes.get("health") or f"geocoder failed: {exc}"
             notes["socioeconomic"] = notes.get("socioeconomic") or f"geocoder failed: {exc}"
     out["_tract"] = tract
-    county5 = tract[:5] if tract else None       # state(2)+county(3) from GEOID
 
     # Health (CDC PLACES NATIONAL percentile index — bundled, offline). Works with
     # or without network as long as a tract is known; scored against the full
@@ -497,24 +491,21 @@ def fetch_location_dimensions(
         else:
             notes.setdefault("health", "no census tract")
 
-    # Socioeconomic (Census ACS percentile index for the tract).
-    # The Census ACS API now requires a key — short-circuit with a clear note
-    # rather than burning retries on the missing-key redirect.
+    # Socioeconomic (Census ACS NATIONAL percentile index — bundled, offline). No
+    # live ACS call and no CENSUS_API_KEY: the value is a national percentile from
+    # the bundled crosswalk, not a within-county rank, so it is comparable across
+    # locations. Resolves tract -> county; a national-only fallback (no local data)
+    # is left unscored rather than filled with a placeholder.
     if out["socioeconomic"] is None:
-        if not allow_network:
+        if tract:
+            res = socio_data.socio_for_tract(tract)
+            if res["resolved"] and res["socioeconomic_index"] is not None:
+                out["socioeconomic"] = round(float(res["socioeconomic_index"]), 1)
+                notes["socioeconomic"] = res["label"]
+            else:
+                notes["socioeconomic"] = f"no socioeconomic data for tract {tract}"
+        elif not allow_network:
             notes.setdefault("socioeconomic", "skipped (--no-fetch)")
-        elif not os.environ.get("CENSUS_API_KEY", "").strip():
-            notes["socioeconomic"] = "no CENSUS_API_KEY"
-        elif tract and county5:
-            try:
-                table = _acs_table(county5[:2], county5[2:])
-                if tract in table.index and not pd.isna(table.loc[tract, "socioeconomic_index"]):
-                    out["socioeconomic"] = round(float(table.loc[tract, "socioeconomic_index"]), 1)
-                    notes["socioeconomic"] = f"Census ACS (tract {tract})"
-                else:
-                    notes["socioeconomic"] = f"no ACS data for tract {tract}"
-            except Exception as exc:  # noqa: BLE001
-                notes["socioeconomic"] = f"ACS fetch failed: {exc}"
         else:
             notes.setdefault("socioeconomic", "no census tract")
 

@@ -46,26 +46,35 @@ def _tract(pov_below, pov_total, income, burden_30, hh_total):
     return row
 
 
-def test_compute_socio_index_orientation():
-    """100 = least economic stress: the affluent, low-poverty, low-burden tract
-    must outrank the distressed one."""
+def test_compute_socio_derives_metrics():
+    """The raw ACS headline metrics are derived correctly (poverty & burden rise
+    with economic stress; income is the tract's own value)."""
     df = pd.DataFrame(
         {
             "good": _tract(pov_below=20, pov_total=1000, income=140000, burden_30=50, hh_total=1000),
-            "mid":  _tract(pov_below=150, pov_total=1000, income=70000, burden_30=250, hh_total=1000),
             "bad":  _tract(pov_below=400, pov_total=1000, income=28000, burden_30=600, hh_total=1000),
         }
     ).T
     df.index.name = "census_tract"
 
     out = S._compute_socio(df)
-    idx = out["socioeconomic_index"]
-    assert idx["good"] > idx["mid"] > idx["bad"]
-    # Derived headline metrics are oriented correctly.
     assert out.loc["good", "poverty_rate_pct"] < out.loc["bad", "poverty_rate_pct"]
     assert out.loc["good", "housing_cost_burden_pct"] < out.loc["bad", "housing_cost_burden_pct"]
-    # Index stays within bounds.
+    assert out.loc["good", "median_household_income"] == 140000
+    idx = out["socioeconomic_index"]
     assert (idx.dropna() >= 0).all() and (idx.dropna() <= 100).all()
+
+
+def test_compute_socio_index_is_national():
+    """socioeconomic_index comes from the bundled NATIONAL crosswalk (comparable
+    across locations), NOT a within-input rank: a real tract matches the loader."""
+    from housing_label.data import socioeconomic as sref
+    geoid = "47157000100"                       # a real Shelby tract in the crosswalk
+    df = pd.DataFrame({geoid: _tract(50, 1000, 90000, 100, 1000)}).T
+    df.index.name = "census_tract"
+    out = S._compute_socio(df)
+    assert out.loc[geoid, "socioeconomic_index"] == \
+        sref.socio_for_tract(geoid)["socioeconomic_index"]
 
 
 def test_compute_socio_output_columns():
