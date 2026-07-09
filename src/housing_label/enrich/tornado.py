@@ -160,7 +160,7 @@ def _point_counts(lat: float, lon: float, slat, slon, mags) -> dict[str, object]
     blat, blon, bmag = slat[i0:i1], slon[i0:i1], mags[i0:i1]
 
     lon_margin = BBOX_DEG / max(math.cos(math.radians(lat)), 0.1)
-    dlon = np.abs(((blon - lon + 180.0) % 360.0) - 180.0)   # signed minimal Δlon, wraparound-safe
+    dlon = np.abs(((blon - lon + 180.0) % 360.0) - 180.0)   # absolute minimal Δlon, wraparound-safe
     keep = dlon <= lon_margin
     blat, blon, bmag = blat[keep], blon[keep], bmag[keep]
 
