@@ -24,12 +24,13 @@ Dimensions
   health          CDC PLACES health_index (already 0–100; used directly).
   socioeconomic   Census ACS socioeconomic_index (already 0–100, higher = less
                   economic stress; used directly).
-  walkability     Walk Score API.  Walk Score is already 0–100 and used directly
-                  as the dimension score; where transit and bike scores are also
-                  available a composite is taken (60% walk + 25% transit + 15%
-                  bike), weighted toward walkability since it matters most for
-                  daily life.  Walk scores live in shelby_parcels_enriched.csv
-                  (a separate, API-gated enrichment) and are merged in on PARID.
+  walkability     EPA National Walkability Index (bundled, keyless, national —
+                  data/walkability.py), resolved per parcel by census tract. This
+                  is the storable, quota-free default (the Walk Score API's Terms
+                  of Use prohibit storing scores). An optional Walk Score
+                  enrichment (walk_score in shelby_parcels_enriched.csv, merged on
+                  PARID) is still honoured when present — 60% walk + 25% transit +
+                  15% bike.
   climate         Climate Projections: sub-county downscaled climate-hazard
                   score (CMIP6-LOCA2 heat/precip/drought + Argonne ClimRR Fire
                   Weather Index fire leg, SSP2-4.5 mid-century) from
@@ -230,26 +231,40 @@ def score_climate(df: pd.DataFrame) -> pd.Series:
 
 
 def score_walkability(df: pd.DataFrame) -> pd.Series:
-    """Walk Score → 0–100 walkability score.
+    """0–100 walkability score (higher = more walkable).
 
-    Walk Score is already a 0–100 score, so the raw ``walk_score`` is used
-    directly.  Where a parcel also has a transit and bike score, a composite is
-    taken — 60% walk + 25% transit + 15% bike — weighted toward walkability
-    because it matters most for daily life.  Parcels missing one of the optional
-    sub-scores fall back to the raw walk score; parcels with no walk score at all
-    stay NaN (unscored)."""
-    walk    = pd.to_numeric(df.get("walk_score"),    errors="coerce").clip(0, 100)
-    transit = pd.to_numeric(df.get("transit_score"), errors="coerce").clip(0, 100)
-    bike    = pd.to_numeric(df.get("bike_score"),    errors="coerce").clip(0, 100)
+    Default source is the bundled **EPA National Walkability Index** (keyless,
+    storable, national — data/walkability.py), resolved per parcel by census tract
+    (tract -> county -> national). If an optional Walk Score enrichment was merged
+    in (``walk_score`` present), it is used instead — 60% walk + 25% transit + 15%
+    bike where the sub-scores exist — so an existing Walk Score run is honoured,
+    but no Walk Score API call (or its cache-prohibiting Terms of Use) is required
+    by default."""
+    walk = pd.to_numeric(df.get("walk_score"), errors="coerce").clip(0, 100)
+    if walk.notna().any():
+        transit = pd.to_numeric(df.get("transit_score"), errors="coerce").clip(0, 100)
+        bike    = pd.to_numeric(df.get("bike_score"),    errors="coerce").clip(0, 100)
+        composite = (WALK_WEIGHTS["walk_score"]     * walk
+                     + WALK_WEIGHTS["transit_score"] * transit
+                     + WALK_WEIGHTS["bike_score"]    * bike)
+        have_all = transit.notna() & bike.notna()
+        out = np.where(have_all, composite, walk)
+        return pd.Series(out, index=df.index).round(1)
 
-    composite = (WALK_WEIGHTS["walk_score"]    * walk
-                 + WALK_WEIGHTS["transit_score"] * transit
-                 + WALK_WEIGHTS["bike_score"]    * bike)
-    # Use the composite only when both optional sub-scores exist; otherwise the
-    # raw walk score.  np.where keeps it vectorised and NaN-safe.
-    have_all = transit.notna() & bike.notna()
-    out = np.where(have_all, composite, walk)
-    return pd.Series(out, index=df.index).round(1)
+    # EPA National Walkability Index by census tract (the keyless default).
+    from housing_label.data import walkability as walk_ref
+    tcol = next((c for c in ("census_tract", "tract", "tract_geoid") if c in df.columns), None)
+    if tcol is None:
+        return pd.Series(float("nan"), index=df.index)
+    geo = _geoid_series(df[tcol], 11)
+
+    def _score(g: str) -> float:
+        r = walk_ref.walkability_for_tract(g)
+        return r["walkability_score"] if r["resolved"] \
+            and r["walkability_score"] is not None else float("nan")
+
+    cache = {g: _score(g) for g in geo.dropna().unique()}
+    return geo.map(cache).astype("float64").round(1)
 
 
 def unscored_scorer(df: pd.DataFrame) -> pd.Series:
@@ -291,7 +306,7 @@ DIMENSIONS: list[Dimension] = [
     # must never masquerade as a middling score).
     Dimension("socioeconomic",  "Socioeconomic",        score_passthrough("socioeconomic_index"), "socioeconomic_index",
               unscored_if_missing=True),
-    Dimension("walkability",    "Walkability",          score_walkability,                       "walk_score"),
+    Dimension("walkability",    "Walkability",          score_walkability,                       "census_tract"),
     Dimension("climate",        "Climate Projections",  score_climate,                           None),
 ]
 

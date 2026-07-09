@@ -27,9 +27,9 @@ CONFIDENCE_NOTES = {
     "durability": "Component-lifespan model from CAMA building attributes + assessor condition.",
     "environmental": "Operational leg strong (metered-equivalent × eGRID2022); embodied-carbon leg flagged low confidence (order-of-magnitude).",
     "infrastructure": "Density cost model calibrated to county spending; documented ±30% on absolute dollars.",
-    "health": "CDC PLACES model-based estimates.",
-    "socioeconomic": "Census ACS (income/poverty/education); unavailable and excluded from the composite without an API key — not a fabricated value.",
-    "walkability": "Walk Score API (unavailable without an API key).",
+    "health": "CDC PLACES model-based tract estimates, scored as a national percentile (bundled, keyless).",
+    "socioeconomic": "Census ACS income/poverty/housing-cost-burden, scored as a national percentile (bundled offline — no API key needed).",
+    "walkability": "EPA National Walkability Index (block-group, aggregated to tract; national, public-domain).",
     "climate": "CMIP6-LOCA2 tract-level projection; scenario band SSP2-4.5 → SSP5-8.5 (mid-century).",
 }
 CONFIDENCE_LEGEND = (

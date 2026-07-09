@@ -240,6 +240,28 @@ def test_override_includes_location_dim():
     assert label["n_scored"] == 6
 
 
+def test_national_location_dims_offline_with_tract():
+    """The three bundled national location dimensions (health, socioeconomic,
+    walkability) score fully OFFLINE from a known tract — no network, no API key,
+    no Walk Score — and their values match the national loaders, with the source +
+    vintage named in the notes (honest labeling)."""
+    from housing_label.simulate.dimensions import fetch_location_dimensions
+    from housing_label.data import health as h_ref
+    from housing_label.data import socioeconomic as s_ref
+    from housing_label.data import walkability as w_ref
+
+    tract = "47157000200"                       # a real, distressed Memphis tract
+    d = fetch_location_dimensions(35.13, -89.99, tract=tract, allow_network=False)
+
+    assert d["health"] == round(h_ref.health_for_tract(tract)["health_index"], 1)
+    assert d["socioeconomic"] == round(s_ref.socio_for_tract(tract)["socioeconomic_index"], 1)
+    assert d["walkability"] == round(w_ref.walkability_for_tract(tract)["walkability_score"], 1)
+
+    assert "CDC PLACES" in d["_notes"]["health"]
+    assert "ACS" in d["_notes"]["socioeconomic"]
+    assert "EPA National Walkability Index" in d["_notes"]["walkability"]
+
+
 def test_embodied_amortized_over_service_life():
     """Embodied carbon is amortized over the shell's service life: a frame shell
     is 60 yr (its embodied sub-score is unchanged from the flat-period model),

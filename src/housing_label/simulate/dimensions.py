@@ -34,7 +34,6 @@ condition="excellent"); the enrichment models speak Shelby County CAMA codes
 
 from __future__ import annotations
 
-import os
 from functools import lru_cache
 
 import numpy as np
@@ -49,6 +48,7 @@ from housing_label.enrich.environmental import model_parcel_environment
 from housing_label.enrich.infrastructure import enrich_row as infra_enrich_row
 from housing_label.data import health as health_data
 from housing_label.data import socioeconomic as socio_data
+from housing_label.data import walkability as walk_data
 
 
 # Markers set on cfg["value_source"] when the home value is an auto-filled *per-unit*
@@ -419,16 +419,6 @@ def _tract_for(lat: float, lon: float) -> str | None:
     return health_mod.get_census_tract(lat, lon)
 
 
-@lru_cache(maxsize=256)
-def _walk_scores(lat: float, lon: float) -> dict:
-    """Walk Score API result (walk/transit/bike) for a coordinate, cached per
-    process — Walk Score is a *paid* key, so repeat/nearby lookups must not re-hit
-    it. Mirrors the caching the other two live location dimensions already use."""
-    api_key = os.environ.get("WALKSCORE_API_KEY", "").strip()
-    from housing_label.enrich import walkscore as walk_mod
-    return walk_mod.fetch_scores(api_key, lat, lon, "")
-
-
 def fetch_location_dimensions(
     lat: float,
     lon: float,
@@ -509,30 +499,24 @@ def fetch_location_dimensions(
         else:
             notes.setdefault("socioeconomic", "no census tract")
 
-    # Walkability (Walk Score API — requires a paid key).
+    # Walkability (EPA National Walkability Index — bundled, offline, public
+    # domain). Replaces the Walk Score API, whose Terms of Use prohibit storing
+    # scores and whose free tier caps at ~5,000 calls/day; NWI needs no key or
+    # quota. Resolves tract -> county; a national-only fallback (no local data) is
+    # left unscored. A caller can still inject a Walk Score (or any walkability
+    # value) via overrides["walkability"].
     if not walk_override:
-        api_key = os.environ.get("WALKSCORE_API_KEY", "").strip()
-        if not allow_network:
+        if tract:
+            res = walk_data.walkability_for_tract(tract)
+            if res["resolved"] and res["walkability_score"] is not None:
+                out["walkability"] = round(float(res["walkability_score"]), 1)
+                notes["walkability"] = res["label"]
+            else:
+                notes["walkability"] = f"no walkability data for tract {tract}"
+        elif not allow_network:
             notes.setdefault("walkability", "skipped (--no-fetch)")
-        elif not api_key:
-            notes["walkability"] = "no WALKSCORE_API_KEY"
         else:
-            try:
-                s = _walk_scores(round(lat, 6), round(lon, 6))
-                walk = s.get("walk_score")
-                transit = s.get("transit_score")
-                bike = s.get("bike_score")
-                if walk is not None:
-                    if transit is not None and bike is not None:
-                        composite = 0.60 * walk + 0.25 * transit + 0.15 * bike
-                    else:
-                        composite = float(walk)
-                    out["walkability"] = round(composite, 1)
-                    notes["walkability"] = "Walk Score API"
-                else:
-                    notes["walkability"] = "Walk Score returned no data"
-            except Exception as exc:  # noqa: BLE001
-                notes["walkability"] = f"Walk Score fetch failed: {exc}"
+            notes.setdefault("walkability", "no census tract")
 
     return out
 
