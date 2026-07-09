@@ -9,6 +9,15 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.30](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.29...v0.1.30) (2026-07-09)
+
+
+### Features
+
+* address auto-fill + per-dimension national percentiles ([#113](https://github.com/compbiolover/housing-nutrition-label/issues/113)) ([ad885f7](https://github.com/compbiolover/housing-nutrition-label/commit/ad885f75e56ea5f58f321c7935f01eb8ee0ba7b5))
+* de-Shelbyfy the batch pipeline + bring auto-fill/percentiles to the Label page ([#114](https://github.com/compbiolover/housing-nutrition-label/issues/114)) ([89f6f9f](https://github.com/compbiolover/housing-nutrition-label/commit/89f6f9fe5d93d196b3b5a9c18de2c307b68729b0))
+* score health, socioeconomic & walkability against national distributions ([#111](https://github.com/compbiolover/housing-nutrition-label/issues/111)) ([d25e8f9](https://github.com/compbiolover/housing-nutrition-label/commit/d25e8f9221220d77b4e9dd3e1a3bcf4b7572a8d7))
+
 ## [0.1.29](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.28...v0.1.29) (2026-07-08)
 
 
