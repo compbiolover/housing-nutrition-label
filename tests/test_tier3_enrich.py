@@ -24,6 +24,14 @@ from housing_label.enrich import seismic as S  # noqa: E402
 from housing_label.enrich import tornado as T  # noqa: E402
 from housing_label.enrich import noaa_climate as N  # noqa: E402
 from housing_label.enrich import seismic_lookup as SL  # noqa: E402
+from housing_label.enrich import infrastructure as I  # noqa: E402
+
+
+def test_as_bool_parses_csv_forms():
+    for v in ("True", "true", "1", "yes", "Y", "t", 1, 1.0, True):
+        assert I._as_bool(v) is True
+    for v in ("False", "false", "0", "no", "n", "f", "", 0, 0.0, False):
+        assert I._as_bool(v) is False
 
 
 # ── region_context ────────────────────────────────────────────────────────────

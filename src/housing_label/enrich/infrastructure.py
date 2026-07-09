@@ -399,6 +399,20 @@ ADDED_COLUMNS = [
 ]
 
 
+def _as_bool(v) -> bool:
+    """Parse a CSV cell into a bool. Python treats every non-empty string as
+    truthy, so ``"False"``/``"0"``/``"no"`` would wrongly read as urban — handle
+    the common string forms explicitly, else fall back to ``bool(v)`` (numbers,
+    real bools)."""
+    if isinstance(v, str):
+        s = v.strip().lower()
+        if s in ("true", "1", "yes", "y", "t"):
+            return True
+        if s in ("false", "0", "no", "n", "f", ""):
+            return False
+    return bool(v)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Enrich parcels with infrastructure cost burden"
@@ -475,7 +489,7 @@ def main() -> None:
         fips = normalize_fips(row.get("county_fips")) if has_fips_col else default_fips
         params = dict(_params_for(fips))
         if has_urban_col and pd.notna(row.get("in_urban_area")):
-            params["in_urban_area"] = bool(row.get("in_urban_area"))
+            params["in_urban_area"] = _as_bool(row.get("in_urban_area"))
         return enrich_row(row, **params)
 
     log.info("Computing infrastructure cost fields …")
