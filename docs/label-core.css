@@ -93,6 +93,30 @@
 .picker select { font: inherit; padding: 0.5rem 0.75rem; border: 1px solid var(--border);
   border-radius: var(--radius); background: var(--card); color: var(--text); min-width: 220px; }
 
+/* ── "Refine building details" auto-fill panel (index.html + label.html) ─────*/
+/* Shared so the address-derived building form + provenance tags look identical
+   on the home hero and the Label page. Page-specific chrome (the dark-hero
+   colour overrides on index) stays inline on that page. */
+.addr-details { margin: 0 0 0.5rem; }
+.addr-details summary { cursor: pointer; color: var(--navy); font-weight: 600; font-size: 0.9rem; padding: 0.3rem 0; }
+.addr-fields { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 0.6rem 0; }
+.addr-fields label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem;
+  color: var(--muted); flex: 1 1 140px; }
+.addr-fields input, .addr-fields select { font: inherit; padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); color: var(--text); }
+.field-tag { font-size: 0.68rem; font-weight: 600; padding: 0.05rem 0.4rem; border-radius: 999px;
+  vertical-align: middle; white-space: nowrap; }
+.field-tag.confirmed { background: #dcfce7; color: #166534; }
+.field-tag.estimated { background: #e0e7ff; color: #3730a3; }
+.field-tag.assumed   { background: #f1f5f9; color: #475569; }
+.refine-count { font-weight: 500; font-size: 0.82rem; color: var(--muted); }
+.addr-upgrades { border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 0.6rem 0.9rem; margin: 0.4rem 0; display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.35rem; }
+.addr-upgrades legend { font-size: 0.85rem; font-weight: 600; color: var(--navy); padding: 0 0.3rem; }
+.addr-upgrades label { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; }
+.addr-upgrades input { width: auto; }
+
 /* ── Per-dimension A→B delta table (compare mode) ───────────────────────────*/
 .delta-table { max-width: 640px; margin: 1.25rem auto 0; border-collapse: collapse; width: 100%; font-size: 0.85rem; }
 .delta-table th, .delta-table td { padding: 0.35rem 0.6rem; border-bottom: 1px solid var(--border); text-align: right; }
@@ -126,4 +150,8 @@
   .cost-delta .cheaper, .delta-table .up { color: #4ade80; }
   .cost-delta .pricier, .delta-table .down { color: #f87171; }
   .addr-suggest li.active, .addr-suggest li:hover { background: #334155; }
+  .field-tag.confirmed { background: #14532d; color: #bbf7d0; }
+  .field-tag.estimated { background: #312e81; color: #c7d2fe; }
+  .field-tag.assumed   { background: #334155; color: #cbd5e1; }
+  .addr-details summary, .addr-upgrades legend { color: #cbd5e1; }
 }
