@@ -36,17 +36,15 @@ Health measures used
 
 health_index
 ------------
-  For each of the 7 measures, each tract is ranked 0–100 percentile relative
-  to ALL Shelby County tracts in the PLACES dataset (not just the parcel
-  sample).  Score is inverted so that 100 = lowest / healthiest prevalence.
+  Each tract's health_index is a NATIONAL percentile score (0–100, 100 = lowest
+  chronic-disease burden), scored against the full national distribution of US
+  census tracts — population-weighted — from the bundled crosswalk
+  (data/health.py, built by scripts/build_health_ref.py). It is NOT a
+  within-county rank, so a value means the same thing in Memphis and in Denver.
+  The raw 7 measure columns are still the tract's own CDC PLACES prevalences.
 
-    score_i = (1 − rank_pct_i) × 100
-
-  health_index = mean of up to 7 individual scores.
-  Range: 0–100   |   100 = healthiest relative to all Shelby County tracts.
-
-  This answers: "How does this neighborhood rank for overall health burden
-  compared to every other census tract in Shelby County?"
+  This answers: "How does this neighborhood's overall health burden compare to
+  every census tract in the United States?"
 
 Columns added
 -------------
@@ -58,7 +56,7 @@ Columns added
   asthma_pct              % adults with current asthma
   high_bp_pct             % adults with high blood pressure
   chd_pct                 % adults with coronary heart disease
-  health_index            0–100 composite (100 = healthiest vs. county peers)
+  health_index            0–100 composite (100 = healthiest vs. all US tracts)
 """
 
 from __future__ import annotations
@@ -137,9 +135,9 @@ def fetch_places_data(county_fips: str = COUNTY_FIPS) -> pd.DataFrame:
     """Download and pivot CDC PLACES census-tract health data for a county.
 
     Returns a DataFrame indexed by locationid (11-digit GEOID) with one column
-    per measure (crude prevalence %) plus a pre-computed health_index column.
-    The health_index is based on all of the county's tracts so percentile ranks
-    reflect the full county distribution, not just the parcel sample.
+    per measure (crude prevalence %) plus a health_index column. The health_index
+    is a NATIONAL percentile score from the bundled crosswalk (data/health.py) —
+    comparable across locations — not a within-county rank.
 
     `county_fips` is the 5-digit state+county GEOID (default: Shelby County).
     """
@@ -180,7 +178,8 @@ def compute_health_index(records: list, county_fips: str | None = None) -> pd.Da
     ``county_fips`` (optional) is used only to make the empty-input error message
     accurate for whichever county was queried. Returns a DataFrame indexed by
     locationid (11-digit GEOID) with one crude-prevalence column per measure plus
-    the percentile-ranked ``health_index``.
+    the NATIONAL-percentile ``health_index`` (from the bundled crosswalk, not a
+    within-county rank).
     """
     where = f" for county FIPS {county_fips}" if county_fips else ""
     df = pd.DataFrame(records)
@@ -226,17 +225,24 @@ def compute_health_index(records: list, county_fips: str | None = None) -> pd.Da
         len(wide), len(avail_cols), ", ".join(avail_cols),
     )
 
-    # ── Percentile scores (computed across all county tracts) ─────────────────
-    # rank(pct=True) → 0–1 where 1.0 = highest prevalence (= worst health).
-    # score = (1 − rank_pct) × 100  so that 100 = lowest/healthiest prevalence.
-    score_cols = []
-    for col in avail_cols:
-        rank_pct = wide[col].rank(pct=True, na_option="keep")
-        wide[f"_score_{col}"] = ((1.0 - rank_pct) * 100.0).round(1)
-        score_cols.append(f"_score_{col}")
+    # ── National health index (bundled, offline) ──────────────────────────────
+    # Each tract's health_index is scored against the FULL NATIONAL distribution
+    # of US census tracts (population-weighted), NOT ranked within this county —
+    # so a value is comparable across locations (the old within-county rank made a
+    # median tract score ~50 in every county). The national score comes from the
+    # bundled crosswalk (data/health.py, built by scripts/build_health_ref.py);
+    # tracts absent from it fall back tract -> county, and a national-only fallback
+    # (no local data) is left unscored (NaN) rather than filled with a placeholder.
+    from housing_label.data import health as health_ref
 
-    wide["health_index"] = wide[score_cols].mean(axis=1).round(1)
-    wide = wide.drop(columns=score_cols)
+    def _national_idx(geoid: str) -> float:
+        r = health_ref.health_for_tract(geoid)
+        return r["health_index"] if r["resolved"] and r["health_index"] is not None \
+            else float("nan")
+
+    wide["health_index"] = pd.Series(
+        {g: _national_idx(g) for g in wide.index}, dtype="float64"
+    ).round(1)
 
     return wide
 

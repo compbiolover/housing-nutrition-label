@@ -47,6 +47,7 @@ from housing_label.enrich.energy import model_parcel_energy
 from housing_label.enrich.durability import model_parcel_durability
 from housing_label.enrich.environmental import model_parcel_environment
 from housing_label.enrich.infrastructure import enrich_row as infra_enrich_row
+from housing_label.data import health as health_data
 
 
 # Markers set on cfg["value_source"] when the home value is an auto-filled *per-unit*
@@ -406,14 +407,9 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
     }
 
 
-# ── Location-driven dimensions (live fetch, cached per process) ─────────────────
-@lru_cache(maxsize=8)
-def _places_table(county_fips: str):
-    """CDC PLACES table (tract → health_index) for a county. Cached per process."""
-    from housing_label.enrich import health as health_mod
-    return health_mod.fetch_places_data(county_fips)
-
-
+# ── Location-driven dimensions ──────────────────────────────────────────────────
+# Health is now a bundled, offline NATIONAL lookup (data/health.py) — no live CDC
+# fetch and no within-county ranking — so it is comparable across locations.
 @lru_cache(maxsize=8)
 def _acs_table(state_fips: str, county3: str):
     """Census ACS table (tract → socioeconomic_index) for a county. Cached."""
@@ -471,13 +467,9 @@ def fetch_location_dimensions(
     need_tract = any(out[k] is None for k in ("health", "socioeconomic"))
     walk_override = "walkability" in notes
 
-    if not allow_network:
-        for k in ("health", "socioeconomic", "walkability"):
-            notes.setdefault(k, "skipped (--no-fetch)")
-        return out
-
-    # Census tract (shared by health + socioeconomic) — geocode only if needed.
-    if tract is None and need_tract:
+    # Census tract (shared by health + socioeconomic). A tract passed in from the
+    # resolved location is used offline; geocoding a missing one needs the network.
+    if tract is None and need_tract and allow_network:
         try:
             tract = _tract_for(round(float(lat), 6), round(float(lon), 6))
         except Exception as exc:  # noqa: BLE001
@@ -486,18 +478,22 @@ def fetch_location_dimensions(
     out["_tract"] = tract
     county5 = tract[:5] if tract else None       # state(2)+county(3) from GEOID
 
-    # Health (CDC PLACES percentile index for the tract, ranked within its county).
+    # Health (CDC PLACES NATIONAL percentile index — bundled, offline). Works with
+    # or without network as long as a tract is known; scored against the full
+    # national distribution of US tracts (population-weighted), not ranked within
+    # the county, so a value is comparable across locations. Resolves tract ->
+    # county; a national-only fallback (no local data) is left unscored rather
+    # than filled with a placeholder.
     if out["health"] is None:
-        if tract and county5:
-            try:
-                table = _places_table(county5)
-                if tract in table.index and not pd.isna(table.loc[tract, "health_index"]):
-                    out["health"] = round(float(table.loc[tract, "health_index"]), 1)
-                    notes["health"] = f"CDC PLACES (tract {tract})"
-                else:
-                    notes["health"] = f"no PLACES data for tract {tract}"
-            except Exception as exc:  # noqa: BLE001
-                notes["health"] = f"PLACES fetch failed: {exc}"
+        if tract:
+            res = health_data.health_for_tract(tract)
+            if res["resolved"] and res["health_index"] is not None:
+                out["health"] = round(float(res["health_index"]), 1)
+                notes["health"] = res["label"]
+            else:
+                notes["health"] = f"no health data for tract {tract}"
+        elif not allow_network:
+            notes.setdefault("health", "skipped (--no-fetch)")
         else:
             notes.setdefault("health", "no census tract")
 
@@ -505,7 +501,9 @@ def fetch_location_dimensions(
     # The Census ACS API now requires a key — short-circuit with a clear note
     # rather than burning retries on the missing-key redirect.
     if out["socioeconomic"] is None:
-        if not os.environ.get("CENSUS_API_KEY", "").strip():
+        if not allow_network:
+            notes.setdefault("socioeconomic", "skipped (--no-fetch)")
+        elif not os.environ.get("CENSUS_API_KEY", "").strip():
             notes["socioeconomic"] = "no CENSUS_API_KEY"
         elif tract and county5:
             try:
@@ -523,7 +521,9 @@ def fetch_location_dimensions(
     # Walkability (Walk Score API — requires a paid key).
     if not walk_override:
         api_key = os.environ.get("WALKSCORE_API_KEY", "").strip()
-        if not api_key:
+        if not allow_network:
+            notes.setdefault("walkability", "skipped (--no-fetch)")
+        elif not api_key:
             notes["walkability"] = "no WALKSCORE_API_KEY"
         else:
             try:

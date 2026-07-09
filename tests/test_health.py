@@ -31,23 +31,18 @@ def _records(tracts: dict) -> list:
 _ALL = list(H.MEASURE_MAP)
 
 
-def test_compute_health_index_orientation():
-    """100 = healthiest: the low-prevalence tract must outrank the high one."""
-    healthy = {m: 5.0 for m in _ALL}       # low disease prevalence everywhere
-    sick    = {m: 40.0 for m in _ALL}      # high prevalence everywhere
-    mid     = {m: 20.0 for m in _ALL}
-    wide = H.compute_health_index(_records({"h": healthy, "s": sick, "m": mid}))
-
-    assert wide.loc["h", "health_index"] > wide.loc["m", "health_index"]
-    assert wide.loc["m", "health_index"] > wide.loc["s", "health_index"]
-    # The healthiest tract tops the ranking and the sickest bottoms it. (Percentile
-    # ranking puts the worst tract at exactly 0; the best sits at (1-1/n)*100, not
-    # 100, so assert it holds the max rather than a fixed value.)
-    assert wide["health_index"].idxmax() == "h"
-    assert wide.loc["s", "health_index"] == 0.0
-    # Raw prevalence columns are preserved and renamed to the friendly names.
+def test_compute_health_index_uses_national_crosswalk():
+    """health_index is the NATIONAL score from the bundled crosswalk (comparable
+    across locations), NOT a within-input rank; raw prevalence columns are the
+    tract's own values, preserved and renamed to the friendly names."""
+    from housing_label.data import health as href
+    geoid = "47157000100"                       # a real Shelby tract in the crosswalk
+    recs = _records({geoid: {m: 10.0 for m in _ALL}})
+    wide = H.compute_health_index(recs)
+    # The index tracks the national reference, independent of the fed-in measures.
+    assert wide.loc[geoid, "health_index"] == href.health_for_tract(geoid)["health_index"]
     assert "diabetes_pct" in wide.columns
-    assert wide.loc["s", "diabetes_pct"] == 40.0
+    assert wide.loc[geoid, "diabetes_pct"] == 10.0
 
 
 def test_compute_health_index_within_bounds():
