@@ -8,10 +8,17 @@ network. Runs standalone (``python tests/test_autofill.py``) or via pytest.
 
 from __future__ import annotations
 
+import pathlib
+import sys
 from types import SimpleNamespace
 
-from housing_label.enrich import structure as S
-from housing_label.simulate import house as H
+_ROOT = pathlib.Path(__file__).resolve().parent.parent
+for _p in (_ROOT, _ROOT / "src"):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
+
+from housing_label.enrich import structure as S  # noqa: E402
+from housing_label.simulate import house as H  # noqa: E402
 
 
 def _loc(**kw) -> SimpleNamespace:
