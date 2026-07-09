@@ -103,6 +103,25 @@ def test_building_block_statuses():
         assert set(entry) == {"value", "status", "source", "confidence"}
 
 
+def test_building_block_units_detected_not_confirmed():
+    """A supplied units of 1 is not a real override: an NSI-detected multi-unit
+    building shows the detected count tagged 'estimated', not 'you entered'; a
+    genuine >1 entry is 'confirmed'."""
+    loc = _loc(num_units=30)
+    cfg = {"units": 1, "year_built": 1980, "construction": "frame",
+           "foundation": "slab", "condition": "average", "sqft": 1000,
+           "lot_acres": 0.1, "value": 250000}
+    detected = H._building_block(cfg, {"num_units": 30, "stories": 3,
+                                       "bldg_material": "concrete"},
+                                 explicit={"units"}, autofilled={}, location=loc)
+    assert detected["units"] == {"value": 30, "status": "estimated",
+                                 "source": "NSI · structure record", "confidence": "moderate"}
+    confirmed = H._building_block(dict(cfg, units=12),
+                                  {"num_units": 12, "stories": 3, "bldg_material": "concrete"},
+                                  explicit={"units"}, autofilled={}, location=loc)
+    assert confirmed["units"]["status"] == "confirmed" and confirmed["units"]["value"] == 12
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items())
              if k.startswith("test_") and callable(v)]

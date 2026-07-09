@@ -613,7 +613,10 @@
     if (!el) return;
     el.addEventListener("change", function () {
       var v = (el.value || "").trim();
-      if (v === "") { delete touched[field]; } else { touched[field] = true; }
+      // Units of 1 is the default, not an override — leave it auto-derived so an
+      // NSI-detected multi-unit building isn't overridden to a single unit.
+      var noop = (v === "") || (field === "units" && Number(v) <= 1);
+      if (noop) { delete touched[field]; } else { touched[field] = true; }
       if (currentLoc) { status.textContent = "Updating …"; score(); }
     });
   });

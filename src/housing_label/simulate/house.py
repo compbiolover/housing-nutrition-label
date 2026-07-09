@@ -1724,23 +1724,33 @@ def _building_block(cfg: dict, struct: dict, explicit: set, autofilled: dict,
         "lot_acres": cfg.get("lot_acres"), "value": cfg.get("value"),
         "bldg_material": material,
     }
+    # A supplied units of 1 is not a real override (1 is the default), so it must
+    # not tag the field "confirmed" — especially when NSI detected a multi-unit
+    # building and the *displayed* value is the detected count, not 1.
+    eff_explicit = set(explicit)
+    try:
+        if "units" in eff_explicit and int(cfg.get("units") or 1) <= 1:
+            eff_explicit.discard("units")
+    except (TypeError, ValueError):
+        pass
+
     # Fields NSI detects even when a preset is chosen (units/stories/material feed
     # the multifamily path); mark them estimated when detected and not user-set.
     detected: dict = {}
     if location is not None:
         if getattr(location, "num_units", None) and location.num_units != 1 \
-                and "units" not in explicit:
+                and "units" not in eff_explicit:
             detected["units"] = ("NSI · structure record", "moderate")
-        if struct.get("stories") is not None and "stories" not in explicit:
+        if struct.get("stories") is not None and "stories" not in eff_explicit:
             detected["stories"] = ("NSI · structure record", "moderate")
-        if struct.get("bldg_material") and "bldg_material" not in explicit:
+        if struct.get("bldg_material") and "bldg_material" not in eff_explicit:
             detected["bldg_material"] = ("NSI · structure record", "moderate")
 
     out: dict = {}
     for field, value in vals.items():
         if value is None:
             continue
-        if field in explicit:
+        if field in eff_explicit:
             out[field] = {"value": value, "status": "confirmed",
                           "source": "you entered", "confidence": "high"}
         elif field in autofilled or field in detected:
