@@ -50,9 +50,10 @@ def median_home_value_for(tract_geoid: str | None = None,
     """Resolve a median home value: tract → county → national.
 
     Returns ``{value, geo_level, resolved, source}``. ``geo_level`` is
-    ``"tract"`` / ``"county"`` / ``"national"`` (or None when nothing is bundled);
-    ``resolved`` is True for a real tract/county hit (False for the national
-    fallback). ``value`` is None only when even the national row is absent.
+    ``"tract"`` / ``"county"`` / ``"national"`` (or None); ``resolved`` is True for
+    a real tract/county hit (False for the national fallback). ``value`` is None
+    when no geography is supplied (both ``tract_geoid`` and ``county_fips`` empty —
+    no US-median is invented from nothing) or when nothing resolves at all.
     """
     table = _table()
     tract = str(tract_geoid).strip().zfill(11) if tract_geoid else None

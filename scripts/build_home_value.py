@@ -61,21 +61,27 @@ OUT_PATH = _DATA_DIR / "home_value.csv.gz"
 
 
 def _download(url: str, dest: pathlib.Path, *, min_size: int = 1 << 20) -> pathlib.Path:
-    """Stream a URL to ``dest`` with retry/back-off; reuse a valid cached file."""
+    """Stream a URL to ``dest`` with retry/back-off; reuse a valid cached file.
+
+    Downloads into a ``.part`` sidecar and atomically renames on success, so an
+    interrupted run never leaves a truncated file that looks like a valid cache."""
     if dest.exists() and dest.stat().st_size >= min_size:
         print(f"  cached {dest.name} ({dest.stat().st_size/1e6:.0f} MB)", file=sys.stderr)
         return dest
     dest.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dest.with_suffix(dest.suffix + ".part")
     for attempt in range(4):
         try:
             with requests.get(url, headers=HEADERS, timeout=300, stream=True) as r:
                 r.raise_for_status()
-                with dest.open("wb") as f:
+                with tmp.open("wb") as f:
                     for chunk in r.iter_content(1 << 20):
                         f.write(chunk)
+            tmp.replace(dest)            # atomic: only a complete file becomes the cache
             return dest
         except requests.RequestException as exc:
             print(f"  attempt {attempt+1} failed: {exc}", file=sys.stderr)
+            tmp.unlink(missing_ok=True)
             if attempt == 3:
                 raise
             time.sleep(2 ** attempt)
