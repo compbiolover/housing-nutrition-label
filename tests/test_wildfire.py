@@ -103,7 +103,7 @@ def test_norm_tract_handles_float_and_leading_zeros():
 
 # ── Resilience scoring (score/resilience.py) ────────────────────────────────────
 _BASE_ROW = {
-    "flood_risk": "minimal", "avg_tornadoes_per_yr_25mi": 1.0,
+    "flood_risk": "minimal", "tornado_nri_eal_rate": 0.00015,
     "pga_2pct_50yr": 0.48, "pga_10pct_50yr": 0.19,
     "YRBLT": 1998, "EXTWALL": 1, "BSMT": 1, "COND": 3,
     "GRADE": "C", "SFLA": 2000, "RTOTAPR": 200000, "APRBLDG": 150000,

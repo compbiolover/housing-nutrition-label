@@ -31,6 +31,7 @@ from housing_label.data import climate as climate_data
 from housing_label.data import climate_projections as climate_proj_data
 from housing_label.data import egrid as egrid_data
 from housing_label.data import wildfire as wildfire_data
+from housing_label.data import tornado as tornado_data
 
 GEOCODER_ONELINE = "https://geocoding.geo.census.gov/geocoder/geographies/onelineaddress"
 GEOCODER_COORDS = "https://geocoding.geo.census.gov/geocoder/geographies/coordinates"
@@ -54,6 +55,7 @@ class Location:
     egrid_factor: float | None = None     # kg CO2e / kWh
     climate_projection: dict | None = None  # CMIP6-LOCA2 hazard projection (tract→county→US)
     wildfire: dict | None = None          # FEMA NRI wildfire hazard (tract→county→US)
+    tornado: dict | None = None           # FEMA NRI tornado hazard (tract→county→US)
     # Building structure at this point (USACE National Structure Inventory). Best
     # effort — all None when NSI is unavailable or the point isn't a building.
     structure_type: str | None = None     # single_family | multifamily | manufactured | ...
@@ -225,6 +227,18 @@ def resolve_location(
     if loc.county_fips and not loc.wildfire.get("resolved"):
         notes["wildfire"] = (
             f"county {loc.county_fips} not in NRI wildfire crosswalk; using US average")
+
+    # Tornado (FEMA NRI): resolution-aware tract→county→national, exactly like
+    # wildfire. Drives the "tornado" hazard in the resilience EAL model, replacing
+    # the old SPC touchdown-count model with its nationally-applied Mid-South EF mix.
+    loc.tornado = (
+        tornado_data.tornado_for_tract(loc.tract)
+        if loc.tract
+        else tornado_data.tornado_for_county(loc.county_fips)
+    )
+    if loc.county_fips and not loc.tornado.get("resolved"):
+        notes["tornado"] = (
+            f"county {loc.county_fips} not in NRI tornado crosswalk; using US average")
 
     # Building structure (USACE NSI, live keyless API): what kind of building sits
     # here — single-family, multi-family, unit count, stories. Best effort; leaves

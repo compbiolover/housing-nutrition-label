@@ -47,7 +47,6 @@ from housing_label.enrich.seismic_lookup import get_pga
 # ── File paths ─────────────────────────────────────────────────────────────────
 BASE_DIR   = pathlib.Path(__file__).resolve().parents[3]   # repo root; data lives here
 SCORED_CSV = BASE_DIR / "shelby_parcels_scored.csv"
-SPC_CACHE  = BASE_DIR / "spc_tornadoes_raw.csv"
 
 # ── Seismic constants (enrich_seismic.py) ─────────────────────────────────────
 NMSZ_LAT            = 36.5     # New Madrid Seismic Zone reference lat
@@ -58,14 +57,9 @@ DIST_NEAR           = 76.0     # mi — closest parcels to NMSZ (NE county corne
 DIST_FAR            = 110.0    # mi — farthest parcels from NMSZ (SW county corner)
 ALLUVIUM_LON_THRESH = -89.95   # west of this → deeper alluvial soils (+5% PGA)
 
-# ── Tornado constants (enrich_tornado.py) ─────────────────────────────────────
-SPC_DATA_YEARS = 74     # SPC database covers 1950–2023
-RADIUS_25_MI   = 25.0   # search radius for tornado count
-SHELBY_LAT     = 35.15  # default location when none is supplied
+# ── Default location (used when none is supplied) ─────────────────────────────
+SHELBY_LAT     = 35.15
 SHELBY_LON     = -89.98
-BBOX_DEG       = 0.50   # ±0.50° lat ≈ 34 mi coarse pre-filter (lon widened by 1/cos(lat))
-# Fallback tornado rate used only if the national SPC dataset can't be loaded.
-NATIONAL_AVG_TORNADO_RATE = 0.5
 
 # ── Flood EAL rates (score_resilience.py) ─────────────────────────────────────
 # AEP × mean damage ratio per FEMA NFIP actuarial data.
@@ -76,18 +70,6 @@ FLOOD_EAL_RATES = {
 }
 
 FLOOD_ZONE_TO_RISK = {"AE": "high", "X500": "moderate", "X": "minimal"}
-
-# ── Tornado EAL constants (score_resilience.py) ───────────────────────────────
-# EF distribution: TN/Mid-South region, SPC 1950–2023 (Ashley 2007 calibration).
-EF_DISTRIBUTION = {0: 0.45, 1: 0.33, 2: 0.14, 3: 0.06, 4: 0.02}
-
-# Mean path dimensions (width_yards, length_miles) → path area in sq mi.
-EF_PATH_AREA = {0: (50, 0.5), 1: (100, 1.5), 2: (200, 3.0), 3: (400, 7.0), 4: (800, 15.0)}
-
-# HAZUS-MH mean damage ratios for wood-frame residential (FEMA 2012).
-EF_DAMAGE_RATIO = {0: 0.02, 1: 0.10, 2: 0.30, 3: 0.60, 4: 0.90}
-
-CIRCLE_AREA_SQ_MI = np.pi * 25 ** 2   # ≈ 1963.5 sq mi (denominator for strike prob)
 
 # ── Seismic hazard curve rates (score_resilience.py) ──────────────────────────
 # Annual exceedance rates via Poisson: λ = −ln(1−p)/t
@@ -417,94 +399,6 @@ def compute_seismic_pga(lat: float, lon: float) -> tuple[float, float, float]:
     )
 
 
-_SPC_DF = None   # process cache for the national SPC tornado table
-
-
-def _load_spc(allow_network: bool = True):
-    """Load the national SPC tornado table, downloading + caching it if needed.
-
-    Returns a cleaned DataFrame (slat/slon floats) or None if unavailable.
-    """
-    global _SPC_DF
-    if _SPC_DF is not None:
-        return _SPC_DF
-    if not SPC_CACHE.exists() and allow_network:
-        try:
-            import requests
-            from housing_label.config import SPC_TORNADO_URL, HEADERS, TIMEOUT
-            r = requests.get(SPC_TORNADO_URL, headers=HEADERS, timeout=TIMEOUT)
-            r.raise_for_status()
-            SPC_CACHE.write_bytes(r.content)
-        except Exception:  # noqa: BLE001
-            return None
-    if not SPC_CACHE.exists():
-        return None
-    # The tornado rate only needs the touchdown coordinates, so read just those two
-    # columns — the full 29-column SPC table is ~28 MB resident, the two-column slice
-    # ~1 MB, which matters on a 512 MB instance. usecols matches on the stripped header
-    # so it's robust to any leading/trailing whitespace in the CSV.
-    df = pd.read_csv(SPC_CACHE, usecols=lambda c: c.strip() in ("slat", "slon"),
-                     low_memory=False)
-    df.columns = df.columns.str.strip()
-    df = df[df["slat"].notna() & df["slon"].notna() & (df["slat"] != 0)].copy()
-    df["slat"] = df["slat"].astype(float)
-    df["slon"] = df["slon"].astype(float)
-    _SPC_DF = df
-    return df
-
-
-def compute_tornado_rate(lat: float, lon: float,
-                         allow_network: bool = True) -> tuple[float, str]:
-    """
-    Return (avg_tornadoes_per_yr_25mi, source_note) for any US location.
-
-    Counts historical SPC tornado touchdowns within 25 mi of the point (over the
-    national 1950–2023 record) and divides by the record length. The national SPC
-    dataset is downloaded and cached on first use. Falls back to a national
-    average only if the dataset is unavailable.
-
-    The count is a full-table scan of the ~68k-row SPC set, so the result is memoized
-    per coordinate (rounded to ~110 m, well inside the 25-mi radius) to avoid
-    re-scanning — and re-allocating masks over — the whole table on every request.
-    """
-    # Resolve (and one-time cache) the SPC table here, NOT inside the memoized helper,
-    # so a transient load failure returns the national fallback WITHOUT poisoning the
-    # per-coordinate cache — once the table loads, later calls scan it and memoize.
-    if _load_spc(allow_network) is None:
-        return NATIONAL_AVG_TORNADO_RATE, "national average (SPC dataset unavailable)"
-    return _tornado_rate_cached(round(lat, 3), round(lon, 3))
-
-
-@lru_cache(maxsize=4096)
-def _tornado_rate_cached(lat: float, lon: float) -> tuple[float, str]:
-    df = _load_spc()   # the singleton table, guaranteed loaded by the caller
-
-    # Coarse bbox pre-filter around the query point, then exact distance.
-    # Longitude degrees shrink with latitude, so widen the lon half-window by
-    # 1/cos(lat) (clamped) to keep the bbox a safe superset of the 25-mi radius.
-    lon_margin = BBOX_DEG / max(math.cos(math.radians(lat)), 0.2)
-    nearby = df[
-        df["slat"].between(lat - BBOX_DEG, lat + BBOX_DEG) &
-        df["slon"].between(lon - lon_margin, lon + lon_margin)
-    ]
-    if nearby.empty:
-        return 0.0, "SPC 1950-2023 (0 tornadoes in 25 mi)"
-    # Vectorized haversine over the pre-filtered subset (no per-row Python apply).
-    dists = _haversine_miles_np(lat, lon, nearby["slat"].to_numpy(), nearby["slon"].to_numpy())
-    count = int((dists <= RADIUS_25_MI).sum())
-    rate  = round(count / SPC_DATA_YEARS, 3)
-    return rate, f"SPC 1950-2023 ({count} tornadoes in 25 mi)"
-
-
-def _haversine_miles_np(lat1: float, lon1: float, lat2, lon2):
-    """Vectorized great-circle distance (miles) from one point to arrays of points."""
-    r1, l1 = math.radians(lat1), math.radians(lon1)
-    r2, l2 = np.radians(lat2), np.radians(lon2)
-    a = np.sin((r2 - r1) / 2) ** 2 + math.cos(r1) * np.cos(r2) * np.sin((l2 - l1) / 2) ** 2
-    a = np.clip(a, 0.0, 1.0)     # guard arcsin against FP drift > 1 (near-antipodal)
-    return 2 * 3958.8 * np.arcsin(np.sqrt(a))
-
-
 def pga_to_damage_ratio(pga_g: float) -> float:
     """Map PGA (g) to mean structural damage ratio (HAZUS-MH fragility curves)."""
     if pga_g < 0.10: return 0.005   # imperceptible — no structural damage
@@ -516,17 +410,6 @@ def pga_to_damage_ratio(pga_g: float) -> float:
 
 def calc_flood_eal_raw(flood_risk: str) -> float:
     return FLOOD_EAL_RATES[flood_risk]
-
-
-def calc_tornado_eal_raw(tornado_rate: float) -> float:
-    """Tornado EAL rate: sum over EF categories of (strike probability × damage ratio)."""
-    eal = 0.0
-    for ef, ef_frac in EF_DISTRIBUTION.items():
-        w_yd, l_mi = EF_PATH_AREA[ef]
-        path_area   = (w_yd / 1760.0) * l_mi          # sq mi
-        strike_prob = tornado_rate * ef_frac * (path_area / CIRCLE_AREA_SQ_MI)
-        eal        += strike_prob * EF_DAMAGE_RATIO[ef]
-    return eal
 
 
 def calc_seismic_eal_raw(pga_2pct: float, pga_10pct: float) -> float:
@@ -868,13 +751,10 @@ def simulate(cfg: dict, local_compare: bool = True, structure: dict | None = Non
         pga_2pct, pga_10pct, _ = compute_seismic_pga(cfg["lat"], cfg["lon"])
         pga_source = "New Madrid model (no USGS/grid)"
 
-    tornado_rate, tornado_src       = compute_tornado_rate(cfg["lat"], cfg["lon"],
-                                                            allow_network=allow_network)
     flood_risk = FLOOD_ZONE_TO_RISK[cfg["flood_zone"]]
 
     r.update(pga_2pct=pga_2pct, pga_10pct=pga_10pct,
-             pga_source=pga_source,
-             tornado_rate=tornado_rate, tornado_src=tornado_src, flood_risk=flood_risk)
+             pga_source=pga_source, flood_risk=flood_risk)
 
     # ── BRM components ────────────────────────────────────────────────────────
     cef      = code_era_factor(cfg["year_built"])
@@ -909,7 +789,17 @@ def simulate(cfg: dict, local_compare: bool = True, structure: dict | None = Non
 
     # ── Raw EAL rates (before BRM) ────────────────────────────────────────────
     flood_raw   = calc_flood_eal_raw(flood_risk)
-    tornado_raw = calc_tornado_eal_raw(tornado_rate)
+    # Tornado = the location's FEMA NRI tornado EAL rate (0.0 when the location wasn't
+    # resolved, keeping simulate() offline-safe), resolved exactly like wildfire.
+    # build_label_parts sets cfg["tornado_eal_base"] from the resolved Location.
+    try:
+        tornado_raw = float(cfg.get("tornado_eal_base") or 0.0)
+        if not math.isfinite(tornado_raw):
+            tornado_raw = 0.0
+    except (TypeError, ValueError):    # non-numeric override (JSON/CLI) → ignore
+        tornado_raw = 0.0
+    tornado_raw = max(0.0, tornado_raw)
+    r["tornado_eal_base"] = tornado_raw
     seismic_raw = calc_seismic_eal_raw(pga_2pct, pga_10pct)
     # Fire = national-average structural/electrical fire baseline + the location's
     # FEMA NRI wildfire EAL rate (0.0 when the location wasn't resolved, keeping
@@ -1166,8 +1056,7 @@ def print_scorecard(cfg: dict, r: dict) -> None:
     print(row(f"    PGA 2%/50yr      : {r['pga_2pct']:.3f} g  (2,475-yr return period)"))
     print(row(f"    PGA 10%/50yr     : {r['pga_10pct']:.3f} g  (475-yr return period)"))
     print(row(f"    Seismic source   : {r.get('pga_source', 'n/a')}"))
-    print(row(f"    Tornado rate     : {r['tornado_rate']:.3f} tornadoes/yr within 25 mi"))
-    print(row(f"    Tornado source   : {r['tornado_src']}"))
+    print(row(f"    Tornado EAL rate : {r.get('tornado_eal_base', 0.0):.2e} /yr  (FEMA NRI)"))
     print(SEP)
 
     # ── BRM breakdown ─────────────────────────────────────────────────────────
@@ -1248,7 +1137,7 @@ def print_scorecard(cfg: dict, r: dict) -> None:
 
 # ── Full nutrition label (all dimensions) ───────────────────────────────────────
 
-# The pilot county. Seismic (USGS), tornado (SPC), energy rates (EIA), grid factor
+# The pilot county. Seismic (USGS), tornado (FEMA NRI), energy rates (EIA), grid factor
 # (eGRID), and infrastructure cost/tax are all resolved nationally per address; this
 # FIPS only anchors the bundled resilience reference dataset and the cost-model
 # numeraire, and picks the local-comparison branch.
@@ -1258,7 +1147,7 @@ CALIBRATED_COUNTY_FIPS = "47157"
 def _approx_caveats(location, cfg: dict | None = None) -> list[str]:
     """Caveats for dimensions that aren't locally calibrated.
 
-    Seismic (USGS) and tornado (SPC) are nationwide. Infrastructure is calibrated
+    Seismic (USGS) and tornado (FEMA NRI) are nationwide. Infrastructure is calibrated
     to each county's local-government spending (Census of Governments) where the
     county is in the crosswalk, a national-average cost model when the county isn't
     in it, and the Memphis pilot baseline if the crosswalk isn't bundled at all. The
@@ -1917,6 +1806,12 @@ def build_label_parts(*, address: str | None = None,
     # no geocode) is wildfire left unset, so simulate() uses 0.0.
     if location is not None and getattr(location, "wildfire", None):
         cfg["wildfire_eal_base"] = location.wildfire.get("eal_rate") or 0.0
+
+    # Location-based tornado EAL (FEMA NRI), resolved the same way as wildfire and
+    # passed into the resilience model as cfg["tornado_eal_base"]. Left unset only
+    # when no Location resolved (offline with no geocode), so simulate() uses 0.0.
+    if location is not None and getattr(location, "tornado", None):
+        cfg["tornado_eal_base"] = location.tornado.get("eal_rate") or 0.0
 
     # Auto-fill the home value when the caller didn't specify one, so the
     # Infrastructure fiscal ratio (and dollar EALs) reflect the local market instead

@@ -35,7 +35,6 @@ HEADERS: dict[str, str] = {"User-Agent": USER_AGENT}
 SHELBY_BASEMAP_URL = "https://gis.shelbycountytn.gov/public/rest/services/BaseMap/Assessor/MapServer"
 SHELBY_CAMA_URL = "https://gis.shelbycountytn.gov/public/rest/services/Parcel/CertParcel_NOAttrib/MapServer"
 FEMA_NFHL_URL = "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query"
-SPC_TORNADO_URL = "https://www.spc.noaa.gov/wcm/data/1950-2023_actual_tornadoes.csv"
 # Photon (keyless, OpenStreetMap-based) powers the address-autocomplete proxy by
 # default. Override to self-host a Photon instance.
 PHOTON_URL = os.environ.get("PHOTON_URL", "https://photon.komoot.io/api")

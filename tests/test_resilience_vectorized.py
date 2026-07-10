@@ -31,7 +31,7 @@ def _random_frame(n: int = 400, seed: int = 12345) -> pd.DataFrame:
                           2020, np.nan], n)
     return pd.DataFrame({
         "flood_risk": rng.choice(["high", "moderate", "minimal", "unknown"], n),
-        "avg_tornadoes_per_yr_25mi": rng.choice([0.0, 0.5, 1.0, 2.3], n),
+        "tornado_nri_eal_rate": rng.choice([0.0, 3.7e-5, 1.6e-4, 6.3e-4, -1.0, np.nan], n),
         "pga_2pct_50yr":  rng.uniform(0.0, 0.8, n),
         "pga_10pct_50yr": rng.uniform(0.0, 0.8, n),
         "wildfire_eal_rate": rng.choice([0.0, 0.0001, 0.0025, -1.0, np.nan], n),
@@ -60,6 +60,16 @@ def test_fire_eal_missing_wildfire_column():
     got = R.fire_eal_vec(df)
     assert len(got) == len(df)          # a Series, not a broadcast scalar
     expected = df.apply(R.calc_fire_eal, axis=1).to_numpy(dtype=float)
+    assert np.allclose(np.asarray(got, dtype=float), expected, rtol=1e-12, atol=0)
+
+
+def test_tornado_eal_missing_nri_column():
+    """The absent-``tornado_nri_eal_rate`` branch: tornado_eal_vec must still return
+    a length-matched Series of zeros (matching the scalar), never a bare scalar."""
+    df = _random_frame().drop(columns=["tornado_nri_eal_rate"])
+    got = R.tornado_eal_vec(df)
+    assert len(got) == len(df)          # a Series, not a broadcast scalar
+    expected = df.apply(R.calc_tornado_eal, axis=1).to_numpy(dtype=float)
     assert np.allclose(np.asarray(got, dtype=float), expected, rtol=1e-12, atol=0)
 
 
