@@ -20,16 +20,16 @@ from housing_label.data._tractstore import load_tract_store  # noqa: E402
 
 
 def _store(rows_csv: str, width: int, gz: bool = False):
-    p = pathlib.Path(tempfile.mkdtemp()) / ("t.csv.gz" if gz else "t.csv")
-    if gz:
-        with gzip.open(p, "wt", newline="") as f:
-            f.write(rows_csv)
-    else:
-        p.write_text(rows_csv)
-    try:
+    # The store reads the file fully into memory, so the temp dir can be removed
+    # right after loading — TemporaryDirectory cleans it up reliably.
+    with tempfile.TemporaryDirectory() as d:
+        p = pathlib.Path(d) / ("t.csv.gz" if gz else "t.csv")
+        if gz:
+            with gzip.open(p, "wt", newline="") as f:
+                f.write(rows_csv)
+        else:
+            p.write_text(rows_csv)
         return load_tract_store(p, width)
-    finally:
-        p.unlink(missing_ok=True)
 
 
 def test_columnar_roundtrip_types_and_missing():
