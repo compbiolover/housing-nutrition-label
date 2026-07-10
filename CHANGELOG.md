@@ -9,6 +9,15 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.37](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.36...v0.1.37) (2026-07-10)
+
+
+### Features
+
+* bottom-up embodied carbon from industry-average EPD factors ([#129](https://github.com/compbiolover/housing-nutrition-label/issues/129)) ([3b8335c](https://github.com/compbiolover/housing-nutrition-label/commit/3b8335ce3647d51a107100dfa8c47b5779ba152b))
+* geometry-aware embodied carbon (per-home takeoffs + basement depth) ([#131](https://github.com/compbiolover/housing-nutrition-label/issues/131)) ([407fc25](https://github.com/compbiolover/housing-nutrition-label/commit/407fc258cde97763ab403cc6466c5b4c9cf48522))
+* real building footprint (USA Structures) for embodied carbon ([#132](https://github.com/compbiolover/housing-nutrition-label/issues/132)) ([e18fb8d](https://github.com/compbiolover/housing-nutrition-label/commit/e18fb8dc6a2acc9bc3f126c24e17479515ab7860))
+
 ## [0.1.36](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.35...v0.1.36) (2026-07-10)
 
 
