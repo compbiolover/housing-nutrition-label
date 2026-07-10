@@ -152,9 +152,13 @@ def _footprint_at(lat: float, lon: float, allow_network: bool,
     # 1) Exact: a footprint that contains the geocoded point (rooftop-accurate geocode).
     feats = _query(f"{lon},{lat}", "esriGeometryPoint")
     if feats:
-        # >1 only on a shared edge / overlap; the largest real footprint (SQMETERS) is
-        # the building the address most likely names.
-        best = max(feats, key=lambda f: (f.get("attributes") or {}).get("SQMETERS") or 0.0)
+        # >1 only on a shared edge / overlap; prefer a primary building over an
+        # outbuilding (garage/shed) the point may sit in, then take the largest real
+        # footprint (SQMETERS) — the building the address most likely names.
+        primary = [f for f in feats
+                   if ((f.get("attributes") or {}).get("OUTBLDG") or "").upper() != "Y"]
+        best = max(primary or feats,
+                   key=lambda f: (f.get("attributes") or {}).get("SQMETERS") or 0.0)
     else:
         # 2) Parcel/street geocode → no containing footprint; pick the addressed home
         # from the primary buildings in a box around the point. Size the box in metres
