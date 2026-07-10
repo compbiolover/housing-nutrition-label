@@ -26,8 +26,10 @@ _CSV_GZ = _DIR / "home_value.csv.gz"
 _NATIONAL = "00000"
 
 DATA_VINTAGE = "ACS 2023 5-yr median home value (B25077)"
-_LABEL = {"tract": "neighborhood (census-tract) median",
-          "county": "county median", "national": "US median"}
+# geo_level vocabulary + label match the rest of the codebase: the label text is
+# kept in sync with simulate/dimensions.HOME_VALUE_SOURCE, and "us" is the shared
+# national geo_level (as in data/socioeconomic, data/health, data/propertytax).
+_LABEL = {"tract": "neighborhood median", "county": "county median", "us": "US median"}
 
 
 @lru_cache(maxsize=1)
@@ -50,8 +52,8 @@ def median_home_value_for(tract_geoid: str | None = None,
     """Resolve a median home value: tract → county → national.
 
     Returns ``{value, geo_level, resolved, source}``. ``geo_level`` is
-    ``"tract"`` / ``"county"`` / ``"national"`` (or None); ``resolved`` is True for
-    a real tract/county hit (False for the national fallback). ``value`` is None
+    ``"tract"`` / ``"county"`` / ``"us"`` (or None); ``resolved`` is True for a real
+    tract/county hit (False for the ``us`` national fallback). ``value`` is None
     when no geography is supplied (both ``tract_geoid`` and ``county_fips`` empty —
     no US-median is invented from nothing) or when nothing resolves at all.
     """
@@ -67,10 +69,10 @@ def median_home_value_for(tract_geoid: str | None = None,
     # value from no location at all, so an offline / un-geocoded caller keeps its
     # own default instead of being handed the US median.
     if (tract or county) and _NATIONAL in table:
-        return _hit(table[_NATIONAL], "national")
+        return _hit(table[_NATIONAL], "us")
     return {"value": None, "geo_level": None, "resolved": False, "source": None}
 
 
 def _hit(value: float, level: str) -> dict:
-    return {"value": value, "geo_level": level, "resolved": level != "national",
+    return {"value": value, "geo_level": level, "resolved": level != "us",
             "source": f"{_LABEL[level]} (ACS)"}

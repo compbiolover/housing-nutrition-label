@@ -63,9 +63,9 @@ from housing_label.data import walkability as walk_data
 # geography that resolved (neighborhood tract → county → national). Each is a
 # per-unit figure (a single home's typical value), so all are in the per-unit set.
 HOME_VALUE_SOURCE = {
-    "tract":    "neighborhood median (ACS)",
-    "county":   "county median (ACS)",
-    "national": "US median (ACS)",
+    "tract":  "neighborhood median (ACS)",
+    "county": "county median (ACS)",
+    "us":     "US median (ACS)",           # "us" = the shared national geo_level
 }
 AUTOFILL_VALUE_SOURCE = HOME_VALUE_SOURCE["county"]   # back-compat alias
 VALUE_PER_DOOR_SOURCE = "value-per-door (ACS rent)"

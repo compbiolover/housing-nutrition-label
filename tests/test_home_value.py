@@ -41,7 +41,7 @@ def test_resolution_prefers_tract_then_county_then_national():
     # geography given but not in table → national fallback (resolved False)
     natl = _with_table({"00000": 300_000.0},
                        lambda: HV.median_home_value_for("06037700801", "06037"))
-    assert natl["value"] == 300_000.0 and natl["geo_level"] == "national" and not natl["resolved"]
+    assert natl["value"] == 300_000.0 and natl["geo_level"] == "us" and not natl["resolved"]
 
     # no geography at all → no value invented from nothing
     nothing = _with_table({"00000": 300_000.0}, lambda: HV.median_home_value_for())
@@ -61,7 +61,7 @@ def test_explicit_county_and_empty_table():
 def test_bundled_national_row_present():
     """Smoke test against the real bundled crosswalk: a positive US median exists."""
     natl = HV.median_home_value_for(county_fips="99999")
-    assert natl["value"] and natl["value"] > 0 and natl["geo_level"] == "national"
+    assert natl["value"] and natl["value"] > 0 and natl["geo_level"] == "us"
 
 
 def test_autofill_uses_tract_value_and_source():
