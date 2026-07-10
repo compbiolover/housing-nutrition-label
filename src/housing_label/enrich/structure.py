@@ -192,6 +192,21 @@ def _estimate_units(res3: list[dict]) -> int:
     return int(bins[len(bins) // 2]) if bins else _DEFAULT_MF_UNITS
 
 
+def _estimate_cluster_units(footprints: Counter) -> int:
+    """Unit count for a RES1-cluster site: the number of *templated* (repeated)
+    single-family footprints — the apartment units NSI modeled as houses. Footprint
+    sizes seen only once are likely stray neighboring houses (not part of the
+    complex), so they're excluded. Far closer to reality than the flat default for a
+    large complex (e.g. a 30×+30× repeated-footprint site → ~60, not 8), while a
+    genuine single-family street can't reach it (no size repeats ≥ _CLUSTER_MIN).
+
+    Floored at ``_DEFAULT_MF_UNITS`` so a borderline count never drops below the
+    representative default. Intended only for confirmed RES1-cluster sites (the
+    caller gates on ``cluster >= _CLUSTER_MIN``); always ``units_confidence="estimated"``."""
+    repeated = sum(cnt for cnt in footprints.values() if cnt >= 2)
+    return max(repeated, _DEFAULT_MF_UNITS)
+
+
 def _cluster_unit(res1: list[dict], footprints: Counter) -> dict | None:
     """A representative single dwelling for an NSI apartment-cluster site (an
     apartment complex NSI modeled as identical single-family footprints): the RES1
@@ -305,11 +320,15 @@ def _classify_site(props_list: list[dict], lat: float, lon: float) -> dict | Non
         # footprint-selected — else a single unit reads as the whole complex. Only
         # when the RES1 cluster is the actual signal, though: a pure RES3-district
         # keeps the selected structure so a stray nearby house can't overwrite it.
+        # Unit count: from the repeated-footprint count for a RES1 cluster (the
+        # templated units), else the RES3 bins for a district.
         if cluster >= _CLUSTER_MIN:
             unit = _cluster_unit(res1, footprints) or selected
+            num_units = _estimate_cluster_units(footprints)
         else:
             unit = selected
-        return _result(unit, "multifamily", _estimate_units(res3),
+            num_units = _estimate_units(res3)
+        return _result(unit, "multifamily", num_units,
                        units_confidence="estimated", detection="nsi-cluster",
                        drop_shell=True)
 

@@ -109,6 +109,14 @@ def test_res3_district_keeps_selected_not_stray_res1():
     assert r["sqft"] == 50000         # selected structure, not the 1,200 sqft stray RES1
 
 
+def test_estimate_cluster_units_from_repeated_footprints():
+    """Cluster unit count = the templated (repeated) footprints; strays excluded."""
+    from collections import Counter
+    fp = Counter({1332: 30, 1510: 30, 1369: 14, 1176: 12, 1764: 1})   # + 1 stray singleton
+    assert S._estimate_cluster_units(fp) == 86        # 30+30+14+12, singleton dropped
+    assert S._estimate_cluster_units(Counter({1300: 3})) == 8         # below floor → default
+
+
 def test_cluster_unit_deterministic_on_tied_footprints():
     """Equal-count footprint sizes resolve deterministically to the smaller size."""
     from collections import Counter
@@ -125,7 +133,8 @@ def test_per_unit_sqft_divides_detected_multifamily():
     """A genuine NSI multi-unit record's whole-building sqft is split per unit."""
     loc = _loc(sqft=294504.0, num_units=157, structure_type="multifamily",
                units_confidence="detected")
-    assert H._nsi_per_unit_sqft(loc) == round(294504.0 / 157, 1)   # ~1875.8
+    # gross ÷ units, less the common-area allowance
+    assert H._nsi_per_unit_sqft(loc) == round(294504.0 / 157 * H._MF_NET_TO_GROSS, 1)
 
 
 def test_per_unit_sqft_leaves_single_family_and_cluster():
@@ -142,9 +151,10 @@ def test_per_unit_sqft_effective_units_override():
     """An explicit unit override drives the divisor; else the detected count."""
     loc = _loc(sqft=294504.0, num_units=157, structure_type="multifamily",
                units_confidence="detected")
-    assert H._nsi_per_unit_sqft(loc, 100) == round(294504.0 / 100, 1)   # override wins
-    assert H._nsi_per_unit_sqft(loc, 1) == round(294504.0 / 157, 1)     # 1 (default) → detected
-    assert H._nsi_per_unit_sqft(loc, None) == round(294504.0 / 157, 1)  # unset → detected
+    g = H._MF_NET_TO_GROSS
+    assert H._nsi_per_unit_sqft(loc, 100) == round(294504.0 / 100 * g, 1)   # override wins
+    assert H._nsi_per_unit_sqft(loc, 1) == round(294504.0 / 157 * g, 1)     # 1 (default) → detected
+    assert H._nsi_per_unit_sqft(loc, None) == round(294504.0 / 157 * g, 1)  # unset → detected
 
 
 def test_nsi_sqft_divisor_predicate():
@@ -165,9 +175,9 @@ def test_autofill_uses_per_unit_sqft_for_detected_multifamily():
         cfg, explicit=set(),
         location=_loc(sqft=294504.0, num_units=157, structure_type="multifamily",
                       units_confidence="detected", structure_attr_source="P"))
-    assert cfg["sqft"] == round(294504.0 / 157, 1)        # per unit, not 294504
+    assert cfg["sqft"] == round(294504.0 / 157 * H._MF_NET_TO_GROSS, 1)   # per unit, net
     # derived per-unit average → labeled as divided, one confidence notch below high
-    assert filled["sqft"] == ("NSI · building floor area ÷ units (per unit)", "moderate")
+    assert filled["sqft"] == ("NSI · building area ÷ units, less common area (per unit)", "moderate")
 
 
 # ── Auto-fill precedence (house.py) ───────────────────────────────────────────

@@ -77,7 +77,7 @@ def test_cluster_of_mislabeled_res1_detects_multifamily(monkeypatch):
     assert out["structure_type"] == "multifamily"
     assert out["detection"] == "nsi-cluster"
     assert out["units_confidence"] == "estimated"
-    assert out["num_units"] == S._DEFAULT_MF_UNITS          # no RES3 → default estimate
+    assert out["num_units"] == 10          # the 10 repeated (templated) footprints = the units
     assert out["bldg_material"] is None and out["stories"] is None   # shell unreliable
 
 
