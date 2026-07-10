@@ -1693,12 +1693,22 @@ def _nsi_per_unit_sqft(location, units: int | None = None) -> float | None:
     sqft = getattr(location, "sqft", None)
     if sqft is None:
         return None
+    n = _nsi_sqft_divisor(location, units)
+    return round(float(sqft) / n, 1) if n else sqft
+
+
+def _nsi_sqft_divisor(location, units: int | None = None) -> int | None:
+    """The unit count to split a WHOLE-building NSI sqft by (per-unit living area),
+    or None when the sqft already describes one dwelling (single-family, the cluster
+    heuristic's one mislabeled house, or no genuine multi-unit record). Sole source
+    of truth for *whether* per-unit division happens, so callers don't re-derive it
+    from a value comparison (which would mis-tag a 0-sqft or rounding-equal record)."""
     n = units if (units and units > 1) else getattr(location, "num_units", None)
     if (getattr(location, "units_confidence", None) == "detected"
             and getattr(location, "structure_type", None) == "multifamily"
             and n and n > 1):
-        return round(float(sqft) / n, 1)
-    return sqft
+        return n
+    return None
 
 
 def _autofill_construction_from_nsi(cfg: dict, explicit: set, location,
@@ -1719,8 +1729,9 @@ def _autofill_construction_from_nsi(cfg: dict, explicit: set, location,
     sqft_val = _nsi_per_unit_sqft(location, units)
     # A per-unit sqft divided out of the whole-building floor area is a derived
     # average (it depends on the unit divisor), not a direct NSI field — label it
-    # as such and drop one confidence notch.
-    if sqft_val is not None and sqft_val != getattr(location, "sqft", None):
+    # as such and drop one confidence notch. Decided by the same predicate used to
+    # divide, so it can't mis-tag a 0-sqft or rounding-equal record.
+    if sqft_val is not None and _nsi_sqft_divisor(location, units) is not None:
         sqft_src, sqft_conf = "NSI · building floor area ÷ units (per unit)", "moderate" if observed else "low"
     else:
         sqft_src, sqft_conf = "NSI · structure record", "high" if observed else "moderate"

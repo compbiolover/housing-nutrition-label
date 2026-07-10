@@ -111,6 +111,17 @@ def test_per_unit_sqft_effective_units_override():
     assert H._nsi_per_unit_sqft(loc, None) == round(294504.0 / 157, 1)  # unset → detected
 
 
+def test_nsi_sqft_divisor_predicate():
+    """The divide decision is a single predicate — robust to a 0-sqft record."""
+    mf = _loc(sqft=0.0, num_units=157, structure_type="multifamily", units_confidence="detected")
+    assert H._nsi_sqft_divisor(mf) == 157           # divides even when the value is 0
+    assert H._nsi_sqft_divisor(mf, 100) == 100      # override
+    sf = _loc(sqft=1500.0, num_units=1, structure_type="single_family", units_confidence="detected")
+    assert H._nsi_sqft_divisor(sf) is None          # single dwelling → no division
+    cluster = _loc(sqft=1332.0, num_units=8, structure_type="multifamily", units_confidence="estimated")
+    assert H._nsi_sqft_divisor(cluster) is None      # cluster heuristic → no division
+
+
 def test_autofill_uses_per_unit_sqft_for_detected_multifamily():
     """The autofill path stores per-unit sqft (not whole-building) and tags it."""
     cfg = {}
