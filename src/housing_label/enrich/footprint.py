@@ -17,10 +17,10 @@ Three data gotchas, all handled here:
     m²/m. We use the ORNL-precomputed ``SQMETERS`` for area, and compute the
     perimeter **geodesically** from the returned lon/lat rings.
   * Geocoders usually return a **parcel/street point, not the rooftop**, so an exact
-    point-in-polygon test often misses the building. When it does, we search a small
-    box around the point and take the **nearest primary building** (skipping
-    outbuildings, and only within ~40 m) — the addressed home is almost always the
-    closest building to a parcel geocode.
+    point-in-polygon test often misses the building. When it does, we search a box
+    around the point and pick the **primary building whose footprint best matches the
+    home's expected size** (NSI floor area ÷ stories, when known) — falling back to the
+    nearest one — skipping outbuildings and staying within ~40 m.
   * A point may still hit no building (rural / <450 sq ft) → ``None``.
 
 Network/API failure or ``allow_network=False`` degrades gracefully to ``None`` (the
