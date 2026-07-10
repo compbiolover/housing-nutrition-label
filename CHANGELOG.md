@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.32](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.31...v0.1.32) (2026-07-10)
+
+
+### Bug Fixes
+
+* score a detected multi-unit building per dwelling unit ([#117](https://github.com/compbiolover/housing-nutrition-label/issues/117)) ([c2c9d9e](https://github.com/compbiolover/housing-nutrition-label/commit/c2c9d9ef50c761dd95a48bfc72b23c5dfb13e9b1))
+
 ## [0.1.31](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.30...v0.1.31) (2026-07-10)
 
 
