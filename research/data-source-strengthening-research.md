@@ -7,8 +7,15 @@
 > license-restricted APIs that forbid caching/storage (e.g. Walk Score).
 > **Method:** a fresh per-dimension inventory of the *current* live product (Path B
 > simulator/API), followed by a fan-out, adversarially-verified web-research pass
-> (109 sub-agents, 26 primary sources fetched, 25 falsifiable claims verified by
-> 3-vote majority; 24 confirmed, 1 refuted).
+> (109 sub-agents, 26 primary sources fetched, 25 falsifiable claims each checked by
+> a 3-reviewer panel and kept only on a **≥2-of-3 majority**; 24 confirmed, 1 refuted).
+>
+> **On "national-coverage":** the *hard* project constraint is open + keyless +
+> redistributable. "National coverage" is the *goal*, but several recommended sources
+> fall short of it (Cambium is CONUS-only; ResStock excludes PR/Guam; the USGS 50-state
+> model ships as separate regional files). Where a source is not truly national, it is
+> flagged inline and must be paired with the existing **county → national fallback** so
+> no address goes unscored — it supplements, it does not become the sole input.
 
 ---
 
@@ -63,7 +70,7 @@ the Shelby batch path). Ranked from strongest to weakest data footing:
 - **Access:** two options with different effort/precision tradeoffs —
   - *Keyless API (drop-in, but design values):* USGS Design Ground Motions portal — verified live 2026-07-10, `/ws/building-codes/asce7-22/calculate` returned HTTP 200 JSON, no key (the old `/ws/designmaps` path 301-redirects). **Caveat:** it returns *risk-targeted MCE design parameters*, not raw 10%/50yr exceedance values.
   - *Bulk hazard-curve data release (heavier, but exact):* the NSHM ScienceBase/data.gov release gives gridded hazard curves at 21 spectral periods × 8 site classes — the correct source for a true return-period read-off.
-- **⚠️ Coverage caveat (a claim the research *refuted*):** do **not** assume the "50-state" model's CONUS bounds cover Alaska + Hawaii + territories in one file. The 0-3 refuted claim was exactly an over-broad "national bounds" statement — the 50-state model is delivered as **separate regional releases** (CONUS, Alaska, Hawaii, territorial NSHMs). Plan the ingest per-region, and keep a national fallback for any point that misses.
+- **⚠️ Coverage caveat (a claim the research *refuted*):** do **not** assume the "50-state" model's CONUS bounds cover Alaska + Hawaii + territories in one file. The one claim all three reviewers rejected (unanimous refute) was exactly an over-broad "national bounds" statement — the 50-state model is delivered as **separate regional releases** (CONUS, Alaska, Hawaii, territorial NSHMs). Plan the ingest per-region, and keep a national fallback for any point that misses.
 - **Effort:** Medium (bulk-curve ingest → new tract/point crosswalk) for the exact path; Low if you accept design-parameter values from the keyless API.
 
 ### A2. Infrastructure Burden — sub-county municipal finance ✅ *(fixes the weakest link)*
@@ -220,7 +227,8 @@ attribution obligation, though crediting is good practice).
 - USFS Wildfire Risk to Communities — <https://www.fs.usda.gov/managing-land/fire/wildfirerisk>
 - NASA NEX-GDDP-CMIP6 — <https://registry.opendata.aws/nex-gddp-cmip6/>
 
-*Verification: 25 falsifiable claims put through 3-vote adversarial checking; 24
-confirmed, 1 refuted (the over-broad USGS "national bounds" claim — see §A1 caveat).
+*Verification: each of 25 falsifiable claims was reviewed by a 3-reviewer adversarial
+panel and kept only on a **≥2-of-3 majority**; 24 confirmed, 1 refuted (the over-broad
+USGS "national bounds" claim, unanimously rejected — see §A1 caveat).
 Parts A, B, and D are strongly evidenced; Part C is directional and should be confirmed
 against the primary methodology PDFs before implementation.*
