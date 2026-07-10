@@ -77,7 +77,8 @@ _SHAPE_C        = 4.1     # perimeter P = C·sqrt(footprint_area); C≈4.1 for a
                           # home of aspect ratio ~1.3-2.0 (P = 2(1+r)/sqrt(r)·sqrt(A))
 _STORY_HEIGHT_M = 2.7     # gross wall height per story (8-9 ft framing)
 _ROOF_PITCH_FACTOR = 1.12 # 6:12 roof: roof area ≈ 1.12 × footprint (trig fact)
-_WINDOW_WALL_RATIO = 0.15 # typical residential window-to-wall ratio
+# (A ~0.15 window-to-wall allowance is already folded into _ENV_KG_PER_M2WALL below,
+# so no separate window term is applied here.)
 
 # ── Shell assembly intensities ───────────────────────────────────────────────
 # Per m2 of FLOOR area (interior gypsum + floor structure/subfloor). Interior
@@ -132,7 +133,9 @@ def _to_float(v) -> float | None:
 
 
 def _footprint_and_perimeter(floor_area_m2: float, stories: float) -> tuple[float, float]:
-    footprint = floor_area_m2 / max(stories, 1.0)
+    # ``stories`` is clamped to >= 1 by the caller, so footprint and wall area stay
+    # consistent (no fractional-story footprint/envelope mismatch).
+    footprint = floor_area_m2 / stories
     perimeter = _SHAPE_C * math.sqrt(footprint)
     return footprint, perimeter
 
@@ -167,7 +170,7 @@ def embodied_intensity_kgm2(extwall_code=None, bsmt_code=None,
     applied by the caller (``environmental.embodied_intensity``), not here.
     """
     floor = _to_float(floor_area_m2) or _FLOOR_REF_M2
-    st = _to_float(stories) or _DEFAULT_STORIES
+    st = max(_to_float(stories) or _DEFAULT_STORIES, 1.0)   # <1 story isn't physical
     depth = _to_float(basement_depth_m)   # None if unknown → per-BSMT default
     w = _to_int(extwall_code)
     b = _to_int(bsmt_code)

@@ -625,9 +625,9 @@ def compute_local_percentile(sim_score: float, scores) -> float:
 # ── Argument parsing ───────────────────────────────────────────────────────────
 
 def _positive_float(s: str) -> float:
-    """argparse type: a strictly-positive float (clear error instead of silent drop)."""
+    """argparse type: a finite strictly-positive float (clear error, not a silent drop)."""
     v = float(s)
-    if v <= 0:
+    if not math.isfinite(v) or v <= 0:
         raise argparse.ArgumentTypeError(f"must be a positive number, got {s!r}")
     return v
 
