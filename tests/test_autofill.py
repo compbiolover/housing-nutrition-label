@@ -102,6 +102,15 @@ def test_per_unit_sqft_leaves_single_family_and_cluster():
     assert H._nsi_per_unit_sqft(_loc(sqft=None)) is None
 
 
+def test_per_unit_sqft_effective_units_override():
+    """An explicit unit override drives the divisor; else the detected count."""
+    loc = _loc(sqft=294504.0, num_units=157, structure_type="multifamily",
+               units_confidence="detected")
+    assert H._nsi_per_unit_sqft(loc, 100) == round(294504.0 / 100, 1)   # override wins
+    assert H._nsi_per_unit_sqft(loc, 1) == round(294504.0 / 157, 1)     # 1 (default) → detected
+    assert H._nsi_per_unit_sqft(loc, None) == round(294504.0 / 157, 1)  # unset → detected
+
+
 def test_autofill_uses_per_unit_sqft_for_detected_multifamily():
     """The autofill path stores per-unit sqft (not whole-building) and tags it."""
     cfg = {}
