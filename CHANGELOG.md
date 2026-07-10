@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.31](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.30...v0.1.31) (2026-07-10)
+
+
+### Bug Fixes
+
+* detect downtown high-rises correctly in address auto-fill ([#115](https://github.com/compbiolover/housing-nutrition-label/issues/115)) ([8e8c39f](https://github.com/compbiolover/housing-nutrition-label/commit/8e8c39fd9d7aaa74698bd4307c9efeae0156e519))
+
 ## [0.1.30](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.29...v0.1.30) (2026-07-09)
 
 
