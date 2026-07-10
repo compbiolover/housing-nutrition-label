@@ -114,7 +114,7 @@ def _parse(path: pathlib.Path) -> dict[str, float]:
 
 def _geo_level(geo_id: str) -> str:
     if geo_id == NATION_GEOID:
-        return "national"
+        return "us"          # shared national geo_level (matches data/home_value.py)
     return "tract" if geo_id.startswith(TRACT_PREFIX) else "county"
 
 
@@ -138,14 +138,14 @@ def main() -> None:
     values = _parse(path)
 
     rows = []
-    counts = {"tract": 0, "county": 0, "national": 0}
+    counts = {"tract": 0, "county": 0, "us": 0}
     for geo_id, v in values.items():
         level = _geo_level(geo_id)
         counts[level] += 1
         rows.append({"geoid": _norm_geoid(geo_id), "geo_level": level,
                      "median_value": round(v)})
     # tract, then county, then national — deterministic order
-    order = {"tract": 0, "county": 1, "national": 2}
+    order = {"tract": 0, "county": 1, "us": 2}
     rows.sort(key=lambda r: (order[r["geo_level"]], r["geoid"]))
 
     with gzip.open(OUT_PATH, "wt", newline="") as f:
@@ -155,7 +155,7 @@ def main() -> None:
 
     print(f"Wrote {OUT_PATH.relative_to(_DATA_DIR.parent.parent.parent)} — "
           f"{counts['tract']:,} tracts, {counts['county']:,} counties, "
-          f"{counts['national']} national ({OUT_PATH.stat().st_size/1e6:.1f} MB)",
+          f"{counts['us']} national ({OUT_PATH.stat().st_size/1e6:.1f} MB)",
           file=sys.stderr)
 
 
