@@ -1688,8 +1688,8 @@ def _nsi_per_unit_sqft(location, units: int | None = None) -> float | None:
     cluster heuristic's sqft (already one mislabeled house), are returned as-is.
 
     ``units`` is the *effective* dwelling-unit count so the divisor matches the rest
-    of the per-unit math: a caller's explicit override wins, falling back to the
-    NSI-detected count when it isn't supplied."""
+    of the per-unit math: an explicit override ``> 1`` wins, while ``units`` of 1 or
+    None (the default, i.e. "not overridden") falls back to the NSI-detected count."""
     sqft = getattr(location, "sqft", None)
     if sqft is None:
         return None
