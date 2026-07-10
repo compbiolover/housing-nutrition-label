@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.35](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.34...v0.1.35) (2026-07-10)
+
+
+### Features
+
+* auto-fill home value from the census-tract median, not county ([#124](https://github.com/compbiolover/housing-nutrition-label/issues/124)) ([7643aad](https://github.com/compbiolover/housing-nutrition-label/commit/7643aada643e12372c20d875ce19ff7c0f175b92))
+
 ## [0.1.34](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.33...v0.1.34) (2026-07-10)
 
 
