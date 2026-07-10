@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.34](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.33...v0.1.34) (2026-07-10)
+
+
+### Features
+
+* realistic cluster unit count + net-of-common-area per-unit sqft ([#121](https://github.com/compbiolover/housing-nutrition-label/issues/121)) ([b332d8d](https://github.com/compbiolover/housing-nutrition-label/commit/b332d8dce774326618ebe63b487b2f904fd45e9c))
+
 ## [0.1.33](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.32...v0.1.33) (2026-07-10)
 
 
