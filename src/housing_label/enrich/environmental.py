@@ -243,9 +243,10 @@ def embodied_intensity(extwall, grade, bsmt=None, floor_area_m2=None,
     the shape-factor/stories estimate when available. GRADE (construction quality)
     then nudges it ±10% around the average, since higher-grade homes carry more/
     heavier finishes."""
-    base = embodied_intensity_kgm2(extwall, bsmt, floor_area_m2, stories,
-                                   basement_depth_m, footprint_area_m2,
-                                   footprint_perimeter_m)
+    base = embodied_intensity_kgm2(extwall, bsmt, floor_area_m2=floor_area_m2,
+                                   stories=stories, basement_depth_m=basement_depth_m,
+                                   footprint_area_m2=footprint_area_m2,
+                                   footprint_perimeter_m=footprint_perimeter_m)
     g = _num(grade)
     if g is not None:
         f = 1.0 + (g - GRADE_MIDPOINT) * GRADE_SLOPE

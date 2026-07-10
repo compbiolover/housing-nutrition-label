@@ -256,7 +256,7 @@ def resolve_location(
             loc.footprint_area_m2 = fp.get("footprint_area_m2")
             loc.footprint_perimeter_m = fp.get("footprint_perimeter_m")
         else:
-            notes["footprint"] = "no USA Structures footprint at this point"
+            notes["footprint"] = "no USA Structures footprint (no mapped building at point, or service unavailable)"
     else:
         notes["structure"] = "skipped (no network)"
 

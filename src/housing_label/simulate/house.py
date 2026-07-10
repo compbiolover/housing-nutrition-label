@@ -1789,10 +1789,15 @@ def _autofill_construction_from_nsi(cfg: dict, explicit: set, location,
             filled[field] = (source, conf)
     # Real building footprint (USA Structures) — internal geometry for the embodied
     # model, not a user-editable construction field, so set directly (not via plan).
-    for k in ("footprint_area_m2", "footprint_perimeter_m"):
-        v = getattr(location, k, None)
-        if v is not None and cfg.get(k) is None:   # don't stomp a caller-provided value
-            cfg[k] = v
+    # Only a single-dwelling footprint maps cleanly onto the (per-unit) SFLA the model
+    # scores. For a multi-unit building SFLA is per unit while the USA Structures
+    # footprint is the WHOLE building, so propagating it would inflate the per-unit
+    # geometry — skip it and let the model estimate per unit instead.
+    if not (units and units > 1):
+        for k in ("footprint_area_m2", "footprint_perimeter_m"):
+            v = getattr(location, k, None)
+            if v is not None and cfg.get(k) is None:   # don't stomp a caller value
+                cfg[k] = v
     return filled
 
 
