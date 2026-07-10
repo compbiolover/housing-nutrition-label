@@ -1904,7 +1904,9 @@ def build_label_parts(*, address: str | None = None,
                 cfg["value"] = hv["value"]
                 cfg["value_source"] = HOME_VALUE_SOURCE.get(hv["geo_level"], AUTOFILL_VALUE_SOURCE)
     if cfg.get("value_source"):
-        autofilled["value"] = (cfg["value_source"], "low")   # a county-area estimate
+        # An area-median estimate (neighborhood tract / county / national, or the
+        # income-based value-per-door) — a typical value, not this home's own.
+        autofilled["value"] = (cfg["value_source"], "low")
 
     # Auto-fill the rest of the construction profile from the NSI-detected building
     # when the caller is scoring a real address (no hypothetical preset) and didn't

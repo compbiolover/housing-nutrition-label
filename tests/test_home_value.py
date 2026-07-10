@@ -65,15 +65,30 @@ def test_bundled_national_row_present():
 
 
 def test_autofill_uses_tract_value_and_source():
-    """The single-family auto-fill stores the tract median and tags its geo level."""
-    from housing_label.simulate.house import build_label_parts, label_payload
+    """The single-family auto-fill stores the resolved TRACT median and tags it —
+    fully offline: a faked crosswalk + an injected single-family Location."""
+    import unittest.mock as mock
+    from housing_label.simulate import house
+    from housing_label.simulate.location import Location
     from housing_label.simulate.dimensions import HOME_VALUE_SOURCE
-    # A tract known to be high-value (Beverly Hills) — resolved offline-safe by
-    # passing lat/lon so no geocode is needed; network for the tract lookup only.
-    cfg, r, lbl = build_label_parts(lat=34.0736, lon=-118.4004, allow_network=True)
-    v = label_payload(cfg, r, lbl).get("building", {}).get("value") or {}
-    if v.get("source") in HOME_VALUE_SOURCE.values():   # single-family auto-fill path
-        assert v["value"] and v["value"] > 0
+
+    loc = Location(
+        lat=34.07, lon=-118.40, state_fips="06", county_fips="06037",
+        county_name="LA", tract="06037700801", place_label="BH", in_urban_area=True,
+        climate_zone=None, egrid_subregion="CAMX", egrid_factor=None,
+        climate_projection=None, wildfire=None, structure_type="single_family",
+        num_units=1, stories=1, bldg_material=None, structure_source="NSI", notes=None)
+    fake = {"06037700801": 1_700_000.0, "06037": 780_000.0, "00000": 300_000.0}
+
+    def run():
+        with mock.patch("housing_label.simulate.location.resolve_location", return_value=loc):
+            cfg, _, _ = house.build_label_parts(
+                lat=34.07, lon=-118.40, preset="baseline", allow_network=False)
+        return cfg
+
+    cfg = _with_table(fake, run)
+    assert cfg["value"] == 1_700_000.0                       # the tract median, not county
+    assert cfg["value_source"] == HOME_VALUE_SOURCE["tract"]
 
 
 def _run_all():
