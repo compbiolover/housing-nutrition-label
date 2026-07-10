@@ -1677,15 +1677,26 @@ _EDITABLE_FIELDS = ["year_built", "construction", "foundation", "condition",
                     "sqft", "units", "stories", "lot_acres", "value", "bldg_material"]
 
 
+# Multifamily building efficiency: the fraction of gross floor area that is a
+# unit's own living space, once the shared circulation/lobby/mechanical common
+# areas are removed. NSI reports GROSS building area, so gross ÷ units overstates a
+# dwelling's conditioned area; ~0.85 is a mid-range apartment efficiency ratio
+# (corridors/stairs/elevators/lobby run ~15%). A modeled approximation — the sqft
+# is surfaced as an estimate. (Distinct from the shared-wall envelope credit, which
+# the energy model applies separately via attachment_eui_factor.)
+_MF_NET_TO_GROSS = 0.85
+
+
 def _nsi_per_unit_sqft(location, units: int | None = None) -> float | None:
     """Auto-filled living area per *dwelling unit*.
 
     A genuine NSI multi-unit record (``units_confidence == "detected"``) reports the
-    WHOLE building's floor area, so it is split across the unit count to match the
-    label's per-unit sqft convention (``SFLA`` per unit) — this keeps the energy
-    cost, EUI, and the lifetime-cost comparison per apartment rather than scoring the
-    entire 100k+ sqft building against one typical house. Single-family sqft, and the
-    cluster heuristic's sqft (already one mislabeled house), are returned as-is.
+    WHOLE building's GROSS floor area, so it is split across the unit count and
+    scaled by ``_MF_NET_TO_GROSS`` (common-area allowance) to approximate one
+    dwelling's living space — this keeps the energy cost, EUI, and the lifetime-cost
+    comparison per apartment rather than scoring the entire 100k+ sqft building
+    against one typical house. Single-family sqft, and the cluster heuristic's sqft
+    (already one mislabeled house), are returned as-is.
 
     ``units`` is the *effective* dwelling-unit count so the divisor matches the rest
     of the per-unit math: an explicit override ``> 1`` wins, while ``units`` of 1 or
@@ -1694,7 +1705,7 @@ def _nsi_per_unit_sqft(location, units: int | None = None) -> float | None:
     if sqft is None:
         return None
     n = _nsi_sqft_divisor(location, units)
-    return round(float(sqft) / n, 1) if n else sqft
+    return round(float(sqft) / n * _MF_NET_TO_GROSS, 1) if n else sqft
 
 
 def _nsi_sqft_divisor(location, units: int | None = None) -> int | None:
@@ -1732,7 +1743,7 @@ def _autofill_construction_from_nsi(cfg: dict, explicit: set, location,
     # as such and drop one confidence notch. Decided by the same predicate used to
     # divide, so it can't mis-tag a 0-sqft or rounding-equal record.
     if sqft_val is not None and _nsi_sqft_divisor(location, units) is not None:
-        sqft_src, sqft_conf = "NSI · building floor area ÷ units (per unit)", "moderate" if observed else "low"
+        sqft_src, sqft_conf = "NSI · building area ÷ units, less common area (per unit)", "moderate" if observed else "low"
     else:
         sqft_src, sqft_conf = "NSI · structure record", "high" if observed else "moderate"
     plan = [
