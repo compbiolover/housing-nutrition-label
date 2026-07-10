@@ -129,7 +129,9 @@ def _to_float(v) -> float | None:
         f = float(v)
     except (TypeError, ValueError):
         return None
-    return f if f == f and f > 0 else None   # reject NaN / non-positive
+    # Reject NaN / inf / non-positive so they fall back to the reference defaults
+    # instead of propagating inf/nan through sqrt and the area math.
+    return f if math.isfinite(f) and f > 0 else None
 
 
 def _footprint_and_perimeter(floor_area_m2: float, stories: float) -> tuple[float, float]:

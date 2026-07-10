@@ -242,6 +242,14 @@ def per_unit_home_value(cfg: dict) -> float:
 
 
 # ── Build a synthetic CAMA parcel row from the simulator config ─────────────────
+def _feet_to_m(feet) -> float:
+    """Feet → metres, tolerant of missing / non-numeric input (→ NaN)."""
+    try:
+        return float(feet) * 0.3048
+    except (TypeError, ValueError):
+        return np.nan
+
+
 def build_parcel_row(cfg: dict) -> pd.Series:
     """Translate a simulator config dict into a one-parcel CAMA-style Series.
 
@@ -276,9 +284,9 @@ def build_parcel_row(cfg: dict) -> pd.Series:
         # foundation + roof over its floor area than a 2-story of the same size).
         "STORIES":   cfg.get("stories") or np.nan,
         # Optional actual basement depth (metres) for the embodied foundation term;
-        # absent → the embodied model uses a per-foundation-type default depth.
-        "basement_depth_m": (float(cfg["basement_depth_ft"]) * 0.3048
-                             if cfg.get("basement_depth_ft") else np.nan),
+        # absent / non-numeric → NaN, and the embodied model falls back to a
+        # per-foundation-type default depth (degrades gracefully, never crashes).
+        "basement_depth_m": _feet_to_m(cfg.get("basement_depth_ft")),
         "CALC_ACRE": per_unit_acres,
         "acre_outlier": False,
         "RTOTAPR":   per_unit_value,
