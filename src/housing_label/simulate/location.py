@@ -251,7 +251,13 @@ def resolve_location(
         # Real footprint geometry (area + perimeter) for the embodied-carbon model,
         # independent of NSI — best effort, None when the point isn't a mapped building.
         from housing_label.enrich.footprint import footprint_for_point
-        fp = footprint_for_point(loc.lat, loc.lon, allow_network=allow_network)
+        # NSI floor area ÷ stories ≈ the home's footprint — a hint to disambiguate
+        # when a parcel geocode falls among several nearby buildings.
+        expected_fp = None
+        if loc.sqft and loc.stories:
+            expected_fp = (loc.sqft * 0.092903) / max(loc.stories, 1)
+        fp = footprint_for_point(loc.lat, loc.lon, allow_network=allow_network,
+                                 expected_footprint_m2=expected_fp)
         if fp:
             loc.footprint_area_m2 = fp.get("footprint_area_m2")
             loc.footprint_perimeter_m = fp.get("footprint_perimeter_m")
