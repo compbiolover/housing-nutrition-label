@@ -84,6 +84,24 @@ def test_select_prefers_residential_when_coplausible():
     assert r["structure_type"] == "multifamily" and r["num_units"] == 45
 
 
+# ── Per-unit sqft for a detected multi-unit building (house.py) ───────────────
+def test_per_unit_sqft_divides_detected_multifamily():
+    """A genuine NSI multi-unit record's whole-building sqft is split per unit."""
+    loc = _loc(sqft=294504.0, num_units=157, structure_type="multifamily",
+               units_confidence="detected")
+    assert H._nsi_per_unit_sqft(loc) == round(294504.0 / 157, 1)   # ~1875.8
+
+
+def test_per_unit_sqft_leaves_single_family_and_cluster():
+    sf = _loc(sqft=1500.0, num_units=1, structure_type="single_family",
+              units_confidence="detected")
+    assert H._nsi_per_unit_sqft(sf) == 1500.0                      # single unit → as-is
+    cluster = _loc(sqft=1332.0, num_units=8, structure_type="multifamily",
+                   units_confidence="estimated")                    # cluster heuristic
+    assert H._nsi_per_unit_sqft(cluster) == 1332.0                 # already one house → not divided
+    assert H._nsi_per_unit_sqft(_loc(sqft=None)) is None
+
+
 # ── Auto-fill precedence (house.py) ───────────────────────────────────────────
 def test_autofill_fills_unset_fields():
     cfg = {"year_built": 2024, "construction": "frame", "foundation": "slab", "sqft": 2000}

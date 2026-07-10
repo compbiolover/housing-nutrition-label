@@ -1677,6 +1677,27 @@ _EDITABLE_FIELDS = ["year_built", "construction", "foundation", "condition",
                     "sqft", "units", "stories", "lot_acres", "value", "bldg_material"]
 
 
+def _nsi_per_unit_sqft(location) -> float | None:
+    """Auto-filled living area per *dwelling unit*.
+
+    A genuine NSI multi-unit record (``units_confidence == "detected"``) reports the
+    WHOLE building's floor area, so it is split across the detected unit count to
+    match the label's per-unit sqft convention (``SFLA`` per unit) — this keeps the
+    energy cost, EUI, and the lifetime-cost comparison per apartment rather than
+    scoring the entire 100k+ sqft building against one typical house. Single-family
+    sqft, and the cluster heuristic's sqft (already one mislabeled house), are
+    returned as-is."""
+    sqft = getattr(location, "sqft", None)
+    if sqft is None:
+        return None
+    n = getattr(location, "num_units", None)
+    if (getattr(location, "units_confidence", None) == "detected"
+            and getattr(location, "structure_type", None) == "multifamily"
+            and n and n > 1):
+        return round(float(sqft) / n, 1)
+    return sqft
+
+
 def _autofill_construction_from_nsi(cfg: dict, explicit: set, location) -> dict:
     """Fill year_built / sqft / construction / foundation from the NSI-detected
     Location when the user left them unset. Returns ``{field: (source, confidence)}``
@@ -1684,23 +1705,23 @@ def _autofill_construction_from_nsi(cfg: dict, explicit: set, location) -> dict:
 
     year_built is a census-area MEDIAN and construction is a coarse 5-class guess,
     so both are always low-confidence estimates; sqft/foundation ride NSI's
-    per-structure provenance (parcel-observed → higher confidence than modeled)."""
+    per-structure provenance (parcel-observed → higher confidence than modeled).
+    For a detected multi-unit building the sqft is stored per dwelling unit (see
+    ``_nsi_per_unit_sqft``)."""
     filled: dict = {}
     if location is None:
         return filled
     observed = getattr(location, "structure_attr_source", None) == "P"
     plan = [
-        ("year_built",   "year_built",   "NSI · neighborhood median (estimated)", "low"),
-        ("sqft",         "sqft",         "NSI · structure record", "high" if observed else "moderate"),
-        ("construction", "construction", "NSI · material class (coarse estimate)", "low"),
-        ("foundation",   "foundation",   "NSI · structure record", "moderate" if observed else "low"),
+        ("year_built",   getattr(location, "year_built", None), "NSI · neighborhood median (estimated)", "low"),
+        ("sqft",         _nsi_per_unit_sqft(location),          "NSI · structure record", "high" if observed else "moderate"),
+        ("construction", getattr(location, "construction", None), "NSI · material class (coarse estimate)", "low"),
+        ("foundation",   getattr(location, "foundation", None), "NSI · structure record", "moderate" if observed else "low"),
     ]
-    for field, attr, source, conf in plan:
-        if field not in explicit:
-            val = getattr(location, attr, None)
-            if val is not None:
-                cfg[field] = val
-                filled[field] = (source, conf)
+    for field, val, source, conf in plan:
+        if field not in explicit and val is not None:
+            cfg[field] = val
+            filled[field] = (source, conf)
     return filled
 
 
