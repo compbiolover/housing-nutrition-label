@@ -21,6 +21,18 @@ def test_ring_perimeter_square_near_equator():
     assert 4_300 < fp._ring_perimeter_m(ring) < 4_500
 
 
+def test_ring_perimeter_closes_an_unclosed_ring():
+    closed = [[0, 0], [0.01, 0], [0.01, 0.01], [0, 0.01], [0, 0]]
+    unclosed = [[0, 0], [0.01, 0], [0.01, 0.01], [0, 0.01]]
+    assert abs(fp._ring_perimeter_m(closed) - fp._ring_perimeter_m(unclosed)) < 1.0
+
+
+def test_ring_area_ranks_outer_boundary_over_hole():
+    outer = [[0, 0], [0.02, 0], [0.02, 0.02], [0, 0.02], [0, 0]]
+    hole = [[0.005, 0.005], [0.006, 0.005], [0.006, 0.006], [0.005, 0.006], [0.005, 0.005]]
+    assert fp._ring_area_deg2(outer) > fp._ring_area_deg2(hole)
+
+
 def test_offline_returns_none():
     assert fp.footprint_for_point(38.9, -77.0, allow_network=False) is None
 

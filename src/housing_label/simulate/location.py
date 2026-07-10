@@ -251,7 +251,7 @@ def resolve_location(
         # Real footprint geometry (area + perimeter) for the embodied-carbon model,
         # independent of NSI — best effort, None when the point isn't a mapped building.
         from housing_label.enrich.footprint import footprint_for_point
-        fp = footprint_for_point(loc.lat, loc.lon, allow_network=True)
+        fp = footprint_for_point(loc.lat, loc.lon, allow_network=allow_network)
         if fp:
             loc.footprint_area_m2 = fp.get("footprint_area_m2")
             loc.footprint_perimeter_m = fp.get("footprint_perimeter_m")

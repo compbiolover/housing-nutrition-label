@@ -1791,7 +1791,7 @@ def _autofill_construction_from_nsi(cfg: dict, explicit: set, location,
     # model, not a user-editable construction field, so set directly (not via plan).
     for k in ("footprint_area_m2", "footprint_perimeter_m"):
         v = getattr(location, k, None)
-        if v is not None:
+        if v is not None and cfg.get(k) is None:   # don't stomp a caller-provided value
             cfg[k] = v
     return filled
 

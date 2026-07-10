@@ -50,11 +50,24 @@ def _haversine_m(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
 
 
 def _ring_perimeter_m(ring: list) -> float:
-    """Geodesic perimeter of a closed lon/lat ring (sum of haversine edge lengths)."""
+    """Geodesic perimeter of a lon/lat ring (sum of haversine edge lengths).
+
+    Closes the ring if the service returned it unclosed (last point != first), so the
+    final edge back to the start is never dropped."""
+    r = ring if ring and ring[0] == ring[-1] else list(ring) + [ring[0]]
     total = 0.0
-    for (lon1, lat1), (lon2, lat2) in zip(ring, ring[1:]):
+    for (lon1, lat1), (lon2, lat2) in zip(r, r[1:]):
         total += _haversine_m(lon1, lat1, lon2, lat2)
     return total
+
+
+def _ring_area_deg2(ring: list) -> float:
+    """Planar shoelace area (deg²) of a ring — used only to rank rings, so the outer
+    boundary (largest) is chosen over interior holes / multipart pieces."""
+    s = 0.0
+    for (x1, y1), (x2, y2) in zip(ring, ring[1:] + ring[:1]):
+        s += x1 * y2 - x2 * y1
+    return abs(s) / 2.0
 
 
 def _query(lat: float, lon: float) -> list[dict]:
@@ -75,7 +88,10 @@ def _query(lat: float, lon: float) -> list[dict]:
             r.raise_for_status()
             data = r.json() or {}
             if "error" in data:
-                return []
+                # ArcGIS returns HTTP 200 with an error body for transient conditions
+                # (rate-limit / overload) — treat it as a failure so the retry/backoff
+                # loop gets a chance rather than giving up immediately.
+                raise RuntimeError("arcgis error response")
             return data.get("features") or []
         except Exception:  # noqa: BLE001
             if attempt == RETRIES:
@@ -98,8 +114,11 @@ def _footprint_at(lat: float, lon: float, allow_network: bool) -> dict | None:
     area = attrs.get("SQMETERS")
     if not area or area <= 0:
         return None
-    rings = (best.get("geometry") or {}).get("rings") or []
-    perim = _ring_perimeter_m(rings[0]) if rings and len(rings[0]) >= 4 else None
+    # A polygon can have multiple rings (holes / multipart); the exterior wall
+    # perimeter is the outer boundary — the largest-area ring.
+    rings = [r for r in ((best.get("geometry") or {}).get("rings") or []) if len(r) >= 4]
+    outer = max(rings, key=_ring_area_deg2) if rings else None
+    perim = _ring_perimeter_m(outer) if outer else None
     if not perim or perim <= 0:
         return None
     return {
