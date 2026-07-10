@@ -166,14 +166,14 @@ coding.)*
 
 ## Part D — Integration effort & license summary
 
-| Source | Redistributable? | Keyless? | License trap | Effort |
-|--------|------------------|----------|--------------|--------|
+| Source | Redistributable? | Keyless? | Caveats & license notes | Effort |
+|--------|------------------|----------|-------------------------|--------|
 | USGS 2023 NSHM / ASCE 7-22 service | ✅ public domain | ✅ (API) / bulk | Regional files, not one national file; API returns *design* not *exceedance* values | Med (bulk) / Low (API) |
-| 2022 CoG Individual Unit File | ✅ public domain | n/a (bulk) | Per-unit, needs government→geography crosswalk | High |
-| NREL LEAD 2022 | ✅ public domain | n/a (bulk) | LMI-focused; modeled | Low |
+| 2022 CoG Individual Unit File | ✅ public domain | ✅ (bulk) | Per-unit, needs government→geography crosswalk | High |
+| NREL LEAD 2022 | ✅ public domain | ✅ (bulk) | LMI-focused; modeled | Low |
 | NREL ResStock 2025 (EULP) | ✅ Apache-2.0 | ✅ anon S3 | Attribution; county-only; no PR/Guam | Low–Med |
-| NREL Cambium 2023 LRMER | ✅ CC BY 4.0 | n/a (bulk) | **Attribution required**; 18-region CONUS-only; supplements not replaces eGRID | Low |
-| FEMA NRI v1.20 + Future Risk | ✅ public domain | n/a (bulk) | Modeled composites; **no future seismic**; verify tract future-fire file | Low |
+| NREL Cambium 2023 LRMER | ✅ CC BY 4.0 | ✅ (bulk) | **Attribution required**; 18-region CONUS-only; supplements not replaces eGRID | Low |
+| FEMA NRI v1.20 + Future Risk | ✅ public domain | ✅ (bulk) | Modeled composites; **no future seismic**; verify tract future-fire file | Low |
 | **EC3 (embodied carbon)** | ❌ | ❌ token-gated | **Fails both constraints — do not use** | — |
 
 **Attribution obligations to honor if adopted:** ResStock (Apache-2.0) and Cambium
