@@ -33,6 +33,46 @@ def test_ring_area_ranks_outer_boundary_over_hole():
     assert fp._ring_area_deg2(outer) > fp._ring_area_deg2(hole)
 
 
+def _feat(area, dlat, outbldg="N"):
+    return {"attributes": {"SQMETERS": area, "OUTBLDG": outbldg,
+                           "LONGITUDE": -84.0, "LATITUDE": 35.0 + dlat,
+                           "OCC_CLS": "Residential"}}
+
+
+def test_select_prefers_area_match_over_nearest():
+    lat, lon = 35.0, -84.0
+    a = _feat(208, 0.00027)    # ~30 m away, matches the expected footprint
+    b = _feat(307, 0.000135)   # ~15 m away (nearer) but wrong area
+    assert fp._select_building([a, b], lat, lon, 203) is a   # area hint wins
+    assert fp._select_building([a, b], lat, lon, None) is b   # no hint → nearest
+
+
+def test_area_tie_broken_by_distance_deterministically():
+    lat, lon = 35.0, -84.0
+    near = _feat(200, 0.00009)   # ~10 m away, |200-203| = 3
+    far = _feat(206, 0.0003)     # ~33 m away, |206-203| = 3 (same area delta)
+    # Equal area delta → nearer centroid wins, regardless of return order.
+    assert fp._select_building([far, near], lat, lon, 203) is near
+    assert fp._select_building([near, far], lat, lon, 203) is near
+
+
+def test_select_skips_outbuildings_and_too_far():
+    lat, lon = 35.0, -84.0
+    shed = _feat(50, 0.00001, outbldg="Y")   # very near but an outbuilding
+    far = _feat(205, 0.001)                  # matches area but ~111 m away
+    home = _feat(210, 0.0002)                # ~22 m — the real home
+    assert fp._select_building([shed, far, home], lat, lon, 203) is home
+
+
+def test_select_tolerates_bad_attribute_values():
+    lat, lon = 35.0, -84.0
+    junk = {"attributes": {"SQMETERS": "oops", "OUTBLDG": "N",
+                           "LONGITUDE": None, "LATITUDE": float("nan")}}
+    good = _feat(205, 0.0002)
+    assert fp._select_building([junk, good], lat, lon, 203) is good
+    assert fp._select_building([junk], lat, lon, 203) is None
+
+
 def test_offline_returns_none():
     assert fp.footprint_for_point(38.9, -77.0, allow_network=False) is None
 

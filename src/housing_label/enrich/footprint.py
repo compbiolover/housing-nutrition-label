@@ -11,12 +11,17 @@ Source: the national USA Structures view hosted in FEMA's ArcGIS Online org
 (keyless, read-only ``Query`` service). We ask for the polygon whose footprint
 intersects the geocoded point.
 
-Two data gotchas, both handled here:
+Three data gotchas, all handled here:
   * ``Shape__Area`` / ``Shape__Length`` come back in the service's native **Web
     Mercator** projection (inflated by ~1/cos²(lat) for area), so they are NOT real
     m²/m. We use the ORNL-precomputed ``SQMETERS`` for area, and compute the
     perimeter **geodesically** from the returned lon/lat rings.
-  * A point may hit no building (rural / <450 sq ft) → empty features → ``None``.
+  * Geocoders usually return a **parcel/street point, not the rooftop**, so an exact
+    point-in-polygon test often misses the building. When it does, we search a box
+    around the point and pick the **primary building whose footprint best matches the
+    home's expected size** (NSI floor area ÷ stories, when known) — falling back to the
+    nearest one — skipping outbuildings and staying within ~40 m.
+  * A point may still hit no building (rural / <450 sq ft) → ``None``.
 
 Network/API failure or ``allow_network=False`` degrades gracefully to ``None`` (the
 embodied model falls back to its shape-factor estimate), so this is a best-effort
@@ -26,6 +31,7 @@ enrichment, never a hard dependency. Attribution: FEMA / ORNL USA Structures
 
 from __future__ import annotations
 
+import json
 import math
 import time
 from functools import lru_cache
@@ -70,14 +76,33 @@ def _ring_area_deg2(ring: list) -> float:
     return abs(s) / 2.0
 
 
-def _query(lat: float, lon: float) -> list[dict]:
-    """Return USA Structures features intersecting the point (empty on failure)."""
+# Geocoders (e.g. the Census geocoder) usually return a parcel/street point, not
+# the rooftop, so an exact point-in-polygon test frequently misses the building.
+# When it does, we search a box around the point and pick the addressed home.
+_MAX_ASSOC_M = 40.0   # a footprint centroid farther than this isn't this address's home
+_DEG_PER_M_LAT = 1.0 / 111_320.0   # metres → degrees latitude
+
+
+def _num(v) -> float | None:
+    """Finite float or None — tolerates the service returning strings / nulls / NaN."""
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return f if math.isfinite(f) else None
+
+
+def _query(geometry: str, geometry_type: str) -> list[dict]:
+    """Return USA Structures features intersecting the geometry (empty on failure).
+
+    Requests the building centroid (LONGITUDE/LATITUDE) and OUTBLDG flag so the
+    caller can pick the nearest primary building when several fall in the box."""
     params = {
-        "geometry": f"{lon},{lat}",
-        "geometryType": "esriGeometryPoint",
+        "geometry": geometry,
+        "geometryType": geometry_type,
         "inSR": "4326",
         "spatialRel": "esriSpatialRelIntersects",
-        "outFields": "SQMETERS,OCC_CLS",
+        "outFields": "SQMETERS,OCC_CLS,OUTBLDG,LONGITUDE,LATITUDE",
         "returnGeometry": "true",
         "outSR": "4326",
         "f": "json",
@@ -100,16 +125,62 @@ def _query(lat: float, lon: float) -> list[dict]:
     return []
 
 
+def _select_building(feats: list[dict], lat: float, lon: float,
+                     expected_m2: float | None) -> dict | None:
+    """Pick the addressed home from the buildings in the box: skip outbuildings
+    (garages/sheds) and anything beyond ``_MAX_ASSOC_M``, then — since a parcel geocode
+    can sit closer to a neighbor than to the home — prefer the footprint whose area
+    best matches the home's expected footprint (NSI floor area ÷ stories) when that is
+    known, falling back to the nearest centroid otherwise."""
+    cands = []
+    for f in feats:
+        a = f.get("attributes") or {}
+        if (a.get("OUTBLDG") or "").upper() == "Y":
+            continue
+        clon, clat, area = _num(a.get("LONGITUDE")), _num(a.get("LATITUDE")), _num(a.get("SQMETERS"))
+        if clon is None or clat is None or area is None or area <= 0:
+            continue
+        dist = _haversine_m(lon, lat, clon, clat)
+        if dist <= _MAX_ASSOC_M:
+            cands.append((dist, area, f))
+    if not cands:
+        return None
+    if expected_m2 is not None and expected_m2 > 0:
+        # Best area match, with centroid distance as a deterministic tie-breaker so the
+        # pick never depends on the service's feature-return order.
+        return min(cands, key=lambda c: (abs(c[1] - expected_m2), c[0]))[2]
+    return min(cands, key=lambda c: c[0])[2]
+
+
 @lru_cache(maxsize=4096)
-def _footprint_at(lat: float, lon: float, allow_network: bool) -> dict | None:
+def _footprint_at(lat: float, lon: float, allow_network: bool,
+                  expected_m2: float | None) -> dict | None:
     if not allow_network:
         return None
-    feats = _query(lat, lon)
-    if not feats:
+    # 1) Exact: a footprint that contains the geocoded point (rooftop-accurate geocode).
+    feats = _query(f"{lon},{lat}", "esriGeometryPoint")
+    # Only a PRIMARY building containing the point counts as an exact hit; if the point
+    # sits only inside an outbuilding (garage/shed) — or no footprint at all — fall
+    # through to the box search for the addressed home nearby.
+    primary = [f for f in feats
+               if ((f.get("attributes") or {}).get("OUTBLDG") or "").upper() != "Y"]
+    if primary:
+        # >1 only on a shared edge / overlap; take the largest real footprint.
+        best = max(primary, key=lambda f: _num((f.get("attributes") or {}).get("SQMETERS")) or 0.0)
+    else:
+        # 2) Parcel/street geocode → no containing footprint; pick the addressed home
+        # from the primary buildings in a box around the point. Size the box in metres
+        # (± _MAX_ASSOC_M, longitude widened by 1/cos(lat), the cos capped at 0.1 so the
+        # span stays finite past ~84° — irrelevant for US addresses) so it covers the
+        # full acceptance radius rather than a fixed degree span.
+        dlat = _MAX_ASSOC_M * _DEG_PER_M_LAT
+        dlon = dlat / max(math.cos(math.radians(lat)), 0.1)
+        env = json.dumps({"xmin": lon - dlon, "ymin": lat - dlat,
+                          "xmax": lon + dlon, "ymax": lat + dlat,
+                          "spatialReference": {"wkid": 4326}})
+        best = _select_building(_query(env, "esriGeometryEnvelope"), lat, lon, expected_m2)
+    if best is None:
         return None
-    # A point can intersect >1 footprint on a shared edge / overlap; take the largest
-    # real footprint (SQMETERS), which is the building the address most likely names.
-    best = max(feats, key=lambda f: (f.get("attributes") or {}).get("SQMETERS") or 0.0)
     attrs = best.get("attributes") or {}
     area = attrs.get("SQMETERS")
     if not area or area <= 0:
@@ -129,10 +200,15 @@ def _footprint_at(lat: float, lon: float, allow_network: bool) -> dict | None:
     }
 
 
-def footprint_for_point(lat, lon, allow_network: bool = True) -> dict | None:
+def footprint_for_point(lat: float, lon: float, allow_network: bool = True,
+                        expected_footprint_m2: float | None = None) -> dict | None:
     """Real building footprint at (lat, lon): ``{footprint_area_m2,
     footprint_perimeter_m, occ_cls, source}``, or ``None`` when no building is found,
     the service is unavailable, or ``allow_network`` is False.
+
+    ``expected_footprint_m2`` (the home's NSI floor area ÷ stories, if known) helps
+    disambiguate when a parcel geocode falls among several buildings — the one whose
+    area best matches is preferred over the merely-nearest.
 
     Area is ORNL's true 2-D ``SQMETERS``; perimeter is geodesic from the footprint
     rings (the service's ``Shape__Area``/``Shape__Length`` are Web-Mercator-distorted
@@ -143,4 +219,11 @@ def footprint_for_point(lat, lon, allow_network: bool = True) -> dict | None:
         return None
     if not (math.isfinite(latf) and math.isfinite(lonf)):
         return None
-    return _footprint_at(round(latf, 6), round(lonf, 6), bool(allow_network))
+    exp = None
+    try:
+        e = float(expected_footprint_m2)
+        if math.isfinite(e) and e > 0:
+            exp = round(e, 1)
+    except (TypeError, ValueError):
+        exp = None
+    return _footprint_at(round(latf, 6), round(lonf, 6), bool(allow_network), exp)
