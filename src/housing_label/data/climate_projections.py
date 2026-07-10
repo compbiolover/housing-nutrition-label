@@ -77,8 +77,6 @@ to a coarser geography or the national-average score, with the label flagging it
 
 from __future__ import annotations
 
-import csv
-import gzip
 import pathlib
 from functools import lru_cache
 
@@ -179,16 +177,11 @@ def _band_score(row: dict, band: str) -> float | None:
 from housing_label.data._util import num as _num  # shared CSV-cell float coercion
 
 
-def _load_rows(path: pathlib.Path, width: int) -> dict[str, dict]:
-    """geoid (zero-padded to ``width``) → raw CMRA row, from a CSV or .csv.gz."""
-    table: dict[str, dict] = {}
-    opener = gzip.open if path.suffix == ".gz" else open
-    with opener(path, "rt", newline="") as f:
-        for row in csv.DictReader(f):
-            geoid = str(row["geoid"]).strip().zfill(width)
-            if geoid:
-                table[geoid] = row
-    return table
+def _load_rows(path: pathlib.Path, width: int):
+    """geoid (zero-padded to ``width``) → CMRA row, as a compact columnar store
+    (memory-efficient drop-in for the old ``{geoid: raw-row}`` dict)."""
+    from housing_label.data._tractstore import load_tract_store
+    return load_tract_store(path, width)
 
 
 @lru_cache(maxsize=1)
