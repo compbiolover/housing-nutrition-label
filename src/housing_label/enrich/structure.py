@@ -198,12 +198,21 @@ def _cluster_unit(res1: list[dict], footprints: Counter) -> dict | None:
     structure at the *modal* footprint size, whose sqft/year describe one unit —
     not the large clubhouse / commercial building the address point may have
     footprint-selected. None when there are no sized RES1 footprints (e.g. a
-    RES3-district detection), leaving the caller's fallback in place."""
-    if not footprints:
+    RES3-district detection), leaving the caller's fallback in place.
+
+    Deterministic: the modal is the most common finite, positive footprint size,
+    ties broken toward the smaller (more unit-like) size; the representative is the
+    RES1 closest to it, ties broken toward the smaller footprint."""
+    sizes = [(size, cnt) for size, cnt in footprints.items()
+             if isinstance(size, (int, float)) and math.isfinite(size) and size > 0]
+    if not sizes:
         return None
-    modal = footprints.most_common(1)[0][0]
-    sized = [p for p in res1 if _num(p.get("sqft"))]
-    return min(sized, key=lambda p: abs(_num(p.get("sqft")) - modal)) if sized else None
+    modal = max(sizes, key=lambda sc: (sc[1], -sc[0]))[0]   # most common, then smallest
+    sized = [p for p in res1
+             if _num(p.get("sqft")) and math.isfinite(_num(p.get("sqft")))]
+    if not sized:
+        return None
+    return min(sized, key=lambda p: (abs(_num(p.get("sqft")) - modal), _num(p.get("sqft"))))
 
 
 def _result(props: dict, structure_type, num_units, *, units_confidence, detection,
@@ -283,7 +292,8 @@ def _classify_site(props_list: list[dict], lat: float, lon: float) -> dict | Non
     # modeling an apartment complex as a cluster of single-family (RES1) structures.
     # RES3 density is handled as the separate district signal below, so it is not
     # folded into the footprint count (which would broaden it into false positives).
-    footprints = Counter(round(v) for v in (_num(p.get("sqft")) for p in res1) if v)
+    footprints = Counter(round(v) for v in (_num(p.get("sqft")) for p in res1)
+                         if v and math.isfinite(v))
     cluster = footprints.most_common(1)[0][1] if footprints else 0
     if cluster >= _CLUSTER_MIN or len(res3) >= _RES3_DISTRICT_MIN:
         # For a RES1-cluster site (an apartment complex modeled as identical
@@ -292,8 +302,10 @@ def _classify_site(props_list: list[dict], lat: float, lon: float) -> dict | Non
         # footprint-selected — else a single unit reads as the whole complex. Only
         # when the RES1 cluster is the actual signal, though: a pure RES3-district
         # keeps the selected structure so a stray nearby house can't overwrite it.
-        unit = (_cluster_unit(res1, footprints) or selected
-                if cluster >= _CLUSTER_MIN else selected)
+        if cluster >= _CLUSTER_MIN:
+            unit = _cluster_unit(res1, footprints) or selected
+        else:
+            unit = selected
         return _result(unit, "multifamily", _estimate_units(res3),
                        units_confidence="estimated", detection="nsi-cluster",
                        drop_shell=True)

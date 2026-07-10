@@ -109,6 +109,17 @@ def test_res3_district_keeps_selected_not_stray_res1():
     assert r["sqft"] == 50000         # selected structure, not the 1,200 sqft stray RES1
 
 
+def test_cluster_unit_deterministic_on_tied_footprints():
+    """Equal-count footprint sizes resolve deterministically to the smaller size."""
+    from collections import Counter
+    res1 = ([{"y": 0, "x": 0, "occtype": "RES1", "sqft": 1200}] * 5
+            + [{"y": 0, "x": 0, "occtype": "RES1", "sqft": 1600}] * 5)
+    fp = Counter([1200] * 5 + [1600] * 5)          # a tie between 1200 and 1600
+    assert S._cluster_unit(res1, fp)["sqft"] == 1200   # smaller (more unit-like) wins
+    # non-finite / non-positive footprints are ignored, don't crash
+    assert S._cluster_unit([], Counter()) is None
+
+
 # ── Per-unit sqft for a detected multi-unit building (house.py) ───────────────
 def test_per_unit_sqft_divides_detected_multifamily():
     """A genuine NSI multi-unit record's whole-building sqft is split per unit."""
