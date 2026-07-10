@@ -283,10 +283,13 @@ def test_embodied_amortized_over_service_life():
 
     assert frame["env_service_life_yr"] == 60
     assert icf["env_service_life_yr"] == 100
-    assert frame["env_embodied_subscore"] > 80           # low-carbon wood, ~93
-    # Concrete's high upfront carbon, amortized over 100 yr, is no longer ~0 as
-    # it was under flat 60-yr amortization (was ~1.4).
-    assert icf["env_embodied_subscore"] > 40
+    # Frame sits mid-range under the EPD-grounded build-up (~70): lower than the old
+    # hand-set band gave, because foundation + gypsum are now counted.
+    assert frame["env_embodied_subscore"] > 55
+    # ICF's higher upfront carbon, amortized over 100 yr rather than 60, keeps its
+    # embodied sub-score healthy — comparable to (here even above) the wood frame,
+    # instead of the near-zero it would be at a flat 60-yr amortization.
+    assert icf["env_embodied_subscore"] > 55
 
 
 def test_resilience_fire_and_uncapped_brm():

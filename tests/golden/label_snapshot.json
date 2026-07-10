@@ -1,7 +1,7 @@
 {
   "baseline_la": {
     "composite_national_grade": "C",
-    "composite_score": 58.1,
+    "composite_score": 57.2,
     "cost": {
       "annualEnergyCost": 2111,
       "expectedAnnualLoss": 137
@@ -25,7 +25,7 @@
       {
         "key": "environmental",
         "national_grade": "B",
-        "score": 69.7
+        "score": 65.1
       },
       {
         "key": "infrastructure",
@@ -59,7 +59,7 @@
   },
   "baseline_shelby": {
     "composite_national_grade": "C",
-    "composite_score": 58.5,
+    "composite_score": 57.6,
     "cost": {
       "annualEnergyCost": 2111,
       "expectedAnnualLoss": 137
@@ -83,7 +83,7 @@
       {
         "key": "environmental",
         "national_grade": "B",
-        "score": 69.7
+        "score": 65.1
       },
       {
         "key": "infrastructure",
@@ -117,7 +117,7 @@
   },
   "fortified_gold_shelby": {
     "composite_national_grade": "A",
-    "composite_score": 81.2,
+    "composite_score": 80.3,
     "cost": {
       "annualEnergyCost": 1689,
       "expectedAnnualLoss": 192
@@ -141,7 +141,7 @@
       {
         "key": "environmental",
         "national_grade": "B",
-        "score": 73.7
+        "score": 69.1
       },
       {
         "key": "infrastructure",
@@ -175,7 +175,7 @@
   },
   "icf_passive_la": {
     "composite_national_grade": "A",
-    "composite_score": 89.0,
+    "composite_score": 90.4,
     "cost": {
       "annualEnergyCost": 829,
       "expectedAnnualLoss": 148
@@ -198,8 +198,8 @@
       },
       {
         "key": "environmental",
-        "national_grade": "B",
-        "score": 78.5
+        "national_grade": "A",
+        "score": 85.9
       },
       {
         "key": "infrastructure",
@@ -233,7 +233,7 @@
   },
   "icf_passive_shelby": {
     "composite_national_grade": "A",
-    "composite_score": 89.3,
+    "composite_score": 90.7,
     "cost": {
       "annualEnergyCost": 829,
       "expectedAnnualLoss": 148
@@ -256,8 +256,8 @@
       },
       {
         "key": "environmental",
-        "national_grade": "B",
-        "score": 78.5
+        "national_grade": "A",
+        "score": 85.9
       },
       {
         "key": "infrastructure",
@@ -291,7 +291,7 @@
   },
   "worst_case_shelby": {
     "composite_national_grade": "D",
-    "composite_score": 24.5,
+    "composite_score": 22.3,
     "cost": {
       "annualEnergyCost": 4706,
       "expectedAnnualLoss": 762
@@ -314,8 +314,8 @@
       },
       {
         "key": "environmental",
-        "national_grade": "C",
-        "score": 47.4
+        "national_grade": "D",
+        "score": 36.3
       },
       {
         "key": "infrastructure",

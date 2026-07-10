@@ -29,12 +29,15 @@ Methodology
      apples-to-apples with eGRID; eGRID SRTV is the standard. Treat as a dated
      constant — refresh on each eGRID release; the grid is decarbonizing.)
 
-  2. EMBODIED CARBON (weakest data leg — flagged low-confidence)
-     US single-family residential embodied-carbon benchmarks are sparse. We use a
-     material/size estimator calibrated to the verified band of ~39-121 kgCO2e/m2
-     (Jungclaus et al. 2024), mapped from EXTWALL and nudged by GRADE, then
-     amortized over the shell's expected SERVICE LIFE (not a flat period):
-       embodied_total  = EC_intensity(EXTWALL, GRADE) * floor_area_m2
+  2. EMBODIED CARBON (bottom-up, EPD-grounded)
+     Built up from published industry-average EPD GWP factors (concrete, steel,
+     lumber, gypsum, insulation, cladding, roofing, glazing) times a representative
+     residential material takeoff, split into a foundation term keyed on BSMT (the
+     dominant driver of residential embodied carbon; Jungclaus et al. 2024) and a
+     shell term keyed on EXTWALL, then nudged by GRADE and amortized over the
+     shell's expected SERVICE LIFE (not a flat period). See
+     data/embodied_carbon.py and research/embodied-carbon-research.md:
+       embodied_total  = EC_intensity(EXTWALL, BSMT, GRADE) * floor_area_m2
        embodied_annual = embodied_total / service_life_years(EXTWALL)
      The sub-score is computed on the per-year intensity (kgCO2e/m2/yr), so a
      longer-lived shell (masonry/concrete/ICF ~100yr) is rewarded for spreading
@@ -57,13 +60,14 @@ Methodology
      poor" benchmarks (log-linear interpolation; higher score = lower footprint),
      then blended into a composite weighted 0.50 operational / 0.30 embodied /
      0.20 water — operational heaviest (dominant, best-measured), embodied
-     moderate (data-weak), water lightest (locally low-carbon). A parcel with no
+     moderate (EPD-grounded), water lightest (locally low-carbon). A parcel with no
      living-area (SFLA) — i.e. vacant / non-residential land — is left unscored
      (NaN), the same ~280 parcels that lack all CAMA building data.
 
-  Upgrade path: meter-read MLGW utility + water data; real LCA via BEAM / Athena /
-  One Click LCA or the CLF North America dataset for embodied carbon; parcel-level
-  irrigation from remote sensing. See the research doc.
+  Upgrade path: meter-read MLGW utility + water data; per-home LCA takeoffs via
+  BEAM / Athena (finer than the shared residential archetype used here); foundation
+  concrete from actual basement depth; parcel-level irrigation from remote sensing.
+  See the research docs.
 
 Columns added
 -------------
@@ -129,20 +133,16 @@ SERVICE_LIFE_BY_WALL = {
 # previous embodied sub-score; only longer-/shorter-lived shells move.
 EMB_REF_PERIOD_YR = 60.0
 
-# EXTWALL → embodied intensity (kg CO2e/m2), calibrated to the verified US
-# single-family band of ~39-121 (Jungclaus et al. 2024). Wood frame sequesters
-# carbon and sits low; solid masonry/concrete sits high.
-EC_INTENSITY_BY_WALL = {
-    7:  45.0,   # frame / wood
-    5:  45.0,   # aluminum / vinyl (light frame)
-    9:  75.0,   # brick veneer
-    8:  75.0,   # stucco
-    10: 75.0,   # EIFS
-    1:  115.0,  # solid brick
-    3:  115.0,  # block / concrete
-    4:  115.0,  # stone
-}
-EC_INTENSITY_DEFAULT = 70.0   # unknown / other wall type → mid-band
+# Embodied intensity (kg CO2e/m2) is now built up bottom-up from published
+# industry-average EPD factors x a representative residential material takeoff,
+# split into a foundation term (BSMT) and a shell term (EXTWALL). See
+# data/embodied_carbon.py for the model and research/embodied-carbon-research.md
+# for the factor-by-factor provenance. EC_INTENSITY_DEFAULT (unknown wall +
+# unknown foundation) is re-exported so callers/tests keep a stable name.
+from housing_label.data.embodied_carbon import (   # noqa: E402
+    EC_INTENSITY_DEFAULT as EC_INTENSITY_DEFAULT,   # re-exported for callers/tests
+    embodied_intensity_kgm2,
+)
 
 # GRADE (construction quality) nudge: higher grade ⇒ more/heavier finishes ⇒ more
 # embodied. Linear around midpoint 40, clamped to ±10%.
@@ -198,8 +198,9 @@ ENV_COLS = [
 
 DATA_SOURCE = (
     f"Operational: EPA {EGRID_VINTAGE} 0.423 kgCO2e/kWh + EPA gas 5.3 kgCO2e/therm; "
-    "Embodied: Jungclaus et al. 2024 39-121 kgCO2e/m2 band amortized over material "
-    "service life (60-100yr), scored per kgCO2e/m2/yr (LOW CONFIDENCE); "
+    "Embodied: bottom-up A1-A3 from industry-average EPD factors x residential "
+    "takeoff, shell(EXTWALL)+foundation(BSMT), amortized over material service "
+    "life (60-100yr), scored per kgCO2e/m2/yr (modeled, EPD-grounded); "
     "Water: EPA WaterSense + Memphis Sand aquifer low embedded energy"
 )
 
@@ -221,12 +222,13 @@ def _loglin_score(x: float, xs: list[float], ys: list[float]) -> float:
     return float(np.interp(np.log10(xv), np.log10(xs), ys))
 
 
-def embodied_intensity(extwall, grade) -> float:
-    """EXTWALL + GRADE → embodied intensity (kg CO2e/m2)."""
-    base = EC_INTENSITY_DEFAULT
-    code = _num(extwall)
-    if code is not None:
-        base = EC_INTENSITY_BY_WALL.get(int(code), EC_INTENSITY_DEFAULT)
+def embodied_intensity(extwall, grade, bsmt=None) -> float:
+    """EXTWALL + BSMT + GRADE → embodied intensity (kg CO2e/m2).
+
+    Base intensity is the bottom-up shell(EXTWALL) + foundation(BSMT) build-up
+    (``data/embodied_carbon``); GRADE (construction quality) then nudges it ±10%
+    around the average, since higher-grade homes carry more/heavier finishes."""
+    base = embodied_intensity_kgm2(extwall, bsmt)
     g = _num(grade)
     if g is not None:
         f = 1.0 + (g - GRADE_MIDPOINT) * GRADE_SLOPE
@@ -307,7 +309,7 @@ def model_parcel_environment(row: pd.Series,
     op_intensity = operational / floor_m2
 
     # --- Embodied (amortized over the shell's service life, not a flat period) ---
-    emb_intensity = embodied_intensity(row.get("EXTWALL"), row.get("GRADE"))
+    emb_intensity = embodied_intensity(row.get("EXTWALL"), row.get("GRADE"), row.get("BSMT"))
     service_life = service_life_years(row.get("EXTWALL"))
     emb_total  = emb_intensity * floor_m2
     emb_annual = emb_total / service_life
