@@ -192,6 +192,32 @@ def _estimate_units(res3: list[dict]) -> int:
     return int(bins[len(bins) // 2]) if bins else _DEFAULT_MF_UNITS
 
 
+def _cluster_unit(res1: list[dict], footprints: Counter) -> dict | None:
+    """A representative single dwelling for an NSI apartment-cluster site (an
+    apartment complex NSI modeled as identical single-family footprints): the RES1
+    structure at the *modal* footprint size, whose sqft/year describe one unit —
+    not the large clubhouse / commercial building the address point may have
+    footprint-selected. None when there are no sized RES1 footprints (e.g. a
+    RES3-district detection), leaving the caller's fallback in place.
+
+    Deterministic: the modal is the most common finite, positive footprint size,
+    ties broken toward the smaller (more unit-like) size; the representative is the
+    RES1 closest to it, ties broken toward the smaller footprint."""
+    sizes = [(size, cnt) for size, cnt in footprints.items()
+             if isinstance(size, (int, float)) and math.isfinite(size) and size > 0]
+    if not sizes:
+        return None
+    modal = max(sizes, key=lambda sc: (sc[1], -sc[0]))[0]   # most common, then smallest
+    sized = []
+    for p in res1:
+        sq = _num(p.get("sqft"))
+        if sq is not None and math.isfinite(sq) and sq > 0:
+            sized.append((sq, p))
+    if not sized:
+        return None
+    return min(sized, key=lambda t: (abs(t[0] - modal), t[0]))[1]   # closest, then smaller
+
+
 def _result(props: dict, structure_type, num_units, *, units_confidence, detection,
             drop_shell: bool = False) -> dict:
     """Assemble the structure result dict from the addressed structure's props.
@@ -269,10 +295,21 @@ def _classify_site(props_list: list[dict], lat: float, lon: float) -> dict | Non
     # modeling an apartment complex as a cluster of single-family (RES1) structures.
     # RES3 density is handled as the separate district signal below, so it is not
     # folded into the footprint count (which would broaden it into false positives).
-    footprints = Counter(round(v) for v in (_num(p.get("sqft")) for p in res1) if v)
+    footprints = Counter(round(v) for v in (_num(p.get("sqft")) for p in res1)
+                         if v and math.isfinite(v) and v > 0)
     cluster = footprints.most_common(1)[0][1] if footprints else 0
     if cluster >= _CLUSTER_MIN or len(res3) >= _RES3_DISTRICT_MIN:
-        return _result(selected, "multifamily", _estimate_units(res3),
+        # For a RES1-cluster site (an apartment complex modeled as identical
+        # single-family footprints), base the kept sqft/year on one representative
+        # dwelling, not the possibly large/commercial structure the point
+        # footprint-selected — else a single unit reads as the whole complex. Only
+        # when the RES1 cluster is the actual signal, though: a pure RES3-district
+        # keeps the selected structure so a stray nearby house can't overwrite it.
+        if cluster >= _CLUSTER_MIN:
+            unit = _cluster_unit(res1, footprints) or selected
+        else:
+            unit = selected
+        return _result(unit, "multifamily", _estimate_units(res3),
                        units_confidence="estimated", detection="nsi-cluster",
                        drop_shell=True)
 

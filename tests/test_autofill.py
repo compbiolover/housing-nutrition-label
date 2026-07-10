@@ -84,6 +84,42 @@ def test_select_prefers_residential_when_coplausible():
     assert r["structure_type"] == "multifamily" and r["num_units"] == 45
 
 
+def test_cluster_site_reports_one_unit_sqft():
+    """An apartment complex NSI modeled as a RES1 cluster reports one dwelling's
+    sqft, not the large clubhouse/commercial building the point footprint-selects."""
+    pt_lat, pt_lon = 35.0, -90.0
+    com = _feat(pt_lat, pt_lon, "COM1", 20000, source="H")            # point sits in this
+    res1 = [_feat(pt_lat + 0.0002 * i, pt_lon + 0.0002, "RES1", 1332, source="P")
+            for i in range(10)]                                        # 10 identical units
+    r = S._classify_site([com] + res1, pt_lat, pt_lon)
+    assert r["structure_type"] == "multifamily" and r["detection"] == "nsi-cluster"
+    assert r["sqft"] == 1332          # one unit, not the 20,000 sqft commercial building
+
+
+def test_res3_district_keeps_selected_not_stray_res1():
+    """A pure RES3-district detection keeps the addressed structure's sqft — a stray
+    single-family footprint must not overwrite it (only a real RES1 cluster does)."""
+    pt_lat, pt_lon = 35.0, -90.0
+    com = _feat(pt_lat, pt_lon, "COM1", 50000, source="H")            # point sits here
+    res3 = [_feat(pt_lat + 0.0002 * i, pt_lon + 0.0003, "RES3C", 8000, resunits=7)
+            for i in range(16)]                                        # RES3 district (>=15)
+    stray = _feat(pt_lat + 0.0001, pt_lon - 0.0003, "RES1", 1200)     # one stray house
+    r = S._classify_site([com] + res3 + [stray], pt_lat, pt_lon)
+    assert r["detection"] == "nsi-cluster"
+    assert r["sqft"] == 50000         # selected structure, not the 1,200 sqft stray RES1
+
+
+def test_cluster_unit_deterministic_on_tied_footprints():
+    """Equal-count footprint sizes resolve deterministically to the smaller size."""
+    from collections import Counter
+    res1 = ([{"y": 0, "x": 0, "occtype": "RES1", "sqft": 1200}] * 5
+            + [{"y": 0, "x": 0, "occtype": "RES1", "sqft": 1600}] * 5)
+    fp = Counter([1200] * 5 + [1600] * 5)          # a tie between 1200 and 1600
+    assert S._cluster_unit(res1, fp)["sqft"] == 1200   # smaller (more unit-like) wins
+    # non-finite / non-positive footprints are ignored, don't crash
+    assert S._cluster_unit([], Counter()) is None
+
+
 # ── Per-unit sqft for a detected multi-unit building (house.py) ───────────────
 def test_per_unit_sqft_divides_detected_multifamily():
     """A genuine NSI multi-unit record's whole-building sqft is split per unit."""
