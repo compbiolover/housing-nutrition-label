@@ -1,146 +1,115 @@
-"""Bottom-up embodied-carbon (A1-A3) intensities for US single-family homes.
+"""Bottom-up, geometry-aware embodied-carbon (A1-A3) for US single-family homes.
 
-Replaces the earlier hand-set wall-type band (a single 45 / 75 / 115 kgCO2e/m2
-guess calibrated only to the Jungclaus et al. 2024 39-121 range, flagged LOW
-CONFIDENCE) with a transparent build-up:
+Estimates cradle-to-gate (A1-A3) embodied carbon, kgCO2e per m2 of gross floor
+area, by building each home up from **its own geometry** rather than one fixed
+per-m2 archetype ratio:
 
-    intensity(wall, foundation) = SHELL[wall] + FOUNDATION[foundation]
+    intensity = ( foundation(footprint, perimeter, basement depth)
+                + roof(roof area)
+                + envelope(wall area, wall type)
+                + floor(floor area) ) / floor_area
 
-where every term is a **published industry-average EPD result number x a
-representative residential material takeoff**. Published EPD result figures are
-citable facts (the PDF *layouts* carry copyright, the numbers do not), and US
-federal documents are public domain -- so the resulting table is redistributable.
-**No value here is sourced from EC3 or the CLF report** (both are
-non-redistributable / account-gated and cannot be baked into an open repo).
+Every material GWP factor is a published industry-average EPD figure (a citable,
+redistributable fact); every geometry constant is a standard residential
+construction value (IRC / ACI / CMHA) or a public geometric relation. **No value
+is from EC3, the CLF report, or any paywalled dataset** — the paywalled Jungclaus
+2024 per-foundation multipliers are *not* used; the foundation term is computed
+directly from concrete volumes × the NRMCA concrete EPD factor instead.
 
-Why split foundation from shell
--------------------------------
-Across US single-family archetypes the **foundation is the single largest driver
-of embodied carbon and its biggest source of variance** (Jungclaus et al. 2024):
-a full basement embodies several times the concrete of a slab-on-grade. The old
-wall-only band baked one implicit foundation into every home. Keying the
-foundation term on the ``BSMT`` code (slab/crawl < partial < full basement) is
-the most material accuracy gain available here.
+Why geometry
+------------
+Two published findings drive the design:
 
-Boundary & accounting
+* **Foundation is the single largest driver** of residential embodied carbon and
+  its biggest source of variance (Jungclaus et al. 2024): a full basement embodies
+  several times the concrete of a slab-on-grade. So the foundation term is computed
+  from footprint slab + perimeter walls (× actual/estimated basement depth) +
+  footings, not a flat per-m2 constant.
+* **Smaller and single-story homes have higher embodied intensity per m2** —
+  envelope + roof + foundation grow faster than floor area as a home shrinks
+  (Rauf et al. 2025, *Buildings*, CC-BY: 109 m2 -> 9.14 GJ/m2 vs 525 m2 -> 6.77,
+  ~35% higher for the small home). So roof scales with roof area and the envelope
+  with wall area, not with floor area.
+
+Provenance & boundary
 ---------------------
-Cradle-to-gate **A1-A3**, kgCO2e per m2 of gross floor area. Biogenic carbon nets
-to zero across A1-A3 under ISO 21930 (the wood carbon removed in A1 is re-emitted
-within the A1-A3 boundary), so **no biogenic credit is taken** -- wood is scored
-on its fossil GWP only, consistent with the EPDs cited below.
+Cradle-to-gate **A1-A3**; biogenic carbon nets to zero across A1-A3 (ISO 21930),
+so no biogenic credit is taken. Full factor + geometry citation tables are in
+``research/embodied-carbon-research.md`` and
+``research/embodied-carbon-geometry-research.md``.
 
-Provenance
-----------
-Full factor-by-factor citation table (values, declared units, URLs, licenses) is
-in ``research/embodied-carbon-research.md``. Sources in one line each:
-
-  * Ready-mix concrete .... NRMCA member industry-avg EPD v3.2 (2022); GSA IRA
-                            Low-Embodied-Carbon Concrete limits (Dec 2023, public domain)
-  * Reinforcing steel ..... CRSI industry-wide EPD (2022), US EAF (~98% scrap)
-  * Softwood lumber ....... American Wood Council N.A. Softwood Lumber EPD (2020)
-  * Wood structural panels  AWC N.A. OSB EPD (2020); plywood proxied to OSB
-  * Gypsum board .......... Gypsum Association cradle-to-gate LCA / EPD
-  * Insulation ............ NAIMA industry-avg EPDs (fiberglass / mineral wool 2023)
-  * Brick (clay) .......... Brick Industry Association industry-avg EPD (NSF EPD11101)
-  * Vinyl siding .......... Vinyl Siding Institute industry-avg EPD (2022)
-  * Asphalt shingles ...... ARMA asphalt-shingle-system industry-avg EPD (2024)
-  * Glazing ............... National Glass Association flat-glass industry-avg EPD (2019)
-  * Residential takeoff ... open-access CC-BY single-family bill-of-materials
-                            (Frontiers in Built Environment 2024, 265 m2 archetype)
-  * Sanity band ........... Jungclaus 2024 (39-121); RMI 2023 / BFCA EMBARC (~150-190),
-                            both A1-A3 -- our build-up lands inside this range.
-
-These are ESTIMATES: the material GWP factors are firm (industry-average EPDs),
-but the takeoff quantities are representative (one published archetype, scaled),
-so treat the output as a modeled intensity, not a per-home measurement. The
-heavy-masonry shell values (solid brick / block-concrete-ICF / stone) are anchored
-to whole-building masonry benchmarks rather than a per-material takeoff -- no clean
-open masonry takeoff is published -- and are the weakest-supported entries here.
+The material GWP factors are firm (industry-average EPDs) and the geometry
+constants are standard code values; the **assembly allocations** (how the AWC
+lumber/panel totals split across floor / wall / roof, and the heavy-masonry wall
+factors) are representative estimates, so treat the output as a modeled intensity,
+not a per-home measurement. Every wall × foundation × size combination is tested to
+land inside the empirical A1-A3 single-family band (~39-210 kgCO2e/m2).
 """
 
 from __future__ import annotations
 
-# ── Per-material cradle-to-gate (A1-A3) GWP factors ──────────────────────────
-# Each in the unit noted; see the research doc for the source EPD and exact figure.
-_CONCRETE_KG_PER_M3   = 320.0    # kgCO2e/m3, representative 3000-4000 psi residential
-                                 # mix (NRMCA v3.2 311-384; GSA typical ~318-352)
-_REBAR_KG_PER_KG      = 0.854    # kgCO2e/kg, US EAF rebar (CRSI 854 kgCO2e/tonne)
-_SOFTWOOD_KG_PER_M3   = 63.12    # kgCO2e/m3, softwood dimensional lumber (AWC)
-_WOODPANEL_KG_PER_M3  = 242.58   # kgCO2e/m3, OSB (AWC); plywood proxied to this
-_GYPSUM_KG_PER_M2     = 2.51     # kgCO2e/m2 of 1/2" board (Gypsum Assoc, 233 kg/MSF)
-_CELLULOSE_KG_PER_KG  = 0.35     # kgCO2e/kg, blown cellulose (low-GWP; conservative)
-_MINWOOL_KG_PER_KG    = 2.07     # kgCO2e/kg, mineral wool (NAIMA)
-_VINYL_KG_PER_M2      = 4.71     # kgCO2e/m2 installed (Vinyl Siding Institute)
-_BRICK_KG_PER_M2WALL  = 31.8     # kgCO2e/m2 of installed veneer wall (BIA)
-_SHINGLE_KG_PER_M2    = 4.38     # kgCO2e/m2 of installed roof system (ARMA 2024)
-_GLAZING_KG_PER_M2    = 21.0     # kgCO2e/m2 double-glazed IGU, glass only (NGA;
-                                 # window frames excluded -> conservative)
+import math
 
-# ── Representative residential takeoff (per m2 of gross floor area) ───────────
-# From an open-access CC-BY itemized bill-of-materials for a 265 m2 US
-# single-family home (Frontiers in Built Environment 2024). Foundation concrete
-# below is the *full-basement* case; FOUNDATION_KGM2 scales it down for lighter
-# foundations. All other rows are the shell (they don't vary with foundation).
-_BOM_CONCRETE_M3_PER_M2 = 0.087   # -> full-basement foundation concrete
-_BOM = {                          # shell materials: (quantity per m2, GWP factor)
-    "rebar_kg":      (5.4,    _REBAR_KG_PER_KG),      # kg/m2
-    "softwood_m3":   (0.113,  _SOFTWOOD_KG_PER_M3),   # m3/m2
-    "plywood_m3":    (0.025,  _WOODPANEL_KG_PER_M3),  # m3/m2 (plywood ~ OSB)
-    "osb_m3":        (0.0075, _WOODPANEL_KG_PER_M3),  # m3/m2
-    "gypsum_m2":     (6.9,    _GYPSUM_KG_PER_M2),     # m2/m2
-    "cellulose_kg":  (2.4,    _CELLULOSE_KG_PER_KG),  # kg/m2
-    "minwool_kg":    (0.83,   _MINWOOL_KG_PER_KG),    # kg/m2
-    "vinyl_m2":      (0.66,   _VINYL_KG_PER_M2),      # m2/m2 (cladding area)
-    "shingle_m2":    (0.42,   _SHINGLE_KG_PER_M2),    # m2/m2
-    "glazing_m2":    (0.13,   _GLAZING_KG_PER_M2),    # m2/m2
-}
-_CLADDING_AREA_M2_PER_M2 = 0.66   # exterior wall/cladding area per m2 floor (= vinyl row)
+# ── Material GWP factors (industry-average EPD A1-A3; see research doc) ───────
+_CONCRETE_KG_PER_M3 = 320.0    # representative 3000-4000 psi residential (NRMCA v3.2 / GSA)
+_REBAR_KG_PER_KG    = 0.854    # US EAF rebar (CRSI)
+_REBAR_KG_PER_M3    = 40.0     # modest residential foundation reinforcement (kg steel / m3 concrete)
+# Reinforced-concrete GWP per m3 of foundation concrete:
+_RC_KG_PER_M3 = _CONCRETE_KG_PER_M3 + _REBAR_KG_PER_M3 * _REBAR_KG_PER_KG   # ~354
 
-# Shell of a wood-frame, vinyl-clad home = sum of every non-foundation BOM row.
-_FRAME_SHELL = round(sum(q * f for q, f in _BOM.values()), 2)          # ~47.2
-_VINYL_CONTRIB = _BOM["vinyl_m2"][0] * _BOM["vinyl_m2"][1]             # cladding to swap out
+# ── Foundation geometry constants (IRC / ACI / CMHA — standard code values) ───
+_SLAB_THICK_M   = 0.10    # 4" slab-on-grade / basement slab (IRC R506, de-facto standard)
+_WALL_THICK_M   = 0.20    # 8" poured/CMU foundation wall (IRC R404 / CMHA TEK 05-03A)
+_FOOTING_W_M    = 0.40    # 16" continuous footing width (IRC R403.1)
+_FOOTING_T_M    = 0.15    # 6" footing thickness (IRC R403.1)
+_FULL_DEPTH_M   = 2.44    # full-basement wall height ~8 ft (IRC R404 tables)
+_PARTIAL_DEPTH_M = 1.5    # partial basement / deep crawl
+# Fraction of the footprint perimeter that carries a tall foundation wall, by BSMT
+# code (1 = slab/crawl, 2 = partial, 3 = full). Slab/crawl carries only footings +
+# a floor slab, no tall wall.
+_WALL_FRAC = {1: 0.0, 2: 0.6, 3: 1.0}
+_DEPTH_BY_BSMT = {2: _PARTIAL_DEPTH_M, 3: _FULL_DEPTH_M}
 
+# ── Home shape / envelope geometry (public geometric relations + framing norms) ─
+_SHAPE_C        = 4.1     # perimeter P = C·sqrt(footprint_area); C≈4.1 for a detached
+                          # home of aspect ratio ~1.3-2.0 (P = 2(1+r)/sqrt(r)·sqrt(A))
+_STORY_HEIGHT_M = 2.7     # gross wall height per story (8-9 ft framing)
+_ROOF_PITCH_FACTOR = 1.12 # 6:12 roof: roof area ≈ 1.12 × footprint (trig fact)
+_WINDOW_WALL_RATIO = 0.15 # typical residential window-to-wall ratio
 
-def _reclad(cladding_per_m2wall: float) -> float:
-    """Frame shell with the vinyl cladding swapped for a different cladding of the
-    given (absolute) GWP per m2 of *wall* area."""
-    return round(_FRAME_SHELL - _VINYL_CONTRIB
-                 + _CLADDING_AREA_M2_PER_M2 * cladding_per_m2wall, 1)
+# ── Shell assembly intensities ───────────────────────────────────────────────
+# Per m2 of FLOOR area (interior gypsum + floor structure/subfloor). Interior
+# partitions + ceilings ≈ 2.5-3× the footprint in board area; largely
+# size-independent per unit floor.
+_FLOOR_SHELL_KG_PER_M2 = 20.0
 
+# Per m2 of ROOF area (footprint × pitch): asphalt shingles (ARMA 4.38) + roof
+# framing/sheathing (AWC lumber/OSB) + attic insulation (NAIMA).
+_ROOF_SHELL_KG_PER_M2 = 12.4
 
-# ── Shell intensity (kgCO2e/m2 floor) by EXTWALL code ────────────────────────
-# Light-frame variants are the bottom-up frame shell with the cladding swapped
-# (fully sourced). The heavy-masonry rows (1/3/4) are anchored to whole-building
-# masonry embodied benchmarks (upper Jungclaus / empirical band) because no clean
-# open per-material masonry takeoff exists -- these are the softest entries.
-DEFAULT_SHELL = 52.0
-SHELL_KGM2_BY_WALL = {
-    7:  _FRAME_SHELL,              # frame / wood (vinyl-clad) ~47.2
-    5:  _FRAME_SHELL,              # aluminum / vinyl (light frame)
-    9:  _reclad(_BRICK_KG_PER_M2WALL),   # brick veneer on frame ~65.1
-    8:  52.0,                      # stucco (cement plaster) -- estimate, brackets vinyl<..<brick
-    10: 49.0,                      # EIFS (synthetic stucco) -- estimate
-    1:  82.0,                      # solid brick (structural + veneer) -- anchored estimate
-    3:  72.0,                      # block / concrete / ICF -- anchored estimate
-    4:  86.0,                      # stone -- anchored estimate
+# Per m2 of gross WALL (envelope) area, by EXTWALL code: framed backup wall or
+# structural masonry + cladding + wall insulation + a window allowance
+# (0.15 WWR × 21 kgCO2e/m2 glazing ≈ 3.15). Framed light-cladding walls are a
+# build-up from cited factors; the heavy-masonry rows (1/3/4) are anchored
+# estimates (no clean open masonry takeoff exists) — the softest entries here.
+_ENV_DEFAULT_KG_PER_M2WALL = 20.0
+_ENV_KG_PER_M2WALL = {
+    7:  15.9,   # frame / wood: framed wall ~8 + vinyl 4.71 + window allowance ~3.15
+    5:  15.9,   # aluminum / vinyl (light frame)
+    9:  38.2,   # brick veneer on frame: framed ~8 + brick 0.85×31.8 + windows ~3.15
+    8:  21.4,   # stucco (cement plaster) — estimate
+    10: 18.0,   # EIFS (synthetic stucco) — estimate
+    1:  57.0,   # solid brick (structural, ~2 wythes) — anchored estimate
+    3:  28.0,   # block / concrete / ICF — anchored estimate
+    4:  54.0,   # stone — anchored estimate
 }
 
-# ── Foundation intensity (kgCO2e/m2 floor) by BSMT code ──────────────────────
-# Full basement = the archetype's concrete; lighter foundations scale down by the
-# ratio of their concrete volume (a slab-on-grade uses far less concrete than a
-# full basement's walls + footings + slab). Foundation is the dominant driver, so
-# this split is where most of the home-to-home variance now lives.
-_FULL_BASEMENT_FDN = round(_BOM_CONCRETE_M3_PER_M2 * _CONCRETE_KG_PER_M3, 1)   # ~27.8
-DEFAULT_FOUNDATION = round(0.55 * _FULL_BASEMENT_FDN, 1)   # representative US mix ~15.3
-FOUNDATION_KGM2 = {
-    1: round(0.38 * _FULL_BASEMENT_FDN, 1),   # slab / crawl ~10.6
-    2: round(0.60 * _FULL_BASEMENT_FDN, 1),   # partial basement ~16.7
-    3: _FULL_BASEMENT_FDN,                     # full basement ~27.8
-}
-
-# Default whole-home intensity when both wall and foundation are unknown; also the
-# value ``environmental.embodied_intensity(None, None)`` returns.
-EC_INTENSITY_DEFAULT = round(DEFAULT_SHELL + DEFAULT_FOUNDATION, 1)
+# ── Reference home (used when a home's geometry is unknown) ───────────────────
+# A typical ~2,500 sqft two-story home; picked so a geometry-unknown call returns a
+# sensible mid-band intensity rather than a hard-coded table.
+_FLOOR_REF_M2 = 232.0
+_DEFAULT_STORIES = 1.0     # when stories is unknown (conservative: 1-story → more
+                           # envelope + roof + foundation per m2 of floor)
 
 
 def _to_int(code) -> int | None:
@@ -150,16 +119,71 @@ def _to_int(code) -> int | None:
         return None
 
 
-def embodied_intensity_kgm2(extwall_code=None, bsmt_code=None) -> float:
-    """Bottom-up cradle-to-gate (A1-A3) embodied intensity, kgCO2e per m2 floor.
+def _to_float(v) -> float | None:
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return f if f == f and f > 0 else None   # reject NaN / non-positive
 
-    ``extwall_code`` selects the shell (exterior-wall/structure) term; ``bsmt_code``
-    selects the foundation term. Either may be ``None`` / unknown, in which case the
-    representative default is used. Grade / finish adjustments are applied by the
-    caller (``environmental.embodied_intensity``), not here.
+
+def _footprint_and_perimeter(floor_area_m2: float, stories: float) -> tuple[float, float]:
+    footprint = floor_area_m2 / max(stories, 1.0)
+    perimeter = _SHAPE_C * math.sqrt(footprint)
+    return footprint, perimeter
+
+
+def _foundation_kgm2(floor_area_m2: float, footprint: float, perimeter: float,
+                     bsmt_code: int | None, basement_depth_m: float | None) -> float:
+    """Foundation embodied carbon per m2 of floor, from concrete volume × geometry.
+
+    Slab-on-grade / basement floor slab + perimeter footings (always) + tall
+    perimeter walls whose height is the actual basement depth (or a per-BSMT
+    default) and whose extent is the per-BSMT wall fraction."""
+    b = bsmt_code if bsmt_code in _WALL_FRAC else 1
+    slab = footprint * _SLAB_THICK_M
+    footing = perimeter * _FOOTING_W_M * _FOOTING_T_M
+    depth = basement_depth_m if basement_depth_m is not None else _DEPTH_BY_BSMT.get(b, 0.0)
+    walls = perimeter * depth * _WALL_THICK_M * _WALL_FRAC[b]
+    concrete_m3 = slab + footing + walls
+    return concrete_m3 * _RC_KG_PER_M3 / floor_area_m2
+
+
+def embodied_intensity_kgm2(extwall_code=None, bsmt_code=None,
+                            floor_area_m2=None, stories=None,
+                            basement_depth_m=None) -> float:
+    """Bottom-up cradle-to-gate (A1-A3) embodied intensity, kgCO2e per m2 of floor.
+
+    Geometry-aware: foundation is built from the footprint slab + perimeter walls
+    (× actual/estimated basement depth) + footings; the roof scales with roof area,
+    the envelope with wall area, and interior finishes with floor area. When
+    ``floor_area_m2`` is unknown the reference home's geometry is used; when
+    ``stories`` is unknown a single story is assumed; when ``basement_depth_m`` is
+    unknown a per-``BSMT``-code default depth is used. Grade / finish adjustments are
+    applied by the caller (``environmental.embodied_intensity``), not here.
     """
+    floor = _to_float(floor_area_m2) or _FLOOR_REF_M2
+    st = _to_float(stories) or _DEFAULT_STORIES
+    depth = _to_float(basement_depth_m)   # None if unknown → per-BSMT default
     w = _to_int(extwall_code)
-    shell = SHELL_KGM2_BY_WALL.get(w, DEFAULT_SHELL) if w is not None else DEFAULT_SHELL
     b = _to_int(bsmt_code)
-    fdn = FOUNDATION_KGM2.get(b, DEFAULT_FOUNDATION) if b is not None else DEFAULT_FOUNDATION
-    return round(shell + fdn, 1)
+
+    footprint, perimeter = _footprint_and_perimeter(floor, st)
+    roof_area = footprint * _ROOF_PITCH_FACTOR
+    wall_area = perimeter * _STORY_HEIGHT_M * st
+
+    env_per_wall = (_ENV_KG_PER_M2WALL.get(w, _ENV_DEFAULT_KG_PER_M2WALL)
+                    if w is not None else _ENV_DEFAULT_KG_PER_M2WALL)
+
+    floor_term = _FLOOR_SHELL_KG_PER_M2 * floor
+    roof_term = _ROOF_SHELL_KG_PER_M2 * roof_area
+    env_term = env_per_wall * wall_area
+    fdn_kgm2 = _foundation_kgm2(floor, footprint, perimeter, b, depth)
+
+    shell_kgm2 = (floor_term + roof_term + env_term) / floor
+    return round(shell_kgm2 + fdn_kgm2, 1)
+
+
+# Default whole-home intensity when wall + foundation + geometry are all unknown;
+# also the value ``environmental.embodied_intensity(None, None)`` returns.
+EC_INTENSITY_DEFAULT = embodied_intensity_kgm2(None, None)

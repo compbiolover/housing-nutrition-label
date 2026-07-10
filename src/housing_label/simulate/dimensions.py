@@ -272,7 +272,13 @@ def build_parcel_row(cfg: dict) -> pd.Series:
         "FUEL":      np.nan,                          # → all-electric default
         "RMBED":     np.nan,
         "FIXBATH":   np.nan,
-        "STORIES":   np.nan,
+        # Stories drives the embodied-carbon footprint (a 1-story home spreads more
+        # foundation + roof over its floor area than a 2-story of the same size).
+        "STORIES":   cfg.get("stories") or np.nan,
+        # Optional actual basement depth (metres) for the embodied foundation term;
+        # absent → the embodied model uses a per-foundation-type default depth.
+        "basement_depth_m": (float(cfg["basement_depth_ft"]) * 0.3048
+                             if cfg.get("basement_depth_ft") else np.nan),
         "CALC_ACRE": per_unit_acres,
         "acre_outlier": False,
         "RTOTAPR":   per_unit_value,

@@ -662,7 +662,11 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Structural shell material for a multi-unit building (drives "
                         "Resilience/Durability when NSI didn't detect the building).")
     p.add_argument("--stories",    type=int,   default=None,
-                   help="Number of floors, for a multi-unit building (floor-aware flood).")
+                   help="Number of floors. Drives floor-aware flood and the embodied-"
+                        "carbon footprint (foundation + roof per m2 of floor).")
+    p.add_argument("--basement-depth-ft", dest="basement_depth_ft", type=float, default=None,
+                   help="Actual basement/foundation-wall depth (ft) for the embodied-"
+                        "carbon foundation term. Default: per foundation type.")
 
     # ── Existing bonus feature flags ──────────────────────────────────────────────
     p.add_argument("--solar",             action="store_true", help="Solar panels.")
@@ -762,7 +766,7 @@ def resolve_config(args: argparse.Namespace) -> dict:
         # Multi-family structure inputs (optional): the building's shell material and
         # its height, used to score Resilience/Durability for a multi-unit building
         # the NSI lookup didn't (or couldn't) classify. Default absent → single-family.
-        "bldg_material": None, "stories": None,
+        "bldg_material": None, "stories": None, "basement_depth_ft": None,
     }
     cfg = dict(PRESETS[args.preset]) if args.preset else {}
 
@@ -778,6 +782,7 @@ def resolve_config(args: argparse.Namespace) -> dict:
         "lot_acres":    args.lot_acres,
         "bldg_material": getattr(args, "bldg_material", None),
         "stories":      getattr(args, "stories", None),
+        "basement_depth_ft": getattr(args, "basement_depth_ft", None),
     }
     for key, cli_val in CLI_FIELDS.items():
         if cli_val is not None:

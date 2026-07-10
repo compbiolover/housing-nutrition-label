@@ -29,15 +29,18 @@ Methodology
      apples-to-apples with eGRID; eGRID SRTV is the standard. Treat as a dated
      constant — refresh on each eGRID release; the grid is decarbonizing.)
 
-  2. EMBODIED CARBON (bottom-up, EPD-grounded)
+  2. EMBODIED CARBON (bottom-up, EPD-grounded, geometry-aware)
      Built up from published industry-average EPD GWP factors (concrete, steel,
-     lumber, gypsum, insulation, cladding, roofing, glazing) times a representative
-     residential material takeoff, split into a foundation term keyed on BSMT (the
-     dominant driver of residential embodied carbon; Jungclaus et al. 2024) and a
-     shell term keyed on EXTWALL, then nudged by GRADE and amortized over the
-     shell's expected SERVICE LIFE (not a flat period). See
-     data/embodied_carbon.py and research/embodied-carbon-research.md:
-       embodied_total  = embodied_intensity(EXTWALL, GRADE, BSMT) * floor_area_m2
+     lumber, gypsum, insulation, cladding, roofing, glazing) applied to the home's
+     OWN geometry: a foundation term from footprint slab + perimeter walls (× actual
+     or per-BSMT basement depth) + footings — the dominant driver of residential
+     embodied carbon (Jungclaus et al. 2024) — plus roof (roof area), envelope (wall
+     area × EXTWALL type), and interior (floor area) terms. Smaller / single-story
+     homes carry more envelope + foundation per m2 of floor (Rauf et al. 2025). Then
+     nudged by GRADE and amortized over SERVICE LIFE. See data/embodied_carbon.py and
+     research/embodied-carbon-geometry-research.md:
+       embodied_total  = embodied_intensity(EXTWALL, GRADE, BSMT, floor_area,
+                                             stories, basement_depth) * floor_area_m2
        embodied_annual = embodied_total / service_life_years(EXTWALL)
      The sub-score is computed on the per-year intensity (kgCO2e/m2/yr), so a
      longer-lived shell (masonry/concrete/ICF ~100yr) is rewarded for spreading
@@ -166,8 +169,13 @@ WATER_EMBEDDED_KWH_PER_KGAL = 8.0
 # Operational emissions intensity, kg CO2e/m2/yr:
 OP_XS = [10.0, 20.0, 35.0, 50.0, 70.0, 100.0]
 OP_YS = [100.0, 80.0, 60.0, 40.0, 20.0, 0.0]
-# Embodied intensity, kg CO2e/m2 (the 39-121 band):
-EMB_XS = [40.0, 60.0, 80.0, 100.0, 120.0]
+# Embodied intensity, kg CO2e/m2 (A1-A3). Anchored to the geometry-aware model's
+# actual distribution of US single-family homes: a low-carbon home (compact,
+# multi-story, slab, wood) lands near ~55 and a high-carbon one (masonry over a full
+# basement) near ~210 — spanning the empirical Jungclaus/RMI/BFCA band. (The prior
+# 40-120 band was calibrated to the earlier model that under-counted the foundation;
+# keeping it would push every home to the low-scoring end rather than discriminate.)
+EMB_XS = [55.0, 95.0, 135.0, 175.0, 210.0]
 EMB_YS = [100.0, 75.0, 50.0, 25.0, 0.0]
 # Annualized embodied breakpoints (kg CO2e/m2/yr) = total breakpoints ÷ the 60-yr
 # reference period, so the embodied sub-score is scored on per-year intensity.
@@ -198,9 +206,10 @@ ENV_COLS = [
 
 DATA_SOURCE = (
     f"Operational: EPA {EGRID_VINTAGE} 0.423 kgCO2e/kWh + EPA gas 5.3 kgCO2e/therm; "
-    "Embodied: bottom-up A1-A3 from industry-average EPD factors x residential "
-    "takeoff, shell(EXTWALL)+foundation(BSMT), amortized over material service "
-    "life (60-100yr), scored per kgCO2e/m2/yr (modeled, EPD-grounded); "
+    "Embodied: bottom-up A1-A3 from industry-average EPD factors x per-home "
+    "geometry (foundation from footprint+perimeter x basement depth, roof/envelope/"
+    "interior by area), amortized over service life (60-100yr), scored per "
+    "kgCO2e/m2/yr (modeled, EPD-grounded); "
     "Water: EPA WaterSense + Memphis Sand aquifer low embedded energy"
 )
 
@@ -222,13 +231,16 @@ def _loglin_score(x: float, xs: list[float], ys: list[float]) -> float:
     return float(np.interp(np.log10(xv), np.log10(xs), ys))
 
 
-def embodied_intensity(extwall, grade, bsmt=None) -> float:
-    """EXTWALL + BSMT + GRADE → embodied intensity (kg CO2e/m2).
+def embodied_intensity(extwall, grade, bsmt=None, floor_area_m2=None,
+                       stories=None, basement_depth_m=None) -> float:
+    """EXTWALL + BSMT + home geometry + GRADE → embodied intensity (kg CO2e/m2).
 
-    Base intensity is the bottom-up shell(EXTWALL) + foundation(BSMT) build-up
-    (``data/embodied_carbon``); GRADE (construction quality) then nudges it ±10%
-    around the average, since higher-grade homes carry more/heavier finishes."""
-    base = embodied_intensity_kgm2(extwall, bsmt)
+    Base intensity is the geometry-aware bottom-up build-up (``data/embodied_carbon``:
+    foundation from footprint/perimeter × basement depth, roof from roof area,
+    envelope from wall area, interior from floor area); GRADE (construction quality)
+    then nudges it ±10% around the average, since higher-grade homes carry more/
+    heavier finishes."""
+    base = embodied_intensity_kgm2(extwall, bsmt, floor_area_m2, stories, basement_depth_m)
     g = _num(grade)
     if g is not None:
         f = 1.0 + (g - GRADE_MIDPOINT) * GRADE_SLOPE
@@ -309,7 +321,10 @@ def model_parcel_environment(row: pd.Series,
     op_intensity = operational / floor_m2
 
     # --- Embodied (amortized over the shell's service life, not a flat period) ---
-    emb_intensity = embodied_intensity(row.get("EXTWALL"), row.get("GRADE"), row.get("BSMT"))
+    emb_intensity = embodied_intensity(
+        row.get("EXTWALL"), row.get("GRADE"), row.get("BSMT"),
+        floor_area_m2=floor_m2, stories=row.get("STORIES"),
+        basement_depth_m=row.get("basement_depth_m"))
     service_life = service_life_years(row.get("EXTWALL"))
     emb_total  = emb_intensity * floor_m2
     emb_annual = emb_total / service_life
