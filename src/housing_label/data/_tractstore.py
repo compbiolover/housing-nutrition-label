@@ -91,9 +91,10 @@ def load_tract_store(path: pathlib.Path, width: int) -> TractStore:
     df = pd.read_csv(path, dtype={"geoid": str},
                      compression="gzip" if path.suffix == ".gz" else "infer",
                      keep_default_na=False, na_values=[""], low_memory=False)
-    geo = df["geoid"].fillna("").astype(str).str.strip().str.zfill(width)
-    keep = (geo != "").to_numpy()          # drop blank GEOIDs before indexing
-    geo = geo[keep].tolist()
+    stripped = df["geoid"].fillna("").astype(str).str.strip()
+    keep = (stripped != "").to_numpy()     # drop blank GEOIDs BEFORE zfill — else a
+    # blank would become "00000" and collide with / poison the national row.
+    geo = stripped[keep].str.zfill(width).tolist()
     idx = {g: i for i, g in enumerate(geo)}
 
     num: dict[str, np.ndarray] = {}
