@@ -116,7 +116,10 @@ def _num(v):
 # picks that building. And because this is a *housing* label scored from a typed
 # residential address, a residential structure is preferred when several plausibly
 # contain the point (a substantial multi-family tower most of all).
-_FOOTPRINT_FLOOR_M = 10.0      # min "reach" so tiny/zero-sqft structures need a near-direct hit
+_FOOTPRINT_FLOOR_M = 10.0      # minimum footprint radius (m): a div-by-zero guard for
+                               # zero-sqft structures and the smallest reach any structure
+                               # gets — applied as max(radius, floor), so it never inflates
+                               # a large building's own footprint.
 _RES_WEIGHT = 0.70            # residential preferred over non-residential (lower score = better)
 _RES3_WEIGHT = 0.55          # a multi-family (RES3) structure preferred even among residential
 
@@ -146,7 +149,7 @@ def _select_structure(props_list: list[dict], lat: float, lon: float) -> dict | 
         d = _dist_m(p, lat, lon)
         if d is None:
             continue
-        score = d / (_footprint_radius_m(p.get("sqft")) + _FOOTPRINT_FLOOR_M)
+        score = d / max(_footprint_radius_m(p.get("sqft")), _FOOTPRINT_FLOOR_M)
         occ = str(p.get("occtype") or "").upper()
         if occ.startswith("RES3"):
             score *= _RES3_WEIGHT
