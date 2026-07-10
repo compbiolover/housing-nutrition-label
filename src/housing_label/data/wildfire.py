@@ -37,8 +37,6 @@ representative sub-county value, not parcel precision.
 
 from __future__ import annotations
 
-import csv
-import gzip
 import pathlib
 from functools import lru_cache
 
@@ -54,17 +52,11 @@ _TRACT_CSV_GZ = _DIR / "nri_wildfire_tracts.csv.gz"    # bundled (gzipped) tract
 from housing_label.data._util import num as _num  # shared CSV-cell float coercion
 
 
-def _load_rows(path: pathlib.Path, width: int) -> dict[str, dict]:
-    """geoid (zero-padded to ``width``) → raw NRI wildfire row, from CSV or .csv.gz."""
-    table: dict[str, dict] = {}
-    opener = gzip.open if path.suffix == ".gz" else open
-    with opener(path, "rt", newline="") as f:
-        for row in csv.DictReader(f):
-            raw = str(row.get("geoid", "")).strip()
-            if not raw:                 # skip blank GEOIDs before zero-padding
-                continue                # (else zfill would key them as "0000…")
-            table[raw.zfill(width)] = row
-    return table
+def _load_rows(path: pathlib.Path, width: int):
+    """geoid (zero-padded to ``width``) → NRI wildfire row, as a compact columnar
+    store (memory-efficient drop-in for the old ``{geoid: raw-row}`` dict)."""
+    from housing_label.data._tractstore import load_tract_store
+    return load_tract_store(path, width)
 
 
 @lru_cache(maxsize=1)

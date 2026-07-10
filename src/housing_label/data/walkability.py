@@ -37,8 +37,6 @@ finer in-house OpenStreetMap amenity-access score is a documented future upgrade
 
 from __future__ import annotations
 
-import csv
-import gzip
 import pathlib
 from functools import lru_cache
 
@@ -54,16 +52,11 @@ _TRACT_CSV_GZ = _DIR / "walkability_tracts.csv.gz"
 _NATIONAL_GEOID = "00000"
 
 
-def _load_rows(path: pathlib.Path, width: int) -> dict[str, dict]:
-    table: dict[str, dict] = {}
-    opener = gzip.open if path.suffix == ".gz" else open
-    with opener(path, "rt", newline="") as f:
-        for row in csv.DictReader(f):
-            raw = str(row.get("geoid", "")).strip()
-            if not raw:
-                continue
-            table[raw.zfill(width)] = row
-    return table
+def _load_rows(path: pathlib.Path, width: int):
+    """geoid (zero-padded to ``width``) → walkability row, as a compact columnar
+    store (memory-efficient drop-in for the old ``{geoid: raw-row}`` dict)."""
+    from housing_label.data._tractstore import load_tract_store
+    return load_tract_store(path, width)
 
 
 @lru_cache(maxsize=1)
