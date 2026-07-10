@@ -12,8 +12,8 @@ from housing_label.data import embodied_carbon as ec
 _M2 = 0.092903  # sqft → m²
 
 
-def _home(sqft, wall=7, bsmt=1, stories=1, depth=None):
-    return ec.embodied_intensity_kgm2(wall, bsmt, sqft * _M2, stories, depth)
+def _home(sqft, wall=7, bsmt=1, stories=1, basement_depth_m=None):
+    return ec.embodied_intensity_kgm2(wall, bsmt, sqft * _M2, stories, basement_depth_m)
 
 
 def test_smaller_home_has_higher_intensity():
@@ -42,8 +42,8 @@ def test_foundation_ordered_and_dominant():
 
 
 def test_actual_basement_depth_overrides_default():
-    shallow = _home(2000, bsmt=3, depth=2.0)
-    deep = _home(2000, bsmt=3, depth=3.5)
+    shallow = _home(2000, bsmt=3, basement_depth_m=2.0)
+    deep = _home(2000, bsmt=3, basement_depth_m=3.5)
     assert deep > shallow
 
 
