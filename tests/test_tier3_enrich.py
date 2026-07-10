@@ -12,8 +12,6 @@ from __future__ import annotations
 import pathlib
 import sys
 
-import pandas as pd
-
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
 for _p in (_ROOT, _ROOT / "src"):
     if str(_p) not in sys.path:
