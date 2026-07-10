@@ -102,6 +102,17 @@ def test_per_unit_sqft_leaves_single_family_and_cluster():
     assert H._nsi_per_unit_sqft(_loc(sqft=None)) is None
 
 
+def test_autofill_uses_per_unit_sqft_for_detected_multifamily():
+    """The autofill path stores per-unit sqft (not whole-building) and tags it."""
+    cfg = {}
+    filled = H._autofill_construction_from_nsi(
+        cfg, explicit=set(),
+        location=_loc(sqft=294504.0, num_units=157, structure_type="multifamily",
+                      units_confidence="detected", structure_attr_source="P"))
+    assert cfg["sqft"] == round(294504.0 / 157, 1)        # per unit, not 294504
+    assert filled["sqft"] == ("NSI · structure record", "high")   # parcel-observed → high
+
+
 # ── Auto-fill precedence (house.py) ───────────────────────────────────────────
 def test_autofill_fills_unset_fields():
     cfg = {"year_built": 2024, "construction": "frame", "foundation": "slab", "sqft": 2000}
