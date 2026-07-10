@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.36](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.35...v0.1.36) (2026-07-10)
+
+
+### Performance Improvements
+
+* store tract crosswalks columnar to cut ~320 MB of RSS ([#126](https://github.com/compbiolover/housing-nutrition-label/issues/126)) ([280d907](https://github.com/compbiolover/housing-nutrition-label/commit/280d9074e088e06784bdd2840bc60ae492a8920a))
+
 ## [0.1.35](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.34...v0.1.35) (2026-07-10)
 
 
