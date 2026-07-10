@@ -78,10 +78,9 @@ def _ring_area_deg2(ring: list) -> float:
 
 # Geocoders (e.g. the Census geocoder) usually return a parcel/street point, not
 # the rooftop, so an exact point-in-polygon test frequently misses the building.
-# When it does, we search a small box around the point and take the nearest primary
-# building — mirroring the NSI box query. ~0.0003° ≈ 30 m half-width.
-_BUFFER_DEG = 0.0003
+# When it does, we search a box around the point and pick the addressed home.
 _MAX_ASSOC_M = 40.0   # a footprint centroid farther than this isn't this address's home
+_DEG_PER_M_LAT = 1.0 / 111_320.0   # metres → degrees latitude
 
 
 def _query(geometry: str, geometry_type: str) -> list[dict]:
@@ -139,7 +138,9 @@ def _select_building(feats: list[dict], lat: float, lon: float,
     if not cands:
         return None
     if expected_m2:
-        return min(cands, key=lambda c: abs(c[1] - expected_m2))[2]
+        # Best area match, with centroid distance as a deterministic tie-breaker so the
+        # pick never depends on the service's feature-return order.
+        return min(cands, key=lambda c: (abs(c[1] - expected_m2), c[0]))[2]
     return min(cands, key=lambda c: c[0])[2]
 
 
@@ -156,10 +157,14 @@ def _footprint_at(lat: float, lon: float, allow_network: bool,
         best = max(feats, key=lambda f: (f.get("attributes") or {}).get("SQMETERS") or 0.0)
     else:
         # 2) Parcel/street geocode → no containing footprint; pick the addressed home
-        # from the primary buildings in a small box around the point.
-        d = _BUFFER_DEG
-        env = json.dumps({"xmin": lon - d, "ymin": lat - d, "xmax": lon + d,
-                          "ymax": lat + d, "spatialReference": {"wkid": 4326}})
+        # from the primary buildings in a box around the point. Size the box in metres
+        # (± _MAX_ASSOC_M, longitude widened by 1/cos(lat)) so it covers the full
+        # acceptance radius at any latitude, not a fixed degree span.
+        dlat = _MAX_ASSOC_M * _DEG_PER_M_LAT
+        dlon = dlat / max(math.cos(math.radians(lat)), 0.1)
+        env = json.dumps({"xmin": lon - dlon, "ymin": lat - dlat,
+                          "xmax": lon + dlon, "ymax": lat + dlat,
+                          "spatialReference": {"wkid": 4326}})
         best = _select_building(_query(env, "esriGeometryEnvelope"), lat, lon, expected_m2)
     if best is None:
         return None

@@ -47,6 +47,15 @@ def test_select_prefers_area_match_over_nearest():
     assert fp._select_building([a, b], lat, lon, None) is b   # no hint → nearest
 
 
+def test_area_tie_broken_by_distance_deterministically():
+    lat, lon = 35.0, -84.0
+    near = _feat(200, 0.00009)   # ~10 m away, |200-203| = 3
+    far = _feat(206, 0.0003)     # ~33 m away, |206-203| = 3 (same area delta)
+    # Equal area delta → nearer centroid wins, regardless of return order.
+    assert fp._select_building([far, near], lat, lon, 203) is near
+    assert fp._select_building([near, far], lat, lon, 203) is near
+
+
 def test_select_skips_outbuildings_and_too_far():
     lat, lon = 35.0, -84.0
     shed = _feat(50, 0.00001, outbldg="Y")   # very near but an outbuilding
