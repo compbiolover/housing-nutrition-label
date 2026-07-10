@@ -137,7 +137,7 @@ def _select_building(feats: list[dict], lat: float, lon: float,
             cands.append((dist, float(area), f))
     if not cands:
         return None
-    if expected_m2:
+    if expected_m2 is not None and expected_m2 > 0:
         # Best area match, with centroid distance as a deterministic tie-breaker so the
         # pick never depends on the service's feature-return order.
         return min(cands, key=lambda c: (abs(c[1] - expected_m2), c[0]))[2]
@@ -162,8 +162,9 @@ def _footprint_at(lat: float, lon: float, allow_network: bool,
     else:
         # 2) Parcel/street geocode → no containing footprint; pick the addressed home
         # from the primary buildings in a box around the point. Size the box in metres
-        # (± _MAX_ASSOC_M, longitude widened by 1/cos(lat)) so it covers the full
-        # acceptance radius at any latitude, not a fixed degree span.
+        # (± _MAX_ASSOC_M, longitude widened by 1/cos(lat), the cos capped at 0.1 so the
+        # span stays finite past ~84° — irrelevant for US addresses) so it covers the
+        # full acceptance radius rather than a fixed degree span.
         dlat = _MAX_ASSOC_M * _DEG_PER_M_LAT
         dlon = dlat / max(math.cos(math.radians(lat)), 0.1)
         env = json.dumps({"xmin": lon - dlon, "ymin": lat - dlat,
@@ -191,8 +192,8 @@ def _footprint_at(lat: float, lon: float, allow_network: bool,
     }
 
 
-def footprint_for_point(lat, lon, allow_network: bool = True,
-                        expected_footprint_m2=None) -> dict | None:
+def footprint_for_point(lat: float, lon: float, allow_network: bool = True,
+                        expected_footprint_m2: float | None = None) -> dict | None:
     """Real building footprint at (lat, lon): ``{footprint_area_m2,
     footprint_perimeter_m, occ_cls, source}``, or ``None`` when no building is found,
     the service is unavailable, or ``allow_network`` is False.
