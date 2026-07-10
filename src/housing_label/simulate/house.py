@@ -37,7 +37,7 @@ import pandas as pd
 
 from housing_label.simulate.dimensions import (
     simulate_all_dimensions, per_unit_home_value, effective_structure,
-    AUTOFILL_VALUE_SOURCE, VALUE_PER_DOOR_SOURCE,
+    AUTOFILL_VALUE_SOURCE, VALUE_PER_DOOR_SOURCE, HOME_VALUE_SOURCE,
 )
 from housing_label.confidence import (
     confidence_for_label, bands_for_label, CONFIDENCE_NOTES, CONFIDENCE_LEGEND,
@@ -1894,11 +1894,15 @@ def build_label_parts(*, address: str | None = None,
             cfg["value"] = value_per_door_for_county(county_fips)["value_per_door"]
             cfg["value_source"] = VALUE_PER_DOOR_SOURCE
         else:
-            from housing_label.data.propertytax import median_home_value_for_county
-            median_value = median_home_value_for_county(county_fips)
-            if median_value:
-                cfg["value"] = median_value
-                cfg["value_source"] = AUTOFILL_VALUE_SOURCE
+            # Prefer the neighborhood (census-tract) median over the county-wide
+            # one — far closer for a home in an expensive/cheap area — falling back
+            # county → national. Still a neighborhood typical, not the specific
+            # property's value (a user entry overrides it).
+            from housing_label.data.home_value import median_home_value_for
+            hv = median_home_value_for(getattr(location, "tract", None), county_fips)
+            if hv["value"]:
+                cfg["value"] = hv["value"]
+                cfg["value_source"] = HOME_VALUE_SOURCE.get(hv["geo_level"], AUTOFILL_VALUE_SOURCE)
     if cfg.get("value_source"):
         autofilled["value"] = (cfg["value_source"], "low")   # a county-area estimate
 

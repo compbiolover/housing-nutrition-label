@@ -62,7 +62,8 @@ def test_detected_multifamily_autofills_value_per_door():
         AUTOFILL_VALUE_SOURCE, VALUE_PER_DOOR_SOURCE,
     )
     from housing_label.data.multifamily_value import value_per_door_for_county
-    from housing_label.data.propertytax import median_home_value_for_county
+    from housing_label.data.home_value import median_home_value_for
+    county_median = median_home_value_for(county_fips="06037")["value"]
 
     def loc(structure_type):
         return Location(
@@ -84,11 +85,12 @@ def test_detected_multifamily_autofills_value_per_door():
     assert mf["value_source"] == VALUE_PER_DOOR_SOURCE
     assert abs(mf["value"] - value_per_door_for_county("06037")["value_per_door"]) < 1.0
     # A detected apartment unit is valued far below the county single-family median.
-    assert mf["value"] < median_home_value_for_county("06037")
-    # A single-family address at the same county keeps the owner-occupied median.
+    assert mf["value"] < county_median
+    # A single-family address at the same county (no tract) keeps the owner-occupied
+    # county median (ACS home-value crosswalk).
     sf = cfg_for("single_family")
     assert sf["value_source"] == AUTOFILL_VALUE_SOURCE
-    assert abs(sf["value"] - median_home_value_for_county("06037")) < 1.0
+    assert abs(sf["value"] - county_median) < 1.0
 
 
 def test_dollar_eal_uses_the_same_per_unit_value_as_infrastructure():
