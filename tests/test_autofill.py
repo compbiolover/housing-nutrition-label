@@ -54,6 +54,36 @@ def test_nsi_drop_shell_nulls_shell_attrs():
     assert r["bldg_material"] is None and r["stories"] is None
 
 
+# ── Addressed-structure selection (structure.py) ──────────────────────────────
+def _feat(lat, lon, occtype, sqft, **kw):
+    d = {"y": lat, "x": lon, "occtype": occtype, "sqft": sqft}
+    d.update(kw)
+    return d
+
+
+def test_select_prefers_footprint_over_nearest_centroid():
+    """A point inside a big tower's footprint picks the tower, even when a small
+    house's centroid is closer (the downtown high-rise mis-selection)."""
+    pt_lat, pt_lon = 35.0, -90.0
+    house = _feat(pt_lat + 0.00027, pt_lon, "RES1", 1500)                  # ~30 m N, tiny
+    tower = _feat(pt_lat + 0.00036, pt_lon, "RES3F", 294504, resunits=157,  # ~40 m N, huge
+                  num_story=12, bldgtype="S", found_type="S", source="P")
+    r = S._classify_site([house, tower], pt_lat, pt_lon)
+    assert r["structure_type"] == "multifamily" and r["num_units"] == 157
+    # the naive nearest-centroid would have picked the closer house
+    assert S._dist_m(house, pt_lat, pt_lon) < S._dist_m(tower, pt_lat, pt_lon)
+
+
+def test_select_prefers_residential_when_coplausible():
+    """A housing address between a commercial block and an apartment tower of
+    similar size resolves to the residential building."""
+    pt_lat, pt_lon = 35.0, -90.0
+    com = _feat(pt_lat + 0.00036, pt_lon, "COM10", 250000)               # ~40 m, commercial
+    apt = _feat(pt_lat + 0.00040, pt_lon, "RES3E", 250000, resunits=45)  # ~45 m, residential
+    r = S._classify_site([com, apt], pt_lat, pt_lon)
+    assert r["structure_type"] == "multifamily" and r["num_units"] == 45
+
+
 # ── Auto-fill precedence (house.py) ───────────────────────────────────────────
 def test_autofill_fills_unset_fields():
     cfg = {"year_built": 2024, "construction": "frame", "foundation": "slab", "sqft": 2000}

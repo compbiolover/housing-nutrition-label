@@ -9,9 +9,10 @@ building, a FEMA Hazus occupancy class, residential unit count, stories, square
 footage, construction material, and year built.
 
 Source: the NSI web API (keyless), queried with a small polygon around the point;
-the nearest structure to the geocoded location is returned. Network/API failure
-degrades gracefully to ``None`` (the caller keeps its single-family default), so
-this is a best-effort enrichment, never a hard dependency.
+the structure whose footprint most likely contains the geocoded location is
+returned (see ``_select_structure``). Network/API failure degrades gracefully to
+``None`` (the caller keeps its single-family default), so this is a best-effort
+enrichment, never a hard dependency.
 
 Occupancy classes (Hazus): RES1 = single-family, RES2 = manufactured home,
 RES3A–RES3F = multi-family binned by unit count (2, 3–4, 5–9, 10–19, 20–49, 50+),
@@ -20,6 +21,7 @@ RES4–RES6 = lodging / institutional, COM*/IND*/… = non-residential.
 
 from __future__ import annotations
 
+import math
 import time
 from collections import Counter
 from functools import lru_cache
@@ -104,6 +106,60 @@ def _num(v):
         return None
 
 
+# ── Addressed-structure selection ─────────────────────────────────────────────
+# Nearest-centroid alone mis-selects downtown: a geocoded point can sit closer to
+# a small adjacent structure's centroid than to a large tower's centroid, which is
+# far from its own edges (verified: 67 Madison Ave, Memphis — a 12-story, 157-unit
+# tower flips to neighboring commercial structures under a ~40 m geocode shift). We
+# instead score each structure by *footprint containment* — distance normalized by
+# the structure's footprint radius — so a point inside a big building's footprint
+# picks that building. And because this is a *housing* label scored from a typed
+# residential address, a residential structure is preferred when several plausibly
+# contain the point (a substantial multi-family tower most of all).
+_FOOTPRINT_FLOOR_M = 10.0      # minimum footprint radius (m): a div-by-zero guard for
+                               # zero-sqft structures and the smallest reach any structure
+                               # gets — applied as max(radius, floor), so it never inflates
+                               # a large building's own footprint.
+_RES_WEIGHT = 0.70            # residential preferred over non-residential (lower score = better)
+_RES3_WEIGHT = 0.55          # a multi-family (RES3) structure preferred even among residential
+
+
+def _footprint_radius_m(sqft) -> float:
+    """Radius (m) of a circle with the structure's footprint area (sqft → m²)."""
+    a = _num(sqft)
+    return math.sqrt(a * 0.092903 / math.pi) if a and a > 0 else 0.0
+
+
+def _dist_m(p: dict, lat: float, lon: float) -> float | None:
+    """Great-circle-ish metres from the point to a structure's centroid (x/y),
+    or None when the structure has no usable coordinates."""
+    try:
+        py, px = float(p["y"]), float(p["x"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    return math.hypot((py - lat) * 111320.0,
+                      (px - lon) * 111320.0 * math.cos(math.radians(lat)))
+
+
+def _select_structure(props_list: list[dict], lat: float, lon: float) -> dict | None:
+    """Pick the structure the address most likely refers to: the lowest
+    footprint-containment score, with a residential (esp. multi-family) preference."""
+    best, best_score = None, float("inf")
+    for p in props_list:
+        d = _dist_m(p, lat, lon)
+        if d is None:
+            continue
+        score = d / max(_footprint_radius_m(p.get("sqft")), _FOOTPRINT_FLOOR_M)
+        occ = str(p.get("occtype") or "").upper()
+        if occ.startswith("RES3"):
+            score *= _RES3_WEIGHT
+        elif occ.startswith("RES"):
+            score *= _RES_WEIGHT
+        if score < best_score:
+            best_score, best = score, p
+    return best
+
+
 def _nsi_query(lat: float, lon: float, half: float) -> list[dict]:
     """Query NSI for a box around the point; return the list of feature property
     dicts (empty on failure / no structures). NOT cached — the caller caches the
@@ -141,7 +197,7 @@ def _result(props: dict, structure_type, num_units, *, units_confidence, detecti
     """Assemble the structure result dict from the addressed structure's props.
 
     ``drop_shell`` clears the material/stories for a heuristically detected site,
-    where the nearest structure is a mislabeled house and its shell is unreliable."""
+    where the selected structure is a mislabeled house and its shell is unreliable."""
     stories = _num(props.get("num_story"))
     yr = _num(props.get("med_yr_blt"))
     btype = (props.get("bldgtype") or "").upper()
@@ -191,27 +247,21 @@ def _classify_site(props_list: list[dict], lat: float, lon: float) -> dict | Non
     if not props_list:
         return None
 
-    def d2(p: dict) -> float:
-        try:
-            return (float(p["y"]) - lat) ** 2 + (float(p["x"]) - lon) ** 2
-        except (KeyError, TypeError, ValueError):
-            return float("inf")
-
-    nearest = min(props_list, key=d2)
-    if d2(nearest) == float("inf"):     # no usable coordinates → can't identify a structure
+    selected = _select_structure(props_list, lat, lon)
+    if selected is None:                # no usable coordinates → can't identify a structure
         return None
-    nearest_type = _classify(nearest.get("occtype"))
+    selected_type = _classify(selected.get("occtype"))
 
     # A genuine RES3 at the address → reliable multi-family detection.
-    if nearest_type == "multifamily":
-        return _result(nearest, "multifamily",
-                       _units_for(nearest.get("occtype"), nearest.get("resunits")),
+    if selected_type == "multifamily":
+        return _result(selected, "multifamily",
+                       _units_for(selected.get("occtype"), selected.get("resunits")),
                        units_confidence="detected", detection="nsi")
 
     # Otherwise inspect the whole site. NSI often models an apartment complex as a
     # cluster of identical single-family footprints, or the addressed building is a
-    # RES3 that just isn't the nearest centroid — either pattern is a multi-unit
-    # site the nearest-structure classification alone would miss.
+    # RES3 that the footprint selection didn't land on — either pattern is a
+    # multi-unit site the addressed-structure classification alone would miss.
     res = [p for p in props_list if str(p.get("occtype", "")).upper().startswith("RES")]
     res1 = [p for p in res if str(p.get("occtype", "")).upper().startswith("RES1")]
     res3 = [p for p in res if str(p.get("occtype", "")).upper().startswith("RES3")]
@@ -222,13 +272,13 @@ def _classify_site(props_list: list[dict], lat: float, lon: float) -> dict | Non
     footprints = Counter(round(v) for v in (_num(p.get("sqft")) for p in res1) if v)
     cluster = footprints.most_common(1)[0][1] if footprints else 0
     if cluster >= _CLUSTER_MIN or len(res3) >= _RES3_DISTRICT_MIN:
-        return _result(nearest, "multifamily", _estimate_units(res3),
+        return _result(selected, "multifamily", _estimate_units(res3),
                        units_confidence="estimated", detection="nsi-cluster",
                        drop_shell=True)
 
     # Single-family / manufactured / other — classify from the addressed structure.
-    return _result(nearest, nearest_type,
-                   _units_for(nearest.get("occtype"), nearest.get("resunits")),
+    return _result(selected, selected_type,
+                   _units_for(selected.get("occtype"), selected.get("resunits")),
                    units_confidence="detected", detection="nsi")
 
 
@@ -236,12 +286,13 @@ def structure_for_point(lat: float, lon: float,
                         allow_network: bool = True) -> dict | None:
     """Return the building at (lat, lon) from NSI, or None if unavailable.
 
-    Beyond the nearest structure's Hazus occupancy class, this recognizes a
-    multi-unit *site* the nearest-structure classification alone would miss: an
-    identical-footprint cluster (NSI's signature for a templated apartment complex
-    it modeled as single-family structures) or a dense RES3 district. In those
+    Beyond the addressed structure's Hazus occupancy class (chosen by footprint
+    containment, see ``_select_structure``), this recognizes a multi-unit *site*
+    that per-structure classification alone would miss: an identical-footprint
+    cluster (NSI's signature for a templated apartment complex it modeled as
+    single-family structures) or a dense RES3 district. In those
     cases ``units_confidence`` is ``"estimated"`` and ``detection`` is
-    ``"nsi-cluster"``, and the shell material/height are left unset (the nearest
+    ``"nsi-cluster"``, and the shell material/height are left unset (the selected
     structure is a mislabeled house).
 
     Result keys: ``structure_type`` (single_family | manufactured | multifamily |
