@@ -84,6 +84,56 @@ def test_select_prefers_residential_when_coplausible():
     assert r["structure_type"] == "multifamily" and r["num_units"] == 45
 
 
+# ── Per-unit sqft for a detected multi-unit building (house.py) ───────────────
+def test_per_unit_sqft_divides_detected_multifamily():
+    """A genuine NSI multi-unit record's whole-building sqft is split per unit."""
+    loc = _loc(sqft=294504.0, num_units=157, structure_type="multifamily",
+               units_confidence="detected")
+    assert H._nsi_per_unit_sqft(loc) == round(294504.0 / 157, 1)   # ~1875.8
+
+
+def test_per_unit_sqft_leaves_single_family_and_cluster():
+    sf = _loc(sqft=1500.0, num_units=1, structure_type="single_family",
+              units_confidence="detected")
+    assert H._nsi_per_unit_sqft(sf) == 1500.0                      # single unit → as-is
+    cluster = _loc(sqft=1332.0, num_units=8, structure_type="multifamily",
+                   units_confidence="estimated")                    # cluster heuristic
+    assert H._nsi_per_unit_sqft(cluster) == 1332.0                 # already one house → not divided
+    assert H._nsi_per_unit_sqft(_loc(sqft=None)) is None
+
+
+def test_per_unit_sqft_effective_units_override():
+    """An explicit unit override drives the divisor; else the detected count."""
+    loc = _loc(sqft=294504.0, num_units=157, structure_type="multifamily",
+               units_confidence="detected")
+    assert H._nsi_per_unit_sqft(loc, 100) == round(294504.0 / 100, 1)   # override wins
+    assert H._nsi_per_unit_sqft(loc, 1) == round(294504.0 / 157, 1)     # 1 (default) → detected
+    assert H._nsi_per_unit_sqft(loc, None) == round(294504.0 / 157, 1)  # unset → detected
+
+
+def test_nsi_sqft_divisor_predicate():
+    """The divide decision is a single predicate — robust to a 0-sqft record."""
+    mf = _loc(sqft=0.0, num_units=157, structure_type="multifamily", units_confidence="detected")
+    assert H._nsi_sqft_divisor(mf) == 157           # divides even when the value is 0
+    assert H._nsi_sqft_divisor(mf, 100) == 100      # override
+    sf = _loc(sqft=1500.0, num_units=1, structure_type="single_family", units_confidence="detected")
+    assert H._nsi_sqft_divisor(sf) is None          # single dwelling → no division
+    cluster = _loc(sqft=1332.0, num_units=8, structure_type="multifamily", units_confidence="estimated")
+    assert H._nsi_sqft_divisor(cluster) is None      # cluster heuristic → no division
+
+
+def test_autofill_uses_per_unit_sqft_for_detected_multifamily():
+    """The autofill path stores per-unit sqft (not whole-building) and tags it."""
+    cfg = {}
+    filled = H._autofill_construction_from_nsi(
+        cfg, explicit=set(),
+        location=_loc(sqft=294504.0, num_units=157, structure_type="multifamily",
+                      units_confidence="detected", structure_attr_source="P"))
+    assert cfg["sqft"] == round(294504.0 / 157, 1)        # per unit, not 294504
+    # derived per-unit average → labeled as divided, one confidence notch below high
+    assert filled["sqft"] == ("NSI · building floor area ÷ units (per unit)", "moderate")
+
+
 # ── Auto-fill precedence (house.py) ───────────────────────────────────────────
 def test_autofill_fills_unset_fields():
     cfg = {"year_built": 2024, "construction": "frame", "foundation": "slab", "sqft": 2000}

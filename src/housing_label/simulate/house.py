@@ -1677,30 +1677,74 @@ _EDITABLE_FIELDS = ["year_built", "construction", "foundation", "condition",
                     "sqft", "units", "stories", "lot_acres", "value", "bldg_material"]
 
 
-def _autofill_construction_from_nsi(cfg: dict, explicit: set, location) -> dict:
+def _nsi_per_unit_sqft(location, units: int | None = None) -> float | None:
+    """Auto-filled living area per *dwelling unit*.
+
+    A genuine NSI multi-unit record (``units_confidence == "detected"``) reports the
+    WHOLE building's floor area, so it is split across the unit count to match the
+    label's per-unit sqft convention (``SFLA`` per unit) — this keeps the energy
+    cost, EUI, and the lifetime-cost comparison per apartment rather than scoring the
+    entire 100k+ sqft building against one typical house. Single-family sqft, and the
+    cluster heuristic's sqft (already one mislabeled house), are returned as-is.
+
+    ``units`` is the *effective* dwelling-unit count so the divisor matches the rest
+    of the per-unit math: an explicit override ``> 1`` wins, while ``units`` of 1 or
+    None (the default, i.e. "not overridden") falls back to the NSI-detected count."""
+    sqft = getattr(location, "sqft", None)
+    if sqft is None:
+        return None
+    n = _nsi_sqft_divisor(location, units)
+    return round(float(sqft) / n, 1) if n else sqft
+
+
+def _nsi_sqft_divisor(location, units: int | None = None) -> int | None:
+    """The unit count to split a WHOLE-building NSI sqft by (per-unit living area),
+    or None when the sqft already describes one dwelling (single-family, the cluster
+    heuristic's one mislabeled house, or no genuine multi-unit record). Sole source
+    of truth for *whether* per-unit division happens, so callers don't re-derive it
+    from a value comparison (which would mis-tag a 0-sqft or rounding-equal record)."""
+    n = units if (units and units > 1) else getattr(location, "num_units", None)
+    if (getattr(location, "units_confidence", None) == "detected"
+            and getattr(location, "structure_type", None) == "multifamily"
+            and n and n > 1):
+        return n
+    return None
+
+
+def _autofill_construction_from_nsi(cfg: dict, explicit: set, location,
+                                    units: int | None = None) -> dict:
     """Fill year_built / sqft / construction / foundation from the NSI-detected
     Location when the user left them unset. Returns ``{field: (source, confidence)}``
     for the fields that were auto-filled, so the label can tag them as estimates.
 
     year_built is a census-area MEDIAN and construction is a coarse 5-class guess,
     so both are always low-confidence estimates; sqft/foundation ride NSI's
-    per-structure provenance (parcel-observed → higher confidence than modeled)."""
+    per-structure provenance (parcel-observed → higher confidence than modeled).
+    For a detected multi-unit building the sqft is stored per dwelling unit, split by
+    the effective ``units`` count (see ``_nsi_per_unit_sqft``)."""
     filled: dict = {}
     if location is None:
         return filled
     observed = getattr(location, "structure_attr_source", None) == "P"
+    sqft_val = _nsi_per_unit_sqft(location, units)
+    # A per-unit sqft divided out of the whole-building floor area is a derived
+    # average (it depends on the unit divisor), not a direct NSI field — label it
+    # as such and drop one confidence notch. Decided by the same predicate used to
+    # divide, so it can't mis-tag a 0-sqft or rounding-equal record.
+    if sqft_val is not None and _nsi_sqft_divisor(location, units) is not None:
+        sqft_src, sqft_conf = "NSI · building floor area ÷ units (per unit)", "moderate" if observed else "low"
+    else:
+        sqft_src, sqft_conf = "NSI · structure record", "high" if observed else "moderate"
     plan = [
-        ("year_built",   "year_built",   "NSI · neighborhood median (estimated)", "low"),
-        ("sqft",         "sqft",         "NSI · structure record", "high" if observed else "moderate"),
-        ("construction", "construction", "NSI · material class (coarse estimate)", "low"),
-        ("foundation",   "foundation",   "NSI · structure record", "moderate" if observed else "low"),
+        ("year_built",   getattr(location, "year_built", None), "NSI · neighborhood median (estimated)", "low"),
+        ("sqft",         sqft_val, sqft_src, sqft_conf),
+        ("construction", getattr(location, "construction", None), "NSI · material class (coarse estimate)", "low"),
+        ("foundation",   getattr(location, "foundation", None), "NSI · structure record", "moderate" if observed else "low"),
     ]
-    for field, attr, source, conf in plan:
-        if field not in explicit:
-            val = getattr(location, attr, None)
-            if val is not None:
-                cfg[field] = val
-                filled[field] = (source, conf)
+    for field, val, source, conf in plan:
+        if field not in explicit and val is not None:
+            cfg[field] = val
+            filled[field] = (source, conf)
     return filled
 
 
@@ -1853,7 +1897,8 @@ def build_label_parts(*, address: str | None = None,
     # tagged, editable estimate. A preset means the user wants a hypothetical build,
     # so its values win (no NSI override).
     if preset is None:
-        autofilled.update(_autofill_construction_from_nsi(cfg, explicit, location))
+        autofilled.update(_autofill_construction_from_nsi(
+            cfg, explicit, location, struct.get("num_units")))
     building = _building_block(cfg, struct, explicit, autofilled, location)
 
     # The resilience local grade ranks against the bundled Shelby dataset, so it's
