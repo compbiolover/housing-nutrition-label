@@ -188,8 +188,20 @@ def test_autofill_fills_unset_fields():
         location=_loc(year_built=1960, sqft=1400.0, foundation="crawl", construction="brick"))
     assert cfg["year_built"] == 1960 and cfg["sqft"] == 1400.0
     assert cfg["foundation"] == "crawl" and cfg["construction"] == "brick"
-    assert set(filled) == {"year_built", "sqft", "foundation", "construction"}
+    assert cfg["stories"] == 1                    # NSI stories now wired through
+    assert set(filled) == {"year_built", "sqft", "foundation", "construction", "stories"}
     assert filled["sqft"][1] == "high"           # parcel-observed → high confidence
+
+
+def test_footprint_propagated_only_for_single_dwelling():
+    loc = _loc(footprint_area_m2=400.0, footprint_perimeter_m=90.0)
+    sf = {}
+    H._autofill_construction_from_nsi(sf, explicit=set(), location=loc, units=1)
+    assert sf.get("footprint_area_m2") == 400.0 and sf.get("footprint_perimeter_m") == 90.0
+    # A whole-building footprint must NOT be fed to a per-unit multi-family score.
+    mf = {}
+    H._autofill_construction_from_nsi(mf, explicit=set(), location=loc, units=4)
+    assert "footprint_area_m2" not in mf and "footprint_perimeter_m" not in mf
 
 
 def test_autofill_respects_explicit_user_fields():

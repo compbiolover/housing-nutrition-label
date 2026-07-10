@@ -160,24 +160,37 @@ def _foundation_kgm2(floor_area_m2: float, footprint: float, perimeter: float,
 
 def embodied_intensity_kgm2(extwall_code=None, bsmt_code=None,
                             floor_area_m2=None, stories=None,
-                            basement_depth_m=None) -> float:
+                            basement_depth_m=None, footprint_area_m2=None,
+                            footprint_perimeter_m=None) -> float:
     """Bottom-up cradle-to-gate (A1-A3) embodied intensity, kgCO2e per m2 of floor.
 
     Geometry-aware: foundation is built from the footprint slab + perimeter walls
     (× actual/estimated basement depth) + footings; the roof scales with roof area,
-    the envelope with wall area, and interior finishes with floor area. When
-    ``floor_area_m2`` is unknown the reference home's geometry is used; when
-    ``stories`` is unknown a single story is assumed; when ``basement_depth_m`` is
-    unknown a per-``BSMT``-code default depth is used. Grade / finish adjustments are
-    applied by the caller (``environmental.embodied_intensity``), not here.
+    the envelope with wall area, and interior finishes with floor area.
+
+    When a **real footprint** is supplied (``footprint_area_m2`` +
+    ``footprint_perimeter_m``, e.g. from FEMA/ORNL USA Structures) it is used
+    directly — removing both the shape-factor perimeter estimate and the stories
+    guess (levels are derived as floor_area / footprint_area). Otherwise the footprint
+    is floor_area / stories and the perimeter is 4.1·√footprint; when ``floor_area_m2``
+    is unknown the reference home is used, and when ``stories`` is unknown a single
+    story is assumed. ``basement_depth_m`` unknown → a per-``BSMT``-code default.
+    Grade / finish adjustments are applied by the caller, not here.
     """
     floor = _to_float(floor_area_m2) or _FLOOR_REF_M2
-    st = max(_to_float(stories) or _DEFAULT_STORIES, 1.0)   # <1 story isn't physical
     depth = _to_float(basement_depth_m)   # None if unknown → per-BSMT default
     w = _to_int(extwall_code)
     b = _to_int(bsmt_code)
 
-    footprint, perimeter = _footprint_and_perimeter(floor, st)
+    fa = _to_float(footprint_area_m2)
+    per = _to_float(footprint_perimeter_m)
+    if fa and per:
+        footprint, perimeter = fa, per
+        st = max(floor / fa, 1.0)          # real geometry → derive # of levels
+    else:
+        st = max(_to_float(stories) or _DEFAULT_STORIES, 1.0)   # <1 story isn't physical
+        footprint, perimeter = _footprint_and_perimeter(floor, st)
+
     roof_area = footprint * _ROOF_PITCH_FACTOR
     wall_area = perimeter * _STORY_HEIGHT_M * st
 

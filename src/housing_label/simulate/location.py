@@ -71,6 +71,10 @@ class Location:
     structure_source: str | None = None   # "NSI" when detected
     structure_attr_source: str | None = None  # NSI provenance: "P" parcel/observed, else modeled
     units_confidence: str | None = None   # "detected" (from NSI) | "estimated" (cluster heuristic)
+    # Real building footprint (FEMA/ORNL USA Structures) — actual area + perimeter,
+    # used by the embodied-carbon model in place of the shape-factor estimate.
+    footprint_area_m2: float | None = None
+    footprint_perimeter_m: float | None = None
     notes: dict = field(default_factory=dict)
 
     @property
@@ -244,6 +248,15 @@ def resolve_location(
             loc.units_confidence = s.get("units_confidence")
         else:
             notes["structure"] = "building type unknown (no NSI match, or NSI unavailable)"
+        # Real footprint geometry (area + perimeter) for the embodied-carbon model,
+        # independent of NSI — best effort, None when the point isn't a mapped building.
+        from housing_label.enrich.footprint import footprint_for_point
+        fp = footprint_for_point(loc.lat, loc.lon, allow_network=allow_network)
+        if fp:
+            loc.footprint_area_m2 = fp.get("footprint_area_m2")
+            loc.footprint_perimeter_m = fp.get("footprint_perimeter_m")
+        else:
+            notes["footprint"] = "no USA Structures footprint (no mapped building at point, or service unavailable)"
     else:
         notes["structure"] = "skipped (no network)"
 
