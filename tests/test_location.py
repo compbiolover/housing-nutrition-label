@@ -122,20 +122,45 @@ def test_resolve_location_offline():
     assert "geocoder" in loc.notes
 
 
-def test_get_pga_applies_ratio():
-    """get_pga returns (2%/50yr, 10%/50yr, source) with the documented ratio."""
+def test_get_pga_prefers_true_nshm_hazard_curve():
+    """Primary path: get_pga returns the TRUE 2%/50yr AND 10%/50yr read off the NSHM
+    hazard curve — not a 10%/50yr derived from the 0.43 ratio."""
+    import housing_label.enrich.seismic_lookup as sl
+    orig = sl._nshm_hazard_pga
+    sl._nshm_hazard_pga = lambda lat, lon: (0.90, 0.45)   # true both (ratio 0.5, ≠ 0.43)
+    try:
+        pga2, pga10, source = sl.get_pga(34.0, -118.0)
+        assert pga2 == 0.90 and pga10 == 0.45
+        assert "NSHM" in source
+    finally:
+        sl._nshm_hazard_pga = orig
+
+
+def test_get_pga_ratio_fallback_when_nshm_unavailable():
+    """Fallback path (non-CONUS / NSHM outage): design-maps 2%/50yr × the 0.43 ratio."""
     import housing_label.enrich.seismic_lookup as sl
     sl._usgs_pga.cache_clear()
-    orig = sl._usgs_pga
-    sl._usgs_pga = lambda lat, lon: 0.80          # stub the live lookup
+    orig_hz, orig_usgs = sl._nshm_hazard_pga, sl._usgs_pga
+    sl._nshm_hazard_pga = lambda lat, lon: None           # force the fallback
+    sl._usgs_pga = lambda lat, lon: 0.80
     try:
         pga2, pga10, source = sl.get_pga(34.0, -118.0)
         assert pga2 == 0.8
         assert abs(pga10 - 0.8 * sl.PGA_10_2_RATIO) < 1e-9
-        assert "USGS" in source
+        assert "ratio" in source
     finally:
-        sl._usgs_pga = orig
+        sl._nshm_hazard_pga, sl._usgs_pga = orig_hz, orig_usgs
         sl._usgs_pga.cache_clear()
+
+
+def test_gm_at_rate_interpolates_and_clamps():
+    """Log-log interpolation of the hazard curve: exact hits, monotonicity, clamps."""
+    import housing_label.enrich.seismic_lookup as sl
+    xs, ys = [0.1, 0.2, 0.4], [1e-2, 1e-3, 1e-4]   # xs ascending, ys descending
+    assert abs(sl._gm_at_rate(xs, ys, 1e-3) - 0.2) < 1e-9        # exact node
+    assert sl._gm_at_rate(xs, ys, 5e-4) > sl._gm_at_rate(xs, ys, 5e-3)  # rarer → stronger
+    assert sl._gm_at_rate(xs, ys, 1.0) == 0.1                    # very frequent → low end
+    assert sl._gm_at_rate(xs, ys, 1e-9) == 0.4                   # very rare → high end
 
 
 def test_get_pga_offline_no_grid_is_none():
