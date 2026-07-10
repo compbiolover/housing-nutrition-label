@@ -287,6 +287,10 @@ def build_parcel_row(cfg: dict) -> pd.Series:
         # absent / non-numeric → NaN, and the embodied model falls back to a
         # per-foundation-type default depth (degrades gracefully, never crashes).
         "basement_depth_m": _feet_to_m(cfg.get("basement_depth_ft")),
+        # Optional REAL building footprint (FEMA/ORNL USA Structures) for the embodied
+        # model — its actual area + perimeter replace the shape-factor estimate.
+        "footprint_area_m2": cfg.get("footprint_area_m2") or np.nan,
+        "footprint_perimeter_m": cfg.get("footprint_perimeter_m") or np.nan,
         "CALC_ACRE": per_unit_acres,
         "acre_outlier": False,
         "RTOTAPR":   per_unit_value,

@@ -54,6 +54,25 @@ def test_wall_type_ordered_light_to_heavy():
     assert order == sorted(order)
 
 
+def test_real_footprint_overrides_shape_factor_estimate():
+    m2 = 2000 * _M2
+    est = ec.embodied_intensity_kgm2(7, 1, m2, None)   # shape-factor + 1-story default
+    # A real compact footprint (multi-story building) embodies less foundation + roof
+    # per m² of floor than the 1-story shape-factor estimate assumes.
+    real = ec.embodied_intensity_kgm2(7, 1, m2, None,
+                                      footprint_area_m2=100, footprint_perimeter_m=42)
+    assert real != est
+    assert real < est
+
+
+def test_partial_footprint_falls_back_to_estimate():
+    # Area without perimeter (or vice versa) is unusable → estimate, not a crash.
+    m2 = 2000 * _M2
+    est = ec.embodied_intensity_kgm2(7, 1, m2, None)
+    assert ec.embodied_intensity_kgm2(7, 1, m2, None, footprint_area_m2=100) == est
+    assert ec.embodied_intensity_kgm2(7, 1, m2, None, footprint_perimeter_m=42) == est
+
+
 def test_unknown_inputs_fall_back_without_crashing():
     assert ec.embodied_intensity_kgm2(None, None) == ec.EC_INTENSITY_DEFAULT
     assert ec.embodied_intensity_kgm2("x", "y", "z", None, None) == ec.EC_INTENSITY_DEFAULT

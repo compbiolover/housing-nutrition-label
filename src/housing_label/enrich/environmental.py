@@ -232,15 +232,20 @@ def _loglin_score(x: float, xs: list[float], ys: list[float]) -> float:
 
 
 def embodied_intensity(extwall, grade, bsmt=None, floor_area_m2=None,
-                       stories=None, basement_depth_m=None) -> float:
+                       stories=None, basement_depth_m=None, footprint_area_m2=None,
+                       footprint_perimeter_m=None) -> float:
     """EXTWALL + BSMT + home geometry + GRADE → embodied intensity (kg CO2e/m2).
 
     Base intensity is the geometry-aware bottom-up build-up (``data/embodied_carbon``:
     foundation from footprint/perimeter × basement depth, roof from roof area,
-    envelope from wall area, interior from floor area); GRADE (construction quality)
+    envelope from wall area, interior from floor area). A real footprint
+    (``footprint_area_m2`` + ``footprint_perimeter_m``, e.g. USA Structures) replaces
+    the shape-factor/stories estimate when available. GRADE (construction quality)
     then nudges it ±10% around the average, since higher-grade homes carry more/
     heavier finishes."""
-    base = embodied_intensity_kgm2(extwall, bsmt, floor_area_m2, stories, basement_depth_m)
+    base = embodied_intensity_kgm2(extwall, bsmt, floor_area_m2, stories,
+                                   basement_depth_m, footprint_area_m2,
+                                   footprint_perimeter_m)
     g = _num(grade)
     if g is not None:
         f = 1.0 + (g - GRADE_MIDPOINT) * GRADE_SLOPE
@@ -324,7 +329,9 @@ def model_parcel_environment(row: pd.Series,
     emb_intensity = embodied_intensity(
         row.get("EXTWALL"), row.get("GRADE"), row.get("BSMT"),
         floor_area_m2=floor_m2, stories=row.get("STORIES"),
-        basement_depth_m=row.get("basement_depth_m"))
+        basement_depth_m=row.get("basement_depth_m"),
+        footprint_area_m2=row.get("footprint_area_m2"),
+        footprint_perimeter_m=row.get("footprint_perimeter_m"))
     service_life = service_life_years(row.get("EXTWALL"))
     emb_total  = emb_intensity * floor_m2
     emb_annual = emb_total / service_life

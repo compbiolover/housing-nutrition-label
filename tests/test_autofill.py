@@ -188,7 +188,8 @@ def test_autofill_fills_unset_fields():
         location=_loc(year_built=1960, sqft=1400.0, foundation="crawl", construction="brick"))
     assert cfg["year_built"] == 1960 and cfg["sqft"] == 1400.0
     assert cfg["foundation"] == "crawl" and cfg["construction"] == "brick"
-    assert set(filled) == {"year_built", "sqft", "foundation", "construction"}
+    assert cfg["stories"] == 1                    # NSI stories now wired through
+    assert set(filled) == {"year_built", "sqft", "foundation", "construction", "stories"}
     assert filled["sqft"][1] == "high"           # parcel-observed → high confidence
 
 
