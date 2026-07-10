@@ -624,6 +624,22 @@ def compute_local_percentile(sim_score: float, scores) -> float:
 
 # ── Argument parsing ───────────────────────────────────────────────────────────
 
+def _positive_float(s: str) -> float:
+    """argparse type: a strictly-positive float (clear error instead of silent drop)."""
+    v = float(s)
+    if v <= 0:
+        raise argparse.ArgumentTypeError(f"must be a positive number, got {s!r}")
+    return v
+
+
+def _positive_int(s: str) -> int:
+    """argparse type: a strictly-positive int."""
+    v = int(s)
+    if v <= 0:
+        raise argparse.ArgumentTypeError(f"must be a positive integer, got {s!r}")
+    return v
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         description="Simulate a hypothetical house's disaster resilience score.",
@@ -661,10 +677,11 @@ def build_parser() -> argparse.ArgumentParser:
                    choices=["wood", "masonry", "concrete", "steel"], default=None,
                    help="Structural shell material for a multi-unit building (drives "
                         "Resilience/Durability when NSI didn't detect the building).")
-    p.add_argument("--stories",    type=int,   default=None,
+    p.add_argument("--stories",    type=_positive_int,   default=None,
                    help="Number of floors. Drives floor-aware flood and the embodied-"
                         "carbon footprint (foundation + roof per m2 of floor).")
-    p.add_argument("--basement-depth-ft", dest="basement_depth_ft", type=float, default=None,
+    p.add_argument("--basement-depth-ft", dest="basement_depth_ft", type=_positive_float,
+                   default=None,
                    help="Actual basement/foundation-wall depth (ft) for the embodied-"
                         "carbon foundation term. Default: per foundation type.")
 

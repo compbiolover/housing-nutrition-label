@@ -42,8 +42,10 @@ The material GWP factors are firm (industry-average EPDs) and the geometry
 constants are standard code values; the **assembly allocations** (how the AWC
 lumber/panel totals split across floor / wall / roof, and the heavy-masonry wall
 factors) are representative estimates, so treat the output as a modeled intensity,
-not a per-home measurement. Every wall × foundation × size combination is tested to
-land inside the empirical A1-A3 single-family band (~39-210 kgCO2e/m2).
+not a per-home measurement. Every wall × foundation × size × story combination is
+tested to land inside the empirical A1-A3 single-family band (38-260 kgCO2e/m2 —
+the low end is Jungclaus's theoretical minimum, the high end a small masonry home
+over a full basement).
 """
 
 from __future__ import annotations
@@ -104,12 +106,14 @@ _ENV_KG_PER_M2WALL = {
     4:  54.0,   # stone — anchored estimate
 }
 
-# ── Reference home (used when a home's geometry is unknown) ───────────────────
-# A typical ~2,500 sqft two-story home; picked so a geometry-unknown call returns a
-# sensible mid-band intensity rather than a hard-coded table.
+# ── Fallbacks for unknown geometry ───────────────────────────────────────────
+# Floor area used only when a call supplies no floor area at all (~2,500 sqft, a
+# typical US home), so a geometry-unknown call returns a sensible mid-band intensity
+# rather than a hard-coded table. NOTE: this is separate from the STORIES default —
+# when stories is unknown we assume a *single* story (conservative: 1-story spreads
+# more foundation + roof over its floor area, so it does not flatter the score).
 _FLOOR_REF_M2 = 232.0
-_DEFAULT_STORIES = 1.0     # when stories is unknown (conservative: 1-story → more
-                           # envelope + roof + foundation per m2 of floor)
+_DEFAULT_STORIES = 1.0
 
 
 def _to_int(code) -> int | None:
