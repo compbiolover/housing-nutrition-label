@@ -37,7 +37,7 @@ Methodology
      shell term keyed on EXTWALL, then nudged by GRADE and amortized over the
      shell's expected SERVICE LIFE (not a flat period). See
      data/embodied_carbon.py and research/embodied-carbon-research.md:
-       embodied_total  = EC_intensity(EXTWALL, BSMT, GRADE) * floor_area_m2
+       embodied_total  = embodied_intensity(EXTWALL, GRADE, BSMT) * floor_area_m2
        embodied_annual = embodied_total / service_life_years(EXTWALL)
      The sub-score is computed on the per-year intensity (kgCO2e/m2/yr), so a
      longer-lived shell (masonry/concrete/ICF ~100yr) is rewarded for spreading

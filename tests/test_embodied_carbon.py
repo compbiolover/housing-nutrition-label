@@ -49,7 +49,8 @@ def test_every_intensity_lands_in_empirical_band():
 
 
 def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
+    tests = [v for k, v in sorted(globals().items())
+             if k.startswith("test_") and callable(v)]
     for t in tests:
         t()
         print(f"  ok  {t.__name__}")

@@ -101,11 +101,11 @@ _FRAME_SHELL = round(sum(q * f for q, f in _BOM.values()), 2)          # ~47.2
 _VINYL_CONTRIB = _BOM["vinyl_m2"][0] * _BOM["vinyl_m2"][1]             # cladding to swap out
 
 
-def _reclad(delta_per_m2wall: float) -> float:
+def _reclad(cladding_per_m2wall: float) -> float:
     """Frame shell with the vinyl cladding swapped for a different cladding of the
-    given GWP per m2 of *wall* area."""
+    given (absolute) GWP per m2 of *wall* area."""
     return round(_FRAME_SHELL - _VINYL_CONTRIB
-                 + _CLADDING_AREA_M2_PER_M2 * delta_per_m2wall, 1)
+                 + _CLADDING_AREA_M2_PER_M2 * cladding_per_m2wall, 1)
 
 
 # ── Shell intensity (kgCO2e/m2 floor) by EXTWALL code ────────────────────────
