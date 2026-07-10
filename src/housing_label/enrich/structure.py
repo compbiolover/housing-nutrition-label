@@ -192,6 +192,20 @@ def _estimate_units(res3: list[dict]) -> int:
     return int(bins[len(bins) // 2]) if bins else _DEFAULT_MF_UNITS
 
 
+def _cluster_unit(res1: list[dict], footprints: Counter) -> dict | None:
+    """A representative single dwelling for an NSI apartment-cluster site (an
+    apartment complex NSI modeled as identical single-family footprints): the RES1
+    structure at the *modal* footprint size, whose sqft/year describe one unit —
+    not the large clubhouse / commercial building the address point may have
+    footprint-selected. None when there are no sized RES1 footprints (e.g. a
+    RES3-district detection), leaving the caller's fallback in place."""
+    if not footprints:
+        return None
+    modal = footprints.most_common(1)[0][0]
+    sized = [p for p in res1 if _num(p.get("sqft"))]
+    return min(sized, key=lambda p: abs(_num(p.get("sqft")) - modal)) if sized else None
+
+
 def _result(props: dict, structure_type, num_units, *, units_confidence, detection,
             drop_shell: bool = False) -> dict:
     """Assemble the structure result dict from the addressed structure's props.
@@ -272,7 +286,11 @@ def _classify_site(props_list: list[dict], lat: float, lon: float) -> dict | Non
     footprints = Counter(round(v) for v in (_num(p.get("sqft")) for p in res1) if v)
     cluster = footprints.most_common(1)[0][1] if footprints else 0
     if cluster >= _CLUSTER_MIN or len(res3) >= _RES3_DISTRICT_MIN:
-        return _result(selected, "multifamily", _estimate_units(res3),
+        # Base the (kept) sqft/year on one representative dwelling, not the possibly
+        # large/commercial structure the point footprint-selected — else a single
+        # unit reads as the whole complex's floor area.
+        unit = _cluster_unit(res1, footprints) or selected
+        return _result(unit, "multifamily", _estimate_units(res3),
                        units_confidence="estimated", detection="nsi-cluster",
                        drop_shell=True)
 
