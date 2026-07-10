@@ -208,11 +208,14 @@ def _cluster_unit(res1: list[dict], footprints: Counter) -> dict | None:
     if not sizes:
         return None
     modal = max(sizes, key=lambda sc: (sc[1], -sc[0]))[0]   # most common, then smallest
-    sized = [p for p in res1
-             if _num(p.get("sqft")) and math.isfinite(_num(p.get("sqft")))]
+    sized = []
+    for p in res1:
+        sq = _num(p.get("sqft"))
+        if sq is not None and math.isfinite(sq) and sq > 0:
+            sized.append((sq, p))
     if not sized:
         return None
-    return min(sized, key=lambda p: (abs(_num(p.get("sqft")) - modal), _num(p.get("sqft"))))
+    return min(sized, key=lambda t: (abs(t[0] - modal), t[0]))[1]   # closest, then smaller
 
 
 def _result(props: dict, structure_type, num_units, *, units_confidence, detection,
@@ -293,7 +296,7 @@ def _classify_site(props_list: list[dict], lat: float, lon: float) -> dict | Non
     # RES3 density is handled as the separate district signal below, so it is not
     # folded into the footprint count (which would broaden it into false positives).
     footprints = Counter(round(v) for v in (_num(p.get("sqft")) for p in res1)
-                         if v and math.isfinite(v))
+                         if v and math.isfinite(v) and v > 0)
     cluster = footprints.most_common(1)[0][1] if footprints else 0
     if cluster >= _CLUSTER_MIN or len(res3) >= _RES3_DISTRICT_MIN:
         # For a RES1-cluster site (an apartment complex modeled as identical
