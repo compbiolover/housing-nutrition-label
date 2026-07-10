@@ -38,6 +38,8 @@ Your Walk Score API Key.pdf
 
 # ACS Summary-File download cache for scripts/build_socio_ref.py
 .socio_cache/
+# ACS Summary-File download cache for scripts/build_home_value.py
+.home_value_cache/
 
 # Census Gazetteer centroid cache for scripts/calibrate_construction_percentiles.py
 .gaz_cache/

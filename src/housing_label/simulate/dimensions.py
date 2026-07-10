@@ -59,9 +59,17 @@ from housing_label.data import walkability as walk_data
 # unit count (doing so collapses the per-unit value — and the Infrastructure fiscal
 # ratio — for a multi-unit building). An explicitly supplied value (preset case
 # studies / CLI) keeps the total-building convention and is divided by units.
-AUTOFILL_VALUE_SOURCE = "county median (ACS)"
+# Auto-filled single-family value: the ACS median home value at the finest
+# geography that resolved (neighborhood tract → county → national). Each is a
+# per-unit figure (a single home's typical value), so all are in the per-unit set.
+HOME_VALUE_SOURCE = {
+    "tract":  "neighborhood median (ACS)",
+    "county": "county median (ACS)",
+    "us":     "US median (ACS)",           # "us" = the shared national geo_level
+}
+AUTOFILL_VALUE_SOURCE = HOME_VALUE_SOURCE["county"]   # back-compat alias
 VALUE_PER_DOOR_SOURCE = "value-per-door (ACS rent)"
-_PER_UNIT_VALUE_SOURCES = frozenset({AUTOFILL_VALUE_SOURCE, VALUE_PER_DOOR_SOURCE})
+_PER_UNIT_VALUE_SOURCES = frozenset({*HOME_VALUE_SOURCE.values(), VALUE_PER_DOOR_SOURCE})
 
 
 # ── Config vocabulary → CAMA codes ─────────────────────────────────────────────
