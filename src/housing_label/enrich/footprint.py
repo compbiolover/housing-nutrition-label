@@ -83,6 +83,15 @@ _MAX_ASSOC_M = 40.0   # a footprint centroid farther than this isn't this addres
 _DEG_PER_M_LAT = 1.0 / 111_320.0   # metres → degrees latitude
 
 
+def _num(v) -> float | None:
+    """Finite float or None — tolerates the service returning strings / nulls / NaN."""
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return f if math.isfinite(f) else None
+
+
 def _query(geometry: str, geometry_type: str) -> list[dict]:
     """Return USA Structures features intersecting the geometry (empty on failure).
 
@@ -128,13 +137,12 @@ def _select_building(feats: list[dict], lat: float, lon: float,
         a = f.get("attributes") or {}
         if (a.get("OUTBLDG") or "").upper() == "Y":
             continue
-        clon, clat = a.get("LONGITUDE"), a.get("LATITUDE")
-        area = a.get("SQMETERS")
-        if clon is None or clat is None or not area or area <= 0:
+        clon, clat, area = _num(a.get("LONGITUDE")), _num(a.get("LATITUDE")), _num(a.get("SQMETERS"))
+        if clon is None or clat is None or area is None or area <= 0:
             continue
-        dist = _haversine_m(lon, lat, float(clon), float(clat))
+        dist = _haversine_m(lon, lat, clon, clat)
         if dist <= _MAX_ASSOC_M:
-            cands.append((dist, float(area), f))
+            cands.append((dist, area, f))
     if not cands:
         return None
     if expected_m2 is not None and expected_m2 > 0:
@@ -151,14 +159,14 @@ def _footprint_at(lat: float, lon: float, allow_network: bool,
         return None
     # 1) Exact: a footprint that contains the geocoded point (rooftop-accurate geocode).
     feats = _query(f"{lon},{lat}", "esriGeometryPoint")
-    if feats:
-        # >1 only on a shared edge / overlap; prefer a primary building over an
-        # outbuilding (garage/shed) the point may sit in, then take the largest real
-        # footprint (SQMETERS) — the building the address most likely names.
-        primary = [f for f in feats
-                   if ((f.get("attributes") or {}).get("OUTBLDG") or "").upper() != "Y"]
-        best = max(primary or feats,
-                   key=lambda f: (f.get("attributes") or {}).get("SQMETERS") or 0.0)
+    # Only a PRIMARY building containing the point counts as an exact hit; if the point
+    # sits only inside an outbuilding (garage/shed) — or no footprint at all — fall
+    # through to the box search for the addressed home nearby.
+    primary = [f for f in feats
+               if ((f.get("attributes") or {}).get("OUTBLDG") or "").upper() != "Y"]
+    if primary:
+        # >1 only on a shared edge / overlap; take the largest real footprint.
+        best = max(primary, key=lambda f: _num((f.get("attributes") or {}).get("SQMETERS")) or 0.0)
     else:
         # 2) Parcel/street geocode → no containing footprint; pick the addressed home
         # from the primary buildings in a box around the point. Size the box in metres

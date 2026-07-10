@@ -64,6 +64,15 @@ def test_select_skips_outbuildings_and_too_far():
     assert fp._select_building([shed, far, home], lat, lon, 203) is home
 
 
+def test_select_tolerates_bad_attribute_values():
+    lat, lon = 35.0, -84.0
+    junk = {"attributes": {"SQMETERS": "oops", "OUTBLDG": "N",
+                           "LONGITUDE": None, "LATITUDE": float("nan")}}
+    good = _feat(205, 0.0002)
+    assert fp._select_building([junk, good], lat, lon, 203) is good
+    assert fp._select_building([junk], lat, lon, 203) is None
+
+
 def test_offline_returns_none():
     assert fp.footprint_for_point(38.9, -77.0, allow_network=False) is None
 
