@@ -96,6 +96,19 @@ def test_cluster_site_reports_one_unit_sqft():
     assert r["sqft"] == 1332          # one unit, not the 20,000 sqft commercial building
 
 
+def test_res3_district_keeps_selected_not_stray_res1():
+    """A pure RES3-district detection keeps the addressed structure's sqft — a stray
+    single-family footprint must not overwrite it (only a real RES1 cluster does)."""
+    pt_lat, pt_lon = 35.0, -90.0
+    com = _feat(pt_lat, pt_lon, "COM1", 50000, source="H")            # point sits here
+    res3 = [_feat(pt_lat + 0.0002 * i, pt_lon + 0.0003, "RES3C", 8000, resunits=7)
+            for i in range(16)]                                        # RES3 district (>=15)
+    stray = _feat(pt_lat + 0.0001, pt_lon - 0.0003, "RES1", 1200)     # one stray house
+    r = S._classify_site([com] + res3 + [stray], pt_lat, pt_lon)
+    assert r["detection"] == "nsi-cluster"
+    assert r["sqft"] == 50000         # selected structure, not the 1,200 sqft stray RES1
+
+
 # ── Per-unit sqft for a detected multi-unit building (house.py) ───────────────
 def test_per_unit_sqft_divides_detected_multifamily():
     """A genuine NSI multi-unit record's whole-building sqft is split per unit."""

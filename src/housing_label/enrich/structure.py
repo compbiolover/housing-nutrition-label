@@ -286,10 +286,14 @@ def _classify_site(props_list: list[dict], lat: float, lon: float) -> dict | Non
     footprints = Counter(round(v) for v in (_num(p.get("sqft")) for p in res1) if v)
     cluster = footprints.most_common(1)[0][1] if footprints else 0
     if cluster >= _CLUSTER_MIN or len(res3) >= _RES3_DISTRICT_MIN:
-        # Base the (kept) sqft/year on one representative dwelling, not the possibly
-        # large/commercial structure the point footprint-selected — else a single
-        # unit reads as the whole complex's floor area.
-        unit = _cluster_unit(res1, footprints) or selected
+        # For a RES1-cluster site (an apartment complex modeled as identical
+        # single-family footprints), base the kept sqft/year on one representative
+        # dwelling, not the possibly large/commercial structure the point
+        # footprint-selected — else a single unit reads as the whole complex. Only
+        # when the RES1 cluster is the actual signal, though: a pure RES3-district
+        # keeps the selected structure so a stray nearby house can't overwrite it.
+        unit = (_cluster_unit(res1, footprints) or selected
+                if cluster >= _CLUSTER_MIN else selected)
         return _result(unit, "multifamily", _estimate_units(res3),
                        units_confidence="estimated", detection="nsi-cluster",
                        drop_shell=True)
