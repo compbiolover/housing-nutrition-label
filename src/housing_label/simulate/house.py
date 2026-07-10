@@ -1716,9 +1716,17 @@ def _autofill_construction_from_nsi(cfg: dict, explicit: set, location,
     if location is None:
         return filled
     observed = getattr(location, "structure_attr_source", None) == "P"
+    sqft_val = _nsi_per_unit_sqft(location, units)
+    # A per-unit sqft divided out of the whole-building floor area is a derived
+    # average (it depends on the unit divisor), not a direct NSI field — label it
+    # as such and drop one confidence notch.
+    if sqft_val is not None and sqft_val != getattr(location, "sqft", None):
+        sqft_src, sqft_conf = "NSI · building floor area ÷ units (per unit)", "moderate" if observed else "low"
+    else:
+        sqft_src, sqft_conf = "NSI · structure record", "high" if observed else "moderate"
     plan = [
         ("year_built",   getattr(location, "year_built", None), "NSI · neighborhood median (estimated)", "low"),
-        ("sqft",         _nsi_per_unit_sqft(location, units),   "NSI · structure record", "high" if observed else "moderate"),
+        ("sqft",         sqft_val, sqft_src, sqft_conf),
         ("construction", getattr(location, "construction", None), "NSI · material class (coarse estimate)", "low"),
         ("foundation",   getattr(location, "foundation", None), "NSI · structure record", "moderate" if observed else "low"),
     ]

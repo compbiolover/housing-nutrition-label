@@ -119,7 +119,8 @@ def test_autofill_uses_per_unit_sqft_for_detected_multifamily():
         location=_loc(sqft=294504.0, num_units=157, structure_type="multifamily",
                       units_confidence="detected", structure_attr_source="P"))
     assert cfg["sqft"] == round(294504.0 / 157, 1)        # per unit, not 294504
-    assert filled["sqft"] == ("NSI · structure record", "high")   # parcel-observed → high
+    # derived per-unit average → labeled as divided, one confidence notch below high
+    assert filled["sqft"] == ("NSI · building floor area ÷ units (per unit)", "moderate")
 
 
 # ── Auto-fill precedence (house.py) ───────────────────────────────────────────
