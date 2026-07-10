@@ -199,7 +199,10 @@ def _estimate_cluster_units(footprints: Counter) -> int:
     complex), so they're excluded. Far closer to reality than the flat default for a
     large complex (e.g. a 30×+30× repeated-footprint site → ~60, not 8), while a
     genuine single-family street can't reach it (no size repeats ≥ _CLUSTER_MIN).
-    Always flagged ``units_confidence="estimated"``."""
+
+    Floored at ``_DEFAULT_MF_UNITS`` so a borderline count never drops below the
+    representative default. Intended only for confirmed RES1-cluster sites (the
+    caller gates on ``cluster >= _CLUSTER_MIN``); always ``units_confidence="estimated"``."""
     repeated = sum(cnt for cnt in footprints.values() if cnt >= 2)
     return max(repeated, _DEFAULT_MF_UNITS)
 
