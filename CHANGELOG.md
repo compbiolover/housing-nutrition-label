@@ -9,6 +9,19 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.38](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.37...v0.1.38) (2026-07-11)
+
+
+### Features
+
+* consolidate tornado hazard onto FEMA NRI, retiring the SPC model ([#136](https://github.com/compbiolover/housing-nutrition-label/issues/136)) ([a386e08](https://github.com/compbiolover/housing-nutrition-label/commit/a386e084d6980764af11be16e95df186a169cd84))
+* true seismic return periods from USGS 2023 NSHM hazard curve ([#135](https://github.com/compbiolover/housing-nutrition-label/issues/135)) ([6f2c648](https://github.com/compbiolover/housing-nutrition-label/commit/6f2c648a005a19e0b2260293db1a4dd69b12f0e4))
+
+
+### Bug Fixes
+
+* activate real footprint for geocoded addresses + refresh embodied confidence copy ([#133](https://github.com/compbiolover/housing-nutrition-label/issues/133)) ([07aec31](https://github.com/compbiolover/housing-nutrition-label/commit/07aec313695920f6c4f326837269bb889cf50753))
+
 ## [0.1.37](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.36...v0.1.37) (2026-07-10)
 
 
