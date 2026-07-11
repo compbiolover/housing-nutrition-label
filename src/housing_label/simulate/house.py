@@ -789,9 +789,11 @@ def simulate(cfg: dict, local_compare: bool = True, structure: dict | None = Non
 
     # ── Raw EAL rates (before BRM) ────────────────────────────────────────────
     flood_raw   = calc_flood_eal_raw(flood_risk)
-    # Tornado = the location's FEMA NRI tornado EAL rate (0.0 when the location wasn't
-    # resolved, keeping simulate() offline-safe), resolved exactly like wildfire.
-    # build_label_parts sets cfg["tornado_eal_base"] from the resolved Location.
+    # Tornado = the location's FEMA NRI tornado EAL rate, resolved exactly like
+    # wildfire. build_label_parts sets cfg["tornado_eal_base"] whenever a Location is
+    # present — including the national-average rate for an unmapped point (resolved
+    # False). It's 0.0 only when no location was supplied at all (offline / no
+    # geocode), which keeps simulate() offline-safe.
     try:
         tornado_raw = float(cfg.get("tornado_eal_base") or 0.0)
         if not math.isfinite(tornado_raw):
