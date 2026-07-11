@@ -12,8 +12,6 @@ from __future__ import annotations
 import pathlib
 import sys
 
-import pandas as pd
-
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
 for _p in (_ROOT, _ROOT / "src"):
     if str(_p) not in sys.path:
@@ -113,43 +111,40 @@ def test_seismic_offline_falls_back_to_legacy():
     assert r["seismic_risk"] in ("very high", "high")
 
 
-# ── tornado ───────────────────────────────────────────────────────────────────
-def test_tornado_national_bands():
-    assert T._national_risk(0.1, -1) == "low"
-    assert T._national_risk(0.3, -1) == "moderate"
-    assert T._national_risk(0.8, -1) == "high"
-    assert T._national_risk(0.1, 4) == "high"        # a violent tornado nearby
+# ── tornado (FEMA NRI, offline crosswalk) ─────────────────────────────────────
+def test_tornado_norm_tract():
+    """The join key is normalised to an 11-digit GEOID (mirrors enrich/fire)."""
+    assert T._norm_tract("47157006300.0") == "47157006300"   # stringified float
+    assert T._norm_tract(6037139000.0) == "06037139000"      # leading zero restored
+    assert T._norm_tract(None) is None
+    assert T._norm_tract(float("nan")) is None
+    assert T._norm_tract("  nan ") is None
 
 
-def _tornado_df(points):
-    return pd.DataFrame([{"slat": la, "slon": lo, "mag": m} for la, lo, m in points])
+def test_tornado_lookup_shelby_county_fallback():
+    """No census tract → the Shelby county-level NRI tornado rate (a real, positive
+    EAL, resolved at county level for every Shelby parcel)."""
+    t = T._lookup(None)
+    assert t["geo_level"] == "county"
+    assert t["eal_rate"] > 0
+    assert t["risk_rating"]                       # Shelby carries a qualitative rating
 
 
-def test_tornado_point_centered_no_bleed():
-    """A parcel counts only tornadoes near IT, not a far-away cluster."""
-    near = [(35.15, -89.98, 2)] * 3 + [(35.20, -89.98, 1)] * 2   # ~all within 10 mi of Shelby
-    far = [(40.00, -100.00, 3)] * 5                               # ~700 mi away
-    df = _tornado_df(near + far)
-
-    shelby = T.enrich_parcel(35.15, -89.98, df)
-    assert shelby["tornado_count_25mi"] == 5      # only the near cluster
-    assert shelby["tornado_count_10mi"] == 5
-    assert shelby["max_ef_25mi"] == 2
-
-    plains = T.enrich_parcel(40.00, -100.00, df)
-    assert plains["tornado_count_25mi"] == 5      # only the far cluster
-    assert plains["max_ef_25mi"] == 3
-    # avg/yr = count / 74 years
-    assert plains["avg_tornadoes_per_yr_25mi"] == round(5 / T.DATA_YEARS, 3)
+def test_tornado_lookup_is_location_specific():
+    """NRI is honest about location: a Plains 'tornado alley' county reads far higher
+    than a low-risk West-coast one — the whole point of retiring the SPC model."""
+    from housing_label.data import tornado as TD
+    oklahoma = TD.tornado_for_county("40109")     # Oklahoma County, OK
+    los_angeles = TD.tornado_for_county("06037")  # Los Angeles County, CA
+    assert oklahoma["eal_rate"] > 10 * los_angeles["eal_rate"]
 
 
-def test_tornado_dateline_wraparound():
-    """A parcel just west of +180° counts tornadoes just east of −180° (same place)."""
-    # Two records ~3 mi apart straddling the antimeridian near 52°N.
-    df = _tornado_df([(52.00, 179.98, 1), (52.00, -179.99, 2)])
-    r = T.enrich_parcel(52.00, 179.99, df)
-    assert r["tornado_count_25mi"] == 2           # both counted despite the ±180° seam
-    assert r["max_ef_25mi"] == 2
+def test_tornado_lookup_unknown_county_national_fallback():
+    """An unmapped county falls back to the national average (never None/raises)."""
+    t = T._lookup(None, county_fips="99999")
+    assert t["geo_level"] == "us"
+    assert t["resolved"] is False
+    assert t["eal_rate"] >= 0
 
 
 # ── noaa_climate ──────────────────────────────────────────────────────────────

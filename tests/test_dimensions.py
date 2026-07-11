@@ -544,43 +544,6 @@ def test_density_comparison_threads_material_and_stories():
     assert conc_r[1] == plain_r[1]
 
 
-def test_vectorized_haversine_matches_scalar():
-    """The numpy haversine used by the memoized tornado scan matches the scalar one
-    (so caching/vectorizing the tornado rate didn't change results)."""
-    import numpy as np
-    from housing_label.simulate.house import haversine_miles, _haversine_miles_np
-    pts = [(35.1, -89.9), (41.9, -87.6), (34.0, -118.2), (25.8, -80.2)]
-    lat0, lon0 = 35.9, -83.9
-    scalar = [haversine_miles(lat0, lon0, a, b) for a, b in pts]
-    vec = _haversine_miles_np(lat0, lon0,
-                              np.array([p[0] for p in pts]), np.array([p[1] for p in pts]))
-    assert all(abs(scalar[i] - float(vec[i])) < 1e-9 for i in range(len(pts)))
-
-
-def test_tornado_rate_is_memoized_per_coordinate():
-    """Repeated tornado-rate calls for the same point hit the cache instead of
-    re-scanning the full SPC table."""
-    import pandas as pd
-    from housing_label.simulate import house
-    from housing_label.simulate.house import compute_tornado_rate, _tornado_rate_cached
-    # Seed the process-level SPC singleton with a tiny synthetic table so the test
-    # is deterministic offline: a fresh clone / CI has no downloaded SPC cache, in
-    # which case compute_tornado_rate returns the national fallback WITHOUT touching
-    # the per-coordinate memo (nothing to scan), and the assertion below could never hold.
-    saved = house._SPC_DF
-    house._SPC_DF = pd.DataFrame({"slat": [35.15, 35.16], "slon": [-89.85, -89.86]})
-    try:
-        _tornado_rate_cached.cache_clear()
-        a = compute_tornado_rate(35.15, -89.85, allow_network=False)
-        b = compute_tornado_rate(35.15, -89.85, allow_network=False)
-        assert a == b
-        info = _tornado_rate_cached.cache_info()
-        assert info.hits >= 1 and info.misses == 1
-    finally:
-        house._SPC_DF = saved
-        _tornado_rate_cached.cache_clear()
-
-
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

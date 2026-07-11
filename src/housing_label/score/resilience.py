@@ -80,66 +80,33 @@ def calc_flood_eal(row) -> float:
 # ---------------------------------------------------------------------------
 # 2. TORNADO EAL RATE
 # ---------------------------------------------------------------------------
-# Approach: for each EF category, compute the expected annual loss rate as
-#   EAL_EF = frequency × EF_fraction × (path_area / circle_area) × damage_ratio
-# then sum across EF categories.
-#
-# Frequency source: avg_tornadoes_per_yr_25mi from NOAA SPC tornado database
-#   (1950-2023), counts within 25-mile radius of each parcel.
-#
-# EF distribution (Tennessee / Mid-South region, SPC 1950-2023):
-#   Approximated from statewide TN tornado database; EF0 heavy, EF5 absent.
-#   EF0: 45%, EF1: 33%, EF2: 14%, EF3: 6%, EF4: 2%
-#   Note: max_ef_25mi in dataset is 3–4, consistent with this distribution.
-#
-# Mean path dimensions by EF (NOAA SPC climatology, Ashley 2007):
-#   Width and length are averages across all tornadoes in that EF category.
-#   Path area (sq mi) = (width_yards / 1760) × length_miles
-#
-# Damage ratios by EF (HAZUS-MH methodology, FEMA 2012):
-#   EF0=2%, EF1=10%, EF2=30%, EF3=60%, EF4=90%
-#   These represent mean structural damage to wood-frame residential buildings.
-#
-# Circle area = π × 25² ≈ 1963.5 sq mi (the denominator for strike probability)
-
-EF_DISTRIBUTION = {  # fraction of tornadoes in each EF category (sums to 1.0)
-    0: 0.45,  # EF0: most common, weakest
-    1: 0.33,  # EF1
-    2: 0.14,  # EF2
-    3: 0.06,  # EF3: ~6% of TN tornadoes (SPC climatology)
-    4: 0.02,  # EF4: ~2%; EF5 effectively absent in this dataset
-}
-
-# (width_yards, length_miles) mean path dimensions → path area in sq mi
-EF_PATH_AREA_SQ_MI = {
-    0: (50, 0.5),    # EF0: narrow, short → 0.014 sq mi
-    1: (100, 1.5),   # EF1              → 0.085 sq mi
-    2: (200, 3.0),   # EF2              → 0.341 sq mi
-    3: (400, 7.0),   # EF3              → 1.591 sq mi
-    4: (800, 15.0),  # EF4              → 6.818 sq mi
-}
-
-EF_DAMAGE_RATIO = {  # HAZUS-MH mean damage ratio for wood-frame residential
-    0: 0.02,   # EF0: minor damage (broken windows, minor roof loss)
-    1: 0.10,   # EF1: moderate damage (roof peeled, some structural)
-    2: 0.30,   # EF2: major damage (roof removed, walls damaged)
-    3: 0.60,   # EF3: severe damage (complete destruction common)
-    4: 0.90,   # EF4: near-total destruction
-}
-
-CIRCLE_AREA_SQ_MI = np.pi * 25**2  # ≈ 1963.5 sq mi, constant for all parcels
+# The tornado EAL rate (fraction of building value lost to tornadoes per year)
+# comes straight from the FEMA National Risk Index, attached upstream by
+# enrich/tornado.py as ``tornado_nri_eal_rate`` (tract → county → national
+# fallback via data/tornado.py). NRI defines it as
+#   AnnualizedFrequency × HistoricLossRatio
+# so both the local frequency AND the local building-loss experience shape it —
+# "tornado alley" reads high, low-risk regions read near-zero (~30× spread in the
+# raw data). This replaces the old NOAA SPC touchdown-count model, which applied a
+# single TN/Mid-South EF-magnitude distribution (Ashley 2007) nationally and so
+# could not tell a Plains home from a coastal one. Same units as the flood /
+# seismic / fire rates below, so it folds directly into the summed EAL.
 
 
 def calc_tornado_eal(row) -> float:
-    """Return tornado EAL rate (fraction/year) for one parcel."""
-    freq = row["avg_tornadoes_per_yr_25mi"]  # tornadoes/year in 25-mi radius
-    eal = 0.0
-    for ef, ef_frac in EF_DISTRIBUTION.items():
-        width_yd, length_mi = EF_PATH_AREA_SQ_MI[ef]
-        path_area = (width_yd / 1760.0) * length_mi  # sq mi
-        strike_prob = freq * ef_frac * (path_area / CIRCLE_AREA_SQ_MI)
-        eal += strike_prob * EF_DAMAGE_RATIO[ef]
-    return eal
+    """Return the raw tornado EAL rate (fraction/year) for one parcel, pre-BRM.
+
+    The NRI tornado rate from ``tornado_nri_eal_rate`` (0.0 if the enrichment
+    column is absent or non-numeric), mirroring ``calc_fire_eal``.
+    """
+    rate = row.get("tornado_nri_eal_rate")
+    try:
+        rate = float(rate)
+    except (TypeError, ValueError):
+        return 0.0
+    if not np.isfinite(rate) or rate < 0:
+        return 0.0
+    return rate
 
 
 # ---------------------------------------------------------------------------
@@ -642,16 +609,6 @@ def calc_brm_row(row):
 # tests/test_resilience_vectorized.py asserts the two paths agree on random
 # parcels, so any divergence fails the suite rather than silently shifting scores.
 
-# Tornado EAL is frequency × a fixed constant: every EF term is
-# freq · ef_frac · (path_area / circle_area) · damage_ratio and nothing but
-# ``freq`` depends on the row, so the per-frequency factor is precomputed once.
-_TORNADO_EAL_PER_FREQ = sum(
-    ef_frac
-    * ((EF_PATH_AREA_SQ_MI[ef][0] / 1760.0) * EF_PATH_AREA_SQ_MI[ef][1] / CIRCLE_AREA_SQ_MI)
-    * EF_DAMAGE_RATIO[ef]
-    for ef, ef_frac in EF_DISTRIBUTION.items()
-)
-
 _SCORE_LOG_EALS = np.log([e for _, e in SCORE_BREAKPOINTS])          # ascending in EAL
 _SCORE_VALUES   = np.array([s for s, _ in SCORE_BREAKPOINTS], float)  # descending score
 _SCORE_EAL_LO   = SCORE_BREAKPOINTS[0][1]    # ≤ this EAL → score 100
@@ -698,8 +655,11 @@ def flood_eal_vec(df):
 
 
 def tornado_eal_vec(df):
-    """Column-wise calc_tornado_eal (freq × precomputed constant)."""
-    return df["avg_tornadoes_per_yr_25mi"] * _TORNADO_EAL_PER_FREQ
+    """Column-wise calc_tornado_eal (clean NRI tornado rate, 0.0 if absent)."""
+    if "tornado_nri_eal_rate" in df.columns:
+        r = pd.to_numeric(df["tornado_nri_eal_rate"], errors="coerce")
+        return r.where(np.isfinite(r) & (r >= 0), 0.0)
+    return pd.Series(0.0, index=df.index)   # length-matched, never a bare scalar
 
 
 def seismic_eal_vec(df):

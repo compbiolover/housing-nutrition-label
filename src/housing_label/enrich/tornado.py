@@ -1,321 +1,170 @@
 #!/usr/bin/env python3
-"""Enrich shelby_parcels_climate.csv with SPC historical tornado data.
+"""Enrich parcels with FEMA National Risk Index tornado hazard data.
 
 Usage
 -----
-  python enrich_tornado.py              # all 1 000 parcels
-  python enrich_tornado.py --limit 10  # test with 10 rows first
+  python -m housing_label.enrich.tornado                 # all parcels
+  python -m housing_label.enrich.tornado --limit 10      # test with 10 rows first
 
 Data source
 -----------
-  NOAA Storm Prediction Center (SPC) – Historical Tornado Data 1950-2023
-  URL  : https://www.spc.noaa.gov/wcm/data/1950-2023_actual_tornadoes.csv
-  Docs : https://www.spc.noaa.gov/wcm/#data
-  Auth : None – free, public, keyless
-  Size : ~7.8 MB (all US tornadoes 1950-2023)
+  FEMA National Risk Index (NRI) — tornado expected annual loss, bundled offline
+  by ``scripts/build_nri_tornado.py`` and read through ``data/tornado.py``.
 
-  Key columns used from SPC CSV:
-    slat / slon  – tornado start lat/lon
-    elat / elon  – tornado end lat/lon (0 if unknown)
-    mag          – EF/F-scale magnitude (0-5, -9 = unknown)
-    yr           – year
-    mo / dy      – month / day
+  Each parcel resolves tract → county → national average, yielding a tornado
+  **EAL rate** (fraction of building value lost to tornadoes per year). This is the
+  location-based tornado hazard that ``score/resilience.py`` folds into the EAL
+  model alongside flood, seismic, and fire.
 
-  Strategy: download the full national CSV once, cache it locally, then for each
-  parcel pre-filter to a box centered on that parcel before Haversine math — so
-  the counts are correct for any US location, not just Shelby County.
+  This replaces the old NOAA SPC touchdown-count model, which counted historical
+  tornadoes within 25 miles and applied a single **TN/Mid-South EF-magnitude
+  distribution (Ashley 2007) nationally** — so a Great Plains home was scored with
+  Mid-South intensities. NRI's EAL rate reflects the **local** frequency *and* the
+  **local** historic building-loss ratio, so "tornado alley" carries a much higher
+  EAL than a low-risk area (~30× in the raw data) where the old model could not
+  tell them apart.
 
-Tornado columns added
----------------------
-  tornado_count_25mi       Total tornadoes within 25 miles since 1950
-  tornado_count_10mi       Total tornadoes within 10 miles since 1950
-  max_ef_25mi              Highest EF/F rating within 25 miles (-1 = none)
-  avg_tornadoes_per_yr_25mi  Annual average within 25 miles (tornado_count_25mi / years)
-  tornado_risk             high / moderate / low (absolute national bands)
+  A parcel's 11-digit ``census_tract`` GEOID (added by the health enrichment)
+  resolves at tract precision; without it the lookup falls back to the county
+  (Shelby = 47157) — uniform across Shelby, which is a single county — then the
+  national average.
+
+Columns added
+-------------
+  tornado_nri_eal_rate    NRI tornado EAL rate (fraction/yr), tract→county→US
+  tornado_risk_rating     FEMA qualitative tornado risk rating (e.g. "Very High")
+  tornado_geo_level       geography that answered: tract / county / us
 """
 
-import argparse, logging, math, pathlib, sys
-import requests, pandas as pd, numpy as np
+from __future__ import annotations
+
+import argparse
+import logging
+import pathlib
+import sys
+
+import pandas as pd
+
+from housing_label.data.tornado import tornado_for_county, tornado_for_tract
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(message)s")
 log = logging.getLogger(__name__)
 
-# ── Config ────────────────────────────────────────────────────────────────────
-SCRIPT_DIR  = pathlib.Path(__file__).resolve().parents[3]   # repo root; data lives here
-SPC_URL     = "https://www.spc.noaa.gov/wcm/data/1950-2023_actual_tornadoes.csv"
-CACHE_FILE  = SCRIPT_DIR / "spc_tornadoes_raw.csv"
-IN_FILE     = SCRIPT_DIR / "shelby_parcels_climate.csv"
-OUT_FILE    = SCRIPT_DIR / "shelby_parcels_tornado.csv"
+SCRIPT_DIR = pathlib.Path(__file__).resolve().parents[3]   # repo root; data CSVs live here
 
-RADIUS_25   = 25.0   # miles
-RADIUS_10   = 10.0   # miles
-DATA_YEARS  = 2023 - 1950 + 1  # 74 years
+# All Shelby County parcels share this county FIPS — the fallback when a parcel
+# has no resolvable census tract.
+SHELBY_COUNTY_FIPS = "47157"
 
-# Per-parcel pre-filter half-width. Each parcel's tornado count is taken over a
-# box centered on THAT parcel (not a fixed Shelby box), so the stage works for any
-# US location. ±0.50° latitude ≈ ~34 miles, comfortably covering the 25-mi radius;
-# the longitude half-width is widened by 1/cos(lat) so it stays ≥34 mi away from
-# the equator.
-BBOX_DEG    = 0.50
-
-TORNADO_COLS = [
-    "tornado_count_25mi",
-    "tornado_count_10mi",
-    "max_ef_25mi",
-    "avg_tornadoes_per_yr_25mi",
-    "tornado_risk",
-]
+TORNADO_COLS = ["tornado_nri_eal_rate", "tornado_risk_rating", "tornado_geo_level"]
 
 
-# ── Haversine ─────────────────────────────────────────────────────────────────
-_R = 3958.8  # Earth radius in miles
+def _norm_tract(census_tract) -> str | None:
+    """Normalise a raw census_tract value to an 11-digit GEOID string, or None.
 
-def haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Return great-circle distance in miles between two lat/lon points."""
-    lat1, lon1, lat2, lon2 = (math.radians(x) for x in (lat1, lon1, lat2, lon2))
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
-    a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
-    return 2 * _R * math.asin(math.sqrt(a))
-
-
-def _haversine_np(lat: float, lon: float, slat, slon):
-    """Great-circle miles from one point to arrays of lat/lon (same formula as
-    haversine_miles, vectorized so a parcel's distance to every nearby tornado is
-    one numpy op instead of a per-row Python apply)."""
-    lat1, lon1 = math.radians(lat), math.radians(lon)
-    lat2, lon2 = np.radians(slat), np.radians(slon)
-    dlat, dlon = lat2 - lat1, lon2 - lon1
-    a = np.sin(dlat / 2) ** 2 + math.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
-    return 2 * _R * np.arcsin(np.sqrt(a))
-
-
-# ── SPC data download & load ──────────────────────────────────────────────────
-def load_spc_data(cache_file: pathlib.Path = CACHE_FILE) -> pd.DataFrame:
-    """Download (or load cached) SPC tornado CSV and return a cleaned DataFrame."""
-    if cache_file.exists():
-        log.info("Using cached SPC data: %s", cache_file)
-    else:
-        log.info("Downloading SPC tornado data from %s …", SPC_URL)
-        r = requests.get(SPC_URL, timeout=120, stream=True)
-        r.raise_for_status()
-        cache_file.write_bytes(r.content)
-        log.info("  Saved → %s  (%d bytes)", cache_file, cache_file.stat().st_size)
-
-    df = pd.read_csv(cache_file, low_memory=False)
-    log.info("  Loaded %d tornado records, columns: %s", len(df), list(df.columns))
-
-    # Normalise column names (strip whitespace)
-    df.columns = df.columns.str.strip()
-
-    # Keep only rows with valid start coordinates
-    df = df[df["slat"].notna() & df["slon"].notna()]
-    df = df[df["slat"] != 0]
-    df["slat"] = df["slat"].astype(float)
-    df["slon"] = df["slon"].astype(float)
-    df["mag"]  = pd.to_numeric(df["mag"], errors="coerce").fillna(-9).astype(int)
-
-    # Keep the full national table — the per-parcel pre-filter (enrich_parcel)
-    # is centered on each parcel, so no fixed county box is applied here.
-    nearby = df[["slat", "slon", "mag"]].copy()
-    log.info("  Retained %d national tornado records (point-centered per parcel).", len(nearby))
-    return nearby
-
-
-# ── National tornado-risk classification ──────────────────────────────────────
-def _national_risk(avg_yr: float, max_ef: int) -> str:
-    """Absolute national tornado-risk label from the 25-mi annual rate + peak EF.
-
-    Replaces the old within-Shelby relative thresholds: the plains 'tornado alley'
-    lands 'high', most of the country 'low'. Display-only — the score reads
-    ``avg_tornadoes_per_yr_25mi`` directly.
+    Mirrors ``enrich/fire._norm_tract`` so the join key matches the crosswalk
+    everywhere: a tract column with any missing value makes pandas store the GEOID
+    as a float (e.g. ``47157006300.0``), and tracts outside TN have leading zeros
+    (e.g. ``06037...``). Strip any decimal suffix and zero-pad back to 11 digits so
+    the value matches rather than silently falling back to the county/US rate.
     """
-    if avg_yr >= 0.75 or max_ef >= 4:
-        return "high"
-    if avg_yr >= 0.25 or max_ef >= 3:
-        return "moderate"
-    return "low"
+    if census_tract is None or pd.isna(census_tract):
+        return None
+    s = str(census_tract).strip()
+    if s.lower() in ("nan", "none", ""):
+        return None
+    if "." in s:                       # stringified/numpy float, e.g. "47157006300.0"
+        s = s.split(".")[0]
+    return s.zfill(11)
 
 
-# ── Per-parcel enrichment ─────────────────────────────────────────────────────
-def _sorted_arrays(tornadoes: pd.DataFrame):
-    """Extract latitude-ascending ``(slat, slon, mag)`` numpy arrays from the SPC
-    table. Prepared once per batch so the per-parcel scan below can binary-search
-    the latitude band instead of re-scanning every national record each call."""
-    slat = tornadoes["slat"].to_numpy()
-    order = np.argsort(slat, kind="stable")
-    return slat[order], tornadoes["slon"].to_numpy()[order], tornadoes["mag"].to_numpy()[order]
+def _lookup(census_tract, county_fips: str = SHELBY_COUNTY_FIPS) -> dict:
+    """Resolve one parcel's tornado hazard from its census tract (county fallback)."""
+    tract = _norm_tract(census_tract)
+    if tract:
+        return tornado_for_tract(tract)
+    return tornado_for_county(county_fips)
 
 
-def _point_counts(lat: float, lon: float, slat, slon, mags) -> dict[str, object]:
-    """Tornado metrics for one point from latitude-sorted arrays.
-
-    ``slat`` MUST be ascending (``slon``/``mags`` aligned). A ``searchsorted``
-    slice restricts work to the ±BBOX_DEG latitude band, then longitude is
-    compared with a dateline-safe modular difference (so parcels near ±180° aren't
-    undercounted) before exact great-circle distances within 25 / 10 miles.
-    """
-    i0 = int(np.searchsorted(slat, lat - BBOX_DEG, side="left"))
-    i1 = int(np.searchsorted(slat, lat + BBOX_DEG, side="right"))
-    blat, blon, bmag = slat[i0:i1], slon[i0:i1], mags[i0:i1]
-
-    lon_margin = BBOX_DEG / max(math.cos(math.radians(lat)), 0.1)
-    dlon = np.abs(((blon - lon + 180.0) % 360.0) - 180.0)   # absolute minimal Δlon, wraparound-safe
-    keep = dlon <= lon_margin
-    blat, blon, bmag = blat[keep], blon[keep], bmag[keep]
-
-    dists = _haversine_np(lat, lon, blat, blon)              # haversine is itself periodic-correct
-    w25 = dists <= RADIUS_25
-    w10 = dists <= RADIUS_10
-
-    count_25 = int(w25.sum())
-    count_10 = int(w10.sum())
-    valid_mags = bmag[w25][bmag[w25] >= 0]
-    max_ef  = int(valid_mags.max()) if valid_mags.size else -1
-    rate    = count_25 / DATA_YEARS          # classify on the unrounded rate…
-
-    return {
-        "tornado_count_25mi":       count_25,
-        "tornado_count_10mi":       count_10,
-        "max_ef_25mi":              max_ef,
-        "avg_tornadoes_per_yr_25mi": round(rate, 3),   # …round only for export
-        "tornado_risk":             _national_risk(rate, max_ef),
-    }
+def _resolve_path(p: str) -> pathlib.Path:
+    path = pathlib.Path(p)
+    return path if path.is_absolute() else SCRIPT_DIR / path
 
 
-def enrich_parcel(lat: float, lon: float, tornadoes: pd.DataFrame) -> dict[str, object]:
-    """Tornado metrics for a single parcel (box centered on this parcel).
-
-    Convenience wrapper that prepares the latitude-sorted arrays from the table on
-    each call — for a batch, prepare them once with ``_sorted_arrays`` and call
-    ``_point_counts`` directly (as ``main`` does) to avoid re-sorting per parcel.
-    """
-    slat, slon, mags = _sorted_arrays(tornadoes)
-    return _point_counts(lat, lon, slat, slon, mags)
-
-
-# ── Main ──────────────────────────────────────────────────────────────────────
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Enrich parcels with SPC historical tornado data."
+        description="Enrich parcels with FEMA NRI tornado hazard (EAL rate + rating)."
     )
     parser.add_argument("--input", default="shelby_parcels_climate.csv",
-                        help="Input parcels CSV (default: shelby_parcels_climate.csv).")
+                        help="Input CSV path (relative paths resolve to repo root).")
     parser.add_argument("--output", default="shelby_parcels_tornado.csv",
-                        help="Output CSV (default: shelby_parcels_tornado.csv).")
-    parser.add_argument("--cache", default="spc_tornadoes_raw.csv",
-                        help="SPC raw tornado data CSV (default: spc_tornadoes_raw.csv).")
+                        help="Output CSV path (relative paths resolve to repo root).")
     parser.add_argument("--limit", type=int, default=None,
                         help="Process at most N rows (for testing).")
     parser.add_argument("--dry-run", action="store_true",
-                        help="Validate inputs and log the plan without writing output.")
+                        help="Load and validate input, log the plan, then exit.")
     args = parser.parse_args()
 
-    # Resolve bare paths relative to the script directory.
-    def _resolve(p: str) -> pathlib.Path:
-        path = pathlib.Path(p)
-        return path if path.is_absolute() else SCRIPT_DIR / path
+    in_file = _resolve_path(args.input)
+    out_file = _resolve_path(args.output)
 
-    in_file    = _resolve(args.input)
-    out_file   = _resolve(args.output)
-    cache_file = _resolve(args.cache)
-
-    # ── Input validation ──────────────────────────────────────────────────────
     if not in_file.exists():
         log.error("Input file does not exist: %s", in_file)
         sys.exit(1)
-    if not cache_file.exists():
-        log.error("Cache file (SPC raw data) does not exist: %s", cache_file)
-        sys.exit(1)
-
-    tornadoes = load_spc_data(cache_file)
 
     log.info("Reading %s", in_file)
-    df = pd.read_csv(in_file)
+    df = pd.read_csv(in_file, low_memory=False)
     log.info("  %d rows × %d columns", *df.shape)
-
-    required_cols = ["latitude", "longitude"]
-    missing = [c for c in required_cols if c not in df.columns]
-    if missing:
-        log.error("Input is missing required column(s): %s", missing)
-        sys.exit(1)
-
-    input_rows = len(df)
 
     if args.limit:
         df = df.head(args.limit)
         log.info("--limit %d: working on first %d rows only.", args.limit, len(df))
 
-    # ── Dry run: log the plan and stop before writing ─────────────────────────
+    # census_tract is added by the health enrichment; if it's absent the lookup
+    # falls back to the Shelby county-level tornado rate for every parcel.
+    has_tract = "census_tract" in df.columns
+    if not has_tract:
+        log.warning("No 'census_tract' column — falling back to county-level "
+                    "tornado (%s) for all parcels.", SHELBY_COUNTY_FIPS)
+
     if args.dry_run:
-        log.info("[dry-run] Plan:")
-        log.info("[dry-run]   input  : %s", in_file)
-        log.info("[dry-run]   output : %s", out_file)
-        log.info("[dry-run]   cache  : %s", cache_file)
-        log.info("[dry-run]   parcel rows to enrich : %d", len(df))
-        log.info("[dry-run]   national tornado records: %d", len(tornadoes))
-        log.info("[dry-run] No output written.")
+        log.info("Dry run – no output written.")
+        log.info("  Input  : %s", in_file)
+        log.info("  Output : %s", out_file)
+        log.info("  Rows   : %d  (tract column: %s)", len(df), has_tract)
         return
 
-    log.info("Enriching %d parcels with tornado risk data …", len(df))
-    slat, slon, mags = _sorted_arrays(tornadoes)   # prepared once for the whole batch
-    results = []
-    for i, (_, row) in enumerate(df.iterrows(), start=1):
-        lat, lon = row.get("latitude"), row.get("longitude")
-        if pd.isna(lat) or pd.isna(lon):
-            results.append({c: None for c in TORNADO_COLS})
-        else:
-            results.append(_point_counts(float(lat), float(lon), slat, slon, mags))
-        if i % 100 == 0 or i == len(df):
+    log.info("Enriching %d parcels with NRI tornado hazard …", len(df))
+    tract_series = df["census_tract"] if has_tract else [None] * len(df)
+    records = []
+    for i, tract in enumerate(tract_series, start=1):
+        t = _lookup(tract)
+        records.append({
+            "tornado_nri_eal_rate": round(float(t["eal_rate"]), 9),
+            "tornado_risk_rating": t["risk_rating"],
+            "tornado_geo_level": t["geo_level"],
+        })
+        if i % 200 == 0 or i == len(df):
             log.info("  Progress: %d / %d", i, len(df))
 
-    enriched = pd.DataFrame(results, index=df.index)
+    enriched = pd.DataFrame(records, index=df.index)
     for col in TORNADO_COLS:
         df[col] = enriched[col]
 
     df.to_csv(out_file, index=False)
-    log.info("Saved → %s", out_file)
+    log.info("Saved → %s  (%d rows × %d cols)", out_file, df.shape[0], df.shape[1])
 
-    # ── Output validation ─────────────────────────────────────────────────────
-    out_rows, out_cols = df.shape
-    log.info("wrote %d rows × %d cols", out_rows, out_cols)
-    expected_rows = min(input_rows, args.limit) if args.limit else input_rows
-    if out_rows != expected_rows:
-        log.warning("Output rows (%d) != expected input rows (%d).",
-                    out_rows, expected_rows)
-
-    # ── Summary ───────────────────────────────────────────────────────────────
-    total = len(df)
-    risk_dist = df["tornado_risk"].value_counts().to_dict()
-    w = 37
-    print("\n╔══ SPC TORNADO ENRICHMENT SUMMARY ═══════════════════════════╗")
-    print(f"║ Total rows enriched     : {total:<{w}}║")
-    print(f"║ SPC data range          : {'1950-2023':<{w}}║")
-    print(f"║ National tornado records: {len(tornadoes):<{w}}║")
-    print(f"║ Search radii            : {'10 mi / 25 mi':<{w}}║")
-    print("║ ── Tornado risk distribution ─────────────────────────────── ║")
-    for label in ("high", "moderate", "low"):
-        count = risk_dist.get(label, 0)
-        pct   = count / total * 100 if total else 0
-        print(f"║   {label:<10} : {count:>5}  ({pct:5.1f}%){'':>19}║")
-    print(f"║ New columns added       : {len(TORNADO_COLS):<{w}}║")
-    print(f"║ Output                  : {out_file.name:<{w}}║")
-    print("╚══════════════════════════════════════════════════════════════╝\n")
-
-    sample_cols = ["PARCELID", "latitude", "longitude",
-                   "flood_risk"] + TORNADO_COLS
-    avail = [c for c in sample_cols if c in df.columns]
-    print("Sample rows (first 10):")
-    print(df[avail].head(10).to_string(index=False))
-
-    # EF distribution for 25mi parcels
-    ef_counts = df["max_ef_25mi"].value_counts().sort_index()
-    print("\nMax EF rating within 25 mi (distribution across parcels):")
-    ef_labels = {-1: "none", 0: "EF0", 1: "EF1", 2: "EF2",
-                  3: "EF3", 4: "EF4", 5: "EF5"}
-    for ef, cnt in ef_counts.items():
-        label = ef_labels.get(int(ef), f"EF{ef}")
-        print(f"  {label:6s}: {cnt:4d} parcels")
+    # ── Summary ──────────────────────────────────────────────────────────────
+    rate = df["tornado_nri_eal_rate"]
+    print("\n── FEMA NRI TORNADO ENRICHMENT SUMMARY ──────────────────────────")
+    print(f"  Rows enriched        : {len(df):,}")
+    print(f"  Tornado EAL rate     : min {rate.min():.2e}  "
+          f"mean {rate.mean():.2e}  max {rate.max():.2e}")
+    print(f"  Resolved at          : "
+          + "  ".join(f"{k}={v}" for k, v in df["tornado_geo_level"].value_counts().items()))
+    print("  Risk-rating distribution:")
+    for label, n in df["tornado_risk_rating"].value_counts(dropna=False).items():
+        print(f"    {str(label):<22}: {n:>6,}")
 
 
 if __name__ == "__main__":
@@ -324,6 +173,6 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         log.info("Interrupted.")
         sys.exit(0)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         log.error("Fatal: %s", exc, exc_info=True)
         sys.exit(1)
