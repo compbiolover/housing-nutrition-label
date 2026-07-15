@@ -131,7 +131,9 @@ def base_eui(climate_zone: str | None, vintage_bin: str) -> float:
     eui = resstock_base_eui(climate_zone, vintage_bin)
     if eui is not None:
         return eui
-    return _FALLBACK_BASE_EUI[vintage_bin] * climate_zone_factor(climate_zone)
+    # Unknown vintage bin → the "unknown" mid-range fallback rather than a KeyError.
+    fallback = _FALLBACK_BASE_EUI.get(vintage_bin, _FALLBACK_BASE_EUI["unknown"])
+    return fallback * climate_zone_factor(climate_zone)
 
 # ── Vintage bin assignment ─────────────────────────────────────────────────────
 def vintage_bin(yrblt) -> str:
@@ -317,7 +319,7 @@ def model_parcel_energy(
     monthly_cost  = round(annual_cost / 12, 2)
 
     # --- Archetype label (climate zone + vintage + size + wall + hvac) ---
-    zone_tok = "cz" + str(climate_zone or DEFAULT_CLIMATE_ZONE).lower()
+    zone_tok = "cz" + str(climate_zone or DEFAULT_CLIMATE_ZONE).strip().lower()
     archetype = f"{zone_tok}_{vbin}_{sbin}_{wall_label}_{hvac_label}"
 
     return {

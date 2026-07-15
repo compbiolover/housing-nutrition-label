@@ -57,6 +57,8 @@ def test_base_eui_prefers_resstock_and_falls_back():
     fallback = R.resstock_base_eui("8", "2000_2009")
     assert fallback is None
     assert base_eui("8", "2000_2009") == 35.0 * climate_zone_factor("8")
+    # An unexpected vintage bin doesn't crash — falls back to the "unknown" curve.
+    assert base_eui("8", "not_a_bin") == 50.0 * climate_zone_factor("8")
 
 
 if __name__ == "__main__":

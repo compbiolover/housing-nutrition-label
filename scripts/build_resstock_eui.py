@@ -56,13 +56,16 @@ BASELINE_URL = (
 )
 KWH_TO_KBTU = 3.412
 
-# ResStock vintage label → the model's coarser vintage bin.
+# ResStock vintage label → the model's coarser vintage bin. Matches
+# enrich/energy.vintage_bin (year >= 2010 → "2010_plus"), so 2020s maps there too.
+# A ResStock label not listed here fails the build (see main) rather than being
+# silently dropped from the aggregation.
 VINTAGE_BIN = {
     "<1940": "pre_1950", "1940s": "pre_1950",
     "1950s": "1950_1979", "1960s": "1950_1979", "1970s": "1950_1979",
     "1980s": "1980_1999", "1990s": "1980_1999",
     "2000s": "2000_2009",
-    "2010s": "2010_plus",
+    "2010s": "2010_plus", "2020s": "2010_plus",
 }
 VINTAGE_ORDER = ["pre_1950", "1950_1979", "1980_1999", "2000_2009", "2010_plus", "unknown"]
 
@@ -112,7 +115,11 @@ def main() -> int:
     ap.add_argument("--cache-dir", default=None, help="download cache directory")
     args = ap.parse_args()
 
-    import pyarrow.parquet as pq
+    try:
+        import pyarrow.parquet as pq
+    except ImportError as exc:
+        raise SystemExit("build_resstock_eui needs pyarrow (build-time only): "
+                         "pip install pyarrow") from exc
 
     if args.parquet:
         path = pathlib.Path(args.parquet)
@@ -126,6 +133,11 @@ def main() -> int:
     df = df[(df["in.sqft"] > 0) & df["out.site_energy.total.energy_consumption.kwh"].notna()]
     df["eui"] = df["out.site_energy.total.energy_consumption.kwh"] * KWH_TO_KBTU / df["in.sqft"]
     df["vbin"] = df["in.vintage"].map(VINTAGE_BIN)
+    # Fail fast: an unmapped ResStock vintage would be silently dropped, skewing
+    # the medians for that stock. Force a VINTAGE_BIN update instead.
+    unmapped = sorted(df.loc[df["vbin"].isna(), "in.vintage"].dropna().unique())
+    if unmapped:
+        raise SystemExit(f"unmapped ResStock vintage labels {unmapped} — add them to VINTAGE_BIN")
     df["zone"] = df["in.ashrae_iecc_climate_zone_2004"].astype(str)
     df["digit"] = df["zone"].str[0]
     print(f"Aggregating {len(df):,} SF-detached ResStock samples.", file=sys.stderr)
