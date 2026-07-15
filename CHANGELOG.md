@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.42](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.41...v0.1.42) (2026-07-15)
+
+
+### Features
+
+* capture multi-unit density in infrastructure burden and add a vs-detached cost line ([#145](https://github.com/compbiolover/housing-nutrition-label/issues/145)) ([b31e3af](https://github.com/compbiolover/housing-nutrition-label/commit/b31e3afdc810c9676c8ff6a68def71050dca7813))
+
 ## [0.1.41](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.40...v0.1.41) (2026-07-15)
 
 
