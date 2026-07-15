@@ -29,7 +29,10 @@ import sys
 import numpy as np
 import pandas as pd
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(message)s")
+# NOTE: no logging.basicConfig at import time — this module is imported by the
+# live simulator/API (simulate/house.py pulls in the shared BRM factors), and
+# reconfiguring the root logger on import would leak the CLI's formatting into
+# that process. basicConfig lives in main() (the batch-scorer CLI entrypoint).
 log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -775,6 +778,10 @@ def _resolve_path(path_str: str) -> pathlib.Path:
 
 
 def main() -> None:
+    # Configure root logging here (the CLI entrypoint), not at import time, so
+    # importing this module into the simulator/API never reconfigures logging.
+    logging.basicConfig(level=logging.INFO,
+                        format="%(asctime)s %(levelname)s  %(message)s")
     parser = argparse.ArgumentParser(
         description="Compute EAL-based disaster resilience scores and grades "
                     "for Shelby County parcels."
