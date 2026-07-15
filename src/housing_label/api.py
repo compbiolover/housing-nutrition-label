@@ -430,22 +430,25 @@ def _is_self_baseline(preset, *, year_built, construction, foundation, condition
     """True when a scored home already IS its own baseline comparable, so the cost
     delta is 0 and the second scoring pass can be skipped.
 
-    Only ``preset="baseline"`` homes qualify, and only CONSTRUCTION overrides break
-    it: the comparable inherits the subject's size / value / flood exposure (see
-    ``_attach_baseline_cost``), so overriding sqft, value, units, stories, lot_acres,
-    or flood_zone on a baseline home still describes a typical 2000-era frame build
-    of that size — i.e. its own comparable. Era, material, condition, foundation, or
-    a resilience upgrade, however, make it differ.
+    Only ``preset="baseline"`` homes qualify. The comparable inherits the subject's
+    size / value / flood exposure (see ``_attach_baseline_cost``), so those never
+    matter here. A construction arg counts as a real difference only when it
+    *differs from the baseline preset's own default* — passing the default value
+    (e.g. ``year_built=2000`` or ``construction=frame``) is a no-op that still
+    describes the baseline build. Comparisons are explicit (``== default`` / ``is
+    None``), not truthiness, so a falsy-but-real value like ``year_built=0`` (not
+    range-validated upstream) is correctly treated as a difference.
     """
     if preset != "baseline":
         return False
-    # Explicit None checks, not truthiness: a falsy-but-real override (year_built is
-    # not range-validated, so ?year_built=0 can arrive) must still count as a
-    # difference. upgrade_list is a list — empty means no upgrades.
-    return not (
-        year_built is not None or construction is not None
-        or foundation is not None or condition is not None
-        or bldg_material is not None or bool(upgrade_list)
+    b = PRESETS["baseline"]
+    return (
+        (year_built is None or year_built == b["year_built"])
+        and (construction is None or construction == b["construction"])
+        and (foundation is None or foundation == b["foundation"])
+        and (condition is None or condition == b["condition"])
+        and bldg_material is None            # baseline is single-family (no material)
+        and not upgrade_list
     )
 
 
@@ -466,13 +469,16 @@ def _attach_baseline_cost(payload: dict, lbl: dict, cfg: dict,
     When the scored home already *is* the baseline (``self_baseline``), skip the
     second scoring pass and reuse the house's own cost flows (delta 0).
     """
-    loc = lbl.get("location")
-    if loc is None:
-        return
+    # Self-baseline delta is 0 and reuses the already-computed house cost, so it
+    # needs no location — attach it before the location guard so a failed geocode
+    # doesn't drop the strip in this case.
     if self_baseline:
         flows = dict(payload.get("cost") or {})
         flows["label"] = _BASELINE_LABEL
         payload["baseline_cost"] = flows
+        return
+    loc = lbl.get("location")
+    if loc is None:
         return
     main = {d["key"]: d.get("score") for d in lbl.get("dimensions", [])}
     overrides = {k: main.get(k) for k in ("health", "socioeconomic", "walkability")}

@@ -306,11 +306,10 @@ def test_baseline_cost_self_baseline_reuses_cost():
         return
     import housing_label.api as api
 
-    class _Loc:
-        lat, lon = 35.9, -83.9
-
+    # location is None (e.g. geocode failed): self-baseline still attaches, since
+    # the delta is 0 and needs no comparable scoring.
     payload = {"cost": {"expectedAnnualLoss": 150, "annualEnergyCost": 2100}}
-    lbl = {"location": _Loc(), "dimensions": []}
+    lbl = {"location": None, "dimensions": []}
     api._attach_baseline_cost(payload, lbl, {"sqft": 2000}, self_baseline=True)
     assert payload["baseline_cost"]["label"] == api._BASELINE_LABEL
     assert payload["baseline_cost"]["annualEnergyCost"] == 2100   # reused verbatim
@@ -318,14 +317,14 @@ def test_baseline_cost_self_baseline_reuses_cost():
 
 def test_is_self_baseline_only_construction_breaks_it():
     """A preset=baseline home is its own comparable unless a CONSTRUCTION attribute
-    is overridden. Size/value/exposure are inherited by the comparable, so they
-    aren't even inputs here — overriding them must not force a redundant second pass."""
+    is overridden to something OTHER than the baseline default. Size/value/exposure
+    are inherited by the comparable, so they aren't even inputs here."""
     try:
         import fastapi  # noqa: F401 — api.py imports it at module load
     except ImportError:
         print("  skip test_is_self_baseline_only_construction_breaks_it (fastapi not installed)")
         return
-    from housing_label.api import _is_self_baseline
+    from housing_label.api import _is_self_baseline, PRESETS
 
     none = dict(year_built=None, construction=None, foundation=None, condition=None,
                 bldg_material=None, upgrade_list=[])
@@ -333,8 +332,14 @@ def test_is_self_baseline_only_construction_breaks_it():
     assert _is_self_baseline("baseline", **none) is True
     assert _is_self_baseline(None, **none) is False
     assert _is_self_baseline("worst-case", **none) is False
-    # Each construction override breaks the short-circuit — including falsy-but-real
-    # values like year_built=0 (guards against a truthiness misclassification).
+    # Explicitly passing the baseline's OWN defaults is a no-op — still self-baseline
+    # (no redundant second pass).
+    b = PRESETS["baseline"]
+    assert _is_self_baseline("baseline", **{**none,
+        "year_built": b["year_built"], "construction": b["construction"],
+        "foundation": b["foundation"], "condition": b["condition"]}) is True
+    # Each override to a NON-default value breaks the short-circuit — including
+    # falsy-but-real values like year_built=0 (guards a truthiness misclassification).
     for field, val in (("year_built", 1990), ("year_built", 0), ("construction", "brick"),
                        ("foundation", "full-basement"), ("condition", "poor"),
                        ("bldg_material", "concrete"), ("upgrade_list", ["solar"])):
