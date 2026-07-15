@@ -1,9 +1,10 @@
 """county FIPS → IECC climate zone lookup (bundled, offline).
 
-Source: DOE / PNNL Building America "Climate Zones by County" table
-(https://basc.pnnl.gov/guide-determining-climate-zone-county-data-files),
-flattened to `climate_zones.csv` (county_fips, iecc_zone) where iecc_zone is the
-IECC number plus moisture regime, e.g. "4A", "5B", "7".
+Source: DOE / PNNL Building America "Climate Zones by County" table, the **2021
+IECC** vintage (ASHRAE 169-2020; the 2021 update moved ~370 counties warmer, and
+the 2024 IECC left the boundaries unchanged, so 2021 is current). Built by
+`scripts/build_climate_zones.py` into `climate_zones.csv` (county_fips, iecc_zone)
+where iecc_zone is the IECC number plus moisture regime, e.g. "4A", "5B", "7".
 """
 
 from __future__ import annotations
