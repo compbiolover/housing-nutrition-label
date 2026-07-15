@@ -243,6 +243,75 @@ def test_rate_limit_returns_429():
         importlib.reload(api)                 # restore the default-limit module state
 
 
+def test_baseline_cost_matches_subject_size():
+    """The cost-strip baseline inherits the subject home's size/value so the 30-yr
+    delta reflects construction quality, not square footage — a large or valuable
+    home must not read as expensive purely for being large. Guards against the
+    old behavior where the comparable was fixed at 2,000 sqft / $160k."""
+    try:
+        import fastapi  # noqa: F401 — api.py imports it at module load
+    except ImportError:
+        print("  skip test_baseline_cost_matches_subject_size (fastapi not installed)")
+        return
+    import housing_label.api as api
+
+    captured = {}
+
+    class _Loc:
+        lat, lon = 35.93, -83.98
+
+    def _fake_build(**kwargs):
+        captured.clear()
+        captured.update(kwargs)
+        return {}, {"total_loss": 100.0}, {"metrics": {"est_monthly_energy_cost": 200.0}}
+
+    def _fake_flows(_r, _lbl):
+        return {"expectedAnnualLoss": 100, "annualEnergyCost": 2400}
+
+    orig_build, orig_flows = api.build_label_parts, api.cost_flows
+    api.build_label_parts, api.cost_flows = _fake_build, _fake_flows
+    try:
+        payload = {"cost": {"expectedAnnualLoss": 300, "annualEnergyCost": 4800}}
+        lbl = {"location": _Loc(), "dimensions": [
+            {"key": "health", "score": 70},
+            {"key": "socioeconomic", "score": 80},
+            {"key": "walkability", "score": 40}]}
+        cfg = {"sqft": 4371, "value": 450_000, "units": 1, "stories": None, "lot_acres": 0.3}
+        api._attach_baseline_cost(payload, lbl, cfg, self_baseline=False)
+    finally:
+        api.build_label_parts, api.cost_flows = orig_build, orig_flows
+
+    # Subject size/value forwarded so the baseline is size-matched; None fields dropped.
+    assert captured["sqft"] == 4371
+    assert captured["value"] == 450_000
+    assert captured["units"] == 1
+    assert captured["lot_acres"] == 0.3
+    assert "stories" not in captured                 # None → omitted, uses default
+    assert captured["preset"] == "baseline"          # keeps typical 2000-frame construction
+    assert payload["baseline_cost"]["label"] == api._BASELINE_LABEL
+    assert payload["baseline_cost"]["annualEnergyCost"] == 2400
+
+
+def test_baseline_cost_self_baseline_reuses_cost():
+    """When the scored home already is the baseline, reuse its own flows (delta 0)
+    without a second scoring pass."""
+    try:
+        import fastapi  # noqa: F401 — api.py imports it at module load
+    except ImportError:
+        print("  skip test_baseline_cost_self_baseline_reuses_cost (fastapi not installed)")
+        return
+    import housing_label.api as api
+
+    class _Loc:
+        lat, lon = 35.9, -83.9
+
+    payload = {"cost": {"expectedAnnualLoss": 150, "annualEnergyCost": 2100}}
+    lbl = {"location": _Loc(), "dimensions": []}
+    api._attach_baseline_cost(payload, lbl, {"sqft": 2000}, self_baseline=True)
+    assert payload["baseline_cost"]["label"] == api._BASELINE_LABEL
+    assert payload["baseline_cost"]["annualEnergyCost"] == 2100   # reused verbatim
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

@@ -178,6 +178,13 @@ label does not know. The figure answers "which home is cheaper to *run and insur
 cheaper *all-in*." (This is the same scope limit as the EnergyGuide label, which shows operating cost,
 not price.)
 
+> **Implementation refinement (size-matched comparable).** The shipped comparable is scored at the
+> subject home's **own square footage and value** (only the construction attributes differ — a typical
+> 2000-era frame build at average condition on a slab), so the delta isolates *build quality* rather
+> than size. A fixed 2,000 sqft / $160k comparable made any large or valuable home read as expensive
+> regardless of construction (energy scales with sqft, expected loss with value). The user-facing copy
+> is therefore *"a same-size 2000-era frame home,"* not *"typical."* See `api._attach_baseline_cost`.
+
 ### 1.5 Exactly which existing quantities feed it
 
 | Feed | Source in code | Status | Include in headline? |
