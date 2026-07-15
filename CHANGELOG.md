@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.43](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.42...v0.1.43) (2026-07-15)
+
+
+### Bug Fixes
+
+* make the multi-unit density cost line isolate density, not size ([#147](https://github.com/compbiolover/housing-nutrition-label/issues/147)) ([b16441e](https://github.com/compbiolover/housing-nutrition-label/commit/b16441eb960d0503f8a83872ec02601ca9885e03))
+
 ## [0.1.42](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.41...v0.1.42) (2026-07-15)
 
 
