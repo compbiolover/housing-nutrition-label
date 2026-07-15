@@ -407,6 +407,7 @@ def label(
         upgrade_list=upgrade_list,
     )
     _attach_baseline_cost(payload, lbl, cfg, self_baseline=is_self_baseline)
+    _attach_detached_cost(payload, lbl, cfg)   # multi-unit → density-dividend line
     _result_cache.put(cache_key, payload)
     return payload
 
@@ -498,6 +499,41 @@ def _attach_baseline_cost(payload: dict, lbl: dict, cfg: dict,
     flows = cost_flows(_br, _blbl)
     flows["label"] = _BASELINE_LABEL
     payload["baseline_cost"] = flows
+
+
+_DETACHED_LABEL = "a detached single-family home"
+_DETACHED_SQFT = 2000   # a typical US single-family living area
+
+
+def _attach_detached_cost(payload: dict, lbl: dict, cfg: dict) -> None:
+    """For a MULTI-UNIT building, also score a typical detached single-family home
+    at the same location and attach its cost flows, so the frontend can show the
+    density dividend: how much lower a stacked unit's run-and-insure cost is than a
+    standalone house (shared walls, a smaller footprint, and less per-unit disaster
+    exposure). This is the counterpart to the same-size headline — where that
+    isolates build QUALITY, this captures the DENSITY benefit in dollars. The
+    shared-infrastructure side of density shows separately in Infrastructure Burden.
+
+    Best-effort and only for units > 1; single-family homes skip it entirely.
+    """
+    if int(cfg.get("units") or 1) <= 1:
+        return
+    loc = lbl.get("location")
+    if loc is None:
+        return
+    main = {d["key"]: d.get("score") for d in lbl.get("dimensions", [])}
+    overrides = {k: main.get(k) for k in ("health", "socioeconomic", "walkability")}
+    try:
+        _dcfg, _dr, _dlbl = build_label_parts(
+            preset="baseline", location=loc, allow_network=True, overrides=overrides,
+            flood_zone=cfg.get("flood_zone"), units=1, sqft=_DETACHED_SQFT,
+        )
+    except Exception:  # noqa: BLE001 — never fail the label over the cost strip
+        log.exception("detached cost scoring failed")
+        return
+    flows = cost_flows(_dr, _dlbl)
+    flows["label"] = _DETACHED_LABEL
+    payload["detached_cost"] = flows
 
 
 # The construction profiles shown on the Label page, scored side by side at one

@@ -138,13 +138,20 @@ RESIDENTIAL_ASSESS_RATIO = 0.25     # 25% of appraised value; TN state law (TCA 
 # is squarely in the responsive range, not pinned at the old floor.
 ROAD_COST_BY_DENSITY = [
     # (du_acre, $/HH/yr)
-    (0.7,  2_400),   # rural/estate
-    (1.73, 1_800),   # suburban sprawl
-    (4.24, 1_200),   # suburban
-    (8.49,   700),   # urban
-    (12.0,   400),   # dense urban (published floor anchor)
-    (24.0,   250),   # very dense infill (extended)
-    (48.0,   150),   # mid-rise / compact urban (extended)
+    (0.7,   2_400),  # rural/estate
+    (1.73,  1_800),  # suburban sprawl
+    (4.24,  1_200),  # suburban
+    (8.49,    700),  # urban
+    (12.0,    400),  # dense urban (published floor anchor)
+    (24.0,    250),  # very dense infill (extended)
+    (48.0,    150),  # mid-rise / compact urban (extended)
+    # High-rise / large-multifamily densities (extended along the same
+    # density^-0.7 slope). A tower parcel's frontage road + stormwater is shared
+    # across 100s of units, so per-household cost keeps falling — a 157-unit
+    # building should not be billed the same road cost as a quadplex. Floored at
+    # ~$60/HH: the irreducible per-unit share of local access + drainage.
+    (96.0,     90),  # mid/high-rise
+    (200.0,    60),  # high-rise tower (floor)
 ]
 
 # ── Water/sewer cost vs density (continuous, $/household/yr) ───────────────────
@@ -166,6 +173,12 @@ WATER_SEWER_COST_BY_DENSITY = [
     (12.0,   350),
     (24.0,   220),
     (48.0,   135),
+    # High-rise densities: the distribution/collection mains keep amortizing, but
+    # sewage TREATMENT is per-capita (volume scales with people, not density), so
+    # this floors higher than roads — ~$90/HH is the treatment + service-lateral
+    # residual that does not shrink with density.
+    (96.0,   105),
+    (200.0,   90),
 ]
 
 # ── Fire/EMS base cost ($/household/yr) ───────────────────────────────────────
@@ -188,6 +201,21 @@ FIRE_DIST_MULTIPLIER_OUTER = 1.30   # >10 mi from core
 FIRE_INNER_THRESHOLD_MI = 3.0
 FIRE_OUTER_THRESHOLD_MI = 10.0
 
+# Density amortization of fire/EMS cost. A large multi-unit building is ONE
+# address on ONE hydrant/standpipe within a station's existing coverage area, so
+# the fixed coverage + capital share (stations, apparatus) spreads across many
+# units. Call volume (the per-capita part) does not amortize, so this floors at
+# 0.60 — ~$480/HH, the per-resident response residual. Below 8 DU/acre coverage is
+# already dispersed, so no discount. (Directional model; calibrated by inspection,
+# same convention as the police density multiplier.)
+FIRE_DENSITY_MULTIPLIERS = [
+    # (max_du_acre, multiplier)
+    (8.0,   1.00),   # <8 DU/acre: dispersed coverage, full per-HH cost
+    (16.0,  0.90),   # 8-16: compact
+    (48.0,  0.75),   # 16-48: mid-rise / large multiplex
+    (float("inf"), 0.60),  # 48+: high-rise, one address in-district (floor)
+]
+
 # ── Police cost by density ($/household/yr) ───────────────────────────────────
 # Source: Memphis FY2026 budget; Police = ~$147M, ~253,000 HH → $581/HH.
 # Rounded to $1,200 to include capital (vehicles, equipment, facilities).
@@ -206,8 +234,19 @@ POLICE_DENSITY_MULTIPLIERS = [
 
 # ── Sanitation (solid waste) ──────────────────────────────────────────────────
 # Source: City of Memphis Solid Waste fee = $42/month (FY2026, Memphis-specific).
-# Applied as flat rate; does not vary by density in Memphis's flat-fee system.
+# The resident FEE is flat, but the COST to serve is not: a dense building uses
+# shared collection (one dumpster/compactor stop for many units vs. per-house
+# curbside pickup), so the collection share amortizes with density. Disposal
+# (tonnage) is per-capita and does not, so this floors at 0.60. The fiscal_ratio
+# models cost-to-serve, so it uses the amortized cost, not the flat fee.
 SANITATION_COST = 504   # $/HH/yr = $42 × 12; MEMPHIS-SPECIFIC flat fee
+SANITATION_DENSITY_MULTIPLIERS = [
+    # (max_du_acre, multiplier)
+    (8.0,   1.00),   # <8 DU/acre: curbside per house
+    (16.0,  0.85),
+    (48.0,  0.70),
+    (float("inf"), 0.60),  # 48+: shared compactor, one collection stop (floor)
+]
 
 # ── Parks & other general services ───────────────────────────────────────────
 # Source: Memphis FY2026 budget; Parks + libraries + general govt = ~$75M
@@ -268,12 +307,18 @@ def interp_cost(density: float, anchors: list[tuple]) -> float:
     return float(anchors[-1][1])
 
 
+def density_multiplier(density: float, table: list[tuple]) -> float:
+    """Look up a stepwise density multiplier: the first (max_du_acre, mult) band
+    whose max exceeds ``density`` (used by police, fire, and sanitation)."""
+    for max_du, mult in table:
+        if density < max_du:
+            return mult
+    return table[-1][1]
+
+
 def police_cost(base: float, density: float) -> float:
     """Apply density multiplier to base police cost."""
-    for max_du, mult in POLICE_DENSITY_MULTIPLIERS:
-        if density < max_du:
-            return base * mult
-    return base * POLICE_DENSITY_MULTIPLIERS[-1][1]
+    return base * density_multiplier(density, POLICE_DENSITY_MULTIPLIERS)
 
 
 def fiscal_rating(ratio: float) -> str:
@@ -343,9 +388,11 @@ def enrich_row(row: pd.Series, *,
     # multiplier (default 1.0 = Shelby pilot calibration).
     cost_roads       = interp_cost(lot_density, ROAD_COST_BY_DENSITY) * mult.get("roads", 1.0)
     cost_water_sewer = interp_cost(lot_density, WATER_SEWER_COST_BY_DENSITY) * mult.get("water_sewer", 1.0)
-    cost_fire        = FIRE_BASE_COST * fire_mult * mult.get("fire", 1.0)
+    cost_fire        = (FIRE_BASE_COST * fire_mult
+                        * density_multiplier(lot_density, FIRE_DENSITY_MULTIPLIERS) * mult.get("fire", 1.0))
     cost_police      = police_cost(POLICE_BASE_COST, lot_density) * mult.get("police", 1.0)
-    cost_sanitation  = float(SANITATION_COST) * mult.get("sanitation", 1.0)
+    cost_sanitation  = (float(SANITATION_COST)
+                        * density_multiplier(lot_density, SANITATION_DENSITY_MULTIPLIERS) * mult.get("sanitation", 1.0))
     cost_parks       = float(PARKS_OTHER_COST) * mult.get("parks", 1.0)
 
     total_infra = (

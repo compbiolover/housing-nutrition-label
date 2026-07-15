@@ -159,12 +159,12 @@
     <p>Models the annual municipal cost to serve each parcel using a <strong>density-based cost allocation</strong> approach, inspired by the Halifax cost-of-sprawl study, Strong Towns fiscal analysis, and municipal density-budget research.</p>
 
     <h4>Per-Service Cost Model</h4>
-    <p>The shared, linear-network services (roads, water/sewer) fall with density (dwelling units per acre) along a <strong>continuous log-log cost curve</strong> &mdash; the published band costs placed at each band's geometric-mean density and <strong>extended past 12 DU/acre</strong>, so per-household cost keeps amortizing as the same frontage and mains are shared across more homes (rather than flooring at a triplex). Per-household services (trash, parks) stay flat; fire and police scale by a distance/density modifier:</p>
-    <p><strong>Roads:</strong> ~$2,400/yr at &lt;1 DU/ac &rarr; ~$700 at 8 &rarr; ~$400 at 12 &rarr; ~$150 at 48 DU/ac<br>
-    <strong>Water/sewer:</strong> ~$1,500/yr at &lt;1 DU/ac &rarr; ~$500 at 8 &rarr; ~$350 at 12 &rarr; ~$135 at 48 DU/ac<br>
-    <strong>Fire/EMS:</strong> ~$800 base &times; distance modifier<br>
+    <p>Each service is split into a <strong>shared component that amortizes with density</strong> (dwelling units per acre) and a <strong>per-capita residual that does not</strong>. The shared, linear-network services (roads, water/sewer) fall along a <strong>continuous log-log cost curve</strong> &mdash; the published band costs placed at each band's geometric-mean density and <strong>extended through high-rise densities</strong> (to ~200 DU/acre), so per-household cost keeps amortizing as the same frontage and mains are shared across more homes rather than flooring at a small multiplex. <strong>Fire and sanitation</strong> also amortize: a large building is one address on one hydrant within a fire station's existing coverage, and a dense building uses shared collection (one compactor stop) &mdash; so both fall with density to a per-capita floor (call volume, disposal tonnage). <strong>Parks</strong> stays flat (per-capita). The net effect: a 157-unit tower is no longer billed like a quadplex &mdash; its per-unit cost-to-serve keeps falling until the per-capita floor dominates (~48 DU/acre and up).</p>
+    <p><strong>Roads:</strong> ~$2,400/yr at &lt;1 DU/ac &rarr; ~$400 at 12 &rarr; ~$150 at 48 &rarr; ~$60 at 200 DU/ac (floor)<br>
+    <strong>Water/sewer:</strong> ~$1,500/yr at &lt;1 DU/ac &rarr; ~$350 at 12 &rarr; ~$135 at 48 &rarr; ~$90 at 200 DU/ac (treatment is per-capita)<br>
+    <strong>Fire/EMS:</strong> ~$800 base &times; distance modifier &times; density modifier (down to 0.60&times; for a high-rise in-district)<br>
     <strong>Police:</strong> ~$1,200 base &times; density modifier (most efficient at 16+ DU/ac)<br>
-    <strong>Sanitation:</strong> ~$500/unit (a representative municipal fee)<br>
+    <strong>Sanitation:</strong> ~$500/unit &times; density modifier (shared collection, down to 0.60&times;)<br>
     <strong>Parks:</strong> $300/unit</p>
 
     <h4>Local Calibration (per county)</h4>
