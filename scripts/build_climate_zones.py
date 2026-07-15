@@ -99,10 +99,21 @@ def _parse_dbf(raw: bytes) -> list[dict]:
     return rows
 
 
+# A valid IECC zone: 1–6 carry a moisture letter (A/B/C); 7 & 8 carry none.
+_ZONE_RE = re.compile(r"^(?:[1-6][ABC]|[78])$")
+
+
 def _zone(number: str, moisture: str) -> str | None:
-    """Compose an IECC zone like "3A" / "5B" / "7" (zones 7 & 8 carry no letter)."""
-    n, m = number.strip(), moisture.strip()
-    return (n + m) if n else None
+    """Compose + validate an IECC zone ("3A" / "5B" / "7").
+
+    The DBF stores its IECC columns as numerics, so counties the map doesn't cover
+    (all Puerto Rico municipios, Alaska's Kusilvak) come through as the dBASE
+    null-numeric placeholder ``**********``; a zone 1–6 can also arrive without its
+    moisture letter. Return None for anything that isn't a well-formed zone so the
+    caller carries that county forward from the prior table instead of writing junk.
+    """
+    zone = number.strip() + moisture.strip()
+    return zone if _ZONE_RE.match(zone) else None
 
 
 def main() -> int:
@@ -123,27 +134,37 @@ def main() -> int:
         dbf = _parse_dbf(z.read(DBF_MEMBER))
 
     # Authoritative 2021 IECC zone per county (GEOID is "G"+FIPS in the shapefile).
+    # Only well-formed zones are taken; null/placeholder rows (all PR, Kusilvak) are
+    # left out here and picked up by the carry-forward pass below.
     zones: dict[str, str] = {}
     for row in dbf:
         fips = re.sub(r"\D", "", row["GEOID"]).zfill(5)
         z = _zone(row["IECC21"], row["Moisture21"])
         if z:
             zones[fips] = z
-    print(f"Parsed {len(zones)} counties from the 2021 IECC table.", file=sys.stderr)
+    print(f"Parsed {len(zones)} valid 2021-IECC counties from the PNNL table.", file=sys.stderr)
 
-    # Carry forward any prior-CSV counties the PNNL table doesn't cover (territories,
-    # retired FIPS) so we never regress coverage.
+    # Carry forward the prior CSV for any county the PNNL table doesn't cover OR
+    # left null (territories, PR, Kusilvak, retired FIPS) so coverage never regresses
+    # and no placeholder ever reaches the bundled data.
     carried = 0
     if OUT.exists():
         with OUT.open() as f:
             for r in csv.DictReader(f):
                 fips = str(r["county_fips"]).strip().zfill(5)
-                if fips not in zones and r["iecc_zone"].strip():
-                    zones[fips] = r["iecc_zone"].strip()
+                prior = r["iecc_zone"].strip()
+                if fips not in zones and _ZONE_RE.match(prior):
+                    zones[fips] = prior
                     carried += 1
     if carried:
-        print(f"Carried forward {carried} county rows outside the PNNL table "
-              "(territories / retired FIPS).", file=sys.stderr)
+        print(f"Carried forward {carried} county rows outside/null in the PNNL table "
+              "(PR, territories, Kusilvak, retired FIPS).", file=sys.stderr)
+
+    # Fail closed: never ship a row that isn't a well-formed IECC zone.
+    invalid = {f: z for f, z in zones.items() if not _ZONE_RE.match(z)}
+    if invalid:
+        raise SystemExit(f"refusing to write {len(invalid)} invalid IECC zones: "
+                         f"{list(invalid.items())[:5]}")
 
     with OUT.open("w", newline="") as f:
         w = csv.writer(f)

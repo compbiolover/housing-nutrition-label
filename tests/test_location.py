@@ -19,8 +19,31 @@ def test_climate_zone_lookup():
     # Guards the 2021 IECC vintage: Coffee County, AL moved 3A→2A in the 2021
     # update, so a table rebuilt from the pre-2021 (2015) map would fail here.
     assert climate_zone_for_county("01031") == "2A"
+    # Puerto Rico is null in the PNNL numeric table; it must still resolve to a
+    # real zone (carried forward, tropical 1A), not a "**********" placeholder.
+    assert climate_zone_for_county("72001") == "1A"
     assert climate_zone_for_county("99999") is None     # unknown
     assert climate_zone_for_county(None) is None
+
+
+def test_climate_zones_all_wellformed():
+    """Every bundled county zone is a valid IECC token (1–6 with A/B/C, or 7/8) —
+    guards against a rebuild leaking dBASE null placeholders or dropped moisture
+    letters into the data, since climate_zone_for_county returns the value verbatim."""
+    import csv
+    import pathlib
+    import re
+
+    from housing_label.data import climate as _c
+
+    zone_re = re.compile(r"^(?:[1-6][ABC]|[78])$")
+    path = pathlib.Path(_c.__file__).resolve().parent / "climate_zones.csv"
+    with path.open() as f:
+        rows = list(csv.DictReader(f))
+    assert len(rows) > 3000
+    bad = [(r["county_fips"], r["iecc_zone"]) for r in rows
+           if not zone_re.match(r["iecc_zone"].strip())]
+    assert not bad, f"malformed IECC zones in climate_zones.csv: {bad[:10]}"
 
 
 def test_egrid_subregion_lookup():
