@@ -12,67 +12,37 @@
   <!-- Default scoring API for the address search (override per-visit with ?api=...). -->
   <script>window.HOUSING_LABEL_API = "https://housing-nutrition-label.onrender.com"</script>
   <style>
-    /* Address search */
-    .addr-form { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 1rem 0; }
-    /* The search lives in the dark hero (color:#fff); set explicit field colors
-       so typed text isn't white-on-white in light mode (var(--text)/--card flip
-       with the OS theme). */
-    .addr-form input[type=text] { flex: 1 1 320px; font: inherit; padding: 0.6rem 0.8rem;
-      border: 1px solid var(--border); border-radius: var(--radius);
-      color: var(--text); background: var(--card); }
-    /* Autocomplete list styling (.addr-ac / .addr-suggest) is shared via label-core.css. */
-    .addr-form select { font: inherit; padding: 0.6rem 0.8rem; border: 1px solid var(--border);
-      border-radius: var(--radius); background: var(--card); color: var(--text); }
-    .addr-form button { font: inherit; font-weight: 600; padding: 0.6rem 1.2rem; border: none;
-      border-radius: var(--radius); background: var(--green); color: #fff; cursor: pointer; }
-    .addr-form button:disabled { opacity: 0.6; cursor: progress; }
+    /* The scoring widget (label-form.js) renders inside the dark-navy hero. Its
+       form, refine panel, density, mode toggle, and card are styled by the shared
+       label-core.css; only these dark-hero re-theming overrides stay page-local.
+       The widget mounts into #score-widget and generates .lf-* / .label-* nodes. */
     .addr-search { max-width: 640px; margin: 0 auto; text-align: left; }
-    /* The refine-panel layout (.addr-details, .addr-fields, .field-tag*,
-       .refine-count, .addr-upgrades*) + its dark-mode tags are shared with the
-       Label page via label-core.css; only the dark-hero overrides stay here. */
-    #addr-status { color: var(--muted); font-size: 0.9rem; margin: 0.25rem 0; min-height: 1.2em; }
-    .addr-privacy { color: var(--muted); font-size: 0.8rem; margin: 0.25rem 0; }
-    /* The home hero is dark navy, so re-light the bits that default to navy text
-       and add breathing room above a rendered result. */
+    .hero .label-addr-form .go { background: var(--green); }   /* hero-accent CTA */
+    .hero .mode-toggle button, .hero .picker label { color: #e2e8f0; }
     .hero .addr-details summary, .hero .addr-upgrades legend { color: #cbd5e1; }
     .hero .addr-fields label { color: #cbd5e1; }
-    .hero #addr-status, .hero .addr-privacy { color: #cbd5e1; }
-    /* The result card renders inside the dark hero (color:#fff); give the whole
-       subtree the themed text color so card text and the cream caveat boxes
-       aren't white-on-light in light mode (var(--text) flips with the OS theme). */
-    #addr-result { max-width: 640px; margin: 0 auto; text-align: left; color: var(--text); }
-    #addr-result:not(:empty) { margin-top: 1.5rem; }
-    #addr-result .label-card { background: var(--card); border: 2px solid var(--navy);
+    .hero .lf-privacy, .hero .lf-geo { color: #cbd5e1; }
+    /* The label card renders inside the dark hero; theme the whole subtree so card
+       text and cream caveat boxes aren't white-on-light in light mode. */
+    .hero .lf-app { max-width: 640px; margin: 0 auto; text-align: left; color: var(--text); }
+    .hero .lf-app:not(:empty) { margin-top: 1.5rem; }
+    .hero .lf-app .label-card { background: var(--card); border: 2px solid var(--navy);
       border-radius: var(--radius); padding: 1.25rem 1.5rem; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
-    #addr-result .label-head { display: flex; justify-content: space-between; align-items: center;
+    .hero .lf-app .label-head { display: flex; justify-content: space-between; align-items: center;
       border-bottom: 2px solid var(--border); padding-bottom: 0.6rem; margin-bottom: 0.6rem; gap: 1rem; }
-    #addr-result .composite-num { font-size: 2rem; font-weight: 800; color: var(--navy); line-height: 1; }
-    #addr-result .grade-lg { width: 48px; height: 48px; line-height: 48px; text-align: center;
+    .hero .lf-app .composite-num { font-size: 2rem; font-weight: 800; color: var(--navy); line-height: 1; }
+    .hero .lf-app .grade-lg { width: 48px; height: 48px; line-height: 48px; text-align: center;
       border-radius: var(--radius); color: #fff; font-weight: 800; font-size: 1.5rem; }
-    #addr-result .build-line { color: var(--muted); font-size: 0.85rem; margin-top: 0.2rem; }
-    #addr-result .build-line strong { color: var(--navy); }
-    #addr-result .na { color: var(--muted); font-style: italic; }
-    #addr-result .meta { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.75rem; }
-    /* Confidence dots, climate whisker, and the cost strip are styled by the
-       shared label-core.css (linked above). */
-    /* Density-on-this-parcel comparison (lives in the dark hero → themed text). */
-    #density-wrap { max-width: 640px; margin: 0.75rem auto 0; text-align: left; color: var(--text); }
-    .density-btn { font: inherit; font-weight: 600; padding: 0.5rem 1rem; border: 1px solid var(--navy);
-      border-radius: var(--radius); background: var(--card); color: var(--text); cursor: pointer; }
-    .density-btn:hover { background: var(--navy); color: #fff; }
-    .density-btn:disabled { opacity: 0.6; cursor: progress; }
-    #density-status { color: var(--muted); font-size: 0.9rem; margin: 0.4rem 0; min-height: 1.2em; }
-    #density-result { overflow-x: auto; }
-    #density-result:not(:empty) { margin-top: 0.6rem; }
-    .density-table { width: 100%; }
-    .density-table small { color: var(--muted); font-weight: 400; }
-    /* Dark mode: re-light the navy-as-text bits (suggestion hover + the shared
-       refine-panel summary/legend are in label-core.css). */
+    .hero .lf-app .build-line { color: var(--muted); font-size: 0.85rem; margin-top: 0.2rem; }
+    .hero .lf-app .build-line strong { color: var(--navy); }
+    .hero .lf-app .na { color: var(--muted); font-style: italic; }
+    .hero .lf-app .meta { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.75rem; }
+    .hero .lf-density-wrap { text-align: left; color: var(--text); }
+    .hero .lf-density-result { overflow-x: auto; }
     @media (prefers-color-scheme: dark) {
-      #addr-result .label-card { border-color: #475569; }
-      #addr-result .composite-num,
-      #addr-result .build-line strong { color: #e2e8f0; }
-      .density-btn { border-color: #475569; }
+      .hero .lf-app .label-card { border-color: #475569; }
+      .hero .lf-app .composite-num,
+      .hero .lf-app .build-line strong { color: #e2e8f0; }
     }
   </style>
 </head>
@@ -96,120 +66,12 @@
   <h1>Housing Nutrition Label</h1>
   <p class="tagline">A free, nutrition-label-style scorecard for any U.S. home. It rates nine things that shape what a place costs to live in and how well it holds up &mdash; disaster risk, energy use, durability, environmental footprint, city-service costs, neighborhood health, the local economy, walkability, and a changing climate.</p>
   <div class="addr-search">
-    <form class="addr-form" id="addr-form">
-      <div class="addr-ac" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-owns="addr-suggest">
-        <input type="text" id="addr-input" aria-label="US address to score" placeholder="Enter any U.S. address &mdash; e.g. 111 S Grand Ave, Los Angeles, CA"
-               autocomplete="off" role="textbox" aria-autocomplete="list" aria-controls="addr-suggest" aria-activedescendant="">
-        <ul class="addr-suggest" id="addr-suggest" role="listbox" hidden></ul>
-      </div>
-      <select id="addr-preset" aria-label="Construction profile">
-        <option value="detected" selected>Detected from address</option>
-        <option value="baseline">Hypothetical: Baseline (2000 frame)</option>
-        <option value="premium">Hypothetical: Premium (2026 brick)</option>
-        <option value="icf-passive">Hypothetical: ICF Passive (2026, solar)</option>
-        <option value="fortified-gold">Hypothetical: FORTIFIED Gold (2026 frame)</option>
-        <option value="worst-case">Hypothetical: Worst Case (1945 frame)</option>
-      </select>
-      <button type="submit" id="addr-btn">Score it</button>
-    </form>
-
-    <details class="addr-details" id="addr-refine">
-      <summary><span id="refine-title">Refine building details</span> <span id="refine-count" class="refine-count"></span></summary>
-      <p class="addr-hint" id="refine-lead" style="margin:0 0 0.5rem;font-size:0.82rem;opacity:0.85;">
-        We estimate these from public data (USACE structure records + Census) and score with them. Anything looks off? Edit it and the label updates. Living area is <strong>per unit</strong>.
-      </p>
-      <div class="addr-fields">
-        <label>Year built <span class="field-tag" id="tag-year_built"></span>
-          <input type="number" id="d-year" min="1850" max="2030" step="1" placeholder="e.g. 1998">
-        </label>
-        <label>Wall type <span class="field-tag" id="tag-construction"></span>
-          <select id="d-construction">
-            <option value="">(unknown)</option>
-            <option value="frame">Wood frame</option>
-            <option value="brick">Brick (masonry)</option>
-            <option value="brick-frame">Brick veneer / frame</option>
-            <option value="block">Concrete block (CMU)</option>
-            <option value="icf">Insulated concrete form (ICF)</option>
-            <option value="sip">Structural insulated panel (SIP)</option>
-            <option value="stone">Stone</option>
-            <option value="vinyl">Vinyl-sided frame</option>
-          </select>
-        </label>
-        <label>Foundation <span class="field-tag" id="tag-foundation"></span>
-          <select id="d-foundation">
-            <option value="">(unknown)</option>
-            <option value="slab">Slab on grade</option>
-            <option value="crawl">Crawlspace</option>
-            <option value="partial-basement">Partial basement</option>
-            <option value="full-basement">Full basement</option>
-          </select>
-        </label>
-        <label>Condition <span class="field-tag" id="tag-condition"></span>
-          <select id="d-condition">
-            <option value="">(unknown)</option>
-            <option value="excellent">Excellent</option>
-            <option value="good">Good</option>
-            <option value="average">Average</option>
-            <option value="fair">Fair</option>
-            <option value="poor">Poor</option>
-            <option value="unsound">Unsound</option>
-          </select>
-        </label>
-        <label>Living area (sqft, per unit) <span class="field-tag" id="tag-sqft"></span>
-          <input type="number" id="d-sqft" min="200" max="20000" step="50" placeholder="one unit, not the whole building">
-        </label>
-        <label>Home value ($) <span class="field-tag" id="tag-value"></span>
-          <input type="number" id="d-value" min="1000" max="100000000" step="1000" placeholder="market value">
-        </label>
-        <label>Lot size (acres) <span class="field-tag" id="tag-lot_acres"></span>
-          <input type="number" id="d-lot_acres" min="0.01" max="1000" step="0.01" placeholder="e.g. 0.18">
-        </label>
-        <label>Dwelling units <span class="field-tag" id="tag-units"></span>
-          <input type="number" id="d-units" min="1" max="500" step="1" placeholder="1 (house), 4 (quadplex)">
-        </label>
-        <label>Building material <span class="field-tag" id="tag-bldg_material"></span>
-          <select id="d-material">
-            <option value="">(if a multi-unit building)</option>
-            <option value="wood">Wood frame</option>
-            <option value="masonry">Load-bearing masonry</option>
-            <option value="concrete">Reinforced concrete</option>
-            <option value="steel">Steel frame</option>
-          </select>
-        </label>
-        <label>Stories <span class="field-tag" id="tag-stories"></span>
-          <input type="number" id="d-stories" min="1" max="150" step="1" placeholder="floors">
-        </label>
-      </div>
-      <fieldset class="addr-upgrades">
-        <legend>Resilience upgrades</legend>
-        <label><input type="checkbox" value="solar"> Solar panels</label>
-        <label><input type="checkbox" value="backup_generator"> Backup generator / battery</label>
-        <label><input type="checkbox" value="fire_sprinklers"> Fire sprinklers</label>
-        <label><input type="checkbox" value="hurricane_straps"> Hurricane straps</label>
-        <label><input type="checkbox" value="fortified_roof"> FORTIFIED roof</label>
-        <label><input type="checkbox" value="tornado_safe_room"> Tornado safe room</label>
-        <label><input type="checkbox" value="seismic_retrofit"> Seismic retrofit</label>
-        <label><input type="checkbox" value="flood_vents"> Flood vents</label>
-      </fieldset>
-    </details>
-
-    <p id="addr-api-default" class="addr-privacy" style="display:none;"></p>
-    <div class="insight warn" id="addr-api-active" style="display:none;"></div>
-    <div id="addr-status"></div>
-    <div id="addr-result"></div>
-
-    <div id="density-wrap" hidden>
-      <button type="button" id="density-btn" class="density-btn">What if this parcel were denser? Compare 1&ndash;4 units</button>
-      <div id="density-status"></div>
-      <div id="density-result"></div>
-    </div>
-
-    <div class="insight" id="addr-config-note" style="display:none;">
-      <strong>Set the scoring service:</strong> this search needs a scoring service to call. Point it at one by adding <code>?api=https://your-api-host</code> to this page's URL, or set <code>window.HOUSING_LABEL_API</code>. See <a href="setup.html#api">Setup &rarr; Address-search API</a>.
-    </div>
+    <!-- Unified scoring widget (label-form.js) generates the address form,
+         refine panel, detected/hypothetical modes, and density here. -->
+    <div id="score-widget"></div>
   </div>
 
-  <p style="margin-top:0.75rem;font-size:0.9rem;">Enter an address to see its live label. Pick a construction type to compare how building choices move the scores &mdash; or <a href="https://github.com/compbiolover/housing-nutrition-label">view the project on GitHub</a>.</p>
+  <p style="margin-top:0.75rem;font-size:0.9rem;">Enter an address to see its live label. Switch to a hypothetical build to compare how construction choices move the scores &mdash; or <a href="https://github.com/compbiolover/housing-nutrition-label">view the project on GitHub</a>.</p>
 </div>
 
 <section>
@@ -325,301 +187,19 @@
 <script src="nav.js"></script>
 <script src="label-core.js"></script>
 <script src="addr-suggest.js"></script>
+<script src="label-form.js"></script>
 <script>
-(function () {
-  // API base URL: ?api=... query param, or window.HOUSING_LABEL_API, else none.
-  var apiFromQuery = new URLSearchParams(location.search).get("api");
-  var API_BASE = (apiFromQuery
-                  || window.HOUSING_LABEL_API || "").replace(/\/$/, "");
-
-  var form   = document.getElementById("addr-form");
-  var input  = document.getElementById("addr-input");
-  var preset = document.getElementById("addr-preset");
-  var btn    = document.getElementById("addr-btn");
-  var status = document.getElementById("addr-status");
-  var result = document.getElementById("addr-result");
-  var note    = document.getElementById("addr-config-note");
-  var active  = document.getElementById("addr-api-active");
-  var dfltMsg = document.getElementById("addr-api-default");
-  var densWrap   = document.getElementById("density-wrap");
-  var densBtn    = document.getElementById("density-btn");
-  var densStatus = document.getElementById("density-status");
-  var densResult = document.getElementById("density-result");
-  var lastParams = null;   // query string of the most recent successful /label call
-
-  function apiHost() {
-    try { return new URL(API_BASE).host || API_BASE; } catch (e) { return API_BASE; }
-  }
-
-  if (!API_BASE) {
-    note.style.display = "";
-  } else if (apiFromQuery) {
-    // The endpoint was supplied via the URL (?api=...). Surface where the typed
-    // address (and partial suggestion text) will be sent so a shared link can't
-    // silently exfiltrate it.
-    active.textContent = "Heads up: addresses you enter (including partial text typed for "
-      + "suggestions) are sent to the API at " + apiHost() + " (set via this link's ?api= parameter).";
-    active.style.display = "";
-  } else {
-    // Site default endpoint — a quieter, neutral disclosure of where data goes.
-    dfltMsg.textContent = "Addresses you type (including partial text for suggestions) are sent to "
-      + "our scoring API (" + apiHost() + ") to look up location data.";
-    dfltMsg.style.display = "";
-  }
-
-  // Label rendering lives in the shared LabelCore module (label-core.js). These
-  // aliases keep the page-specific code (autocomplete, form, density) terse.
-  var esc = LabelCore.esc;
-  var WALL_LABELS = LabelCore.WALL_LABELS, UPGRADE_LABELS = LabelCore.UPGRADE_LABELS;
-
-  // ── Address autocomplete (shared module: debounced typeahead over /suggest) ──
-  var ac = AddrSuggest.attach({
-    input: input,
-    box: document.getElementById("addr-suggest"),
-    apiBase: API_BASE,
-    idPrefix: "addr-opt-"
+  // Home hero: detect-from-address by default, with hypothetical construction
+  // profiles (Single) and the density comparison. Compare mode lives on the
+  // Label page. Default location is Cooper-Young, Memphis.
+  LabelForm.mount({
+    container: document.getElementById("score-widget"),
+    modes: ["detected", "single"],
+    density: true,
+    geolocate: true,
+    persist: true,
+    defaultLat: 35.13, defaultLon: -89.99
   });
-
-  // The entire label card is rendered by the shared LabelCore module; this page
-  // only builds the "Custom / preset · build details" subline from its form ctx.
-  function render(data, ctx) {
-    var h = data.house || {};
-    var profileText = ctx.isCustom ? "Custom" : ctx.presetLabel;
-    var buildBits = [];
-    if (h.construction) buildBits.push(WALL_LABELS[h.construction] || h.construction);
-    if (h.year_built) buildBits.push("built " + h.year_built);
-    if (h.sqft != null) buildBits.push(Math.round(h.sqft).toLocaleString() + " sqft");
-    if (ctx.upgradeLabels && ctx.upgradeLabels.length) buildBits.push(ctx.upgradeLabels.join(", "));
-    var subline = '<strong>' + esc(profileText) + '</strong>'
-      + (buildBits.length ? " &middot; " + esc(buildBits.join(" · ")) : "");
-    result.innerHTML = LabelCore.renderCard(data, { subline: subline });
-  }
-
-  // ── Density-on-this-parcel comparison (fixed lot, vary units) ────────────────
-  function gradeSpan(g) {
-    var c = (g || "").toLowerCase();
-    if (c !== "a" && c !== "b" && c !== "c" && c !== "d" && c !== "f") return esc(g);
-    return '<span class="grade grade-' + c + '">' + esc(g) + '</span>';
-  }
-  function renderDensity(data) {
-    var scn = (data && data.scenarios) || [];
-    if (!scn.length) { densResult.innerHTML = ""; return; }
-    var head = '<tr><th>Metric</th>' + scn.map(function (s) {
-      return '<th>' + esc(s.name) + '<br><small>' + s.units
-        + (s.units === 1 ? " unit" : " units") + '</small></th>';
-    }).join("") + '</tr>';
-    function valRow(label, fn) {
-      return '<tr><td><strong>' + label + '</strong></td>'
-        + scn.map(function (s) { return '<td>' + fn(s) + '</td>'; }).join("") + '</tr>';
-    }
-    var rows = "";
-    rows += valRow("Total value", function (s) {
-      return s.value == null ? "—" : "$" + Math.round(s.value).toLocaleString(); });
-    rows += valRow("Per-unit value", function (s) {
-      return s.per_unit_value == null ? "—" : "$" + Math.round(s.per_unit_value).toLocaleString(); });
-    rows += valRow("Density (DU/acre)", function (s) {
-      return s.per_unit_acres ? (1 / s.per_unit_acres).toFixed(1) : "—"; });
-    rows += valRow("Infrastructure", function (s) {
-      return s.infrastructure_score == null ? "—"
-        : s.infrastructure_score.toFixed(0) + " " + gradeSpan(s.infrastructure_grade); });
-    rows += valRow("Fiscal ratio", function (s) {
-      return s.fiscal_ratio == null ? "—" : s.fiscal_ratio.toFixed(2); });
-    rows += valRow("Energy", function (s) {
-      return s.energy_score == null ? "—" : s.energy_score.toFixed(0); });
-    rows += valRow("Energy / unit / mo", function (s) {
-      return s.est_monthly_energy_cost == null ? "—" : "$" + Math.round(s.est_monthly_energy_cost); });
-    rows += valRow("Composite", function (s) {
-      return s.composite_score == null ? "—"
-        : s.composite_score.toFixed(0) + " " + gradeSpan(s.composite_national_grade); });
-    rows += valRow("Property tax / acre", function (s) {
-      return s.revenue_per_acre == null ? "—"
-        : "$" + Math.round(s.revenue_per_acre).toLocaleString() + "/ac"; });
-    rows += valRow("Net fiscal / acre", function (s) {
-      return s.net_fiscal_per_acre == null ? "—"
-        : (s.net_fiscal_per_acre < 0 ? "−$" + Math.round(-s.net_fiscal_per_acre).toLocaleString()
-                                     : "$" + Math.round(s.net_fiscal_per_acre).toLocaleString()) + "/ac"; });
-
-    var html = '<table class="comparison density-table"><thead>' + head
-      + '</thead><tbody>' + rows + '</tbody></table>';
-    var dd = data.density_dividend || {};
-    if (dd.fiscal_ratio_from != null && dd.fiscal_ratio_to != null) {
-      html += '<div class="insight"><strong>The density dividend:</strong> going from '
-        + dd.from_units + ' to ' + dd.to_units + ' unit' + (dd.to_units === 1 ? "" : "s")
-        + ' on this same lot moves the fiscal ratio ' + dd.fiscal_ratio_from.toFixed(2)
-        + ' &rarr; ' + dd.fiscal_ratio_to.toFixed(2) + ' and Infrastructure Burden '
-        + gradeSpan(dd.infrastructure_grade_from) + ' &rarr; '
-        + gradeSpan(dd.infrastructure_grade_to)
-        + '. Same land &amp; services, shared across more homes.';
-      if (dd.revenue_per_acre_from && dd.revenue_per_acre_to) {
-        html += ' It also generates <strong>'
-          + (dd.revenue_per_acre_to / dd.revenue_per_acre_from).toFixed(1)
-          + '&times; the property-tax revenue per acre</strong> ($'
-          + Math.round(dd.revenue_per_acre_from).toLocaleString() + ' &rarr; $'
-          + Math.round(dd.revenue_per_acre_to).toLocaleString()
-          + '/acre) on the same land &mdash; the value-per-acre dividend.';
-      }
-      html += '</div>';
-    }
-    if (data.value_source) {
-      html += '<p class="meta" style="font-size:0.8rem;">Per-unit value auto-filled from the '
-        + 'county median (ACS); total value scales with the number of units.</p>';
-    }
-    (data.caveats || []).forEach(function (c) {
-      html += '<div class="insight warn" style="margin-top:0.6rem;font-size:0.82rem;">' + esc(c) + '</div>';
-    });
-    densResult.innerHTML = html;
-  }
-
-  densBtn.addEventListener("click", function () {
-    if (!API_BASE || !lastParams) return;
-    densResult.innerHTML = "";
-    densStatus.textContent = "Comparing densities on this parcel …";
-    densBtn.disabled = true;
-    fetch(API_BASE + "/density?" + lastParams)
-      .then(function (r) { if (!r.ok) return r.json().then(function (j) { throw new Error(j.detail || ("HTTP " + r.status)); }); return r.json(); })
-      .then(function (data) { densStatus.textContent = ""; renderDensity(data); })
-      .catch(function (err) { densStatus.textContent = "Could not compare densities: " + err.message; })
-      .finally(function () { densBtn.disabled = false; });
-  });
-
-  // ── Auto-fill "Refine building details" panel ────────────────────────────────
-  // Each construction-profile field maps to its input. Untouched fields are
-  // auto-derived server-side from the address (NSI + Census); only fields the user
-  // actually edits are sent as overrides, so the rest keep auto-deriving.
-  var FIELD_IDS = {
-    year_built: "d-year", construction: "d-construction", foundation: "d-foundation",
-    condition: "d-condition", sqft: "d-sqft", value: "d-value", lot_acres: "d-lot_acres",
-    units: "d-units", bldg_material: "d-material", stories: "d-stories"
-  };
-  var TAG_LABEL = { confirmed: "you edited", estimated: "estimated", assumed: "default" };
-  var refine = document.getElementById("addr-refine");
-  var refineCount = document.getElementById("refine-count");
-  var touched = {};         // field -> true when the user has edited it
-  var currentLoc = null;    // {lat,lon} or {address} of the scored point, reused on re-score
-
-  function fieldEl(field) { return document.getElementById(FIELD_IDS[field]); }
-
-  // Reflect the server's per-field provenance into the panel: set each input's
-  // value (unless the user is mid-edit) and its confidence tag; summarise coverage.
-  function applyBuilding(building) {
-    var estimated = 0, total = 0;
-    Object.keys(FIELD_IDS).forEach(function (field) {
-      var el = fieldEl(field), tag = document.getElementById("tag-" + field);
-      var info = building && building[field];
-      if (!el || !tag) return;
-      if (!info) {                       // field not derivable here — clear stale value + tag
-        tag.className = "field-tag"; tag.textContent = "";
-        if (document.activeElement !== el) el.value = "";
-        return;
-      }
-      total++;
-      var status = touched[field] ? "confirmed" : info.status;
-      if (status === "estimated") estimated++;   // count the DISPLAYED status (edits → confirmed)
-      if (document.activeElement !== el) {
-        el.value = info.value == null ? "" : info.value;
-      }
-      tag.className = "field-tag " + status;
-      tag.textContent = TAG_LABEL[status] || status;
-      tag.title = (info.source || "") + (info.confidence ? " · " + info.confidence + " confidence" : "");
-    });
-    refineCount.textContent = total
-      ? "— " + estimated + " of " + total + " estimated from public data (edit any to refine)"
-      : "";
-    if (total && !refine.open) refine.open = true;   // reveal the prefilled panel
-  }
-
-  function buildParams() {
-    var params = new URLSearchParams();
-    if (currentLoc.lat != null) { params.set("lat", currentLoc.lat); params.set("lon", currentLoc.lon); }
-    else { params.set("address", currentLoc.address); }
-    // A hypothetical preset overrides address auto-fill; "detected" sends none.
-    if (preset.value && preset.value !== "detected") params.set("preset", preset.value);
-    // Only user-edited fields are sent as overrides (the rest auto-derive).
-    Object.keys(FIELD_IDS).forEach(function (field) {
-      if (!touched[field]) return;
-      var v = fieldEl(field).value.trim ? fieldEl(field).value.trim() : fieldEl(field).value;
-      if (v !== "") params.set(field, v);
-    });
-    var ups = Array.prototype.slice
-      .call(document.querySelectorAll(".addr-upgrades input:checked"))
-      .map(function (c) { return c.value; });
-    if (ups.length) params.set("upgrades", ups.join(","));
-    return { params: params, ups: ups };
-  }
-
-  function score() {
-    if (!API_BASE) { status.textContent = ""; note.style.display = ""; return; }
-    var built = buildParams();
-    var edited = Object.keys(touched).length > 0;
-    var isPreset = preset.value && preset.value !== "detected";
-    var ctx = {
-      presetLabel: isPreset ? preset.options[preset.selectedIndex].text : "This home",
-      isCustom: edited || built.ups.length > 0,
-      upgradeLabels: built.ups.map(function (v) { return UPGRADE_LABELS[v] || v; })
-    };
-    btn.disabled = true;   // caller sets the status message ("Scoring <addr> …" / "Updating …")
-    fetch(API_BASE + "/label?" + built.params.toString())
-      .then(function (r) { if (!r.ok) return r.json().then(function (j) { throw new Error(j.detail || ("HTTP " + r.status)); }); return r.json(); })
-      .then(function (data) {
-        status.textContent = ""; render(data, ctx);
-        applyBuilding(data.building);
-        lastParams = built.params.toString();
-        densWrap.hidden = false;
-      })
-      .catch(function (err) { status.textContent = "Could not score that address: " + err.message; })
-      .finally(function () { btn.disabled = false; });
-  }
-
-  form.addEventListener("submit", function (e) {
-    e.preventDefault();
-    var addr = input.value.trim();
-    if (!addr) { status.textContent = "Enter an address."; return; }
-    if (!API_BASE) { status.textContent = ""; note.style.display = ""; return; }
-    result.innerHTML = "";
-    densWrap.hidden = true; densResult.innerHTML = ""; densStatus.textContent = "";
-    ac.close();
-    touched = {};                     // a new address is a fresh building
-    applyBuilding(null);              // clear the prior address's panel (no stale values in-flight/on error)
-    var picked = ac.picked();
-    currentLoc = (picked && picked.label === addr)
-      ? { lat: picked.lat, lon: picked.lon } : { address: addr };
-    status.textContent = "Scoring " + addr + " …";
-    score();
-  });
-
-  // Editing any detail marks it user-confirmed and re-scores; clearing it lets the
-  // field auto-derive again. A blank <select>/<input> means "unknown → re-derive".
-  Object.keys(FIELD_IDS).forEach(function (field) {
-    var el = fieldEl(field);
-    if (!el) return;
-    el.addEventListener("change", function () {
-      var v = (el.value || "").trim();
-      // Units of 1 is the default, not an override — leave it auto-derived so an
-      // NSI-detected multi-unit building isn't overridden to a single unit.
-      var noop = (v === "") || (field === "units" && Number(v) <= 1);
-      if (noop) { delete touched[field]; } else { touched[field] = true; }
-      if (currentLoc) { status.textContent = "Updating …"; score(); }
-    });
-  });
-  // Switching the construction profile (detected ↔ hypothetical) re-scores.
-  preset.addEventListener("change", function () { if (currentLoc) { status.textContent = "Updating …"; score(); } });
-
-  // Deep link: ?address=... prefills the field and runs the search automatically.
-  // ?preset= optionally picks a profile.
-  var qs = new URLSearchParams(location.search);
-  var deepAddr = qs.get("address");
-  if (deepAddr) {
-    input.value = deepAddr;
-    var deepPreset = qs.get("preset");
-    if (deepPreset) {
-      for (var pi = 0; pi < preset.options.length; pi++) {
-        if (preset.options[pi].value === deepPreset) { preset.selectedIndex = pi; break; }
-      }
-    }
-    if (form.requestSubmit) form.requestSubmit();
-    else form.dispatchEvent(new Event("submit", { cancelable: true }));
-  }
-})();
 </script>
 </body>
 </html>

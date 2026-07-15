@@ -155,3 +155,45 @@
   .field-tag.assumed   { background: #334155; color: #cbd5e1; }
   .addr-details summary, .addr-upgrades legend { color: #cbd5e1; }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Unified scoring widget (label-form.js). The address form, privacy/status
+ * lines, scored-location caption, and density comparison — previously duplicated
+ * as per-page inline CSS on index/examples/label — now live here so every page's
+ * widget looks identical. (Mode toggle, pickers, refine panel, compare grid, and
+ * legends are already shared above.)
+ * ───────────────────────────────────────────────────────────────────────────── */
+.label-addr-form { max-width: 640px; margin: 0 auto 1.25rem; display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.label-addr-form .addr-ac { flex: 1 1 300px; }
+.label-addr-form input { width: 100%; font: inherit; padding: 0.6rem 0.8rem;
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); color: var(--text); }
+.label-addr-form .go { font: inherit; font-weight: 600; padding: 0.6rem 1.2rem; border: none;
+  border-radius: var(--radius); background: var(--navy); color: #fff; cursor: pointer; }
+.label-addr-form .go:disabled { opacity: 0.6; cursor: progress; }
+.label-addr-form .reset { font: inherit; padding: 0.6rem 1rem; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--card); color: var(--text); cursor: pointer; }
+
+.label-privacy { max-width: 640px; margin: -0.5rem auto 1rem; color: var(--muted); font-size: 0.8rem; text-align: center; }
+.label-privacy.err { color: #b91c1c; }
+
+.label-loc { text-align: center; color: var(--muted); font-size: 0.85rem; margin: -0.5rem auto 1rem; }
+.label-loc strong { color: var(--navy); }
+
+/* Density-on-this-parcel comparison (fixed lot, vary units). */
+.lf-density-wrap { max-width: 640px; margin: 0.75rem auto 0; }
+.lf-density-result:not(:empty) { margin-top: 0.6rem; }
+.density-table { width: 100%; }
+.density-table small { color: var(--muted); font-weight: 400; }
+.density-btn { font: inherit; font-weight: 600; padding: 0.5rem 1rem; border: 1px solid var(--navy);
+  border-radius: var(--radius); background: var(--card); color: var(--navy); cursor: pointer; }
+.density-btn:hover { background: var(--navy); color: #fff; }
+.density-btn:disabled { opacity: 0.6; cursor: progress; }
+
+.row-highlight { background: #f1f5f9; }
+
+@media (prefers-color-scheme: dark) {
+  .label-privacy.err { color: #f87171; }
+  .label-loc strong { color: #e2e8f0; }
+  .density-btn { border-color: #475569; color: #e2e8f0; }
+  .row-highlight { background: #0b1220; }
+}
