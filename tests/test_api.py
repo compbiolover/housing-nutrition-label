@@ -276,7 +276,8 @@ def test_baseline_cost_matches_subject_size():
             {"key": "health", "score": 70},
             {"key": "socioeconomic", "score": 80},
             {"key": "walkability", "score": 40}]}
-        cfg = {"sqft": 4371, "value": 450_000, "units": 1, "stories": None, "lot_acres": 0.3}
+        cfg = {"sqft": 4371, "value": 450_000, "units": 1, "stories": None,
+               "lot_acres": 0.3, "flood_zone": "AE"}
         api._attach_baseline_cost(payload, lbl, cfg, self_baseline=False)
     finally:
         api.build_label_parts, api.cost_flows = orig_build, orig_flows
@@ -287,6 +288,9 @@ def test_baseline_cost_matches_subject_size():
     assert captured["units"] == 1
     assert captured["lot_acres"] == 0.3
     assert "stories" not in captured                 # None → omitted, uses default
+    # Flood exposure matched too, overriding the preset's hard-coded "X" so the EAL
+    # delta isn't skewed by a mismatched flood zone.
+    assert captured["flood_zone"] == "AE"
     assert captured["preset"] == "baseline"          # keeps typical 2000-frame construction
     assert payload["baseline_cost"]["label"] == api._BASELINE_LABEL
     assert payload["baseline_cost"]["annualEnergyCost"] == 2400

@@ -413,11 +413,14 @@ def label(
 _BASELINE_LABEL = "a same-size 2000-era frame home"
 
 # Subject attributes the baseline comparable inherits so the cost delta isolates
-# construction QUALITY, not size. Energy scales with sqft and expected loss scales
-# with value/units, so a baseline fixed at 2,000 sqft / $160k would make any large
-# or valuable home look expensive regardless of build. We copy only these size /
-# exposure fields; the baseline keeps the preset's typical-2000-frame construction
-# (year built, material, condition, foundation).
+# construction QUALITY, not size or exposure. Energy scales with sqft and expected
+# loss scales with value/units and flood exposure, so a baseline fixed at 2,000 sqft
+# / $160k / zone X would make any large, valuable, or flood-exposed home look
+# expensive regardless of build. We copy only these size/exposure fields; the
+# baseline keeps the preset's typical-2000-frame construction (year built, material,
+# condition, foundation). flood_zone is handled separately (explicit kwarg below)
+# because the preset hard-codes it to "X" and would otherwise never match the
+# subject's real, location-derived zone.
 _BASELINE_SIZE_FIELDS = ("sqft", "value", "units", "stories", "lot_acres")
 
 
@@ -449,10 +452,14 @@ def _attach_baseline_cost(payload: dict, lbl: dict, cfg: dict,
     main = {d["key"]: d.get("score") for d in lbl.get("dimensions", [])}
     overrides = {k: main.get(k) for k in ("health", "socioeconomic", "walkability")}
     size_fields = {k: cfg.get(k) for k in _BASELINE_SIZE_FIELDS if cfg.get(k) is not None}
+    # Match the subject's resolved flood zone (build_label_parts always sets it,
+    # auto-derived from the location when not supplied). Passed as the explicit
+    # kwarg so it overrides the baseline preset's hard-coded "X".
+    flood_zone = cfg.get("flood_zone")
     try:
         _bcfg, _br, _blbl = build_label_parts(
             preset="baseline", location=loc, allow_network=True, overrides=overrides,
-            **size_fields,
+            flood_zone=flood_zone, **size_fields,
         )
     except Exception:  # noqa: BLE001 — never fail the label over the cost strip
         log.exception("baseline cost scoring failed")

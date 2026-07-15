@@ -172,7 +172,7 @@ Discounting a constant $1,015/yr real over 30 years:
 - undiscounted 30-yr sum: $30,450
 
 So the label could state: *"~$18,000–23,000 lower operating + expected-loss cost over 30 years vs. a
-typical 2000-era frame home here."* **Caveat that must ship with it:** this is *operating + risk*
+same-size 2000-era frame home here."* **Caveat that must ship with it:** this is *operating + risk*
 cost only — it excludes the higher **purchase/construction price** of an ICF passive house, which the
 label does not know. The figure answers "which home is cheaper to *run and insure*," not "which is
 cheaper *all-in*." (This is the same scope limit as the EnergyGuide label, which shows operating cost,
