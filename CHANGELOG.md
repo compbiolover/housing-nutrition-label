@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.41](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.40...v0.1.41) (2026-07-15)
+
+
+### Code Refactoring
+
+* **web:** unify the scoring UI into one LabelForm widget ([#143](https://github.com/compbiolover/housing-nutrition-label/issues/143)) ([e9cd984](https://github.com/compbiolover/housing-nutrition-label/commit/e9cd984f604aa39d957ab78305a58e5c1e1fa63c))
+
 ## [0.1.40](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.39...v0.1.40) (2026-07-15)
 
 
