@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.40](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.39...v0.1.40) (2026-07-15)
+
+
+### Bug Fixes
+
+* size-match the cost-over-mortgage baseline comparable ([#141](https://github.com/compbiolover/housing-nutrition-label/issues/141)) ([cc76137](https://github.com/compbiolover/housing-nutrition-label/commit/cc761375bf56f1135d991d5d22de50f452e8d9cf))
+
 ## [0.1.39](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.38...v0.1.39) (2026-07-15)
 
 
