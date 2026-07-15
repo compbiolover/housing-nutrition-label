@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.44](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.43...v0.1.44) (2026-07-15)
+
+
+### Bug Fixes
+
+* show the density cost line for NSI-detected multi-unit buildings ([#149](https://github.com/compbiolover/housing-nutrition-label/issues/149)) ([82e00cb](https://github.com/compbiolover/housing-nutrition-label/commit/82e00cbbd707dd86b3a87865f281728e5ac54537))
+
 ## [0.1.43](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.42...v0.1.43) (2026-07-15)
 
 
