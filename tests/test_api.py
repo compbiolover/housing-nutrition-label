@@ -315,6 +315,49 @@ def test_baseline_cost_self_baseline_reuses_cost():
     assert payload["baseline_cost"]["annualEnergyCost"] == 2100   # reused verbatim
 
 
+def test_detached_cost_only_for_multiunit():
+    """The density-dividend line (vs. a detached single-family home) is attached
+    only for multi-unit buildings; a single-family home skips the extra pass."""
+    try:
+        import fastapi  # noqa: F401 — api.py imports it at module load
+    except ImportError:
+        print("  skip test_detached_cost_only_for_multiunit (fastapi not installed)")
+        return
+    import housing_label.api as api
+
+    captured = {}
+
+    class _Loc:
+        lat, lon = 35.13, -89.99
+
+    def _fake_build(**kwargs):
+        captured.clear()
+        captured.update(kwargs)
+        return {}, {"total_loss": 149.0}, {"metrics": {"est_monthly_energy_cost": 176.0}}
+
+    def _fake_flows(_r, _lbl):
+        return {"expectedAnnualLoss": 149, "annualEnergyCost": 2112}
+
+    orig_build, orig_flows = api.build_label_parts, api.cost_flows
+    api.build_label_parts, api.cost_flows = _fake_build, _fake_flows
+    try:
+        lbl = {"location": _Loc(), "dimensions": [{"key": "health", "score": 70}]}
+        # Single-family: no detached line, no scoring pass.
+        p1 = {}
+        api._attach_detached_cost(p1, lbl, {"units": 1, "flood_zone": "X"})
+        assert "detached_cost" not in p1 and not captured
+        # Multi-unit: a detached (units=1, ~2000 sqft) comparable is scored + attached.
+        p2 = {}
+        api._attach_detached_cost(p2, lbl, {"units": 157, "flood_zone": "AE"})
+        assert p2["detached_cost"]["label"] == api._DETACHED_LABEL
+        assert p2["detached_cost"]["annualEnergyCost"] == 2112
+        assert captured["units"] == 1                    # a detached comparable
+        assert captured["sqft"] == api._DETACHED_SQFT     # typical single-family size
+        assert captured["flood_zone"] == "AE"             # exposure matched
+    finally:
+        api.build_label_parts, api.cost_flows = orig_build, orig_flows
+
+
 def test_is_self_baseline_only_construction_breaks_it():
     """A preset=baseline home is its own comparable unless a CONSTRUCTION attribute
     is overridden to something OTHER than the baseline default. Size/value/exposure

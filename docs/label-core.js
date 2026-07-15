@@ -108,24 +108,44 @@ window.LabelCore = (function () {
   // house/baseline: {annualEnergyCost, expectedAnnualLoss}. baseline.label names
   // the comparable. Present value of the annual (energy + expected-loss) delta
   // over a 30-yr mortgage, banded across 2%–4% real discount rates.
-  function costStrip(house, baseline) {
+  // The 30-yr present value of the (energy + expected-loss) annual delta between
+  // `house` and a comparable, at a 4% real discount rate. Returns null when
+  // neither flow can be compared. Shared by the headline and the secondary line.
+  function costPv(house, comparable, rate) {
+    var cmpEnergy = house.annualEnergyCost != null && comparable.annualEnergyCost != null;
+    var cmpLoss = house.expectedAnnualLoss != null && comparable.expectedAnnualLoss != null;
+    if (!cmpEnergy && !cmpLoss) return null;
+    var dAnnual = (cmpEnergy ? comparable.annualEnergyCost - house.annualEnergyCost : 0)
+      + (cmpLoss ? comparable.expectedAnnualLoss - house.expectedAnnualLoss : 0);
+    return dAnnual * annuityFactor(30, rate == null ? 0.04 : rate);
+  }
+
+  // `secondary` (optional) adds a second comparison line — used for the
+  // density-dividend "vs. a detached single-family home" on multi-unit buildings.
+  function costStrip(house, baseline, secondary) {
     if (!house || !baseline) return "";
-    var cmpEnergy = house.annualEnergyCost != null && baseline.annualEnergyCost != null;
-    var cmpLoss = house.expectedAnnualLoss != null && baseline.expectedAnnualLoss != null;
-    if (!cmpEnergy && !cmpLoss) return "";
-    var dAnnual = (cmpEnergy ? baseline.annualEnergyCost - house.annualEnergyCost : 0)
-      + (cmpLoss ? baseline.expectedAnnualLoss - house.expectedAnnualLoss : 0);
-    var years = 30;
-    var pv = dAnnual * annuityFactor(years, 0.04);
-    var pvs = [Math.abs(dAnnual * annuityFactor(years, 0.04)), Math.abs(dAnnual * annuityFactor(years, 0.02))];
+    var pv = costPv(house, baseline, 0.04);
+    if (pv == null) return "";
+    var pvs = [Math.abs(pv), Math.abs(costPv(house, baseline, 0.02))];
     var lo = Math.min.apply(null, pvs), hi = Math.max.apply(null, pvs);
     var same = Math.abs(pv) < 1, cheaper = pv > 0;
     var dir = same ? "about the same" : (cheaper ? "lower" : "higher");
     var head = same ? "About the same"
       : fmtMoney(roundMoney(pv)) + ' <span class="' + (cheaper ? "cheaper" : "pricier") + '">' + dir + '</span>';
+    var secLine = "";
+    if (secondary) {
+      var spv = costPv(house, secondary, 0.04);
+      if (spv != null && Math.abs(spv) >= 1) {
+        var sdir = spv > 0 ? "lower" : "higher";
+        secLine = '<div class="cost-secondary">' + fmtMoney(roundMoney(spv))
+          + ' <span class="' + (spv > 0 ? "cheaper" : "pricier") + '">' + sdir + '</span> vs. '
+          + esc(secondary.label || "a detached single-family home") + '</div>';
+      }
+    }
     return '<div class="cost-strip"><div class="cost-cap">Cost over a 30-year mortgage</div>'
       + '<div class="cost-delta">' + head + '</div>'
       + (same ? "" : '<div class="cost-band">' + fmtK(lo) + '–' + fmtK(hi) + ' ' + dir + ' depending on how future costs are weighed</div>')
+      + secLine
       + '<div class="cost-vs">vs. ' + esc((baseline.label) || "a typical comparable here")
       + ' &mdash; counts only energy bills and likely disaster losses, in today’s dollars</div></div>';
   }
@@ -261,7 +281,7 @@ window.LabelCore = (function () {
 
     var confLine = compositeConfLine(data);
     html += confLine.html;
-    html += costStrip(data.cost, data.baseline_cost);
+    html += costStrip(data.cost, data.baseline_cost, data.detached_cost);
     html += (data.dimensions || []).map(function (d) { return dimRow(d, data); }).join("");
     if (metricBits.length) html += '<p class="meta" style="margin-top:0.75rem;">' + esc(metricBits.join("  ·  ")) + '</p>';
     (data.caveats || []).forEach(function (c) {

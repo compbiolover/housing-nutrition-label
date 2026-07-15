@@ -53,6 +53,33 @@ def test_enrich_row_per_unit_cost_falls_with_density():
     assert all(b < a for a, b in zip(costs, costs[1:])), f"not strictly falling: {costs}"
 
 
+def _total(units, lot=0.25, value=150_000.0):
+    row = pd.Series({"CALC_ACRE": lot / units, "latitude": None,
+                     "longitude": None, "RTOTAPR": value})
+    return enrich_row(row, in_urban_area=True)
+
+
+def test_density_credit_extends_past_16_du_acre():
+    """Regression: a high-rise-density parcel costs less to serve per unit than a
+    mid-rise one. The credit used to saturate ~16 DU/acre, so a 157-unit tower was
+    billed like a quadplex; now it keeps falling to the per-capita floor."""
+    c4 = _total(4)["est_annual_infra_cost"]      # 16 DU/acre
+    c16 = _total(16)["est_annual_infra_cost"]    # 64 DU/acre
+    c48 = _total(48)["est_annual_infra_cost"]    # 192 DU/acre
+    c157 = _total(157)["est_annual_infra_cost"]  # 628 DU/acre
+    assert c16 < c4 and c48 < c16                # keeps declining past a quadplex
+    assert c157 <= c48 + 1e-9                    # flattens at the per-capita floor
+    assert c157 < c4 * 0.85                      # a tower is materially cheaper than a fourplex
+
+
+def test_fire_and_sanitation_amortize_with_density():
+    """Fire and sanitation — once flat per household — now share across a dense
+    building, flooring at their per-capita residual. Parks stays flat (per-capita)."""
+    assert _total(157)["infra_cost_fire"] < _total(1)["infra_cost_fire"]
+    assert _total(157)["infra_cost_sanitation"] < _total(1)["infra_cost_sanitation"]
+    assert _total(157)["infra_cost_parks"] == _total(1)["infra_cost_parks"]
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

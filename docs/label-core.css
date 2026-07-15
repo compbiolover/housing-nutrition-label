@@ -77,6 +77,10 @@
 .cost-delta .pricier { color: #dc2626; }
 .cost-band, .cost-vs { font-size: 0.78rem; color: var(--muted); }
 .cost-vs { margin-top: 0.15rem; }
+/* Density-dividend line for multi-unit buildings (vs. a detached house). */
+.cost-secondary { font-size: 0.92rem; font-weight: 700; color: var(--navy); margin-top: 0.35rem; }
+.cost-secondary .cheaper { color: #16a34a; }
+.cost-secondary .pricier { color: #dc2626; }
 
 /* ── Mode toggle + compare (A/B) + profile picker (Label page) ──────────────*/
 .mode-toggle { display: flex; justify-content: center; gap: 0; margin: 0 auto 1rem; }
@@ -146,9 +150,9 @@
 @media (prefers-color-scheme: dark) {
   .label-card { border-color: #475569; }
   .label-card .composite-num, .label-card .build-line strong,
-  .cost-delta, .delta-table thead th, .picker label { color: #e2e8f0; }
-  .cost-delta .cheaper, .delta-table .up { color: #4ade80; }
-  .cost-delta .pricier, .delta-table .down { color: #f87171; }
+  .cost-delta, .cost-secondary, .delta-table thead th, .picker label { color: #e2e8f0; }
+  .cost-delta .cheaper, .cost-secondary .cheaper, .delta-table .up { color: #4ade80; }
+  .cost-delta .pricier, .cost-secondary .pricier, .delta-table .down { color: #f87171; }
   .addr-suggest li.active, .addr-suggest li:hover { background: #334155; }
   .field-tag.confirmed { background: #14532d; color: #bbf7d0; }
   .field-tag.estimated { background: #312e81; color: #c7d2fe; }

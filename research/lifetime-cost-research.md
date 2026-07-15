@@ -185,6 +185,16 @@ not price.)
 > regardless of construction (energy scales with sqft, expected loss with value). The user-facing copy
 > is therefore *"a same-size 2000-era frame home,"* not *"typical."* See `api._attach_baseline_cost`.
 
+> **Multi-unit density-dividend line.** Size-matching the headline comparable has a side effect for
+> multi-unit buildings: a 157-unit tower is compared against a 157-unit frame building, so density
+> cancels and only the (small) construction-quality delta remains. To surface density in dollars, a
+> **second line is added for `units > 1`**: *"vs. a detached single-family home,"* scoring a typical
+> 2000-era detached house (units 1, ~2,000 sqft) at the same location. On the same operating + risk
+> basis, a stacked unit reads materially lower (shared walls, a smaller footprint, less per-unit
+> disaster exposure) — e.g. ~$15k lower over 30 yr for the tower unit. The **shared-infrastructure**
+> side of the density dividend (much larger) is not in this cost line — the strip counts only energy +
+> disaster — but shows in the **Infrastructure Burden** dimension. See `api._attach_detached_cost`.
+
 ### 1.5 Exactly which existing quantities feed it
 
 | Feed | Source in code | Status | Include in headline? |
