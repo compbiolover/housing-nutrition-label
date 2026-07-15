@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.39](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.38...v0.1.39) (2026-07-15)
+
+
+### Features
+
+* converge BRM onto one continuous, uncapped model ([#138](https://github.com/compbiolover/housing-nutrition-label/issues/138)) ([81ca12a](https://github.com/compbiolover/housing-nutrition-label/commit/81ca12a6da774d31fef78e808008f1b11334a839))
+
 ## [0.1.38](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.37...v0.1.38) (2026-07-11)
 
 
