@@ -36,6 +36,8 @@ def test_full_zone_lookup_and_digit_fallback():
     assert R.resstock_base_eui("7", "1950_1979") is not None
     # A moisture regime ResStock doesn't sample still resolves by leading digit.
     assert R.resstock_base_eui("4Z", "2000_2009") == R.resstock_base_eui("4", "2000_2009")
+    # A lowercase zone still matches the full "4A" row (not the digit fallback).
+    assert R.resstock_base_eui("4a", "2000_2009") == R.resstock_base_eui("4A", "2000_2009")
     # No zone → None (caller keeps its own fallback).
     assert R.resstock_base_eui(None, "2000_2009") is None
 

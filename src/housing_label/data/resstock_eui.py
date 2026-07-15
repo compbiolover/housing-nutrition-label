@@ -20,8 +20,11 @@ plus "unknown" for a missing year built).
 from __future__ import annotations
 
 import csv
+import logging
 import pathlib
 from functools import lru_cache
+
+log = logging.getLogger(__name__)
 
 _CSV = pathlib.Path(__file__).resolve().parent / "resstock_eui.csv"
 
@@ -30,6 +33,11 @@ _CSV = pathlib.Path(__file__).resolve().parent / "resstock_eui.csv"
 def _table() -> dict[tuple[str, str], float]:
     table: dict[tuple[str, str], float] = {}
     if not _CSV.exists():
+        # Cached, so this warns once: the bundled table is missing (packaging /
+        # partial-checkout issue) and the Energy model will silently fall back to
+        # its legacy curve — surface it rather than degrade invisibly.
+        log.warning("ResStock EUI table not found at %s — Energy falls back to the "
+                    "legacy zone-scaled curve.", _CSV)
         return table
     with _CSV.open() as f:
         for row in csv.DictReader(f):
@@ -51,7 +59,9 @@ def resstock_base_eui(climate_zone: str | None, vintage_bin: str) -> float | Non
     if not climate_zone:
         return None
     table = _table()
-    zone = str(climate_zone).strip()
+    # Normalize so a lowercase "4a" still matches the "4A" row rather than losing
+    # the moisture regime to the digit fallback.
+    zone = str(climate_zone).strip().upper()
     for key in (zone, zone[:1]):
         eui = table.get((key, vintage_bin))
         if eui is not None:

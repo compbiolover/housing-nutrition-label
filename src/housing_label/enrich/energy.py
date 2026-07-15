@@ -279,8 +279,9 @@ def model_parcel_energy(
 
     Steps
     -----
-    1. Assign vintage bin → base EUI (kBTU/sqft/yr), scaled by climate zone.
-    2. Apply multiplicative adjustments: size, wall type, foundation, HVAC.
+    1. Look up the base EUI (kBTU/sqft/yr) from ResStock by (climate zone ×
+       vintage); zones ResStock doesn't cover fall back to the scaled 4A curve.
+    2. Apply within-cell multiplicative adjustments: size, wall type, foundation, HVAC.
     3. Convert adjusted EUI × floor area → total annual kBTU.
     4. Split kBTU into electricity (kWh) and gas (therms) by fuel split.
     5. Compute estimated monthly cost at utility rates.
