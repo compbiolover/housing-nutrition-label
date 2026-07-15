@@ -133,6 +133,25 @@ def test_metrics_present_on_result():
         assert m in r["metrics"]
 
 
+def test_bundled_tract_table_carries_new_metric_columns():
+    """Guard against a rebuild/commit silently dropping the new columns: the result
+    dict would still show the keys (as None) via _metrics(), so assert the *raw*
+    bundled crosswalk header has them and a populated tract has real values."""
+    import gzip
+    import pathlib
+
+    path = pathlib.Path(sref.__file__).resolve().parent / "socio_tracts.csv.gz"
+    with gzip.open(path, "rt") as f:
+        header = f.readline().strip().split(",")
+    for col in ("education_bachelors_plus_pct", "unemployment_rate_pct"):
+        assert col in header, f"bundled tract crosswalk is missing {col}"
+
+    r = sref.socio_for_tract("47157004200")   # a populated Shelby tract
+    assert r["geo_level"] == "tract"
+    assert r["metrics"]["education_bachelors_plus_pct"] is not None
+    assert r["metrics"]["unemployment_rate_pct"] is not None
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:
