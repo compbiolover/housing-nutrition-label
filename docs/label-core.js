@@ -120,8 +120,8 @@ window.LabelCore = (function () {
     return dAnnual * annuityFactor(30, rate == null ? 0.04 : rate);
   }
 
-  // `secondary` (optional) adds a second comparison line — used for the
-  // density-dividend "vs. a detached single-family home" on multi-unit buildings.
+  // `secondary` (optional) adds a second comparison line — the density dividend on
+  // multi-unit buildings: this unit vs. "the same home standing alone" (detached).
   function costStrip(house, baseline, secondary) {
     if (!house || !baseline) return "";
     var pv = costPv(house, baseline, 0.04);
@@ -139,7 +139,7 @@ window.LabelCore = (function () {
         var sdir = spv > 0 ? "lower" : "higher";
         secLine = '<div class="cost-secondary">' + fmtMoney(roundMoney(spv))
           + ' <span class="' + (spv > 0 ? "cheaper" : "pricier") + '">' + sdir + '</span> vs. '
-          + esc(secondary.label || "a detached single-family home") + '</div>';
+          + esc(secondary.label || "the same home standing alone") + '</div>';
       }
     }
     return '<div class="cost-strip"><div class="cost-cap">Cost over a 30-year mortgage</div>'

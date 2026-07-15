@@ -188,12 +188,19 @@ not price.)
 > **Multi-unit density-dividend line.** Size-matching the headline comparable has a side effect for
 > multi-unit buildings: a 157-unit tower is compared against a 157-unit frame building, so density
 > cancels and only the (small) construction-quality delta remains. To surface density in dollars, a
-> **second line is added for `units > 1`**: *"vs. a detached single-family home,"* scoring a typical
-> 2000-era detached house (units 1, ~2,000 sqft) at the same location. On the same operating + risk
-> basis, a stacked unit reads materially lower (shared walls, a smaller footprint, less per-unit
-> disaster exposure) — e.g. ~$15k lower over 30 yr for the tower unit. The **shared-infrastructure**
-> side of the density dividend (much larger) is not in this cost line — the strip counts only energy +
-> disaster — but shows in the **Infrastructure Burden** dimension. See `api._attach_detached_cost`.
+> **second line is added for `units > 1`**: *"vs. the same home standing alone."* This isolates
+> **density alone** — same size, value, and build quality, detached instead of stacked. A party wall
+> changes exactly two of the flows the strip already discounts, so the comparable is derived
+> analytically from the unit's own numbers (no second scoring pass, no size/material/BRM leakage): it
+> **reverses the shared-wall energy credit** (`annualEnergyCost ÷ attachment_eui_factor(units)` — a
+> stacked unit exposes less exterior surface, ~27% less heating/cooling for a 20+-unit building per EIA
+> RECS) and **restores full ground-floor flood exposure** (`flood_loss × (1/flood_floor − 1)`, other
+> perils unchanged). For the Memphis tower unit that is ~$8–11k lower over 30 yr, essentially all of it
+> the shared-wall energy effect (flood is negligible in an X-zone). The number is smaller than a
+> naïve *"vs. a typical detached house"* would give precisely because it excludes the size difference —
+> that's build quality's job (the headline), not density's. The **shared-infrastructure** side of the
+> density dividend (much larger) is not in this cost line — the strip counts only energy + disaster —
+> but shows in the **Infrastructure Burden** dimension. See `api._attach_detached_cost`.
 
 ### 1.5 Exactly which existing quantities feed it
 
