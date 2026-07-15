@@ -316,46 +316,43 @@ def test_baseline_cost_self_baseline_reuses_cost():
 
 
 def test_detached_cost_only_for_multiunit():
-    """The density-dividend line (vs. a detached single-family home) is attached
-    only for multi-unit buildings; a single-family home skips the extra pass."""
+    """The density-dividend line (vs. the same home standing alone) is attached only
+    for multi-unit buildings, and it isolates DENSITY: it reverses exactly the two
+    attachment factors (shared-wall energy credit + floor-aware flood reduction) off
+    the unit's own flows, holding size/value/quality fixed."""
     try:
         import fastapi  # noqa: F401 — api.py imports it at module load
     except ImportError:
         print("  skip test_detached_cost_only_for_multiunit (fastapi not installed)")
         return
     import housing_label.api as api
+    from housing_label.simulate.dimensions import attachment_eui_factor
 
-    captured = {}
+    # Single-family: no detached line at all.
+    p1 = {"cost": {"annualEnergyCost": 1800, "expectedAnnualLoss": 900}}
+    api._attach_detached_cost(p1, {"flood_floor": 0.25, "flood_loss": 40.0}, {"units": 1})
+    assert "detached_cost" not in p1
 
-    class _Loc:
-        lat, lon = 35.13, -89.99
+    # Multi-unit: detached comparable = the unit's flows with the two credits undone.
+    house = {"annualEnergyCost": 1800, "expectedAnnualLoss": 900}
+    r = {"flood_floor": 0.25, "flood_loss": 40.0, "total_loss": 900.0}
+    p2 = {"cost": dict(house)}
+    api._attach_detached_cost(p2, r, {"units": 157})
+    d = p2["detached_cost"]
+    assert d["label"] == api._DETACHED_LABEL
+    # Energy: the 20+-unit shared-wall credit (0.73) reversed → higher detached bill.
+    f = attachment_eui_factor(157)
+    assert d["annualEnergyCost"] == round(1800 / f) and d["annualEnergyCost"] > 1800
+    # Flood: full ground-floor exposure restored (40 / 0.25 = 160, i.e. +120).
+    assert d["expectedAnnualLoss"] == round(900 + 40.0 * (1 / 0.25 - 1)) == 1020
+    # The house's own flows are not mutated in place.
+    assert p2["cost"] == house
 
-    def _fake_build(**kwargs):
-        captured.clear()
-        captured.update(kwargs)
-        return {}, {"total_loss": 149.0}, {"metrics": {"est_monthly_energy_cost": 176.0}}
-
-    def _fake_flows(_r, _lbl):
-        return {"expectedAnnualLoss": 149, "annualEnergyCost": 2112}
-
-    orig_build, orig_flows = api.build_label_parts, api.cost_flows
-    api.build_label_parts, api.cost_flows = _fake_build, _fake_flows
-    try:
-        lbl = {"location": _Loc(), "dimensions": [{"key": "health", "score": 70}]}
-        # Single-family: no detached line, no scoring pass.
-        p1 = {}
-        api._attach_detached_cost(p1, lbl, {"units": 1, "flood_zone": "X"})
-        assert "detached_cost" not in p1 and not captured
-        # Multi-unit: a detached (units=1, ~2000 sqft) comparable is scored + attached.
-        p2 = {}
-        api._attach_detached_cost(p2, lbl, {"units": 157, "flood_zone": "AE"})
-        assert p2["detached_cost"]["label"] == api._DETACHED_LABEL
-        assert p2["detached_cost"]["annualEnergyCost"] == 2112
-        assert captured["units"] == 1                    # a detached comparable
-        assert captured["sqft"] == api._DETACHED_SQFT     # typical single-family size
-        assert captured["flood_zone"] == "AE"             # exposure matched
-    finally:
-        api.build_label_parts, api.cost_flows = orig_build, orig_flows
+    # A building with no attachment credit and no flood reduction → detached == house
+    # (delta ~0; the frontend then hides the line).
+    p3 = {"cost": dict(house)}
+    api._attach_detached_cost(p3, {"flood_floor": 1.0, "flood_loss": 0.0}, {"units": 1})
+    assert "detached_cost" not in p3    # units=1 short-circuits before any work
 
 
 def test_is_self_baseline_only_construction_breaks_it():

@@ -60,6 +60,7 @@ from housing_label.simulate.house import (
     PRESETS, CONSTRUCTION_FACTOR, FOUNDATION_FACTOR, CONDITION_FACTOR,
     BONUS_FLAGS, ELEVATION_FLAGS,
 )
+from housing_label.simulate.dimensions import attachment_eui_factor
 
 log = logging.getLogger("housing_label.api")
 
@@ -407,7 +408,7 @@ def label(
         upgrade_list=upgrade_list,
     )
     _attach_baseline_cost(payload, lbl, cfg, self_baseline=is_self_baseline)
-    _attach_detached_cost(payload, lbl, cfg)   # multi-unit → density-dividend line
+    _attach_detached_cost(payload, r, cfg)   # multi-unit → density-dividend line
     _result_cache.put(cache_key, payload)
     return payload
 
@@ -501,39 +502,46 @@ def _attach_baseline_cost(payload: dict, lbl: dict, cfg: dict,
     payload["baseline_cost"] = flows
 
 
-_DETACHED_LABEL = "a detached single-family home"
-_DETACHED_SQFT = 2000   # a typical US single-family living area
+_DETACHED_LABEL = "the same home standing alone"
 
 
-def _attach_detached_cost(payload: dict, lbl: dict, cfg: dict) -> None:
-    """For a MULTI-UNIT building, also score a typical detached single-family home
-    at the same location and attach its cost flows, so the frontend can show the
-    density dividend: how much lower a stacked unit's run-and-insure cost is than a
-    standalone house (shared walls, a smaller footprint, and less per-unit disaster
-    exposure). This is the counterpart to the same-size headline — where that
-    isolates build QUALITY, this captures the DENSITY benefit in dollars. The
-    shared-infrastructure side of density shows separately in Infrastructure Burden.
+def _attach_detached_cost(payload: dict, r: dict, cfg: dict) -> None:
+    """For a MULTI-UNIT building, attach the run-and-insure cost of *the same home
+    standing alone* — same size, value, and build quality, detached instead of
+    stacked — so the frontend can show the density dividend in dollars.
+
+    This isolates DENSITY, holding everything else fixed: the only two things a
+    party wall changes are (1) heating/cooling energy — a stacked unit exposes far
+    less exterior surface, the EIA-RECS shared-wall credit the energy model applies
+    via ``attachment_eui_factor`` — and (2) flood exposure — only a building's
+    lowest floors flood (``flood_floor``). Reversing exactly those two factors off
+    the unit's own already-scored flows gives the detached comparable without a
+    second scoring pass, and without letting any material/BRM/size difference leak
+    in (that would be quality, not density — the same-size headline's job). The
+    shared-*infrastructure* side of density shows separately in Infrastructure Burden.
 
     Best-effort and only for units > 1; single-family homes skip it entirely.
     """
-    if int(cfg.get("units") or 1) <= 1:
+    units = int(cfg.get("units") or 1)
+    if units <= 1:
         return
-    loc = lbl.get("location")
-    if loc is None:
+    house = payload.get("cost")
+    if not house:
         return
-    main = {d["key"]: d.get("score") for d in lbl.get("dimensions", [])}
-    overrides = {k: main.get(k) for k in ("health", "socioeconomic", "walkability")}
-    try:
-        _dcfg, _dr, _dlbl = build_label_parts(
-            preset="baseline", location=loc, allow_network=True, overrides=overrides,
-            flood_zone=cfg.get("flood_zone"), units=1, sqft=_DETACHED_SQFT,
-        )
-    except Exception:  # noqa: BLE001 — never fail the label over the cost strip
-        log.exception("detached cost scoring failed")
-        return
-    flows = cost_flows(_dr, _dlbl)
-    flows["label"] = _DETACHED_LABEL
-    payload["detached_cost"] = flows
+    detached = dict(house)
+    # (1) Undo the shared-wall energy credit → the same envelope, detached.
+    eui_factor = attachment_eui_factor(units)   # <= 1; 1.0 leaves energy unchanged
+    if house.get("annualEnergyCost") is not None and eui_factor > 0:
+        detached["annualEnergyCost"] = round(house["annualEnergyCost"] / eui_factor)
+    # (2) Undo the floor-aware flood reduction → full ground-floor exposure. Only
+    #     the flood peril moves; the other perils' losses are unchanged.
+    flood_floor = r.get("flood_floor") or 1.0
+    if house.get("expectedAnnualLoss") is not None and 0 < flood_floor < 1:
+        extra_flood = (r.get("flood_loss") or 0.0) * (1.0 / flood_floor - 1.0)
+        detached["expectedAnnualLoss"] = round(
+            (r.get("total_loss") or house["expectedAnnualLoss"]) + extra_flood)
+    detached["label"] = _DETACHED_LABEL
+    payload["detached_cost"] = detached
 
 
 # The construction profiles shown on the Label page, scored side by side at one
