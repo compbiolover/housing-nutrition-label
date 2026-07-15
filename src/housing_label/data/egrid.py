@@ -1,4 +1,4 @@
-"""Grid CO2 emission factor by location (eGRID2023, keyless + offline).
+"""Grid CO2e emission factor by location (eGRID2023, keyless + offline).
 
 Returns the EPA eGRID **subregion** total-output CO2-equivalent emission rate for
 a county, so the environmental dimension's operational-carbon leg reflects the
