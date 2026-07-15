@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.45](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.44...v0.1.45) (2026-07-15)
+
+
+### Bug Fixes
+
+* hide the density-comparison button for detected multi-unit buildings ([#151](https://github.com/compbiolover/housing-nutrition-label/issues/151)) ([06e3802](https://github.com/compbiolover/housing-nutrition-label/commit/06e3802ea1fbbe05a5ae58a642951a81c7e37a9f))
+
 ## [0.1.44](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.43...v0.1.44) (2026-07-15)
 
 
