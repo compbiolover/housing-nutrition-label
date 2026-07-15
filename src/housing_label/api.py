@@ -522,7 +522,10 @@ def _attach_detached_cost(payload: dict, r: dict, cfg: dict) -> None:
 
     Best-effort and only for units > 1; single-family homes skip it entirely.
     """
-    units = int(cfg.get("units") or 1)
+    try:
+        units = int(cfg.get("units") or 1)
+    except (TypeError, ValueError):   # best-effort: a malformed count must not break the label
+        return
     if units <= 1:
         return
     house = payload.get("cost")
@@ -538,8 +541,10 @@ def _attach_detached_cost(payload: dict, r: dict, cfg: dict) -> None:
     flood_floor = r.get("flood_floor") or 1.0
     if house.get("expectedAnnualLoss") is not None and 0 < flood_floor < 1:
         extra_flood = (r.get("flood_loss") or 0.0) * (1.0 / flood_floor - 1.0)
-        detached["expectedAnnualLoss"] = round(
-            (r.get("total_loss") or house["expectedAnnualLoss"]) + extra_flood)
+        base_loss = r.get("total_loss")   # explicit None check: a real 0.0 loss must survive
+        if base_loss is None:
+            base_loss = house["expectedAnnualLoss"]
+        detached["expectedAnnualLoss"] = round(base_loss + extra_flood)
     detached["label"] = _DETACHED_LABEL
     payload["detached_cost"] = detached
 

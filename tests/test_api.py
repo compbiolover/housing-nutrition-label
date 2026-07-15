@@ -354,6 +354,17 @@ def test_detached_cost_only_for_multiunit():
     api._attach_detached_cost(p3, {"flood_floor": 1.0, "flood_loss": 0.0}, {"units": 1})
     assert "detached_cost" not in p3    # units=1 short-circuits before any work
 
+    # Best-effort: a malformed unit count must not raise (the label must still render).
+    p4 = {"cost": dict(house)}
+    api._attach_detached_cost(p4, r, {"units": "not-a-number"})
+    assert "detached_cost" not in p4
+
+    # A legitimate zero total loss survives (no falsy fallback to the house value).
+    p5 = {"cost": {"annualEnergyCost": 1800, "expectedAnnualLoss": 0}}
+    api._attach_detached_cost(p5, {"flood_floor": 0.25, "flood_loss": 0.0, "total_loss": 0.0},
+                              {"units": 157})
+    assert p5["detached_cost"]["expectedAnnualLoss"] == 0
+
 
 def test_is_self_baseline_only_construction_breaks_it():
     """A preset=baseline home is its own comparable unless a CONSTRUCTION attribute
