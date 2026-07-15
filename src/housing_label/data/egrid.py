@@ -27,7 +27,7 @@ import csv
 import pathlib
 from functools import lru_cache
 
-EGRID_VINTAGE = "eGRID2023"
+EGRID_VINTAGE = "eGRID2023 Rev 2"
 LB_PER_MWH_TO_KG_PER_KWH = 0.45359237 / 1000.0   # lb/MWh → kg/kWh
 
 _CSV = pathlib.Path(__file__).resolve().parent / "egrid_subregions.csv"

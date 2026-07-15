@@ -102,7 +102,7 @@ SCRIPT_DIR = pathlib.Path(__file__).resolve().parents[3]   # repo root; data liv
 # ── Emission factors (verified — see research doc) ────────────────────────────
 EF_GRID_KG_PER_KWH   = 0.4097  # EPA eGRID2023 SRTV: 903.306 lb CO2e/MWh (matches data/egrid.py)
 EF_GAS_KG_PER_THERM  = 5.3     # EPA GHG Emission Factors Hub (2025; natural-gas factor unchanged)
-EGRID_VINTAGE        = "eGRID2023 SRTV"
+EGRID_VINTAGE        = "eGRID2023 Rev 2 SRTV"
 
 # ── Embodied carbon ───────────────────────────────────────────────────────────
 RSP_YEARS = 60.0   # EN 15978 / RICS reference study period (legacy constant)

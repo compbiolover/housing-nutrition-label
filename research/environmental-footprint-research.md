@@ -35,16 +35,16 @@ operational_co2e_kg/yr = est_annual_kwh × EF_grid  +  est_annual_therms × EF_g
 
 | Factor | Value | Source | Verified |
 |--------|-------|--------|----------|
-| `EF_grid` (electricity) | **933.1 lb CO₂/MWh = 0.423 kg CO₂e/kWh** — eGRID **SRTV** subregion (SERC Tennessee Valley), the correct subregion for Memphis/TVA | EPA eGRID2022 summary tables | ✅ 3–0 |
+| `EF_grid` (electricity) | **903.306 lb CO₂e/MWh = 0.4097 kg CO₂e/kWh** — eGRID **SRTV** subregion (SERC Tennessee Valley), the correct subregion for Memphis/TVA | EPA eGRID2023 Rev 2 summary tables | ✅ 3–0 |
 | `EF_gas` (natural gas) | **5.3 kg CO₂e/therm** (0.0053 t CO₂/therm + minor CH₄/N₂O) | EPA GHG Emission Factors Hub / Equivalencies Calculator | ✅ 3–0 |
 | GWP basis | 100-yr GWPs, IPCC AR4/AR5 | EPA methodology | ✅ 2–1 |
 
 **Location-based vs market-based / TVA nuance (verify-flagged).** TVA *self-reports* a
-2023 system rate of ~625 lb CO₂/MWh — far below the eGRID SRTV 933.1. The claim that
+2023 system rate of ~625 lb CO₂/MWh — far below the eGRID SRTV 903.3. The claim that
 "TVA's rate is significantly lower than eGRID" was **refuted (1–2)** because the two are
 not apples-to-apples: eGRID SRTV is the standard **location-based** subregion factor and
 covers all generation in the footprint, not just TVA-owned assets.
-→ **Use eGRID SRTV 933.1 lb/MWh as the primary (location-based) factor.** Optionally
+→ **Use eGRID SRTV 903.3 lb/MWh as the primary (location-based) factor.** Optionally
 report a market-based variant using TVA's self-reported rate. Treat the factor as a
 **dated constant** (eGRID is updated ~annually and the grid is decarbonizing) — store the
 eGRID vintage in a `*_data_source` column and refresh on each release.
@@ -201,7 +201,7 @@ unknowns) >> water (behavioral variance) > operational (already modeled, factors
 
 ## Sources (verified primary unless noted)
 
-- EPA eGRID2022 summary tables — grid emission factors (SRTV). `epa.gov/system/files/documents/2024-01/egrid2022_summary_tables.pdf`
+- EPA eGRID2023 Rev 2 summary tables — grid emission factors (SRTV). `epa.gov/system/files/documents/2025-06/summary_tables_rev2.xlsx`
 - EPA GHG Emission Factors Hub / Equivalencies Calculator — natural gas factor, GWPs. `epa.gov/.../ghg_emission_factors_hub.pdf`
 - Jungclaus et al. 2024, *Sustainable Cities and Society* — US single-family embodied carbon 39–121 kgCO₂e/m². `sciencedirect.com/science/article/abs/pii/S2210670724007996`
 - Carbon Leadership Forum — Embodied Carbon Benchmark; EC3 tool; CLF NA LCA dataset. `carbonleadershipforum.org`

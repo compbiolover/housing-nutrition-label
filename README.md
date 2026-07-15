@@ -86,7 +86,7 @@ Component-lifespan / effective-age model blending the remaining service life of 
 <details>
 <summary><strong>🌱 Environmental Footprint</strong> — operational + embodied carbon + water</summary>
 
-Three components blended 0.50 operational / 0.30 embodied / 0.20 water: operational CO₂e from modeled energy use × EPA eGRID2022 SRTV grid + natural-gas factors; embodied carbon from material/size (calibrated to the ~39–121 kgCO₂e/m² US single-family band) amortized over a 60-yr study period; and water use from EPA WaterSense benchmarks (with the Memphis Sand aquifer's low embedded-energy advantage). See [research/environmental-footprint-research.md](research/environmental-footprint-research.md). Unscored for vacant / non-residential parcels.
+Three components blended 0.50 operational / 0.30 embodied / 0.20 water: operational CO₂e from modeled energy use × EPA eGRID2023 SRTV grid + natural-gas factors; embodied carbon from material/size (calibrated to the ~39–121 kgCO₂e/m² US single-family band) amortized over a 60-yr study period; and water use from EPA WaterSense benchmarks (with the Memphis Sand aquifer's low embedded-energy advantage). See [research/environmental-footprint-research.md](research/environmental-footprint-research.md). Unscored for vacant / non-residential parcels.
 
 </details>
 
@@ -260,7 +260,7 @@ Risk Index wildfire** EAL (a bundled national tract/county crosswalk) for the fi
 calibrates its cost curves to the location's county local-government spending (a bundled Census of Governments
 crosswalk) and its property-tax revenue to the county's effective rate (a bundled Census ACS crosswalk), each
 with a national-average fallback for unmapped counties, and Environmental uses the
-location's **eGRID2022 subregion** grid-carbon factor (a bundled county→subregion crosswalk;
+location's **eGRID2023 subregion** grid-carbon factor (a bundled county→subregion crosswalk;
 counties that can't be mapped fall back to the US-average factor).
 
 </details>
