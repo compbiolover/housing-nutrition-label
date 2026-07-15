@@ -131,3 +131,15 @@ def test_simulator_shares_one_implementation():
     from housing_label.simulate import house
     assert house.code_era_factor is code_era_factor
     assert house.fire_age_factor is fire_age_factor
+
+
+def _run_all():
+    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
+    for t in tests:
+        t()
+        print(f"  ok  {t.__name__}")
+    print(f"\n{len(tests)} tests passed.")
+
+
+if __name__ == "__main__":
+    _run_all()
