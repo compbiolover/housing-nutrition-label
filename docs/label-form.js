@@ -27,7 +27,9 @@
  */
 window.LabelForm = (function () {
   "use strict";
-  var LC = window.LabelCore, AS = window.AddrSuggest;
+  // Resolved in mount() (not at eval time) so a clear error fires if a page
+  // includes the scripts in the wrong order, instead of a cryptic later crash.
+  var LC, AS;
 
   // Construction fields shown in the refine panel. `key` is the /label query
   // param; the input carries data-field="<key>" so the controller can read/write
@@ -132,6 +134,16 @@ window.LabelForm = (function () {
     opts = opts || {};
     var root = opts.container;
     if (!root) { throw new Error("LabelForm.mount: opts.container is required"); }
+    // Hard dependencies — fail loudly and actionably if the page loaded scripts
+    // out of order (label-core.js and addr-suggest.js must come before this).
+    LC = window.LabelCore; AS = window.AddrSuggest;
+    if (!LC || !AS) {
+      var miss = (!LC ? "label-core.js (LabelCore)" : "") + (!LC && !AS ? " and " : "")
+        + (!AS ? "addr-suggest.js (AddrSuggest)" : "");
+      var err = "LabelForm.mount: missing dependency — load " + miss + " before label-form.js.";
+      root.innerHTML = '<div class="error">' + err + '</div>';
+      throw new Error(err);
+    }
     // Keep only supported modes, in caller order, de-duped — an unknown/typo'd
     // value must not silently fall through to the Compare branch.
     var modes = (opts.modes || []).filter(function (m, i, a) {
@@ -331,7 +343,7 @@ window.LabelForm = (function () {
       var dd = data.density_dividend || {};
       if (dd.fiscal_ratio_from != null && dd.fiscal_ratio_to != null) {
         html += '<div class="insight"><strong>The density dividend:</strong> going from '
-          + dd.from_units + ' to ' + dd.to_units + ' unit' + (dd.to_units === 1 ? "" : "s")
+          + esc(dd.from_units) + ' to ' + esc(dd.to_units) + ' unit' + (dd.to_units === 1 ? "" : "s")
           + ' on this same lot moves the fiscal ratio ' + dd.fiscal_ratio_from.toFixed(2)
           + ' &rarr; ' + dd.fiscal_ratio_to.toFixed(2) + ' and Infrastructure Burden '
           + gradeSpan(dd.infrastructure_grade_from) + ' &rarr; ' + gradeSpan(dd.infrastructure_grade_to)
