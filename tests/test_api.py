@@ -243,6 +243,109 @@ def test_rate_limit_returns_429():
         importlib.reload(api)                 # restore the default-limit module state
 
 
+def test_baseline_cost_matches_subject_size():
+    """The cost-strip baseline inherits the subject home's size/value so the 30-yr
+    delta reflects construction quality, not square footage — a large or valuable
+    home must not read as expensive purely for being large. Guards against the
+    old behavior where the comparable was fixed at 2,000 sqft / $160k."""
+    try:
+        import fastapi  # noqa: F401 — api.py imports it at module load
+    except ImportError:
+        print("  skip test_baseline_cost_matches_subject_size (fastapi not installed)")
+        return
+    import housing_label.api as api
+
+    captured = {}
+
+    class _Loc:
+        lat, lon = 35.93, -83.98
+
+    def _fake_build(**kwargs):
+        captured.clear()
+        captured.update(kwargs)
+        return {}, {"total_loss": 100.0}, {"metrics": {"est_monthly_energy_cost": 200.0}}
+
+    def _fake_flows(_r, _lbl):
+        return {"expectedAnnualLoss": 100, "annualEnergyCost": 2400}
+
+    orig_build, orig_flows = api.build_label_parts, api.cost_flows
+    api.build_label_parts, api.cost_flows = _fake_build, _fake_flows
+    try:
+        payload = {"cost": {"expectedAnnualLoss": 300, "annualEnergyCost": 4800}}
+        lbl = {"location": _Loc(), "dimensions": [
+            {"key": "health", "score": 70},
+            {"key": "socioeconomic", "score": 80},
+            {"key": "walkability", "score": 40}]}
+        cfg = {"sqft": 4371, "value": 450_000, "units": 1, "stories": None,
+               "lot_acres": 0.3, "flood_zone": "AE"}
+        api._attach_baseline_cost(payload, lbl, cfg, self_baseline=False)
+    finally:
+        api.build_label_parts, api.cost_flows = orig_build, orig_flows
+
+    # Subject size/value forwarded so the baseline is size-matched; None fields dropped.
+    assert captured["sqft"] == 4371
+    assert captured["value"] == 450_000
+    assert captured["units"] == 1
+    assert captured["lot_acres"] == 0.3
+    assert "stories" not in captured                 # None → omitted, uses default
+    # Flood exposure matched too, overriding the preset's hard-coded "X" so the EAL
+    # delta isn't skewed by a mismatched flood zone.
+    assert captured["flood_zone"] == "AE"
+    assert captured["preset"] == "baseline"          # keeps typical 2000-frame construction
+    assert payload["baseline_cost"]["label"] == api._BASELINE_LABEL
+    assert payload["baseline_cost"]["annualEnergyCost"] == 2400
+
+
+def test_baseline_cost_self_baseline_reuses_cost():
+    """When the scored home already is the baseline, reuse its own flows (delta 0)
+    without a second scoring pass."""
+    try:
+        import fastapi  # noqa: F401 — api.py imports it at module load
+    except ImportError:
+        print("  skip test_baseline_cost_self_baseline_reuses_cost (fastapi not installed)")
+        return
+    import housing_label.api as api
+
+    # location is None (e.g. geocode failed): self-baseline still attaches, since
+    # the delta is 0 and needs no comparable scoring.
+    payload = {"cost": {"expectedAnnualLoss": 150, "annualEnergyCost": 2100}}
+    lbl = {"location": None, "dimensions": []}
+    api._attach_baseline_cost(payload, lbl, {"sqft": 2000}, self_baseline=True)
+    assert payload["baseline_cost"]["label"] == api._BASELINE_LABEL
+    assert payload["baseline_cost"]["annualEnergyCost"] == 2100   # reused verbatim
+
+
+def test_is_self_baseline_only_construction_breaks_it():
+    """A preset=baseline home is its own comparable unless a CONSTRUCTION attribute
+    is overridden to something OTHER than the baseline default. Size/value/exposure
+    are inherited by the comparable, so they aren't even inputs here."""
+    try:
+        import fastapi  # noqa: F401 — api.py imports it at module load
+    except ImportError:
+        print("  skip test_is_self_baseline_only_construction_breaks_it (fastapi not installed)")
+        return
+    from housing_label.api import _is_self_baseline, PRESETS
+
+    none = dict(year_built=None, construction=None, foundation=None, condition=None,
+                bldg_material=None, upgrade_list=[])
+    # Plain baseline (no overrides) is self-baseline; a non-baseline preset never is.
+    assert _is_self_baseline("baseline", **none) is True
+    assert _is_self_baseline(None, **none) is False
+    assert _is_self_baseline("worst-case", **none) is False
+    # Explicitly passing the baseline's OWN defaults is a no-op — still self-baseline
+    # (no redundant second pass).
+    b = PRESETS["baseline"]
+    assert _is_self_baseline("baseline", **{**none,
+        "year_built": b["year_built"], "construction": b["construction"],
+        "foundation": b["foundation"], "condition": b["condition"]}) is True
+    # Each override to a NON-default value breaks the short-circuit — including
+    # falsy-but-real values like year_built=0 (guards a truthiness misclassification).
+    for field, val in (("year_built", 1990), ("year_built", 0), ("construction", "brick"),
+                       ("foundation", "full-basement"), ("condition", "poor"),
+                       ("bldg_material", "concrete"), ("upgrade_list", ["solar"])):
+        assert _is_self_baseline("baseline", **{**none, field: val}) is False, field
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

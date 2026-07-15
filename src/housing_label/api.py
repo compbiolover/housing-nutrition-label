@@ -398,22 +398,68 @@ def label(
         log.exception("scoring failed (address=%r lat=%r lon=%r)", address, lat, lon)
         raise HTTPException(502, "scoring failed")
     payload = label_payload(cfg, r, lbl)
-    # When the scored home IS the baseline comparable (preset=baseline with no
-    # construction/upgrade overrides), the delta is 0 by definition — reuse the
-    # already-computed house cost instead of a redundant second scoring pass.
-    is_self_baseline = preset == "baseline" and not any((
-        year_built, construction, foundation, condition, value, units, sqft,
-        lot_acres, bldg_material, stories, upgrade_list,
-    ))
-    _attach_baseline_cost(payload, lbl, self_baseline=is_self_baseline)
+    # When the scored home IS its own baseline comparable, the delta is 0 by
+    # definition — reuse the already-computed house cost instead of a redundant
+    # (network-hitting) second scoring pass. See _is_self_baseline.
+    is_self_baseline = _is_self_baseline(
+        preset, year_built=year_built, construction=construction,
+        foundation=foundation, condition=condition, bldg_material=bldg_material,
+        upgrade_list=upgrade_list,
+    )
+    _attach_baseline_cost(payload, lbl, cfg, self_baseline=is_self_baseline)
     _result_cache.put(cache_key, payload)
     return payload
 
 
-def _attach_baseline_cost(payload: dict, lbl: dict, self_baseline: bool = False) -> None:
-    """Score a typical comparable (2000-era frame home) at the SAME resolved
-    location and attach its cost flows, so the frontend can present the lifetime
-    cost as a delta vs. a typical home here (research/lifetime-cost-research.md).
+_BASELINE_LABEL = "a same-size 2000-era frame home"
+
+# Subject attributes the baseline comparable inherits so the cost delta isolates
+# construction QUALITY, not size or exposure. Energy scales with sqft and expected
+# loss scales with value/units and flood exposure, so a baseline fixed at 2,000 sqft
+# / $160k / zone X would make any large, valuable, or flood-exposed home look
+# expensive regardless of build. We copy only these size/exposure fields; the
+# baseline keeps the preset's typical-2000-frame construction (year built, material,
+# condition, foundation). flood_zone is handled separately (explicit kwarg below)
+# because the preset hard-codes it to "X" and would otherwise never match the
+# subject's real, location-derived zone.
+_BASELINE_SIZE_FIELDS = ("sqft", "value", "units", "stories", "lot_acres")
+
+
+def _is_self_baseline(preset, *, year_built, construction, foundation, condition,
+                      bldg_material, upgrade_list) -> bool:
+    """True when a scored home already IS its own baseline comparable, so the cost
+    delta is 0 and the second scoring pass can be skipped.
+
+    Only ``preset="baseline"`` homes qualify. The comparable inherits the subject's
+    size / value / flood exposure (see ``_attach_baseline_cost``), so those never
+    matter here. A construction arg counts as a real difference only when it
+    *differs from the baseline preset's own default* — passing the default value
+    (e.g. ``year_built=2000`` or ``construction=frame``) is a no-op that still
+    describes the baseline build. Comparisons are explicit (``== default`` / ``is
+    None``), not truthiness, so a falsy-but-real value like ``year_built=0`` (not
+    range-validated upstream) is correctly treated as a difference.
+    """
+    if preset != "baseline":
+        return False
+    b = PRESETS["baseline"]
+    return (
+        (year_built is None or year_built == b["year_built"])
+        and (construction is None or construction == b["construction"])
+        and (foundation is None or foundation == b["foundation"])
+        and (condition is None or condition == b["condition"])
+        and bldg_material is None            # baseline is single-family (no material)
+        and not upgrade_list
+    )
+
+
+def _attach_baseline_cost(payload: dict, lbl: dict, cfg: dict,
+                          self_baseline: bool = False) -> None:
+    """Score a same-size 2000-era frame comparable at the SAME resolved location
+    and attach its cost flows, so the frontend can present the lifetime cost as a
+    delta vs. an equivalent typical home (research/lifetime-cost-research.md).
+
+    The comparable matches the subject home's size/value/exposure and differs only
+    in construction, so the delta reflects build quality rather than square footage.
 
     Best-effort: the cost strip is optional and must never break the label. The
     already-fetched location dimensions are reused as overrides so the baseline
@@ -423,25 +469,34 @@ def _attach_baseline_cost(payload: dict, lbl: dict, self_baseline: bool = False)
     When the scored home already *is* the baseline (``self_baseline``), skip the
     second scoring pass and reuse the house's own cost flows (delta 0).
     """
+    # Self-baseline delta is 0 and reuses the already-computed house cost, so it
+    # needs no location — attach it before the location guard so a failed geocode
+    # doesn't drop the strip in this case.
+    if self_baseline:
+        flows = dict(payload.get("cost") or {})
+        flows["label"] = _BASELINE_LABEL
+        payload["baseline_cost"] = flows
+        return
     loc = lbl.get("location")
     if loc is None:
         return
-    if self_baseline:
-        flows = dict(payload.get("cost") or {})
-        flows["label"] = "typical 2000-era frame home here"
-        payload["baseline_cost"] = flows
-        return
     main = {d["key"]: d.get("score") for d in lbl.get("dimensions", [])}
     overrides = {k: main.get(k) for k in ("health", "socioeconomic", "walkability")}
+    size_fields = {k: cfg.get(k) for k in _BASELINE_SIZE_FIELDS if cfg.get(k) is not None}
+    # Match the subject's resolved flood zone (build_label_parts always sets it,
+    # auto-derived from the location when not supplied). Passed as the explicit
+    # kwarg so it overrides the baseline preset's hard-coded "X".
+    flood_zone = cfg.get("flood_zone")
     try:
         _bcfg, _br, _blbl = build_label_parts(
             preset="baseline", location=loc, allow_network=True, overrides=overrides,
+            flood_zone=flood_zone, **size_fields,
         )
     except Exception:  # noqa: BLE001 — never fail the label over the cost strip
         log.exception("baseline cost scoring failed")
         return
     flows = cost_flows(_br, _blbl)
-    flows["label"] = "typical 2000-era frame home here"
+    flows["label"] = _BASELINE_LABEL
     payload["baseline_cost"] = flows
 
 
