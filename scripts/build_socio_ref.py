@@ -156,7 +156,9 @@ def _norm_geoid(geo_id: str) -> str:
 def derive_metrics(b17001: dict, b19013: dict, b25106: dict,
                    b15003: dict, b23025: dict) -> pd.DataFrame:
     """One row per geography with the 5 headline metrics + household weight."""
-    geoids = set(b17001) | set(b19013) | set(b25106) | set(b15003) | set(b23025)
+    # Sort the union so the derived rows — and thus the written CSV — are in a
+    # deterministic order, independent of dict/hash iteration; keeps rebuild diffs clean.
+    geoids = sorted(set(b17001) | set(b19013) | set(b25106) | set(b15003) | set(b23025))
     rows = []
     for g in geoids:
         p = b17001.get(g, {})
