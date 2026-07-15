@@ -33,8 +33,9 @@ LB_PER_MWH_TO_KG_PER_KWH = 0.45359237 / 1000.0   # lb/MWh → kg/kWh
 _CSV = pathlib.Path(__file__).resolve().parent / "egrid_subregions.csv"
 
 # eGRID2023 subregion acronym → (full name, CO2e total-output rate in lb/MWh).
-# Values transcribed verbatim from the eGRID2023 Summary Tables Rev 2 (Table 1,
-# CO2e total-output column). Converted to kg/kWh on load.
+# Values extracted programmatically from the eGRID2023 Summary Tables Rev 2
+# workbook (Table 1, CO2e total-output column) — not hand-transcribed — so a
+# refresh re-runs that extraction. Converted to kg/kWh on load.
 _SUBREGION_LB_PER_MWH: dict[str, tuple[str, float]] = {
     "AKGD": ("ASCC Alaska Grid",           905.109),
     "AKMS": ("ASCC Miscellaneous",         522.4),
