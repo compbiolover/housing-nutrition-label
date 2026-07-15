@@ -16,6 +16,9 @@ def test_climate_zone_lookup():
     assert climate_zone_for_county("47157") == "3A"     # Shelby County, TN
     assert climate_zone_for_county("06037") == "3B"     # Los Angeles County, CA
     assert climate_zone_for_county("17031") == "5A"     # Cook County, IL
+    # Guards the 2021 IECC vintage: Coffee County, AL moved 3A→2A in the 2021
+    # update, so a table rebuilt from the pre-2021 (2015) map would fail here.
+    assert climate_zone_for_county("01031") == "2A"
     assert climate_zone_for_county("99999") is None     # unknown
     assert climate_zone_for_county(None) is None
 
