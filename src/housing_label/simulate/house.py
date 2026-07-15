@@ -1139,7 +1139,7 @@ def _approx_caveats(location, cfg: dict | None = None) -> list[str]:
     to each county's local-government spending (Census of Governments) where the
     county is in the crosswalk, a national-average cost model when the county isn't
     in it, and the Memphis pilot baseline if the crosswalk isn't bundled at all. The
-    Environmental grid factor is the county's eGRID2022 subregion rate when the
+    Environmental grid factor is the county's eGRID2023 subregion rate when the
     county maps, and the US-average factor otherwise — flagged off the actually
     resolved subregion so the fallback is never reported incorrectly.
 
