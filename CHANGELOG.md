@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.46](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.45...v0.1.46) (2026-07-15)
+
+
+### Features
+
+* add education and jobs to the Socioeconomic index ([#153](https://github.com/compbiolover/housing-nutrition-label/issues/153)) ([098d510](https://github.com/compbiolover/housing-nutrition-label/commit/098d51030ee09117f824336ecc13a02d257861f8))
+
 ## [0.1.45](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.44...v0.1.45) (2026-07-15)
 
 
