@@ -25,7 +25,7 @@ _DIR = pathlib.Path(__file__).resolve().parent
 _CSV_GZ = _DIR / "home_value.csv.gz"
 _NATIONAL = "00000"
 
-DATA_VINTAGE = "ACS 2023 5-yr median home value (B25077)"
+DATA_VINTAGE = "ACS 2024 5-yr median home value (B25077)"
 # geo_level vocabulary + label match the rest of the codebase: the label text is
 # kept in sync with simulate/dimensions.HOME_VALUE_SOURCE, and "us" is the shared
 # national geo_level (as in data/socioeconomic, data/health, data/propertytax).

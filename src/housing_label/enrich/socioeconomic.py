@@ -5,7 +5,7 @@ Usage
 -----
   python enrich_socioeconomic.py              # all 1 000 parcels
   python enrich_socioeconomic.py --limit 10  # test with 10 rows first
-  python enrich_socioeconomic.py --year 2022 # pin a specific ACS 5-year vintage
+  python enrich_socioeconomic.py --year 2024 # pin a specific ACS 5-year vintage
 
 Data source
 -----------
@@ -98,7 +98,7 @@ TIMEOUT      = 25     # seconds per HTTP call
 MAX_RETRIES  = 3
 BACKOFF      = 2      # exponential back-off multiplier
 CHECKPOINT   = 50     # save every N geocoded rows
-DEFAULT_YEAR = 2023   # newest ACS5 vintage known-good at time of writing
+DEFAULT_YEAR = 2024   # newest ACS5 vintage known-good at time of writing
 YEAR_FALLBACK = 3     # step back up to N years if a vintage isn't published yet
 
 # ── ACS variables ─────────────────────────────────────────────────────────────

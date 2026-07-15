@@ -43,7 +43,7 @@ import csv
 import pathlib
 from functools import lru_cache
 
-DATA_VINTAGE = "Census ACS 2022 5-yr median gross rent (B25064)"
+DATA_VINTAGE = "Census ACS 2024 5-yr median gross rent (B25064)"
 RENT_SOURCE_LABEL = "value-per-door (income method, ACS rent)"
 OVERRIDE_SOURCE_LABEL = "value-per-door (income method, rent override)"
 

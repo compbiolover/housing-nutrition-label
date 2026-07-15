@@ -55,7 +55,7 @@ import requests
 _DATA_DIR = pathlib.Path(__file__).resolve().parents[1] / "src" / "housing_label" / "data"
 HEADERS = {"User-Agent": "housing-nutrition-label/0.1 (property-tax crosswalk build)"}
 
-ACS_YEAR = 2022
+ACS_YEAR = 2024
 _SF = (f"https://www2.census.gov/programs-surveys/acs/summary_file/{ACS_YEAR}"
        "/table-based-SF/data/5YRData")
 TAXES_URL = f"{_SF}/acsdt5y{ACS_YEAR}-b25103.dat"   # median real estate taxes paid
