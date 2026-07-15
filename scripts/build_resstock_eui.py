@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import importlib.util
 import pathlib
 import sys
 import time
@@ -115,11 +116,16 @@ def main() -> int:
     ap.add_argument("--cache-dir", default=None, help="download cache directory")
     args = ap.parse_args()
 
-    try:
-        import pyarrow.parquet as pq
-    except ImportError as exc:
-        raise SystemExit("build_resstock_eui needs pyarrow (build-time only): "
-                         "pip install pyarrow") from exc
+    # Fail fast with actionable guidance on the build-time deps (pyarrow/pandas/
+    # numpy always; requests only when downloading), rather than a bare ImportError
+    # from deep inside a lazy import later.
+    needed = ["pyarrow", "pandas", "numpy"] + ([] if args.parquet else ["requests"])
+    missing = [m for m in needed if importlib.util.find_spec(m) is None]
+    if missing:
+        raise SystemExit(f"build_resstock_eui needs build-time deps not installed: "
+                         f"{missing} — pip install {' '.join(missing)}")
+
+    import pyarrow.parquet as pq
 
     if args.parquet:
         path = pathlib.Path(args.parquet)

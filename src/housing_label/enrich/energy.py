@@ -129,9 +129,14 @@ def base_eui(climate_zone: str | None, vintage_bin: str) -> float:
     """
     from housing_label.data.resstock_eui import resstock_base_eui
     eui = resstock_base_eui(climate_zone, vintage_bin)
+    # A covered zone with an odd vintage bin should still use that zone's ResStock
+    # all-vintage ("unknown") median, not the legacy curve — only genuinely
+    # uncovered zones fall back.
+    if eui is None and vintage_bin != "unknown":
+        eui = resstock_base_eui(climate_zone, "unknown")
     if eui is not None:
         return eui
-    # Unknown vintage bin → the "unknown" mid-range fallback rather than a KeyError.
+    # No ResStock coverage → the "unknown" mid-range fallback (never a KeyError).
     fallback = _FALLBACK_BASE_EUI.get(vintage_bin, _FALLBACK_BASE_EUI["unknown"])
     return fallback * climate_zone_factor(climate_zone)
 
