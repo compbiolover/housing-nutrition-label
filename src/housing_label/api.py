@@ -522,8 +522,14 @@ def _attach_detached_cost(payload: dict, r: dict, cfg: dict) -> None:
 
     Best-effort and only for units > 1; single-family homes skip it entirely.
     """
+    # Use the *effective* unit count the energy model actually credited — the
+    # detected-or-entered ``structure.num_units`` (what ``attachment_eui_factor``
+    # was called with), NOT ``cfg["units"]``. An NSI-detected building leaves
+    # cfg["units"] at its default of 1, so gating on it would skip the line for
+    # exactly the towers this is meant to serve.
+    struct = payload.get("structure") or {}
     try:
-        units = int(cfg.get("units") or 1)
+        units = int(struct.get("num_units") or cfg.get("units") or 1)
     except (TypeError, ValueError):   # best-effort: a malformed count must not break the label
         return
     if units <= 1:
