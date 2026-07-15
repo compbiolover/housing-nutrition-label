@@ -67,6 +67,7 @@ window.LabelForm = (function () {
     ["seismic_retrofit", "Seismic retrofit"], ["flood_vents", "Flood vents"]
   ];
   var MODE_LABELS = { detected: "Detected", single: "Single", compare: "Compare" };
+  var SUPPORTED_MODES = ["detected", "single", "compare"];
   var _mountSeq = 0;   // per-page counter → unique element IDs when >1 widget mounts
 
   function esc(s) { return LC.esc(s); }
@@ -103,12 +104,13 @@ window.LabelForm = (function () {
     var buttons = '<button type="submit" class="go">Score it</button>';
     if (opts.geolocate) buttons += '<button type="button" class="reset lf-locate">Use my location</button>';
     if (opts.persist)   buttons += '<button type="button" class="reset lf-reset">Reset</button>';
+    var lb = opts.listboxId;   // links the combobox input ↔ its suggestions listbox
     return '<form class="label-addr-form lf-form">'
-      + '<div class="addr-ac" role="combobox" aria-haspopup="listbox" aria-expanded="false">'
+      + '<div class="addr-ac" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-owns="' + lb + '">'
       + '<input type="text" class="lf-addr" aria-label="US address to score" autocomplete="off" '
-      + 'role="textbox" aria-autocomplete="list" aria-activedescendant="" '
+      + 'role="textbox" aria-autocomplete="list" aria-controls="' + lb + '" aria-activedescendant="" '
       + 'placeholder="Enter any U.S. address &mdash; e.g. 111 S Grand Ave, Los Angeles, CA">'
-      + '<ul class="addr-suggest lf-suggest" role="listbox" hidden></ul></div>'
+      + '<ul class="addr-suggest lf-suggest" id="' + lb + '" role="listbox" hidden></ul></div>'
       + buttons + '</form>'
       + '<p class="label-privacy lf-geo" role="status" aria-live="polite" style="display:none;"></p>'
       + '<p class="label-privacy lf-privacy" style="display:none;"></p>'
@@ -130,7 +132,12 @@ window.LabelForm = (function () {
     opts = opts || {};
     var root = opts.container;
     if (!root) { throw new Error("LabelForm.mount: opts.container is required"); }
-    var modes = (opts.modes && opts.modes.length) ? opts.modes.slice() : ["detected"];
+    // Keep only supported modes, in caller order, de-duped — an unknown/typo'd
+    // value must not silently fall through to the Compare branch.
+    var modes = (opts.modes || []).filter(function (m, i, a) {
+      return SUPPORTED_MODES.indexOf(m) >= 0 && a.indexOf(m) === i;
+    });
+    if (!modes.length) modes = ["detected"];
     var wantDensity = !!opts.density;
     var wantGeo = !!opts.geolocate;
     var persist = !!opts.persist;
@@ -147,7 +154,7 @@ window.LabelForm = (function () {
 
     // Build the widget markup. The scored label card (.lf-app) comes before the
     // density comparison, which is a follow-on "what if this parcel were denser?".
-    root.innerHTML = formHtml({ geolocate: wantGeo, persist: persist })
+    root.innerHTML = formHtml({ geolocate: wantGeo, persist: persist, listboxId: uid + "listbox" })
       + refineHtml()
       + '<div class="lf-app"><div class="loading">Scoring this address&hellip;</div></div>'
       + (wantDensity ? densityHtml() : "");
