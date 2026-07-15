@@ -348,6 +348,13 @@ def test_detached_cost_only_for_multiunit():
     # The house's own flows are not mutated in place.
     assert p2["cost"] == house
 
+    # NSI-detected count drives it even when cfg["units"] is still the default 1:
+    # the effective structure.num_units is what the energy model credited, so the
+    # line must appear for a detected tower the caller never typed a count for.
+    p2b = {"cost": dict(house), "structure": {"num_units": 157}}
+    api._attach_detached_cost(p2b, r, {"units": 1})
+    assert p2b["detached_cost"]["annualEnergyCost"] == round(1800 / f)
+
     # A building with no attachment credit and no flood reduction → detached == house
     # (delta ~0; the frontend then hides the line).
     p3 = {"cost": dict(house)}
