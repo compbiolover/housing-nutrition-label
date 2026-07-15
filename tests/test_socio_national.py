@@ -59,6 +59,40 @@ def test_score_tracts_education_and_jobs_move_the_score():
     assert si["educated_employed"] > si["less_so"]
 
 
+def test_derive_metrics_formulas():
+    """The ACS table cells map to the five headline metrics via the documented
+    ratios — covers education (B15003) and unemployment (B23025) without a rebuild."""
+    g = B.TRACT_PREFIX + "47157000100"
+    b17001 = {g: {"B17001_E001": 1000.0, "B17001_E002": 100.0}}          # 10.0% poverty
+    b19013 = {g: {"B19013_E001": 65000.0}}
+    b25106 = {g: {"B25106_E001": 500.0, "B25106_E023": 0.0,
+                  "B25106_E045": 0.0, "B25106_E046": 0.0,
+                  "B25106_E006": 50.0, "B25106_E010": 0.0, "B25106_E014": 0.0,
+                  "B25106_E018": 0.0, "B25106_E022": 0.0,
+                  "B25106_E028": 50.0, "B25106_E032": 0.0, "B25106_E036": 0.0,
+                  "B25106_E040": 0.0, "B25106_E044": 0.0}}               # (50+50)/500 = 20.0%
+    b15003 = {g: {"B15003_E001": 200.0, "B15003_E022": 40.0, "B15003_E023": 10.0,
+                  "B15003_E024": 0.0, "B15003_E025": 0.0}}               # 50/200 = 25.0%
+    b23025 = {g: {"B23025_E003": 400.0, "B23025_E005": 20.0}}            # 20/400 = 5.0%
+
+    r = B.derive_metrics(b17001, b19013, b25106, b15003, b23025).loc["47157000100"]
+    assert r["poverty_rate_pct"] == 10.0
+    assert r["median_household_income"] == 65000
+    assert r["housing_cost_burden_pct"] == 20.0
+    assert r["education_bachelors_plus_pct"] == 25.0
+    assert r["unemployment_rate_pct"] == 5.0
+
+
+def test_derive_metrics_suppressed_education_cell_unscored():
+    """A suppressed bachelor's+ cell leaves education unscored (not understated to 0)."""
+    import numpy as np
+    g = B.TRACT_PREFIX + "47157000200"
+    b15003 = {g: {"B15003_E001": 200.0, "B15003_E022": None, "B15003_E023": 10.0,
+                  "B15003_E024": 0.0, "B15003_E025": 0.0}}
+    r = B.derive_metrics({}, {}, {}, b15003, {}).loc["47157000200"]
+    assert np.isnan(r["education_bachelors_plus_pct"])
+
+
 def test_min_metrics_needs_three_of_five():
     """A tract with only two available metrics is left unscored (MIN_METRICS=3)."""
     import numpy as np

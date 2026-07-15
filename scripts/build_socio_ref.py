@@ -180,10 +180,14 @@ def derive_metrics(b17001: dict, b19013: dict, b25106: dict,
         burden = ((owner_30 + renter_30) / den * 100.0) if (den and den > 0) else None
 
         # Educational attainment: share of the 25+ population with a bachelor's or higher.
+        # Require every numerator cell to be present — treating a suppressed
+        # bachelor's/master's/etc. cell as 0 would understate the share and bias the
+        # percentile, so a missing cell leaves the metric unscored instead.
         edu_total = e.get("B15003_E001")
-        bachelors_plus = sum(e.get(c) or 0.0 for c in BACHELORS_PLUS)
-        education = ((bachelors_plus / edu_total * 100.0)
-                     if (edu_total and edu_total > 0) else None)
+        bp_cells = [e.get(c) for c in BACHELORS_PLUS]
+        education = ((sum(bp_cells) / edu_total * 100.0)
+                     if (edu_total and edu_total > 0
+                         and all(c is not None for c in bp_cells)) else None)
 
         # Unemployment: civilian unemployed / civilian labor force.
         labor_force, unemployed = j.get("B23025_E003"), j.get("B23025_E005")
