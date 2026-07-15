@@ -22,8 +22,10 @@ Methodology
      Convert the already-modeled annual energy use to CO2e with authoritative
      emission factors:
        operational = est_annual_kwh * EF_GRID + est_annual_therms * EF_GAS
-     EF_GRID = 0.423 kg CO2e/kWh — EPA eGRID2022, subregion SRTV (SERC Tennessee
-     Valley), the correct subregion for the Memphis/TVA grid (933.1 lb CO2/MWh).
+     EF_GRID = 0.4097 kg CO2e/kWh — EPA eGRID2023 Rev 2, subregion SRTV (SERC Tennessee
+     Valley), the correct subregion for the Memphis/TVA grid (903.306 lb CO2e/MWh).
+     Matches data/egrid.py's SRTV factor exactly (lb/MWh → kg/kWh, rounded to
+     4 decimals).
      EF_GAS  = 5.3 kg CO2e/therm — EPA GHG Emission Factors Hub.
      (Location-based. TVA self-reports a lower system rate but it is not
      apples-to-apples with eGRID; eGRID SRTV is the standard. Treat as a dated
@@ -98,9 +100,9 @@ log = logging.getLogger(__name__)
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parents[3]   # repo root; data lives here
 
 # ── Emission factors (verified — see research doc) ────────────────────────────
-EF_GRID_KG_PER_KWH   = 0.423   # EPA eGRID2022 SRTV: 933.1 lb CO2/MWh
-EF_GAS_KG_PER_THERM  = 5.3     # EPA GHG Emission Factors Hub
-EGRID_VINTAGE        = "eGRID2022 SRTV"
+EF_GRID_KG_PER_KWH   = 0.4097  # EPA eGRID2023 Rev 2 SRTV: 903.306 lb CO2e/MWh (matches data/egrid.py)
+EF_GAS_KG_PER_THERM  = 5.3     # EPA GHG Emission Factors Hub (2025; natural-gas factor unchanged)
+EGRID_VINTAGE        = "eGRID2023 Rev 2 SRTV"
 
 # ── Embodied carbon ───────────────────────────────────────────────────────────
 RSP_YEARS = 60.0   # EN 15978 / RICS reference study period (legacy constant)
@@ -205,7 +207,8 @@ ENV_COLS = [
 ]
 
 DATA_SOURCE = (
-    f"Operational: EPA {EGRID_VINTAGE} 0.423 kgCO2e/kWh + EPA gas 5.3 kgCO2e/therm; "
+    f"Operational: EPA {EGRID_VINTAGE} {EF_GRID_KG_PER_KWH} kgCO2e/kWh "
+    f"+ EPA gas {EF_GAS_KG_PER_THERM} kgCO2e/therm; "
     "Embodied: bottom-up A1-A3 from industry-average EPD factors x per-home "
     "geometry (foundation from footprint+perimeter x basement depth, roof/envelope/"
     "interior by area), amortized over service life (60-100yr), scored per "

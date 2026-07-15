@@ -9,7 +9,7 @@ dimensions depend on:
   • state FIPS, county FIPS (5-digit), county name, census tract GEOID
   • whether the point falls in a Census Urban Area (urban-core proxy)
   • IECC climate zone (bundled county lookup)
-  • eGRID subregion + grid CO2 factor (bundled county lookup)
+  • eGRID subregion + grid CO2e factor (bundled county lookup)
   • climate-hazard projection (bundled county lookup)
 
 Geocoding uses the U.S. Census Geocoder (keyless): the ``onelineaddress``
@@ -196,7 +196,7 @@ def resolve_location(
         if loc.climate_zone is None:
             notes["climate_zone"] = f"no climate-zone entry for county {loc.county_fips}"
 
-    # Grid CO2 factor: the county's eGRID subregion when it maps, otherwise the
+    # Grid CO2e factor: the county's eGRID subregion when it maps, otherwise the
     # US-average fallback. egrid_for_county handles a missing/unmapped county, so
     # egrid_factor is always populated — the environmental model never silently
     # applies the Shelby pilot default to a non-Shelby (or unresolved) location.

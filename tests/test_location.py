@@ -21,11 +21,11 @@ def test_climate_zone_lookup():
 
 
 def test_egrid_subregion_lookup():
-    # Shelby County, TN → SRTV (the pilot's TVA subregion); ≈0.426 kgCO2e/kWh
-    # (eGRID2022 SRTV CO2e total-output 938.6 lb/MWh).
+    # Shelby County, TN → SRTV (the pilot's TVA subregion); exactly 0.4097 kgCO2e/kWh
+    # (eGRID2023 Rev 2 SRTV CO2e total-output 903.306 lb/MWh, rounded to 4 decimals).
     sub, factor = egrid_for_county("47157")
     assert "SRTV" in sub
-    assert abs(factor - 0.426) < 0.005
+    assert factor == 0.4097
     # Los Angeles County, CA → CAMX, a much cleaner grid than SRTV.
     ca_sub, ca_factor = egrid_for_county("06037")
     assert "CAMX" in ca_sub
