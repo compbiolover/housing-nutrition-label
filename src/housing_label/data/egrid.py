@@ -1,4 +1,4 @@
-"""Grid CO2e emission factor by location (eGRID2023, keyless + offline).
+"""Grid CO2e emission factor by location (eGRID2023 Rev 2, keyless + offline).
 
 Returns the EPA eGRID **subregion** total-output CO2-equivalent emission rate for
 a county, so the environmental dimension's operational-carbon leg reflects the
@@ -32,7 +32,7 @@ LB_PER_MWH_TO_KG_PER_KWH = 0.45359237 / 1000.0   # lb/MWh → kg/kWh
 
 _CSV = pathlib.Path(__file__).resolve().parent / "egrid_subregions.csv"
 
-# eGRID2023 subregion acronym → (full name, CO2e total-output rate in lb/MWh).
+# eGRID2023 Rev 2 subregion acronym → (full name, CO2e total-output rate in lb/MWh).
 # Values extracted programmatically from the eGRID2023 Summary Tables Rev 2
 # workbook (Table 1, CO2e total-output column) — not hand-transcribed — so a
 # refresh re-runs that extraction. Converted to kg/kWh on load.
@@ -66,7 +66,7 @@ _SUBREGION_LB_PER_MWH: dict[str, tuple[str, float]] = {
     "SRVC": ("SERC Virginia/Carolina",     596.326),
 }
 
-# EPA eGRID2023 US-average total-output CO2e rate (770.884 lb/MWh) — the fallback
+# EPA eGRID2023 Rev 2 US-average total-output CO2e rate (770.884 lb/MWh) — the fallback
 # for counties with no subregion mapping.
 US_AVG_FACTOR_KG_PER_KWH = round(770.884 * LB_PER_MWH_TO_KG_PER_KWH, 4)   # ≈ 0.3497
 US_AVG_LABEL = f"US average ({EGRID_VINTAGE})"
@@ -108,7 +108,7 @@ def _crosswalk() -> dict[str, str]:
 def egrid_for_county(county_fips: str | None) -> tuple[str, float]:
     """Return (subregion_label, kgCO2e/kWh) for a 5-digit county FIPS.
 
-    Looks the county up in the bundled crosswalk and returns its eGRID2023
+    Looks the county up in the bundled crosswalk and returns its eGRID2023 Rev 2
     subregion factor. Counties not in the crosswalk (or a missing/blank FIPS)
     fall back to the US-average factor, with the label flagging it as such — so
     a concrete (label, factor) pair is always returned, never None.

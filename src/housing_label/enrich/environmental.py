@@ -22,7 +22,7 @@ Methodology
      Convert the already-modeled annual energy use to CO2e with authoritative
      emission factors:
        operational = est_annual_kwh * EF_GRID + est_annual_therms * EF_GAS
-     EF_GRID = 0.4097 kg CO2e/kWh — EPA eGRID2023, subregion SRTV (SERC Tennessee
+     EF_GRID = 0.4097 kg CO2e/kWh — EPA eGRID2023 Rev 2, subregion SRTV (SERC Tennessee
      Valley), the correct subregion for the Memphis/TVA grid (903.306 lb CO2e/MWh).
      Matches data/egrid.py's SRTV factor exactly (lb/MWh → kg/kWh, rounded to
      4 decimals).
@@ -100,7 +100,7 @@ log = logging.getLogger(__name__)
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parents[3]   # repo root; data lives here
 
 # ── Emission factors (verified — see research doc) ────────────────────────────
-EF_GRID_KG_PER_KWH   = 0.4097  # EPA eGRID2023 SRTV: 903.306 lb CO2e/MWh (matches data/egrid.py)
+EF_GRID_KG_PER_KWH   = 0.4097  # EPA eGRID2023 Rev 2 SRTV: 903.306 lb CO2e/MWh (matches data/egrid.py)
 EF_GAS_KG_PER_THERM  = 5.3     # EPA GHG Emission Factors Hub (2025; natural-gas factor unchanged)
 EGRID_VINTAGE        = "eGRID2023 Rev 2 SRTV"
 

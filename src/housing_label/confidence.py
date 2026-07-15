@@ -28,7 +28,7 @@ CONFIDENCE_NOTES = {
     "resilience": "Parcel-level flood zone + seismic; wildfire resolves at county level here; BRM feature bonuses are v1 estimates.",
     "energy": "Modeled EUI from ResStock archetypes × vintage × construction — no metered data.",
     "durability": "Component-lifespan model from CAMA building attributes + assessor condition.",
-    "environmental": "Operational leg strong (metered-equivalent × eGRID2023); embodied-carbon leg is bottom-up from industry-average EPD factors × the home's real footprint (USA Structures) where available — modeled, not metered; water leg uses a national embedded-energy constant.",
+    "environmental": "Operational leg strong (metered-equivalent × eGRID2023 Rev 2); embodied-carbon leg is bottom-up from industry-average EPD factors × the home's real footprint (USA Structures) where available — modeled, not metered; water leg uses a national embedded-energy constant.",
     "infrastructure": "Density cost model calibrated to county spending; documented ±30% on absolute dollars.",
     "health": "CDC PLACES model-based tract estimates, scored as a national percentile (bundled, keyless).",
     "socioeconomic": "Census ACS income/poverty/housing-cost-burden, scored as a national percentile (bundled offline — no API key needed).",
