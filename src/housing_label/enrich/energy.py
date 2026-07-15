@@ -14,24 +14,24 @@ Usage
 
 Data source & methodology
 --------------------------
-  Primary reference: DOE/NREL ResStock (https://resstock.nrel.gov/)
-  ResStock models ~550 k residential building archetypes derived from the
-  American Community Survey (ACS) and calibrated against AMI utility data.
-  The full dataset is available at:
-    https://data.openei.org/submissions/5959  (~1.43 GB CSV, AWS Athena)
+  Base site EUI: NREL ResStock 2024 simulation medians by climate zone × vintage
+  (Single-Family Detached, ~338 k modeled samples), bundled offline as
+  data/resstock_eui.csv (built by scripts/build_resstock_eui.py from the OEDI
+  data lake). This replaced a single national 4A curve scaled by a crude per-zone
+  multiplier — real per-zone-per-vintage medians capture the A/B/C moisture-regime
+  spread (humid 3A vs dry 3B) the scalar could not. Zones ResStock doesn't cover
+  (e.g. 8 / interior Alaska) fall back to that prior curve.
+    https://registry.opendata.aws/nrel-pds-building-stock/
 
-  ResStock does not publish a simple lookup API. For this pilot we use
-  published Energy Use Intensity (EUI) benchmarks derived from:
-    • DOE Building America House Simulation Protocols (2014)
-    • EIA Residential Energy Consumption Survey (RECS) 2020
-    • IECC 2003/2009/2012 energy-code compliance baselines
-    • NREL ResStock CZ 4A archetype medians (2024.2 release)
+  Within-cell deviations (multiplicative, off the ResStock base): size, exterior
+  wall, foundation, and heating-system type — a heat-pump home uses less than the
+  cell median, an oversized home more, etc.
 
-  Upgrade path: pull exact archetype medians from the ResStock OEDI parquet
-  files via AWS Athena, keyed on (vintage_acs, size_bin, heating_fuel,
-  hvac_type, iecc_climate_zone_2004, geometry_foundation_type).
+  Upgrade path: key the ResStock lookup on more axes (heating fuel, HVAC type,
+  foundation) instead of applying them as post-hoc factors; add a distinct
+  Multi-Family / Mobile-Home benchmark.
 
-  Climate zone: IECC 4A (Mixed-Humid) applies county-wide for Shelby County, TN.
+  Climate zone: from the property's county (data/climate.py, 2021 IECC).
 
   Utility rates — Memphis Light Gas & Water (MLGW / TVA territory)
     Electricity: $0.105 / kWh  (TVA wholesale + MLGW distribution, ~2024)
@@ -87,17 +87,15 @@ GAS_RATE_PER_THERM = 1.10    # $/therm
 KBTU_PER_KWH   = 3.412
 KBTU_PER_THERM = 100.0
 
-# ── Base EUI by vintage bin (kBTU / sqft / yr, site energy, CZ 4A) ────────────
-# Sources: DOE Building America HSP (2014), EIA RECS 2020 Table CE3.1,
-#          NREL ResStock CZ 4A archetype medians (2024.2), IECC code baselines.
-#
-#   pre_1950  : Pre-code era; minimal insulation, single-pane windows, air leaky
-#   1950_1979 : Post-war construction; some insulation, but pre-ASHRAE 90-1975
-#   1980_1999 : ASHRAE 90.1-1980/1989 era; meaningful but sub-code insulation
-#   2000_2009 : IECC 2003/2006 era; code-min insulation, better windows
-#   2010_plus : IECC 2009/2012+ era; tighter envelope, higher-eff HVAC required
-#
-BASE_EUI: dict[str, float] = {
+# ── Base site EUI (kBTU / sqft / yr) ──────────────────────────────────────────
+# The base EUI for a home is looked up from NREL ResStock simulation medians by
+# (climate zone × vintage) via data/resstock_eui.py — real per-zone-per-vintage
+# values that capture the A/B/C moisture-regime spread (humid 3A vs dry 3B) the
+# old single national curve could not. The fallback table below is retained ONLY
+# for zones ResStock doesn't cover (e.g. zone 8 / interior Alaska): the prior
+# 4A-calibrated curve scaled by a per-zone multiplier.
+DEFAULT_CLIMATE_ZONE = "4A"
+_FALLBACK_BASE_EUI: dict[str, float] = {
     "pre_1950":  75.0,
     "1950_1979": 60.0,
     "1980_1999": 45.0,
@@ -105,13 +103,6 @@ BASE_EUI: dict[str, float] = {
     "2010_plus": 28.0,
     "unknown":   50.0,   # mid-range default when YRBLT is missing
 }
-
-# The BASE_EUI table above is calibrated to IECC climate zone 4A (Mixed-Humid,
-# the Shelby County pilot). For national use, scale site EUI by climate zone:
-# colder, heating-dominated zones consume more site energy; hot zones less.
-# Multipliers are relative to 4A (= 1.00); v1 estimates from RECS 2020 regional
-# site-energy intensity. Keyed on the leading IECC zone number (1–8).
-DEFAULT_CLIMATE_ZONE = "4A"
 ZONE_EUI_FACTOR: dict[int, float] = {
     1: 0.85, 2: 0.90, 3: 0.95, 4: 1.00,
     5: 1.10, 6: 1.22, 7: 1.38, 8: 1.55,
@@ -119,13 +110,28 @@ ZONE_EUI_FACTOR: dict[int, float] = {
 
 
 def climate_zone_factor(climate_zone: str | None) -> float:
-    """Map an IECC zone label (e.g. "5B") to a site-EUI multiplier vs. 4A."""
+    """Map an IECC zone label (e.g. "5B") to a site-EUI multiplier vs. 4A
+    (used only by the non-ResStock fallback base EUI)."""
     if not climate_zone:
         return 1.0
     try:
         return ZONE_EUI_FACTOR.get(int(str(climate_zone).strip()[0]), 1.0)
     except (ValueError, IndexError):
         return 1.0
+
+
+def base_eui(climate_zone: str | None, vintage_bin: str) -> float:
+    """Base site EUI (kBTU/sqft/yr) for a home's climate zone and vintage.
+
+    Prefers the NREL ResStock median for the zone × vintage; where ResStock has
+    no coverage (e.g. zone 8 / interior Alaska) falls back to the prior
+    4A-calibrated curve scaled by the per-zone multiplier.
+    """
+    from housing_label.data.resstock_eui import resstock_base_eui
+    eui = resstock_base_eui(climate_zone, vintage_bin)
+    if eui is not None:
+        return eui
+    return _FALLBACK_BASE_EUI[vintage_bin] * climate_zone_factor(climate_zone)
 
 # ── Vintage bin assignment ─────────────────────────────────────────────────────
 def vintage_bin(yrblt) -> str:
@@ -283,9 +289,9 @@ def model_parcel_energy(
     `elec_rate` ($/kWh) and `gas_rate` ($/therm) default to the Memphis/TVA pilot
     constants; the live path passes the property's state rates (data/utility_rates).
     """
-    # --- Vintage (base EUI is calibrated to 4A; scale for the actual zone) ---
+    # --- Base EUI: ResStock zone×vintage median (fallback: scaled 4A curve) ---
     vbin = vintage_bin(row.get("YRBLT"))
-    base_eui = BASE_EUI[vbin] * climate_zone_factor(climate_zone)
+    base = base_eui(climate_zone, vbin)
 
     # --- Size ---
     sbin, area = size_bin(row.get("SFLA"))
@@ -296,8 +302,8 @@ def model_parcel_energy(
     fnd_label, ff   = _foundation_factor(row.get("BSMT"))
     hvac_label, hf  = _hvac_factor(row.get("HEAT"), row.get("FUEL"))
 
-    # --- Adjusted EUI ---
-    adj_eui = round(base_eui * sf * wf * ff * hf, 2)
+    # --- Adjusted EUI (ResStock base × within-cell deviations) ---
+    adj_eui = round(base * sf * wf * ff * hf, 2)
 
     # --- Annual totals ---
     annual_kbtu = round(adj_eui * area, 1)
@@ -309,8 +315,9 @@ def model_parcel_energy(
     annual_cost   = annual_kwh * elec_rate + annual_therms * gas_rate
     monthly_cost  = round(annual_cost / 12, 2)
 
-    # --- Archetype label ---
-    archetype = f"cz4a_{vbin}_{sbin}_{wall_label}_{hvac_label}"
+    # --- Archetype label (climate zone + vintage + size + wall + hvac) ---
+    zone_tok = "cz" + str(climate_zone or DEFAULT_CLIMATE_ZONE).lower()
+    archetype = f"{zone_tok}_{vbin}_{sbin}_{wall_label}_{hvac_label}"
 
     return {
         "energy_vintage_bin":      vbin,
@@ -322,8 +329,8 @@ def model_parcel_energy(
         "est_annual_therms":       annual_therms,
         "est_monthly_energy_cost": monthly_cost,
         "energy_data_source":      (
-            "DOE Building America HSP 2014 / EIA RECS 2020 / NREL ResStock CZ4A "
-            "archetype medians; MLGW/TVA utility rates ~2024"
+            "NREL ResStock 2024 zone×vintage site-EUI medians (SF detached); "
+            "within-cell size/wall/foundation/HVAC deviations; local utility rates"
         ),
     }
 

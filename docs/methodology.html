@@ -95,11 +95,10 @@
     <p class="plain"><strong>What this tells you:</strong> roughly how much energy the home uses and what that costs each month at local utility rates &mdash; driven by its age, size, construction, and heating/cooling system. A higher score means it uses less energy.</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
-    <p>Score based on <strong>Energy Use Intensity (EUI)</strong> in kBTU/sqft/yr, using DOE Building America and EIA RECS 2020 benchmarks, adjusted for the property's IECC climate zone (the 2021 IECC map, looked up nationally by county; e.g. 4A mixed-humid, 5B cool-dry).</p>
+    <p>Score based on <strong>Energy Use Intensity (EUI)</strong> in kBTU/sqft/yr. The base EUI comes from <strong>NREL ResStock 2024</strong> simulation medians &mdash; a real modeled distribution over ~338,000 single-family homes &mdash; looked up by the property's <strong>climate zone and vintage</strong> (the 2021 IECC map, by county; e.g. 4A mixed-humid, 5B cool-dry). This replaced a single national curve scaled by a per-zone multiplier, so the estimate now captures the large difference between, say, humid <em>3A</em> and dry <em>3B</em> that a leading-digit scalar missed. (Zones ResStock doesn't cover, e.g. interior Alaska, fall back to the prior curve.)</p>
 
-    <h4>EUI Lookup by Building Archetype</h4>
-    <p>Each home maps to an archetype via year built (vintage bin), square footage (size bin), construction type, and heating/cooling system from the property record.</p>
-    <p>Published EUI benchmarks by vintage (for a mixed-humid baseline, then scaled by the local climate zone): Pre-1950 = 75 kBTU/sqft/yr, 1950&ndash;1979 = 55, 1980&ndash;1999 = 40, 2000&ndash;2009 = 30, 2010+ = 25, Passive House = 12.</p>
+    <h4>Within-cell adjustments</h4>
+    <p>Off that ResStock base, the estimate is nudged for the specific home via year built (vintage bin), square footage (size bin), construction type, and heating/cooling system from the property record &mdash; a heat-pump home uses less than its cell median, an oversized home more.</p>
     <p>Construction modifiers applied to the energy-use estimate: ICF = 0.92&times; and SIP = 0.95&times; (tighter, higher-mass envelopes), and Passive House = 0.55&times;. For a home in a <strong>multi-unit building</strong>, a <strong>shared-wall credit</strong> lowers the estimate &mdash; a unit attached to or stacked with others exposes far less exterior surface, so it loses less heat: roughly 10% for a duplex up to ~27% for a large (20+ unit) building, tracking EIA RECS (apartments use ~30% less energy than detached homes of similar size). The building's unit count comes from the detected structure (or the units you enter). Rooftop solar is credited to the Environmental footprint's operational-carbon leg, not to the energy-use score.</p>
 
     <h4>Cost Estimation</h4>
