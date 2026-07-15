@@ -11,10 +11,12 @@ Data
 ----
 Bundled offline by ``scripts/build_socio_ref.py`` from the keyless ACS 5-year
 **table-based Summary File** (2023 vintage): poverty rate (B17001), median
-household income (B19013), and housing cost burden (B25106). Each metric is a
-household-weighted national percentile (poverty & burden inverted, income direct);
-``socioeconomic_index`` is their mean. Files: ``socio_tracts.csv.gz`` (tract) and
-``socio_county.csv`` (county + a national row centered at ~50 by construction).
+household income (B19013), housing cost burden (B25106), educational attainment
+(B15003, share with a bachelor's degree or higher), and unemployment
+(B23025). Each metric is a household-weighted national percentile (poverty,
+burden & unemployment inverted; income & education direct); ``socioeconomic_index``
+is their mean. Files: ``socio_tracts.csv.gz`` (tract) and ``socio_county.csv``
+(county + a national row centered at ~50 by construction).
 
 Resolution
 ----------
@@ -46,7 +48,8 @@ _TRACT_CSV = _DIR / "socio_tracts.csv"
 _TRACT_CSV_GZ = _DIR / "socio_tracts.csv.gz"
 _NATIONAL_GEOID = "00000"
 
-METRIC_COLS = ["poverty_rate_pct", "median_household_income", "housing_cost_burden_pct"]
+METRIC_COLS = ["poverty_rate_pct", "median_household_income", "housing_cost_burden_pct",
+               "education_bachelors_plus_pct", "unemployment_rate_pct"]
 
 
 def _load_rows(path: pathlib.Path, width: int):
