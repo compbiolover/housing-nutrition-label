@@ -20,7 +20,7 @@ def test_table_loads_and_is_wellformed():
     path = pathlib.Path(R.__file__).resolve().parent / "resstock_eui.csv"
     zone_re = re.compile(r"^[1-8][ABC]?$")
     vbins = {"pre_1950", "1950_1979", "1980_1999", "2000_2009", "2010_plus", "unknown"}
-    with path.open() as f:
+    with path.open(newline="") as f:
         rows = list(csv.DictReader(f))
     assert len(rows) > 50
     for r in rows:

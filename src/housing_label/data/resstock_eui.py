@@ -39,7 +39,7 @@ def _table() -> dict[tuple[str, str], float]:
         log.warning("ResStock EUI table not found at %s — Energy falls back to the "
                     "legacy zone-scaled curve.", _CSV)
         return table
-    with _CSV.open() as f:
+    with _CSV.open(newline="") as f:
         for row in csv.DictReader(f):
             zone = str(row["climate_zone"]).strip()
             vbin = str(row["vintage_bin"]).strip()
