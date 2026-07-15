@@ -327,8 +327,10 @@ def percentile_to_local_grade(pct: float) -> str:
 # 6. BUILDING RESILIENCE MODIFIER (BRM)
 # ---------------------------------------------------------------------------
 # The BRM adjusts each hazard's raw EAL rate to reflect construction quality.
-# BRM is a multiplier:  0.5 = very resilient, 1.0 = baseline, 1.5 = vulnerable.
-# adjusted_eal = raw_eal × BRM   (clamped to [0.5, 1.5])
+# BRM is a multiplier:  < 1.0 = more resilient, 1.0 = baseline, > 1.0 = vulnerable.
+# adjusted_eal = raw_eal × BRM. There is a construction-type-specific lower FLOOR
+# but NO upper ceiling, so vulnerability compounds above the baseline (a pre-1940
+# unsound frame home exceeds 2.5×) instead of being clipped. See section 5e.
 #
 # Parcels without CAMA data (~28%) receive BRM = 1.0 (neutral baseline).
 #
