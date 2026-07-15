@@ -181,6 +181,10 @@
 
 /* Density-on-this-parcel comparison (fixed lot, vary units). */
 .lf-density-wrap { max-width: 640px; margin: 0.75rem auto 0; }
+/* The density status line reuses .label-privacy for styling, but its negative top
+   margin (meant to tuck under the address form) would pull it up over the density
+   button — reset the spacing here. */
+.lf-density-wrap .label-privacy { margin: 0.4rem 0; text-align: left; }
 .lf-density-result:not(:empty) { margin-top: 0.6rem; }
 .density-table { width: 100%; }
 .density-table small { color: var(--muted); font-weight: 400; }

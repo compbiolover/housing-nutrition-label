@@ -297,6 +297,7 @@ window.LabelForm = (function () {
         html += cardFor(state.idx, baselineCost()) + gradeLegend();
       } else {
         var A = state.presets[state.idxA], B = state.presets[state.idxB];
+        A._name = A.name; B._name = B.name;   // deltaTable() headers use _name (else "A"/"B")
         html += '<div class="compare-pickers">'
           + '<div class="picker"><label for="' + uid + 'a-sel">Compare A (baseline): </label>'
           + pickerSel("lf-a-sel", uid + "a-sel", state.idxA) + '</div>'
