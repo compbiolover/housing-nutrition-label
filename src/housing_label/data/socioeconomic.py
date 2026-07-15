@@ -10,7 +10,7 @@ dependency: the value is a bundled offline lookup, not a live ACS API call.
 Data
 ----
 Bundled offline by ``scripts/build_socio_ref.py`` from the keyless ACS 5-year
-**table-based Summary File** (2023 vintage): poverty rate (B17001), median
+**table-based Summary File** (2024 vintage): poverty rate (B17001), median
 household income (B19013), housing cost burden (B25106), educational attainment
 (B15003, share with a bachelor's degree or higher), and unemployment
 (B23025). Each metric is a household-weighted national percentile (poverty,
@@ -39,7 +39,7 @@ from functools import lru_cache
 
 from housing_label.data._util import num as _num
 
-DATA_VINTAGE = "Census ACS 5-year 2023 (national percentile)"
+DATA_VINTAGE = "Census ACS 5-year 2024 (national percentile)"
 US_AVG_LABEL = f"US national average ({DATA_VINTAGE})"
 
 _DIR = pathlib.Path(__file__).resolve().parent

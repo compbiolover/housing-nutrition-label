@@ -57,7 +57,7 @@ log = logging.getLogger("build_socio_ref")
 _DATA = pathlib.Path(__file__).resolve().parents[1] / "src" / "housing_label" / "data"
 HEADERS = {"User-Agent": "housing-nutrition-label/0.1 (socio crosswalk build)"}
 
-ACS_YEAR = 2023
+ACS_YEAR = 2024
 _SF = (f"https://www2.census.gov/programs-surveys/acs/summary_file/{ACS_YEAR}"
        "/table-based-SF/data/5YRData")
 

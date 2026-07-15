@@ -35,7 +35,7 @@ import csv
 import pathlib
 from functools import lru_cache
 
-DATA_VINTAGE = "Census ACS 2022 5-yr (median taxes / median value)"
+DATA_VINTAGE = "Census ACS 2024 5-yr (median taxes / median value)"
 US_AVG_LABEL = f"US national average ({DATA_VINTAGE})"
 LEGACY_NATIONAL_RATE = 0.011   # ultimate fallback if the crosswalk isn't bundled
 RATE_FLOOR, RATE_CEIL = 0.001, 0.05   # 0.1%–5.0% sanity clamp (mirrors the build)
