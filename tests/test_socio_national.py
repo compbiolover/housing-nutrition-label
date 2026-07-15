@@ -25,12 +25,15 @@ def test_weighted_percentile_below_and_bounds():
 
 
 def test_score_tracts_orientation():
-    """Least-stress tract (low poverty, high income, low burden) scores highest."""
+    """Least-stress tract (low poverty, high income, low burden, high education,
+    low unemployment) scores highest across all five blended metrics."""
     tracts = pd.DataFrame(
         {
             "poverty_rate_pct": [3.0, 15.0, 35.0],
             "median_household_income": [140000, 70000, 28000],
             "housing_cost_burden_pct": [15.0, 30.0, 55.0],
+            "education_bachelors_plus_pct": [70.0, 30.0, 8.0],   # direct: more → higher
+            "unemployment_rate_pct": [2.0, 5.0, 14.0],           # inverted: less → higher
             "households": [1000, 1000, 1000],
         },
         index=["good", "mid", "bad"],
@@ -39,6 +42,73 @@ def test_score_tracts_orientation():
     si = out["socioeconomic_index"]
     assert si["good"] > si["mid"] > si["bad"]
     assert (si >= 0).all() and (si <= 100).all()
+
+
+def test_score_tracts_education_and_jobs_move_the_score():
+    """The two new metrics genuinely affect the index: flipping education and
+    unemployment on an otherwise-identical tract changes its score."""
+    base = dict(poverty_rate_pct=12.0, median_household_income=70000,
+                housing_cost_burden_pct=28.0, households=1000)
+    tracts = pd.DataFrame(
+        {**{k: [v, v] for k, v in base.items()},
+         "education_bachelors_plus_pct": [65.0, 10.0],
+         "unemployment_rate_pct": [2.0, 15.0]},
+        index=["educated_employed", "less_so"],
+    )
+    si = B.score_tracts(tracts)["socioeconomic_index"]
+    assert si["educated_employed"] > si["less_so"]
+
+
+def test_derive_metrics_formulas():
+    """The ACS table cells map to the five headline metrics via the documented
+    ratios — covers education (B15003) and unemployment (B23025) without a rebuild."""
+    g = B.TRACT_PREFIX + "47157000100"
+    b17001 = {g: {"B17001_E001": 1000.0, "B17001_E002": 100.0}}          # 10.0% poverty
+    b19013 = {g: {"B19013_E001": 65000.0}}
+    b25106 = {g: {"B25106_E001": 500.0, "B25106_E023": 0.0,
+                  "B25106_E045": 0.0, "B25106_E046": 0.0,
+                  "B25106_E006": 50.0, "B25106_E010": 0.0, "B25106_E014": 0.0,
+                  "B25106_E018": 0.0, "B25106_E022": 0.0,
+                  "B25106_E028": 50.0, "B25106_E032": 0.0, "B25106_E036": 0.0,
+                  "B25106_E040": 0.0, "B25106_E044": 0.0}}               # (50+50)/500 = 20.0%
+    b15003 = {g: {"B15003_E001": 200.0, "B15003_E022": 40.0, "B15003_E023": 10.0,
+                  "B15003_E024": 0.0, "B15003_E025": 0.0}}               # 50/200 = 25.0%
+    b23025 = {g: {"B23025_E003": 400.0, "B23025_E005": 20.0}}            # 20/400 = 5.0%
+
+    r = B.derive_metrics(b17001, b19013, b25106, b15003, b23025).loc["47157000100"]
+    assert r["poverty_rate_pct"] == 10.0
+    assert r["median_household_income"] == 65000
+    assert r["housing_cost_burden_pct"] == 20.0
+    assert r["education_bachelors_plus_pct"] == 25.0
+    assert r["unemployment_rate_pct"] == 5.0
+
+
+def test_derive_metrics_suppressed_education_cell_unscored():
+    """A suppressed bachelor's+ cell leaves education unscored (not understated to 0)."""
+    import numpy as np
+    g = B.TRACT_PREFIX + "47157000200"
+    b15003 = {g: {"B15003_E001": 200.0, "B15003_E022": None, "B15003_E023": 10.0,
+                  "B15003_E024": 0.0, "B15003_E025": 0.0}}
+    r = B.derive_metrics({}, {}, {}, b15003, {}).loc["47157000200"]
+    assert np.isnan(r["education_bachelors_plus_pct"])
+
+
+def test_min_metrics_needs_three_of_five():
+    """A tract with only two available metrics is left unscored (MIN_METRICS=3)."""
+    import numpy as np
+    tracts = pd.DataFrame(
+        {
+            "poverty_rate_pct": [10.0, 10.0],
+            "median_household_income": [70000, 70000],
+            "housing_cost_burden_pct": [np.nan, 25.0],
+            "education_bachelors_plus_pct": [np.nan, 40.0],
+            "unemployment_rate_pct": [np.nan, 5.0],
+            "households": [1000, 1000],
+        },
+        index=["two_metrics", "five_metrics"],
+    )
+    si = B.score_tracts(tracts)["socioeconomic_index"]
+    assert pd.isna(si["two_metrics"]) and pd.notna(si["five_metrics"])
 
 
 # ── Loader: tract → county → national resolution ──────────────────────────────
@@ -58,8 +128,28 @@ def test_tract_resolution_levels():
 
 def test_metrics_present_on_result():
     r = sref.socio_for_tract("47157000100")
-    for m in ("poverty_rate_pct", "median_household_income", "housing_cost_burden_pct"):
+    for m in ("poverty_rate_pct", "median_household_income", "housing_cost_burden_pct",
+              "education_bachelors_plus_pct", "unemployment_rate_pct"):
         assert m in r["metrics"]
+
+
+def test_bundled_tract_table_carries_new_metric_columns():
+    """Guard against a rebuild/commit silently dropping the new columns: the result
+    dict would still show the keys (as None) via _metrics(), so assert the *raw*
+    bundled crosswalk header has them and a populated tract has real values."""
+    import gzip
+    import pathlib
+
+    path = pathlib.Path(sref.__file__).resolve().parent / "socio_tracts.csv.gz"
+    with gzip.open(path, "rt") as f:
+        header = f.readline().strip().split(",")
+    for col in ("education_bachelors_plus_pct", "unemployment_rate_pct"):
+        assert col in header, f"bundled tract crosswalk is missing {col}"
+
+    r = sref.socio_for_tract("47157004200")   # a populated Shelby tract
+    assert r["geo_level"] == "tract"
+    assert r["metrics"]["education_bachelors_plus_pct"] is not None
+    assert r["metrics"]["unemployment_rate_pct"] is not None
 
 
 if __name__ == "__main__":
