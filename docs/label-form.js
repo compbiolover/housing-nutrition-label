@@ -380,7 +380,11 @@ window.LabelForm = (function () {
 
     // ── refine panel ────────────────────────────────────────────────────────────
     var TAG_LABEL = { confirmed: "you edited", estimated: "estimated", assumed: "default" };
-    function syncRefineVisibility() { refineEl.style.display = state.mode === "detected" ? "" : "none"; }
+    // The refine panel only makes sense in Detected mode AND when there's an API to
+    // re-score against — without one it would be an empty, non-functional control.
+    function syncRefineVisibility() {
+      refineEl.style.display = (API_BASE && state.mode === "detected") ? "" : "none";
+    }
     function applyBuilding(building) {
       var estimated = 0, total = 0;
       FIELDS.forEach(function (f) {
