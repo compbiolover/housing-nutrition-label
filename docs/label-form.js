@@ -67,6 +67,7 @@ window.LabelForm = (function () {
     ["seismic_retrofit", "Seismic retrofit"], ["flood_vents", "Flood vents"]
   ];
   var MODE_LABELS = { detected: "Detected", single: "Single", compare: "Compare" };
+  var _mountSeq = 0;   // per-page counter → unique element IDs when >1 widget mounts
 
   function esc(s) { return LC.esc(s); }
 
@@ -136,6 +137,7 @@ window.LabelForm = (function () {
     var DEFAULT_LAT = opts.defaultLat != null ? opts.defaultLat : 35.13;
     var DEFAULT_LON = opts.defaultLon != null ? opts.defaultLon : -89.99;
     var LS_KEY = "hlabel:lastLocation";
+    var uid = "lf" + (++_mountSeq) + "-";   // namespaces this widget's generated IDs
 
     // Resolve the scoring API endpoint: ?api= wins, else window.HOUSING_LABEL_API.
     var apiFromQuery = null;
@@ -177,7 +179,7 @@ window.LabelForm = (function () {
       privEl.style.display = "";
     }
 
-    var ac = AS.attach({ input: addrInput, box: q(".lf-suggest"), apiBase: API_BASE, idPrefix: "lf-addr-opt-" });
+    var ac = AS.attach({ input: addrInput, box: q(".lf-suggest"), apiBase: API_BASE, idPrefix: uid + "opt-" });
 
     // View state. `presets`/`detected` are cached per location so switching modes
     // doesn't refetch; `desc` is the current location descriptor.
@@ -218,8 +220,8 @@ window.LabelForm = (function () {
               + ' aria-pressed="' + (state.mode === m) + '">' + esc(MODE_LABELS[m] || m) + '</button>';
           }).join("") + '</div>';
     }
-    function pickerSel(cls, val) {
-      return '<select class="' + cls + '">' + state.presets.map(function (p, i) {
+    function pickerSel(cls, id, val) {
+      return '<select class="' + cls + '" id="' + id + '">' + state.presets.map(function (p, i) {
         return '<option value="' + i + '"' + (i === val ? ' selected' : '') + '>' + esc(p.name) + '</option>';
       }).join("") + '</select>';
     }
@@ -271,13 +273,16 @@ window.LabelForm = (function () {
       if (state.mode === "detected") {
         html += detectedCard() + gradeLegend();
       } else if (state.mode === "single") {
-        html += '<div class="picker"><label>Construction profile: </label>' + pickerSel("lf-p-sel", state.idx) + '</div>';
+        html += '<div class="picker"><label for="' + uid + 'p-sel">Construction profile: </label>'
+          + pickerSel("lf-p-sel", uid + "p-sel", state.idx) + '</div>';
         html += cardFor(state.idx, baselineCost()) + gradeLegend();
       } else {
         var A = state.presets[state.idxA], B = state.presets[state.idxB];
         html += '<div class="compare-pickers">'
-          + '<div class="picker"><label>Compare A (baseline): </label>' + pickerSel("lf-a-sel", state.idxA) + '</div>'
-          + '<div class="picker"><label>against B: </label>' + pickerSel("lf-b-sel", state.idxB) + '</div></div>';
+          + '<div class="picker"><label for="' + uid + 'a-sel">Compare A (baseline): </label>'
+          + pickerSel("lf-a-sel", uid + "a-sel", state.idxA) + '</div>'
+          + '<div class="picker"><label for="' + uid + 'b-sel">against B: </label>'
+          + pickerSel("lf-b-sel", uid + "b-sel", state.idxB) + '</div></div>';
         var aCost = A.cost ? (function () { var c = clone(A.cost); c.label = A.name; return c; })() : null;
         html += '<div style="max-width:640px;margin:0 auto 1.25rem;">' + LC.costStrip(B.cost, aCost) + '</div>';
         html += '<div class="compare-grid">' + cardFor(state.idxA, null) + cardFor(state.idxB, null) + '</div>';
@@ -295,7 +300,7 @@ window.LabelForm = (function () {
       var scn = (data && data.scenarios) || [];
       if (!scn.length) { densResult.innerHTML = ""; return; }
       var head = '<tr><th>Metric</th>' + scn.map(function (s) {
-        return '<th>' + esc(s.name) + '<br><small>' + s.units + (s.units === 1 ? " unit" : " units") + '</small></th>';
+        return '<th>' + esc(s.name) + '<br><small>' + esc(s.units) + (s.units === 1 ? " unit" : " units") + '</small></th>';
       }).join("") + '</tr>';
       function row(label, fn) {
         return '<tr><td><strong>' + label + '</strong></td>'
