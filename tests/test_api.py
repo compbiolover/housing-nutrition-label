@@ -333,8 +333,9 @@ def test_is_self_baseline_only_construction_breaks_it():
     assert _is_self_baseline("baseline", **none) is True
     assert _is_self_baseline(None, **none) is False
     assert _is_self_baseline("worst-case", **none) is False
-    # Each construction override breaks the short-circuit.
-    for field, val in (("year_built", 1990), ("construction", "brick"),
+    # Each construction override breaks the short-circuit — including falsy-but-real
+    # values like year_built=0 (guards against a truthiness misclassification).
+    for field, val in (("year_built", 1990), ("year_built", 0), ("construction", "brick"),
                        ("foundation", "full-basement"), ("condition", "poor"),
                        ("bldg_material", "concrete"), ("upgrade_list", ["solar"])):
         assert _is_self_baseline("baseline", **{**none, field: val}) is False, field

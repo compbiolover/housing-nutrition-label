@@ -437,9 +437,16 @@ def _is_self_baseline(preset, *, year_built, construction, foundation, condition
     of that size — i.e. its own comparable. Era, material, condition, foundation, or
     a resilience upgrade, however, make it differ.
     """
-    return preset == "baseline" and not any((
-        year_built, construction, foundation, condition, bldg_material, upgrade_list,
-    ))
+    if preset != "baseline":
+        return False
+    # Explicit None checks, not truthiness: a falsy-but-real override (year_built is
+    # not range-validated, so ?year_built=0 can arrive) must still count as a
+    # difference. upgrade_list is a list — empty means no upgrades.
+    return not (
+        year_built is not None or construction is not None
+        or foundation is not None or condition is not None
+        or bldg_material is not None or bool(upgrade_list)
+    )
 
 
 def _attach_baseline_cost(payload: dict, lbl: dict, cfg: dict,
