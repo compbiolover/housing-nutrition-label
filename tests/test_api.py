@@ -316,6 +316,30 @@ def test_baseline_cost_self_baseline_reuses_cost():
     assert payload["baseline_cost"]["annualEnergyCost"] == 2100   # reused verbatim
 
 
+def test_is_self_baseline_only_construction_breaks_it():
+    """A preset=baseline home is its own comparable unless a CONSTRUCTION attribute
+    is overridden. Size/value/exposure are inherited by the comparable, so they
+    aren't even inputs here — overriding them must not force a redundant second pass."""
+    try:
+        import fastapi  # noqa: F401 — api.py imports it at module load
+    except ImportError:
+        print("  skip test_is_self_baseline_only_construction_breaks_it (fastapi not installed)")
+        return
+    from housing_label.api import _is_self_baseline
+
+    none = dict(year_built=None, construction=None, foundation=None, condition=None,
+                bldg_material=None, upgrade_list=[])
+    # Plain baseline (no overrides) is self-baseline; a non-baseline preset never is.
+    assert _is_self_baseline("baseline", **none) is True
+    assert _is_self_baseline(None, **none) is False
+    assert _is_self_baseline("worst-case", **none) is False
+    # Each construction override breaks the short-circuit.
+    for field, val in (("year_built", 1990), ("construction", "brick"),
+                       ("foundation", "full-basement"), ("condition", "poor"),
+                       ("bldg_material", "concrete"), ("upgrade_list", ["solar"])):
+        assert _is_self_baseline("baseline", **{**none, field: val}) is False, field
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

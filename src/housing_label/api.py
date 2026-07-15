@@ -398,13 +398,14 @@ def label(
         log.exception("scoring failed (address=%r lat=%r lon=%r)", address, lat, lon)
         raise HTTPException(502, "scoring failed")
     payload = label_payload(cfg, r, lbl)
-    # When the scored home IS the baseline comparable (preset=baseline with no
-    # construction/upgrade overrides), the delta is 0 by definition — reuse the
-    # already-computed house cost instead of a redundant second scoring pass.
-    is_self_baseline = preset == "baseline" and not any((
-        year_built, construction, foundation, condition, value, units, sqft,
-        lot_acres, bldg_material, stories, upgrade_list,
-    ))
+    # When the scored home IS its own baseline comparable, the delta is 0 by
+    # definition — reuse the already-computed house cost instead of a redundant
+    # (network-hitting) second scoring pass. See _is_self_baseline.
+    is_self_baseline = _is_self_baseline(
+        preset, year_built=year_built, construction=construction,
+        foundation=foundation, condition=condition, bldg_material=bldg_material,
+        upgrade_list=upgrade_list,
+    )
     _attach_baseline_cost(payload, lbl, cfg, self_baseline=is_self_baseline)
     _result_cache.put(cache_key, payload)
     return payload
@@ -422,6 +423,23 @@ _BASELINE_LABEL = "a same-size 2000-era frame home"
 # because the preset hard-codes it to "X" and would otherwise never match the
 # subject's real, location-derived zone.
 _BASELINE_SIZE_FIELDS = ("sqft", "value", "units", "stories", "lot_acres")
+
+
+def _is_self_baseline(preset, *, year_built, construction, foundation, condition,
+                      bldg_material, upgrade_list) -> bool:
+    """True when a scored home already IS its own baseline comparable, so the cost
+    delta is 0 and the second scoring pass can be skipped.
+
+    Only ``preset="baseline"`` homes qualify, and only CONSTRUCTION overrides break
+    it: the comparable inherits the subject's size / value / flood exposure (see
+    ``_attach_baseline_cost``), so overriding sqft, value, units, stories, lot_acres,
+    or flood_zone on a baseline home still describes a typical 2000-era frame build
+    of that size — i.e. its own comparable. Era, material, condition, foundation, or
+    a resilience upgrade, however, make it differ.
+    """
+    return preset == "baseline" and not any((
+        year_built, construction, foundation, condition, bldg_material, upgrade_list,
+    ))
 
 
 def _attach_baseline_cost(payload: dict, lbl: dict, cfg: dict,
