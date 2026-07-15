@@ -340,8 +340,9 @@ def percentile_to_local_grade(pct: float) -> str:
 # build no longer differ by a full 0.2x cliff. np.interp clamps beyond the
 # endpoints, so the curve plateaus outside the anchored range.
 #
-# Anchor years and factors (identical to simulate/house.py so the offline batch
-# scorer and the live single-address simulator agree on the same house):
+# Anchor years and factors. This module is the single source of truth — the live
+# single-address simulator (simulate/house.py) imports code_era_factor /
+# fire_age_factor from here, so both paths score the same house identically:
 #   1940 -> 1.60  Pre-WWII: balloon framing, unreinforced masonry, no engineered
 #                 connections or seismic/wind provisions (clamps for older stock).
 #   1970 -> 1.30  Pre-modern codes: predate ANSI A58.1-1972 wind loads and the
@@ -364,7 +365,8 @@ def code_era_factor(yrblt) -> float:
     """Return code-era vulnerability multiplier, continuous in year built.
 
     Linearly interpolated between the CODE_ERA anchors (1940->1.60 ... 2010->0.85)
-    and clamped beyond them. Mirrors simulate/house.py.code_era_factor."""
+    and clamped beyond them. This is the single implementation; simulate/house.py
+    imports it rather than defining its own."""
     if pd.isna(yrblt):
         return 1.0  # neutral if unknown
     return float(np.interp(int(yrblt), CODE_ERA_ANCHOR_YEARS, CODE_ERA_ANCHOR_FACTORS))
@@ -543,7 +545,7 @@ FIRE_BRM_FLOOR = 0.50  # material/age/condition alone can at most halve fire EAL
 #   1975 -> 1.20  Cloth/early-plastic insulation, aluminum branch-wiring era.
 #   2002 -> 1.00  Modern NM-B cable, pre-AFCI baseline.
 #   2010 -> 0.85  NEC 2002+ AFCI / tamper-resistant receptacles fully in force.
-# Matches simulate/house.py.fire_age_factor.
+# Single source of truth: simulate/house.py imports fire_age_factor from here.
 FIRE_AGE_ANCHOR_YEARS   = (1950, 1975, 2002, 2010)
 FIRE_AGE_ANCHOR_FACTORS = (1.50, 1.20, 1.00, 0.85)
 
