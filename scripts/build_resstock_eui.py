@@ -30,7 +30,8 @@ each sample's representation of real homes). Rows emitted:
   • an "unknown" vintage row per zone/digit (all-vintage weighted median), for
     homes with no year built.
 Zones ResStock doesn't cover at all (e.g. 8 / interior Alaska) are left out — the
-Energy model falls back to its prior BASE_EUI × zone-factor there.
+Energy model falls back to its prior scaled-4A curve (enrich/energy._FALLBACK_BASE_EUI
+× zone factor) there.
 
 Run:  python scripts/build_resstock_eui.py                 # downloads the parquet
       python scripts/build_resstock_eui.py --parquet local.parquet
@@ -111,7 +112,6 @@ def main() -> int:
     ap.add_argument("--cache-dir", default=None, help="download cache directory")
     args = ap.parse_args()
 
-    import numpy as np  # noqa: F401 — used by _weighted_median
     import pyarrow.parquet as pq
 
     if args.parquet:
