@@ -66,8 +66,8 @@
   <table class="data-table">
     <thead><tr><th>Resolution</th><th>What's resolved at this level</th></tr></thead>
     <tbody>
-      <tr><td><span class="tag point">Address point</span></td><td>Flood zone (FEMA NFHL), tornado frequency (SPC, within 25&nbsp;mi), seismic PGA (USGS)</td></tr>
-      <tr><td><span class="tag tract">Census tract</span></td><td><strong>Health</strong> (CDC PLACES), <strong>Socioeconomic</strong> (Census ACS), and <strong>Walkability</strong> (EPA National Walkability Index) &mdash; each scored against the <em>national</em> distribution of US tracts, comparable across locations</td></tr>
+      <tr><td><span class="tag point">Address point</span></td><td>Flood zone (FEMA NFHL), seismic PGA (USGS)</td></tr>
+      <tr><td><span class="tag tract">Census tract</span></td><td>Tornado &amp; wildfire expected annual loss (FEMA National Risk Index); <strong>Health</strong> (CDC PLACES), <strong>Socioeconomic</strong> (Census ACS), and <strong>Walkability</strong> (EPA National Walkability Index) &mdash; each scored against the <em>national</em> distribution of US tracts, comparable across locations</td></tr>
       <tr><td><span class="tag county">County</span></td><td>Energy climate zone (IECC) and Infrastructure Burden (cost / property-tax model)</td></tr>
       <tr><td><span class="tag county">County</span></td><td>Environmental grid-carbon factor (kg&nbsp;CO&#8322;e/kWh) &mdash; the location's eGRID2022 subregion rate via a bundled county&rarr;subregion crosswalk (US-average fallback for unmapped counties)</td></tr>
       <tr><td><span class="tag config">Your house only</span></td><td>Durability, embodied carbon, and the <strong>fire</strong> peril &mdash; driven by construction / year / condition, identical at any location</td></tr>
@@ -82,7 +82,7 @@
   <table class="data-table">
     <thead><tr><th>Dimension</th><th>Measures</th><th>Data source</th><th>Resolution</th></tr></thead>
     <tbody>
-      <tr><td>Disaster Resilience</td><td>Expected annual loss from flood, tornado, earthquake &amp; fire</td><td>FEMA NFHL, SPC, USGS, NFPA base rate</td><td><span class="tag point">point</span> <span class="tag config">+ config</span></td></tr>
+      <tr><td>Disaster Resilience</td><td>Expected annual loss from flood, tornado, earthquake &amp; fire</td><td>FEMA NFHL, FEMA NRI, USGS, NFPA base rate</td><td><span class="tag point">point</span> <span class="tag tract">tract</span> <span class="tag config">+ config</span></td></tr>
       <tr><td>Energy Efficiency</td><td>Modeled energy use intensity vs. a climate-zone benchmark</td><td>IECC climate zone + construction model</td><td><span class="tag county">county</span> <span class="tag config">+ config</span></td></tr>
       <tr><td>Durability</td><td>Building longevity from materials, build quality &amp; condition</td><td>Construction model</td><td><span class="tag config">config</span></td></tr>
       <tr><td>Environmental Footprint</td><td>Embodied + operational carbon over the building's life</td><td>Material carbon + eGRID2022 subregion grid factor</td><td><span class="tag county">county</span> <span class="tag config">+ config</span></td></tr>
