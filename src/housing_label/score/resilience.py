@@ -29,7 +29,10 @@ import sys
 import numpy as np
 import pandas as pd
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(message)s")
+# NOTE: no logging.basicConfig at import time — this module is imported by the
+# live simulator/API (simulate/house.py pulls in the shared BRM factors), and
+# reconfiguring the root logger on import would leak the CLI's formatting into
+# that process. basicConfig lives in main() (the batch-scorer CLI entrypoint).
 log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -333,32 +336,43 @@ def percentile_to_local_grade(pct: float) -> str:
 # Sources are cited per factor below.
 
 # --- 5a. Code Era Factor (from YRBLT) ---
-# Rationale: Building codes improve structural performance over time.
-# The International Building Code (IBC) was adopted by Tennessee in 2003
-# (IBHS "Building Codes & Wind" report 2023; NCIUA state adoption tracker).
-# Pre-1970 buildings predate ANSI A58.1-1972 wind load standards and the
-# 1971 San Fernando earthquake-driven seismic code reforms (SEAOC Blue Book).
-# 1970-1989: ANSI/ASCE 7 era; modern load calculations but pre-IRC prescriptive
-#   wood-frame improvements. Moderate improvement over older stock.
-# 1990-2002: Post-Hurricane Hugo (1989) / Northridge (1994) code revisions;
-#   better detailing but pre-IBC uniformity.
-# 2003+: IBC adoption brings uniform wind/seismic provisions statewide;
-#   ASCE 7-02 load maps applied; ~15% reduction in expected losses vs. 1990s
-#   stock (IBHS Premium 2023 estimate for TN residential).
+# Rationale: Building codes improve structural performance over time, so
+# vulnerability declines roughly monotonically with year built. We model it as a
+# CONTINUOUS curve anchored at code-milestone years and linearly interpolated
+# between them (np.interp), rather than the old coarse bins — a 1969 and a 1970
+# build no longer differ by a full 0.2x cliff. np.interp clamps beyond the
+# endpoints, so the curve plateaus outside the anchored range.
+#
+# Anchor years and factors. This module is the single source of truth — the live
+# single-address simulator (simulate/house.py) imports code_era_factor /
+# fire_age_factor from here, so both paths score the same house identically:
+#   1940 -> 1.60  Pre-WWII: balloon framing, unreinforced masonry, no engineered
+#                 connections or seismic/wind provisions (clamps for older stock).
+#   1970 -> 1.30  Pre-modern codes: predate ANSI A58.1-1972 wind loads and the
+#                 1971 San Fernando seismic reforms (SEAOC Blue Book).
+#   1990 -> 1.10  Early modern (ANSI/ASCE 7 wind), pre-Northridge (1994) detailing.
+#   2003 -> 1.00  Baseline: post-Hurricane Hugo (1989) / Northridge revisions,
+#                 around IBC maturity (IBC first published 2000; ASCE 7-02 maps).
+#                 TN statewide adoption phased in through the 2000s, so 2003 is a
+#                 provisions-maturity anchor, not a hard statewide-adoption date.
+#   2010 -> 0.85  Fully modern IBC / ASCE 7-05/7-10 provisions (clamps for newer
+#                 stock); ~15% lower expected losses vs. 1990s stock (IBHS est.).
+
+# Continuous year-built vulnerability curves (see 5a rationale). np.interp clamps
+# outside the endpoints: pre-1940 stays 1.60, post-2010 stays 0.85 — no bin cliffs.
+CODE_ERA_ANCHOR_YEARS   = (1940, 1970, 1990, 2003, 2010)
+CODE_ERA_ANCHOR_FACTORS = (1.60, 1.30, 1.10, 1.00, 0.85)
+
 
 def code_era_factor(yrblt) -> float:
-    """Return code-era vulnerability multiplier based on year built."""
+    """Return code-era vulnerability multiplier, continuous in year built.
+
+    Linearly interpolated between the CODE_ERA anchors (1940->1.60 ... 2010->0.85)
+    and clamped beyond them. This is the single implementation; simulate/house.py
+    imports it rather than defining its own."""
     if pd.isna(yrblt):
         return 1.0  # neutral if unknown
-    yr = int(yrblt)
-    if yr < 1970:
-        return 1.3   # pre-modern codes: ANSI 58.1 / pre-seismic-reform era
-    elif yr < 1990:
-        return 1.1   # early modern codes: post-ANSI 7 wind, pre-Northridge
-    elif yr < 2003:
-        return 1.0   # baseline: post-Hugo reforms, pre-IBC adoption
-    else:
-        return 0.85  # post-IBC (TN adopted IBC 2003): best code provisions
+    return float(np.interp(int(yrblt), CODE_ERA_ANCHOR_YEARS, CODE_ERA_ANCHOR_FACTORS))
 
 
 # --- 5b. Construction Type Factor (from EXTWALL) ---
@@ -480,11 +494,13 @@ def condition_factor(cond) -> float:
 # Wind/Seismic BRM = code_era × construction_type × condition
 # (Foundation factor is flood-specific; basements do not meaningfully increase
 #  tornado or seismic vulnerability in the same way.)
-# BRMs are clamped to [floor, 1.5] where the floor is construction-type-specific.
+# BRMs have a construction-type-specific lower FLOOR but NO upper ceiling, so
+# vulnerability compounds: an old, poor-condition, wood-frame house can exceed the
+# code-current baseline (e.g. a pre-1940 unsound frame home > 2x) without being
+# clipped. This matches simulate/house.py (floor only, no ceiling) and the
+# published methodology. Capping at 1.5 previously understated the worst stock.
 # Using a universal 0.5 floor was too conservative for high-performance systems
 # like ICF; per-type floors allow literature-supported maximum reductions.
-
-BRM_MAX = 1.5
 
 # Construction-type-specific BRM floors (lower bound on adjusted EAL multiplier).
 # Wood/vinyl/composite-frame types: 0.50 (best traditional performance ceiling).
@@ -526,23 +542,28 @@ FIRE_EXTWALL_FACTOR = {
 FIRE_BRM_FLOOR = 0.50  # material/age/condition alone can at most halve fire EAL
 
 
+# Continuous fire-age (wiring-era) curve, anchored to electrical-code milestones
+# and interpolated like the code-era curve (clamped beyond the endpoints):
+#   1950 -> 1.50  Knob-and-tube era: highest residential electrical-fire risk.
+#   1975 -> 1.20  Cloth/early-plastic insulation, aluminum branch-wiring era.
+#   2002 -> 1.00  Modern NM-B cable, pre-AFCI baseline.
+#   2010 -> 0.85  NEC 2002+ AFCI / tamper-resistant receptacles fully in force.
+# Single source of truth: simulate/house.py imports fire_age_factor from here.
+FIRE_AGE_ANCHOR_YEARS   = (1950, 1975, 2002, 2010)
+FIRE_AGE_ANCHOR_FACTORS = (1.50, 1.20, 1.00, 0.85)
+
+
 def fire_age_factor(yrblt) -> float:
-    """Structural-fire vulnerability by electrical/wiring era (ignition risk).
+    """Structural-fire vulnerability by electrical/wiring era, continuous in
+    year built.
 
     Pre-1950 knob-and-tube and mid-century aluminum branch wiring raise fire
-    risk; the 2002 NEC (AFCI / tamper-resistant) era lowers it.
+    risk; the 2002 NEC (AFCI / tamper-resistant) era lowers it. Linearly
+    interpolated between the FIRE_AGE anchors and clamped beyond them.
     """
     if pd.isna(yrblt):
         return 1.0
-    yr = int(yrblt)
-    if yr < 1950:
-        return 1.5   # knob-and-tube era — highest residential electrical-fire risk
-    elif yr < 1975:
-        return 1.2   # aluminum branch-wiring era
-    elif yr < 2002:
-        return 1.0   # modern NM-B, pre-AFCI baseline
-    else:
-        return 0.85  # NEC 2002+ AFCI / tamper-resistant
+    return float(np.interp(int(yrblt), FIRE_AGE_ANCHOR_YEARS, FIRE_AGE_ANCHOR_FACTORS))
 
 
 def fire_construction_factor(extwall) -> float:
@@ -579,13 +600,14 @@ def calc_brm_row(row):
     extwall_code = int(row.get("EXTWALL")) if not pd.isna(row.get("EXTWALL")) else None
     brm_floor = EXTWALL_BRM_FLOOR.get(extwall_code, DEFAULT_BRM_FLOOR)
 
-    flood_brm       = np.clip(cef * ctf * ff * cf,  brm_floor, BRM_MAX)
-    wind_seismic_brm = np.clip(cef * ctf * cf,       brm_floor, BRM_MAX)
+    # Floor only, no upper ceiling: vulnerability compounds above the baseline.
+    flood_brm       = max(cef * ctf * ff * cf,  brm_floor)
+    wind_seismic_brm = max(cef * ctf * cf,       brm_floor)
     # Fire uses combustibility (wiring era × wall material × condition), not the
-    # wind/seismic factors, clamped to [FIRE_BRM_FLOOR, BRM_MAX].
-    fire_brm        = np.clip(fire_age_factor(row.get("YRBLT"))
-                              * fire_construction_factor(row.get("EXTWALL")) * cf,
-                              FIRE_BRM_FLOOR, BRM_MAX)
+    # wind/seismic factors, floored at FIRE_BRM_FLOOR (no ceiling).
+    fire_brm        = max(fire_age_factor(row.get("YRBLT"))
+                          * fire_construction_factor(row.get("EXTWALL")) * cf,
+                          FIRE_BRM_FLOOR)
 
     return {
         "code_era_factor":    cef,
@@ -625,16 +647,13 @@ def _code_factor_vec(col, table, default=1.0):
     return result
 
 
-def _year_factor_vec(col, cuts, vals):
-    """Vectorized ascending-threshold year binning (NaN → 1.0), matching the
-    ``if yr < c0: .. elif yr < c1: .. else ..`` scalar era/age factors."""
+def _year_interp_vec(col, years, factors):
+    """Vectorized continuous year-built factor: ``np.interp(int(yr), years,
+    factors)`` with NaN → 1.0, exactly matching the scalar code_era_factor /
+    fire_age_factor (which share the same anchors). np.interp clamps beyond the
+    endpoints just like the scalar path."""
     xt = np.trunc(pd.to_numeric(col, errors="coerce").to_numpy())  # int(yr)
-    result = np.full(len(xt), float(vals[-1]))   # else-branch default
-    assigned = np.zeros(len(xt), dtype=bool)
-    for c, v in zip(cuts, vals[:-1]):
-        m = (~assigned) & (xt < c)               # first matching band wins (if/elif)
-        result[m] = v
-        assigned |= m
+    result = np.interp(xt, years, factors)       # NaN xt → NaN result
     result[np.isnan(xt)] = 1.0                    # scalar pd.isna(yrblt) → 1.0
     return result
 
@@ -719,11 +738,11 @@ def brm_columns_vec(df):
     cond    = df["COND"]    if "COND"    in df.columns else nan
     has_cama = pd.to_numeric(yrblt, errors="coerce").notna().to_numpy()
 
-    cef      = _year_factor_vec(yrblt, [1970, 1990, 2003], [1.3, 1.1, 1.0, 0.85])
+    cef      = _year_interp_vec(yrblt, CODE_ERA_ANCHOR_YEARS, CODE_ERA_ANCHOR_FACTORS)
     ctf      = _code_factor_vec(extwall, EXTWALL_FACTOR)
     ff       = _code_factor_vec(bsmt, BSMT_FLOOD_FACTOR)
     cf       = _code_factor_vec(cond, COND_FACTOR)
-    fire_age = _year_factor_vec(yrblt, [1950, 1975, 2002], [1.5, 1.2, 1.0, 0.85])
+    fire_age = _year_interp_vec(yrblt, FIRE_AGE_ANCHOR_YEARS, FIRE_AGE_ANCHOR_FACTORS)
     fire_ctf = _code_factor_vec(extwall, FIRE_EXTWALL_FACTOR)
 
     ew = np.trunc(pd.to_numeric(extwall, errors="coerce").to_numpy())
@@ -731,9 +750,10 @@ def brm_columns_vec(df):
     for k, v in EXTWALL_BRM_FLOOR.items():
         brm_floor[ew == k] = v
 
-    flood_brm        = np.clip(cef * ctf * ff * cf, brm_floor, BRM_MAX)
-    wind_seismic_brm = np.clip(cef * ctf * cf,      brm_floor, BRM_MAX)
-    fire_brm         = np.clip(fire_age * fire_ctf * cf, FIRE_BRM_FLOOR, BRM_MAX)
+    # Floor only, no upper ceiling (matches the scalar calc_brm_row).
+    flood_brm        = np.maximum(cef * ctf * ff * cf, brm_floor)
+    wind_seismic_brm = np.maximum(cef * ctf * cf,      brm_floor)
+    fire_brm         = np.maximum(fire_age * fire_ctf * cf, FIRE_BRM_FLOOR)
 
     out = pd.DataFrame(index=idx)
     out["code_era_factor"]     = np.where(has_cama, cef, 1.0)
@@ -758,6 +778,10 @@ def _resolve_path(path_str: str) -> pathlib.Path:
 
 
 def main() -> None:
+    # Configure root logging here (the CLI entrypoint), not at import time, so
+    # importing this module into the simulator/API never reconfigures logging.
+    logging.basicConfig(level=logging.INFO,
+                        format="%(asctime)s %(levelname)s  %(message)s")
     parser = argparse.ArgumentParser(
         description="Compute EAL-based disaster resilience scores and grades "
                     "for Shelby County parcels."

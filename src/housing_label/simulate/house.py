@@ -42,6 +42,9 @@ from housing_label.simulate.dimensions import (
 from housing_label.confidence import (
     confidence_for_label, bands_for_label, CONFIDENCE_NOTES, CONFIDENCE_LEGEND,
 )
+# Year-built vulnerability curves live in the batch scorer so the offline
+# pipeline and this live simulator apply one identical (continuous) model.
+from housing_label.score.resilience import code_era_factor, fire_age_factor
 from housing_label.enrich.seismic_lookup import get_pga
 
 # ── File paths ─────────────────────────────────────────────────────────────────
@@ -449,26 +452,9 @@ def percentile_to_local_grade(pct: float) -> str:
     return "F"
 
 
-def code_era_factor(year_built: int) -> float:
-    """Code-era vulnerability multiplier (wind/seismic). Steepened for pre-code stock."""
-    yr = int(year_built)
-    if yr < 1940: return 1.6    # pre-WWII: balloon framing, unreinforced masonry, no
-                                 # engineered connections or seismic/wind provisions
-    if yr < 1970: return 1.3    # pre-modern codes: before ANSI 58.1 / seismic reforms
-    if yr < 1990: return 1.1    # early modern: ASCE 7 wind, pre-Northridge
-    if yr < 2003: return 1.0    # post-Hugo/Northridge baseline
-    return 0.85                  # post-IBC (TN adopted IBC 2003): best provisions
-
-
-def fire_age_factor(year_built: int) -> float:
-    """Structural-fire vulnerability by electrical/wiring era (ignition risk).
-    Pre-1950 knob-and-tube and mid-century aluminum branch wiring raise fire risk;
-    NEC 2002+ (AFCI breakers, tamper-resistant receptacles) lowers it."""
-    yr = int(year_built)
-    if yr < 1950: return 1.5    # knob-and-tube era — highest residential electrical-fire risk
-    if yr < 1975: return 1.2    # cloth/early-plastic insulation, aluminum branch wiring era
-    if yr < 2002: return 1.0    # modern NM-B cable, but pre-AFCI
-    return 0.85                  # NEC 2002+ AFCI / tamper-resistant requirements
+# code_era_factor and fire_age_factor are imported from housing_label.score.resilience
+# (continuous, np.interp-based curves) so this simulator and the offline batch
+# scorer apply one identical model — see the import near the top of this module.
 
 
 @lru_cache(maxsize=4)

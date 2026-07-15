@@ -1,16 +1,16 @@
 {
   "baseline_la": {
     "composite_national_grade": "C",
-    "composite_score": 57.1,
+    "composite_score": 57.0,
     "cost": {
       "annualEnergyCost": 2111,
-      "expectedAnnualLoss": 147
+      "expectedAnnualLoss": 149
     },
     "dimensions": [
       {
         "key": "resilience",
         "national_grade": "B",
-        "score": 61.1
+        "score": 60.9
       },
       {
         "key": "energy",
@@ -53,22 +53,22 @@
         "score": null
       }
     ],
-    "fire_loss": 95.51,
+    "fire_loss": 96.92,
     "n_scored": 5,
-    "total_loss": 146.67
+    "total_loss": 149.27
   },
   "baseline_shelby": {
     "composite_national_grade": "C",
     "composite_score": 57.5,
     "cost": {
       "annualEnergyCost": 2111,
-      "expectedAnnualLoss": 147
+      "expectedAnnualLoss": 149
     },
     "dimensions": [
       {
         "key": "resilience",
         "national_grade": "B",
-        "score": 61.1
+        "score": 60.9
       },
       {
         "key": "energy",
@@ -111,9 +111,9 @@
         "score": null
       }
     ],
-    "fire_loss": 95.51,
+    "fire_loss": 96.92,
     "n_scored": 5,
-    "total_loss": 146.67
+    "total_loss": 149.27
   },
   "fortified_gold_shelby": {
     "composite_national_grade": "A",
@@ -291,16 +291,16 @@
   },
   "worst_case_shelby": {
     "composite_national_grade": "D",
-    "composite_score": 21.7,
+    "composite_score": 20.9,
     "cost": {
       "annualEnergyCost": 4706,
-      "expectedAnnualLoss": 770
+      "expectedAnnualLoss": 900
     },
     "dimensions": [
       {
         "key": "resilience",
-        "national_grade": "D",
-        "score": 20.6
+        "national_grade": "F",
+        "score": 16.6
       },
       {
         "key": "energy",
@@ -345,6 +345,6 @@
     ],
     "fire_loss": 93.12,
     "n_scored": 5,
-    "total_loss": 770.06
+    "total_loss": 900.24
   }
 }

@@ -304,8 +304,18 @@ def test_resilience_fire_and_uncapped_brm():
         fields.update(over)
         return resolve_config(Namespace(preset="baseline", lat=35.15, lon=-89.85, **fields))
 
-    # Pre-1940 is steeper than pre-1970; fire wiring-era captures the knob-and-tube era.
-    assert code_era_factor(1920) == 1.6 > code_era_factor(1965) == 1.3
+    # Code-era factor is now a CONTINUOUS curve (anchored + interpolated), not
+    # coarse bins: anchors hold, endpoints clamp, and it's monotonically
+    # non-increasing in year built with no bin cliffs.
+    assert code_era_factor(1920) == 1.6          # pre-1940 clamp (balloon frame)
+    assert code_era_factor(1940) == 1.6          # anchor
+    assert code_era_factor(1970) == 1.3          # anchor
+    assert code_era_factor(2030) == 0.85         # post-2010 clamp
+    assert 1.3 < code_era_factor(1965) < 1.6     # interpolated, not the old 1.3 step
+    assert code_era_factor(1969) > code_era_factor(1970)  # continuity across the old edge
+    assert abs(code_era_factor(1969) - code_era_factor(1970)) < 0.05  # no cliff
+    # Pre-1940 is still penalized harder than pre-1970 (the point of the band).
+    assert code_era_factor(1920) > code_era_factor(1965)
     assert fire_age_factor(1920) == 1.5 > fire_age_factor(2024)
 
     r = simulate(cfg(construction="vinyl", year_built=1920, condition="average"))
