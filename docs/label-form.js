@@ -312,7 +312,16 @@ window.LabelForm = (function () {
         html += gradeLegend();
       }
       app.innerHTML = html;
-      if (densWrap) densWrap.hidden = !(state.mode === "detected" && state.detected);
+      if (densWrap) {
+        // The density sweep varies a parcel from 1 to a few units on a fixed lot,
+        // so it's only meaningful for a home that isn't already a multi-unit
+        // building. Hide it once we've detected one (mirrors label-core's
+        // multi-family test) — you can't add hypothetical density to a tower.
+        var st = (state.detected || {}).structure;
+        var alreadyMulti = !!(st && (st.structure_type === "multifamily"
+          || (st.num_units && st.num_units > 1)));
+        densWrap.hidden = !(state.mode === "detected" && state.detected) || alreadyMulti;
+      }
     }
 
     // ── density comparison (fixed lot, vary units — Detected mode) ──────────────
