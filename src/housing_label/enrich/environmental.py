@@ -205,7 +205,8 @@ ENV_COLS = [
 ]
 
 DATA_SOURCE = (
-    f"Operational: EPA {EGRID_VINTAGE} 0.423 kgCO2e/kWh + EPA gas 5.3 kgCO2e/therm; "
+    f"Operational: EPA {EGRID_VINTAGE} {EF_GRID_KG_PER_KWH} kgCO2e/kWh "
+    f"+ EPA gas {EF_GAS_KG_PER_THERM} kgCO2e/therm; "
     "Embodied: bottom-up A1-A3 from industry-average EPD factors x per-home "
     "geometry (foundation from footprint+perimeter x basement depth, roof/envelope/"
     "interior by area), amortized over service life (60-100yr), scored per "
