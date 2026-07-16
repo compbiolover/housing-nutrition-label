@@ -223,27 +223,27 @@ def _wall_factor(extwall) -> tuple[str, float]:
 
 def _resstock_factor(axis: str, label: str, fallback: float) -> float:
     """A ResStock-derived within-cell multiplier for (axis, label), or ``fallback``
-    (the model's hand-tuned value) when the bundled factor table has no such row."""
+    (a bundled copy of the shipped factor) when the factor table has no such row."""
     from housing_label.data.resstock_eui import resstock_factor
     f = resstock_factor(axis, label)
     return f if f is not None else fallback
 
 
 # Foundation factors used only when the ResStock factor table is unavailable
-# (packaging / partial checkout). They MIRROR the shipped resstock_factors.csv
-# values so the degraded path stays consistent with the normal one — each is the
-# within-cell median-EUI ratio vs. the mixed-stock cell median, not a hand guess.
+# (packaging / partial checkout). They are EXACT copies of the shipped
+# resstock_factors.csv values, so the degraded path matches the normal one — each
+# is the within-cell median-EUI ratio vs. the mixed-stock cell median.
 _FOUNDATION_FALLBACK = {
-    1: ("crawlspace_slab",  1.00),  # slab / crawl / pier — ~= the cell median
-    2: ("partial_basement", 1.03),  # unheated basement
-    3: ("full_basement",    0.91),  # heated basement — lower per-sqft EUI
+    1: ("crawlspace_slab",  1.003),  # slab / crawl / pier — ~= the cell median
+    2: ("partial_basement", 1.033),  # unheated basement
+    3: ("full_basement",    0.907),  # heated basement — lower per-sqft EUI
 }
 
 
 def _foundation_factor(bsmt) -> tuple[str, float]:
     """Foundation type → (label, EUI factor). The factor is the ResStock-derived,
-    climate-controlled within-cell multiplier (crawl/slab = 1.0), falling back to
-    the hand-tuned value when the ResStock factor table is unavailable."""
+    climate-controlled within-cell multiplier, falling back to a bundled exact copy
+    of the shipped factor when the ResStock factor table is unavailable."""
     code = int(bsmt) if not pd.isna(bsmt) else None
     label, fallback = _FOUNDATION_FALLBACK.get(code, ("unknown", 1.00))
     if label == "unknown":
@@ -260,13 +260,13 @@ def _hvac_factor(heat, fuel) -> tuple[str, float]:
     accounts for within-vintage variation.
     """
     heat_code = int(heat) if not pd.isna(heat) else None
-    # Fallbacks used only when the ResStock factor table is unavailable; they MIRROR
-    # the shipped resstock_factors.csv values (within-cell median-EUI ratios vs. the
-    # mixed-stock cell median), so the degraded path matches the normal one.
+    # Fallbacks used only when the ResStock factor table is unavailable; EXACT copies
+    # of the shipped resstock_factors.csv values (within-cell median-EUI ratios vs.
+    # the mixed-stock cell median), so the degraded path matches the normal one.
     fallback = {
-        4: ("heat_pump",           0.78),  # efficient — well below the cell median
-        2: ("electric_resistance", 0.96),  # COP 1
-        3: ("gas_furnace",         1.04),  # gas combustion counted at the site meter
+        4: ("heat_pump",           0.782),  # efficient — well below the cell median
+        2: ("electric_resistance", 0.959),  # COP 1
+        3: ("gas_furnace",         1.043),  # gas combustion counted at the site meter
     }
     # Memphis is predominantly heat-pump territory; default to heat pump.
     label, fb = fallback.get(heat_code, ("heat_pump", 1.00))

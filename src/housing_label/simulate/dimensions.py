@@ -363,10 +363,13 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
     """Compute energy / durability / environmental / infrastructure scores
     (0–100, or None when the model cannot score the parcel).
 
-    ``climate_zone`` (IECC) scales the energy model; ``grid_factor`` (kgCO2e/kWh)
-    drives the environmental operational-carbon leg; ``elec_rate``/``gas_rate`` are
-    the property's local utility rates for the energy-cost estimate; ``mf_units`` is
-    the building's residential unit count (drives the shared-wall energy credit);
+    ``climate_zone`` (IECC) scales the energy model; ``building_type`` selects the
+    ResStock energy benchmark (Multi-Family / Mobile-Home get their own EUI curve);
+    ``grid_factor`` (kgCO2e/kWh) drives the environmental operational-carbon leg;
+    ``elec_rate``/``gas_rate`` are the property's local utility rates for the
+    energy-cost estimate; ``mf_units`` is the building's residential unit count
+    (folds the detected unit density into the Infrastructure fiscal ratio — it no
+    longer affects Energy, which is now driven by ``building_type``);
     ``mf_material`` is the detected building material for a multi-family building
     (lengthens the durability model's shared structural-shell service life);
     ``infra_params`` overrides the Memphis infrastructure calibration with a
