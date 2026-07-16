@@ -72,7 +72,7 @@ Expected Annual Loss (EAL) model combining flood, tornado, seismic, and fire haz
 <details>
 <summary><strong>⚡ Energy Efficiency</strong> — modeled Energy Use Intensity</summary>
 
-Energy Use Intensity (EUI) modeled from ResStock archetypes, adjusted for building vintage and construction type.
+Energy Use Intensity (EUI) from NREL ResStock 2024 simulation medians by climate zone and vintage, adjusted for the home's size, construction, and heating system.
 
 </details>
 

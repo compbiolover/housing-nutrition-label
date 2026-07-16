@@ -9,4 +9,6 @@ generated for any US location without per-call external data dependencies:
   • climate_projections.py — county → downscaled climate-hazard projection
                   sub-score (CMRA/NCA4, RCP4.5–8.5 mid-century; national-average
                   fallback for unmapped counties)
+  • resstock_eui.py — climate zone × vintage → base residential site-EUI
+                  benchmark (NREL ResStock 2024 medians; drives the Energy score)
 """
