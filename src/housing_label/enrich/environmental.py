@@ -377,7 +377,10 @@ def model_parcel_environment(row: pd.Series,
     kwh    = _num(row.get("est_annual_kwh")) or 0.0
     therms = _num(row.get("est_annual_therms")) or 0.0
     marginal = grid_marginal_factor if grid_marginal_factor is not None else grid_factor
-    avoided  = _num(avoided_kwh) or 0.0
+    # Clamp to >= 0: the parameter means "kWh avoided", so a negative value (a
+    # caller bug, or a home that somehow uses more than its standard-envelope
+    # baseline) must not be credited as extra consumption.
+    avoided  = max(0.0, _num(avoided_kwh) or 0.0)
     operational = (kwh * grid_factor
                    + avoided * (grid_factor - marginal)
                    + therms * EF_GAS_KG_PER_THERM)

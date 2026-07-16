@@ -95,6 +95,16 @@ def test_marginal_reduces_to_average_when_equal_or_absent():
     assert "Cambium" not in absent["env_data_source"]
 
 
+def test_negative_avoided_kwh_is_clamped():
+    """A negative avoided_kwh (caller bug) must not be credited as extra
+    consumption — it clamps to zero, i.e. the plain consumed × average."""
+    today = E.model_parcel_environment(_row(), grid_factor=0.4097)
+    neg = E.model_parcel_environment(_row(), grid_factor=0.4097,
+                                     grid_marginal_factor=0.2362, avoided_kwh=-5000)
+    assert neg["env_operational_co2e_kg_yr"] == today["env_operational_co2e_kg_yr"]
+    assert "Cambium" not in neg["env_data_source"]
+
+
 def test_marginal_credit_matches_formula():
     """operational == consumed·avg + avoided·(avg − marginal) + therms·EF_GAS."""
     avg, marg, avoided = 0.4097, 0.2362, 3000.0
