@@ -69,8 +69,9 @@ def _table() -> dict[tuple[str, str, str], float]:
 def _factors() -> dict[tuple[str, str], float]:
     table: dict[tuple[str, str], float] = {}
     if not _FACTORS_CSV.exists():
-        log.warning("ResStock factor table not found at %s — Energy uses its "
-                    "hand-tuned foundation/HVAC factors.", _FACTORS_CSV)
+        log.warning("ResStock factor table not found at %s — Energy uses the bundled "
+                    "foundation/HVAC constants in enrich/energy.py (which mirror this "
+                    "table exactly).", _FACTORS_CSV)
         return table
     with _FACTORS_CSV.open(newline="") as f:
         for row in csv.DictReader(f):
@@ -94,9 +95,10 @@ def resstock_base_eui(climate_zone: str | None, vintage_bin: str,
     if not climate_zone:
         return None
     table = _table()
-    bt = str(building_type or DEFAULT_BUILDING_TYPE).strip()
-    # Normalize so a lowercase "4a" still matches the "4A" row rather than losing
-    # the moisture regime to the digit fallback.
+    # Normalize case both ways: building types are bundled lowercase ("mf_5plus"),
+    # zones uppercase ("4A") — so a caller passing "MF_5PLUS" or "4a" still matches
+    # rather than silently falling back to the detached / digit curve.
+    bt = str(building_type or DEFAULT_BUILDING_TYPE).strip().lower()
     zone = str(climate_zone).strip().upper()
     for zone_key in (zone, zone[:1]):
         eui = table.get((bt, zone_key, vintage_bin))

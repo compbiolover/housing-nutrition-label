@@ -63,6 +63,8 @@ def test_building_type_lookup_and_fallback():
     assert R.resstock_base_eui("4A", "2000_2009", "not_a_type") is None
     # Default building type is detached.
     assert R.resstock_base_eui("4A", "2000_2009") == euis["sf_detached"]
+    # Building type is case-insensitive (bundled lowercase), like the zone.
+    assert R.resstock_base_eui("4A", "2000_2009", "MF_5PLUS") == euis["mf_5plus"]
     # base_eui walks the chain → an unknown type resolves to the detached value.
     assert base_eui("4A", "2000_2009", "not_a_type") == euis["sf_detached"]
 
