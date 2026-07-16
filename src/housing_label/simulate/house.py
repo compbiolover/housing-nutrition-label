@@ -1282,9 +1282,10 @@ def print_label(cfg: dict, label: dict) -> None:
         place = (loc.label or "")[:34]
         cz = loc.climate_zone or "—"
         grid = loc.egrid_factor if loc.egrid_factor is not None else "—"
+        marg = loc.cambium_factor if getattr(loc, "cambium_factor", None) is not None else "—"
         print(row(f"  Location: {place}"))
-        print(row(f"    IECC zone {cz}  ·  grid {grid} kgCO2e/kWh  ·  "
-                  f"tract {label.get('census_tract') or '—'}"))
+        print(row(f"    IECC zone {cz}  ·  tract {label.get('census_tract') or '—'}"))
+        print(row(f"    grid avg {grid} · marginal {marg} kgCO2e/kWh"))
     print(SEP)
     print(row(f"  {'Dimension':<24}{'Score':>8}  {'Grade':<6}{'Profile':<20}"))
     print(row(f"  {'─'*58}"))
@@ -1522,6 +1523,8 @@ def label_payload(cfg: dict, r: dict, label: dict, include_building: bool = True
             "climate_zone": loc.climate_zone,
             "egrid_subregion": loc.egrid_subregion,
             "egrid_factor": loc.egrid_factor,
+            "cambium_region": loc.cambium_region,
+            "cambium_factor": loc.cambium_factor,
             "in_urban_area": loc.in_urban_area,
             "notes": loc.notes,
         }

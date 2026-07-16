@@ -74,6 +74,51 @@ def test_model_parcel_environment_cleaner_grid_scores_better():
     assert clean["environmental_score"] >= dirty["environmental_score"]
 
 
+def test_marginal_reduces_to_average_when_equal_or_absent():
+    """The marginal-rate credit must vanish when marginal == average, and when no
+    marginal factor is supplied — so the operational leg equals today's
+    consumed × average regardless of how many kWh are 'avoided'."""
+    today = E.model_parcel_environment(_row(), grid_factor=0.4097)
+    # Marginal == average, with a large avoided quantity: credit term is zero.
+    equal = E.model_parcel_environment(_row(), grid_factor=0.4097,
+                                       grid_marginal_factor=0.4097, avoided_kwh=5000)
+    # No marginal factor at all, same avoided quantity: falls back to the average.
+    absent = E.model_parcel_environment(_row(), grid_factor=0.4097,
+                                        grid_marginal_factor=None, avoided_kwh=5000)
+    assert equal["env_operational_co2e_kg_yr"] == today["env_operational_co2e_kg_yr"]
+    assert absent["env_operational_co2e_kg_yr"] == today["env_operational_co2e_kg_yr"]
+    assert equal["environmental_score"] == today["environmental_score"]
+    assert absent["environmental_score"] == today["environmental_score"]
+    # A zero credit (marginal == average) must NOT name Cambium in the citation —
+    # the credit term is zero, so the number came from the eGRID average alone.
+    assert "Cambium" not in equal["env_data_source"]
+    assert "Cambium" not in absent["env_data_source"]
+
+
+def test_negative_avoided_kwh_is_clamped():
+    """A negative avoided_kwh (caller bug) must not be credited as extra
+    consumption — it clamps to zero, i.e. the plain consumed × average."""
+    today = E.model_parcel_environment(_row(), grid_factor=0.4097)
+    neg = E.model_parcel_environment(_row(), grid_factor=0.4097,
+                                     grid_marginal_factor=0.2362, avoided_kwh=-5000)
+    assert neg["env_operational_co2e_kg_yr"] == today["env_operational_co2e_kg_yr"]
+    assert "Cambium" not in neg["env_data_source"]
+
+
+def test_marginal_credit_matches_formula():
+    """operational == consumed·avg + avoided·(avg − marginal) + therms·EF_GAS."""
+    avg, marg, avoided = 0.4097, 0.2362, 3000.0
+    out = E.model_parcel_environment(_row(), grid_factor=avg,
+                                     grid_marginal_factor=marg, avoided_kwh=avoided)
+    expect = 12000 * avg + avoided * (avg - marg) + 500 * E.EF_GAS_KG_PER_THERM
+    assert abs(out["env_operational_co2e_kg_yr"] - round(expect, 1)) <= 0.1
+    # marginal below average → avoided kWh credited less than an average-rate
+    # credit would, so operational is higher than valuing the whole home at avg.
+    avg_only = E.model_parcel_environment(_row(), grid_factor=avg)
+    assert out["env_operational_co2e_kg_yr"] > avg_only["env_operational_co2e_kg_yr"]
+    assert "Cambium" in out["env_data_source"]
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

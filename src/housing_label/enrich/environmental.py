@@ -20,16 +20,30 @@ Methodology
 
   1. OPERATIONAL CARBON (strongest data leg)
      Convert the already-modeled annual energy use to CO2e with authoritative
-     emission factors:
-       operational = est_annual_kwh * EF_GRID + est_annual_therms * EF_GAS
-     EF_GRID = 0.4097 kg CO2e/kWh — EPA eGRID2023 Rev 2, subregion SRTV (SERC Tennessee
-     Valley), the correct subregion for the Memphis/TVA grid (903.306 lb CO2e/MWh).
-     Matches data/egrid.py's SRTV factor exactly (lb/MWh → kg/kWh, rounded to
-     4 decimals).
+     emission factors, split into an AVERAGE-rate leg for the energy the home
+     consumes and a MARGINAL-rate credit for the energy it avoids:
+       operational = consumed_kwh * EF_GRID_avg
+                   + avoided_kwh * (EF_GRID_avg - EF_GRID_marginal)
+                   + est_annual_therms * EF_GAS
+     where avoided_kwh = baseline_kwh - consumed_kwh, the baseline being the SAME
+     home with a standard envelope (no ICF/SIP/passive efficiency factor) and no
+     rooftop solar. Rationale: a kWh the home no longer draws turns off *marginal*
+     generation, not the average mix, so efficiency/solar savings are worth the
+     marginal rate, while the kWh it still consumes carry the grid average. This
+     reduces exactly to consumed_kwh * EF_GRID_avg (today's number) when the
+     marginal rate equals the average or no avoided kWh exist — see the
+     reduces-to-average test.
+     EF_GRID_avg = 0.4097 kg CO2e/kWh — EPA eGRID2023 Rev 2, subregion SRTV (SERC
+     Tennessee Valley), the correct subregion for the Memphis/TVA grid (903.306 lb
+     CO2e/MWh). Matches data/egrid.py's SRTV factor exactly. Per location the live
+     path passes the county's own eGRID subregion average (data/egrid.py) and its
+     long-run marginal rate (data/cambium.py — NREL Cambium 2023 LRMER, Combustion
+     CO2e so it shares eGRID's stack-emissions basis; CONUS only, average-only
+     fallback elsewhere).
      EF_GAS  = 5.3 kg CO2e/therm — EPA GHG Emission Factors Hub.
      (Location-based. TVA self-reports a lower system rate but it is not
-     apples-to-apples with eGRID; eGRID SRTV is the standard. Treat as a dated
-     constant — refresh on each eGRID release; the grid is decarbonizing.)
+     apples-to-apples with eGRID; eGRID SRTV is the standard. Treat as dated
+     constants — refresh on each eGRID / Cambium release; the grid is decarbonizing.)
 
   2. EMBODIED CARBON (bottom-up, EPD-grounded, geometry-aware)
      Built up from published industry-average EPD GWP factors (concrete, steel,
@@ -206,15 +220,36 @@ ENV_COLS = [
     "env_data_source",
 ]
 
-DATA_SOURCE = (
-    f"Operational: EPA {EGRID_VINTAGE} {EF_GRID_KG_PER_KWH} kgCO2e/kWh "
-    f"+ EPA gas {EF_GAS_KG_PER_THERM} kgCO2e/therm; "
+_EMBODIED_WATER_SOURCE = (
     "Embodied: bottom-up A1-A3 from industry-average EPD factors x per-home "
     "geometry (foundation from footprint+perimeter x basement depth, roof/envelope/"
     "interior by area), amortized over service life (60-100yr), scored per "
     "kgCO2e/m2/yr (modeled, EPD-grounded); "
     "Water: EPA WaterSense + Memphis Sand aquifer low embedded energy"
 )
+
+# Module-level default citation (pilot/batch path: grid average only, no marginal
+# credit). The live per-location path builds a citation via _data_source that also
+# names the Cambium marginal rate when avoided kWh are credited.
+DATA_SOURCE = (
+    f"Operational: EPA {EGRID_VINTAGE} {EF_GRID_KG_PER_KWH} kgCO2e/kWh "
+    f"+ EPA gas {EF_GAS_KG_PER_THERM} kgCO2e/therm; " + _EMBODIED_WATER_SOURCE
+)
+
+
+def _data_source(grid_factor: float, grid_marginal_factor: float | None,
+                 avoided_kwh: float) -> str:
+    """Per-call env_data_source citation; names the Cambium marginal rate only
+    when it actually moves the number — i.e. some kWh are avoided AND the marginal
+    rate differs from the average (a zero credit, including the reduce-to-average
+    case where marginal == average, keeps the citation to the eGRID average)."""
+    op = f"Operational: EPA {EGRID_VINTAGE} {grid_factor} kgCO2e/kWh avg"
+    if (grid_marginal_factor is not None and (avoided_kwh or 0.0)
+            and grid_marginal_factor != grid_factor):
+        op += (f" + avoided kWh at NREL Cambium 2023 LRMER "
+               f"{grid_marginal_factor} kgCO2e/kWh marginal")
+    op += f" + EPA gas {EF_GAS_KG_PER_THERM} kgCO2e/therm; "
+    return op + _EMBODIED_WATER_SOURCE
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -306,12 +341,23 @@ def water_use_gal_yr(rmbed, fixbath, sfla, stories, calc_acre, acre_outlier,
 def model_parcel_environment(row: pd.Series,
                              grid_factor: float = EF_GRID_KG_PER_KWH,
                              water_embedded_kwh_per_kgal: float = WATER_EMBEDDED_KWH_PER_KGAL,
-                             is_multifamily: bool = False) -> dict:
+                             is_multifamily: bool = False,
+                             grid_marginal_factor: float | None = None,
+                             avoided_kwh: float = 0.0) -> dict:
     """Compute environmental-footprint metrics. Returns all-None when the parcel
     has no living area (vacant / non-residential).
 
-    `grid_factor` is the grid CO2 emission factor (kgCO2e/kWh) for the location;
-    defaults to the Shelby/TVA eGRID value used by the pilot pipeline.
+    `grid_factor` is the grid CO2 emission factor (kgCO2e/kWh) for the location —
+    the eGRID subregion **average**; defaults to the Shelby/TVA eGRID value used
+    by the pilot pipeline.
+    `grid_marginal_factor` is the long-run **marginal** grid factor (NREL Cambium
+    LRMER, kgCO2e/kWh) used to credit `avoided_kwh` — the kWh the home no longer
+    draws (rooftop solar + envelope/passive efficiency) relative to a standard-
+    envelope, no-solar baseline of the same home. Consumed kWh (``est_annual_kwh``)
+    are booked at the average; the avoided reduction is credited at the marginal
+    rate, since it turns off marginal, not average, generation. When None (e.g.
+    outside CONUS Cambium regions) the marginal rate defaults to the average, so
+    the operational leg reduces exactly to consumed × average — today's number.
     `water_embedded_kwh_per_kgal` is the embedded energy of water/wastewater;
     defaults to a national average (a regional table can override it later).
     `is_multifamily` drops the private-yard outdoor irrigation for a unit in a
@@ -324,9 +370,20 @@ def model_parcel_environment(row: pd.Series,
     floor_m2 = sfla * SQFT_TO_M2
 
     # --- Operational ---
+    # Consumed kWh at the grid AVERAGE; the reduction from the standard-envelope,
+    # no-solar baseline (avoided_kwh) credited at the long-run MARGINAL rate, since
+    # avoided load turns off marginal generation, not the average mix. Reduces to
+    # consumed × average when marginal == average (or no marginal / no avoided).
     kwh    = _num(row.get("est_annual_kwh")) or 0.0
     therms = _num(row.get("est_annual_therms")) or 0.0
-    operational = kwh * grid_factor + therms * EF_GAS_KG_PER_THERM
+    marginal = grid_marginal_factor if grid_marginal_factor is not None else grid_factor
+    # Clamp to >= 0: the parameter means "kWh avoided", so a negative value (a
+    # caller bug, or a home that somehow uses more than its standard-envelope
+    # baseline) must not be credited as extra consumption.
+    avoided  = max(0.0, _num(avoided_kwh) or 0.0)
+    operational = (kwh * grid_factor
+                   + avoided * (grid_factor - marginal)
+                   + therms * EF_GAS_KG_PER_THERM)
     op_intensity = operational / floor_m2
 
     # --- Embodied (amortized over the shell's service life, not a flat period) ---
@@ -370,7 +427,7 @@ def model_parcel_environment(row: pd.Series,
         "env_embodied_subscore":       round(emb_sub, 1),
         "env_water_subscore":          round(wat_sub, 1),
         "environmental_score":         round(composite, 1),
-        "env_data_source":             DATA_SOURCE,
+        "env_data_source":             _data_source(grid_factor, grid_marginal_factor, avoided),
     }
 
 
