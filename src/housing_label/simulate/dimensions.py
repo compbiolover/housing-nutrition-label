@@ -639,9 +639,11 @@ def simulate_all_dimensions(
         in_urban_area=location.in_urban_area if location else None,
     )
 
-    # Shared-wall energy credit: score a representative unit in its building
-    # context — use the caller's explicit unit count when > 1, else the detected
-    # multi-family unit count from the resolved location.
+    # Building context for a representative unit — use the caller's explicit unit
+    # count when > 1, else the detected multi-family unit count from the resolved
+    # location. This drives Energy (via the ResStock building-type benchmark that
+    # energy_building_type selects), Infrastructure (per-unit density), and
+    # Durability (shared structural shell).
     # Effective building context: caller-entered units/material/stories merged over
     # the NSI-detected structure. An entered unit count > 1 makes it multi-family
     # even when NSI mislabels the site (e.g. a garden-apartment complex modeled as

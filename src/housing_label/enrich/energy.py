@@ -268,8 +268,10 @@ def _hvac_factor(heat, fuel) -> tuple[str, float]:
         2: ("electric_resistance", 0.959),  # COP 1
         3: ("gas_furnace",         1.043),  # gas combustion counted at the site meter
     }
-    # Memphis is predominantly heat-pump territory; default to heat pump.
-    label, fb = fallback.get(heat_code, ("heat_pump", 1.00))
+    # Memphis is predominantly heat-pump territory; default to heat pump — using
+    # the heat-pump fallback value too, so the degraded (no-table) path matches the
+    # normal one for an unknown/blank heat code.
+    label, fb = fallback.get(heat_code, fallback[4])
     return label, _resstock_factor("hvac", label, fb)
 
 
