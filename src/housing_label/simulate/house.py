@@ -1183,9 +1183,9 @@ def _approx_caveats(location, cfg: dict | None = None) -> list[str]:
         # being present, not merely on detection.
         if has_material and has_stories:
             caveats.append(
-                "Multi-unit building: scored in its building context — Energy credits "
-                "its shared walls, Resilience its material and height, Durability its "
-                "shared structural shell, Infrastructure its unit density, and "
+                "Multi-unit building: scored in its building context — Energy uses the "
+                "measured multi-family EUI for its type, Resilience its material and "
+                "height, Durability its shared structural shell, Infrastructure its unit density, and "
                 "Environmental drops the private-yard water use. The per-unit value is "
                 "an income-based value-per-door estimate (local rent capitalized by the "
                 "income / cap-rate method), a neighborhood-average approximation rather "
@@ -1196,7 +1196,7 @@ def _approx_caveats(location, cfg: dict | None = None) -> list[str]:
             missing = ([] if has_material else ["construction material"]) + \
                       ([] if has_stories else ["number of stories"])
             caveats.append(
-                "Multi-unit building: Energy (shared walls), Infrastructure (per-unit "
+                "Multi-unit building: Energy (multi-family EUI), Infrastructure (per-unit "
                 "density), Environmental (no private-yard water), and the per-unit "
                 "value-per-door estimate reflect it, but Resilience and Durability still "
                 "use single-family assumptions — add the building's "
@@ -1587,8 +1587,8 @@ _EDITABLE_FIELDS = ["year_built", "construction", "foundation", "condition",
 # areas are removed. NSI reports GROSS building area, so gross ÷ units overstates a
 # dwelling's conditioned area; ~0.85 is a mid-range apartment efficiency ratio
 # (corridors/stairs/elevators/lobby run ~15%). A modeled approximation — the sqft
-# is surfaced as an estimate. (Distinct from the shared-wall envelope credit, which
-# the energy model applies separately via attachment_eui_factor.)
+# is surfaced as an estimate. (Distinct from the energy model, which scores a
+# multi-unit dwelling off the measured ResStock multi-family EUI for its type.)
 _MF_NET_TO_GROSS = 0.85
 
 

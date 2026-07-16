@@ -44,7 +44,7 @@ import pandas as pd
 from housing_label.score.all_dimensions import (
     ENERGY_XS, ENERGY_YS, INFRA_XS, INFRA_YS, score_to_grade,
 )
-from housing_label.enrich.energy import model_parcel_energy
+from housing_label.enrich.energy import base_eui, model_parcel_energy
 from housing_label.enrich.durability import model_parcel_durability
 from housing_label.enrich.environmental import model_parcel_environment
 from housing_label.enrich.infrastructure import enrich_row as infra_enrich_row
@@ -108,31 +108,28 @@ GRADE_BY_CONSTRUCTION = {
 ENVELOPE_EUI_FACTOR = {"icf": 0.92, "sip": 0.95}
 PASSIVE_HOUSE_EUI_FACTOR = 0.55
 
-# Shared-wall / multi-family envelope credit. A dwelling unit attached to (or
-# stacked with) others exposes far less exterior surface per unit — shared party
-# walls, floors, and ceilings are adiabatic — so its heating/cooling EUI is lower
-# than an otherwise-identical detached home. EIA RECS finds apartments in
-# multi-family buildings use ~30% less energy than detached homes *of similar
-# size*, with larger buildings saving the most; this is that shared-surface effect
-# on top of the size factor the model already applies. Keyed by the building's
-# residential unit count (2, 3–4, 5–9, 10–19, 20+). 1 unit (detached) = no credit.
-# https://www.eia.gov/todayinenergy/detail.php?id=11731
-_MULTIFAMILY_EUI_FACTOR = [(2, 0.90), (4, 0.86), (9, 0.81), (19, 0.77)]
-_MULTIFAMILY_EUI_FLOOR = 0.73   # 20+ units
+# Multi-family / mobile-home energy is now scored off the real ResStock benchmark
+# for that building type (enrich/energy.base_eui), which *measures* the shared-wall
+# effect directly, rather than modeling it as a per-unit multiplier off the detached
+# curve. So the shared-wall EUI credit is retired; the building type drives it.
 
 
-def attachment_eui_factor(units) -> float:
-    """Shared-wall EUI multiplier (<=1) for a unit in a building of ``units`` units."""
+def energy_building_type(structure_type: str | None, num_units: int | None) -> str:
+    """Map a detected/entered structure to the ResStock energy benchmark key.
+
+    Manufactured/mobile → "mobile_home"; a multi-family building → "mf_2_4" or
+    "mf_5plus" by unit count; everything else → "sf_detached" (the runtime cannot
+    distinguish single-family attached today, so it rides the detached curve)."""
+    st = (structure_type or "").lower()
+    if st in ("manufactured", "mobile_home", "mobile"):
+        return "mobile_home"
     try:
-        n = int(units or 1)
+        n = int(num_units or 1)
     except (TypeError, ValueError):
-        return 1.0
-    if n <= 1:
-        return 1.0
-    for hi, f in _MULTIFAMILY_EUI_FACTOR:
-        if n <= hi:
-            return f
-    return _MULTIFAMILY_EUI_FLOOR
+        n = 1
+    if st == "multifamily" or n > 1:
+        return "mf_2_4" if n <= 4 else "mf_5plus"
+    return "sf_detached"
 # Rooftop solar offsets grid electricity for the *operational-carbon* leg of the
 # environmental score (net-metering). It does not change the envelope EUI used
 # for the energy-efficiency dimension. ~70% of annual electricity offset.
@@ -301,7 +298,7 @@ def build_parcel_row(cfg: dict) -> pd.Series:
 
 def _adjusted_energy(cfg: dict, row: pd.Series, climate_zone: str | None = None,
                      elec_rate: float | None = None, gas_rate: float | None = None,
-                     mf_units: int | None = None) -> dict:
+                     building_type: str = "sf_detached") -> dict:
     """Run the energy model, then apply the high-performance feature factors.
 
     Returns the energy dict with eui / kwh / therms scaled, plus a separate
@@ -309,21 +306,26 @@ def _adjusted_energy(cfg: dict, row: pd.Series, climate_zone: str | None = None,
     environmental operational-carbon calculation. ``climate_zone`` (IECC label)
     scales the base EUI for the location; None falls back to the 4A baseline.
     ``elec_rate``/``gas_rate`` are the property's local utility rates; None keeps
-    the energy model's Memphis/TVA pilot defaults. ``mf_units`` (the building's
-    residential unit count) applies the shared-wall envelope credit for attached /
-    stacked dwelling units.
+    the energy model's Memphis/TVA pilot defaults. ``building_type`` selects the
+    ResStock benchmark (sf_detached / sf_attached / mf_2_4 / mf_5plus /
+    mobile_home) — a Multi-Family or Mobile-Home home is scored off its own
+    measured EUI, not the detached curve times a modeled shared-wall credit.
+
+    For a non-detached building it also returns ``energy_detached_ratio`` — the
+    ResStock detached / this-building-type base-EUI ratio (all within-cell and
+    feature factors cancel) — so the API can show the "same home standing alone"
+    density-comparison cost without a second scoring pass.
     """
     rate_kw = {}
     if elec_rate is not None:
         rate_kw["elec_rate"] = elec_rate
     if gas_rate is not None:
         rate_kw["gas_rate"] = gas_rate
-    energy = model_parcel_energy(row, climate_zone, **rate_kw)
+    energy = model_parcel_energy(row, climate_zone, building_type=building_type, **rate_kw)
     factor = 1.0
     factor *= ENVELOPE_EUI_FACTOR.get(cfg["construction"], 1.0)
     if cfg.get("passive_house"):
         factor *= PASSIVE_HOUSE_EUI_FACTOR
-    factor *= attachment_eui_factor(mf_units)   # shared-wall credit for multi-unit
 
     # The monthly cost is proportional to energy use, so it scales by the same
     # factor as the EUI/kWh/therms (keeps the displayed cost consistent with the
@@ -332,6 +334,16 @@ def _adjusted_energy(cfg: dict, row: pd.Series, climate_zone: str | None = None,
               "est_annual_therms", "est_monthly_energy_cost"):
         if energy.get(k) is not None:
             energy[k] = round(energy[k] * factor, 2)
+
+    # Density comparison: what the SAME home would use standing alone (detached).
+    # The base-EUI ratio is the only thing that differs — every within-cell and
+    # feature factor is building-type-independent, so they cancel.
+    if building_type != "sf_detached":
+        vbin = energy.get("energy_vintage_bin")
+        bt_base = base_eui(climate_zone, vbin, building_type)
+        det_base = base_eui(climate_zone, vbin, "sf_detached")
+        if bt_base:
+            energy["energy_detached_ratio"] = round(det_base / bt_base, 4)
 
     # Operational carbon basis: apply the solar offset on top of the envelope EUI.
     solar_factor = SOLAR_OPERATIONAL_REMAINING if cfg.get("solar") else 1.0
@@ -346,14 +358,18 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
                                     elec_rate: float | None = None,
                                     gas_rate: float | None = None,
                                     mf_units: int | None = None,
-                                    mf_material: str | None = None) -> dict:
+                                    mf_material: str | None = None,
+                                    building_type: str = "sf_detached") -> dict:
     """Compute energy / durability / environmental / infrastructure scores
     (0–100, or None when the model cannot score the parcel).
 
-    ``climate_zone`` (IECC) scales the energy model; ``grid_factor`` (kgCO2e/kWh)
-    drives the environmental operational-carbon leg; ``elec_rate``/``gas_rate`` are
-    the property's local utility rates for the energy-cost estimate; ``mf_units`` is
-    the building's residential unit count (drives the shared-wall energy credit);
+    ``climate_zone`` (IECC) scales the energy model; ``building_type`` selects the
+    ResStock energy benchmark (Multi-Family / Mobile-Home get their own EUI curve);
+    ``grid_factor`` (kgCO2e/kWh) drives the environmental operational-carbon leg;
+    ``elec_rate``/``gas_rate`` are the property's local utility rates for the
+    energy-cost estimate; ``mf_units`` is the building's residential unit count
+    (folds the detected unit density into the Infrastructure fiscal ratio — it no
+    longer affects Energy, which is now driven by ``building_type``);
     ``mf_material`` is the detected building material for a multi-family building
     (lengthens the durability model's shared structural-shell service life);
     ``infra_params`` overrides the Memphis infrastructure calibration with a
@@ -361,7 +377,7 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
     pilot defaults when None."""
     row = build_parcel_row(cfg)
     energy = _adjusted_energy(cfg, row, climate_zone, elec_rate=elec_rate,
-                              gas_rate=gas_rate, mf_units=mf_units)
+                              gas_rate=gas_rate, building_type=building_type)
 
     # Energy: lower EUI → higher score (same breakpoints as the pipeline).
     eui = energy.get("eui_kbtu_sqft_yr")
@@ -408,6 +424,29 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
         if fr is not None and not pd.isna(fr) else None
     )
 
+    metrics = {
+        "eui_kbtu_sqft_yr": eui,
+        "est_monthly_energy_cost": energy.get("est_monthly_energy_cost"),
+        "fiscal_ratio": None if fr is None or pd.isna(fr) else round(float(fr), 2),
+        "est_annual_infra_cost": infra.get("est_annual_infra_cost"),
+        "est_property_tax": infra.get("est_property_tax"),
+        # Durability drivers (component-lifespan model).
+        "durability_material_class": dur.get("durability_material_class"),
+        "durability_remaining_life_pct": dur.get("durability_remaining_life_pct"),
+        "durability_components_past_life": dur.get("durability_components_past_life"),
+        "durability_condition": dur.get("durability_condition"),
+        # Environmental drivers (annual CO2e legs + water).
+        "env_total_co2e_kg_yr": env.get("env_total_co2e_kg_yr"),
+        "env_operational_co2e_kg_yr": env.get("env_operational_co2e_kg_yr"),
+        "env_embodied_co2e_kg_yr": env.get("env_embodied_co2e_kg_yr"),
+        "env_water_gal_yr": env.get("env_water_gal_yr"),
+    }
+    # Detached / this-building-type base-EUI ratio — present ONLY for a non-detached
+    # building (so detached payloads stay byte-identical), so the API can price "the
+    # same home standing alone" for the density comparison. Not rendered as a row.
+    if energy.get("energy_detached_ratio") is not None:
+        metrics["energy_detached_ratio"] = energy["energy_detached_ratio"]
+
     return {
         "energy": energy_score,
         "durability": durability_score,
@@ -416,23 +455,7 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
         # Side metrics surfaced on the label / for debugging. The per-dimension
         # "what drove this score" detail rows (dimension_details) read from here, so
         # each model's headline drivers are surfaced alongside the score.
-        "_metrics": {
-            "eui_kbtu_sqft_yr": eui,
-            "est_monthly_energy_cost": energy.get("est_monthly_energy_cost"),
-            "fiscal_ratio": None if fr is None or pd.isna(fr) else round(float(fr), 2),
-            "est_annual_infra_cost": infra.get("est_annual_infra_cost"),
-            "est_property_tax": infra.get("est_property_tax"),
-            # Durability drivers (component-lifespan model).
-            "durability_material_class": dur.get("durability_material_class"),
-            "durability_remaining_life_pct": dur.get("durability_remaining_life_pct"),
-            "durability_components_past_life": dur.get("durability_components_past_life"),
-            "durability_condition": dur.get("durability_condition"),
-            # Environmental drivers (annual CO2e legs + water).
-            "env_total_co2e_kg_yr": env.get("env_total_co2e_kg_yr"),
-            "env_operational_co2e_kg_yr": env.get("env_operational_co2e_kg_yr"),
-            "env_embodied_co2e_kg_yr": env.get("env_embodied_co2e_kg_yr"),
-            "env_water_gal_yr": env.get("env_water_gal_yr"),
-        },
+        "_metrics": metrics,
     }
 
 
@@ -616,9 +639,11 @@ def simulate_all_dimensions(
         in_urban_area=location.in_urban_area if location else None,
     )
 
-    # Shared-wall energy credit: score a representative unit in its building
-    # context — use the caller's explicit unit count when > 1, else the detected
-    # multi-family unit count from the resolved location.
+    # Building context for a representative unit — use the caller's explicit unit
+    # count when > 1, else the detected multi-family unit count from the resolved
+    # location. This drives Energy (via the ResStock building-type benchmark that
+    # energy_building_type selects), Infrastructure (per-unit density), and
+    # Durability (shared structural shell).
     # Effective building context: caller-entered units/material/stories merged over
     # the NSI-detected structure. An entered unit count > 1 makes it multi-family
     # even when NSI mislabels the site (e.g. a garden-apartment complex modeled as
@@ -627,11 +652,14 @@ def simulate_all_dimensions(
     es = effective_structure(cfg, location)
     mf_units = es["mf_units"]
     mf_material = es["mf_material"]
+    # Energy benchmark key: mobile/MF get their own ResStock curve. Use the
+    # building's residential unit count (detected or entered) to pick the MF band.
+    building_type = energy_building_type(es["structure_type"], es["num_units"])
 
     construction = compute_construction_dimensions(
         cfg, climate_zone=climate_zone, grid_factor=grid_factor,
         infra_params=infra_params, elec_rate=elec_rate, gas_rate=gas_rate,
-        mf_units=mf_units, mf_material=mf_material)
+        mf_units=mf_units, mf_material=mf_material, building_type=building_type)
     location_dims = fetch_location_dimensions(
         cfg["lat"], cfg["lon"], tract,
         allow_network=allow_network, overrides=overrides,

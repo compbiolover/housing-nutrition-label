@@ -43,3 +43,6 @@ Your Walk Score API Key.pdf
 
 # Census Gazetteer centroid cache for scripts/calibrate_construction_percentiles.py
 .gaz_cache/
+
+# NREL ResStock parquet download cache for scripts/build_resstock_eui.py
+.resstock_cache/

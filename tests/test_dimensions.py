@@ -349,26 +349,49 @@ def test_upgrades_flow_through_build_label_parts():
     assert spr["fire_adj"] < base["fire_adj"]          # fire-specific sprinkler effect
 
 
-def test_attachment_eui_factor_schedule():
-    """The shared-wall credit is 1.0 for a detached home and grows with unit count."""
-    from housing_label.simulate.dimensions import attachment_eui_factor
-    assert attachment_eui_factor(1) == 1.0
-    assert attachment_eui_factor(None) == 1.0
-    assert attachment_eui_factor(2) < 1.0                       # duplex gets a credit
-    assert attachment_eui_factor(50) < attachment_eui_factor(3)  # bigger building → bigger credit
+def test_energy_building_type_map():
+    """Structure → ResStock energy benchmark key: mobile, MF by unit-count band,
+    else detached."""
+    from housing_label.simulate.dimensions import energy_building_type
+    assert energy_building_type("manufactured", 1) == "mobile_home"
+    assert energy_building_type("single_family", 1) == "sf_detached"
+    assert energy_building_type("multifamily", 3) == "mf_2_4"
+    assert energy_building_type("multifamily", 40) == "mf_5plus"
+    # An entered unit count > 1 makes it MF even if the type says single-family.
+    assert energy_building_type("single_family", 6) == "mf_5plus"
+    assert energy_building_type(None, None) == "sf_detached"
 
 
-def test_multifamily_energy_credit_improves_score():
-    """A unit in a multi-unit building scores better on Energy than the same unit
-    modeled as detached, because shared walls lower its EUI."""
+def test_multifamily_energy_uses_resstock_benchmark():
+    """Energy is scored off the real ResStock EUI for the building type, not the
+    detached curve times a modeled credit. Large (5+) MF stock has lower per-sqft
+    EUI than detached (better score); small (2-4) MF is higher (worse) — the
+    measured intensity picture. Requires a resolved climate zone (offline → the
+    legacy fallback, where building type does not vary)."""
     cfg = _cfg("baseline")
-    detached = compute_construction_dimensions(cfg)["energy"]
-    small_mf = compute_construction_dimensions(cfg, mf_units=3)["energy"]
-    large_mf = compute_construction_dimensions(cfg, mf_units=50)["energy"]
-    assert small_mf > detached
-    assert large_mf > small_mf
-    # Single-family (units default 1) is unchanged by the credit.
-    assert compute_construction_dimensions(cfg, mf_units=1)["energy"] == detached
+    detached = compute_construction_dimensions(cfg, climate_zone="4A")["energy"]
+    mf5 = compute_construction_dimensions(cfg, climate_zone="4A", building_type="mf_5plus")["energy"]
+    mf24 = compute_construction_dimensions(cfg, climate_zone="4A", building_type="mf_2_4")["energy"]
+    mobile = compute_construction_dimensions(cfg, climate_zone="4A", building_type="mobile_home")["energy"]
+    assert mf5 > detached      # 5+ unit stock: lower per-sqft EUI → better score
+    assert mf24 < detached     # 2-4 unit stock: higher per-sqft EUI → worse score
+    assert mobile != detached  # mobile home gets its own curve
+    # Default building type is detached (unchanged).
+    assert compute_construction_dimensions(cfg, climate_zone="4A",
+                                            building_type="sf_detached")["energy"] == detached
+
+
+def test_energy_detached_ratio_surfaced_for_multiunit():
+    """A non-detached building surfaces energy_detached_ratio (detached / its-own
+    base EUI) for the density comparison; a detached one does not."""
+    cfg = _cfg("baseline")
+    det = compute_construction_dimensions(cfg, climate_zone="4A")
+    assert "energy_detached_ratio" not in det["_metrics"]
+    mf24 = compute_construction_dimensions(cfg, climate_zone="4A", building_type="mf_2_4")
+    ratio = mf24["_metrics"]["energy_detached_ratio"]
+    assert ratio < 1.0     # detached EUI < 2-4 unit EUI → standing alone costs less
+    mf5 = compute_construction_dimensions(cfg, climate_zone="4A", building_type="mf_5plus")
+    assert mf5["_metrics"]["energy_detached_ratio"] > 1.0
 
 
 def test_flood_floor_factor_schedule():
