@@ -66,6 +66,13 @@ BASELINE_URL = (
 )
 KWH_TO_KBTU = 3.412
 
+# A cell (building type × zone × vintage) needs at least this many modeled samples
+# for a stable weighted median. Thin cells — e.g. "pre-1950 mobile home" (a near-
+# empty category, 1-2 samples) — otherwise emit garbage (an 8.5 kBTU/sqft/yr
+# median). Below the floor the cell is omitted; the loader falls back to the robust
+# digit-zone / all-vintage / detached aggregates instead.
+MIN_SAMPLES = 30
+
 # ResStock RECS building type → the model's coarser dwelling category. A label not
 # listed here fails the build (see main) rather than being silently dropped.
 BUILDING_TYPE = {
@@ -207,10 +214,15 @@ def main() -> int:
     eui_rows: dict[tuple[str, str, str], float] = {}
 
     def add(btype: str, zone_key: str, frame) -> None:
+        # Per-vintage cells, each only if it clears the sample floor (thin cells
+        # fall back in the loader). The all-vintage "unknown" cell pools every
+        # vintage, so it clears the floor for any real zone.
         for vb, g in frame.groupby("vbin"):
-            eui_rows[(btype, zone_key, vb)] = round(_weighted_median(g["eui"], g["weight"]), 1)
-        eui_rows[(btype, zone_key, "unknown")] = round(
-            _weighted_median(frame["eui"], frame["weight"]), 1)
+            if len(g) >= MIN_SAMPLES:
+                eui_rows[(btype, zone_key, vb)] = round(_weighted_median(g["eui"], g["weight"]), 1)
+        if len(frame) >= MIN_SAMPLES:
+            eui_rows[(btype, zone_key, "unknown")] = round(
+                _weighted_median(frame["eui"], frame["weight"]), 1)
 
     for (btype, zone), g in df.groupby(["btype", "zone"]):
         add(btype, zone, g)              # full zone, e.g. ("mf_5plus", "4A")

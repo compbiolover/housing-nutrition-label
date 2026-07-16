@@ -142,14 +142,17 @@ def base_eui(climate_zone: str | None, vintage_bin: str,
     the prior 4A-calibrated curve scaled by the per-zone multiplier.
     """
     from housing_label.data.resstock_eui import resstock_base_eui
-    eui = resstock_base_eui(climate_zone, vintage_bin, building_type)
-    # A covered zone with an odd vintage bin should still use that zone's ResStock
-    # all-vintage ("unknown") median, not the legacy curve — only genuinely
-    # uncovered zones fall back.
-    if eui is None and vintage_bin != "unknown":
-        eui = resstock_base_eui(climate_zone, "unknown", building_type)
-    if eui is not None:
-        return eui
+    # Fallback chain, most- to least-specific: this building type at the vintage,
+    # then this type's all-vintage median (covers a dropped thin cell — e.g. a
+    # pre-1950 mobile home — with the right building type), then Single-Family
+    # Detached (same order), then the legacy scaled-4A curve for a wholly uncovered
+    # zone (e.g. 8 / interior Alaska).
+    vbins = (vintage_bin, "unknown") if vintage_bin != "unknown" else ("unknown",)
+    for bt in dict.fromkeys((building_type, DEFAULT_BUILDING_TYPE)):
+        for vb in vbins:
+            eui = resstock_base_eui(climate_zone, vb, bt)
+            if eui is not None:
+                return eui
     # No ResStock coverage → the "unknown" mid-range fallback (never a KeyError).
     fallback = _FALLBACK_BASE_EUI.get(vintage_bin, _FALLBACK_BASE_EUI["unknown"])
     return fallback * climate_zone_factor(climate_zone)
@@ -226,12 +229,14 @@ def _resstock_factor(axis: str, label: str, fallback: float) -> float:
     return f if f is not None else fallback
 
 
-# Hand-tuned foundation factors, retained as the fallback when the ResStock factor
-# table is unavailable. ResStock (within-cell, climate-controlled) supersedes these.
+# Foundation factors used only when the ResStock factor table is unavailable
+# (packaging / partial checkout). They MIRROR the shipped resstock_factors.csv
+# values so the degraded path stays consistent with the normal one — each is the
+# within-cell median-EUI ratio vs. the mixed-stock cell median, not a hand guess.
 _FOUNDATION_FALLBACK = {
-    1: ("crawlspace_slab",  1.00),  # baseline (most common in Memphis)
-    2: ("partial_basement", 1.02),  # unheated basement
-    3: ("full_basement",    1.04),  # heated basement
+    1: ("crawlspace_slab",  1.00),  # slab / crawl / pier — ~= the cell median
+    2: ("partial_basement", 1.03),  # unheated basement
+    3: ("full_basement",    0.91),  # heated basement — lower per-sqft EUI
 }
 
 
@@ -255,13 +260,13 @@ def _hvac_factor(heat, fuel) -> tuple[str, float]:
     accounts for within-vintage variation.
     """
     heat_code = int(heat) if not pd.isna(heat) else None
-    # Hand-tuned fallbacks, normalized to heat pump = 1.0 to match the ResStock
-    # factor table's baseline (the model's default HVAC is a heat pump). ResStock's
-    # within-cell, climate-controlled factors supersede these when tabulated.
+    # Fallbacks used only when the ResStock factor table is unavailable; they MIRROR
+    # the shipped resstock_factors.csv values (within-cell median-EUI ratios vs. the
+    # mixed-stock cell median), so the degraded path matches the normal one.
     fallback = {
-        4: ("heat_pump",           1.00),  # COP 2.5–4; typical Memphis HVAC (baseline)
-        2: ("electric_resistance", 1.18),  # COP 1 — more site energy than a heat pump
-        3: ("gas_furnace",         1.24),  # gas combustion counted at the site meter
+        4: ("heat_pump",           0.78),  # efficient — well below the cell median
+        2: ("electric_resistance", 0.96),  # COP 1
+        3: ("gas_furnace",         1.04),  # gas combustion counted at the site meter
     }
     # Memphis is predominantly heat-pump territory; default to heat pump.
     label, fb = fallback.get(heat_code, ("heat_pump", 1.00))

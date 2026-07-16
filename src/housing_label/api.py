@@ -542,8 +542,13 @@ def _attach_detached_cost(payload: dict, r: dict, cfg: dict) -> None:
     #     feature factors cancel). >1 → detached costs more (density helped);
     #     <1 → detached costs less (small MF is less efficient per sqft).
     ratio = (payload.get("metrics") or {}).get("energy_detached_ratio")
-    if house.get("annualEnergyCost") is not None and ratio:
-        detached["annualEnergyCost"] = round(house["annualEnergyCost"] * ratio)
+    if house.get("annualEnergyCost") is not None and ratio is not None:
+        try:
+            ratio = float(ratio)
+        except (TypeError, ValueError):   # best-effort: never break label rendering
+            ratio = 0.0
+        if ratio > 0:
+            detached["annualEnergyCost"] = round(house["annualEnergyCost"] * ratio)
     # (2) Undo the floor-aware flood reduction → full ground-floor exposure. Only
     #     the flood peril moves; the other perils' losses are unchanged.
     flood_floor = r.get("flood_floor") or 1.0

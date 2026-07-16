@@ -58,11 +58,29 @@ def test_building_type_lookup_and_fallback():
     euis = {bt: R.resstock_base_eui("4A", "2000_2009", bt) for bt in BUILDING_TYPES}
     assert all(v is not None for v in euis.values())
     assert len(set(euis.values())) > 1                      # types genuinely differ
-    # A building type ResStock lacks for a zone falls back to detached (never None
-    # when detached covers the zone).
-    assert R.resstock_base_eui("4A", "2000_2009", "not_a_type") == euis["sf_detached"]
+    # The loader is building-type-EXACT: an unknown type returns None (base_eui owns
+    # the detached fallback, tested in test_base_eui_prefers_resstock_and_falls_back).
+    assert R.resstock_base_eui("4A", "2000_2009", "not_a_type") is None
     # Default building type is detached.
     assert R.resstock_base_eui("4A", "2000_2009") == euis["sf_detached"]
+    # base_eui walks the chain → an unknown type resolves to the detached value.
+    assert base_eui("4A", "2000_2009", "not_a_type") == euis["sf_detached"]
+
+
+def test_thin_cell_drops_and_falls_back_within_building_type():
+    """A dropped thin cell (pre-1950 mobile home — 1-2 samples) is absent from the
+    table, and base_eui falls back to that building type's all-vintage median (a
+    real mobile-home EUI), NOT the garbage thin median and NOT the detached curve."""
+    # The specific flagged cells were dropped at build time.
+    assert R.resstock_base_eui("2B", "pre_1950", "mobile_home") is None
+    # base_eui resolves it to the mobile-home all-vintage median for that zone/digit
+    # — a plausible mobile-home intensity, not the ~8.5 thin-sample artifact.
+    got = base_eui("2B", "pre_1950", "mobile_home")
+    assert got == R.resstock_base_eui("2B", "unknown", "mobile_home")
+    assert got > 20                                          # sane, not the artifact
+    # Every bundled EUI is plausible (thin-sample artifacts are gone).
+    for r in _rows("resstock_eui.csv"):
+        assert 15 <= float(r["eui_kbtu_sqft_yr"]) <= 200, r
 
 
 def test_zone_lookup_digit_and_moisture():

@@ -7,21 +7,24 @@ supply that base and the within-cell nudges from **NREL ResStock** simulation
 medians (~550k modeled dwellings). Built by ``scripts/build_resstock_eui.py``
 into ``resstock_eui.csv`` and ``resstock_factors.csv``; see it for the aggregation.
 
-``resstock_base_eui(zone, vintage_bin, building_type)`` resolves the base EUI:
-it tries the requested building type ("mf_5plus", "mobile_home", …), then falls
-back to Single-Family Detached; within each it tries the full zone string ("4A")
-then the bare leading digit ("4") as a moisture-weighted fallback. It returns None
-only when ResStock has no coverage at all (e.g. zone 8 / interior Alaska) so the
-caller can fall back to its prior benchmark. Building types: sf_detached,
-sf_attached, mf_2_4, mf_5plus, mobile_home. Keying on building type adds real
-Multi-Family and Mobile-Home medians (previously every dwelling was scored off the
-detached curve). Vintage bins mirror ``enrich/energy.py`` (pre_1950 / 1950_1979 /
-1980_1999 / 2000_2009 / 2010_plus, plus "unknown").
+``resstock_base_eui(zone, vintage_bin, building_type)`` resolves the base EUI for
+one building type ("mf_5plus", "mobile_home", …): it tries the full zone string
+("4A") then the bare leading digit ("4") as a moisture-weighted fallback, and
+returns None when that building type has no cell for the zone (thin cells are
+dropped at build time) — the caller (``enrich/energy.base_eui``) then walks the
+wider fallback chain (this type's all-vintage median → Single-Family Detached →
+the legacy curve). Building types: sf_detached, sf_attached, mf_2_4, mf_5plus,
+mobile_home. Keying on building type adds real Multi-Family and Mobile-Home medians
+(previously every dwelling was scored off the detached curve). Vintage bins mirror
+``enrich/energy.py`` (pre_1950 / 1950_1979 / 1980_1999 / 2000_2009 / 2010_plus,
+plus "unknown").
 
 ``resstock_factor(axis, key)`` returns a within-cell multiplier (or None) for the
 "foundation" and "hvac" axes — the ResStock-grounded replacement for the model's
-hand-tuned foundation / HVAC nudges, each normalized to the model's baseline value
-for that axis (crawl/slab = 1.0, heat pump = 1.0).
+hand-tuned foundation / HVAC nudges. Each is the within-(zone×vintage)-cell median-
+EUI ratio vs. the cell overall, so values sit relative to the mixed-stock cell
+median the base EUI is built from (e.g. an efficient heat-pump home is ~0.78, a
+gas furnace ~1.04), NOT normalized to any single reference value = 1.0.
 """
 
 from __future__ import annotations
@@ -82,11 +85,11 @@ def _factors() -> dict[tuple[str, str], float]:
 
 def resstock_base_eui(climate_zone: str | None, vintage_bin: str,
                       building_type: str = DEFAULT_BUILDING_TYPE) -> float | None:
-    """Base site EUI (kBTU/sqft/yr) for a building type + climate zone + vintage.
+    """Base site EUI (kBTU/sqft/yr) for ONE building type + climate zone + vintage.
 
-    Falls back building type → Single-Family Detached, then full zone ("4A") →
-    leading digit ("4"). Returns None when ResStock doesn't cover the zone, so the
-    caller keeps its own fallback.
+    Tries the full zone ("4A") then the leading digit ("4"). Returns None when this
+    building type has no cell for the zone/vintage; ``enrich/energy.base_eui`` owns
+    the wider fallback (all-vintage median → detached → legacy curve).
     """
     if not climate_zone:
         return None
@@ -95,12 +98,10 @@ def resstock_base_eui(climate_zone: str | None, vintage_bin: str,
     # Normalize so a lowercase "4a" still matches the "4A" row rather than losing
     # the moisture regime to the digit fallback.
     zone = str(climate_zone).strip().upper()
-    # Building-type fallback: the requested type, then detached (dedup keeps order).
-    for bt_key in dict.fromkeys((bt, DEFAULT_BUILDING_TYPE)):
-        for zone_key in (zone, zone[:1]):
-            eui = table.get((bt_key, zone_key, vintage_bin))
-            if eui is not None:
-                return eui
+    for zone_key in (zone, zone[:1]):
+        eui = table.get((bt, zone_key, vintage_bin))
+        if eui is not None:
+            return eui
     return None
 
 
