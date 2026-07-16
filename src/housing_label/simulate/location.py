@@ -30,6 +30,7 @@ from housing_label.config import TIMEOUT, RETRIES, BACKOFF, HEADERS
 from housing_label.data import climate as climate_data
 from housing_label.data import climate_projections as climate_proj_data
 from housing_label.data import egrid as egrid_data
+from housing_label.data import cambium as cambium_data
 from housing_label.data import wildfire as wildfire_data
 from housing_label.data import tornado as tornado_data
 
@@ -52,7 +53,9 @@ class Location:
     in_urban_area: bool | None = None
     climate_zone: str | None = None       # IECC zone, e.g. "4A"
     egrid_subregion: str | None = None
-    egrid_factor: float | None = None     # kg CO2e / kWh
+    egrid_factor: float | None = None     # kg CO2e / kWh — eGRID subregion AVERAGE
+    cambium_region: str | None = None     # NREL Cambium GEA region label (CONUS only)
+    cambium_factor: float | None = None   # kg CO2e / kWh — long-run MARGINAL rate
     climate_projection: dict | None = None  # CMIP6-LOCA2 hazard projection (tract→county→US)
     wildfire: dict | None = None          # FEMA NRI wildfire hazard (tract→county→US)
     tornado: dict | None = None           # FEMA NRI tornado hazard (tract→county→US)
@@ -203,6 +206,19 @@ def resolve_location(
     loc.egrid_subregion, loc.egrid_factor = egrid_data.egrid_for_county(loc.county_fips)
     if loc.county_fips and loc.egrid_subregion == egrid_data.US_AVG_LABEL:
         notes["egrid"] = f"county {loc.county_fips} not in eGRID crosswalk; using US average"
+
+    # Marginal grid factor (NREL Cambium 2023 LRMER): the long-run marginal CO2e
+    # rate used to credit solar/efficiency-avoided kWh in the environmental model.
+    # CONUS-only — cambium_lrmer_for_county returns None outside the GEA regions
+    # (Alaska, Hawai'i, Puerto Rico, or unmapped), leaving cambium_factor None so
+    # the model falls back to the eGRID average (no marginal adjustment).
+    cambium = cambium_data.cambium_lrmer_for_county(loc.county_fips)
+    if cambium is not None:
+        loc.cambium_region, loc.cambium_factor = cambium
+    elif loc.county_fips:
+        notes["cambium"] = (
+            f"county {loc.county_fips} not in Cambium CONUS crosswalk; "
+            "avoided kWh valued at the grid average (no marginal adjustment)")
 
     # Climate projections: resolution-aware — resolve at the tract when one is
     # available (falling back to the parent county), else the county, else the

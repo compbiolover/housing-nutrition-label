@@ -24,6 +24,32 @@ def _cfg(preset):
     return resolve_config(args)
 
 
+def test_marginal_grid_factor_credits_avoided_kwh():
+    """The Cambium marginal factor only moves the environmental score when the
+    home actually avoids kWh (solar / envelope / passive). A baseline home avoids
+    nothing, so its score is identical with or without a marginal factor (reduces
+    to today); a high-performance home (icf-passive: ICF + passive + solar) does
+    avoid kWh, so a marginal rate below the average lowers its credit and score."""
+    avg, marg = 0.4097, 0.2362   # Shelby eGRID average, SERTP Cambium marginal
+
+    base = _cfg("baseline")
+    base_none = compute_construction_dimensions(base, climate_zone="4A",
+                                                grid_factor=avg, grid_marginal_factor=None)
+    base_marg = compute_construction_dimensions(base, climate_zone="4A",
+                                                grid_factor=avg, grid_marginal_factor=marg)
+    assert base_none["_metrics"]["env_avoided_kwh"] == 0.0
+    assert base_marg["environmental"] == base_none["environmental"]
+
+    hp = _cfg("icf-passive")
+    hp_none = compute_construction_dimensions(hp, climate_zone="4A",
+                                              grid_factor=avg, grid_marginal_factor=None)
+    hp_marg = compute_construction_dimensions(hp, climate_zone="4A",
+                                              grid_factor=avg, grid_marginal_factor=marg)
+    assert hp_marg["_metrics"]["env_avoided_kwh"] > 0.0
+    # marginal < average → less credit for the avoided kWh → lower env score.
+    assert hp_marg["environmental"] < hp_none["environmental"]
+
+
 def test_autofilled_value_not_divided_across_units():
     """An auto-filled county median is a per-home value, so it must not be split
     again across the unit count (which collapsed the fiscal ratio to ~0 for a

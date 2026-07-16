@@ -322,6 +322,11 @@ def _adjusted_energy(cfg: dict, row: pd.Series, climate_zone: str | None = None,
     if gas_rate is not None:
         rate_kw["gas_rate"] = gas_rate
     energy = model_parcel_energy(row, climate_zone, building_type=building_type, **rate_kw)
+    # Environmental baseline: the SAME home with a standard envelope (no ICF/SIP/
+    # passive efficiency factor) and no solar — i.e. the raw energy-model kWh
+    # before the high-performance feature factors below. The environmental model
+    # credits the avoided kWh (baseline − adjusted) at the marginal grid rate.
+    baseline_kwh = energy.get("est_annual_kwh") or 0.0
     factor = 1.0
     factor *= ENVELOPE_EUI_FACTOR.get(cfg["construction"], 1.0)
     if cfg.get("passive_house"):
@@ -348,12 +353,16 @@ def _adjusted_energy(cfg: dict, row: pd.Series, climate_zone: str | None = None,
     # Operational carbon basis: apply the solar offset on top of the envelope EUI.
     solar_factor = SOLAR_OPERATIONAL_REMAINING if cfg.get("solar") else 1.0
     energy["env_kwh"] = round((energy.get("est_annual_kwh") or 0.0) * solar_factor, 1)
+    # Standard-envelope, no-solar baseline for the environmental marginal-rate
+    # credit (avoided_kwh = baseline_kwh − env_kwh).
+    energy["baseline_kwh"] = round(baseline_kwh, 1)
     return energy
 
 
 # ── Construction-driven dimensions (offline) ───────────────────────────────────
 def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
                                     grid_factor: float | None = None,
+                                    grid_marginal_factor: float | None = None,
                                     infra_params: dict | None = None,
                                     elec_rate: float | None = None,
                                     gas_rate: float | None = None,
@@ -365,7 +374,11 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
 
     ``climate_zone`` (IECC) scales the energy model; ``building_type`` selects the
     ResStock energy benchmark (Multi-Family / Mobile-Home get their own EUI curve);
-    ``grid_factor`` (kgCO2e/kWh) drives the environmental operational-carbon leg;
+    ``grid_factor`` (kgCO2e/kWh) is the eGRID subregion AVERAGE driving the
+    environmental operational-carbon leg; ``grid_marginal_factor`` (kgCO2e/kWh) is
+    the NREL Cambium LRMER long-run MARGINAL rate used to credit solar/efficiency-
+    avoided kWh — None (outside CONUS Cambium regions) applies no marginal
+    adjustment (avoided kWh valued at the average, i.e. today's number);
     ``elec_rate``/``gas_rate`` are the property's local utility rates for the
     energy-cost estimate; ``mf_units`` is the building's residential unit count
     (folds the detected unit density into the Infrastructure fiscal ratio — it no
@@ -401,9 +414,17 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
     env_row = row.copy()
     env_row["est_annual_kwh"] = energy.get("env_kwh")
     env_row["est_annual_therms"] = energy.get("est_annual_therms")
-    env = (model_parcel_environment(env_row, grid_factor, is_multifamily=is_mf_building)
+    # Avoided kWh = standard-envelope, no-solar baseline − adjusted consumption;
+    # the env model credits it at the marginal grid rate (grid_marginal_factor).
+    consumed_kwh = energy.get("env_kwh") or 0.0
+    baseline_kwh = energy.get("baseline_kwh") or 0.0
+    avoided_kwh = max(0.0, baseline_kwh - consumed_kwh)
+    env_kwargs = {"is_multifamily": is_mf_building,
+                  "grid_marginal_factor": grid_marginal_factor,
+                  "avoided_kwh": avoided_kwh}
+    env = (model_parcel_environment(env_row, grid_factor, **env_kwargs)
            if grid_factor is not None
-           else model_parcel_environment(env_row, is_multifamily=is_mf_building))
+           else model_parcel_environment(env_row, **env_kwargs))
     environmental_score = env.get("environmental_score")
 
     # Infrastructure: fiscal ratio → score (higher ratio → higher score).
@@ -440,6 +461,10 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
         "env_operational_co2e_kg_yr": env.get("env_operational_co2e_kg_yr"),
         "env_embodied_co2e_kg_yr": env.get("env_embodied_co2e_kg_yr"),
         "env_water_gal_yr": env.get("env_water_gal_yr"),
+        # Marginal-rate credit drivers: kWh avoided vs the standard-envelope,
+        # no-solar baseline and the long-run marginal factor they're credited at.
+        "env_avoided_kwh": round(avoided_kwh, 1),
+        "env_grid_marginal_factor": grid_marginal_factor,
     }
     # Detached / this-building-type base-EUI ratio — present ONLY for a non-detached
     # building (so detached payloads stay byte-identical), so the API can price "the
@@ -611,6 +636,7 @@ def simulate_all_dimensions(
 
     climate_zone = location.climate_zone if location else None
     grid_factor = location.egrid_factor if location else None
+    grid_marginal_factor = location.cambium_factor if location else None
     tract = location.tract if location else None
 
     # Energy cost: use the property's state residential utility rates (EIA) instead
@@ -658,6 +684,7 @@ def simulate_all_dimensions(
 
     construction = compute_construction_dimensions(
         cfg, climate_zone=climate_zone, grid_factor=grid_factor,
+        grid_marginal_factor=grid_marginal_factor,
         infra_params=infra_params, elec_rate=elec_rate, gas_rate=gas_rate,
         mf_units=mf_units, mf_material=mf_material, building_type=building_type)
     location_dims = fetch_location_dimensions(
