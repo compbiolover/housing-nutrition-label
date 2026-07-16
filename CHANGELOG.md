@@ -9,6 +9,15 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.47](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.46...v0.1.47) (2026-07-16)
+
+
+### Features
+
+* add NREL Cambium 2023 LRMER marginal grid emissions to Environmental ([#161](https://github.com/compbiolover/housing-nutrition-label/issues/161)) ([9239200](https://github.com/compbiolover/housing-nutrition-label/commit/923920007774b3f038a2eb76d94abb2f16477a04))
+* base the Energy EUI on NREL ResStock zone×vintage medians ([#158](https://github.com/compbiolover/housing-nutrition-label/issues/158)) ([b120975](https://github.com/compbiolover/housing-nutrition-label/commit/b120975442a9480cc2cdb9fa2283131d97e9198f))
+* key ResStock energy on building type + ResStock foundation/HVAC factors ([#160](https://github.com/compbiolover/housing-nutrition-label/issues/160)) ([4556680](https://github.com/compbiolover/housing-nutrition-label/commit/45566807c3224ae6cf8f398f3ab79eaac217e1d5))
+
 ## [0.1.46](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.45...v0.1.46) (2026-07-15)
 
 
