@@ -26,7 +26,7 @@ WIDE_BAND_DIMS = frozenset({"environmental", "infrastructure", "climate"})
 # Plain-language provenance shown on hover of a dimension's confidence dot.
 CONFIDENCE_NOTES = {
     "resilience": "Parcel-level flood zone + seismic; wildfire resolves at county level here; BRM feature bonuses are v1 estimates.",
-    "energy": "Base EUI from NREL ResStock 2024 zone×vintage medians (SF detached) × within-cell size/wall/foundation/HVAC factors — no metered data.",
+    "energy": "Base EUI from NREL ResStock 2024 building-type×zone×vintage medians × ResStock-derived foundation/HVAC (and size/wall) within-cell factors — no metered data.",
     "durability": "Component-lifespan model from CAMA building attributes + assessor condition.",
     "environmental": "Operational leg strong (metered-equivalent × eGRID2023 Rev 2); embodied-carbon leg is bottom-up from industry-average EPD factors × the home's real footprint (USA Structures) where available — modeled, not metered; water leg uses a national embedded-energy constant.",
     "infrastructure": "Density cost model calibrated to county spending; documented ±30% on absolute dollars.",

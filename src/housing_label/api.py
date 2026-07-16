@@ -60,7 +60,6 @@ from housing_label.simulate.house import (
     PRESETS, CONSTRUCTION_FACTOR, FOUNDATION_FACTOR, CONDITION_FACTOR,
     BONUS_FLAGS, ELEVATION_FLAGS,
 )
-from housing_label.simulate.dimensions import attachment_eui_factor
 
 log = logging.getLogger("housing_label.api")
 
@@ -511,22 +510,22 @@ def _attach_detached_cost(payload: dict, r: dict, cfg: dict) -> None:
     stacked — so the frontend can show the density dividend in dollars.
 
     This isolates DENSITY, holding everything else fixed: the only two things a
-    party wall changes are (1) heating/cooling energy — a stacked unit exposes far
-    less exterior surface, the EIA-RECS shared-wall credit the energy model applies
-    via ``attachment_eui_factor`` — and (2) flood exposure — only a building's
-    lowest floors flood (``flood_floor``). Reversing exactly those two factors off
-    the unit's own already-scored flows gives the detached comparable without a
-    second scoring pass, and without letting any material/BRM/size difference leak
-    in (that would be quality, not density — the same-size headline's job). The
-    shared-*infrastructure* side of density shows separately in Infrastructure Burden.
+    party wall changes are (1) heating/cooling energy — the same home is scored off
+    a different ResStock building-type EUI benchmark when detached, so the ratio of
+    the two benchmarks (``energy_detached_ratio``, surfaced by the energy model)
+    reprices its energy — and (2) flood exposure — only a building's lowest floors
+    flood (``flood_floor``). Reversing exactly those two factors off the unit's own
+    already-scored flows gives the detached comparable without a second scoring pass,
+    and without letting any material/BRM/size difference leak in (that would be
+    quality, not density — the same-size headline's job). The shared-*infrastructure*
+    side of density shows separately in Infrastructure Burden.
 
     Best-effort and only for units > 1; single-family homes skip it entirely.
     """
-    # Use the *effective* unit count the energy model actually credited — the
-    # detected-or-entered ``structure.num_units`` (what ``attachment_eui_factor``
-    # was called with), NOT ``cfg["units"]``. An NSI-detected building leaves
-    # cfg["units"] at its default of 1, so gating on it would skip the line for
-    # exactly the towers this is meant to serve.
+    # Use the *effective* unit count the energy model actually scored — the
+    # detected-or-entered ``structure.num_units``, NOT ``cfg["units"]``. An
+    # NSI-detected building leaves cfg["units"] at its default of 1, so gating on it
+    # would skip the line for exactly the towers this is meant to serve.
     struct = payload.get("structure") or {}
     try:
         units = int(struct.get("num_units") or cfg.get("units") or 1)
@@ -538,10 +537,13 @@ def _attach_detached_cost(payload: dict, r: dict, cfg: dict) -> None:
     if not house:
         return
     detached = dict(house)
-    # (1) Undo the shared-wall energy credit → the same envelope, detached.
-    eui_factor = attachment_eui_factor(units)   # <= 1; 1.0 leaves energy unchanged
-    if house.get("annualEnergyCost") is not None and eui_factor > 0:
-        detached["annualEnergyCost"] = round(house["annualEnergyCost"] / eui_factor)
+    # (1) Reprice energy at the detached benchmark. energy_detached_ratio =
+    #     detached-base-EUI / this-building-type-base-EUI (the within-cell and
+    #     feature factors cancel). >1 → detached costs more (density helped);
+    #     <1 → detached costs less (small MF is less efficient per sqft).
+    ratio = (payload.get("metrics") or {}).get("energy_detached_ratio")
+    if house.get("annualEnergyCost") is not None and ratio:
+        detached["annualEnergyCost"] = round(house["annualEnergyCost"] * ratio)
     # (2) Undo the floor-aware flood reduction → full ground-floor exposure. Only
     #     the flood peril moves; the other perils' losses are unchanged.
     flood_floor = r.get("flood_floor") or 1.0

@@ -317,49 +317,60 @@ def test_baseline_cost_self_baseline_reuses_cost():
 
 def test_detached_cost_only_for_multiunit():
     """The density-dividend line (vs. the same home standing alone) is attached only
-    for multi-unit buildings, and it isolates DENSITY: it reverses exactly the two
-    attachment factors (shared-wall energy credit + floor-aware flood reduction) off
-    the unit's own flows, holding size/value/quality fixed."""
+    for multi-unit buildings, and it isolates DENSITY: it reprices energy at the
+    detached ResStock benchmark (``energy_detached_ratio``) and restores full
+    ground-floor flood exposure, holding size/value/quality fixed."""
     try:
         import fastapi  # noqa: F401 — api.py imports it at module load
     except ImportError:
         print("  skip test_detached_cost_only_for_multiunit (fastapi not installed)")
         return
     import housing_label.api as api
-    from housing_label.simulate.dimensions import attachment_eui_factor
 
     # Single-family: no detached line at all.
     p1 = {"cost": {"annualEnergyCost": 1800, "expectedAnnualLoss": 900}}
     api._attach_detached_cost(p1, {"flood_floor": 0.25, "flood_loss": 40.0}, {"units": 1})
     assert "detached_cost" not in p1
 
-    # Multi-unit: detached comparable = the unit's flows with the two credits undone.
+    # Multi-unit (MF 5+): detached benchmark is higher EUI → ratio > 1 → detached
+    # energy costs more. metrics carries the model-computed ratio.
     house = {"annualEnergyCost": 1800, "expectedAnnualLoss": 900}
     r = {"flood_floor": 0.25, "flood_loss": 40.0, "total_loss": 900.0}
-    p2 = {"cost": dict(house)}
+    ratio = 1.08   # detached / mf_5plus base-EUI
+    p2 = {"cost": dict(house), "metrics": {"energy_detached_ratio": ratio}}
     api._attach_detached_cost(p2, r, {"units": 157})
     d = p2["detached_cost"]
     assert d["label"] == api._DETACHED_LABEL
-    # Energy: the 20+-unit shared-wall credit (0.73) reversed → higher detached bill.
-    f = attachment_eui_factor(157)
-    assert d["annualEnergyCost"] == round(1800 / f) and d["annualEnergyCost"] > 1800
+    # Energy: repriced by the ratio → higher detached bill for a 5+ unit building.
+    assert d["annualEnergyCost"] == round(1800 * ratio) and d["annualEnergyCost"] > 1800
     # Flood: full ground-floor exposure restored (40 / 0.25 = 160, i.e. +120).
     assert d["expectedAnnualLoss"] == round(900 + 40.0 * (1 / 0.25 - 1)) == 1020
     # The house's own flows are not mutated in place.
     assert p2["cost"] == house
 
-    # NSI-detected count drives it even when cfg["units"] is still the default 1:
-    # the effective structure.num_units is what the energy model credited, so the
-    # line must appear for a detected tower the caller never typed a count for.
-    p2b = {"cost": dict(house), "structure": {"num_units": 157}}
-    api._attach_detached_cost(p2b, r, {"units": 1})
-    assert p2b["detached_cost"]["annualEnergyCost"] == round(1800 / f)
+    # Small MF (2-4 units): detached benchmark is LOWER EUI → ratio < 1 → detached
+    # energy costs less. The line honestly shows density can raise per-sqft energy.
+    p2c = {"cost": dict(house), "metrics": {"energy_detached_ratio": 0.89}}
+    api._attach_detached_cost(p2c, r, {"units": 3})
+    assert p2c["detached_cost"]["annualEnergyCost"] == round(1800 * 0.89) < 1800
 
-    # A building with no attachment credit and no flood reduction → detached == house
-    # (delta ~0; the frontend then hides the line).
+    # NSI-detected count drives it even when cfg["units"] is still the default 1:
+    # the effective structure.num_units is what the energy model scored, so the line
+    # must appear for a detected tower the caller never typed a count for.
+    p2b = {"cost": dict(house), "structure": {"num_units": 157},
+           "metrics": {"energy_detached_ratio": ratio}}
+    api._attach_detached_cost(p2b, r, {"units": 1})
+    assert p2b["detached_cost"]["annualEnergyCost"] == round(1800 * ratio)
+
+    # units=1 short-circuits before any work (no detached line).
     p3 = {"cost": dict(house)}
     api._attach_detached_cost(p3, {"flood_floor": 1.0, "flood_loss": 0.0}, {"units": 1})
-    assert "detached_cost" not in p3    # units=1 short-circuits before any work
+    assert "detached_cost" not in p3
+
+    # Multi-unit but no ratio in metrics → energy left unchanged (only flood moves).
+    p3b = {"cost": dict(house)}
+    api._attach_detached_cost(p3b, r, {"units": 157})
+    assert p3b["detached_cost"]["annualEnergyCost"] == 1800
 
     # Best-effort: a malformed unit count must not raise (the label must still render).
     p4 = {"cost": dict(house)}
@@ -367,7 +378,8 @@ def test_detached_cost_only_for_multiunit():
     assert "detached_cost" not in p4
 
     # A legitimate zero total loss survives (no falsy fallback to the house value).
-    p5 = {"cost": {"annualEnergyCost": 1800, "expectedAnnualLoss": 0}}
+    p5 = {"cost": {"annualEnergyCost": 1800, "expectedAnnualLoss": 0},
+          "metrics": {"energy_detached_ratio": ratio}}
     api._attach_detached_cost(p5, {"flood_floor": 0.25, "flood_loss": 0.0, "total_loss": 0.0},
                               {"units": 157})
     assert p5["detached_cost"]["expectedAnnualLoss"] == 0

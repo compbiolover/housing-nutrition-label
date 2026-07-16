@@ -1,0 +1,7 @@
+axis,key,factor
+foundation,crawlspace_slab,1.003
+foundation,partial_basement,1.033
+foundation,full_basement,0.907
+hvac,heat_pump,0.782
+hvac,electric_resistance,0.959
+hvac,gas_furnace,1.043

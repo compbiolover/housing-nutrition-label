@@ -1,9 +1,9 @@
 {
   "baseline_la": {
     "composite_national_grade": "C",
-    "composite_score": 57.3,
+    "composite_score": 58.2,
     "cost": {
-      "annualEnergyCost": 2111,
+      "annualEnergyCost": 1948,
       "expectedAnnualLoss": 149
     },
     "dimensions": [
@@ -15,7 +15,7 @@
       {
         "key": "energy",
         "national_grade": "B",
-        "score": 74.8
+        "score": 78.2
       },
       {
         "key": "durability",
@@ -25,7 +25,7 @@
       {
         "key": "environmental",
         "national_grade": "B",
-        "score": 66.5
+        "score": 68.0
       },
       {
         "key": "infrastructure",
@@ -59,9 +59,9 @@
   },
   "baseline_shelby": {
     "composite_national_grade": "C",
-    "composite_score": 57.7,
+    "composite_score": 58.7,
     "cost": {
-      "annualEnergyCost": 2111,
+      "annualEnergyCost": 1948,
       "expectedAnnualLoss": 149
     },
     "dimensions": [
@@ -73,7 +73,7 @@
       {
         "key": "energy",
         "national_grade": "B",
-        "score": 74.8
+        "score": 78.2
       },
       {
         "key": "durability",
@@ -83,7 +83,7 @@
       {
         "key": "environmental",
         "national_grade": "B",
-        "score": 66.5
+        "score": 68.0
       },
       {
         "key": "infrastructure",
@@ -117,9 +117,9 @@
   },
   "fortified_gold_shelby": {
     "composite_national_grade": "A",
-    "composite_score": 80.5,
+    "composite_score": 81.5,
     "cost": {
-      "annualEnergyCost": 1689,
+      "annualEnergyCost": 1558,
       "expectedAnnualLoss": 195
     },
     "dimensions": [
@@ -131,7 +131,7 @@
       {
         "key": "energy",
         "national_grade": "A",
-        "score": 83.9
+        "score": 87.1
       },
       {
         "key": "durability",
@@ -141,7 +141,7 @@
       {
         "key": "environmental",
         "national_grade": "B",
-        "score": 70.5
+        "score": 72.0
       },
       {
         "key": "infrastructure",
@@ -177,7 +177,7 @@
     "composite_national_grade": "A",
     "composite_score": 91.1,
     "cost": {
-      "annualEnergyCost": 829,
+      "annualEnergyCost": 765,
       "expectedAnnualLoss": 148
     },
     "dimensions": [
@@ -235,7 +235,7 @@
     "composite_national_grade": "A",
     "composite_score": 91.4,
     "cost": {
-      "annualEnergyCost": 829,
+      "annualEnergyCost": 765,
       "expectedAnnualLoss": 148
     },
     "dimensions": [
@@ -291,9 +291,9 @@
   },
   "worst_case_shelby": {
     "composite_national_grade": "D",
-    "composite_score": 21.3,
+    "composite_score": 25.9,
     "cost": {
-      "annualEnergyCost": 4706,
+      "annualEnergyCost": 3776,
       "expectedAnnualLoss": 900
     },
     "dimensions": [
@@ -304,8 +304,8 @@
       },
       {
         "key": "energy",
-        "national_grade": "D",
-        "score": 28.8
+        "national_grade": "C",
+        "score": 45.3
       },
       {
         "key": "durability",
@@ -314,8 +314,8 @@
       },
       {
         "key": "environmental",
-        "national_grade": "D",
-        "score": 35.5
+        "national_grade": "C",
+        "score": 42.0
       },
       {
         "key": "infrastructure",

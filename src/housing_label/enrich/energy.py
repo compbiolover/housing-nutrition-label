@@ -14,22 +14,31 @@ Usage
 
 Data source & methodology
 --------------------------
-  Base site EUI: NREL ResStock 2024 simulation medians by climate zone × vintage
-  (Single-Family Detached, ~338 k modeled samples), bundled offline as
-  data/resstock_eui.csv (built by scripts/build_resstock_eui.py from the OEDI
-  data lake). This replaced a single national 4A curve scaled by a crude per-zone
-  multiplier — real per-zone-per-vintage medians capture the A/B/C moisture-regime
-  spread (humid 3A vs dry 3B) the scalar could not. Zones ResStock doesn't cover
-  (e.g. 8 / interior Alaska) fall back to that prior curve.
+  Base site EUI: NREL ResStock 2024 simulation medians by building type × climate
+  zone × vintage (~550 k modeled samples), bundled offline as data/resstock_eui.csv
+  (built by scripts/build_resstock_eui.py from the OEDI data lake). Keying on
+  building type gives Single-Family Attached, Multi-Family (2-4 and 5+ units), and
+  Mobile/Manufactured homes their own curves instead of scoring every dwelling off
+  the detached one; per-zone-per-vintage medians also capture the A/B/C moisture-
+  regime spread (humid 3A vs dry 3B). Zones ResStock doesn't cover (e.g. 8 /
+  interior Alaska), or building types it lacks for a zone, fall back — to detached,
+  then to the prior 4A-scaled curve.
     https://registry.opendata.aws/nrel-pds-building-stock/
 
-  Within-cell deviations (multiplicative, off the ResStock base): size, exterior
-  wall, foundation, and heating-system type — a heat-pump home uses less than the
-  cell median, an oversized home more, etc.
+  Within-cell deviations (multiplicative, off the ResStock base): foundation and
+  heating-system (HVAC) type are ResStock-derived, climate-controlled factors
+  (data/resstock_factors.csv) — a heat-pump home uses less than the cell median;
+  size and exterior wall remain engineering factors (wall is not a ResStock axis).
 
-  Upgrade path: key the ResStock lookup on more axes (heating fuel, HVAC type,
-  foundation) instead of applying them as post-hoc factors; add a distinct
-  Multi-Family / Mobile-Home benchmark.
+  Multi-Family note: keying the base on the real MF median measures the shared-wall
+  effect directly, so the old modeled shared-wall credit (attachment_eui_factor) is
+  retired from scoring. Small (2-4 unit) MF stock has *higher* per-sqft EUI than
+  detached in ResStock; large (5+) MF lower — the intensity picture a flat credit
+  could not represent.
+
+  Upgrade path: extend the within-cell factors / benchmarks with more axes as the
+  runtime gains them (heating fuel and HVAC type are not entered today, so they ride
+  the heat-pump default); split MF benchmarks by unit-size band.
 
   Climate zone: from the property's county (data/climate.py, 2021 IECC).
 
@@ -120,20 +129,25 @@ def climate_zone_factor(climate_zone: str | None) -> float:
         return 1.0
 
 
-def base_eui(climate_zone: str | None, vintage_bin: str) -> float:
-    """Base site EUI (kBTU/sqft/yr) for a home's climate zone and vintage.
+DEFAULT_BUILDING_TYPE = "sf_detached"
 
-    Prefers the NREL ResStock median for the zone × vintage; where ResStock has
-    no coverage (e.g. zone 8 / interior Alaska) falls back to the prior
-    4A-calibrated curve scaled by the per-zone multiplier.
+
+def base_eui(climate_zone: str | None, vintage_bin: str,
+             building_type: str = DEFAULT_BUILDING_TYPE) -> float:
+    """Base site EUI (kBTU/sqft/yr) for a home's building type, climate zone, vintage.
+
+    Prefers the NREL ResStock median for the building type × zone × vintage (a
+    Multi-Family or Mobile-Home home gets its own curve, not the detached one);
+    where ResStock has no coverage (e.g. zone 8 / interior Alaska) falls back to
+    the prior 4A-calibrated curve scaled by the per-zone multiplier.
     """
     from housing_label.data.resstock_eui import resstock_base_eui
-    eui = resstock_base_eui(climate_zone, vintage_bin)
+    eui = resstock_base_eui(climate_zone, vintage_bin, building_type)
     # A covered zone with an odd vintage bin should still use that zone's ResStock
     # all-vintage ("unknown") median, not the legacy curve — only genuinely
     # uncovered zones fall back.
     if eui is None and vintage_bin != "unknown":
-        eui = resstock_base_eui(climate_zone, "unknown")
+        eui = resstock_base_eui(climate_zone, "unknown", building_type)
     if eui is not None:
         return eui
     # No ResStock coverage → the "unknown" mid-range fallback (never a KeyError).
@@ -204,15 +218,32 @@ def _wall_factor(extwall) -> tuple[str, float]:
     return mapping.get(code, ("other", 1.00))
 
 
+def _resstock_factor(axis: str, label: str, fallback: float) -> float:
+    """A ResStock-derived within-cell multiplier for (axis, label), or ``fallback``
+    (the model's hand-tuned value) when the bundled factor table has no such row."""
+    from housing_label.data.resstock_eui import resstock_factor
+    f = resstock_factor(axis, label)
+    return f if f is not None else fallback
+
+
+# Hand-tuned foundation factors, retained as the fallback when the ResStock factor
+# table is unavailable. ResStock (within-cell, climate-controlled) supersedes these.
+_FOUNDATION_FALLBACK = {
+    1: ("crawlspace_slab",  1.00),  # baseline (most common in Memphis)
+    2: ("partial_basement", 1.02),  # unheated basement
+    3: ("full_basement",    1.04),  # heated basement
+}
+
+
 def _foundation_factor(bsmt) -> tuple[str, float]:
-    """Foundation type → (label, EUI factor)."""
+    """Foundation type → (label, EUI factor). The factor is the ResStock-derived,
+    climate-controlled within-cell multiplier (crawl/slab = 1.0), falling back to
+    the hand-tuned value when the ResStock factor table is unavailable."""
     code = int(bsmt) if not pd.isna(bsmt) else None
-    mapping = {
-        1: ("crawlspace_slab",   1.00),  # baseline (most common in Memphis)
-        2: ("partial_basement",  1.02),  # slightly more exposed surface
-        3: ("full_basement",     1.04),  # more conditioned volume
-    }
-    return mapping.get(code, ("unknown", 1.00))
+    label, fallback = _FOUNDATION_FALLBACK.get(code, ("unknown", 1.00))
+    if label == "unknown":
+        return label, 1.00
+    return label, _resstock_factor("foundation", label, fallback)
 
 
 def _hvac_factor(heat, fuel) -> tuple[str, float]:
@@ -224,14 +255,17 @@ def _hvac_factor(heat, fuel) -> tuple[str, float]:
     accounts for within-vintage variation.
     """
     heat_code = int(heat) if not pd.isna(heat) else None
-    mapping = {
-        4: ("heat_pump",           0.85),  # COP 2.5–4; typical Memphis HVAC
-        2: ("electric_resistance", 1.00),  # COP 1; baseline
-        3: ("gas_furnace",         1.05),  # slightly higher site energy (duct losses, pilot)
+    # Hand-tuned fallbacks, normalized to heat pump = 1.0 to match the ResStock
+    # factor table's baseline (the model's default HVAC is a heat pump). ResStock's
+    # within-cell, climate-controlled factors supersede these when tabulated.
+    fallback = {
+        4: ("heat_pump",           1.00),  # COP 2.5–4; typical Memphis HVAC (baseline)
+        2: ("electric_resistance", 1.18),  # COP 1 — more site energy than a heat pump
+        3: ("gas_furnace",         1.24),  # gas combustion counted at the site meter
     }
-    label, factor = mapping.get(heat_code, ("heat_pump", 0.85))
     # Memphis is predominantly heat-pump territory; default to heat pump.
-    return label, factor
+    label, fb = fallback.get(heat_code, ("heat_pump", 1.00))
+    return label, _resstock_factor("hvac", label, fb)
 
 
 # ── Fuel split: electricity vs natural gas fraction of total site energy ───────
@@ -281,25 +315,28 @@ def model_parcel_energy(
     climate_zone: str | None = DEFAULT_CLIMATE_ZONE,
     elec_rate: float = ELEC_RATE_PER_KWH,
     gas_rate: float = GAS_RATE_PER_THERM,
+    building_type: str = DEFAULT_BUILDING_TYPE,
 ) -> dict:
     """Compute energy metrics for a single parcel.
 
     Steps
     -----
-    1. Look up the base EUI (kBTU/sqft/yr) from ResStock by (climate zone ×
-       vintage); zones ResStock doesn't cover fall back to the scaled 4A curve.
+    1. Look up the base EUI (kBTU/sqft/yr) from ResStock by (building type × climate
+       zone × vintage); zones ResStock doesn't cover fall back to the scaled 4A curve.
     2. Apply within-cell multiplicative adjustments: size, wall type, foundation, HVAC.
     3. Convert adjusted EUI × floor area → total annual kBTU.
     4. Split kBTU into electricity (kWh) and gas (therms) by fuel split.
     5. Compute estimated monthly cost at utility rates.
 
     `climate_zone` is an IECC zone label (e.g. "5B"); defaults to 4A (the pilot).
+    `building_type` selects the ResStock benchmark (sf_detached / sf_attached /
+    mf_2_4 / mf_5plus / mobile_home); defaults to detached.
     `elec_rate` ($/kWh) and `gas_rate` ($/therm) default to the Memphis/TVA pilot
     constants; the live path passes the property's state rates (data/utility_rates).
     """
-    # --- Base EUI: ResStock zone×vintage median (fallback: scaled 4A curve) ---
+    # --- Base EUI: ResStock building-type × zone × vintage median (fallback: 4A) ---
     vbin = vintage_bin(row.get("YRBLT"))
-    base = base_eui(climate_zone, vbin)
+    base = base_eui(climate_zone, vbin, building_type)
 
     # --- Size ---
     sbin, area = size_bin(row.get("SFLA"))
@@ -323,9 +360,10 @@ def model_parcel_energy(
     annual_cost   = annual_kwh * elec_rate + annual_therms * gas_rate
     monthly_cost  = round(annual_cost / 12, 2)
 
-    # --- Archetype label (climate zone + vintage + size + wall + hvac) ---
+    # --- Archetype label (building type + climate zone + vintage + size + wall + hvac) ---
     zone_tok = "cz" + str(climate_zone or DEFAULT_CLIMATE_ZONE).strip().lower()
-    archetype = f"{zone_tok}_{vbin}_{sbin}_{wall_label}_{hvac_label}"
+    bt_tok = str(building_type or DEFAULT_BUILDING_TYPE).strip().lower()
+    archetype = f"{bt_tok}_{zone_tok}_{vbin}_{sbin}_{wall_label}_{hvac_label}"
 
     return {
         "energy_vintage_bin":      vbin,
@@ -337,8 +375,9 @@ def model_parcel_energy(
         "est_annual_therms":       annual_therms,
         "est_monthly_energy_cost": monthly_cost,
         "energy_data_source":      (
-            "NREL ResStock 2024 zone×vintage site-EUI medians (SF detached); "
-            "within-cell size/wall/foundation/HVAC deviations; local utility rates"
+            "NREL ResStock 2024 building-type×zone×vintage site-EUI medians; "
+            "ResStock-derived within-cell foundation/HVAC (+ size/wall) deviations; "
+            "local utility rates"
         ),
     }
 
