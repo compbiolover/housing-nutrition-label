@@ -89,6 +89,10 @@ def test_marginal_reduces_to_average_when_equal_or_absent():
     assert absent["env_operational_co2e_kg_yr"] == today["env_operational_co2e_kg_yr"]
     assert equal["environmental_score"] == today["environmental_score"]
     assert absent["environmental_score"] == today["environmental_score"]
+    # A zero credit (marginal == average) must NOT name Cambium in the citation —
+    # the credit term is zero, so the number came from the eGRID average alone.
+    assert "Cambium" not in equal["env_data_source"]
+    assert "Cambium" not in absent["env_data_source"]
 
 
 def test_marginal_credit_matches_formula():

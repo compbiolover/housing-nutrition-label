@@ -240,9 +240,12 @@ DATA_SOURCE = (
 def _data_source(grid_factor: float, grid_marginal_factor: float | None,
                  avoided_kwh: float) -> str:
     """Per-call env_data_source citation; names the Cambium marginal rate only
-    when a marginal factor actually credits some avoided kWh."""
+    when it actually moves the number — i.e. some kWh are avoided AND the marginal
+    rate differs from the average (a zero credit, including the reduce-to-average
+    case where marginal == average, keeps the citation to the eGRID average)."""
     op = f"Operational: EPA {EGRID_VINTAGE} {grid_factor} kgCO2e/kWh avg"
-    if grid_marginal_factor is not None and (avoided_kwh or 0.0):
+    if (grid_marginal_factor is not None and (avoided_kwh or 0.0)
+            and grid_marginal_factor != grid_factor):
         op += (f" + avoided kWh at NREL Cambium 2023 LRMER "
                f"{grid_marginal_factor} kgCO2e/kWh marginal")
     op += f" + EPA gas {EF_GAS_KG_PER_THERM} kgCO2e/therm; "
