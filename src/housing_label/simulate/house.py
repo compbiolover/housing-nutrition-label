@@ -16,8 +16,9 @@ Usage examples
   python simulate_house.py --preset worst-case  --lat 35.15 --lon -89.85
 
 Methodology mirrors score_resilience.py exactly:
-  EAL rate = flood + tornado + seismic, each × Building Resilience Modifier (BRM).
-  BRM = code_era × construction_type × (foundation for flood only) × condition.
+  EAL rate = flood + tornado + seismic + fire, each × its Building Resilience Modifier (BRM).
+  BRM = code_era × construction_type × (foundation for flood only) × condition; the fire leg
+    uses a construction combustibility modifier instead.
   Score = log-linear interpolation of total EAL rate → 0-100.
   National grade = absolute score thresholds.
 """
