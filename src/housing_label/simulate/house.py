@@ -2,7 +2,7 @@
 """simulate_house.py — Housing Nutrition Label: Disaster Resilience Simulator
 
 Defines a hypothetical house and shows where it scores on the disaster
-resilience dimension — nationally and locally against the Shelby County dataset.
+resilience dimension against national (absolute) thresholds.
 
 Usage examples
 --------------
@@ -20,7 +20,6 @@ Methodology mirrors score_resilience.py exactly:
   BRM = code_era × construction_type × (foundation for flood only) × condition.
   Score = log-linear interpolation of total EAL rate → 0-100.
   National grade = absolute score thresholds.
-  Local grade = percentile rank vs. shelby_parcels_scored.csv.
 """
 
 from __future__ import annotations
