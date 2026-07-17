@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.48](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.47...v0.1.48) (2026-07-17)
+
+
+### Bug Fixes
+
+* don't cache degraded labels when NSI structure detection is unavailable ([#162](https://github.com/compbiolover/housing-nutrition-label/issues/162)) ([91b9786](https://github.com/compbiolover/housing-nutrition-label/commit/91b978661b68c86e2c16035b96e5b0422bbb94e1))
+
 ## [0.1.47](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.46...v0.1.47) (2026-07-16)
 
 
