@@ -10,9 +10,12 @@ footage, construction material, and year built.
 
 Source: the NSI web API (keyless), queried with a small polygon around the point;
 the structure whose footprint most likely contains the geocoded location is
-returned (see ``_select_structure``). Network/API failure degrades gracefully to
-``None`` (the caller keeps its single-family default), so this is a best-effort
-enrichment, never a hard dependency.
+returned (see ``_select_structure``). This is a best-effort enrichment, never a
+hard dependency: when NSI has no structure at the point, ``structure_for_point``
+returns ``None`` and the caller keeps its single-family default. A transient NSI
+outage (the API unreachable) instead raises ``NSIUnavailable`` — distinct from
+``None`` so the caller can fall back to defaults *without caching* the degraded
+result (which would otherwise pin a wrong label onto the coordinate).
 
 Occupancy classes (Hazus): RES1 = single-family, RES2 = manufactured home,
 RES3A–RES3F = multi-family binned by unit count (2, 3–4, 5–9, 10–19, 20–49, 50+),

@@ -285,7 +285,7 @@ def resolve_location(
             loc.structure_attr_source = s.get("attr_source")
             loc.units_confidence = s.get("units_confidence")
         elif loc.structure_unavailable:
-            notes["structure"] = "NSI temporarily unavailable; building details are defaults (not cached)"
+            notes["structure"] = "NSI temporarily unavailable; building details are defaults"
         else:
             notes["structure"] = "building type unknown (no NSI match)"
         # Real footprint geometry (area + perimeter) for the embodied-carbon model,
