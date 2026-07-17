@@ -215,7 +215,8 @@ def calc_fire_eal(row) -> float:
 # 5. SCORE MAPPING — log-linear interpolation
 # ---------------------------------------------------------------------------
 # The score-to-EAL-rate breakpoints below are anchored to physical meaning:
-#   100: EAL < 0.005% → virtually no hazard (e.g., interior low-risk US zones)
+#   100: EAL < 0.001% → virtually no hazard (e.g., interior low-risk US zones)
+#    95: EAL ~ 0.003% → near-perfect build (fine discrimination near the top)
 #    80: EAL ~ 0.020% → low risk (national average for combined hazards ≈ here)
 #    60: EAL ~ 0.100% → moderate risk (coastal/flood-prone non-SFHA areas)
 #    40: EAL ~ 0.300% → high risk (Zone AE flood or high seismic + moderate flood)
