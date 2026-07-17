@@ -135,6 +135,27 @@ def test_structure_for_point_offline_and_empty(monkeypatch):
     assert S.structure_for_point(41.9, -87.6) is None
 
 
+def test_nsi_unavailable_raises_distinct_from_empty(monkeypatch):
+    """A transient NSI outage raises NSIUnavailable (not an empty result), so the
+    caller can fall back to defaults *without* caching a degraded single-family
+    label onto the coordinate. A genuine empty response still returns None."""
+    import pytest
+
+    S._structure_at.cache_clear()
+    monkeypatch.setattr(S.time, "sleep", lambda *a, **k: None)   # no back-off waits
+
+    def boom(*a, **k):
+        raise S.requests.exceptions.ConnectionError("nsi down")
+
+    monkeypatch.setattr(S.requests, "get", boom)
+    with pytest.raises(S.NSIUnavailable):
+        S.structure_for_point(41.9436, -87.6531)
+
+    # A genuine empty response is a real "no building here" answer, not an outage.
+    _patch_nsi(monkeypatch, [])
+    assert S.structure_for_point(41.9436, -87.6531) is None
+
+
 def test_detected_multifamily_fires_caveat():
     """A resolved location detected as multi-family triggers the dense-housing
     caveat even when the caller didn't pass units > 1."""

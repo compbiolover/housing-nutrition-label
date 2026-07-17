@@ -211,6 +211,50 @@ def test_label_result_is_cached():
         api._result_cache.clear()
 
 
+def test_degraded_detection_is_not_cached():
+    """When NSI structure detection was unavailable (a transient outage), the label
+    falls back to generic building defaults and must NOT be cached — otherwise a
+    bookmarked/shared coordinate would serve a wrong single-family label for the
+    whole TTL (the cache-poisoning bug this guards against)."""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_degraded_detection_is_not_cached (fastapi not installed)")
+        return
+    import housing_label.api as api
+
+    if not api._result_cache.enabled:
+        print("  skip test_degraded_detection_is_not_cached (result cache disabled)")
+        return
+
+    calls = {"n": 0}
+    real = api.build_label_parts
+
+    def degraded(**kw):
+        calls["n"] += 1
+        kw["allow_network"] = False        # offline → deterministic, no real network
+        cfg, r, lbl = real(**kw)
+        loc = lbl.get("location")
+        if loc is not None:                # simulate the NSI outage this pass
+            loc.structure_unavailable = True
+        return cfg, r, lbl
+
+    api._result_cache.clear()
+    api.build_label_parts = degraded
+    try:
+        client = TestClient(api.app)
+        params = {"lat": 35.13, "lon": -89.99, "preset": "baseline"}
+        assert client.get("/label", params=params).status_code == 200
+        assert client.get("/label", params=params).status_code == 200
+        # Not cached → the second identical request re-scores rather than replaying
+        # the degraded result.
+        assert calls["n"] == 2, (
+            f"degraded (NSI-unavailable) label must not be cached; got {calls['n']} passes")
+    finally:
+        api.build_label_parts = real
+        api._result_cache.clear()
+
+
 def test_rate_limit_returns_429():
     """Past the configured per-IP limit, scoring endpoints return 429 while the
     exempt health probe keeps answering 200."""

@@ -74,6 +74,7 @@ class Location:
     foundation: str | None = None         # slab | crawl | partial-basement | full-basement
     construction: str | None = None       # frame | vinyl | brick | block | stone | icf | sip (coarse)
     structure_source: str | None = None   # "NSI" when detected
+    structure_unavailable: bool = False    # NSI unreachable this pass (don't cache the label)
     structure_attr_source: str | None = None  # NSI provenance: "P" parcel/observed, else modeled
     units_confidence: str | None = None   # "detected" (from NSI) | "estimated" (cluster heuristic)
     # Real building footprint (FEMA/ORNL USA Structures) — actual area + perimeter,
@@ -260,8 +261,15 @@ def resolve_location(
     # here — single-family, multi-family, unit count, stories. Best effort; leaves
     # the fields None (with a note) when NSI is unavailable or off-network.
     if allow_network:
-        from housing_label.enrich.structure import structure_for_point
-        s = structure_for_point(loc.lat, loc.lon, allow_network=True)
+        from housing_label.enrich.structure import structure_for_point, NSIUnavailable
+        try:
+            s = structure_for_point(loc.lat, loc.lon, allow_network=True)
+        except NSIUnavailable:
+            # Transient NSI outage — leave the building fields at their defaults but
+            # flag it so the caller (API) doesn't cache this degraded "single-family
+            # defaults" label onto the coordinate for the whole TTL.
+            s = None
+            loc.structure_unavailable = True
         if s:
             loc.structure_type = s.get("structure_type")
             loc.num_units = s.get("num_units")
@@ -276,8 +284,10 @@ def resolve_location(
             loc.structure_source = s.get("source")
             loc.structure_attr_source = s.get("attr_source")
             loc.units_confidence = s.get("units_confidence")
+        elif loc.structure_unavailable:
+            notes["structure"] = "NSI temporarily unavailable; building details are defaults (not cached)"
         else:
-            notes["structure"] = "building type unknown (no NSI match, or NSI unavailable)"
+            notes["structure"] = "building type unknown (no NSI match)"
         # Real footprint geometry (area + perimeter) for the embodied-carbon model,
         # independent of NSI — best effort, None when the point isn't a mapped building.
         from housing_label.enrich.footprint import footprint_for_point

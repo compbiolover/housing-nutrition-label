@@ -30,6 +30,17 @@ import requests
 
 from housing_label.config import TIMEOUT, RETRIES, BACKOFF, HEADERS
 
+
+class NSIUnavailable(RuntimeError):
+    """The NSI API could not be reached (every retry failed).
+
+    Distinct from NSI returning *no structures* for a point: a transient outage
+    must not look like "no building here", or callers would cache a degraded
+    default (single-family) label for that coordinate across the outage. Raised by
+    the query layer so ``structure_for_point`` propagates it and the caller can
+    fall back to defaults *without* caching the result.
+    """
+
 NSI_URL = "https://nsi.sec.usace.army.mil/nsiapi/structures"
 
 # Half-width (degrees) of the query box around the point (~110 m); widened once
@@ -162,8 +173,12 @@ def _select_structure(props_list: list[dict], lat: float, lon: float) -> dict | 
 
 def _nsi_query(lat: float, lon: float, half: float) -> list[dict]:
     """Query NSI for a box around the point; return the list of feature property
-    dicts (empty on failure / no structures). NOT cached — the caller caches the
-    small computed result instead of the large feature list."""
+    dicts (empty when NSI has no structures there). NOT cached — the caller caches
+    the small computed result instead of the large feature list.
+
+    Raises ``NSIUnavailable`` when every attempt fails (timeout / connection error
+    / HTTP error), so a transient outage is distinguishable from a genuine empty
+    result and its degraded label is not cached."""
     d = half
     # NSI's bbox is a closed polygon ring of lon,lat pairs (not a min/max box).
     ring = [(lon - d, lat - d), (lon - d, lat + d), (lon + d, lat + d),
@@ -176,11 +191,12 @@ def _nsi_query(lat: float, lon: float, half: float) -> list[dict]:
             r.raise_for_status()
             feats = (r.json() or {}).get("features") or []
             return [f.get("properties") or {} for f in feats]
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
             if attempt == RETRIES:
-                return []
+                raise NSIUnavailable(
+                    f"NSI query failed after {RETRIES} attempts: {exc}") from exc
             time.sleep(BACKOFF ** attempt)
-    return []
+    return []   # unreachable (loop either returns or raises); kept for the type
 
 
 def _estimate_units(res3: list[dict]) -> int:
@@ -359,6 +375,10 @@ def structure_for_point(lat: float, lon: float,
     (NSI provenance: ``P`` = parcel/observed, else modeled), ``source`` (``NSI``),
     ``detection`` (``nsi`` | ``nsi-cluster``), ``units_confidence`` (``detected`` |
     ``estimated``).
+
+    Returns None when NSI has no usable structure at the point (or off-network).
+    Raises ``NSIUnavailable`` when the NSI API itself could not be reached, so the
+    caller can fall back to defaults without caching a degraded result.
     """
     if not allow_network:
         return None

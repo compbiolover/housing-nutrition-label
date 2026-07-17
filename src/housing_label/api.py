@@ -408,7 +408,13 @@ def label(
     )
     _attach_baseline_cost(payload, lbl, cfg, self_baseline=is_self_baseline)
     _attach_detached_cost(payload, r, cfg)   # multi-unit → density-dividend line
-    _result_cache.put(cache_key, payload)
+    # Don't cache a degraded label. When NSI structure detection was unavailable
+    # (a transient upstream outage), the building falls back to generic defaults —
+    # caching that would pin a wrong "single-family / defaults" label onto this
+    # exact coordinate for the whole TTL, poisoning a bookmarked or shared URL.
+    # Skip the cache so the next request re-detects the real building.
+    if not getattr(lbl.get("location"), "structure_unavailable", False):
+        _result_cache.put(cache_key, payload)
     return payload
 
 
