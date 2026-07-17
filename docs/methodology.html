@@ -42,7 +42,7 @@
 <section>
   <h2>How the scores work</h2>
   <p>Each of the nine dimensions is scored from 0 to 100. Every score starts with a short, plain-language summary of what it tells you; open <strong>&ldquo;How it&rsquo;s calculated&rdquo;</strong> under any dimension for the full method, data sources, and formulas. Everything is built from public data and documented so the numbers can be checked.</p>
-  <div class="insight"><strong>Where the data comes from:</strong> the label scores any U.S. address using national datasets &mdash; FEMA, USGS, EPA, CDC, the Census Bureau, and the EIA. It began as a pilot in one county (Shelby County, TN), and a few inputs are still being generalized nationwide: the reference set used for the <em>local</em> (neighbor-to-neighbor) grades, and some cost-model baselines. Wherever one of those still applies, the label flags it &mdash; so a score is never presented as more locally precise than it is.</p>
+  <div class="insight"><strong>Where the data comes from:</strong> the label scores any U.S. address using national datasets &mdash; FEMA, USGS, EPA, CDC, the Census Bureau, and the EIA. It began as a pilot in one county (Shelby County, TN), and a few cost-model baselines are still being generalized nationwide. Wherever one of those still applies, the label flags it &mdash; so a score is never presented as more locally precise than it is.</p>
   </div>
 </section>
 
@@ -231,10 +231,10 @@
 </section>
 
 <section>
-  <h2>The two grades</h2>
-  <p class="plain">Every dimension gets <strong>two</strong> grades. The <strong>national grade</strong> says how the home compares to the whole country. The <strong>local grade</strong> says how it compares to its own neighbors &mdash; useful when you're choosing between homes in the same area.</p>
+  <h2>The grade and the national percentile</h2>
+  <p class="plain">Every dimension gets a <strong>national grade</strong> &mdash; how the home compares to the whole country &mdash; plus a <strong>national percentile</strong> (&ldquo;vs US homes&rdquo;) showing where it lands in that national distribution.</p>
   <p><strong>National absolute grade:</strong> A &ge; 80, B &ge; 60, C &ge; 40, D &ge; 20, F &lt; 20. Calibrated for national comparison &mdash; a Grade B means the same thing anywhere in the country.</p>
-  <p><strong>Local percentile grade:</strong> A = top 10%, B = next 25% (65th&ndash;90th percentile), C = next 30% (35th&ndash;65th), D = next 25% (10th&ndash;35th), F = bottom 10%, ranked against nearby properties.</p>
+  <p><strong>National percentile:</strong> e.g. &ldquo;72nd US&rdquo; &mdash; the share of comparable U.S. homes this dimension beats, from a bundled national reference distribution.</p>
   <p><strong>Composite score:</strong> the average of the dimensions that could be scored. Dimensions with no data (for example, a location dimension whose census tract can't be resolved) are left out rather than counted as zero, so a strong home isn't dragged down by a missing input.</p>
 </section>
 
