@@ -213,7 +213,7 @@
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
     <p>Uses the <strong>EPA National Walkability Index</strong> (NWI) &mdash; a public-domain national index covering every US census block group, built from three built-environment measures: street-intersection density, proximity to transit, and diversity of land use. Its 1&ndash;20 index is scaled to 0&ndash;100 (higher = more walkable) and aggregated from block groups to the census tract (household-weighted).</p>
 
-    <p>Because the NWI is a national index (0 = car-dependent, 100 = highly walkable), the national grade is directly comparable across cities, and no per-address API call is made &mdash; the value is a bundled, storable lookup. This replaces the Walk Score API, whose Terms of Use prohibit storing scores and whose free tier caps at ~5,000 calls/day; an optional Walk Score enrichment (0.60 &times; Walk + 0.25 &times; Transit + 0.15 &times; Bike) is still honoured when one has been supplied.</p>
+    <p>Because the NWI is a national index (0 = car-dependent, 100 = highly walkable), the national grade is directly comparable across cities, and no per-address API call is made &mdash; the value is a bundled, storable lookup. This replaces the Walk Score API, whose Terms of Use prohibit storing scores and whose free tier caps at ~5,000 calls/day.</p>
     <div class="insight"><strong>Context:</strong> much of the country is car-dependent suburban and exurban development, so most addresses score low on the national absolute scale &mdash; the genuinely walkable pockets are older street-grid neighborhoods near a downtown or town center. A finer in-house OpenStreetMap amenity-access score is a documented future upgrade.</div>
     </details>
   </div>

@@ -9,8 +9,7 @@ Install + run::
 
     pip install -e ".[api]"
     # All 9 dimensions score with no API keys — health, socioeconomic, and
-    # walkability are bundled national references. (A Walk Score key is only
-    # needed if you opt into the optional Walk Score enrichment.)
+    # walkability are bundled national references.
     # optional: sharper address autocomplete (else keyless Photon is used):
     export GEOAPIFY_API_KEY=...
     housing-api                      # uvicorn on :8000 (PORT overrides)
@@ -131,8 +130,8 @@ app.add_middleware(
 )
 
 # ── Rate limiting ────────────────────────────────────────────────────────────────
-# Every scoring request fans out to ~7 live upstreams — two of them keyed
-# (Geoapify, Walk Score) and several free government APIs that throttle. Without
+# Every scoring request fans out to several live upstreams — the optional keyed
+# geocoder (Geoapify) and several free government APIs that throttle. Without
 # a limit, one unauthenticated caller can drive cost and get the free endpoints
 # blocked for everyone. A per-IP token bucket (default 30/min, override with the
 # RATE_LIMIT env var; set it to "" / "0" to disable) fronts every endpoint via

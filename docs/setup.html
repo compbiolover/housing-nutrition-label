@@ -55,8 +55,7 @@ housing-simulate --preset icf-passive --lat 35.15 --lon -89.85   # score a house
 &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; energy.py
 &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; infrastructure.py
 &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; health.py
-&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; socioeconomic.py
-&#x2502;   &#x2502;   &#x2514;&#x2500;&#x2500; walkscore.py
+&#x2502;   &#x2502;   &#x2514;&#x2500;&#x2500; socioeconomic.py
 &#x2502;   &#x251C;&#x2500;&#x2500; score/                   # Scoring models
 &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; resilience.py        # EAL-based disaster scoring
 &#x2502;   &#x2502;   &#x2514;&#x2500;&#x2500; all_dimensions.py    # Multi-dimension scorer
@@ -152,9 +151,7 @@ housing-simulate \
 
   <h3>Run it</h3>
   <pre><code>pip install -e ".[api]"            # installs FastAPI + uvicorn
-# optional: full 8 dimensions need keys (server-side)
-export CENSUS_API_KEY=your_key WALKSCORE_API_KEY=your_key
-housing-api                        # serves on :8000 (PORT overrides)
+housing-api                        # serves on :8000 (PORT overrides) &mdash; no API keys required
 # or: uvicorn housing_label.api:app --host 0.0.0.0 --port 8000</code></pre>
   <p>Endpoints: <code>GET /healthz</code>, <code>GET /suggest?q=&lt;text&gt;</code> (address typeahead), and <code>GET /label?address=&lt;addr&gt;&amp;preset=&lt;preset&gt;</code> (or <code>?lat=&amp;lon=</code>). Optional <code>/label</code> overrides: <code>year_built</code>, <code>construction</code>, <code>foundation</code>, <code>condition</code>, <code>sqft</code>, <code>units</code>, <code>lot_acres</code>, <code>value</code>, <code>flood_zone</code>, and <code>upgrades</code> (comma-separated resilience flags, e.g. <code>upgrades=solar,fortified_roof,hurricane_straps</code>). Unknown values return a 400.</p>
 
@@ -165,7 +162,7 @@ housing-api                        # serves on :8000 (PORT overrides)
   <h3>Deploy it</h3>
   <p>GitHub Pages can't host the Python API &mdash; deploy it anywhere that runs Python (Render, Fly, Cloud Run, Railway, a small VM). The repo ships two ready-to-use configs:</p>
   <ul style="margin:1rem 0;padding-left:1.5rem;">
-    <li style="margin-bottom:0.5rem;"><strong>Render:</strong> <code>render.yaml</code> (a Blueprint). Push the repo, then <em>New&nbsp;+ &rarr; Blueprint</em> and select it; set <code>CENSUS_API_KEY</code>/<code>WALKSCORE_API_KEY</code> in the dashboard.</li>
+    <li style="margin-bottom:0.5rem;"><strong>Render:</strong> <code>render.yaml</code> (a Blueprint). Push the repo, then <em>New&nbsp;+ &rarr; Blueprint</em> and select it. The API needs no keys; optionally set <code>GEOAPIFY_API_KEY</code> for sharper address autocomplete.</li>
     <li style="margin-bottom:0.5rem;"><strong>Containers</strong> (Fly / Cloud Run / Railway / any host): <code>Dockerfile</code>. Build with <code>docker build -t housing-label-api .</code> and run with <code>-p 8000:8000</code> plus the env vars below.</li>
   </ul>
   <p><strong>CORS:</strong> the API restricts browser origins to <code>https://housinglabel.dev</code> by default. Override with the <code>ALLOWED_ORIGINS</code> env var (comma-separated) for a different domain or local dev, e.g. <code>ALLOWED_ORIGINS="https://housinglabel.dev,http://localhost:8000"</code>.</p>

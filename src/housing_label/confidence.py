@@ -43,7 +43,7 @@ CONFIDENCE_LEGEND = (
 
 def _is_unavailable(note: str) -> bool:
     """True when a location note signals a missing-key / unavailable fetch
-    (e.g. 'no CENSUS_API_KEY', 'no WALKSCORE_API_KEY')."""
+    (e.g. 'no CENSUS_API_KEY')."""
     note = (note or "").lower()
     return "no " in note and "key" in note
 
