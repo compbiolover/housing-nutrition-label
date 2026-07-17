@@ -63,7 +63,7 @@ from __future__ import annotations
 import logging, os, time
 import requests, pandas as pd
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(message)s")
+# Module logger only — no logging.basicConfig() at import time (library code).
 log = logging.getLogger(__name__)
 
 # ── Geography ─────────────────────────────────────────────────────────────────

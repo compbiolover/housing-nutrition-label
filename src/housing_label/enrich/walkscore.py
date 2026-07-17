@@ -27,7 +27,7 @@ API notes
 import logging, sys, time, urllib.parse
 import requests, pandas as pd
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(message)s")
+# Module logger only — no logging.basicConfig() at import time (library code).
 log = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────

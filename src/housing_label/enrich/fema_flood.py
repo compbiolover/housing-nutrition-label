@@ -30,7 +30,9 @@ from __future__ import annotations
 import json, logging, time
 import requests, pandas as pd
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(message)s")
+# Module logger only — no logging.basicConfig() at import time: this is library
+# code imported by the API/simulator, and reconfiguring the root logger on import
+# would clobber the host application's logging setup.
 log = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────

@@ -77,7 +77,10 @@ import pandas as pd
 
 from housing_label.data import climate_projections as climate_proj_data
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(message)s")
+# NOTE: no logging.basicConfig() at import time — this module is imported by the
+# live scorer (simulate/dimensions.py pulls in its breakpoints + score_to_grade),
+# so reconfiguring the root logger on import would leak CLI formatting into the
+# API/simulator. main() configures logging at the CLI entrypoint instead.
 log = logging.getLogger("score_all")
 
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parents[3]   # repo root; data lives here
@@ -484,6 +487,9 @@ def merge_walkscore(df: pd.DataFrame, ws_path: pathlib.Path) -> pd.DataFrame:
 
 
 def main() -> None:
+    # Configure root logging here (the CLI entrypoint), not at import time, so
+    # importing this module into the simulator/API never reconfigures logging.
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(message)s")
     parser = argparse.ArgumentParser(
         description="Score and grade every dimension (0–100, national + local "
                     "A–F grades) and compute a composite for Shelby County parcels."
