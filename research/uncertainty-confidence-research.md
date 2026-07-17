@@ -104,7 +104,7 @@ interval that can honestly be drawn as a whisker.
 | 5 | **Infrastructure Burden** | Model/parametric (**quantified**) + input-quality | Header documents **±30%** on absolute dollars; per-county calibration (Census of Governments) and property-tax rate (Census ACS) each with a **national-average fallback** when the county is unmapped. |
 | 6 | **Health Impact** | Statistical/aleatory + input-quality | CDC PLACES tract-level *model-based* chronic-disease estimates (carry their own CIs upstream); `location_notes` records `"CDC PLACES (tract …)"` vs `"no PLACES data for tract …"`. |
 | 7 | **Socioeconomic** | Statistical/aleatory + completeness | Census ACS income/poverty/education — ACS estimates ship with **published margins of error**. When no `CENSUS_API_KEY`, it is **reported unscored (—) and excluded from the composite** — never a fabricated placeholder — in both the batch (`resolve_active_dimensions`, `src/housing_label/score/all_dimensions.py`) and live paths. |
-| 8 | **Walkability** | Input-quality (present/absent) | Walk Score API; **N/A** when no `WALKSCORE_API_KEY` (`location_notes: "no WALKSCORE_API_KEY"`). When present, a defensible measured index. |
+| 8 | **Walkability** | Input-quality (present/absent) | EPA National Walkability Index (bundled, keyless, national); a defensible measured index. **N/A** only when the location's tract can't be resolved. |
 | 9 | **Climate Projections** | **Scenario** (+ resolution) | SSP2-4.5 (low, headline) → SSP5-8.5 (high) **band already computed** (`score_low`/`score_high`); ensemble-mean over CMIP6-LOCA2 models; tract→county→us (`geo_level`); sub-county but **not parcel-scale**; fire leg is a single RCP8.5 pathway (no scenario spread). |
 
 **Reading:** five dimensions are dominated by *model/parametric* uncertainty (candidates for eventual
@@ -154,7 +154,7 @@ handful of provenance flags, not eliciting expert panels), adapted from the pedi
 
 | Criterion (0 / 1 / 2) | 2 (strong) | 1 (moderate) | 0 (weak) | Field(s) read |
 |---|---|---|---|---|
-| **P — Provenance / method** (measured vs. modeled vs. placeholder) | Measured / authoritative index (Walk Score, CDC PLACES, ACS, eGRID operational leg) | Modeled from parcel attributes / calibrated benchmarks (energy, durability, resilience EAL, infra) | Fixed placeholder or "v1 estimate / weak evidence" leg (socio placeholder 50; embodied-carbon leg) | `*_data_source`, `location_notes`, model docstrings |
+| **P — Provenance / method** (measured vs. modeled vs. placeholder) | Measured / authoritative index (EPA National Walkability Index, CDC PLACES, ACS, eGRID operational leg) | Modeled from parcel attributes / calibrated benchmarks (energy, durability, resilience EAL, infra) | Fixed placeholder or "v1 estimate / weak evidence" leg (socio placeholder 50; embodied-carbon leg) | `*_data_source`, `location_notes`, model docstrings |
 | **R — Geographic resolution** | Parcel / point (flood zone, seismic PGA, EUI) | Tract internal point (climate, health, socio, wildfire tract) | County or national-average **fallback** | `geo_level`, `location_notes` ("… fallback") |
 | **T — Recency / temporal** | Current vintage (eGRID2023 Rev 2, ACS 5-yr latest, PLACES latest) | Recent but static reference (ResStock, service-life tables) | Dated or undated constant | vintage strings in `*_data_source` |
 | **C — Completeness** | Real value present | Present but with a documented wide band (embodied; infra ±30%) | N/A / excluded from composite | null score handling, composite exclusion |
@@ -184,7 +184,7 @@ label:
 | Infrastructure Burden | 1 (modeled) | 1 (county calibration) | 2 (2022 CoG/ACS) | 1 (**±30%** documented) | **5** | **Moderate** | The one dimension with a quantified parametric band → also gets a whisker (§6). |
 | Health Impact | 2 (CDC PLACES) | 1 (tract) | 2 | 2 | **7** | **High** | `location_notes: "CDC PLACES (tract 47157003100)"`. |
 | Socioeconomic | **0 (placeholder / no key)** | 0 | — | **0 (excluded)** | **0** | **Low** | `location_notes: "no CENSUS_API_KEY"` → placeholder 50, excluded from composite. |
-| Walkability | **0 (no key → N/A)** | — | — | **0 (N/A)** | **0** | **Low (N/A)** | `location_notes: "no WALKSCORE_API_KEY"`. |
+| Walkability | measured | — | — | — | — | **High (when scored)** | EPA National Walkability Index (bundled, keyless); N/A only when the tract can't be resolved. |
 | Climate Projections | 1 (ensemble model) | 1 (tract) | 1 (mid-century) | 1 (**scenario band**) | **4** | **Moderate** | `geo_level=tract`; SSP band already computed → also gets a whisker (§6). |
 
 This table is *mechanically derivable* from fields already present — the feature is a presentation +

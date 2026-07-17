@@ -2,7 +2,8 @@
 # Build:  docker build -t housing-label-api .
 # Run:    docker run -p 8000:8000 \
 #           -e ALLOWED_ORIGINS=https://housinglabel.dev \
-#           -e CENSUS_API_KEY=... -e WALKSCORE_API_KEY=... housing-label-api
+#           housing-label-api          # no API keys required
+#         (optional: -e GEOAPIFY_API_KEY=... for sharper address autocomplete)
 # Works as-is on Fly.io, Cloud Run, Railway, or any container host.
 FROM python:3.11-slim
 
