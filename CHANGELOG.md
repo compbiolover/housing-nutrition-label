@@ -9,6 +9,14 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.49](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.48...v0.1.49) (2026-07-17)
+
+
+### Code Refactoring
+
+* delete the orphaned enrich/walkscore.py + stale Walk Score docs ([#166](https://github.com/compbiolover/housing-nutrition-label/issues/166)) ([d9e6d6a](https://github.com/compbiolover/housing-nutrition-label/commit/d9e6d6ac8c8d16d7cdda6400175b2e8933f42635))
+* remove the Shelby batch pipeline and local-grade machinery ([#164](https://github.com/compbiolover/housing-nutrition-label/issues/164)) ([f1e6710](https://github.com/compbiolover/housing-nutrition-label/commit/f1e671024ed1329d1c3937d769a849391e3b141d))
+
 ## [0.1.48](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.47...v0.1.48) (2026-07-17)
 
 
