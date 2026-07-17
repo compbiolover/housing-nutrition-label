@@ -113,7 +113,7 @@ Census ACS poverty, income, and housing-cost-burden indicators scored against th
 <details>
 <summary><strong>🚶 Walkability</strong> — EPA National Walkability Index</summary>
 
-**EPA National Walkability Index** — public-domain, national (every US census block group), keyless, and freely storable. Its 1–20 index (intersection density + transit proximity + land-use mix) is scaled to 0–100 and aggregated to census tracts ([`data/walkability.py`](src/housing_label/data/walkability.py), built by [`scripts/build_walkability.py`](scripts/build_walkability.py)). This replaces the Walk Score API, whose Terms of Use prohibit storing scores and whose free tier caps at ~5,000 calls/day; an optional Walk Score enrichment is still honoured when present (60% walk + 25% transit + 15% bike).
+**EPA National Walkability Index** — public-domain, national (every US census block group), keyless, and freely storable. Its 1–20 index (intersection density + transit proximity + land-use mix) is scaled to 0–100 and aggregated to census tracts ([`data/walkability.py`](src/housing_label/data/walkability.py), built by [`scripts/build_walkability.py`](scripts/build_walkability.py)). This replaces the Walk Score API, whose Terms of Use prohibit storing scores and whose free tier caps at ~5,000 calls/day.
 
 </details>
 
@@ -161,7 +161,6 @@ The national/local thresholds are identical across all dimensions, so a grade me
 | [CDC PLACES](https://www.cdc.gov/places/) | Census-tract health metrics (national Health Impact reference) | Free — no key (bundled) |
 | [Census ACS 5-yr Summary File](https://www.census.gov/programs-surveys/acs/data/summary-file.html) | Socioeconomic indicators (poverty, income, housing-cost burden) — national reference | Free — no key (bundled; the live scoring path needs no key) |
 | [EPA National Walkability Index](https://www.epa.gov/smartgrowth/national-walkability-index-user-guide-and-methodology) | Walkability (block-group index, aggregated to tract) | Free — public domain (bundled) |
-| [Walk Score API](https://www.walkscore.com/professional/api.php) | Walk / transit / bike scores — *optional*, opt-in only | **Optional key** (its Terms of Use prohibit storing scores) |
 
 > Tract geocoding for the health and socioeconomic joins uses the free [FCC Area API](https://geo.fcc.gov/api/census/) (no key).
 
@@ -196,7 +195,7 @@ All preset fields can be overridden from the CLI (e.g. `--year-built`, `--constr
 <details>
 <summary><strong>Scoring model — construction-driven vs. location-driven dimensions</strong></summary>
 
-The five **construction-driven** dimensions — resilience, energy efficiency, durability, environmental footprint, and infrastructure burden — are modeled offline from the house configuration (reusing the same `enrich/` models the pipeline uses). The four **location-driven** dimensions depend on where the house sits: health, socioeconomic, and walkability are fetched live for the house's lat/lon (CDC PLACES, Census ACS, and Walk Score respectively), while climate projections come from the bundled CMIP6-LOCA2 tract/county crosswalk (offline, with a tract → county → national-average fallback). When a live source is unavailable (no network, or no `CENSUS_API_KEY` / `WALKSCORE_API_KEY`), that dimension is reported as `N/A` and **excluded from the composite rather than filled with a placeholder**, so a strong build isn't penalized for a missing input.
+The five **construction-driven** dimensions — resilience, energy efficiency, durability, environmental footprint, and infrastructure burden — are modeled offline from the house configuration using the `enrich/` model libraries. The four **location-driven** dimensions depend on where the house sits: health, socioeconomic, and walkability are bundled national references (CDC PLACES, Census ACS, and the EPA National Walkability Index) resolved by the house's census tract, and climate projections come from the bundled CMIP6-LOCA2 tract/county crosswalk (tract → county → national-average fallback) — all keyless. When a location can't be resolved (e.g. offline, so no census tract), the affected dimension is reported as `N/A` and **excluded from the composite rather than filled with a placeholder**, so a strong build isn't penalized for a missing input.
 
 </details>
 
@@ -236,8 +235,7 @@ The static site can score **any US address** via a small HTTP wrapper around the
 
 ```bash
 pip install -e ".[api]"               # FastAPI + uvicorn
-export CENSUS_API_KEY=... WALKSCORE_API_KEY=...   # optional, for the full 8 dimensions
-housing-api                            # GET /label?address=... (or ?lat=&lon=), GET /suggest?q=..., GET /healthz
+housing-api                            # no API keys required; GET /label?address=... (or ?lat=&lon=), GET /suggest?q=..., GET /healthz
 ```
 
 <details>

@@ -1,8 +1,9 @@
 # Render Blueprint for the Housing Nutrition Label API.
 # Docs: https://render.com/docs/blueprint-spec
 # Deploy: push this repo, then "New + → Blueprint" and select it.
-# Set CENSUS_API_KEY / WALKSCORE_API_KEY in the dashboard for the full 8
-# dimensions (they're marked sync:false so they aren't stored in the repo).
+# Scoring needs no API keys. GEOAPIFY_API_KEY is the only (optional) key — it
+# sharpens address autocomplete; without it the keyless Photon geocoder is used.
+# It's marked sync:false so it isn't stored in the repo.
 services:
   - type: web
     name: housing-label-api
@@ -28,7 +29,6 @@ services:
       # upstreams they proxy). "" or "0" disables it; /healthz is always exempt.
       - key: RATE_LIMIT
         value: "30/minute"
-      - key: CENSUS_API_KEY
-        sync: false
-      - key: WALKSCORE_API_KEY
+      # Optional: sharper address autocomplete (else the keyless Photon geocoder).
+      - key: GEOAPIFY_API_KEY
         sync: false

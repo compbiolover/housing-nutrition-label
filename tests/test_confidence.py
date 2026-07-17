@@ -33,7 +33,7 @@ def _mock_label(scores=None, notes=None, metrics=None):
         "location_notes": notes if notes is not None else {
             "health": "CDC PLACES (tract 47157003100)",
             "socioeconomic": "no CENSUS_API_KEY",
-            "walkability": "no WALKSCORE_API_KEY",
+            "walkability": "EPA National Walkability Index (tract 47157003100)",
             "climate": "CMIP6-LOCA2 (tract 47157003100, SSP2-4.5 mid-century)",
         },
         "metrics": metrics if metrics is not None else {
@@ -61,11 +61,11 @@ def test_unscored_dimension_is_low():
 
 
 def test_measured_survey_dims_high_when_scored():
-    """With keys present (no 'no …KEY' note) and a real score, socio/walk are
-    measured → High, not Low."""
+    """With a measured-source note (no 'no …KEY' signal) and a real score, socio/
+    walk are measured → High, not Low."""
     tiers = confidence_for_label(_mock_label(notes={
         "socioeconomic": "Census ACS (tract 47157003100)",
-        "walkability": "Walk Score API",
+        "walkability": "EPA National Walkability Index (tract 47157003100)",
     }))
     assert tiers["socioeconomic"] == "high", tiers
     assert tiers["walkability"] == "high", tiers
