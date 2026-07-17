@@ -15,7 +15,9 @@ Usage examples
   python simulate_house.py --preset icf-passive --lat 35.15 --lon -89.85
   python simulate_house.py --preset worst-case  --lat 35.15 --lon -89.85
 
-Methodology mirrors score_resilience.py exactly:
+Methodology is score/resilience.py — the shared EAL/BRM/score primitives are
+imported from there (not re-implemented), so the live simulator and the batch
+scorer apply one identical model:
   EAL rate = flood + tornado + seismic + fire, each × its Building Resilience Modifier (BRM).
   BRM = code_era × construction_type × (foundation for flood only) × condition; the fire leg
     uses a construction combustibility modifier instead.
@@ -30,7 +32,6 @@ import json
 import math
 import sys
 
-import numpy as np
 
 from housing_label.simulate.dimensions import (
     simulate_all_dimensions, per_unit_home_value, effective_structure,
@@ -41,7 +42,11 @@ from housing_label.confidence import (
 )
 # Year-built vulnerability curves live in the batch scorer so the offline
 # pipeline and this live simulator apply one identical (continuous) model.
-from housing_label.score.resilience import code_era_factor, fire_age_factor
+from housing_label.score.resilience import (
+    code_era_factor, fire_age_factor,
+    FLOOD_EAL, LAMBDA_10, LAMBDA_2, pga_to_damage_ratio, eal_rate_to_score,
+    score_to_grade as score_to_national_grade,
+)
 from housing_label.enrich.seismic_lookup import get_pga
 
 # ── Seismic constants (enrich_seismic.py) ─────────────────────────────────────
@@ -57,32 +62,13 @@ ALLUVIUM_LON_THRESH = -89.95   # west of this → deeper alluvial soils (+5% PGA
 SHELBY_LAT     = 35.15
 SHELBY_LON     = -89.98
 
-# ── Flood EAL rates (score_resilience.py) ─────────────────────────────────────
-# AEP × mean damage ratio per FEMA NFIP actuarial data.
-FLOOD_EAL_RATES = {
-    "high":     0.010 * 0.28,   # AE zone:     1.0% AEP × 28% MDR = 0.280%/yr
-    "moderate": 0.002 * 0.15,   # Shaded X500: 0.2% AEP × 15% MDR = 0.030%/yr
-    "minimal":  0.0004 * 0.05,  # Unshaded X:  0.04% AEP × 5% MDR = 0.002%/yr
-}
-
+# The flood EAL rates (FLOOD_EAL), the seismic Poisson rates (LAMBDA_10/LAMBDA_2),
+# and the EAL→score mapping (pga_to_damage_ratio, eal_rate_to_score with its
+# breakpoint curve) are the shared resilience-model primitives, imported from
+# score.resilience above so the live simulator and the batch scorer apply one
+# identical model. Only this flood-zone → risk-band mapping is simulator-specific.
 FLOOD_ZONE_TO_RISK = {"AE": "high", "X500": "moderate", "X": "minimal"}
 
-# ── Seismic hazard curve rates (score_resilience.py) ──────────────────────────
-# Annual exceedance rates via Poisson: λ = −ln(1−p)/t
-LAMBDA_10 = -np.log(0.90) / 50   # ≈ 0.002107 /yr  (10%/50yr, ~475-yr return)
-LAMBDA_2  = -np.log(0.98) / 50   # ≈ 0.000404 /yr  (2%/50yr,  ~2475-yr return)
-
-# ── Score/grade breakpoints (score_resilience.py) ─────────────────────────────
-# Log-linear interpolation anchored to physically meaningful EAL thresholds.
-SCORE_BREAKPOINTS = [
-    (100, 0.00001),   # 0.001%/yr — virtually no hazard (5× harder than old 0.005% threshold)
-    (95,  0.00003),   # 0.003%/yr — near-perfect build
-    (80,  0.0002),    # 0.020%/yr — low risk (≈ national average)
-    (60,  0.001),     # 0.100%/yr — moderate risk
-    (40,  0.003),     # 0.300%/yr — high risk
-    (20,  0.010),     # 1.000%/yr — very high risk
-    (0,   0.020),     # 2.000%/yr — extreme risk
-]
 # No upper clamp on the Building Resilience Modifier: old / poorly-built / poor-
 # condition stock should be free to exceed the code-current baseline so condition
 # and pre-code age actually bite. Only a per-construction floor (below) applies.
@@ -395,50 +381,24 @@ def compute_seismic_pga(lat: float, lon: float) -> tuple[float, float, float]:
     )
 
 
-def pga_to_damage_ratio(pga_g: float) -> float:
-    """Map PGA (g) to mean structural damage ratio (HAZUS-MH fragility curves)."""
-    if pga_g < 0.10: return 0.005   # imperceptible — no structural damage
-    if pga_g < 0.20: return 0.03    # light — chimney/plaster, minor cracking
-    if pga_g < 0.40: return 0.10    # moderate — significant cracking, some structural
-    if pga_g < 0.60: return 0.25    # heavy — major structural damage, partial collapse
-    return 0.50                      # severe — near-complete destruction (wood-frame)
-
-
 def calc_flood_eal_raw(flood_risk: str) -> float:
-    return FLOOD_EAL_RATES[flood_risk]
+    return FLOOD_EAL[flood_risk]
 
 
 def calc_seismic_eal_raw(pga_2pct: float, pga_10pct: float) -> float:
-    """Seismic EAL rate: two-point trapezoidal hazard curve integration."""
+    """Seismic EAL rate: two-point trapezoidal hazard curve integration
+    (``pga_to_damage_ratio`` and LAMBDA_* are imported from score.resilience)."""
     dr_rare     = pga_to_damage_ratio(pga_2pct)    # 2%/50yr damage ratio
     dr_moderate = pga_to_damage_ratio(pga_10pct)   # 10%/50yr damage ratio
     return LAMBDA_2 * dr_rare + (LAMBDA_10 - LAMBDA_2) * dr_moderate
 
 
-def eal_rate_to_score(eal_rate: float) -> float:
-    """Map fractional EAL rate to 0-100 via log-linear interpolation."""
-    if eal_rate <= SCORE_BREAKPOINTS[0][1]:  return 100.0
-    if eal_rate >= SCORE_BREAKPOINTS[-1][1]: return 0.0
-    for i in range(len(SCORE_BREAKPOINTS) - 1):
-        s_hi, e_lo = SCORE_BREAKPOINTS[i]
-        s_lo, e_hi = SCORE_BREAKPOINTS[i + 1]
-        if e_lo <= eal_rate <= e_hi:
-            t = (np.log(eal_rate) - np.log(e_lo)) / (np.log(e_hi) - np.log(e_lo))
-            return s_hi + (s_lo - s_hi) * t
-    return 0.0
-
-
-def score_to_national_grade(score: float) -> str:
-    if score >= 80: return "A"
-    if score >= 60: return "B"
-    if score >= 40: return "C"
-    if score >= 20: return "D"
-    return "F"
-
-
-# code_era_factor and fire_age_factor are imported from housing_label.score.resilience
-# (continuous, np.interp-based curves) so this simulator and the offline batch
-# scorer apply one identical model — see the import near the top of this module.
+# The resilience score curve (eal_rate_to_score / SCORE_BREAKPOINTS), the seismic
+# damage curve (pga_to_damage_ratio), the flood rates (FLOOD_EAL), the Poisson
+# rates (LAMBDA_*), the grade thresholds (score_to_grade), and the code-era / fire-
+# age factor curves all live in housing_label.score.resilience and are imported at
+# the top of this module — so this live simulator and the batch scorer apply one
+# identical model instead of two copies that can drift apart.
 
 
 # ── Argument parsing ───────────────────────────────────────────────────────────

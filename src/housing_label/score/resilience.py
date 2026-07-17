@@ -215,7 +215,8 @@ def calc_fire_eal(row) -> float:
 # 5. SCORE MAPPING — log-linear interpolation
 # ---------------------------------------------------------------------------
 # The score-to-EAL-rate breakpoints below are anchored to physical meaning:
-#   100: EAL < 0.005% → virtually no hazard (e.g., interior low-risk US zones)
+#   100: EAL < 0.001% → virtually no hazard (e.g., interior low-risk US zones)
+#    95: EAL ~ 0.003% → near-perfect build (fine discrimination near the top)
 #    80: EAL ~ 0.020% → low risk (national average for combined hazards ≈ here)
 #    60: EAL ~ 0.100% → moderate risk (coastal/flood-prone non-SFHA areas)
 #    40: EAL ~ 0.300% → high risk (Zone AE flood or high seismic + moderate flood)
@@ -226,14 +227,18 @@ def calc_fire_eal(row) -> float:
 # of magnitude; a linear scale would compress the meaningful low-risk range.
 
 SCORE_BREAKPOINTS = [
-    # (score, eal_rate_fraction)  — must be strictly descending in score,
-    #                               strictly ascending in eal_rate
-    (100, 0.00005),   # 0.005%
-    (80,  0.0002),    # 0.020%
-    (60,  0.001),     # 0.100%
-    (40,  0.003),     # 0.300%
-    (20,  0.010),     # 1.000%
-    (0,   0.020),     # 2.000%
+    # (score, eal_rate_fraction)  — strictly descending in score, ascending in EAL.
+    # Single source of truth for the resilience score curve, shared with the live
+    # simulator (simulate/house.py imports this). Recalibrated from the old 0.005%
+    # top anchor: a perfect build should be genuinely hard to reach, so the top is
+    # 5× harder (0.001%) with a 95 anchor added for finer discrimination near the top.
+    (100, 0.00001),   # 0.001%/yr — virtually no hazard
+    (95,  0.00003),   # 0.003%/yr — near-perfect build
+    (80,  0.0002),    # 0.020%/yr — low risk (≈ national average)
+    (60,  0.001),     # 0.100%/yr — moderate risk
+    (40,  0.003),     # 0.300%/yr — high risk
+    (20,  0.010),     # 1.000%/yr — very high risk
+    (0,   0.020),     # 2.000%/yr — extreme risk
 ]
 
 
