@@ -44,46 +44,6 @@ def test_energy_cost_scales_with_rate():
     assert ca_cost > tn_cost * 1.4
 
 
-def test_resilience_local_grade_gated_to_shelby():
-    """The Shelby-dataset local grade is computed only when local_compare=True,
-    so an off-Shelby address never gets a Shelby-relative rank."""
-    import tempfile, os, pathlib
-    from argparse import Namespace
-    from housing_label.simulate import house
-    from housing_label.simulate.house import resolve_config, simulate
-
-    fields = ["year_built", "construction", "foundation", "condition",
-              "value", "units", "sqft", "lot_acres"]
-    args = Namespace(preset="baseline", lat=34.05, lon=-118.24, flood_zone="X",
-                     **{f: None for f in fields})
-    cfg = resolve_config(args)
-
-    with tempfile.NamedTemporaryFile("w", suffix=".csv", delete=False) as fh:
-        fh.write("resilience_score\n10\n50\n90\n")
-        tmp = fh.name
-    orig = house.SCORED_CSV
-    try:
-        house.SCORED_CSV = pathlib.Path(tmp)
-        # Off-Shelby: gate off → N/A even though the dataset exists.
-        assert simulate(cfg, local_compare=False)["local_grade"] == "N/A"
-        # Gate on → a real percentile grade is produced.
-        assert simulate(cfg, local_compare=True)["local_grade"] != "N/A"
-    finally:
-        house.SCORED_CSV = orig
-        os.unlink(tmp)
-
-    # An empty dataset (header only, no scores) must not divide-by-zero → N/A.
-    with tempfile.NamedTemporaryFile("w", suffix=".csv", delete=False) as fh:
-        fh.write("resilience_score\n")
-        empty = fh.name
-    try:
-        house.SCORED_CSV = pathlib.Path(empty)
-        assert simulate(cfg, local_compare=True)["local_grade"] == "N/A"
-    finally:
-        house.SCORED_CSV = orig
-        os.unlink(empty)
-
-
 def test_resolved_location_without_state_uses_us_average():
     """A Location that resolves but has no state_fips must use the US-average
     rates, not silently fall back to the Memphis/TVA pilot constants."""
@@ -117,6 +77,5 @@ if __name__ == "__main__":
     test_state_lookup_returns_local_rates()
     test_unknown_state_falls_back_to_us_average()
     test_energy_cost_scales_with_rate()
-    test_resilience_local_grade_gated_to_shelby()
     test_resolved_location_without_state_uses_us_average()
     print("utility-rate tests passed")

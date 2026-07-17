@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-"""Enrich shelby_parcels_tornado.csv with USGS seismic hazard data.
+"""USGS seismic hazard model library for parcel enrichment.
 
-Usage
------
-  python enrich_seismic.py              # all 1 000 parcels
-  python enrich_seismic.py --limit 10  # test with 10 rows first
+Importable model functions that compute per-parcel seismic hazard metrics (PGA,
+design category, risk) from USGS national seismic data. No batch/CLI runner.
 
 Data source
 -----------
@@ -40,14 +38,9 @@ Columns added
   soil_amplification_note  Short note on site amplification class
 """
 
-import argparse, logging, math, pathlib, sys
-import pandas as pd
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(message)s")
-log = logging.getLogger(__name__)
+import math
 
 # ── Config ────────────────────────────────────────────────────────────────────
-SCRIPT_DIR = pathlib.Path(__file__).resolve().parents[3]   # repo root; data lives here
 REQUIRED_COLS = ["latitude", "longitude"]
 
 # New Madrid Seismic Zone reference point (approximate center of the main rupture
@@ -207,138 +200,3 @@ def _legacy_nmsz_parcel(lat: float, lon: float) -> dict:
         "seismic_risk":            risk,
         "soil_amplification_note": soil_note,
     }
-
-
-def _resolve_path(p: str) -> pathlib.Path:
-    """Resolve a bare path relative to SCRIPT_DIR; leave absolute paths as-is."""
-    path = pathlib.Path(p)
-    return path if path.is_absolute() else SCRIPT_DIR / path
-
-
-# ── Main ──────────────────────────────────────────────────────────────────────
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Enrich parcels with USGS seismic hazard data (NSHM 2023 reference values)."
-    )
-    parser.add_argument("--input", default="shelby_parcels_tornado.csv",
-                        help="Input CSV path (relative paths resolve to script dir).")
-    parser.add_argument("--output", default="shelby_parcels_seismic.csv",
-                        help="Output CSV path (relative paths resolve to script dir).")
-    parser.add_argument("--limit", type=int, default=None,
-                        help="Process at most N rows (for testing).")
-    parser.add_argument("--offline", action="store_true",
-                        help="Skip the live USGS lookup; use the bundled PGA grid, "
-                             "else the legacy New Madrid model.")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Load and validate input, log the plan, then exit without writing.")
-    args = parser.parse_args()
-    allow_network = not args.offline
-
-    in_file = _resolve_path(args.input)
-    out_file = _resolve_path(args.output)
-
-    # ── Input validation ────────────────────────────────────────────────────
-    if not in_file.exists():
-        log.error("Input file does not exist: %s", in_file)
-        sys.exit(1)
-
-    log.info("Reading %s", in_file)
-    df = pd.read_csv(in_file)
-    log.info("  %d rows × %d columns", *df.shape)
-
-    missing = [c for c in REQUIRED_COLS if c not in df.columns]
-    if missing:
-        log.error("Input is missing required column(s): %s", ", ".join(missing))
-        sys.exit(1)
-
-    if args.limit:
-        df = df.head(args.limit)
-        log.info("--limit %d: working on first %d rows only.", args.limit, len(df))
-
-    input_rows = len(df)
-
-    # ── Dry run ─────────────────────────────────────────────────────────────
-    if args.dry_run:
-        log.info("Dry run – no output will be written.")
-        log.info("  Input  : %s", in_file)
-        log.info("  Output : %s", out_file)
-        log.info("  Rows to enrich: %d", input_rows)
-        return
-
-    log.info("Enriching %d parcels with seismic hazard data …", len(df))
-    results = []
-    for i, (_, row) in enumerate(df.iterrows(), start=1):
-        lat, lon = row.get("latitude"), row.get("longitude")
-        if pd.isna(lat) or pd.isna(lon):
-            results.append({c: None for c in SEISMIC_COLS})
-        else:
-            results.append(enrich_parcel(float(lat), float(lon), allow_network=allow_network))
-        if i % 200 == 0 or i == len(df):
-            log.info("  Progress: %d / %d", i, len(df))
-
-    enriched = pd.DataFrame(results, index=df.index)
-    for col in SEISMIC_COLS:
-        df[col] = enriched[col]
-
-    df.to_csv(out_file, index=False)
-    log.info("Saved → %s", out_file)
-    log.info("wrote %d rows × %d cols", df.shape[0], df.shape[1])
-    if len(df) != input_rows:
-        log.warning("Output rows (%d) != input rows (%d).", len(df), input_rows)
-
-    # ── Summary ───────────────────────────────────────────────────────────────
-    total      = len(df)
-    risk_dist  = df["seismic_risk"].value_counts().to_dict()
-    pga2_min   = df["pga_2pct_50yr"].min()
-    pga2_max   = df["pga_2pct_50yr"].max()
-    pga2_mean  = df["pga_2pct_50yr"].mean()
-    pga10_min  = df["pga_10pct_50yr"].min()
-    pga10_max  = df["pga_10pct_50yr"].max()
-    dist_min   = df["nmsz_distance_mi"].min()
-    dist_max   = df["nmsz_distance_mi"].max()
-    sdc_dist   = df["seismic_design_category"].value_counts().to_dict()
-    w = 39
-
-    print("\n╔══ USGS SEISMIC HAZARD ENRICHMENT SUMMARY ═══════════════════════╗")
-    print(f"║ Total rows enriched        : {total:<{w}}║")
-    print(f"║ Data source                : {'USGS ASCE7 design maps (national)':<{w}}║")
-    print(f"║ Offline fallback           : {'bundled PGA grid → legacy NMSZ':<{w}}║")
-    print("║ ── PGA 2% in 50 yr (2475-yr return period) ──────────────────── ║")
-    print(f"║   min  : {pga2_min:.3f} g{'':<{w-12}}║")
-    print(f"║   max  : {pga2_max:.3f} g{'':<{w-12}}║")
-    print(f"║   mean : {pga2_mean:.3f} g{'':<{w-12}}║")
-    print("║ ── PGA 10% in 50 yr (475-yr return period) ───────────────────── ║")
-    print(f"║   min  : {pga10_min:.3f} g{'':<{w-12}}║")
-    print(f"║   max  : {pga10_max:.3f} g{'':<{w-12}}║")
-    print("║ ── Distance to NMSZ ──────────────────────────────────────────── ║")
-    print(f"║   nearest parcel : {dist_min:.1f} mi{'':<{w-16}}║")
-    print(f"║   farthest parcel: {dist_max:.1f} mi{'':<{w-16}}║")
-    print("║ ── Seismic risk distribution ─────────────────────────────────── ║")
-    for label in ("very high", "high", "moderate", "low", "very low"):
-        count = risk_dist.get(label, 0)
-        pct   = count / total * 100 if total else 0
-        print(f"║   {label:<12}: {count:>5}  ({pct:5.1f}%){'':>19}║")
-    print("║ ── Seismic Design Category (approx, from PGA) ────────────────── ║")
-    for cat in ("E", "D", "C", "B", "A"):
-        count = sdc_dist.get(cat, 0)
-        if count:
-            print(f"║   SDC {cat:<8}: {count:>5}  ({count/total*100:5.1f}%){'':>19}║")
-    print(f"║ New columns added          : {len(SEISMIC_COLS):<{w}}║")
-    print(f"║ Output                     : {out_file.name:<{w}}║")
-    print("╚══════════════════════════════════════════════════════════════════╝\n")
-
-    sample_cols = ["PARCELID", "latitude", "longitude"] + SEISMIC_COLS
-    avail = [c for c in sample_cols if c in df.columns]
-    print("Sample rows (first 10):")
-    print(df[avail].head(10).to_string(index=False))
-
-
-if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        log.info("Interrupted.")
-        sys.exit(0)
-    except Exception as exc:
-        log.error("Fatal: %s", exc, exc_info=True)
-        sys.exit(1)

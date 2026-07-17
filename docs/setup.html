@@ -31,30 +31,14 @@ cd housing-nutrition-label
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .                    # installs package + dependencies
-python scripts/run_pipeline.py      # run the full pipeline</code></pre>
-  <p>Installing with <code>pip install -e .</code> (editable mode) gives you the <code>housing-simulate</code> and <code>housing-pipeline</code> console commands, plus installs <code>requests</code> and <code>pandas</code> automatically from <code>pyproject.toml</code>.</p>
-  <p>The pipeline will run all 12 stages in order. On first run, stages that query external APIs (FEMA flood, CDC PLACES, Census ACS) will take longer due to rate limiting. Subsequent runs skip stages whose output is already fresh.</p>
+housing-simulate --preset icf-passive --lat 35.15 --lon -89.85   # score a house</code></pre>
+  <p>Installing with <code>pip install -e .</code> (editable mode) gives you the <code>housing-simulate</code> and <code>housing-api</code> console commands, plus installs <code>requests</code> and <code>pandas</code> automatically from <code>pyproject.toml</code>.</p>
+  <p>Scoring is on-demand per address &mdash; there is no build step. The location-driven dimensions call a few keyless government APIs (FEMA flood, CDC PLACES, Census ACS) the first time a location is scored.</p>
 </section>
 
 <section>
   <h2>API Keys</h2>
-  <p>The live scoring path (any US address) needs <strong>no API keys</strong> &mdash; health, socioeconomic, and walkability are bundled national references. The keys below are optional and only relevant to the offline Shelby parcel pipeline / optional Walk Score enrichment:</p>
-
-  <div class="card-grid">
-    <div class="card">
-      <h3>Census ACS (Optional &mdash; offline parcel pipeline only)</h3>
-      <p>Free signup: <a href="https://api.census.gov/data/key_signup.html">api.census.gov/data/key_signup.html</a></p>
-      <pre><code>export CENSUS_API_KEY=your_key_here</code></pre>
-      <p>The <strong>live</strong> socioeconomic score is a bundled national percentile (keyless). This key is only used by the offline Shelby parcel pipeline to attach each tract's raw ACS metric columns; the socioeconomic <em>score</em> is national either way.</p>
-    </div>
-    <div class="card">
-      <h3>Walk Score (Optional &mdash; not used by default)</h3>
-      <p>Signup: <a href="https://www.walkscore.com/professional/api.php">walkscore.com/professional/api.php</a></p>
-      <pre><code>export WALKSCORE_API_KEY=your_key_here
-python src/housing_label/enrich/walkscore.py            # optional enrichment (resumable)</code></pre>
-      <p>Walkability defaults to the bundled, public-domain <strong>EPA National Walkability Index</strong> &mdash; no key, no quota, and safe to store (unlike the Walk Score API, whose Terms of Use prohibit storing scores). Running the Walk Score enrichment above is optional; when its <code>walk_score</code> columns are present the pipeline honours them instead.</p>
-    </div>
-  </div>
+  <p>Scoring any US address needs <strong>no API keys</strong>. Health, socioeconomic, and walkability are bundled national references (CDC PLACES, Census ACS, and the public-domain EPA National Walkability Index), and the geocoding and hazard/energy lookups use keyless government APIs.</p>
 </section>
 
 <section>
@@ -63,10 +47,7 @@ python src/housing_label/enrich/walkscore.py            # optional enrichment (r
 &#x251C;&#x2500;&#x2500; src/housing_label/           # Installable Python package
 &#x2502;   &#x251C;&#x2500;&#x2500; config.py                # Shared constants (URLs, rates, thresholds)
 &#x2502;   &#x251C;&#x2500;&#x2500; utils.py                 # Shared helpers (HTTP, haversine, coords)
-&#x2502;   &#x251C;&#x2500;&#x2500; ingest/                  # Data ingestion
-&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; shelby_parcels.py    # ArcGIS parcel + CAMA pull
-&#x2502;   &#x2502;   &#x2514;&#x2500;&#x2500; clean.py             # Data cleanup
-&#x2502;   &#x251C;&#x2500;&#x2500; enrich/                  # Enrichment modules (9 data sources)
+&#x2502;   &#x251C;&#x2500;&#x2500; enrich/                  # Per-dimension model libraries
 &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; fema_flood.py
 &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; noaa_climate.py
 &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; tornado.py
@@ -79,53 +60,16 @@ python src/housing_label/enrich/walkscore.py            # optional enrichment (r
 &#x2502;   &#x251C;&#x2500;&#x2500; score/                   # Scoring models
 &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; resilience.py        # EAL-based disaster scoring
 &#x2502;   &#x2502;   &#x2514;&#x2500;&#x2500; all_dimensions.py    # Multi-dimension scorer
-&#x2502;   &#x2514;&#x2500;&#x2500; simulate/                # CLI house simulator
-&#x2502;       &#x2514;&#x2500;&#x2500; house.py
-&#x251C;&#x2500;&#x2500; scripts/run_pipeline.py       # Pipeline orchestrator
+&#x2502;   &#x251C;&#x2500;&#x2500; data/                    # Bundled offline reference lookups
+&#x2502;   &#x251C;&#x2500;&#x2500; simulate/                # CLI house simulator + scoring glue
+&#x2502;   &#x2502;   &#x2514;&#x2500;&#x2500; house.py
+&#x2502;   &#x2514;&#x2500;&#x2500; api.py                   # Address-search scoring API
+&#x251C;&#x2500;&#x2500; scripts/                      # build_*.py reference-data builders
 &#x251C;&#x2500;&#x2500; research/                    # Research &amp; methodology docs
 &#x251C;&#x2500;&#x2500; tests/                       # Test directory
 &#x251C;&#x2500;&#x2500; docs/                        # housinglabel.dev site
 &#x251C;&#x2500;&#x2500; pyproject.toml               # Package metadata &amp; dependencies
 &#x2514;&#x2500;&#x2500; README.md</code></pre>
-</section>
-
-<section>
-  <h2>Pipeline Architecture</h2>
-  <p>The pipeline runs 12 stages in sequence. Each stage reads a CSV, enriches it, and writes the output for the next stage. All stages live under <code>src/housing_label/</code>.</p>
-
-  <div class="pipeline">
-    <div class="stage"><strong>1.</strong> ingest/shelby_parcels</div><span class="arrow">&rarr;</span>
-    <div class="stage"><strong>2.</strong> ingest/clean</div><span class="arrow">&rarr;</span>
-    <div class="stage"><strong>3.</strong> enrich/fema_flood</div><span class="arrow">&rarr;</span>
-    <div class="stage"><strong>4.</strong> enrich/noaa_climate</div><span class="arrow">&rarr;</span>
-    <div class="stage"><strong>5.</strong> enrich/tornado</div><span class="arrow">&rarr;</span>
-    <div class="stage"><strong>6.</strong> enrich/seismic</div><span class="arrow">&rarr;</span>
-    <div class="stage"><strong>7.</strong> enrich/energy</div><span class="arrow">&rarr;</span>
-    <div class="stage"><strong>8.</strong> enrich/infrastructure</div><span class="arrow">&rarr;</span>
-    <div class="stage"><strong>9.</strong> enrich/health</div><span class="arrow">&rarr;</span>
-    <div class="stage"><strong>10.</strong> enrich/socioeconomic</div><span class="arrow">&rarr;</span>
-    <div class="stage"><strong>11.</strong> score/resilience</div><span class="arrow">&rarr;</span>
-    <div class="stage"><strong>12.</strong> score/all_dimensions</div>
-  </div>
-
-  <h3>Pipeline Runner Options</h3>
-  <pre><code># Run everything fresh
-python scripts/run_pipeline.py --force
-
-# Run from a specific stage onward
-python scripts/run_pipeline.py --from energy
-
-# Run a single stage
-python scripts/run_pipeline.py --step flood
-
-# Continue past failures
-python scripts/run_pipeline.py --continue-on-error
-
-# Preview what would run
-python scripts/run_pipeline.py --dry-run
-
-# Or use the console command (after pip install -e .)
-housing-pipeline --force</code></pre>
 </section>
 
 <section>
@@ -234,18 +178,17 @@ housing-api                        # serves on :8000 (PORT overrides)
 
 <section>
   <h2>Adding a New Dimension</h2>
-  <p>The pipeline is designed to be extensible. To add a new scoring dimension:</p>
+  <p>The scorer is designed to be extensible. To add a new scoring dimension:</p>
   <ol style="margin:1rem 0;padding-left:1.5rem;">
-    <li style="margin-bottom:0.75rem;">Write an enrichment module in <code>src/housing_label/enrich/</code> following the existing pattern: accepts <code>--input</code>/<code>--output</code>/<code>--limit</code> flags, reads the previous stage's CSV, adds new columns, writes the enriched CSV.</li>
-    <li style="margin-bottom:0.75rem;">Add a scoring function in <code>src/housing_label/score/all_dimensions.py</code> that maps your new metric to a 0&ndash;100 score.</li>
-    <li style="margin-bottom:0.75rem;">Wire it into <code>scripts/run_pipeline.py</code>'s STAGES list in the correct position.</li>
-    <li style="margin-bottom:0.75rem;">The dual grading (national + local) and composite score automatically include the new dimension.</li>
+    <li style="margin-bottom:0.75rem;">Add a model function in <code>src/housing_label/enrich/</code> (for a construction-driven dimension) or a bundled lookup in <code>src/housing_label/data/</code> (for a location-driven one) that returns your metric for a house / location.</li>
+    <li style="margin-bottom:0.75rem;">Map the metric to a 0&ndash;100 score against published good-vs-poor benchmarks, and register the dimension in <code>src/housing_label/simulate/dimensions.py</code>.</li>
+    <li style="margin-bottom:0.75rem;">The national grade / percentile and the composite automatically include the new dimension.</li>
   </ol>
 </section>
 
 <section>
   <h2>Tech Stack</h2>
-  <p>Python 3.9+ with two dependencies: <code>requests</code> and <code>pandas</code>. No geo libraries, no databases, no frameworks. All spatial calculations (Haversine, Web Mercator conversion, polygon centroids) use pure math. This is intentional &mdash; the entire pipeline runs on any machine with Python installed.</p>
+  <p>Python 3.9+ with two dependencies: <code>requests</code> and <code>pandas</code>. No geo libraries, no databases, no frameworks. All spatial calculations (Haversine, Web Mercator conversion, polygon centroids) use pure math. This is intentional &mdash; the whole scorer runs on any machine with Python installed.</p>
   <p>The project is packaged as a standard Python package via <code>pyproject.toml</code> and can be installed with <code>pip install -e .</code> for development or built as a wheel for distribution.</p>
 </section>
 

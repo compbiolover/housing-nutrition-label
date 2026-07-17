@@ -62,33 +62,6 @@ def test_unknown_geo_falls_back_to_national_average():
     assert wf.wildfire_for_county("99999")["geo_level"] == "us"
 
 
-# ── Pipeline enrichment (enrich/fire.py) ────────────────────────────────────────
-def test_fire_enrichment_attaches_columns():
-    """enrich/fire.py adds the wildfire columns, resolving tract→county fallback.
-
-    The missing-value row forces pandas to store the GEOID as a float, exercising
-    the decimal-suffix / zero-pad normalization in _norm_tract.
-    """
-    from housing_label.enrich import fire as fire_enrich
-
-    with tempfile.TemporaryDirectory() as d:
-        src, out = Path(d) / "env.csv", Path(d) / "fire.csv"
-        pd.DataFrame({
-            "PARCELID": ["A", "B"],
-            "census_tract": ["47157006300", None],   # resolvable tract + missing
-            "latitude": [35.13, 35.13], "longitude": [-89.99, -89.99],
-        }).to_csv(src, index=False)
-
-        with mock.patch.object(sys, "argv",
-                               ["fire", "--input", str(src), "--output", str(out)]):
-            fire_enrich.main()
-
-        df = pd.read_csv(out)
-        for col in ("wildfire_eal_rate", "wildfire_risk_rating", "wildfire_geo_level"):
-            assert col in df.columns
-        assert df.loc[0, "wildfire_geo_level"] == "tract"     # resolved tract
-        assert df.loc[1, "wildfire_geo_level"] == "county"    # county fallback (Shelby)
-        assert (df["wildfire_eal_rate"] >= 0).all()
 
 
 def test_norm_tract_handles_float_and_leading_zeros():

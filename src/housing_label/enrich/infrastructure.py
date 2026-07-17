@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
-"""Enrich shelby_parcels_energy.csv with modeled infrastructure cost burden.
+"""Modeled infrastructure cost-burden library.
 
-Usage
------
-  python enrich_infrastructure.py              # all parcels
-  python enrich_infrastructure.py --limit 10  # test with 10 rows first
-  python enrich_infrastructure.py --dry-run    # validate + plan, no write
+Computes per-parcel infrastructure cost, property-tax revenue, and fiscal-balance
+fields for the infrastructure dimension. Importable functions only; no batch runner.
 
 Methodology: Density-Adjusted Cost Allocation
 ----------------------------------------------
@@ -68,44 +65,11 @@ Columns added
 
 from __future__ import annotations
 
-import argparse
-import logging
 import math
-import pathlib
-import sys
 
 import pandas as pd
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(message)s")
-log = logging.getLogger(__name__)
-
-# ── File paths ─────────────────────────────────────────────────────────────────
-# Script lives in the git worktree; data files live in the main project directory.
-# Walk up until we find shelby_parcels_sample.csv (handles both worktree and normal checkout).
-def _find_project_root() -> pathlib.Path:
-    here = pathlib.Path(__file__).resolve().parent
-    # Walk up to 5 levels to find the directory containing shelby_parcels_sample.csv.
-    # Handles both normal checkout and git worktree (nested under .claude/worktrees/).
-    candidate = here
-    for _ in range(5):
-        if (candidate / "shelby_parcels_sample.csv").exists():
-            return candidate
-        candidate = candidate.parent
-    return here   # fallback — will produce a clear FileNotFoundError
-
-PROJECT_DIR = _find_project_root()
-IN_FILE  = "shelby_parcels_energy.csv"
-OUT_FILE = "shelby_parcels_infrastructure.csv"
-
 REQUIRED_COLUMNS = ["latitude", "longitude", "CALC_ACRE"]
-
-
-def _resolve_path(path_str: str) -> pathlib.Path:
-    """Resolve a path; bare (non-absolute, no dir) names are placed in PROJECT_DIR."""
-    path = pathlib.Path(path_str)
-    if path.is_absolute() or path.parent != pathlib.Path("."):
-        return path
-    return PROJECT_DIR / path
 
 # ── Memphis city center (Main St & Beale St intersection, downtown core) ───────
 # Used as proxy for proximity to high-density urban services & fire stations.
@@ -458,178 +422,3 @@ def _as_bool(v) -> bool:
         if s in ("false", "0", "no", "n", "f", ""):
             return False
     return bool(v)
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Enrich parcels with infrastructure cost burden"
-    )
-    parser.add_argument("--input", default=IN_FILE,
-                        help="Input CSV (default: %(default)s)")
-    parser.add_argument("--output", default=OUT_FILE,
-                        help="Output CSV (default: %(default)s)")
-    parser.add_argument("--limit", type=int, default=None,
-                        help="Process only N rows (testing)")
-    parser.add_argument("--county-fips", default=None,
-                        help="5-digit county FIPS for all parcels — recalibrates the "
-                             "cost curves + property-tax rate to that county (Census of "
-                             "Governments + ACS). Omit for the Memphis-calibrated Shelby "
-                             "defaults; a per-parcel 'county_fips' column, if present, "
-                             "overrides this for that row.")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Validate and report plan without writing output")
-    args = parser.parse_args()
-
-    in_path = _resolve_path(args.input)
-    out_path = _resolve_path(args.output)
-
-    # ── Input validation ───────────────────────────────────────────────────────
-    if not in_path.exists():
-        log.error("Input file does not exist: %s", in_path)
-        sys.exit(1)
-
-    log.info("Reading %s", in_path)
-    df = pd.read_csv(in_path)
-
-    missing = [c for c in REQUIRED_COLUMNS if c not in df.columns]
-    if missing:
-        log.error("Input missing required columns: %s", missing)
-        sys.exit(1)
-
-    input_rows = len(df)
-    if args.limit:
-        df = df.head(args.limit)
-        log.info("Limiting to %d rows", args.limit)
-    log.info("Loaded %d parcels", len(df))
-
-    # ── Dry-run: report plan and exit without writing ───────────────────────────
-    if args.dry_run:
-        log.info("DRY RUN — no output will be written")
-        log.info("  Input:   %s", in_path)
-        log.info("  Output:  %s", out_path)
-        log.info("  Rows to enrich: %d", len(df))
-        log.info("  Columns that would be added: %s", ADDED_COLUMNS)
-        return
-
-    # Resolve per-county cost/tax params once per FIPS (Memphis defaults for
-    # Shelby/unknown). A per-parcel 'county_fips' column wins over --county-fips,
-    # so a multi-county national batch calibrates each row to its own county. The
-    # cached params are county-level only; 'in_urban_area' is parcel-level and is
-    # applied per row (from an optional 'in_urban_area' column), else left to
-    # enrich_row's distance-based fallback.
-    from housing_label.enrich.region_context import infra_params_for_county, normalize_fips
-    _params_cache: dict = {}
-
-    def _params_for(fips_norm) -> dict:
-        if fips_norm not in _params_cache:
-            _params_cache[fips_norm] = infra_params_for_county(fips_norm) or {}
-        return _params_cache[fips_norm]
-
-    has_fips_col = "county_fips" in df.columns
-    has_urban_col = "in_urban_area" in df.columns
-    default_fips = normalize_fips(args.county_fips)
-    if args.county_fips or has_fips_col:
-        log.info("National infrastructure calibration (county-fips=%s, per-parcel column=%s)",
-                 args.county_fips, has_fips_col)
-
-    def _enrich(row):
-        fips = normalize_fips(row.get("county_fips")) if has_fips_col else default_fips
-        params = dict(_params_for(fips))
-        if has_urban_col and pd.notna(row.get("in_urban_area")):
-            params["in_urban_area"] = _as_bool(row.get("in_urban_area"))
-        return enrich_row(row, **params)
-
-    log.info("Computing infrastructure cost fields …")
-    enriched = df.apply(_enrich, axis=1)
-    df = pd.concat([df, enriched], axis=1)
-
-    log.info("Writing %s", out_path)
-    df.to_csv(out_path, index=False)
-    log.info("wrote %d rows × %d cols", len(df), df.shape[1])
-    if args.limit is None and len(df) != input_rows:
-        log.warning("Output rows (%d) != input rows (%d)", len(df), input_rows)
-
-    # ── Summary report ─────────────────────────────────────────────────────────
-    print("\n" + "═" * 65)
-    print("INFRASTRUCTURE BURDEN SUMMARY — Shelby County Pilot (n={:,})".format(len(df)))
-    print("═" * 65)
-
-    print("\n── Infrastructure cost distribution ($/household/yr) ──")
-    cost_cols = [
-        "infra_cost_roads", "infra_cost_water_sewer",
-        "infra_cost_fire", "infra_cost_police",
-        "infra_cost_sanitation", "infra_cost_parks",
-        "est_annual_infra_cost",
-    ]
-    stats = df[cost_cols].describe(percentiles=[0.25, 0.50, 0.75]).T[
-        ["mean", "25%", "50%", "75%", "min", "max"]
-    ].round(0)
-    print(stats.to_string())
-
-    print("\n── Property tax vs infrastructure cost ──")
-    print(f"  Mean est. property tax:   ${df['est_property_tax'].mean():,.0f}/yr")
-    print(f"  Mean est. infra cost:     ${df['est_annual_infra_cost'].mean():,.0f}/yr")
-    print(f"  Mean fiscal balance:      ${df['fiscal_balance'].mean():,.0f}/yr")
-    print(f"  Median fiscal ratio:       {df['fiscal_ratio'].median():.2f}")
-
-    print("\n── Fiscal burden rating distribution ──")
-    rating_counts = df["infra_burden_rating"].value_counts()
-    for label, count in rating_counts.items():
-        pct = 100 * count / len(df)
-        print(f"  {label:<20s}: {count:4d}  ({pct:.1f}%)")
-
-    net_contrib = (df["infra_burden_rating"] == "net contributor").sum()
-    print(f"\n  Net contributors: {net_contrib:,} of {len(df):,} parcels "
-          f"({100*net_contrib/len(df):.1f}%)")
-
-    print("\n── Density distribution ──")
-    density_bins = [0, 1, 3, 6, 12, float("inf")]
-    density_labels = ["<1 DU/ac (rural)", "1–3 (sprawl)", "3–6 (suburban)",
-                      "6–12 (urban)", "12+ (dense)"]
-    df["_density_bin"] = pd.cut(
-        df["lot_density_du_acre"], bins=density_bins, labels=density_labels, right=False
-    )
-    for label, count in df["_density_bin"].value_counts().sort_index().items():
-        pct = 100 * count / len(df)
-        print(f"  {label:<22s}: {count:4d}  ({pct:.1f}%)")
-    df.drop(columns=["_density_bin"], inplace=True)
-
-    print("\n── 5 illustrative parcels (spanning density range) ──")
-    sample_cols = [
-        "PARCELID", "CALC_ACRE", "lot_density_du_acre", "distance_to_core_mi",
-        "est_annual_infra_cost", "est_property_tax", "fiscal_ratio",
-        "infra_burden_rating",
-    ]
-    # pick one from each broad density tier
-    examples = []
-    for lo, hi in [(0, 1), (1, 3), (3, 6), (6, 12), (12, 9999)]:
-        subset = df[
-            (df["lot_density_du_acre"] >= lo) & (df["lot_density_du_acre"] < hi)
-        ]
-        if not subset.empty:
-            examples.append(subset.iloc[len(subset) // 2])  # median-ish row
-
-    example_df = pd.DataFrame(examples)[sample_cols].reset_index(drop=True)
-    example_df["CALC_ACRE"] = example_df["CALC_ACRE"].round(3)
-    example_df["lot_density_du_acre"] = example_df["lot_density_du_acre"].round(2)
-    example_df["distance_to_core_mi"] = example_df["distance_to_core_mi"].round(1)
-    example_df["est_annual_infra_cost"] = example_df["est_annual_infra_cost"].apply(
-        lambda x: f"${x:,.0f}"
-    )
-    example_df["est_property_tax"] = example_df["est_property_tax"].apply(
-        lambda x: f"${x:,.0f}"
-    )
-    example_df["fiscal_ratio"] = example_df["fiscal_ratio"].round(2)
-    print(example_df.to_string(index=False))
-    print()
-
-
-if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        log.info("Interrupted by user")
-        sys.exit(0)
-    except Exception:
-        log.error("Unhandled error", exc_info=True)
-        sys.exit(1)

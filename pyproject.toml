@@ -29,14 +29,12 @@ dev = ["pytest>=8", "ruff>=0.5", "httpx2>=2.5"]
 
 [project.scripts]
 housing-simulate = "housing_label.simulate.house:main"
-housing-pipeline = "scripts.run_pipeline:main"
 housing-api = "housing_label.api:serve"
 
 [tool.setuptools]
 package-dir = { "" = "src", "scripts" = "scripts" }
 packages = [
     "housing_label",
-    "housing_label.ingest",
     "housing_label.enrich",
     "housing_label.score",
     "housing_label.simulate",

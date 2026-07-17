@@ -1,16 +1,9 @@
 #!/usr/bin/env python3
-"""Enrich shelby_parcels_socioeconomic.csv with a building-durability score.
+"""Building-durability scoring model library.
 
-This is a chained pipeline step: it reads the socioeconomic-enriched parcels file
-(which carries the upstream CAMA columns YRBLT/EFFYR/GRADE/COND/CDU/EXTWALL/BSMT
-forward from clean_parcels) and writes shelby_parcels_durability.csv.
-
-Usage
------
-  python durability.py                         # all parcels
-  python durability.py --limit 10              # test with 10 rows first
-  python durability.py --limit 5 --dry-run     # validate without writing
-  python durability.py --input X --output Y    # custom paths
+Models a parcel's building durability from Shelby County CAMA fields
+(YRBLT/EFFYR/GRADE/COND/CDU/EXTWALL/BSMT). Import ``model_parcel_durability`` to
+score a single parcel.
 
 Methodology — component-lifespan / effective-age model
 ------------------------------------------------------
@@ -95,14 +88,7 @@ Columns added
 
 from __future__ import annotations
 
-import argparse, logging, pathlib, sys
 import pandas as pd
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(message)s")
-log = logging.getLogger(__name__)
-
-# ── File paths ─────────────────────────────────────────────────────────────────
-SCRIPT_DIR = pathlib.Path(__file__).resolve().parents[3]   # repo root; data lives here
 
 # ── Reference year for effective-age computation ──────────────────────────────
 # Fixed constant (not the wall clock) so a re-run produces identical scores and the
@@ -319,149 +305,3 @@ def model_parcel_durability(row: pd.Series, mf_material: str | None = None) -> d
         "durability_score":                round(score, 1),
         "durability_data_source":          DATA_SOURCE,
     }
-
-
-# ── Main ───────────────────────────────────────────────────────────────────────
-def _resolve_path(raw: str) -> pathlib.Path:
-    """Resolve a CLI path: bare names are relative to the repo root."""
-    p = pathlib.Path(raw)
-    return p if p.is_absolute() else (SCRIPT_DIR / p)
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Enrich Shelby County parcels with a component-lifespan durability score."
-    )
-    parser.add_argument("--input", default="shelby_parcels_socioeconomic.csv",
-                        help="Input CSV (chained from the socioeconomic step).")
-    parser.add_argument("--output", default="shelby_parcels_durability.csv",
-                        help="Output CSV with durability columns appended.")
-    parser.add_argument("--limit", type=int, default=None,
-                        help="Process at most N rows (for testing).")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Load and validate only; log the plan without writing.")
-    args = parser.parse_args()
-
-    in_file  = _resolve_path(args.input)
-    out_file = _resolve_path(args.output)
-
-    # --- Input validation ---
-    if not in_file.exists():
-        log.error("Input file does not exist: %s", in_file)
-        sys.exit(1)
-
-    log.info("Reading %s", in_file)
-    df = pd.read_csv(in_file, low_memory=False)
-    log.info("  %d rows × %d columns", *df.shape)
-    input_rows = len(df)
-
-    missing = [c for c in REQUIRED_COLS if c not in df.columns]
-    if missing:
-        log.error("Missing required CAMA column(s): %s", ", ".join(missing))
-        sys.exit(1)
-
-    optional = ["EFFYR", "GRADE", "COND", "CDU", "EXTWALL"]
-    absent = [c for c in optional if c not in df.columns]
-    if absent:
-        log.warning("Optional CAMA column(s) absent (modifiers degrade gracefully): %s",
-                    ", ".join(absent))
-
-    if args.limit:
-        df = df.head(args.limit)
-        log.info("--limit %d applied.", args.limit)
-
-    # --- Dry run ---
-    if args.dry_run:
-        log.info("[dry-run] Plan:")
-        log.info("[dry-run]   input  : %s", in_file)
-        log.info("[dry-run]   output : %s", out_file)
-        log.info("[dry-run]   reference year : %d", REFERENCE_YEAR)
-        log.info("[dry-run]   rows to model  : %d", len(df))
-        log.info("[dry-run]   columns to add : %s", DURABILITY_COLS)
-        log.info("[dry-run] Validation passed; no output written.")
-        return
-
-    log.info("Modelling durability for %d parcels (reference year %d) …",
-             len(df), REFERENCE_YEAR)
-    # to_dict("records") skips the per-row Series boxing that iterrows does; the
-    # model reads columns via row.get(...), which dicts support identically.
-    results = [model_parcel_durability(row) for row in df.to_dict("records")]
-    enriched = pd.DataFrame(results, index=df.index)
-    df[DURABILITY_COLS] = enriched[DURABILITY_COLS]   # one assignment, no fragmentation
-
-    df.to_csv(out_file, index=False)
-    log.info("Saved → %s", out_file)
-
-    out_rows, out_cols = df.shape
-    log.info("wrote %d rows × %d cols", out_rows, out_cols)
-    if args.limit is None and out_rows != input_rows:
-        log.warning("Output rows (%d) != input rows (%d)", out_rows, input_rows)
-
-    _print_summary(df, out_file)
-
-
-# ── Summary ──────────────────────────────────────────────────────────────────
-def _print_summary(df: pd.DataFrame, out_file: pathlib.Path) -> None:
-    total   = len(df)
-    score   = df["durability_score"]
-    scored  = score.notna()
-    n_sc    = int(scored.sum())
-    age     = df["durability_effective_age"]
-    cond_d  = df["durability_condition"].value_counts(dropna=True).to_dict()
-    mat_d   = df["durability_material_class"].value_counts(dropna=True).to_dict()
-    w = 44
-
-    print("\n╔══ BUILDING DURABILITY ENRICHMENT SUMMARY ═════════════════════════╗")
-    print(f"║ Total parcels               : {total:<{w}}║")
-    print(f"║ Scored (had CAMA building)  : {f'{n_sc}  ({n_sc/total*100:.1f}%)':<{w}}║")
-    print(f"║ Unscored (vacant/non-resid) : {f'{total-n_sc}  ({(total-n_sc)/total*100:.1f}%)':<{w}}║")
-    print(f"║ Reference year              : {REFERENCE_YEAR:<{w}}║")
-    print(f"║ Methodology                 : {'Component-lifespan + condition (CDU/COND)':<{w}}║")
-    if n_sc:
-        print("║ ── Durability score (0-100) ─────────────────────────────────────── ║")
-        print(f"║   min    : {score.min():<{w-2}.1f}║")
-        print(f"║   p25    : {score.quantile(0.25):<{w-2}.1f}║")
-        print(f"║   median : {score.median():<{w-2}.1f}║")
-        print(f"║   mean   : {score.mean():<{w-2}.2f}║")
-        print(f"║   p75    : {score.quantile(0.75):<{w-2}.1f}║")
-        print(f"║   max    : {score.max():<{w-2}.1f}║")
-        print("║ ── Effective age (years) ────────────────────────────────────────── ║")
-        print(f"║   median : {age.median():<{w-1}.0f}║")
-        print(f"║   mean   : {age.mean():<{w-1}.1f}║")
-        print(f"║   max    : {age.max():<{w-1}.0f}║")
-        print("║ ── Condition distribution ───────────────────────────────────────── ║")
-        for label in ("excellent", "very good", "good", "average", "fair",
-                      "poor", "very poor", "unsound"):
-            if label in cond_d:
-                cnt = cond_d[label]
-                print(f"║   {label:<12}: {cnt:>5}  ({cnt/total*100:5.1f}%){'':>19}║")
-        print("║ ── Material class distribution ──────────────────────────────────── ║")
-        for label, cnt in sorted(mat_d.items(), key=lambda kv: -kv[1]):
-            print(f"║   {label:<12}: {cnt:>5}  ({cnt/total*100:5.1f}%){'':>19}║")
-    print(f"║ New columns added           : {len(DURABILITY_COLS):<{w}}║")
-    print(f"║ Output                      : {out_file.name:<{w}}║")
-    print("╚═══════════════════════════════════════════════════════════════════╝\n")
-
-    sample_cols = [
-        "PARCELID", "YRBLT", "EFFYR", "GRADE", "COND", "CDU", "EXTWALL",
-        "durability_effective_age", "durability_remaining_life_pct",
-        "durability_components_past_life", "durability_condition",
-        "durability_material_class", "durability_score",
-    ]
-    avail = [c for c in sample_cols if c in df.columns]
-    shown = df[scored] if scored.any() else df
-    print("Sample scored rows (first 10):")
-    with pd.option_context("display.max_columns", None, "display.width", 220,
-                           "display.float_format", "{:.1f}".format):
-        print(shown[avail].head(10).to_string(index=False))
-
-
-if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        log.info("Interrupted.")
-        sys.exit(0)
-    except Exception as exc:
-        log.error("Fatal: %s", exc, exc_info=True)
-        sys.exit(1)

@@ -73,50 +73,6 @@ def test_unknown_geo_falls_back_to_national_average():
     assert td.tornado_for_county("99999")["geo_level"] == "us"
 
 
-# ── Pipeline enrichment (enrich/tornado.py) ─────────────────────────────────────
-def test_tornado_enrichment_attaches_columns():
-    """enrich/tornado.py adds the tornado columns, resolving tract→county fallback.
-
-    The missing-value row forces pandas to store the GEOID as a float, exercising
-    the decimal-suffix / zero-pad normalization in _norm_tract.
-    """
-    from housing_label.enrich import tornado as tornado_enrich
-
-    with tempfile.TemporaryDirectory() as d:
-        src, out = Path(d) / "climate.csv", Path(d) / "tornado.csv"
-        pd.DataFrame({
-            "PARCELID": ["A", "B"],
-            "census_tract": ["47157006300", None],   # resolvable tract + missing
-            "latitude": [35.13, 35.13], "longitude": [-89.99, -89.99],
-        }).to_csv(src, index=False)
-
-        with mock.patch.object(sys, "argv",
-                               ["tornado", "--input", str(src), "--output", str(out)]):
-            tornado_enrich.main()
-
-        df = pd.read_csv(out)
-        for col in ("tornado_nri_eal_rate", "tornado_risk_rating", "tornado_geo_level"):
-            assert col in df.columns
-        assert df.loc[0, "tornado_geo_level"] == "tract"     # resolved tract
-        assert df.loc[1, "tornado_geo_level"] == "county"    # county fallback (Shelby)
-        assert (df["tornado_nri_eal_rate"] >= 0).all()
-
-
-def test_enrichment_without_tract_column_uses_county():
-    """No census_tract column at all → every parcel takes the Shelby county rate."""
-    from housing_label.enrich import tornado as tornado_enrich
-
-    with tempfile.TemporaryDirectory() as d:
-        src, out = Path(d) / "climate.csv", Path(d) / "tornado.csv"
-        pd.DataFrame({"PARCELID": ["A", "B"]}).to_csv(src, index=False)
-        with mock.patch.object(sys, "argv",
-                               ["tornado", "--input", str(src), "--output", str(out)]):
-            tornado_enrich.main()
-        df = pd.read_csv(out)
-        assert (df["tornado_geo_level"] == "county").all()
-        shelby_rate = td.tornado_for_county("47157")["eal_rate"]
-        assert (df["tornado_nri_eal_rate"] == round(shelby_rate, 9)).all()
-
 
 # ── Resilience scoring (score/resilience.py) ────────────────────────────────────
 def test_calc_tornado_eal_reads_nri_rate():
