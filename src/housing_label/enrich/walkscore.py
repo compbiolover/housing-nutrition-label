@@ -24,7 +24,7 @@ API notes
   Coverage  : US and Canada only
 """
 
-import logging, sys, time, urllib.parse
+import logging, time, urllib.parse
 import requests, pandas as pd
 
 # Module logger only — no logging.basicConfig() at import time (library code).
@@ -95,11 +95,13 @@ def fetch_scores(api_key: str, lat: float, lon: float, address: str) -> dict:
             time.sleep(RETRY_SEC)
             continue
         elif status == 40:
-            log.error("Invalid API key – check WALKSCORE_API_KEY and try again.")
-            sys.exit(1)
+            # Hard configuration error — raise so the caller decides, rather than
+            # killing the host process (this is importable library code now).
+            raise RuntimeError(
+                "Walk Score API rejected the key (status 40) — check WALKSCORE_API_KEY.")
         elif status == 41:
-            log.error("Daily API quota exceeded. Re-run tomorrow or upgrade your plan.")
-            sys.exit(1)
+            raise RuntimeError(
+                "Walk Score API daily quota exceeded (status 41) — retry later or upgrade the plan.")
         else:
             log.debug("Unexpected status %s for address %s", status, address)
             return {"walk_score": None, "transit_score": None, "bike_score": None}
