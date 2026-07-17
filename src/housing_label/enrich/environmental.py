@@ -1,16 +1,9 @@
 #!/usr/bin/env python3
-"""Enrich shelby_parcels_durability.csv with an environmental-footprint score.
+"""Environmental-footprint scoring model library.
 
-Chained pipeline step: reads the durability-enriched parcels file (which carries
-the upstream CAMA columns and the modeled energy estimates est_annual_kwh /
-est_annual_therms forward) and writes shelby_parcels_environmental.csv.
-
-Usage
------
-  python environmental.py                        # all parcels
-  python environmental.py --limit 10             # test with 10 rows first
-  python environmental.py --limit 5 --dry-run    # validate without writing
-  python environmental.py --input X --output Y   # custom paths
+Models a parcel's environmental footprint (operational + embodied carbon and
+water use) from its CAMA fields and the modeled energy estimates (est_annual_kwh /
+est_annual_therms). Import ``model_parcel_environment`` to score a single parcel.
 
 Methodology
 -----------
@@ -103,15 +96,8 @@ Columns added
   env_data_source              Citation + eGRID vintage + embodied confidence flag
 """
 
-import argparse, logging, pathlib, sys
 import numpy as np
 import pandas as pd
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(message)s")
-log = logging.getLogger(__name__)
-
-# ── File paths ─────────────────────────────────────────────────────────────────
-SCRIPT_DIR = pathlib.Path(__file__).resolve().parents[3]   # repo root; data lives here
 
 # ── Emission factors (verified — see research doc) ────────────────────────────
 EF_GRID_KG_PER_KWH   = 0.4097  # EPA eGRID2023 Rev 2 SRTV: 903.306 lb CO2e/MWh (matches data/egrid.py)
@@ -429,142 +415,3 @@ def model_parcel_environment(row: pd.Series,
         "environmental_score":         round(composite, 1),
         "env_data_source":             _data_source(grid_factor, grid_marginal_factor, avoided),
     }
-
-
-# ── Main ───────────────────────────────────────────────────────────────────────
-def _resolve_path(raw: str) -> pathlib.Path:
-    p = pathlib.Path(raw)
-    return p if p.is_absolute() else (SCRIPT_DIR / p)
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Enrich Shelby County parcels with an environmental-footprint score."
-    )
-    parser.add_argument("--input", default="shelby_parcels_durability.csv",
-                        help="Input CSV (chained from the durability step).")
-    parser.add_argument("--output", default="shelby_parcels_environmental.csv",
-                        help="Output CSV with environmental columns appended.")
-    parser.add_argument("--limit", type=int, default=None,
-                        help="Process at most N rows (for testing).")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Load and validate only; log the plan without writing.")
-    args = parser.parse_args()
-
-    in_file  = _resolve_path(args.input)
-    out_file = _resolve_path(args.output)
-
-    if not in_file.exists():
-        log.error("Input file does not exist: %s", in_file)
-        sys.exit(1)
-
-    log.info("Reading %s", in_file)
-    df = pd.read_csv(in_file, low_memory=False)
-    log.info("  %d rows × %d columns", *df.shape)
-    input_rows = len(df)
-
-    required = ["SFLA", "est_annual_kwh", "est_annual_therms"]
-    missing = [c for c in required if c not in df.columns]
-    if missing:
-        log.error("Missing required column(s): %s", ", ".join(missing))
-        sys.exit(1)
-
-    optional = ["EXTWALL", "GRADE", "RMBED", "FIXBATH", "STORIES", "CALC_ACRE", "acre_outlier"]
-    absent = [c for c in optional if c not in df.columns]
-    if absent:
-        log.warning("Optional column(s) absent (model degrades gracefully): %s", ", ".join(absent))
-
-    if args.limit:
-        df = df.head(args.limit)
-        log.info("--limit %d applied.", args.limit)
-
-    if args.dry_run:
-        log.info("[dry-run] Plan:")
-        log.info("[dry-run]   input  : %s", in_file)
-        log.info("[dry-run]   output : %s", out_file)
-        log.info("[dry-run]   grid factor : %.3f kgCO2e/kWh (%s)", EF_GRID_KG_PER_KWH, EGRID_VINTAGE)
-        log.info("[dry-run]   rows to model  : %d", len(df))
-        log.info("[dry-run]   columns to add : %s", ENV_COLS)
-        log.info("[dry-run] Validation passed; no output written.")
-        return
-
-    log.info("Modelling environmental footprint for %d parcels …", len(df))
-    # to_dict("records") skips the per-row Series boxing that iterrows does; the
-    # model reads columns via row.get(...), which dicts support identically.
-    results = [model_parcel_environment(row) for row in df.to_dict("records")]
-    enriched = pd.DataFrame(results, index=df.index)
-    df[ENV_COLS] = enriched[ENV_COLS]   # one assignment, no fragmentation
-
-    df.to_csv(out_file, index=False)
-    log.info("Saved → %s", out_file)
-
-    out_rows, out_cols = df.shape
-    log.info("wrote %d rows × %d cols", out_rows, out_cols)
-    if args.limit is None and out_rows != input_rows:
-        log.warning("Output rows (%d) != input rows (%d)", out_rows, input_rows)
-
-    _print_summary(df, out_file)
-
-
-# ── Summary ──────────────────────────────────────────────────────────────────
-def _print_summary(df: pd.DataFrame, out_file: pathlib.Path) -> None:
-    total  = len(df)
-    score  = df["environmental_score"]
-    scored = score.notna()
-    n_sc   = int(scored.sum())
-    w = 46
-
-    print("\n╔══ ENVIRONMENTAL FOOTPRINT ENRICHMENT SUMMARY ═══════════════════════╗")
-    print(f"║ Total parcels               : {total:<{w}}║")
-    print(f"║ Scored (had living area)    : {f'{n_sc}  ({n_sc/total*100:.1f}%)':<{w}}║")
-    print(f"║ Unscored (vacant/non-resid) : {f'{total-n_sc}  ({(total-n_sc)/total*100:.1f}%)':<{w}}║")
-    print(f"║ Grid factor                 : {f'{EF_GRID_KG_PER_KWH} kgCO2e/kWh ({EGRID_VINTAGE})':<{w}}║")
-    print(f"║ Composite weights           : {'0.50 operational / 0.30 embodied / 0.20 water':<{w}}║")
-    if n_sc:
-        sub = df[scored]
-        for label, col in (("Operational CO2e (kg/yr)", "env_operational_co2e_kg_yr"),
-                           ("Embodied CO2e (kg/yr, ann.)", "env_embodied_co2e_kg_yr"),
-                           ("Water (gal/yr)", "env_water_gal_yr"),
-                           ("Total CO2e (kg/yr)", "env_total_co2e_kg_yr")):
-            s = sub[col]
-            print(f"║ ── {label} "+"─"*(63-len(label))+" ║")
-            print(f"║   median : {s.median():<{w-1}.0f}║")
-            print(f"║   mean   : {s.mean():<{w-1}.0f}║")
-        print("║ ── Environmental score (0-100) ──────────────────────────────────── ║")
-        print(f"║   min    : {score.min():<{w-2}.1f}║")
-        print(f"║   p25    : {score.quantile(0.25):<{w-2}.1f}║")
-        print(f"║   median : {score.median():<{w-2}.1f}║")
-        print(f"║   mean   : {score.mean():<{w-2}.2f}║")
-        print(f"║   p75    : {score.quantile(0.75):<{w-2}.1f}║")
-        print(f"║   max    : {score.max():<{w-2}.1f}║")
-        print("║ ── Mean sub-scores ──────────────────────────────────────────────── ║")
-        print(f"║   operational : {sub['env_operational_subscore'].mean():<{w-5}.1f}║")
-        print(f"║   embodied    : {sub['env_embodied_subscore'].mean():<{w-5}.1f}║")
-        print(f"║   water       : {sub['env_water_subscore'].mean():<{w-5}.1f}║")
-    print(f"║ New columns added           : {len(ENV_COLS):<{w}}║")
-    print(f"║ Output                      : {out_file.name:<{w}}║")
-    print("╚═════════════════════════════════════════════════════════════════════╝\n")
-
-    sample_cols = [
-        "PARCELID", "SFLA", "EXTWALL", "RMBED", "est_annual_kwh", "est_annual_therms",
-        "env_operational_co2e_kg_yr", "env_embodied_intensity_kgm2", "env_water_gal_yr",
-        "env_total_co2e_kg_yr", "env_operational_subscore", "env_embodied_subscore",
-        "env_water_subscore", "environmental_score",
-    ]
-    avail = [c for c in sample_cols if c in df.columns]
-    shown = df[scored] if scored.any() else df
-    print("Sample scored rows (first 10):")
-    with pd.option_context("display.max_columns", None, "display.width", 240,
-                           "display.float_format", "{:.1f}".format):
-        print(shown[avail].head(10).to_string(index=False))
-
-
-if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        log.info("Interrupted.")
-        sys.exit(0)
-    except Exception as exc:
-        log.error("Fatal: %s", exc, exc_info=True)
-        sys.exit(1)

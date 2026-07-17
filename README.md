@@ -19,7 +19,6 @@ The goal: give homebuyers, renters, insurers, and policymakers an at-a-glance un
 - [Scored Dimensions](#scored-dimensions)
 - [Scoring System](#scoring-system)
 - [Data Sources](#data-sources)
-- [Pipeline](#pipeline)
 - [House Simulator](#house-simulator)
 - [Address-search API](#address-search-api)
 - [Project Structure](#project-structure)
@@ -33,7 +32,7 @@ The goal: give homebuyers, renters, insurers, and policymakers an at-a-glance un
 
 > **Phase 1 complete — Shelby County, TN (Memphis) pilot with 9 scored dimensions.**
 
-The full data ingestion → enrichment → multi-dimension scoring pipeline is operational end to end. Every parcel in the pilot dataset carries nine scored dimensions plus a rolled-up composite score, each with both a national (absolute) and a local (percentile) letter grade. An **interactive nutrition label visualization** is live on the project site — [housinglabel.dev/label.html](https://housinglabel.dev/label.html). Future phases will extend coverage to additional counties.
+Enter any U.S. residential address (or lat/lon) and it scores nine dimensions plus a rolled-up composite, each with a national (absolute) letter grade and a national percentile, from bundled offline reference data plus a few keyless government APIs. An **interactive nutrition label visualization** is live on the project site — [housinglabel.dev/label.html](https://housinglabel.dev/label.html) — backed by the same scoring API.
 
 ## Quick Start
 
@@ -43,20 +42,20 @@ cd housing-nutrition-label
 python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-pip install -e .                   # optional: installs the housing_label package + console scripts
-python scripts/run_pipeline.py
+pip install -e .                   # installs the housing_label package + console scripts
+housing-simulate --preset icf-passive --lat 35.15 --lon -89.85   # score a house at a location
 ```
 
 ## Architecture
 
 ```
-data ingestion  →  enrichment pipeline  →  multi-dimension scoring  →  CLI simulator
-(ArcGIS parcels    (flood, climate, tornado,   (per-dimension 0–100        (model a hypothetical
- + CAMA building    seismic, energy, infra,     scores, dual grades,        house and see how
- attributes)        health, socio, walkability) composite roll-up)          choices change scores)
+address / lat-lon  →  location resolve   →  per-dimension models   →  nutrition label
+(geocode +            (climate zone, grid,   (9 dimensions, 0–100      (national grade +
+ bundled county/       hazards, structure)    scores + composite)       percentile, API/CLI)
+ tract lookups)
 ```
 
-Each enrichment stage consumes the previous stage's output, so the final scored CSV carries **every** dimension on a single row per parcel. The pipeline is a linear, reproducible chain orchestrated by a single runner.
+The nine dimensions are scored per address on demand — the five construction-driven ones from the house configuration and the four location-driven ones from the resolved location — using the shared `enrich/` model libraries. There is no offline batch step: the same models back both the CLI simulator and the address-search API.
 
 ## Scored Dimensions
 
@@ -168,45 +167,6 @@ The national/local thresholds are identical across all dimensions, so a grade me
 
 </details>
 
-## Pipeline
-
-<details>
-<summary><strong>Running the pipeline</strong> — stages, orchestrator flags, and outputs</summary>
-
-Stages run in dependency order, each consuming the previous stage's output:
-
-```
-ingest/shelby_parcels.py → ingest/clean.py → enrich/fema_flood.py → enrich/noaa_climate.py →
-enrich/tornado.py → enrich/seismic.py → enrich/energy.py → enrich/infrastructure.py →
-enrich/health.py → enrich/socioeconomic.py → enrich/durability.py → enrich/environmental.py → score/resilience.py → score/all_dimensions.py
-```
-
-Run the entire pipeline with the orchestrator:
-
-```bash
-python scripts/run_pipeline.py            # full run, skips stages whose outputs are fresh
-python scripts/run_pipeline.py --force    # re-run everything, ignoring cached outputs
-python scripts/run_pipeline.py --step flood       # run a single stage
-python scripts/run_pipeline.py --from energy      # run from a stage onward
-python scripts/run_pipeline.py --limit 25         # quick subset before a full run
-python scripts/run_pipeline.py --dry-run          # preview the execution plan
-```
-
-The runner reports per-stage timing and record counts, skips stages whose outputs are already fresh, and supports running an individual stage or everything from a given stage onward. Every stage is also runnable on its own with a consistent CLI (`--input`, `--output`, `--limit`, `--dry-run`).
-
-The final scored output is `shelby_parcels_final.csv` — one row per parcel with every dimension score, both grades, percentiles, and the composite.
-
-**Walk Score enrichment** runs out of band because it is API-gated (needs `WALKSCORE_API_KEY`) and has its own resume support, so it is not re-run on every pipeline pass:
-
-```bash
-export WALKSCORE_API_KEY=your_key_here
-python src/housing_label/enrich/walkscore.py    # writes shelby_parcels_enriched.csv (resumable)
-```
-
-The `score/all_dimensions.py` stage merges its output (walk / transit / bike scores) back in on `PARID`, so re-running `score_all` after enrichment picks up the walkability dimension.
-
-</details>
-
 ## House Simulator
 
 `src/housing_label/simulate/house.py` models a hypothetical house and reports a **full nutrition label across all nine dimensions**, letting you see how construction decisions move the needle. It supports 20+ above-code construction features (hurricane straps, sealed roof deck, metal/hip roof, tornado safe room, FORTIFIED Gold, flood elevation, ICF walls, etc.). Once the package is installed (`pip install -e .`) it's also available as the `housing-simulate` command.
@@ -308,12 +268,13 @@ housing-nutrition-label/
 ├── src/housing_label/          # Installable package
 │   ├── config.py               # Shared constants (URLs, HTTP defaults, geo reference points)
 │   ├── utils.py                # Shared helpers (HTTP, haversine, Web Mercator → WGS84)
-│   ├── ingest/                 # shelby_parcels.py, clean.py
-│   ├── enrich/                 # fema_flood, noaa_climate, tornado, seismic, energy,
-│   │                           #   infrastructure, health, socioeconomic, walkscore
-│   ├── score/                  # resilience.py, all_dimensions.py
-│   └── simulate/               # house.py (CLI simulator)
-├── scripts/run_pipeline.py     # Pipeline orchestrator
+│   ├── enrich/                 # per-dimension model libraries (energy, durability,
+│   │                           #   environmental, infrastructure, health, structure, …)
+│   ├── score/                  # resilience.py, all_dimensions.py (scoring helpers)
+│   ├── data/                   # bundled offline reference lookups (keyed on county/tract)
+│   ├── simulate/               # house.py (CLI simulator) + dimensions / location glue
+│   └── api.py                  # address-search scoring API
+├── scripts/                    # build_*.py reference-data builders
 ├── research/                   # Methodology & data-exploration write-ups
 ├── docs/                       # GitHub Pages site (housinglabel.dev)
 │   ├── label-core.js           #   Shared label renderer (used by all pages)

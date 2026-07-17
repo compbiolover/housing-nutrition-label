@@ -1,16 +1,9 @@
 #!/usr/bin/env python3
-"""Enrich shelby_parcels_seismic.csv with modeled residential energy consumption.
+"""Modeled residential energy-consumption scoring library.
 
-This is a chained pipeline step: it reads the seismic-enriched parcels file
-(which preserves the upstream CAMA columns YRBLT/SFLA/EXTWALL/HEAT/FUEL/BSMT
-forward from clean_parcels) and writes shelby_parcels_energy.csv.
-
-Usage
------
-  python enrich_energy.py                       # all parcels
-  python enrich_energy.py --limit 10            # test with 10 rows first
-  python enrich_energy.py --limit 5 --dry-run   # validate without writing
-  python enrich_energy.py --input X --output Y  # custom paths
+Models a parcel's residential energy use from Shelby County CAMA fields
+(YRBLT/SFLA/EXTWALL/HEAT/FUEL/BSMT). Import ``model_parcel_energy`` to score a
+single parcel and ``base_eui`` for the underlying ResStock benchmark lookup.
 
 Data source & methodology
 --------------------------
@@ -77,16 +70,7 @@ Columns added
 
 from __future__ import annotations
 
-import argparse, logging, pathlib, sys
 import pandas as pd
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(message)s")
-log = logging.getLogger(__name__)
-
-# ── File paths ─────────────────────────────────────────────────────────────────
-SCRIPT_DIR = pathlib.Path(__file__).resolve().parents[3]   # repo root; data lives here
-IN_FILE  = SCRIPT_DIR / "shelby_parcels_seismic.csv"
-OUT_FILE = SCRIPT_DIR / "shelby_parcels_energy.csv"
 
 # ── Utility rates (MLGW / TVA territory, ~2024) ───────────────────────────────
 ELEC_RATE_PER_KWH  = 0.105   # $/kWh
@@ -387,168 +371,3 @@ def model_parcel_energy(
             "local utility rates"
         ),
     }
-
-
-# ── Main ───────────────────────────────────────────────────────────────────────
-def _resolve_path(raw: str) -> pathlib.Path:
-    """Resolve a CLI path: bare names are relative to the script directory."""
-    p = pathlib.Path(raw)
-    return p if p.is_absolute() else (SCRIPT_DIR / p)
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Enrich Shelby County parcels with modeled residential energy data."
-    )
-    parser.add_argument("--input", default="shelby_parcels_seismic.csv",
-                        help="Input CSV (chained from the seismic step).")
-    parser.add_argument("--output", default="shelby_parcels_energy.csv",
-                        help="Output CSV with energy columns appended.")
-    parser.add_argument("--limit", type=int, default=None,
-                        help="Process at most N rows (for testing).")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Load and validate only; log the plan without writing.")
-    args = parser.parse_args()
-
-    in_file  = _resolve_path(args.input)
-    out_file = _resolve_path(args.output)
-
-    # --- Input validation ---
-    if not in_file.exists():
-        log.error("Input file does not exist: %s", in_file)
-        sys.exit(1)
-
-    log.info("Reading %s", in_file)
-    df = pd.read_csv(in_file)
-    log.info("  %d rows × %d columns", *df.shape)
-    input_rows = len(df)
-
-    # Verify required CAMA columns are present
-    required = ["YRBLT", "SFLA", "EXTWALL", "HEAT", "FUEL", "BSMT"]
-    missing = [c for c in required if c not in df.columns]
-    if missing:
-        log.error("Missing CAMA columns: %s", missing)
-        sys.exit(1)
-
-    if args.limit:
-        df = df.head(args.limit)
-        log.info("--limit %d applied.", args.limit)
-
-    # --- Dry run: report the plan and exit without writing ---
-    if args.dry_run:
-        log.info("[dry-run] Plan:")
-        log.info("[dry-run]   input  : %s", in_file)
-        log.info("[dry-run]   output : %s", out_file)
-        log.info("[dry-run]   rows to model : %d", len(df))
-        log.info("[dry-run]   columns to add: %s", ENERGY_COLS)
-        log.info("[dry-run] Validation passed; no output written.")
-        return
-
-    log.info("Modelling energy for %d parcels …", len(df))
-    # to_dict("records") skips the per-row Series boxing that iterrows does; the
-    # model reads columns via row.get(...), which dicts support identically.
-    results = [model_parcel_energy(row) for row in df.to_dict("records")]
-    enriched = pd.DataFrame(results, index=df.index)
-    df[ENERGY_COLS] = enriched[ENERGY_COLS]   # one assignment, no fragmentation
-
-    df.to_csv(out_file, index=False)
-    log.info("Saved → %s", out_file)
-
-    # --- Output validation ---
-    out_rows, out_cols = df.shape
-    log.info("wrote %d rows × %d cols", out_rows, out_cols)
-    if args.limit is None and out_rows != input_rows:
-        log.warning("Output rows (%d) != input rows (%d)", out_rows, input_rows)
-
-    # ── Summary ───────────────────────────────────────────────────────────────
-    total = len(df)
-    cost  = df["est_monthly_energy_cost"]
-    kwh   = df["est_annual_kwh"]
-    therms = df["est_annual_therms"]
-    eui   = df["eui_kbtu_sqft_yr"]
-    vdist = df["energy_vintage_bin"].value_counts().sort_index().to_dict()
-    w = 44
-
-    print("\n╔══ ENERGY ENRICHMENT SUMMARY ══════════════════════════════════════╗")
-    print(f"║ Total parcels modelled      : {total:<{w}}║")
-    print(f"║ Climate zone (all)          : {'IECC 4A — Mixed-Humid (Memphis, TN)':<{w}}║")
-    print(f"║ Utility rates               : {'$0.105/kWh elec  |  $1.10/therm gas':<{w}}║")
-    print(f"║ Methodology                 : {'DOE/NREL ResStock archetypes + EUI benchmarks':<{w}}║")
-    print("║ ── Energy Use Intensity (kBTU/sqft/yr) ─────────────────────────── ║")
-    print(f"║   min    : {eui.min():<{w-2}.1f}║")
-    print(f"║   median : {eui.median():<{w-2}.1f}║")
-    print(f"║   mean   : {eui.mean():<{w-2}.2f}║")
-    print(f"║   max    : {eui.max():<{w-2}.1f}║")
-    print("║ ── Est. monthly energy cost ($) ─────────────────────────────────── ║")
-    print(f"║   p10  : ${cost.quantile(0.10):<{w-2}.2f}║")
-    print(f"║   p25  : ${cost.quantile(0.25):<{w-2}.2f}║")
-    print(f"║   median: ${cost.median():<{w-2}.2f}║")
-    print(f"║   p75  : ${cost.quantile(0.75):<{w-2}.2f}║")
-    print(f"║   p90  : ${cost.quantile(0.90):<{w-2}.2f}║")
-    print(f"║   max  : ${cost.max():<{w-2}.2f}║")
-    print("║ ── Annual electricity (kWh) ─────────────────────────────────────── ║")
-    print(f"║   median : {kwh.median():<{w-1}.0f}║")
-    print(f"║   mean   : {kwh.mean():<{w-1}.1f}║")
-    print("║ ── Annual gas (therms) ──────────────────────────────────────────── ║")
-    print(f"║   median : {therms.median():<{w-1}.1f}║")
-    print(f"║   mean   : {therms.mean():<{w-1}.1f}║")
-    print("║ ── Vintage distribution ─────────────────────────────────────────── ║")
-    for vbin, cnt in sorted(vdist.items()):
-        pct = cnt / total * 100
-        print(f"║   {vbin:<15}: {cnt:>5}  ({pct:5.1f}%){'':>23}║")
-    print(f"║ New columns added           : {len(ENERGY_COLS):<{w}}║")
-    print(f"║ Output                      : {out_file.name:<{w}}║")
-    print("╚═══════════════════════════════════════════════════════════════════╝\n")
-
-    # ── Five example rows spanning different vintages / sizes ─────────────────
-    sample_cols = [
-        "PARCELID", "YRBLT", "SFLA", "EXTWALL", "HEAT",
-        "energy_vintage_bin", "energy_size_bin", "energy_archetype",
-        "eui_kbtu_sqft_yr", "est_annual_kwh", "est_annual_therms",
-        "est_monthly_energy_cost",
-    ]
-    avail = [c for c in sample_cols if c in df.columns]
-
-    # Pick 5 rows: one per vintage bin (pre-1950, 50-79, 80-99, 00-09, 2010+),
-    # falling back to whatever vintages exist.
-    target_bins = ["pre_1950", "1950_1979", "1980_1999", "2000_2009", "2010_plus"]
-    sample_rows = []
-    for tb in target_bins:
-        subset = df[df["energy_vintage_bin"] == tb]
-        if not subset.empty:
-            # Pick the row closest to median size within this bin
-            median_area = subset["SFLA"].median()
-            if pd.isna(median_area):
-                sample_rows.append(subset.iloc[0])
-            else:
-                idx = (subset["SFLA"] - median_area).abs().idxmin()
-                sample_rows.append(df.loc[idx])
-    sample_df = pd.DataFrame(sample_rows)[avail].reset_index(drop=True)
-
-    pd.set_option("display.max_columns", None)
-    pd.set_option("display.width", 200)
-    pd.set_option("display.float_format", "{:.1f}".format)
-    print("Five example rows (one per vintage, near median size for that bin):")
-    print(sample_df.to_string(index=False))
-    print()
-
-    # ── ResStock upgrade note ──────────────────────────────────────────────────
-    print("Note: full ResStock archetype lookup upgrade path:")
-    print("  Dataset: https://data.openei.org/submissions/5959")
-    print("  Access : AWS Athena on s3://nrel-pds-building-stock/")
-    print("  Key on : (vintage_acs, geometry_floor_area_bin, heating_fuel,")
-    print("            hvac_heating_type, iecc_climate_zone_2004,")
-    print("            geometry_foundation_type)")
-    print("  Outputs: annual_kwh, annual_therms, eui per archetype")
-    print()
-
-
-if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        log.info("Interrupted.")
-        sys.exit(0)
-    except Exception as exc:
-        log.error("Fatal: %s", exc, exc_info=True)
-        sys.exit(1)

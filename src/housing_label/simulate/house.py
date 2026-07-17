@@ -28,12 +28,9 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import pathlib
 import sys
-from functools import lru_cache
 
 import numpy as np
-import pandas as pd
 
 from housing_label.simulate.dimensions import (
     simulate_all_dimensions, per_unit_home_value, effective_structure,
@@ -46,10 +43,6 @@ from housing_label.confidence import (
 # pipeline and this live simulator apply one identical (continuous) model.
 from housing_label.score.resilience import code_era_factor, fire_age_factor
 from housing_label.enrich.seismic_lookup import get_pga
-
-# ── File paths ─────────────────────────────────────────────────────────────────
-BASE_DIR   = pathlib.Path(__file__).resolve().parents[3]   # repo root; data lives here
-SCORED_CSV = BASE_DIR / "shelby_parcels_scored.csv"
 
 # ── Seismic constants (enrich_seismic.py) ─────────────────────────────────────
 NMSZ_LAT            = 36.5     # New Madrid Seismic Zone reference lat
@@ -443,52 +436,9 @@ def score_to_national_grade(score: float) -> str:
     return "F"
 
 
-def percentile_to_local_grade(pct: float) -> str:
-    """A=top 10%, B=next 25%, C=middle 30%, D=next 25%, F=bottom 10%."""
-    if pct >= 90: return "A"
-    if pct >= 65: return "B"
-    if pct >= 35: return "C"
-    if pct >= 10: return "D"
-    return "F"
-
-
 # code_era_factor and fire_age_factor are imported from housing_label.score.resilience
 # (continuous, np.interp-based curves) so this simulator and the offline batch
 # scorer apply one identical model — see the import near the top of this module.
-
-
-@lru_cache(maxsize=4)
-def _load_local_scores(path_str: str):
-    """Load + clean the ``resilience_score`` column from ``path_str`` (cached).
-
-    Keyed on the path so it's read/parsed once per process — the bundled
-    scored-parcels CSV is invariant and ``simulate()`` runs up to ~6× per API
-    request, so re-reading the whole column every call was pure waste. Keying on
-    the path (rather than a no-arg cache) also lets tests point ``SCORED_CSV`` at
-    a fixture and still get a fresh load. Returns ``None`` if the file is absent.
-    """
-    path = pathlib.Path(path_str)
-    if not path.exists():
-        return None
-    col = pd.read_csv(path, usecols=["resilience_score"], low_memory=False)["resilience_score"]
-    # Coerce first: a stray non-numeric cell would otherwise make the column
-    # object dtype, and `scores < sim_score` / min/max/median would then raise or
-    # compare lexicographically. errors="coerce" turns junk into NaN, dropna drops it.
-    return pd.to_numeric(col, errors="coerce").dropna().to_numpy()
-
-
-def _local_scores():
-    """Cached county ``resilience_score`` array for the local-percentile compare,
-    or ``None`` when the (Shelby-only) scored CSV isn't present."""
-    return _load_local_scores(str(SCORED_CSV))
-
-
-def compute_local_percentile(sim_score: float, scores) -> float:
-    """Fraction of county parcels with resilience_score < sim_score (×100).
-
-    ``scores`` is a 1-D array of already-clean county resilience scores.
-    """
-    return round((scores < sim_score).sum() / len(scores) * 100, 1)
 
 
 # ── Argument parsing ───────────────────────────────────────────────────────────
@@ -709,18 +659,13 @@ def resolve_config(args: argparse.Namespace) -> dict:
 
 # ── Core simulation ────────────────────────────────────────────────────────────
 
-def simulate(cfg: dict, local_compare: bool = True, structure: dict | None = None) -> dict:
+def simulate(cfg: dict, structure: dict | None = None) -> dict:
     """Run the full EAL + BRM + bonus calculation. Returns a results dict.
 
     ``structure`` (from the resolved Location) carries the detected building type,
     material, and stories. For a detected multi-family building its material drives
     the construction resilience factors, and flood exposure is reduced for the
     representative unit by the building's height (only the lowest floors flood).
-
-    ``local_compare`` controls the resilience *local grade* — a percentile rank
-    against the bundled Shelby County dataset, which is only meaningful for a
-    Shelby address. build_label_parts passes False off-Shelby so the rank isn't
-    computed (and the CSV isn't read) for locations it doesn't describe.
     """
     r = {}
 
@@ -894,21 +839,6 @@ def simulate(cfg: dict, local_compare: bool = True, structure: dict | None = Non
     r["seismic_loss"] = seismic_adj * v
     r["fire_loss"]    = fire_adj    * v
     r["total_loss"]   = total_eal   * v
-
-    # ── Local comparison against scored dataset (Shelby pilot only) ───────────
-    scores = _local_scores() if local_compare else None
-    if scores is not None and len(scores):
-        local_pct = compute_local_percentile(r["total_score"], scores)
-        r["local_pct"]   = local_pct
-        r["local_grade"] = percentile_to_local_grade(local_pct)
-        r["n_parcels"]   = len(scores)
-        r["score_min"]   = float(scores.min())
-        r["score_max"]   = float(scores.max())
-        r["score_median"] = float(np.median(scores))
-    else:
-        r["local_pct"]   = None
-        r["local_grade"] = "N/A"
-        r["n_parcels"]   = 0
 
     return r
 
@@ -1108,17 +1038,6 @@ def print_scorecard(cfg: dict, r: dict) -> None:
     bar = "█" * filled + "░" * (20 - filled)
     print(row(f"    Composite score  : {r['total_score']:.1f} / 100  [{bar}]"))
     print(row(f"    National grade   : {r['national_grade']}  (absolute EAL thresholds, cross-city)"))
-
-    if r["local_pct"] is not None:
-        pct = r["local_pct"]
-        print(row(f"    Local grade      : {r['local_grade']}  (percentile rank vs. Shelby County)"))
-        print(row(f"    Percentile rank  : {pct:.1f}th  (n={r['n_parcels']:,} county parcels)"))
-        print(row(f"    County range     : {r['score_min']:.1f} – {r['score_max']:.1f}  "
-                  f"(median {r['score_median']:.1f})"))
-        print(row())
-        print(row(f"    ▶  Better than {pct:.0f}% of Shelby County parcels"))
-    else:
-        print(row(f"    Local grade      : N/A  ({SCORED_CSV.name} not found)"))
     print(BOT)
     print()
 
@@ -1846,16 +1765,13 @@ def build_label_parts(*, address: str | None = None,
             cfg, explicit, location, struct.get("num_units")))
     building = _building_block(cfg, struct, explicit, autofilled, location)
 
-    # The resilience local grade ranks against the bundled Shelby dataset, so it's
-    # only meaningful for a Shelby address; compute it only then (N/A elsewhere).
-    is_shelby = getattr(location, "county_fips", None) == CALIBRATED_COUNTY_FIPS
     structure = {
         "structure_type": struct["structure_type"],
         "num_units": struct["num_units"],
         "stories": struct["stories"],
         "bldg_material": struct["bldg_material"],
     }
-    r = simulate(cfg, local_compare=is_shelby, structure=structure)
+    r = simulate(cfg, structure=structure)
     label = simulate_all_dimensions(
         cfg, r["total_score"], location=location,
         allow_network=allow_network, overrides=overrides,

@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-"""Enrich shelby_parcels_flood.csv with NOAA climate normals data.
+"""NOAA climate-normals model library.
 
-Usage
------
-  python enrich_noaa_climate.py              # all 1 000 parcels
-  python enrich_noaa_climate.py --limit 10  # test with 10 rows first
+Provides the Memphis/Shelby climate normals and a per-county climate-row
+resolver for the climate dimension. Importable functions only; no batch runner.
 
 Data source
 -----------
@@ -34,15 +32,6 @@ Climate columns added
   climate_station         NOAA station ID used as reference
   climate_normals_period  Normals period (e.g. "1991-2020")
 """
-
-import argparse, logging, pathlib, sys
-import pandas as pd
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(message)s")
-log = logging.getLogger(__name__)
-
-# ── File paths ────────────────────────────────────────────────────────────────
-SCRIPT_DIR = pathlib.Path(__file__).resolve().parents[3]   # repo root; data lives here
 
 # ── NOAA 1991-2020 Climate Normals: Memphis International Airport ─────────────
 #    Source: NOAA Climate Normals for the U.S. (1991–2020), NCEI station USW00013893
@@ -87,124 +76,3 @@ def climate_row_for_county(county_fips: str | None) -> dict:
     row["climate_zone_desc"] = desc
     row["climate_station"] = "IECC crosswalk (per-location normals: NOAA CDO API)"
     return row
-
-
-# ── Main ──────────────────────────────────────────────────────────────────────
-def resolve_path(raw: str) -> pathlib.Path:
-    """Resolve a path; bare (non-absolute) paths are taken relative to SCRIPT_DIR."""
-    p = pathlib.Path(raw)
-    return p if p.is_absolute() else SCRIPT_DIR / p
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Enrich parcels with NOAA climate normals (Memphis / Shelby County)."
-    )
-    parser.add_argument("--input", default="shelby_parcels_flood.csv",
-                        help="Input CSV path (default: shelby_parcels_flood.csv).")
-    parser.add_argument("--output", default="shelby_parcels_climate.csv",
-                        help="Output CSV path (default: shelby_parcels_climate.csv).")
-    parser.add_argument("--limit", type=int, default=None,
-                        help="Process at most N rows (for testing).")
-    parser.add_argument("--county-fips", default=None,
-                        help="5-digit county FIPS for all parcels — sets the IECC "
-                             "climate zone from the national crosswalk (degree-day/temp "
-                             "normals are left null; NOAA CDO API is the upgrade path). "
-                             "Omit for the Memphis/Shelby normals; a per-parcel "
-                             "'county_fips' column, if present, overrides this per row.")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Validate and log the plan without writing output.")
-    args = parser.parse_args()
-
-    in_file = resolve_path(args.input)
-    out_file = resolve_path(args.output)
-
-    if not in_file.exists():
-        log.error("Input file not found: %s", in_file)
-        sys.exit(1)
-
-    log.info("Reading %s", in_file)
-    df = pd.read_csv(in_file)
-    log.info("  %d rows × %d columns", *df.shape)
-
-    if args.limit:
-        df = df.head(args.limit)
-        log.info("--limit %d: working on first %d rows only.", args.limit, len(df))
-
-    in_rows = len(df)
-
-    if args.dry_run:
-        log.info("DRY RUN — no output will be written.")
-        log.info("  Input  : %s", in_file)
-        log.info("  Output : %s", out_file)
-        log.info("  Rows   : %d", in_rows)
-        log.info("  Columns that WOULD be added: %s", list(MEMPHIS_CLIMATE))
-        return
-
-    has_fips_col = "county_fips" in df.columns
-    if has_fips_col:
-        # Multi-county batch: resolve each parcel's climate row by its own FIPS.
-        log.info("Applying per-parcel climate zones from the 'county_fips' column …")
-        from housing_label.enrich.region_context import normalize_fips
-        _cache: dict = {}
-
-        def _row_for(fips):
-            key = normalize_fips(fips)
-            if key not in _cache:
-                _cache[key] = climate_row_for_county(key)
-            return _cache[key]
-
-        rows = [_row_for(f) for f in df["county_fips"]]
-        for col in CLIMATE_COLS:
-            df[col] = [r[col] for r in rows]
-    else:
-        row = climate_row_for_county(args.county_fips)
-        log.info("Applying climate normals for county %s (zone %s) …",
-                 args.county_fips or "Shelby (default)", row["climate_zone"])
-        for col in CLIMATE_COLS:
-            df[col] = row[col]
-
-    df.to_csv(out_file, index=False)
-    log.info("Saved → %s", out_file)
-    log.info("wrote %d rows × %d cols", len(df), len(df.columns))
-    if len(df) != in_rows:
-        log.warning("Output row count (%d) != input row count (%d).", len(df), in_rows)
-
-    # ── Summary ───────────────────────────────────────────────────────────────
-    total = len(df)
-    w = 33
-    s = df.iloc[0] if total else {c: None for c in CLIMATE_COLS}   # representative row
-    def _fmt(v): return "—" if v is None or pd.isna(v) else v
-    print("\n╔══ NOAA CLIMATE ENRICHMENT SUMMARY ══════════════════════╗")
-    print(f"║ Total rows enriched  : {total:<{w}}║")
-    print(f"║ Reference station    : {str(_fmt(s['climate_station'])):<{w}}║")
-    print(f"║ Normals period       : {str(_fmt(s['climate_normals_period'])):<{w}}║")
-    zone_label = f"{_fmt(s['climate_zone'])} – {_fmt(s['climate_zone_desc'])}"
-    print(f"║ IECC climate zone    : {zone_label:<{w}}║")
-    print(f"║ Heating degree days  : {str(_fmt(s['hdd_annual'])):<{w}}║")
-    print(f"║ Cooling degree days  : {str(_fmt(s['cdd_annual'])):<{w}}║")
-    print(f"║ Avg Jan low (°F)     : {str(_fmt(s['avg_jan_low_f'])):<{w}}║")
-    print(f"║ Avg Jul high (°F)    : {str(_fmt(s['avg_jul_high_f'])):<{w}}║")
-    print(f"║ Annual precip (in)   : {str(_fmt(s['precip_annual_in'])):<{w}}║")
-    print(f"║ Extreme heat days/yr : {str(_fmt(s['extreme_heat_days'])):<{w}}║")
-    print(f"║ Freeze days/yr       : {str(_fmt(s['freeze_days'])):<{w}}║")
-    print(f"║ New columns added    : {len(CLIMATE_COLS):<{w}}║")
-    print(f"║ Total columns        : {len(df.columns):<{w}}║")
-    print(f"║ Output               : {out_file.name:<{w}}║")
-    print("╚══════════════════════════════════════════════════════════╝\n")
-
-    sample_cols = ["PARCELID", "latitude", "longitude", "flood_risk"] + CLIMATE_COLS
-    available = [c for c in sample_cols if c in df.columns]
-    print("Sample rows (first 5):")
-    print(df[available].head(5).to_string(index=False))
-
-
-if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        log.info("Interrupted.")
-        sys.exit(0)
-    except Exception as exc:
-        log.error("Fatal: %s", exc, exc_info=True)
-        sys.exit(1)
