@@ -54,11 +54,14 @@ TYPICAL_SYSTEM_KW = 6.0
 
 _CSV = pathlib.Path(__file__).resolve().parent / "solar_yield_county.csv"
 
-# ── Score breakpoints: (specific yield kWh/kWp → score), anchored to the national
-# county quantiles [min, p10, p25, p50, p75, p90, p95, max]. HIGHER yield = HIGHER
-# score. Interior values from scripts/build_solar.py's quantile report.
-_YIELD_XS = [485.0, 1215.0, 1287.0, 1368.0, 1433.0, 1559.0, 1654.0, 1851.0]
-_YIELD_YS = [0.0, 10.0, 25.0, 50.0, 75.0, 90.0, 95.0, 100.0]
+# ── Score breakpoints: (specific yield kWh/kWp → score) — a piecewise-linear
+# approximation to the national CDF, so the score reads directly as a national
+# percentile. HIGHER yield = HIGHER score. Anchors are the county-yield quantiles
+# [p0/min, p1, p5, p10, p25, p50, p75, p90, p95, p99, p100/max] from
+# scripts/build_solar.py. The extra low-tail anchors (p1, p5) keep a few very-low
+# Alaska outliers at the p0 min from stretching cloudy northern counties upward.
+_YIELD_XS = [485.2, 1041.3, 1172.4, 1215.0, 1287.0, 1368.0, 1433.4, 1559.0, 1654.1, 1765.3, 1850.9]
+_YIELD_YS = [0.0, 1.0, 5.0, 10.0, 25.0, 50.0, 75.0, 90.0, 95.0, 99.0, 100.0]
 
 
 def _interp(x: float, xs: list[float], ys: list[float]) -> float:
