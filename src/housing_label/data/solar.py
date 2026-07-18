@@ -29,9 +29,11 @@ Data
   solar_yield_county.csv, built by scripts/build_solar.py from PVGIS v5.2 queried
   at each county's Census-gazetteer internal point (PVGIS-NSRDB, ~2005–2015).
 
-Scope: US counties within PVGIS-NSRDB coverage (CONUS, Hawai'i, Puerto Rico).
-A county outside coverage (far-north Alaska) is absent from the table and
-``solar_for_county`` returns None, so the caller leaves Solar Potential unscored.
+Scope: US counties within PVGIS-NSRDB coverage — CONUS, Hawai'i, Puerto Rico, and
+the parts of Alaska the database reaches (~14 southern/coastal boroughs, which
+score low: their high-latitude yield bottoms out the national range). Far-north
+Alaska is outside coverage, absent from the table, and ``solar_for_county``
+returns None there, so the caller leaves Solar Potential unscored.
 
 Source (CC BY 4.0): PVGIS © European Union, 2001-2024. https://re.jrc.ec.europa.eu/
 """
@@ -52,7 +54,7 @@ _CSV = pathlib.Path(__file__).resolve().parent / "solar_yield_county.csv"
 # ── Score breakpoints: (specific yield kWh/kWp → score), anchored to the national
 # county quantiles [min, p10, p25, p50, p75, p90, p95, max]. HIGHER yield = HIGHER
 # score. Interior values from scripts/build_solar.py's quantile report.
-_YIELD_XS = [1000.0, 1215.0, 1287.0, 1368.0, 1433.0, 1559.0, 1654.0, 1800.0]
+_YIELD_XS = [485.0, 1215.0, 1287.0, 1368.0, 1433.0, 1559.0, 1654.0, 1851.0]
 _YIELD_YS = [0.0, 10.0, 25.0, 50.0, 75.0, 90.0, 95.0, 100.0]
 
 
