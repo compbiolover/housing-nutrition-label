@@ -22,7 +22,7 @@ from housing_label.confidence import (  # noqa: E402
 )
 
 _DIM_KEYS = ["resilience", "energy", "durability", "environmental",
-             "infrastructure", "health", "air_quality", "socioeconomic",
+             "infrastructure", "health", "air_quality", "noise", "socioeconomic",
              "walkability", "climate", "solar"]
 
 
@@ -34,6 +34,7 @@ def _mock_label(scores=None, notes=None, metrics=None):
         "location_notes": notes if notes is not None else {
             "health": "CDC PLACES (tract 47157003100)",
             "air_quality": "CDC Tracking PM2.5/ozone (tract 47157003100) + EPA radon zone (county 47157)",
+            "noise": "BTS transportation-noise exposure (tract 47157003100)",
             "socioeconomic": "no CENSUS_API_KEY",
             "walkability": "EPA National Walkability Index (tract 47157003100)",
             "climate": "CMIP6-LOCA2 (tract 47157003100, SSP2-4.5 mid-century)",
@@ -53,7 +54,7 @@ def test_tiers_match_research_doc_sample():
     assert tiers == {
         "resilience": "high", "energy": "high", "durability": "high",
         "environmental": "moderate", "infrastructure": "moderate", "health": "high",
-        "air_quality": "high", "solar": "high",
+        "air_quality": "high", "noise": "high", "solar": "high",
         "socioeconomic": "low", "walkability": "low", "climate": "moderate",
     }, tiers
 

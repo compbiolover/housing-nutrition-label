@@ -149,13 +149,14 @@ DIMENSIONS = [
     ("infrastructure", "Infrastructure Burden"),
     ("health",         "Health Impact"),
     ("air_quality",    "Air Quality"),
+    ("noise",          "Noise"),
     ("socioeconomic",  "Socioeconomic"),
     ("walkability",    "Walkability"),
     ("climate",        "Climate Projections"),
     ("solar",          "Solar Potential"),
 ]
 CONSTRUCTION_DRIVEN = {"energy", "durability", "environmental", "infrastructure"}
-LOCATION_DRIVEN = {"health", "air_quality", "socioeconomic", "walkability", "climate", "solar"}
+LOCATION_DRIVEN = {"health", "air_quality", "noise", "socioeconomic", "walkability", "climate", "solar"}
 
 
 def _loglin(x: float, xs: list[float], ys: list[float]) -> float:
@@ -715,6 +716,16 @@ def simulate_all_dimensions(
         air_quality = air_quality_for_county(location.county_fips)
     air_quality_score = air_quality["score"] if air_quality else None
 
+    # Noise: bundled tract transportation-noise exposure (BTS/UW). Resolved at the
+    # tract (county-mean fallback); a location absent from the map is left unscored.
+    from housing_label.data.noise import noise_for_tract, noise_for_county
+    noise = None
+    if tract:
+        noise = noise_for_tract(tract)
+    elif have_county:
+        noise = noise_for_county(location.county_fips)
+    noise_score = noise["score"] if noise else None
+
     # Solar Potential: bundled county rooftop specific yield (PVGIS). Scored whenever
     # a county resolved; the drill-down turns the yield into a representative-system
     # production estimate, the dollars it offsets at the local electricity rate, and
@@ -731,6 +742,7 @@ def simulate_all_dimensions(
         "infrastructure": construction["infrastructure"],
         "health": location_dims["health"],
         "air_quality": air_quality_score,
+        "noise": noise_score,
         "socioeconomic": location_dims["socioeconomic"],
         "walkability": location_dims["walkability"],
         "climate": climate_score,
@@ -746,6 +758,8 @@ def simulate_all_dimensions(
         metrics["aq_ozone_ppb"] = air_quality["ozone"]
         metrics["aq_radon_zone"] = air_quality["radon_zone"]
         metrics["aq_radon_label"] = air_quality["radon_label"]
+    if noise and noise_score is not None:
+        metrics["noise_pct_ge60db"] = noise["pct_ge60db"]
     if solar and solar_score is not None:
         prod = solar["yield_kwh_kwp"] * TYPICAL_SYSTEM_KW
         metrics["solar_system_kw"] = TYPICAL_SYSTEM_KW
@@ -794,6 +808,10 @@ def simulate_all_dimensions(
         location_notes["air_quality"] = (
             f"CDC Tracking PM2.5/ozone ({_aq_geo}) + EPA radon zone "
             f"(county {location.county_fips})")
+    if noise and noise_score is not None:
+        _n_geo = (f"tract {location.tract}" if noise.get("geo_level") == "tract" and location.tract
+                  else f"county {location.county_fips}")
+        location_notes["noise"] = f"BTS transportation-noise exposure ({_n_geo})"
     if solar and solar_score is not None:
         location_notes["solar"] = f"PVGIS-NSRDB rooftop yield (county {location.county_fips})"
 

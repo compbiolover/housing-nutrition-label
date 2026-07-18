@@ -41,7 +41,7 @@
 
 <section>
   <h2>How the scores work</h2>
-  <p>Each of the eleven dimensions is scored from 0 to 100. Every score starts with a short, plain-language summary of what it tells you; open <strong>&ldquo;How it&rsquo;s calculated&rdquo;</strong> under any dimension for the full method, data sources, and formulas. Everything is built from public data and documented so the numbers can be checked.</p>
+  <p>Each of the twelve dimensions is scored from 0 to 100. Every score starts with a short, plain-language summary of what it tells you; open <strong>&ldquo;How it&rsquo;s calculated&rdquo;</strong> under any dimension for the full method, data sources, and formulas. Everything is built from public data and documented so the numbers can be checked.</p>
   <div class="insight"><strong>Where the data comes from:</strong> the label scores any U.S. address using national datasets &mdash; FEMA, USGS, EPA, CDC, the Census Bureau, and the EIA. It began as a pilot in one county (Shelby County, TN), and a few cost-model baselines are still being generalized nationwide. Wherever one of those still applies, the label flags it &mdash; so a score is never presented as more locally precise than it is.</p>
   </div>
 </section>
@@ -214,7 +214,17 @@
   </div>
 
   <div class="method-section">
-    <h3>8. Socioeconomic</h3>
+    <h3>8. Noise</h3>
+    <p class="plain"><strong>What this tells you:</strong> how quiet the location is &mdash; how much aircraft, highway, and railroad noise reaches the neighborhood. A higher score means quieter. (Like Health and Air Quality, this describes the location, not the building.)</p>
+
+    <details class="tech"><summary>How it&rsquo;s calculated</summary>
+    <p>Uses the <strong>US DOT Bureau of Transportation Statistics National Transportation Noise Map</strong> (via the census-tract National Transportation Noise Exposure Map, Seto &amp; Huang 2023), which models combined aviation + road + rail noise nationwide. For each <strong>census tract</strong> it gives the population exposed in dB bands (45&ndash;50, 50&ndash;60, 60&ndash;70, 70&ndash;80, 80&ndash;90, 90+&nbsp;LAeq). The metric is the <strong>share of residents exposed to &ge;&nbsp;60&nbsp;dB</strong> &mdash; roughly the loudness of a busy restaurant, the level at which sustained transportation noise becomes a recognized nuisance and sleep/health concern. That share is mapped to a 0&ndash;100 score against the <strong>national distribution of US tracts</strong> (more exposure &rarr; lower score), so it reads directly as a national percentile of quiet, with a tract &rarr; county-mean fallback.</p>
+    <div class="insight"><strong>Caveat:</strong> this is <em>transportation</em> noise only (planes, highways, trains) at census-tract resolution &mdash; it doesn&rsquo;t capture very local sources (a neighbor&rsquo;s AC unit, nightlife, construction) or indoor attenuation from the building itself.</div>
+    </details>
+  </div>
+
+  <div class="method-section">
+    <h3>9. Socioeconomic</h3>
     <p class="plain"><strong>What this tells you:</strong> the economic profile of the neighborhood &mdash; income, poverty, education, and jobs. A higher score means stronger local economic opportunity. (Like Health, this describes the area, not the building.)</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
@@ -223,7 +233,7 @@
   </div>
 
   <div class="method-section">
-    <h3>9. Walkability</h3>
+    <h3>10. Walkability</h3>
     <p class="plain"><strong>What this tells you:</strong> how easy it is to get around from this address on foot, by transit, or by bike. A higher score means more of daily life is reachable without a car.</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
@@ -235,7 +245,7 @@
   </div>
 
   <div class="method-section">
-    <h3>10. Climate Projections</h3>
+    <h3>11. Climate Projections</h3>
     <p class="plain"><strong>What this tells you:</strong> how the local climate is projected to change by mid-century &mdash; more extreme heat, heavier rain and flooding, and drought. A higher score means less projected climate hazard. The label shows a range, because how much it changes depends on future emissions.</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
@@ -246,7 +256,7 @@
   </div>
 
   <div class="method-section">
-    <h3>11. Solar Potential</h3>
+    <h3>12. Solar Potential</h3>
     <p class="plain"><strong>What this tells you:</strong> how productive rooftop solar is at this location &mdash; how much electricity a panel makes here versus the rest of the country. A higher score means sunnier, so a system pays off faster. The details estimate what a typical system would produce, save on your power bill, and offset in CO&#8322;.</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>

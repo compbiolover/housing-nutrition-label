@@ -41,7 +41,7 @@ CONSTRUCTION_DIMS = frozenset({"energy", "durability", "environmental", "resilie
 # and Solar are included: their breakpoints are anchored to national tract / county
 # quantiles, so the score already tracks a national percentile rank (see
 # data/air_quality.py — tract-level — and data/solar.py — county-level).
-IDENTITY_DIMS = frozenset({"health", "air_quality", "socioeconomic", "climate", "infrastructure", "solar"})
+IDENTITY_DIMS = frozenset({"health", "air_quality", "noise", "socioeconomic", "climate", "infrastructure", "solar"})
 
 DATA_VINTAGE = "national percentile vs US homes (modeled reference)"
 
