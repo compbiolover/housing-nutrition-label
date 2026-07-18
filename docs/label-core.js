@@ -55,7 +55,8 @@ window.LabelCore = (function () {
     socioeconomic: "A census-tract socioeconomic index (Census ACS: poverty, income, housing-cost burden, education, and unemployment) scored against the national distribution of US tracts, comparable across locations. Higher is a stronger local socioeconomic profile.",
     walkability: "How easy it is to run daily errands on foot and by transit (EPA National Walkability Index — intersection density, transit proximity, and land-use mix). Higher means more walkable.",
     climate: "How exposed this location is to worsening climate hazards by mid-century (CMIP6-LOCA2 downscaled projections). Higher means less projected hazard.",
-    solar: "How productive rooftop solar is here — the annual energy a standard array makes per kW installed (PVGIS on NSRDB satellite data), scored against the national distribution of US counties. Higher means sunnier, so a system pays off faster. The details show what a typical system would produce, save, and offset in CO₂."
+    solar: "How productive rooftop solar is here — the annual energy a standard array makes per kW installed (PVGIS on NSRDB satellite data), scored against the national distribution of US counties. Higher means sunnier, so a system pays off faster. The details show what a typical system would produce, save, and offset in CO₂.",
+    water: "How safe the tap water is — the share of the county's residents on a community water system that had a recent health-based drinking-water violation (EPA SDWIS), scored against the national distribution of US counties. Higher means cleaner, safer drinking water."
   };
 
   // ── Confidence (data quality, separate from the grade) ─────────────────────

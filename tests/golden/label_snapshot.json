@@ -66,6 +66,11 @@
         "key": "solar",
         "national_grade": "\u2014",
         "score": null
+      },
+      {
+        "key": "water",
+        "national_grade": "\u2014",
+        "score": null
       }
     ],
     "fire_loss": 96.92,
@@ -137,6 +142,11 @@
       },
       {
         "key": "solar",
+        "national_grade": "\u2014",
+        "score": null
+      },
+      {
+        "key": "water",
         "national_grade": "\u2014",
         "score": null
       }
@@ -212,6 +222,11 @@
         "key": "solar",
         "national_grade": "\u2014",
         "score": null
+      },
+      {
+        "key": "water",
+        "national_grade": "\u2014",
+        "score": null
       }
     ],
     "fire_loss": 142.06,
@@ -283,6 +298,11 @@
       },
       {
         "key": "solar",
+        "national_grade": "\u2014",
+        "score": null
+      },
+      {
+        "key": "water",
         "national_grade": "\u2014",
         "score": null
       }
@@ -358,6 +378,11 @@
         "key": "solar",
         "national_grade": "\u2014",
         "score": null
+      },
+      {
+        "key": "water",
+        "national_grade": "\u2014",
+        "score": null
       }
     ],
     "fire_loss": 135.66,
@@ -429,6 +454,11 @@
       },
       {
         "key": "solar",
+        "national_grade": "\u2014",
+        "score": null
+      },
+      {
+        "key": "water",
         "national_grade": "\u2014",
         "score": null
       }

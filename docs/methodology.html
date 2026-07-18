@@ -41,7 +41,7 @@
 
 <section>
   <h2>How the scores work</h2>
-  <p>Each of the twelve dimensions is scored from 0 to 100. Every score starts with a short, plain-language summary of what it tells you; open <strong>&ldquo;How it&rsquo;s calculated&rdquo;</strong> under any dimension for the full method, data sources, and formulas. Everything is built from public data and documented so the numbers can be checked.</p>
+  <p>Each of the thirteen dimensions is scored from 0 to 100. Every score starts with a short, plain-language summary of what it tells you; open <strong>&ldquo;How it&rsquo;s calculated&rdquo;</strong> under any dimension for the full method, data sources, and formulas. Everything is built from public data and documented so the numbers can be checked.</p>
   <div class="insight"><strong>Where the data comes from:</strong> the label scores any U.S. address using national datasets &mdash; FEMA, USGS, EPA, CDC, the Census Bureau, and the EIA. It began as a pilot in one county (Shelby County, TN), and a few cost-model baselines are still being generalized nationwide. Wherever one of those still applies, the label flags it &mdash; so a score is never presented as more locally precise than it is.</p>
   </div>
 </section>
@@ -263,6 +263,16 @@
     <p>The core number is the <strong>specific yield</strong> &mdash; the annual energy a standard <strong>1 kWp</strong> rooftop array produces, in kWh per kW installed per year &mdash; modeled by the EU Joint Research Centre&rsquo;s <strong>PVGIS v5.2</strong> performance model on the <strong>PVGIS-NSRDB</strong> satellite database (the same NREL NSRDB solar resource PVWatts uses, covering the Americas). Each county is queried at its Census-gazetteer internal point for a building-mounted array at the <em>optimal tilt facing south</em> with 14% system losses. The yield is mapped to a 0&ndash;100 score against the <strong>national distribution of US counties</strong>, so it reads directly as a national percentile (sunnier than N% of counties) &mdash; a sunny Southwest county (~1,700+ kWh/kWp) roughly doubles a cloudy Pacific-Northwest one (~950).</p>
     <p>The drill-down scales that yield to a representative <strong>6 kW</strong> residential array: <em>annual production</em> = yield &times; 6&nbsp;kW; <em>bill savings</em> = production &times; the location&rsquo;s residential electricity rate (EIA); and <em>CO&#8322; avoided</em> = production &times; the grid&rsquo;s <strong>marginal</strong> emission rate (NREL Cambium 2023 LRMER, since rooftop solar displaces the generation that actually ramps down; eGRID average where the marginal rate is unavailable) &mdash; reusing the same rate and grid factors as the Energy and Environmental dimensions.</p>
     <div class="insight"><strong>Caveat:</strong> this is the <em>location&rsquo;s</em> resource at optimal orientation &mdash; a whole-roof best case. A specific roof&rsquo;s real output depends on its pitch, azimuth, and especially shading, which this doesn&rsquo;t model; treat it as "how good is the sun here," not a quote for a particular house.</div>
+    </details>
+  </div>
+
+  <div class="method-section">
+    <h3>13. Water Quality</h3>
+    <p class="plain"><strong>What this tells you:</strong> how safe the tap water is &mdash; whether the community water systems serving the area have had recent health-based drinking-water violations. A higher score means cleaner water. (Like Health and Air Quality, this describes the location, not the building.)</p>
+
+    <details class="tech"><summary>How it&rsquo;s calculated</summary>
+    <p>Uses the EPA <strong>Safe Drinking Water Information System (SDWIS)</strong> federal-reporting data. For each <strong>county</strong> it looks at every active <strong>community water system</strong> (the systems that serve year-round residents) and the share of the county&rsquo;s served population on a system that had a <strong>health-based violation</strong> &mdash; a contaminant exceedance (lead, nitrate, arsenic, disinfection by-products, coliform&hellip;) or treatment-technique failure that can affect health, as opposed to a paperwork/monitoring lapse &mdash; whose non-compliance period began within the trailing <strong>5-year</strong> window. That exposure share is mapped to a 0&ndash;100 score against the <strong>population-weighted national distribution</strong> (less exposure &rarr; higher score), so it reads directly as a national percentile of drinking-water safety.</p>
+    <div class="insight"><strong>Caveat:</strong> this is <em>reported compliance</em> for community water systems at county resolution &mdash; it reflects whether systems met federal standards, not a direct test of your tap. It doesn&rsquo;t cover private wells (which aren&rsquo;t regulated under SDWA), in-home plumbing (e.g. a home&rsquo;s own lead service line), or contaminants without a federal limit.</div>
     </details>
   </div>
 </section>

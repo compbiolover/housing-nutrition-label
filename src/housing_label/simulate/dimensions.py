@@ -154,9 +154,10 @@ DIMENSIONS = [
     ("walkability",    "Walkability"),
     ("climate",        "Climate Projections"),
     ("solar",          "Solar Potential"),
+    ("water",          "Water Quality"),
 ]
 CONSTRUCTION_DRIVEN = {"energy", "durability", "environmental", "infrastructure"}
-LOCATION_DRIVEN = {"health", "air_quality", "noise", "socioeconomic", "walkability", "climate", "solar"}
+LOCATION_DRIVEN = {"health", "air_quality", "noise", "socioeconomic", "walkability", "climate", "solar", "water"}
 
 
 def _loglin(x: float, xs: list[float], ys: list[float]) -> float:
@@ -734,6 +735,13 @@ def simulate_all_dimensions(
     solar = solar_for_county(location.county_fips) if have_county else None
     solar_score = solar["score"] if solar else None
 
+    # Water Quality: bundled county drinking-water compliance (EPA SDWIS). Scored
+    # whenever a county resolved; a county with no community water system in SDWIS
+    # is left unscored.
+    from housing_label.data.water import water_for_county
+    water = water_for_county(location.county_fips) if have_county else None
+    water_score = water["score"] if water else None
+
     scores = {
         "resilience": round(float(resilience_score), 1),
         "energy": construction["energy"],
@@ -747,6 +755,7 @@ def simulate_all_dimensions(
         "walkability": location_dims["walkability"],
         "climate": climate_score,
         "solar": solar_score,
+        "water": water_score,
     }
 
     metrics = dict(construction["_metrics"])
@@ -772,6 +781,9 @@ def simulate_all_dimensions(
         co2_factor = grid_marginal_factor if grid_marginal_factor is not None else grid_factor
         if co2_factor is not None:
             metrics["solar_co2_avoided_kg"] = round(prod * co2_factor)
+    if water and water_score is not None:
+        metrics["water_pct_hb_violation"] = water["pct_pop_hb_violation"]
+        metrics["water_n_cws"] = round(water["n_cws"])
 
     dims = []
     from housing_label.data.national_percentile import national_percentile
@@ -814,6 +826,8 @@ def simulate_all_dimensions(
         location_notes["noise"] = f"BTS transportation-noise exposure ({_n_geo})"
     if solar and solar_score is not None:
         location_notes["solar"] = f"PVGIS-NSRDB rooftop yield (county {location.county_fips})"
+    if water and water_score is not None:
+        location_notes["water"] = f"EPA SDWIS drinking-water compliance (county {location.county_fips})"
 
     return {
         "dimensions": dims,
