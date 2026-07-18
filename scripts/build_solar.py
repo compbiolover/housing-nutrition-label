@@ -24,8 +24,11 @@ parts of Alaska it reaches (~14 southern/coastal boroughs); a county outside
 coverage (far-north Alaska) errors on the PVGIS request and is skipped → unscored.
 
 The run makes ~3,100 keyless requests (bounded concurrency, polite retries) and
-checkpoints to the CSV, so it can be stopped and resumed (existing county rows are
-skipped on restart). Dev-time only; the shipped artifact is the CSV.
+checkpoints the merged CSV every 250 completions, so an interrupted run resumes
+from the counties already written. The handful outside PVGIS coverage return no
+data (nothing to write) and are simply re-probed on a rerun — a negligible cost
+that isn't worth a separate skip-list sidecar. Dev-time only; the shipped artifact
+is the CSV.
 
 Sources
 -------
