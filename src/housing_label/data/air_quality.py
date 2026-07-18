@@ -165,5 +165,5 @@ def air_quality_for_county(county_fips: str | None) -> dict | None:
         "ozone_score": None if oz_s is None else round(oz_s, 1),
         "radon_score": None if rn_s is None else round(rn_s, 1),
         "radon_label": _RADON_LABEL.get(zone),
-        "label": f"CDC Tracking + EPA radon ({AIR_QUALITY_VINTAGE})",
+        "label": AIR_QUALITY_VINTAGE,
     }

@@ -22,9 +22,11 @@ the 5-digit county FIPS:
      it keyed by county *name + state*, so it is joined to FIPS through the Census
      ``national_county2020`` code list.
 
-All three are fetched live by default (dev-time only; the shipped artifact is the
-CSV). Pass ``--year`` to change the modeled year, or the ``--*-path`` flags to read
-a previously downloaded file offline.
+All sources are fetched at build time (dev-time only; the shipped artifact is the
+CSV). PM2.5 and ozone are always pulled from the CDC Socrata API; the EPA radon
+workbook and the Census county file can each be read from a local copy instead
+(``--radon-path`` / ``--census-path``) for a reproducible offline build. Pass
+``--year`` to change the modeled year.
 
 Sources
 -------
@@ -221,7 +223,6 @@ def main() -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--year", default="2022", help="modeled year (default 2022, the latest CDC year)")
-    ap.add_argument("--pm25-path", help="local PM2.5 Socrata JSON (skip fetch)")
     ap.add_argument("--radon-path", help="local EPA radon .xlsx (skip fetch)")
     ap.add_argument("--census-path", help="local Census national_county file (skip fetch)")
     ap.add_argument("--out", default=str(_OUT), help="output CSV path")
