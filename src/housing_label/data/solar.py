@@ -45,6 +45,8 @@ import csv
 import pathlib
 from functools import lru_cache
 
+from housing_label.data._util import num as _num
+
 SOLAR_VINTAGE = "PVGIS-NSRDB v5.2 (optimal-tilt 1 kWp rooftop, 14% losses)"
 
 # Representative residential array for the drill-down's production / savings estimate.
@@ -72,20 +74,13 @@ def _interp(x: float, xs: list[float], ys: list[float]) -> float:
     return ys[-1]
 
 
-def _num(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return None
-
-
 @lru_cache(maxsize=1)
 def _table() -> dict[str, dict]:
     """county FIPS (5-digit) → {yield_kwh_kwp, irradiation}."""
     table: dict[str, dict] = {}
     if not _CSV.exists():
         return table
-    with _CSV.open() as f:
+    with _CSV.open(newline="") as f:
         for row in csv.DictReader(f):
             raw = str(row.get("county_fips") or "").strip()
             if not raw:
