@@ -9,6 +9,21 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.50](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.49...v0.1.50) (2026-07-18)
+
+
+### Features
+
+* add Air Quality dimension (PM2.5 + ozone + radon) ([#170](https://github.com/compbiolover/housing-nutrition-label/issues/170)) ([03899b0](https://github.com/compbiolover/housing-nutrition-label/commit/03899b00c42dd713585cffadfdd0afdb32cbd9c3))
+* add Solar Potential dimension (rooftop PV yield + savings + CO₂ avoided) ([#172](https://github.com/compbiolover/housing-nutrition-label/issues/172)) ([8e6626b](https://github.com/compbiolover/housing-nutrition-label/commit/8e6626baecd32a645340cff95f4d60dfa9d01544))
+* **air-quality:** resolve PM2.5 + ozone at the census tract ([#171](https://github.com/compbiolover/housing-nutrition-label/issues/171)) ([a144be2](https://github.com/compbiolover/housing-nutrition-label/commit/a144be2779bccb290c08d2a9374dc2dd18c4e946))
+
+
+### Code Refactoring
+
+* consolidate duplicated haversine + _num helpers onto shared modules ([#169](https://github.com/compbiolover/housing-nutrition-label/issues/169)) ([8cc3453](https://github.com/compbiolover/housing-nutrition-label/commit/8cc34533dde9f0f4cec6170f0ab6028690ae918f))
+* share resilience score primitives between simulator and batch scorer ([#167](https://github.com/compbiolover/housing-nutrition-label/issues/167)) ([f1af7f6](https://github.com/compbiolover/housing-nutrition-label/commit/f1af7f637afad12212d9b45ed69faa504165d6cb))
+
 ## [0.1.49](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.48...v0.1.49) (2026-07-17)
 
 
