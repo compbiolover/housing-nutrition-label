@@ -7,11 +7,12 @@ community-drinking-water compliance with no network call:
   • ``src/housing_label/data/water_county.csv`` — one row per county:
         county_fips, pct_pop_hb_violation, cws_pop, n_cws
 
-``pct_pop_hb_violation`` is the share of the county's population served by an
-active **community water system (CWS)** that had a **health-based** drinking-water
-violation whose non-compliance period began within the trailing 5-year window
-(anchored to the newest violation year in the dataset, so the build is
-reproducible regardless of when it is run). Higher = worse water.
+``pct_pop_hb_violation`` is the share of the county's **community-water-system-
+served population** (the sum of ``POPULATION_SERVED_COUNT`` over the active CWSs
+attributed to the county — not all county residents) that is on a CWS with a
+**health-based** drinking-water violation whose non-compliance period began within
+the trailing 5-year window (anchored to the newest violation year in the dataset,
+so the build is reproducible regardless of when it is run). Higher = worse water.
 
 Method
 ------

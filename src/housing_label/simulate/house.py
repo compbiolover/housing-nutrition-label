@@ -1386,7 +1386,7 @@ def dimension_details(cfg: dict, r: dict, label: dict) -> dict:
     if wt_s is not None:
         details["water"] = rows(
             ("Drinking-water safety index (national percentile)", f"{wt_s:.1f} / 100"),
-            ("Residents on a water system with a recent health-based violation",
+            ("Community-water-system users on a system with a recent health-based violation",
              None if wt_pct is None else f"{wt_pct:.1f}%"),
             ("Community water systems in county",
              None if _finite(m.get("water_n_cws")) is None else f"{m['water_n_cws']:,.0f}"),

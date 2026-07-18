@@ -5,12 +5,13 @@ scored 0-100 where higher = cleaner (fewer residents on a community water system
 with a recent health-based violation). One national layer, looked up by 5-digit
 county FIPS with no network call:
 
-  • **Health-based violation exposure** — the share of the county's population
-    served by an active **community water system (CWS)** that had a health-based
-    drinking-water violation (a contaminant exceedance or treatment-technique
-    failure that can affect health — as opposed to a paperwork/monitoring lapse)
-    whose non-compliance period began within the trailing 5-year window. Lower is
-    better; a spotless county sits at 0%.
+  • **Health-based violation exposure** — the share of the county's **community-
+    water-system-served population** (residents on an active CWS — not all county
+    residents, so private wells are out of scope) that is on a system with a
+    health-based drinking-water violation (a contaminant exceedance or treatment-
+    technique failure that can affect health — as opposed to a paperwork/monitoring
+    lapse) whose non-compliance period began within the trailing 5-year window.
+    Lower is better; a spotless county sits at 0%.
 
 Scoring
 -------
