@@ -88,10 +88,13 @@ def _table() -> dict[str, dict]:
             pct = _num(row.get("pct_pop_hb_violation"))
             if pct is None:
                 continue
+            cws_pop = _num(row.get("cws_pop"))
+            n_cws = _num(row.get("n_cws"))
             table[raw.zfill(5)] = {
                 "pct_pop_hb_violation": pct,
-                "cws_pop": _num(row.get("cws_pop")),
-                "n_cws": _num(row.get("n_cws")),
+                # cws_pop / n_cws are counts — keep them as ints, not floats.
+                "cws_pop": None if cws_pop is None else int(cws_pop),
+                "n_cws": None if n_cws is None else int(n_cws),
             }
     return table
 
