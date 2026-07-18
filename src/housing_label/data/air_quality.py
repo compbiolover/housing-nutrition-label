@@ -105,9 +105,10 @@ def _table() -> dict[str, dict]:
         return table
     with _CSV.open() as f:
         for row in csv.DictReader(f):
-            fips = str(row["county_fips"]).strip().zfill(5)
-            if not fips:
-                continue
+            raw = str(row.get("county_fips") or "").strip()
+            if not raw:
+                continue          # skip a malformed/blank row (don't pad "" → "00000")
+            fips = raw.zfill(5)
             zone = row.get("radon_zone")
             try:
                 zone = int(zone) if zone not in (None, "") else None

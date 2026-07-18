@@ -37,8 +37,9 @@ def test_missing_and_absent_return_none():
 def test_radon_weight_redistributes_when_absent():
     """A county with no EPA radon zone is still scored on PM2.5 + ozone alone
     (radon's weight redistributed), never left unscored for that reason."""
-    no_radon = [r["county_fips"] for r in csv.DictReader(A._CSV.open())
-                if not r["radon_zone"] and r["pm25_ugm3"]]
+    with A._CSV.open() as f:
+        no_radon = [r["county_fips"] for r in csv.DictReader(f)
+                    if not r["radon_zone"] and r["pm25_ugm3"]]
     assert no_radon, "expected at least one county without an EPA radon zone"
     rec = A.air_quality_for_county(no_radon[0])
     assert rec is not None and rec["radon_zone"] is None
