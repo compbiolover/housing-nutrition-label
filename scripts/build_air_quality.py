@@ -83,10 +83,12 @@ _STATE_ABBR_TO_FIPS = {
 
 # County-name suffixes Census appends but the EPA radon table omits. ("city" is
 # deliberately NOT here — "Charles City"/"James City" are counties, not suffixes,
-# and Census keeps "city" on independent cities too.)
+# and Census keeps "city" on independent cities too.) Longer phrases come first so
+# a multi-word suffix ("city and borough") is stripped whole, never leaving
+# "... city and" behind.
 _SUFFIXES = re.compile(
-    r"\s+(county|borough|census area|parish|municipality|city and borough|"
-    r"municipio)$")
+    r"\s+(city and borough|census area|municipality|municipio|county|borough|"
+    r"parish)$")
 
 # EPA radon table quirks that no normalization can bridge: (state_fips, raw name)
 # → the correct county name. The EPA workbook truncates a few leading letters

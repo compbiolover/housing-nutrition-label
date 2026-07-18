@@ -32,10 +32,13 @@ Data
       (county, latest available year), population-weighted annual means.
     • Radon — EPA Map of Radon Zones, joined to FIPS via the Census county codes.
 
-Scope: US counties. A handful (≈0.2%) lack an EPA radon zone (abolished/renamed
-areas, a few independent cities) and are scored on PM2.5 + ozone alone. A county
-absent from the table (e.g. an unmodeled territory) returns None, and the caller
-leaves Air Quality unscored.
+Scope: CONUS counties. The CDC PM2.5/ozone downscaler model covers the contiguous
+US only, so Alaska (FIPS 02), Hawai'i (15), Puerto Rico (72), and the territories
+are not in the bundled table; ``air_quality_for_county`` returns None there (the
+caller leaves Air Quality unscored), the same as for any county absent from the
+table. Within CONUS a handful of counties (≈0.2%) lack an EPA radon zone
+(abolished/renamed areas, a few independent cities) and are scored on PM2.5 +
+ozone alone.
 
 Sources (public domain / open):
   CDC Tracking Network (PM2.5, ozone modeled county estimates);
