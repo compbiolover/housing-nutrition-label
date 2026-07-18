@@ -38,7 +38,7 @@ Columns added
   soil_amplification_note  Short note on site amplification class
 """
 
-import math
+from housing_label.utils import haversine_miles
 
 # ── Config ────────────────────────────────────────────────────────────────────
 REQUIRED_COLS = ["latitude", "longitude"]
@@ -73,18 +73,6 @@ SEISMIC_COLS = [
     "seismic_risk",
     "soil_amplification_note",
 ]
-
-
-# ── Haversine ─────────────────────────────────────────────────────────────────
-_R = 3958.8  # Earth radius in miles
-
-def haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Return great-circle distance in miles between two lat/lon points."""
-    lat1, lon1, lat2, lon2 = (math.radians(x) for x in (lat1, lon1, lat2, lon2))
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
-    a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
-    return 2 * _R * math.asin(math.sqrt(a))
 
 
 # ── National seismic classification (from mapped PGA) ─────────────────────────

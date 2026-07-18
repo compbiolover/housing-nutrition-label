@@ -947,7 +947,7 @@ def main() -> None:
                 "foundation_factor", "condition_factor",
                 "flood_brm", "wind_seismic_brm", "fire_brm"]
     print(df[brm_cols].describe().map(lambda x: f"{x:.4f}").to_string())
-    print(f"\nBRM source breakdown:")
+    print("\nBRM source breakdown:")
     print(df["brm_source"].value_counts().to_string())
 
     print("\n" + "=" * 70)

@@ -7,10 +7,10 @@ Canonical home for small utilities reused across pipeline stages:
 * ``haversine_miles`` — great-circle distance between two lat/lon points.
 * ``webmercator_to_wgs84`` — EPSG:3857 → WGS84 lon/lat conversion.
 
-The standalone pipeline scripts under ``housing_label/`` currently keep their
-own inline copies so they remain runnable as plain files (``python
-src/housing_label/enrich/seismic.py``) without importing the package. This
-module is the shared implementation those scripts can migrate onto.
+The enrich/simulate modules that need great-circle distance import
+``haversine_miles`` from here rather than re-implementing it. (The HTTP
+helpers remain available for callers that want the shared retry/error
+handling; some pipeline scripts still keep their own inline copies.)
 """
 
 from __future__ import annotations

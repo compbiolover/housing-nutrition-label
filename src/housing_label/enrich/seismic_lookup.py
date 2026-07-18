@@ -29,7 +29,8 @@ from functools import lru_cache
 
 import requests
 
-from housing_label.config import TIMEOUT, RETRIES, BACKOFF, HEADERS, EARTH_RADIUS_MI
+from housing_label.config import TIMEOUT, RETRIES, BACKOFF, HEADERS
+from housing_label.utils import haversine_miles
 
 # USGS 2023 NSHM hazard-curve service (keyless; path form, longitude first). vs30=760
 # m/s is the BC-boundary reference site condition used by the national hazard maps.
@@ -152,7 +153,7 @@ def _grid_pga(lat: float, lon: float, k: int = 4) -> float | None:
         return None
     scored = []
     for glat, glon, pga in pts:
-        d = _haversine(lat, lon, glat, glon)
+        d = haversine_miles(lat, lon, glat, glon)
         if d < 1e-6:
             return pga
         scored.append((d, pga))
@@ -160,13 +161,6 @@ def _grid_pga(lat: float, lon: float, k: int = 4) -> float | None:
     near = scored[:k]
     wsum = sum(1.0 / d for d, _ in near)
     return sum((1.0 / d) * pga for d, pga in near) / wsum if wsum else None
-
-
-def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    p1, p2 = math.radians(lat1), math.radians(lat2)
-    dphi, dlam = math.radians(lat2 - lat1), math.radians(lon2 - lon1)
-    a = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlam / 2) ** 2
-    return 2 * EARTH_RADIUS_MI * math.asin(math.sqrt(a))
 
 
 # ── Public API ──────────────────────────────────────────────────────────────────

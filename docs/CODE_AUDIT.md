@@ -10,6 +10,15 @@ within each section by value = impact × confidence, low-risk first.
 Two correctness bugs surfaced incidentally during the sweep; they are listed
 first because they are cheap to fix and one changes output.
 
+> **⚠️ Partially superseded (updated 2026-07-18).** Sections 0–2 are the
+> original dated snapshot and reference subsystems that have since been
+> **removed**: the Shelby batch/local-grade path in `simulate/house.py`
+> (`SCORED_CSV`, `local_compare`, `compute_local_percentile`, the `_haversine_miles_np`
+> helper) and the Walk Score integration (`enrich/walkscore.py`). Findings that
+> targeted those — **P1**, **P3**, and the enricher `main()` loops behind **P5/S4** —
+> are therefore moot. The current state is recorded in **§ Implementation status**
+> at the bottom; read that first.
+
 ---
 
 ## 0. Correctness bugs found incidentally
@@ -287,11 +296,31 @@ reference on random parcels).
   (both range guards are false for NaN, so the loop never matches). Kept.
 - **`_wrap` → `textwrap.wrap`** — not behavior-preserving: `_wrap` collapses internal
   whitespace, `textwrap` preserves it. Kept `_wrap`.
-- **S1 haversine / geocoder consolidation, S4 enricher `main()` scaffold, S5 summary/geocode
-  loops** — these live in the `enrich/*` build scripts, which are deliberately standalone
-  (`python enrich/x.py`, no `housing_label` imports). Importing shared helpers would break
-  standalone execution for little runtime benefit (build-only code).
 - **`_load_rows` geoid-loader merge** — the wildfire and climate variants differ in
   blank/missing-GEOID handling; unifying would change one module's output.
 - **S6 grade/interp cross-module merge, structure `d2` micro, P7 value/structure threading** —
   low value relative to the coupling/churn; left for a follow-up if desired.
+
+**Post-audit changes (after 2026-07-08, tracked separately from the audit above)**
+- **Shelby batch/local-grade path removed** — the per-address local-percentile
+  machinery in `simulate/house.py` (`SCORED_CSV` re-read, `local_compare`,
+  `compute_local_percentile`, `_haversine_miles_np`) and the `ingest`/`run_pipeline`
+  batch scaffolding were deleted. This **moots P1** (the hot-path CSV re-read no
+  longer exists) and the vectorized-haversine fix suggested for **P4**. The batch
+  *scorer* under `score/*` still emits `shelby_parcels_scored.csv` for offline runs.
+- **Walk Score removed** — `enrich/walkscore.py` and the paid-API call were deleted;
+  walkability now reads the bundled EPA National Walkability Index. This **moots P3**.
+- **Enricher `main()`/CLI scaffolds stripped** from the `enrich/*` modules (they are
+  now importable libraries, not standalone scripts). This **moots S4** and the
+  `iterrows` loops behind **P5**, and — because the modules are no longer run as
+  standalone files — **removes the caveat that blocked S1's haversine consolidation**.
+- **S1 (haversine) applied** — the scalar `haversine_miles` copies in
+  `simulate/house.py`, `enrich/seismic.py`, `enrich/infrastructure.py`, and
+  `enrich/seismic_lookup.py` now import the canonical `housing_label.utils.haversine_miles`
+  (which uses `config.EARTH_RADIUS_MI`); the golden snapshot is unchanged. The
+  meters-unit ring-perimeter helper `enrich/footprint._haversine_m` is a distinct
+  function and was intentionally left in place.
+- **S1 (`_num`) — `enrich/structure._num`** now delegates to `data/_util.num` (they
+  were equivalent). The `footprint`/`environmental` copies are kept: they
+  deliberately reject non-finite floats (NaN/inf from live services), which
+  `data/_util.num` (built for CSV strings) passes through.

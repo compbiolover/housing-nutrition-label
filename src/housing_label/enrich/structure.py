@@ -32,6 +32,7 @@ from functools import lru_cache
 import requests
 
 from housing_label.config import TIMEOUT, RETRIES, BACKOFF, HEADERS
+from housing_label.data._util import num as _num
 
 
 class NSIUnavailable(RuntimeError):
@@ -111,13 +112,6 @@ def _units_for(occtype: str, resunits) -> int | None:
 _CLUSTER_MIN = 8         # ≥ this many residential structures sharing one footprint
 _RES3_DISTRICT_MIN = 15  # ≥ this many RES3 (multi-family) structures in the box
 _DEFAULT_MF_UNITS = 8    # representative unit-count estimate when NSI gives no count
-
-
-def _num(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return None
 
 
 # ── Addressed-structure selection ─────────────────────────────────────────────

@@ -69,6 +69,8 @@ import math
 
 import pandas as pd
 
+from housing_label.utils import haversine_miles
+
 REQUIRED_COLUMNS = ["latitude", "longitude", "CALC_ACRE"]
 
 # ── Memphis city center (Main St & Beale St intersection, downtown core) ───────
@@ -239,16 +241,6 @@ RATING_THRESHOLDS = [
 # ══════════════════════════════════════════════════════════════════════════════
 # Helper functions
 # ══════════════════════════════════════════════════════════════════════════════
-
-def haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Return great-circle distance in miles between two lat/lon points."""
-    R_MILES = 3_958.8
-    phi1, phi2 = math.radians(lat1), math.radians(lat2)
-    dphi = math.radians(lat2 - lat1)
-    dlam = math.radians(lon2 - lon1)
-    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlam / 2) ** 2
-    return 2 * R_MILES * math.asin(math.sqrt(a))
-
 
 def interp_cost(density: float, anchors: list[tuple]) -> float:
     """Log-log linear interpolation of per-household cost vs density.
