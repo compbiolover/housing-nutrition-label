@@ -6,8 +6,9 @@ location is with no network call:
 
   • ``src/housing_label/data/noise_tracts.csv.gz`` — one row per census tract:
         geoid, pct_ge60db
-  • ``src/housing_label/data/noise_county.csv`` — a county fallback (population-
-        weighted mean of the county's tracts):
+  • ``src/housing_label/data/noise_county.csv`` — a county fallback (a simple,
+        unweighted mean of the county's tract percentages — a coarse proxy, hit
+        only when a tract can't be resolved):
         county_fips, pct_ge60db
 
 ``pct_ge60db`` is the share of a tract's residents exposed to transportation noise
