@@ -72,7 +72,8 @@ def _interp(x: float, xs: list[float], ys: list[float]) -> float:
 
 @lru_cache(maxsize=1)
 def _tract_table():
-    """tract GEOID (11-digit) → row {pct_ge60db}, via the shared columnar store."""
+    """tract GEOID (11-digit) → row {pct_ge60db}, via the shared columnar
+    TractStore (memory-frugal for the ~84k-tract table)."""
     path = _TRACT_CSV_GZ if _TRACT_CSV_GZ.exists() else _TRACT_CSV
     if not path.exists():
         return {}
