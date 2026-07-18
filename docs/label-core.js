@@ -53,7 +53,8 @@ window.LabelCore = (function () {
     air_quality: "The neighborhood's ambient air quality — annual fine-particulate (PM2.5) and ozone at the census tract from the CDC Tracking model, plus the county's EPA radon zone — scored against the national distribution of US tracts. Higher means cleaner, safer air.",
     socioeconomic: "A census-tract socioeconomic index (Census ACS: poverty, income, housing-cost burden, education, and unemployment) scored against the national distribution of US tracts, comparable across locations. Higher is a stronger local socioeconomic profile.",
     walkability: "How easy it is to run daily errands on foot and by transit (EPA National Walkability Index — intersection density, transit proximity, and land-use mix). Higher means more walkable.",
-    climate: "How exposed this location is to worsening climate hazards by mid-century (CMIP6-LOCA2 downscaled projections). Higher means less projected hazard."
+    climate: "How exposed this location is to worsening climate hazards by mid-century (CMIP6-LOCA2 downscaled projections). Higher means less projected hazard.",
+    solar: "How productive rooftop solar is here — the annual energy a standard array makes per kW installed (PVGIS on NSRDB satellite data), scored against the national distribution of US counties. Higher means sunnier, so a system pays off faster. The details show what a typical system would produce, save, and offset in CO₂."
   };
 
   // ── Confidence (data quality, separate from the grade) ─────────────────────

@@ -66,9 +66,9 @@
 </nav>
 
 <div class="hero">
-  <div class="badge">Open source &middot; 10 dimensions &middot; any U.S. address</div>
+  <div class="badge">Open source &middot; 11 dimensions &middot; any U.S. address</div>
   <h1>Housing Nutrition Label</h1>
-  <p class="tagline">A free, nutrition-label-style scorecard for any U.S. home. It rates ten things that shape what a place costs to live in and how well it holds up &mdash; disaster risk, energy use, durability, environmental footprint, city-service costs, neighborhood health, air quality, the local economy, walkability, and a changing climate.</p>
+  <p class="tagline">A free, nutrition-label-style scorecard for any U.S. home. It rates eleven things that shape what a place costs to live in and how well it holds up &mdash; disaster risk, energy use, durability, environmental footprint, city-service costs, neighborhood health, air quality, the local economy, walkability, a changing climate, and rooftop solar potential.</p>
   <div class="addr-search">
     <!-- Unified scoring widget (label-form.js) generates the address form,
          refine panel, detected/hypothetical modes, and density here. -->
@@ -86,7 +86,7 @@
 
 <section>
   <h2>The idea</h2>
-  <p>A clear, color-coded scorecard for any home &mdash; showing how it does on the things that matter to buyers, neighborhoods, and cities. Each of the ten dimensions is scored from 0 to 100, with a national grade and a national percentile that show how the home compares to homes across the whole country.</p>
+  <p>A clear, color-coded scorecard for any home &mdash; showing how it does on the things that matter to buyers, neighborhoods, and cities. Each of the eleven dimensions is scored from 0 to 100, with a national grade and a national percentile that show how the home compares to homes across the whole country.</p>
 </section>
 
 <section>
@@ -142,6 +142,11 @@
       <h3>Climate Projections</h3>
       <p>How the local climate is projected to shift by mid-century &mdash; more extreme heat, heavy rain and flooding, and drought (USGS downscaled projections). Shown as a range for lower- vs. higher-emissions futures.</p>
     </div>
+    <div class="card">
+      <div class="icon">&#x2600;</div>
+      <h3>Solar Potential</h3>
+      <p>How productive rooftop solar is here &mdash; the annual energy a standard array makes per kW installed (PVGIS on NREL NSRDB satellite data). Higher means sunnier; the details estimate what a typical system produces, saves, and offsets in CO&#8322;.</p>
+    </div>
   </div>
 </section>
 
@@ -163,7 +168,7 @@
 
 <section>
   <h2>Where the project stands</h2>
-  <p>You can score <strong>any U.S. address across all ten dimensions</strong> right now (try the box above). The scores draw on national public datasets &mdash; FEMA, USGS, EPA, CDC, the Census Bureau, and the EIA. The project began as a pilot in Shelby County, TN, and a few cost baselines are still being generalized to the whole country; the label flags those where they apply. You can also model construction choices, including multi-unit buildings (duplexes, quadplexes) and 20+ above-code upgrades.</p>
+  <p>You can score <strong>any U.S. address across all eleven dimensions</strong> right now (try the box above). The scores draw on national public datasets &mdash; FEMA, USGS, EPA, CDC, the Census Bureau, and the EIA. The project began as a pilot in Shelby County, TN, and a few cost baselines are still being generalized to the whole country; the label flags those where they apply. You can also model construction choices, including multi-unit buildings (duplexes, quadplexes) and 20+ above-code upgrades.</p>
   <p>The scoring engine, data pipeline, and address-search service are all open-source under the MIT license.</p>
 </section>
 
@@ -184,6 +189,7 @@
       <tr><td>USGS CMIP6-LOCA2</td><td>Sub-county climate-hazard projections</td><td class="free">Free, no key</td></tr>
       <tr><td>CDC PLACES</td><td>Health metrics by census tract</td><td class="free">Free, no key</td></tr>
       <tr><td>CDC Tracking + EPA radon zones</td><td>Air quality: PM2.5 &amp; ozone by tract, radon by county</td><td class="free">Free, no key (bundled)</td></tr>
+      <tr><td>PVGIS (EU JRC) on NREL NSRDB</td><td>Rooftop solar specific yield by county</td><td class="free">Free, no key (bundled)</td></tr>
       <tr><td>Census ACS 5-yr Summary File</td><td>Socioeconomic indicators (national reference)</td><td class="free">Free, no key (bundled)</td></tr>
       <tr><td>EPA National Walkability Index</td><td>Walkability by census tract</td><td class="free">Free, public domain (bundled)</td></tr>
     </tbody>

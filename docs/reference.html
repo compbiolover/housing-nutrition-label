@@ -45,10 +45,10 @@
 
 <section>
   <h2>Reference</h2>
-  <p>A complete catalog of the label's ten dimensions, every variable you can control, and where each input comes from geographically. For the underlying formulas and sources, see <a href="methodology.html">Methodology</a>; to run it yourself, see <a href="setup.html">Setup</a>.</p>
+  <p>A complete catalog of the label's eleven dimensions, every variable you can control, and where each input comes from geographically. For the underlying formulas and sources, see <a href="methodology.html">Methodology</a>; to run it yourself, see <a href="setup.html">Setup</a>.</p>
   <ul class="ref-toc">
     <li><a href="#geo">Geographic resolution</a></li>
-    <li><a href="#dimensions">The ten dimensions</a></li>
+    <li><a href="#dimensions">The eleven dimensions</a></li>
     <li><a href="#construction">Wall / construction type</a></li>
     <li><a href="#condition">Condition</a></li>
     <li><a href="#foundation">Foundation</a></li>
@@ -68,7 +68,7 @@
     <tbody>
       <tr><td><span class="tag point">Address point</span></td><td>Flood zone (FEMA NFHL), seismic PGA (USGS)</td></tr>
       <tr><td><span class="tag tract">Census tract</span></td><td>Tornado &amp; wildfire expected annual loss (FEMA National Risk Index); <strong>Health</strong> (CDC PLACES), <strong>Socioeconomic</strong> (Census ACS), <strong>Walkability</strong> (EPA National Walkability Index), and <strong>Air Quality</strong> PM2.5 + ozone (CDC Tracking) &mdash; each scored against the <em>national</em> distribution of US tracts, comparable across locations</td></tr>
-      <tr><td><span class="tag county">County</span></td><td>Energy climate zone (IECC), Infrastructure Burden (cost / property-tax model), and the <strong>Air Quality</strong> radon layer (EPA Map of Radon Zones &mdash; a county-level dataset)</td></tr>
+      <tr><td><span class="tag county">County</span></td><td>Energy climate zone (IECC), Infrastructure Burden (cost / property-tax model), the <strong>Air Quality</strong> radon layer (EPA Map of Radon Zones &mdash; a county-level dataset), and <strong>Solar Potential</strong> (PVGIS rooftop specific yield) &mdash; scored against the <em>national</em> distribution of US counties</td></tr>
       <tr><td><span class="tag county">County</span></td><td>Environmental grid-carbon factors (kg&nbsp;CO&#8322;e/kWh) &mdash; the location's eGRID2023 Rev 2 subregion rate as the grid <strong>average</strong> (county&rarr;subregion crosswalk, US-average fallback) plus the county's <strong>NREL Cambium 2023 LRMER</strong> long-run <strong>marginal</strong> rate (county&rarr;GEA-region crosswalk, CONUS-only) used to credit solar/efficiency-avoided kWh</td></tr>
       <tr><td><span class="tag config">Your house only</span></td><td>Durability, embodied carbon, and the <strong>fire</strong> peril &mdash; driven by construction / year / condition, identical at any location</td></tr>
     </tbody>
@@ -77,7 +77,7 @@
 </section>
 
 <section id="dimensions">
-  <h2>The ten dimensions</h2>
+  <h2>The eleven dimensions</h2>
   <p>The composite is the mean of whichever dimensions could be scored (location dimensions are omitted, not zeroed, when their data/keys are unavailable). National grades use absolute thresholds: A&nbsp;&ge;&nbsp;80, B&nbsp;&ge;&nbsp;60, C&nbsp;&ge;&nbsp;40, D&nbsp;&ge;&nbsp;20, F&nbsp;&lt;&nbsp;20.</p>
   <table class="data-table">
     <thead><tr><th>Dimension</th><th>Measures</th><th>Data source</th><th>Resolution</th></tr></thead>
@@ -92,6 +92,7 @@
       <tr><td>Socioeconomic</td><td>Neighborhood socioeconomic index (national percentile)</td><td>Census ACS</td><td><span class="tag tract">tract</span></td></tr>
       <tr><td>Walkability</td><td>How walkable the location is</td><td>EPA National Walkability Index</td><td><span class="tag tract">tract</span></td></tr>
       <tr><td>Climate Projections</td><td>Projected extreme heat, heavy precip/flood &amp; drought (RCP4.5&ndash;8.5, mid-century)</td><td>NOAA/DOI CMRA (LOCA/NCA4)</td><td><span class="tag county">county</span></td></tr>
+      <tr><td>Solar Potential</td><td>Rooftop specific yield (kWh/kW&middot;yr) &mdash; production, $ saved &amp; CO&#8322; avoided (national percentile)</td><td>PVGIS v5.2 on NREL NSRDB</td><td><span class="tag county">county</span></td></tr>
     </tbody>
   </table>
 </section>

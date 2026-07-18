@@ -35,6 +35,7 @@ CONFIDENCE_NOTES = {
     "socioeconomic": "Census ACS income/poverty/housing-cost-burden, scored as a national percentile (bundled offline — no API key needed).",
     "walkability": "EPA National Walkability Index (block-group, aggregated to tract; national, public-domain).",
     "climate": "CMIP6-LOCA2 tract-level projection; scenario band SSP2-4.5 → SSP5-8.5 (mid-century).",
+    "solar": "County rooftop specific yield modeled by PVGIS on the NSRDB satellite record, scored as a national percentile (bundled, keyless).",
 }
 CONFIDENCE_LEGEND = (
     "Confidence reflects data quality (source, resolution, completeness) — not "
