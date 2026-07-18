@@ -33,7 +33,7 @@ def _mock_label(scores=None, notes=None, metrics=None):
         "dimensions": [{"key": k, "score": scores.get(k, 70.0)} for k in _DIM_KEYS],
         "location_notes": notes if notes is not None else {
             "health": "CDC PLACES (tract 47157003100)",
-            "air_quality": "CDC Tracking PM2.5/ozone + EPA radon (county 47157)",
+            "air_quality": "CDC Tracking PM2.5/ozone (tract 47157003100) + EPA radon zone (county 47157)",
             "socioeconomic": "no CENSUS_API_KEY",
             "walkability": "EPA National Walkability Index (tract 47157003100)",
             "climate": "CMIP6-LOCA2 (tract 47157003100, SSP2-4.5 mid-century)",
