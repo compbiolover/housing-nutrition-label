@@ -2,7 +2,8 @@
 
 Backs the **Solar Potential** dimension: how productive a rooftop solar array is at
 a location, scored 0-100 where higher = sunnier / more kWh per installed kW. One
-national, public-domain layer looked up by 5-digit county FIPS with no network call:
+national, openly-licensed layer (PVGIS, CC BY 4.0) looked up by 5-digit county
+FIPS with no network call:
 
   • **Specific yield** — the annual energy a standard 1 kWp rooftop array produces
     (kWh per kW installed per year), modeled by the EU JRC's **PVGIS** performance
