@@ -31,7 +31,7 @@ CONFIDENCE_NOTES = {
     "environmental": "Operational leg strong (consumed kWh × eGRID2023 Rev 2 average, with solar/efficiency-avoided kWh credited at the NREL Cambium 2023 LRMER marginal rate — CONUS only, average elsewhere); embodied-carbon leg is bottom-up from industry-average EPD factors × the home's real footprint (USA Structures) where available — modeled, not metered; water leg uses a national embedded-energy constant.",
     "infrastructure": "Density cost model calibrated to county spending; documented ±30% on absolute dollars.",
     "health": "CDC PLACES model-based tract estimates, scored as a national percentile (bundled, keyless).",
-    "air_quality": "County-level ambient PM2.5 + ozone (CDC Tracking downscaler model) and EPA radon zone, scored as a national percentile (bundled, keyless).",
+    "air_quality": "Tract-level ambient PM2.5 + ozone (CDC Tracking downscaler model) and county EPA radon zone, scored as a national percentile (bundled, keyless).",
     "socioeconomic": "Census ACS income/poverty/housing-cost-burden, scored as a national percentile (bundled offline — no API key needed).",
     "walkability": "EPA National Walkability Index (block-group, aggregated to tract; national, public-domain).",
     "climate": "CMIP6-LOCA2 tract-level projection; scenario band SSP2-4.5 → SSP5-8.5 (mid-century).",
