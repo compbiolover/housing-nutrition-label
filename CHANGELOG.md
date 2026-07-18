@@ -9,6 +9,14 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.51](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.50...v0.1.51) (2026-07-18)
+
+
+### Features
+
+* add Noise dimension (transportation-noise exposure, tract-level) ([#173](https://github.com/compbiolover/housing-nutrition-label/issues/173)) ([30d0824](https://github.com/compbiolover/housing-nutrition-label/commit/30d0824116c1fdb4355e9099c6730ae32acf4d73))
+* add Water Quality dimension (EPA SDWIS drinking-water compliance, county-level) ([#174](https://github.com/compbiolover/housing-nutrition-label/issues/174)) ([6edee7a](https://github.com/compbiolover/housing-nutrition-label/commit/6edee7aa7169ca9180ab6c1a6a48378ff73a5cb6))
+
 ## [0.1.50](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.49...v0.1.50) (2026-07-18)
 
 
