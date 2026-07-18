@@ -48,6 +48,7 @@ from housing_label.score.resilience import (
     score_to_grade as score_to_national_grade,
 )
 from housing_label.enrich.seismic_lookup import get_pga
+from housing_label.utils import haversine_miles
 
 # ── Seismic constants (enrich_seismic.py) ─────────────────────────────────────
 NMSZ_LAT            = 36.5     # New Madrid Seismic Zone reference lat
@@ -356,14 +357,6 @@ PRESETS = {
 
 
 # ── Physics / calculation helpers ─────────────────────────────────────────────
-
-def haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Great-circle distance in miles between two lat/lon points."""
-    lat1, lon1, lat2, lon2 = (math.radians(x) for x in (lat1, lon1, lat2, lon2))
-    dlat, dlon = lat2 - lat1, lon2 - lon1
-    a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
-    return 2 * 3958.8 * math.asin(math.sqrt(a))
-
 
 def compute_seismic_pga(lat: float, lon: float) -> tuple[float, float, float]:
     """
