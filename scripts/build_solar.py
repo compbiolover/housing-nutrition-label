@@ -19,8 +19,9 @@ potential). ``specific_yield_kwh_kwp`` = PVGIS ``E_y``; ``irradiation_kwh_m2`` =
 annual in-plane irradiation ``H(i)_y``.
 
 County centroids come from the Census county **gazetteer** (``INTPTLAT`` /
-``INTPTLONG``). PVGIS-NSRDB covers the contiguous US, Hawai'i, and Puerto Rico;
-a county outside coverage (far-north Alaska) errors and is skipped → unscored.
+``INTPTLONG``). PVGIS-NSRDB covers the contiguous US, Hawai'i, Puerto Rico, and the
+parts of Alaska it reaches (~14 southern/coastal boroughs); a county outside
+coverage (far-north Alaska) errors on the PVGIS request and is skipped → unscored.
 
 The run makes ~3,100 keyless requests (bounded concurrency, polite retries) and
 checkpoints to the CSV, so it can be stopped and resumed (existing county rows are
