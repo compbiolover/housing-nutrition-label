@@ -32,6 +32,7 @@ CONFIDENCE_NOTES = {
     "infrastructure": "Density cost model calibrated to county spending; documented ±30% on absolute dollars.",
     "health": "CDC PLACES model-based tract estimates, scored as a national percentile (bundled, keyless).",
     "air_quality": "Tract-level ambient PM2.5 + ozone (CDC Tracking downscaler model) and county EPA radon zone, scored as a national percentile (bundled, keyless).",
+    "noise": "Tract-level transportation-noise exposure (US DOT BTS National Transportation Noise Map — aviation + road + rail), scored as a national percentile (bundled, keyless).",
     "socioeconomic": "Census ACS income/poverty/housing-cost-burden, scored as a national percentile (bundled offline — no API key needed).",
     "walkability": "EPA National Walkability Index (block-group, aggregated to tract; national, public-domain).",
     "climate": "CMIP6-LOCA2 tract-level projection; scenario band SSP2-4.5 → SSP5-8.5 (mid-century).",

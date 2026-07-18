@@ -1333,6 +1333,19 @@ def dimension_details(cfg: dict, r: dict, label: dict) -> dict:
     else:
         details["air_quality"] = location_rows("air_quality", "Air quality index (national percentile)", "CDC Tracking + EPA radon")
 
+    # Noise — the national-percentile quiet score plus the exposure driver behind it.
+    ns_s = _finite(scores.get("noise"))
+    ns_pct = _finite(m.get("noise_pct_ge60db"))
+    if ns_s is not None:
+        details["noise"] = rows(
+            ("Quiet index (national percentile)", f"{ns_s:.1f} / 100"),
+            ("Residents exposed to loud transport noise (≥60 dB)",
+             None if ns_pct is None else f"{ns_pct:.1f}%"),
+            ("Source", loc_notes.get("noise") or "BTS National Transportation Noise Map"),
+        )
+    else:
+        details["noise"] = location_rows("noise", "Quiet index (national percentile)", "BTS National Transportation Noise Map")
+
     details["socioeconomic"] = location_rows("socioeconomic", "Socioeconomic index (national percentile)", "Census ACS")
     details["walkability"] = location_rows(
         "walkability", "Walkability (national index)", "EPA National Walkability Index")
