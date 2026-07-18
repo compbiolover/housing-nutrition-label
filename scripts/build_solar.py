@@ -131,34 +131,40 @@ def main() -> int:
     lock = threading.Lock()
     n = [0]
 
+    def _merged() -> dict[str, tuple[str, str]]:
+        rows = dict(done)                                  # resumed rows
+        for fips, res in results.items():
+            if res is not None:
+                rows[fips] = (f"{res[0]:.1f}", f"{res[1]:.1f}")
+        return rows
+
+    def _flush():
+        rows = _merged()
+        with out_path.open("w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(["county_fips", "specific_yield_kwh_kwp", "irradiation_kwh_m2"])
+            for fips in sorted(rows):
+                y, ir = rows[fips]
+                w.writerow([fips, y, ir])
+
     def work(c):
         fips, lat, lon = c
         res = _pvgis_yield(lat, lon)
         with lock:
             results[fips] = res
             n[0] += 1
+            # Periodic checkpoint: the CSV on disk stays a valid, sorted, resumable
+            # snapshot, so an interrupted run can pick up where it left off.
             if n[0] % 250 == 0:
                 print(f"   {n[0]}/{len(todo)} …")
+                _flush()
 
     with ThreadPoolExecutor(max_workers=args.workers) as ex:
         list(ex.map(work, todo))
 
-    # Merge fetched results with resumed rows, write sorted by FIPS.
-    rows: dict[str, tuple[str, str]] = dict(done)
-    misses = 0
-    for fips, res in results.items():
-        if res is None:
-            misses += 1
-            continue
-        rows[fips] = (f"{res[0]:.1f}", f"{res[1]:.1f}")
-
-    with out_path.open("w", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(["county_fips", "specific_yield_kwh_kwp", "irradiation_kwh_m2"])
-        for fips in sorted(rows):
-            y, ir = rows[fips]
-            w.writerow([fips, y, ir])
-
+    _flush()
+    rows = _merged()
+    misses = sum(1 for r in results.values() if r is None)
     print(f"\nWrote {len(rows)} county rows → {out_path}"
           + (f"  ({misses} outside PVGIS coverage, skipped)" if misses else ""))
     if rows:

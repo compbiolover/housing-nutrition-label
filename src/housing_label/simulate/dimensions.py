@@ -751,7 +751,7 @@ def simulate_all_dimensions(
         metrics["solar_system_kw"] = TYPICAL_SYSTEM_KW
         metrics["solar_yield_kwh_kwp"] = round(solar["yield_kwh_kwp"])
         metrics["solar_annual_kwh"] = round(prod)
-        if elec_rate:
+        if elec_rate is not None:
             metrics["solar_savings_usd"] = round(prod * elec_rate)
         # Solar displaces marginal generation → value avoided kWh at the Cambium
         # marginal rate where available, else the eGRID average.

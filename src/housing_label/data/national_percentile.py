@@ -38,8 +38,9 @@ _CURVE_CSV = _DIR / "construction_percentiles.csv"
 
 CONSTRUCTION_DIMS = frozenset({"energy", "durability", "environmental", "resilience"})
 # Scores that already express national standing (no remapping needed). Air Quality
-# is included: its breakpoints are anchored to national county quantiles, so the
-# score already tracks a national percentile rank (see data/air_quality.py).
+# and Solar are included: their breakpoints are anchored to national tract / county
+# quantiles, so the score already tracks a national percentile rank (see
+# data/air_quality.py — tract-level — and data/solar.py — county-level).
 IDENTITY_DIMS = frozenset({"health", "air_quality", "socioeconomic", "climate", "infrastructure", "solar"})
 
 DATA_VINTAGE = "national percentile vs US homes (modeled reference)"
