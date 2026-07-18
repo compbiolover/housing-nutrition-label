@@ -23,9 +23,11 @@ County centroids come from the Census county **gazetteer** (``INTPTLAT`` /
 parts of Alaska it reaches (~14 southern/coastal boroughs); a county outside
 coverage (far-north Alaska) errors on the PVGIS request and is skipped → unscored.
 
-The run makes ~3,100 keyless requests (bounded concurrency, polite retries) and
-checkpoints the merged CSV every 250 completions, so an interrupted run resumes
-from the counties already written. The handful outside PVGIS coverage return no
+The run makes ~3,200 keyless requests — one per county centroid (bounded
+concurrency, polite retries) — and writes the ~3,200 counties that return data
+(~22 far-north Alaska centroids fall outside coverage, return none, and are
+skipped). It checkpoints the merged CSV every 250 completions, so an interrupted
+run resumes from the counties already written; the out-of-coverage ones return no
 data (nothing to write) and are simply re-probed on a rerun — a negligible cost
 that isn't worth a separate skip-list sidecar. Dev-time only; the shipped artifact
 is the CSV.

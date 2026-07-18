@@ -8,8 +8,15 @@ Offline — reads the bundled solar_yield_county.csv only. Execute directly
 from __future__ import annotations
 
 import csv
+import pathlib
+import sys
 
-from housing_label.data import solar as S
+_ROOT = pathlib.Path(__file__).resolve().parent.parent
+for _p in (_ROOT, _ROOT / "src"):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
+
+from housing_label.data import solar as S  # noqa: E402
 
 
 def test_known_counties_resolve_and_rank():
