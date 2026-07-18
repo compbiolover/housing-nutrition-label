@@ -152,9 +152,10 @@ DIMENSIONS = [
     ("socioeconomic",  "Socioeconomic"),
     ("walkability",    "Walkability"),
     ("climate",        "Climate Projections"),
+    ("solar",          "Solar Potential"),
 ]
 CONSTRUCTION_DRIVEN = {"energy", "durability", "environmental", "infrastructure"}
-LOCATION_DRIVEN = {"health", "air_quality", "socioeconomic", "walkability", "climate"}
+LOCATION_DRIVEN = {"health", "air_quality", "socioeconomic", "walkability", "climate", "solar"}
 
 
 def _loglin(x: float, xs: list[float], ys: list[float]) -> float:
@@ -714,6 +715,14 @@ def simulate_all_dimensions(
         air_quality = air_quality_for_county(location.county_fips)
     air_quality_score = air_quality["score"] if air_quality else None
 
+    # Solar Potential: bundled county rooftop specific yield (PVGIS). Scored whenever
+    # a county resolved; the drill-down turns the yield into a representative-system
+    # production estimate, the dollars it offsets at the local electricity rate, and
+    # the CO₂ it avoids at the marginal grid rate (eGRID average fallback).
+    from housing_label.data.solar import solar_for_county, TYPICAL_SYSTEM_KW
+    solar = solar_for_county(location.county_fips) if have_county else None
+    solar_score = solar["score"] if solar else None
+
     scores = {
         "resilience": round(float(resilience_score), 1),
         "energy": construction["energy"],
@@ -725,6 +734,7 @@ def simulate_all_dimensions(
         "socioeconomic": location_dims["socioeconomic"],
         "walkability": location_dims["walkability"],
         "climate": climate_score,
+        "solar": solar_score,
     }
 
     metrics = dict(construction["_metrics"])
@@ -736,6 +746,18 @@ def simulate_all_dimensions(
         metrics["aq_ozone_ppb"] = air_quality["ozone"]
         metrics["aq_radon_zone"] = air_quality["radon_zone"]
         metrics["aq_radon_label"] = air_quality["radon_label"]
+    if solar and solar_score is not None:
+        prod = solar["yield_kwh_kwp"] * TYPICAL_SYSTEM_KW
+        metrics["solar_system_kw"] = TYPICAL_SYSTEM_KW
+        metrics["solar_yield_kwh_kwp"] = round(solar["yield_kwh_kwp"])
+        metrics["solar_annual_kwh"] = round(prod)
+        if elec_rate:
+            metrics["solar_savings_usd"] = round(prod * elec_rate)
+        # Solar displaces marginal generation → value avoided kWh at the Cambium
+        # marginal rate where available, else the eGRID average.
+        co2_factor = grid_marginal_factor if grid_marginal_factor is not None else grid_factor
+        if co2_factor is not None:
+            metrics["solar_co2_avoided_kg"] = round(prod * co2_factor)
 
     dims = []
     from housing_label.data.national_percentile import national_percentile
@@ -772,6 +794,8 @@ def simulate_all_dimensions(
         location_notes["air_quality"] = (
             f"CDC Tracking PM2.5/ozone ({_aq_geo}) + EPA radon zone "
             f"(county {location.county_fips})")
+    if solar and solar_score is not None:
+        location_notes["solar"] = f"PVGIS-NSRDB rooftop yield (county {location.county_fips})"
 
     return {
         "dimensions": dims,

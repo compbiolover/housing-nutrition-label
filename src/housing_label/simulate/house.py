@@ -1349,6 +1349,25 @@ def dimension_details(cfg: dict, r: dict, label: dict) -> dict:
     else:
         details["climate"] = location_rows("climate", "Projection score", "CMIP6-LOCA2")
 
+    # Solar Potential — the national-percentile score plus what a representative
+    # rooftop array would produce here, the dollars it offsets, and the CO₂ avoided.
+    ss = _finite(scores.get("solar"))
+    sys_kw = _finite(m.get("solar_system_kw"))
+    if ss is not None:
+        details["solar"] = rows(
+            ("Solar potential index (national percentile)", f"{ss:.1f} / 100"),
+            ("Rooftop yield", None if _finite(m.get("solar_yield_kwh_kwp")) is None
+             else f"{m['solar_yield_kwh_kwp']:,.0f} kWh per kW·yr"),
+            (None if sys_kw is None else f"A {sys_kw:.0f} kW system would make",
+             qty(m.get("solar_annual_kwh"), "kWh/yr")),
+            ("— offsetting", _money(m.get("solar_savings_usd"), "/yr")),
+            ("— avoiding", None if _finite(m.get("solar_co2_avoided_kg")) is None
+             else f"{m['solar_co2_avoided_kg']:,.0f} kg CO₂/yr"),
+            ("Source", loc_notes.get("solar") or "PVGIS-NSRDB"),
+        )
+    else:
+        details["solar"] = location_rows("solar", "Solar potential index (national percentile)", "PVGIS-NSRDB")
+
     return details
 
 

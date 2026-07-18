@@ -14,8 +14,8 @@ routes each to the right reference:
   walkability crosswalk.
 - **Health, socioeconomic**: the score already IS a national percentile (Tier 1),
   so it is returned as-is.
-- **Climate, infrastructure, air quality**: their breakpoints are anchored to
-  national quantiles, so the score already tracks national percentile rank —
+- **Climate, infrastructure, air quality, solar**: their breakpoints are anchored
+  to national quantiles, so the score already tracks national percentile rank —
   returned as-is.
 
 All dimensions here are "higher is better", so a higher percentile means a better
@@ -40,7 +40,7 @@ CONSTRUCTION_DIMS = frozenset({"energy", "durability", "environmental", "resilie
 # Scores that already express national standing (no remapping needed). Air Quality
 # is included: its breakpoints are anchored to national county quantiles, so the
 # score already tracks a national percentile rank (see data/air_quality.py).
-IDENTITY_DIMS = frozenset({"health", "air_quality", "socioeconomic", "climate", "infrastructure"})
+IDENTITY_DIMS = frozenset({"health", "air_quality", "socioeconomic", "climate", "infrastructure", "solar"})
 
 DATA_VINTAGE = "national percentile vs US homes (modeled reference)"
 

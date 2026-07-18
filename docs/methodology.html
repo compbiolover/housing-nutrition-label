@@ -41,7 +41,7 @@
 
 <section>
   <h2>How the scores work</h2>
-  <p>Each of the ten dimensions is scored from 0 to 100. Every score starts with a short, plain-language summary of what it tells you; open <strong>&ldquo;How it&rsquo;s calculated&rdquo;</strong> under any dimension for the full method, data sources, and formulas. Everything is built from public data and documented so the numbers can be checked.</p>
+  <p>Each of the eleven dimensions is scored from 0 to 100. Every score starts with a short, plain-language summary of what it tells you; open <strong>&ldquo;How it&rsquo;s calculated&rdquo;</strong> under any dimension for the full method, data sources, and formulas. Everything is built from public data and documented so the numbers can be checked.</p>
   <div class="insight"><strong>Where the data comes from:</strong> the label scores any U.S. address using national datasets &mdash; FEMA, USGS, EPA, CDC, the Census Bureau, and the EIA. It began as a pilot in one county (Shelby County, TN), and a few cost-model baselines are still being generalized nationwide. Wherever one of those still applies, the label flags it &mdash; so a score is never presented as more locally precise than it is.</p>
   </div>
 </section>
@@ -242,6 +242,17 @@
     <p>Sub-county downscaled climate-hazard projections from the USGS <a href="https://doi.org/10.5066/P13OV6GY">CMIP6-LOCA2</a> threshold/extreme-event metrics &mdash; the Weighted Multi-Model Mean (an ensemble mean over CMIP6 LOCA2-downscaled models, ~6&nbsp;km), sampled at each census tract's internal point (county = the mean of its tracts). Three hazard legs are blended equally into a 0&ndash;100 score (higher = less projected hazard): <strong>extreme heat</strong> (annual days &gt; 95&deg;F and &gt; 100&deg;F), <strong>heavy precipitation &amp; flood</strong> (days &gt; 1&Prime; and the annual max 5-day total), and <strong>drought</strong> (max consecutive dry days). Each metric is scored against national breakpoints anchored to the SSP2-4.5 mid-century distribution. The dimension is reported as a low/high band from SSP2-4.5 &rarr; SSP5-8.5 (a lower- vs higher-emissions future) at mid-century (2040&ndash;2069), with the SSP2-4.5 value as the headline.</p>
     <div class="insight"><strong>Caveat:</strong> the ~6&nbsp;km grid is sampled at a tract's <em>internal point</em> &mdash; a real sub-county value, but <em>not parcel-resolution precision</em>. Values are a multi-model ensemble mean; a tract resolves at tract level, falling back to its parent county then the national average where the grid has no data (e.g. outside the contiguous US).</div>
     <div class="insight"><strong>Sub-county detail:</strong> because these tract values come from sampling the ~6&nbsp;km grid, tracts within a large, diverse county genuinely differ (San&nbsp;Bernardino spans coast to desert) &mdash; unlike layers that broadcast a single county value onto every tract.</div>
+    </details>
+  </div>
+
+  <div class="method-section">
+    <h3>11. Solar Potential</h3>
+    <p class="plain"><strong>What this tells you:</strong> how productive rooftop solar is at this location &mdash; how much electricity a panel makes here versus the rest of the country. A higher score means sunnier, so a system pays off faster. The details estimate what a typical system would produce, save on your power bill, and offset in CO&#8322;.</p>
+
+    <details class="tech"><summary>How it&rsquo;s calculated</summary>
+    <p>The core number is the <strong>specific yield</strong> &mdash; the annual energy a standard <strong>1 kWp</strong> rooftop array produces, in kWh per kW installed per year &mdash; modeled by the EU Joint Research Centre&rsquo;s <strong>PVGIS v5.2</strong> performance model on the <strong>PVGIS-NSRDB</strong> satellite database (the same NREL NSRDB solar resource PVWatts uses, covering the Americas). Each county is queried at its Census-gazetteer internal point for a building-mounted array at the <em>optimal tilt facing south</em> with 14% system losses. The yield is mapped to a 0&ndash;100 score against the <strong>national distribution of US counties</strong>, so it reads directly as a national percentile (sunnier than N% of counties) &mdash; a sunny Southwest county (~1,700+ kWh/kWp) roughly doubles a cloudy Pacific-Northwest one (~950).</p>
+    <p>The drill-down scales that yield to a representative <strong>6 kW</strong> residential array: <em>annual production</em> = yield &times; 6&nbsp;kW; <em>bill savings</em> = production &times; the location&rsquo;s residential electricity rate (EIA); and <em>CO&#8322; avoided</em> = production &times; the grid&rsquo;s <strong>marginal</strong> emission rate (NREL Cambium 2023 LRMER, since rooftop solar displaces the generation that actually ramps down; eGRID average where the marginal rate is unavailable) &mdash; reusing the same rate and grid factors as the Energy and Environmental dimensions.</p>
+    <div class="insight"><strong>Caveat:</strong> this is the <em>location&rsquo;s</em> resource at optimal orientation &mdash; a whole-roof best case. A specific roof&rsquo;s real output depends on its pitch, azimuth, and especially shading, which this doesn&rsquo;t model; treat it as "how good is the sun here," not a quote for a particular house.</div>
     </details>
   </div>
 </section>
