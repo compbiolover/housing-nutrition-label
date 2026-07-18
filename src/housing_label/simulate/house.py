@@ -1317,6 +1317,22 @@ def dimension_details(cfg: dict, r: dict, label: dict) -> dict:
         return rows(("Status", "Not scored here" + (f" — {note}" if note else "")))
 
     details["health"] = location_rows("health", "Neighborhood health index (national percentile)", "CDC PLACES")
+
+    # Air Quality — the national-percentile index plus the ambient pollutant + radon
+    # drivers behind it; falls back to the generic status row when unscored.
+    aq_s = _finite(scores.get("air_quality"))
+    pm25, ozone = _finite(m.get("aq_pm25_ugm3")), _finite(m.get("aq_ozone_ppb"))
+    if aq_s is not None:
+        details["air_quality"] = rows(
+            ("Air quality index (national percentile)", f"{aq_s:.1f} / 100"),
+            ("Fine particulate (PM2.5, annual avg)", None if pm25 is None else f"{pm25:.1f} µg/m³"),
+            ("Ozone (annual 8-hour avg)", None if ozone is None else f"{ozone:.0f} ppb"),
+            ("Radon", m.get("aq_radon_label")),
+            ("Source", loc_notes.get("air_quality") or "CDC Tracking + EPA radon"),
+        )
+    else:
+        details["air_quality"] = location_rows("air_quality", "Air quality index (national percentile)", "CDC Tracking + EPA radon")
+
     details["socioeconomic"] = location_rows("socioeconomic", "Socioeconomic index (national percentile)", "Census ACS")
     details["walkability"] = location_rows(
         "walkability", "Walkability (national index)", "EPA National Walkability Index")

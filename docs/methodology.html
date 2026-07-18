@@ -41,7 +41,7 @@
 
 <section>
   <h2>How the scores work</h2>
-  <p>Each of the nine dimensions is scored from 0 to 100. Every score starts with a short, plain-language summary of what it tells you; open <strong>&ldquo;How it&rsquo;s calculated&rdquo;</strong> under any dimension for the full method, data sources, and formulas. Everything is built from public data and documented so the numbers can be checked.</p>
+  <p>Each of the ten dimensions is scored from 0 to 100. Every score starts with a short, plain-language summary of what it tells you; open <strong>&ldquo;How it&rsquo;s calculated&rdquo;</strong> under any dimension for the full method, data sources, and formulas. Everything is built from public data and documented so the numbers can be checked.</p>
   <div class="insight"><strong>Where the data comes from:</strong> the label scores any U.S. address using national datasets &mdash; FEMA, USGS, EPA, CDC, the Census Bureau, and the EIA. It began as a pilot in one county (Shelby County, TN), and a few cost-model baselines are still being generalized nationwide. Wherever one of those still applies, the label flags it &mdash; so a score is never presented as more locally precise than it is.</p>
   </div>
 </section>
@@ -198,7 +198,23 @@
   </div>
 
   <div class="method-section">
-    <h3>7. Socioeconomic</h3>
+    <h3>7. Air Quality</h3>
+    <p class="plain"><strong>What this tells you:</strong> how clean the local air is &mdash; fine-particle and ozone pollution outdoors, plus the natural radon potential indoors. A higher score means cleaner, safer air. (Like Health, this describes the location, not the building.)</p>
+
+    <details class="tech"><summary>How it&rsquo;s calculated</summary>
+    <p>Three county-level layers, each mapped to a 0&ndash;100 sub-score against the <strong>national distribution of US counties</strong> and blended (PM2.5 0.45, ozone 0.25, radon 0.30; radon&rsquo;s weight is redistributed for the ~0.2% of counties with no EPA zone):</p>
+    <ul>
+      <li><strong>Fine particulate (PM2.5)</strong> &mdash; the annual population-weighted mean concentration (&micro;g/m&sup3;) from the <strong>CDC Environmental Public Health Tracking</strong> downscaler model (a monitor + CMAQ fusion with full county coverage, including counties with no monitor). PM2.5 is the ambient pollutant most tightly tied to mortality; the US annual standard is 9&nbsp;&micro;g/m&sup3;, the WHO guideline 5.</li>
+      <li><strong>Ozone</strong> &mdash; the annual mean of the daily maximum 8-hour ozone (ppb), same CDC downscaler basis. Ground-level ozone drives respiratory harm and is elevated across much of the sunny, warm West.</li>
+      <li><strong>Radon</strong> &mdash; the <strong>EPA Map of Radon Zones</strong> class for the county (Zone 1 = highest predicted indoor level, &ge;4&nbsp;pCi/L; Zone 2 = 2&ndash;4; Zone 3 = &lt;2). Radon is the leading cause of lung cancer among non-smokers.</li>
+    </ul>
+    <p>Because the breakpoints are anchored to national county quantiles, the score reads directly as a national percentile (cleaner than N% of US counties), comparable across locations. Data is bundled and versioned (CDC Tracking PM2.5/ozone 2022; EPA radon zones), so the live scoring path needs no API key.</p>
+    <div class="insight"><strong>Caveat:</strong> PM2.5 and ozone resolve at the county level (not sub-county), and radon is a coarse three-zone predictor of <em>potential</em> &mdash; an actual home test is the only way to know a specific building&rsquo;s radon level.</div>
+    </details>
+  </div>
+
+  <div class="method-section">
+    <h3>8. Socioeconomic</h3>
     <p class="plain"><strong>What this tells you:</strong> the economic profile of the neighborhood &mdash; income, poverty, education, and jobs. A higher score means stronger local economic opportunity. (Like Health, this describes the area, not the building.)</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
@@ -207,7 +223,7 @@
   </div>
 
   <div class="method-section">
-    <h3>8. Walkability</h3>
+    <h3>9. Walkability</h3>
     <p class="plain"><strong>What this tells you:</strong> how easy it is to get around from this address on foot, by transit, or by bike. A higher score means more of daily life is reachable without a car.</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
@@ -219,7 +235,7 @@
   </div>
 
   <div class="method-section">
-    <h3>9. Climate Projections</h3>
+    <h3>10. Climate Projections</h3>
     <p class="plain"><strong>What this tells you:</strong> how the local climate is projected to change by mid-century &mdash; more extreme heat, heavier rain and flooding, and drought. A higher score means less projected climate hazard. The label shows a range, because how much it changes depends on future emissions.</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>

@@ -66,9 +66,9 @@
 </nav>
 
 <div class="hero">
-  <div class="badge">Open source &middot; 9 dimensions &middot; any U.S. address</div>
+  <div class="badge">Open source &middot; 10 dimensions &middot; any U.S. address</div>
   <h1>Housing Nutrition Label</h1>
-  <p class="tagline">A free, nutrition-label-style scorecard for any U.S. home. It rates nine things that shape what a place costs to live in and how well it holds up &mdash; disaster risk, energy use, durability, environmental footprint, city-service costs, neighborhood health, the local economy, walkability, and a changing climate.</p>
+  <p class="tagline">A free, nutrition-label-style scorecard for any U.S. home. It rates ten things that shape what a place costs to live in and how well it holds up &mdash; disaster risk, energy use, durability, environmental footprint, city-service costs, neighborhood health, air quality, the local economy, walkability, and a changing climate.</p>
   <div class="addr-search">
     <!-- Unified scoring widget (label-form.js) generates the address form,
          refine panel, detected/hypothetical modes, and density here. -->
@@ -86,7 +86,7 @@
 
 <section>
   <h2>The idea</h2>
-  <p>A clear, color-coded scorecard for any home &mdash; showing how it does on the things that matter to buyers, neighborhoods, and cities. Each of the nine dimensions is scored from 0 to 100, with a national grade and a national percentile that show how the home compares to homes across the whole country.</p>
+  <p>A clear, color-coded scorecard for any home &mdash; showing how it does on the things that matter to buyers, neighborhoods, and cities. Each of the ten dimensions is scored from 0 to 100, with a national grade and a national percentile that show how the home compares to homes across the whole country.</p>
 </section>
 
 <section>
@@ -121,6 +121,11 @@
       <div class="icon">&#x2764;</div>
       <h3>Health Impact</h3>
       <p>How healthy the surrounding neighborhood is, from local rates of conditions like obesity, diabetes, high blood pressure, and asthma (CDC data). This describes the area, not the building.</p>
+    </div>
+    <div class="card">
+      <div class="icon">&#x1F32B;</div>
+      <h3>Air Quality</h3>
+      <p>How clean the local air is &mdash; annual fine-particulate (PM2.5) and ozone from the CDC Tracking model, plus the EPA radon zone. Scored against all U.S. counties; higher means cleaner, safer air.</p>
     </div>
     <div class="card">
       <div class="icon">&#x1F4CA;</div>
@@ -158,7 +163,7 @@
 
 <section>
   <h2>Where the project stands</h2>
-  <p>You can score <strong>any U.S. address across all nine dimensions</strong> right now (try the box above). The scores draw on national public datasets &mdash; FEMA, USGS, EPA, CDC, the Census Bureau, and the EIA. The project began as a pilot in Shelby County, TN, and a few cost baselines are still being generalized to the whole country; the label flags those where they apply. You can also model construction choices, including multi-unit buildings (duplexes, quadplexes) and 20+ above-code upgrades.</p>
+  <p>You can score <strong>any U.S. address across all ten dimensions</strong> right now (try the box above). The scores draw on national public datasets &mdash; FEMA, USGS, EPA, CDC, the Census Bureau, and the EIA. The project began as a pilot in Shelby County, TN, and a few cost baselines are still being generalized to the whole country; the label flags those where they apply. You can also model construction choices, including multi-unit buildings (duplexes, quadplexes) and 20+ above-code upgrades.</p>
   <p>The scoring engine, data pipeline, and address-search service are all open-source under the MIT license.</p>
 </section>
 
@@ -178,6 +183,7 @@
       <tr><td>NREL Cambium 2023 LRMER</td><td>Long-run marginal grid emissions &mdash; credits solar/efficiency-avoided kWh</td><td class="free">Free, reference data (CC&nbsp;BY&nbsp;4.0)</td></tr>
       <tr><td>USGS CMIP6-LOCA2</td><td>Sub-county climate-hazard projections</td><td class="free">Free, no key</td></tr>
       <tr><td>CDC PLACES</td><td>Health metrics by census tract</td><td class="free">Free, no key</td></tr>
+      <tr><td>CDC Tracking + EPA radon zones</td><td>Air quality: PM2.5, ozone &amp; radon by county</td><td class="free">Free, no key (bundled)</td></tr>
       <tr><td>Census ACS 5-yr Summary File</td><td>Socioeconomic indicators (national reference)</td><td class="free">Free, no key (bundled)</td></tr>
       <tr><td>EPA National Walkability Index</td><td>Walkability by census tract</td><td class="free">Free, public domain (bundled)</td></tr>
     </tbody>

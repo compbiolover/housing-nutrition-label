@@ -148,12 +148,13 @@ DIMENSIONS = [
     ("environmental",  "Environmental Footprint"),
     ("infrastructure", "Infrastructure Burden"),
     ("health",         "Health Impact"),
+    ("air_quality",    "Air Quality"),
     ("socioeconomic",  "Socioeconomic"),
     ("walkability",    "Walkability"),
     ("climate",        "Climate Projections"),
 ]
 CONSTRUCTION_DRIVEN = {"energy", "durability", "environmental", "infrastructure"}
-LOCATION_DRIVEN = {"health", "socioeconomic", "walkability", "climate"}
+LOCATION_DRIVEN = {"health", "air_quality", "socioeconomic", "walkability", "climate"}
 
 
 def _loglin(x: float, xs: list[float], ys: list[float]) -> float:
@@ -700,6 +701,13 @@ def simulate_all_dimensions(
     have_county = bool(location and location.county_fips)
     climate_score = climate_proj["score"] if (climate_proj and have_county) else None
 
+    # Air Quality: bundled county PM2.5 + ozone + radon. Scored whenever a county
+    # resolved (a known-but-unmodeled county returns None → left unscored), mirroring
+    # the other county/location-driven dimensions.
+    from housing_label.data.air_quality import air_quality_for_county
+    air_quality = air_quality_for_county(location.county_fips) if have_county else None
+    air_quality_score = air_quality["score"] if air_quality else None
+
     scores = {
         "resilience": round(float(resilience_score), 1),
         "energy": construction["energy"],
@@ -707,6 +715,7 @@ def simulate_all_dimensions(
         "environmental": construction["environmental"],
         "infrastructure": construction["infrastructure"],
         "health": location_dims["health"],
+        "air_quality": air_quality_score,
         "socioeconomic": location_dims["socioeconomic"],
         "walkability": location_dims["walkability"],
         "climate": climate_score,
@@ -716,6 +725,11 @@ def simulate_all_dimensions(
     if climate_proj and climate_proj.get("score_high") is not None:
         metrics["Climate band (SSP2-4.5–5-8.5, mid-century)"] = (
             f"{climate_proj['score_low']}–{climate_proj['score_high']}")
+    if air_quality and air_quality_score is not None:
+        metrics["aq_pm25_ugm3"] = air_quality["pm25"]
+        metrics["aq_ozone_ppb"] = air_quality["ozone"]
+        metrics["aq_radon_zone"] = air_quality["radon_zone"]
+        metrics["aq_radon_label"] = air_quality["radon_label"]
 
     dims = []
     from housing_label.data.national_percentile import national_percentile
@@ -744,6 +758,9 @@ def simulate_all_dimensions(
         else:
             location_notes["climate"] = (
                 f"CMIP6-LOCA2 (county {location.county_fips}, SSP2-4.5 mid-century)")
+    if air_quality and air_quality_score is not None:
+        location_notes["air_quality"] = (
+            f"CDC Tracking PM2.5/ozone + EPA radon (county {location.county_fips})")
 
     return {
         "dimensions": dims,

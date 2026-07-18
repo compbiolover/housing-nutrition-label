@@ -38,6 +38,11 @@
         "score": null
       },
       {
+        "key": "air_quality",
+        "national_grade": "\u2014",
+        "score": null
+      },
+      {
         "key": "socioeconomic",
         "national_grade": "\u2014",
         "score": null
@@ -92,6 +97,11 @@
       },
       {
         "key": "health",
+        "national_grade": "\u2014",
+        "score": null
+      },
+      {
+        "key": "air_quality",
         "national_grade": "\u2014",
         "score": null
       },
@@ -154,6 +164,11 @@
         "score": null
       },
       {
+        "key": "air_quality",
+        "national_grade": "\u2014",
+        "score": null
+      },
+      {
         "key": "socioeconomic",
         "national_grade": "\u2014",
         "score": null
@@ -208,6 +223,11 @@
       },
       {
         "key": "health",
+        "national_grade": "\u2014",
+        "score": null
+      },
+      {
+        "key": "air_quality",
         "national_grade": "\u2014",
         "score": null
       },
@@ -270,6 +290,11 @@
         "score": null
       },
       {
+        "key": "air_quality",
+        "national_grade": "\u2014",
+        "score": null
+      },
+      {
         "key": "socioeconomic",
         "national_grade": "\u2014",
         "score": null
@@ -324,6 +349,11 @@
       },
       {
         "key": "health",
+        "national_grade": "\u2014",
+        "score": null
+      },
+      {
+        "key": "air_quality",
         "national_grade": "\u2014",
         "score": null
       },
