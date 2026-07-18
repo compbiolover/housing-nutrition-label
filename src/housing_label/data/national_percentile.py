@@ -14,9 +14,9 @@ routes each to the right reference:
   walkability crosswalk.
 - **Health, socioeconomic**: the score already IS a national percentile (Tier 1),
   so it is returned as-is.
-- **Climate, infrastructure, air quality, solar**: their breakpoints are anchored
-  to national quantiles, so the score already tracks national percentile rank —
-  returned as-is.
+- **Climate, infrastructure, air quality, solar, water**: their breakpoints are
+  anchored to national quantiles, so the score already tracks national percentile
+  rank — returned as-is.
 
 All dimensions here are "higher is better", so a higher percentile means a better
 home than a larger share of US homes. The construction/walkability references are
@@ -38,10 +38,11 @@ _CURVE_CSV = _DIR / "construction_percentiles.csv"
 
 CONSTRUCTION_DIMS = frozenset({"energy", "durability", "environmental", "resilience"})
 # Scores that already express national standing (no remapping needed). Air Quality,
-# Noise, and Solar are included: their breakpoints are anchored to national tract /
-# county quantiles, so the score already tracks a national percentile rank (see
-# data/air_quality.py + data/noise.py — tract-level — and data/solar.py — county-level).
-IDENTITY_DIMS = frozenset({"health", "air_quality", "noise", "socioeconomic", "climate", "infrastructure", "solar"})
+# Noise, Solar, and Water are included: their breakpoints are anchored to national
+# tract / county quantiles, so the score already tracks a national percentile rank
+# (see data/air_quality.py + data/noise.py — tract-level — and data/solar.py +
+# data/water.py — county-level).
+IDENTITY_DIMS = frozenset({"health", "air_quality", "noise", "socioeconomic", "climate", "infrastructure", "solar", "water"})
 
 DATA_VINTAGE = "national percentile vs US homes (modeled reference)"
 

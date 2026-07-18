@@ -23,7 +23,7 @@ from housing_label.confidence import (  # noqa: E402
 
 _DIM_KEYS = ["resilience", "energy", "durability", "environmental",
              "infrastructure", "health", "air_quality", "noise", "socioeconomic",
-             "walkability", "climate", "solar"]
+             "walkability", "climate", "solar", "water"]
 
 
 def _mock_label(scores=None, notes=None, metrics=None):
@@ -39,6 +39,7 @@ def _mock_label(scores=None, notes=None, metrics=None):
             "walkability": "EPA National Walkability Index (tract 47157003100)",
             "climate": "CMIP6-LOCA2 (tract 47157003100, SSP2-4.5 mid-century)",
             "solar": "PVGIS-NSRDB rooftop yield (county 47157)",
+            "water": "EPA SDWIS drinking-water compliance (county 47157)",
         },
         "metrics": metrics if metrics is not None else {
             "Climate band (SSP2-4.5–5-8.5, mid-century)": "49.6–47.0",
@@ -54,7 +55,7 @@ def test_tiers_match_research_doc_sample():
     assert tiers == {
         "resilience": "high", "energy": "high", "durability": "high",
         "environmental": "moderate", "infrastructure": "moderate", "health": "high",
-        "air_quality": "high", "noise": "high", "solar": "high",
+        "air_quality": "high", "noise": "high", "solar": "high", "water": "high",
         "socioeconomic": "low", "walkability": "low", "climate": "moderate",
     }, tiers
 

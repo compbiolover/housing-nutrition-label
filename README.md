@@ -4,7 +4,7 @@
 [![Site](https://img.shields.io/badge/live-housinglabel.dev-2e7d32)](https://housinglabel.dev/label.html)
 [![Status](https://img.shields.io/badge/phase%201-complete-brightgreen)](#current-status)
 
-An open-source platform for scoring residential properties across multiple dimensions — disaster resilience, energy efficiency, durability, environmental footprint, infrastructure burden, health impact, air quality, transportation noise, socioeconomic context, walkability, climate projections, and rooftop solar potential — and presenting them in a clear, standardized format, **like a nutrition label for housing**.
+An open-source platform for scoring residential properties across multiple dimensions — disaster resilience, energy efficiency, durability, environmental footprint, infrastructure burden, health impact, air quality, transportation noise, socioeconomic context, walkability, climate projections, rooftop solar potential, and drinking-water quality — and presenting them in a clear, standardized format, **like a nutrition label for housing**.
 
 The goal: give homebuyers, renters, insurers, and policymakers an at-a-glance understanding of a property's true risk and quality profile, beyond what typical listings or appraisals reveal.
 
@@ -30,9 +30,9 @@ The goal: give homebuyers, renters, insurers, and policymakers an at-a-glance un
 
 ## Current Status
 
-> **Phase 1 complete — Shelby County, TN (Memphis) pilot, now generalized nationwide across 12 scored dimensions.**
+> **Phase 1 complete — Shelby County, TN (Memphis) pilot, now generalized nationwide across 13 scored dimensions.**
 
-Enter any U.S. residential address (or lat/lon) and it scores twelve dimensions plus a rolled-up composite, each with a national (absolute) letter grade and a national percentile, from bundled offline reference data plus a few keyless government APIs. An **interactive nutrition label visualization** is live on the project site — [housinglabel.dev/label.html](https://housinglabel.dev/label.html) — backed by the same scoring API.
+Enter any U.S. residential address (or lat/lon) and it scores thirteen dimensions plus a rolled-up composite, each with a national (absolute) letter grade and a national percentile, from bundled offline reference data plus a few keyless government APIs. An **interactive nutrition label visualization** is live on the project site — [housinglabel.dev/label.html](https://housinglabel.dev/label.html) — backed by the same scoring API.
 
 ## Quick Start
 
@@ -50,16 +50,16 @@ housing-simulate --preset icf-passive --lat 35.15 --lon -89.85   # score a house
 
 ```
 address / lat-lon  →  location resolve   →  per-dimension models   →  nutrition label
-(geocode +            (climate zone, grid,   (12 dimensions, 0–100      (national grade +
+(geocode +            (climate zone, grid,   (13 dimensions, 0–100      (national grade +
  bundled county/       hazards, structure)    scores + composite)       percentile, API/CLI)
  tract lookups)
 ```
 
-The twelve dimensions are scored per address on demand — the five construction-driven ones from the house configuration and the seven location-driven ones from the resolved location — using the shared `enrich/` model libraries. There is no offline batch step: the same models back both the CLI simulator and the address-search API.
+The thirteen dimensions are scored per address on demand — the five construction-driven ones from the house configuration and the eight location-driven ones from the resolved location — using the shared `enrich/` model libraries. There is no offline batch step: the same models back both the CLI simulator and the address-search API.
 
 ## Scored Dimensions
 
-Each parcel is scored on **twelve dimensions**, each 0–100 (higher is better). Expand any dimension for its methodology.
+Each parcel is scored on **thirteen dimensions**, each 0–100 (higher is better). Expand any dimension for its methodology.
 
 <details>
 <summary><strong>🛡️ Disaster Resilience</strong> — flood + tornado + seismic + fire EAL</summary>
@@ -147,6 +147,13 @@ County rooftop-solar **specific yield** — the annual energy a standard 1 kWp a
 
 </details>
 
+<details>
+<summary><strong>🚰 Water Quality</strong> — community drinking-water compliance (EPA SDWIS)</summary>
+
+County drinking-water safety from the EPA **Safe Drinking Water Information System (SDWIS)** federal reporting. The metric is the **share of the county's community-water-system-served population** (residents on an active CWS — not all county residents, so private wells are out of scope) **that is on a system with a health-based drinking-water violation** (a contaminant exceedance or treatment-technique failure — not a monitoring/paperwork lapse) whose non-compliance period began within the trailing 5-year window. Mapped to a national-percentile score against the **population-weighted** distribution of US counties (less exposure → higher score; higher = cleaner). Because ~27% of the population lives in a spotless (0%) county, the zero anchor is that mass's tie-adjusted percentile rather than 100. Bundled offline and keyless ([`data/water.py`](src/housing_label/data/water.py), built by [`scripts/build_water.py`](scripts/build_water.py)). Reflects reported community-water-system compliance — not private wells or in-home plumbing.
+
+</details>
+
 ## Scoring System
 
 - **0–100 score per dimension** — higher is better.
@@ -157,7 +164,7 @@ County rooftop-solar **specific yield** — the annual energy a standard 1 kWp a
 
 The national/local thresholds are identical across all dimensions, so a grade means exactly the same thing whether it's read from the resilience dimension, the composite, or any other.
 
-> **Nationally-anchored scores.** The location-driven dimensions — health, socioeconomic, walkability, air quality, and noise — plus infrastructure and climate are scored against **national reference distributions** (bundled, versioned, and reproducible from the `scripts/build_*` builders), so a dimension's 0–100 score and its **absolute national grade are comparable across locations**. This replaces the earlier within-county percentile for health/socioeconomic, which re-baselined every county to a ~50 median and was not comparable place-to-place. The optional *local* percentile grade remains a rank within whatever dataset is loaded and is labelled with its reference population and vintage — never presented as a national percentile.
+> **Nationally-anchored scores.** The location-driven dimensions — health, socioeconomic, walkability, air quality, noise, and water — plus infrastructure and climate are scored against **national reference distributions** (bundled, versioned, and reproducible from the `scripts/build_*` builders), so a dimension's 0–100 score and its **absolute national grade are comparable across locations**. This replaces the earlier within-county percentile for health/socioeconomic, which re-baselined every county to a ~50 median and was not comparable place-to-place. The optional *local* percentile grade remains a rank within whatever dataset is loaded and is labelled with its reference population and vintage — never presented as a national percentile.
 >
 > **National percentile per dimension ("vs US homes").** Each dimension also shows where the home stands nationally — e.g. *"72nd US"*. The construction-driven dimensions (energy, durability, environmental, resilience) map their score through a bundled national distribution built by [`scripts/calibrate_construction_percentiles.py`](scripts/calibrate_construction_percentiles.py) (a household-weighted panel of every US county × documented building archetypes, scored with the real models); walkability maps through the EPA-NWI crosswalk distribution; health/socioeconomic already are national percentiles; climate/infrastructure/air quality track national quantiles. These construction/walkability references are **modeled** distributions, so the percentile is an honest, versioned *estimate* (labelled as such on the label).
 
@@ -183,6 +190,7 @@ The national/local thresholds are identical across all dimensions, so a grade me
 | [CDC EPH Tracking](https://ephtracking.cdc.gov/) + [EPA Map of Radon Zones](https://www.epa.gov/radon/epa-map-radon-zones) | County PM2.5, ozone & radon zone (Air Quality) | Free — no key (bundled) |
 | [US DOT BTS National Transportation Noise Map](https://www.bts.gov/geospatial/national-transportation-noise-map) | Tract transportation-noise exposure (Noise) | Free — no key (bundled) |
 | [PVGIS](https://re.jrc.ec.europa.eu/) (EU JRC) on NREL NSRDB | County rooftop solar specific yield (Solar Potential) | Free — no key (bundled) |
+| [EPA SDWIS](https://www.epa.gov/ground-water-and-drinking-water/safe-drinking-water-information-system-sdwis-federal-reporting) | County community-water-system health-based violations (Water Quality) | Free — no key (bundled) |
 | [Census ACS 5-yr Summary File](https://www.census.gov/programs-surveys/acs/data/summary-file.html) | Socioeconomic indicators (poverty, income, housing-cost burden) — national reference | Free — no key (bundled; the live scoring path needs no key) |
 | [EPA National Walkability Index](https://www.epa.gov/smartgrowth/national-walkability-index-user-guide-and-methodology) | Walkability (block-group index, aggregated to tract) | Free — public domain (bundled) |
 
@@ -192,7 +200,7 @@ The national/local thresholds are identical across all dimensions, so a grade me
 
 ## House Simulator
 
-`src/housing_label/simulate/house.py` models a hypothetical house and reports a **full nutrition label across all twelve dimensions**, letting you see how construction decisions move the needle. It supports 20+ above-code construction features (hurricane straps, sealed roof deck, metal/hip roof, tornado safe room, FORTIFIED Gold, flood elevation, ICF walls, etc.). Once the package is installed (`pip install -e .`) it's also available as the `housing-simulate` command.
+`src/housing_label/simulate/house.py` models a hypothetical house and reports a **full nutrition label across all thirteen dimensions**, letting you see how construction decisions move the needle. It supports 20+ above-code construction features (hurricane straps, sealed roof deck, metal/hip roof, tornado safe room, FORTIFIED Gold, flood elevation, ICF walls, etc.). Once the package is installed (`pip install -e .`) it's also available as the `housing-simulate` command.
 
 ```bash
 python src/housing_label/simulate/house.py --preset icf-passive --lat 35.15 --lon -89.85
@@ -219,7 +227,7 @@ All preset fields can be overridden from the CLI (e.g. `--year-built`, `--constr
 <details>
 <summary><strong>Scoring model — construction-driven vs. location-driven dimensions</strong></summary>
 
-The five **construction-driven** dimensions — resilience, energy efficiency, durability, environmental footprint, and infrastructure burden — are modeled offline from the house configuration using the `enrich/` model libraries. The seven **location-driven** dimensions depend on where the house sits: health, socioeconomic, walkability, air quality, and noise are bundled national references (CDC PLACES, Census ACS, the EPA National Walkability Index, CDC Tracking PM2.5/ozone + EPA radon zone, and the US DOT BTS transportation-noise map) resolved by the house's census tract (air quality's radon layer is county-level); climate projections come from the bundled CMIP6-LOCA2 tract/county crosswalk (tract → county → national-average fallback); and solar potential is a bundled per-county PVGIS rooftop-yield lookup — all keyless. When a location can't be resolved (e.g. offline, so no census tract), the affected dimension is reported as `N/A` and **excluded from the composite rather than filled with a placeholder**, so a strong build isn't penalized for a missing input.
+The five **construction-driven** dimensions — resilience, energy efficiency, durability, environmental footprint, and infrastructure burden — are modeled offline from the house configuration using the `enrich/` model libraries. The eight **location-driven** dimensions depend on where the house sits: health, socioeconomic, walkability, air quality, and noise are bundled national references (CDC PLACES, Census ACS, the EPA National Walkability Index, CDC Tracking PM2.5/ozone + EPA radon zone, and the US DOT BTS transportation-noise map) resolved by the house's census tract (air quality's radon layer is county-level); climate projections come from the bundled CMIP6-LOCA2 tract/county crosswalk (tract → county → national-average fallback); solar potential is a bundled per-county PVGIS rooftop-yield lookup; and water quality is a bundled per-county EPA SDWIS drinking-water-compliance lookup — all keyless. When a location can't be resolved (e.g. offline, so no census tract), the affected dimension is reported as `N/A` and **excluded from the composite rather than filled with a placeholder**, so a strong build isn't penalized for a missing input.
 
 </details>
 
