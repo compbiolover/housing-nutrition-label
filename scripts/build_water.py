@@ -49,6 +49,7 @@ import csv
 import io
 import pathlib
 import sys
+import tempfile
 import zipfile
 
 import requests
@@ -160,13 +161,20 @@ def _load_violating_systems(z: zipfile.ZipFile, systems: set[str]) -> set[str]:
     return {p for p, y in hb_year.items() if y >= cutoff}
 
 
-def _fetch_zip(local: str | None) -> bytes:
+def _open_zip(local: str | None):
+    """A seekable binary file object for the SDWA zip — a local path opened directly,
+    or the ~420 MB download streamed to a spooled temp file (rolls over to disk) so
+    the whole archive is never held in memory. Caller closes it."""
     if local:
-        return pathlib.Path(local).read_bytes()
+        return open(local, "rb")
     print("Fetching SDWA_latest_downloads.zip (~420 MB) …")
-    r = requests.get(SDWA_URL, headers=_HEADERS, timeout=_TIMEOUT)
-    r.raise_for_status()
-    return r.content
+    spool = tempfile.SpooledTemporaryFile(max_size=64 * 1024 * 1024, mode="w+b")
+    with requests.get(SDWA_URL, headers=_HEADERS, timeout=_TIMEOUT, stream=True) as r:
+        r.raise_for_status()
+        for chunk in r.iter_content(chunk_size=1 << 20):
+            spool.write(chunk)
+    spool.seek(0)
+    return spool
 
 
 def _weighted_quantiles(rows, qs=(0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99)):
@@ -196,7 +204,7 @@ def main() -> int:
     ap.add_argument("--county-out", default=str(_COUNTY_OUT))
     args = ap.parse_args()
 
-    with zipfile.ZipFile(io.BytesIO(_fetch_zip(args.local_zip))) as z:
+    with _open_zip(args.local_zip) as zf, zipfile.ZipFile(zf) as z:
         print("Reading active community water systems …")
         systems = _load_systems(z)
         print(f"      {len(systems)} active CWSs")

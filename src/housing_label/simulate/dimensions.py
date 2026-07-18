@@ -783,7 +783,8 @@ def simulate_all_dimensions(
             metrics["solar_co2_avoided_kg"] = round(prod * co2_factor)
     if water and water_score is not None:
         metrics["water_pct_hb_violation"] = water["pct_pop_hb_violation"]
-        metrics["water_n_cws"] = round(water["n_cws"])
+        if water["n_cws"] is not None:      # int count (or None on a blank CSV cell)
+            metrics["water_n_cws"] = water["n_cws"]
 
     dims = []
     from housing_label.data.national_percentile import national_percentile
