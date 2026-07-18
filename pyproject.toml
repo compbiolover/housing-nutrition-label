@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "housing-nutrition-label"
-version = "0.1.49"
+version = "0.1.50"
 description = "Multi-dimensional lifecycle scoring for residential properties"
 readme = "README.md"
 license = { text = "MIT" }
