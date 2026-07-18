@@ -701,11 +701,17 @@ def simulate_all_dimensions(
     have_county = bool(location and location.county_fips)
     climate_score = climate_proj["score"] if (climate_proj and have_county) else None
 
-    # Air Quality: bundled county PM2.5 + ozone + radon. Scored whenever a county
-    # resolved (a known-but-unmodeled county returns None → left unscored), mirroring
-    # the other county/location-driven dimensions.
-    from housing_label.data.air_quality import air_quality_for_county
-    air_quality = air_quality_for_county(location.county_fips) if have_county else None
+    # Air Quality: bundled tract PM2.5 + ozone (falling back to the county) + the
+    # county radon zone. Resolved at the tract like health/socioeconomic/walkability;
+    # a non-CONUS or unmodeled location returns None → left unscored.
+    from housing_label.data.air_quality import (
+        air_quality_for_tract, air_quality_for_county,
+    )
+    air_quality = None
+    if tract:
+        air_quality = air_quality_for_tract(tract)
+    elif have_county:
+        air_quality = air_quality_for_county(location.county_fips)
     air_quality_score = air_quality["score"] if air_quality else None
 
     scores = {
@@ -759,8 +765,13 @@ def simulate_all_dimensions(
             location_notes["climate"] = (
                 f"CMIP6-LOCA2 (county {location.county_fips}, SSP2-4.5 mid-century)")
     if air_quality and air_quality_score is not None:
+        if air_quality.get("geo_level") == "tract" and location.tract:
+            _aq_geo = f"tract {location.tract}"
+        else:
+            _aq_geo = f"county {location.county_fips}"
         location_notes["air_quality"] = (
-            f"CDC Tracking PM2.5/ozone + EPA radon (county {location.county_fips})")
+            f"CDC Tracking PM2.5/ozone ({_aq_geo}) + EPA radon zone "
+            f"(county {location.county_fips})")
 
     return {
         "dimensions": dims,

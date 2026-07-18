@@ -1,48 +1,53 @@
 #!/usr/bin/env python3
-"""Build the bundled county air-quality table for the Air Quality dimension.
+"""Build the bundled air-quality tables (tract + county) for the Air Quality dimension.
 
-Writes ``src/housing_label/data/air_quality.csv`` — one row per US county:
+Writes two artifacts so the runtime (``data/air_quality.py``) can resolve ambient
+air quality at census-tract resolution (tract → county → unscored), with no
+network call:
 
-    county_fips, pm25_ugm3, ozone_ppb, radon_zone
+  • ``src/housing_label/data/air_quality_tracts.csv.gz`` — one row per census tract:
+        geoid, pm25_ugm3, ozone_ppb
+  • ``src/housing_label/data/air_quality.csv`` — one row per county (the fallback,
+    and the sole carrier of the county-only radon layer):
+        county_fips, pm25_ugm3, ozone_ppb, radon_zone
 
-so the runtime (``data/air_quality.py``) can look up ambient air quality for any
-county with no network call. Three national, public-domain sources are joined on
-the 5-digit county FIPS:
+Sources — national, public-domain, joined on FIPS/GEOID:
 
-  1. **PM2.5** — CDC Environmental Public Health Tracking, "Daily County-Level
-     PM2.5 Concentrations" (Socrata ``53mz-4zqd``), the CDC/EPA downscaler-fused
-     model (full county coverage, incl. counties with no monitor). We take the
-     annual mean of the population-weighted daily prediction (``pm25_pop_pred``)
-     for ``--year`` → µg/m³.
-  2. **Ozone** — CDC Tracking "Daily County-Level Ozone Concentrations" (Socrata
-     ``3vxk-q2jk``), same downscaler basis. Annual mean of ``o3_pop_pred`` → ppb
-     (daily max 8-hour average).
+  1. **PM2.5** — CDC Environmental Public Health Tracking downscaler-fused model.
+     Tract: "Daily Census Tract-Level PM2.5" (Socrata ``vpk8-vfhm``, ``ds_pm_pred``).
+     County: "Daily County-Level PM2.5" (``53mz-4zqd``, population-weighted
+     ``pm25_pop_pred``). Annual mean for ``--year`` → µg/m³.
+  2. **Ozone** — same downscaler basis. Tract: ``b72x-p96c`` (``ds_o3_pred``);
+     county: ``3vxk-q2jk`` (``o3_pop_pred``). Annual mean of the daily max 8-hour → ppb.
   3. **Radon** — EPA "Map of Radon Zones" county classification (Zone 1 = highest
-     predicted indoor level, ≥4 pCi/L; Zone 2 = 2–4; Zone 3 = <2). EPA distributes
-     it keyed by county *name + state*, so it is joined to FIPS through the Census
-     ``national_county2020`` code list.
+     predicted indoor level, ≥4 pCi/L; Zone 2 = 2–4; Zone 3 = <2). This is a
+     *county-level* dataset with no finer public source, so it is bundled at the
+     county grain and broadcast to a tract's county at runtime. EPA distributes it
+     keyed by county *name + state*, joined to FIPS via the Census ``national_county2020``
+     code list.
 
-All sources are fetched at build time (dev-time only; the shipped artifact is the
-CSV). PM2.5 and ozone are always pulled from the CDC Socrata API; the EPA radon
-workbook and the Census county file can each be read from a local copy instead
-(``--radon-path`` / ``--census-path``) for a reproducible offline build. Pass
-``--year`` to change the modeled year.
+Default ``--year`` is 2021 — the latest year the tract PM2.5 series carries, so
+tract and county share one vintage. All sources are fetched at build time
+(dev-time only; the shipped artifacts are the CSVs). The tract/county pollutant
+series are always pulled from the CDC Socrata API; the EPA radon workbook and the
+Census county file can each be read from a local copy (``--radon-path`` /
+``--census-path``) for a reproducible offline build.
 
 Sources
 -------
-  CDC Tracking PM2.5:  https://data.cdc.gov/resource/53mz-4zqd
-  CDC Tracking Ozone:  https://data.cdc.gov/resource/3vxk-q2jk
+  CDC Tracking PM2.5 (tract / county):  vpk8-vfhm / 53mz-4zqd
+  CDC Tracking Ozone (tract / county):  b72x-p96c / 3vxk-q2jk   (https://data.cdc.gov)
   EPA Map of Radon Zones:
     https://www.epa.gov/sites/default/files/2018-08/table_version_of_epa_radon_zones_by_county.xlsx
   Census county codes: https://www2.census.gov/geo/docs/reference/codes2020/national_county2020.txt
 
-Run:  python scripts/build_air_quality.py            # fetch + write the CSV
-      python scripts/build_air_quality.py --year 2021
+Run:  python scripts/build_air_quality.py            # fetch + write both tables
 """
 from __future__ import annotations
 
 import argparse
 import csv
+import gzip
 import io
 import pathlib
 import re
@@ -56,10 +61,15 @@ try:
 except ImportError:  # pragma: no cover
     openpyxl = None
 
-_OUT = pathlib.Path(__file__).resolve().parent.parent / "src" / "housing_label" / "data" / "air_quality.csv"
+_DATA = pathlib.Path(__file__).resolve().parent.parent / "src" / "housing_label" / "data"
+_OUT = _DATA / "air_quality.csv"
+_TRACT_OUT = _DATA / "air_quality_tracts.csv.gz"
 
 PM25_URL = "https://data.cdc.gov/resource/53mz-4zqd.json"
 OZONE_URL = "https://data.cdc.gov/resource/3vxk-q2jk.json"
+# Tract-level PM2.5 / ozone (same CDC downscaler model, census-tract grain).
+PM25_TRACT_URL = "https://data.cdc.gov/resource/vpk8-vfhm.json"
+OZONE_TRACT_URL = "https://data.cdc.gov/resource/b72x-p96c.json"
 RADON_URL = ("https://www.epa.gov/sites/default/files/2018-08/"
              "table_version_of_epa_radon_zones_by_county.xlsx")
 CENSUS_URL = "https://www2.census.gov/geo/docs/reference/codes2020/national_county2020.txt"
@@ -135,6 +145,28 @@ def _socrata_county_annual(url: str, value_col: str, year: str) -> dict[str, flo
         if row.get("v") is None:
             continue
         out[_fips5(row["statefips"], row["countyfips"])] = float(row["v"])
+    return out
+
+
+def _socrata_tract_annual(url: str, value_col: str, year: str) -> dict[str, float]:
+    """Return {tract GEOID (11) → annual mean of `value_col`} for `year`.
+
+    Server-side ``avg`` grouped by ``ctfips`` (~84k CONUS tracts) — one request,
+    since Socrata returns the full grouped result under a high ``$limit``."""
+    params = {
+        "$select": f"ctfips,avg({value_col}) as v",
+        "$where": f"year='{year}'",
+        "$group": "ctfips",
+        "$limit": "200000",
+    }
+    r = requests.get(url, params=params, headers=_HEADERS, timeout=_TIMEOUT)
+    r.raise_for_status()
+    out: dict[str, float] = {}
+    for row in r.json():
+        geoid = str(row.get("ctfips") or "").strip()
+        if not geoid or row.get("v") is None:
+            continue
+        out[geoid.zfill(11)] = float(row["v"])
     return out
 
 
@@ -225,16 +257,19 @@ def _quantiles(vals: list[float], qs=(0.1, 0.25, 0.5, 0.75, 0.9, 0.95)) -> list[
 def main() -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--year", default="2022", help="modeled year (default 2022, the latest CDC year)")
+    ap.add_argument("--year", default="2021",
+                    help="modeled year (default 2021 — the latest the tract PM2.5 series carries)")
     ap.add_argument("--radon-path", help="local EPA radon .xlsx (skip fetch)")
     ap.add_argument("--census-path", help="local Census national_county file (skip fetch)")
-    ap.add_argument("--out", default=str(_OUT), help="output CSV path")
+    ap.add_argument("--out", default=str(_OUT), help="county CSV output path")
+    ap.add_argument("--tracts-out", default=str(_TRACT_OUT), help="tract .csv.gz output path")
     args = ap.parse_args()
 
-    print(f"PM2.5  ← CDC Tracking 53mz-4zqd ({args.year}) …")
+    # ── County layer (fallback + radon carrier) ───────────────────────────────
+    print(f"PM2.5  county ← CDC Tracking 53mz-4zqd ({args.year}) …")
     pm25 = _socrata_county_annual(PM25_URL, "pm25_pop_pred", args.year)
     print(f"       {len(pm25)} counties")
-    print(f"Ozone  ← CDC Tracking 3vxk-q2jk ({args.year}) …")
+    print(f"Ozone  county ← CDC Tracking 3vxk-q2jk ({args.year}) …")
     ozone = _socrata_county_annual(OZONE_URL, "o3_pop_pred", args.year)
     print(f"       {len(ozone)} counties")
     print("Radon  ← EPA Map of Radon Zones (+ Census county crosswalk) …")
@@ -248,36 +283,49 @@ def main() -> int:
               + (" …" if len(unmatched) > 25 else ""))
 
     fips_all = sorted(set(pm25) | set(ozone))
-    rows = 0
     with open(args.out, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["county_fips", "pm25_ugm3", "ozone_ppb", "radon_zone"])
         for fips in fips_all:
-            p = pm25.get(fips)
-            o = ozone.get(fips)
-            z = radon.get(fips)
-            w.writerow([
-                fips,
-                "" if p is None else f"{p:.2f}",
-                "" if o is None else f"{o:.1f}",
-                "" if z is None else z,
-            ])
-            rows += 1
-    print(f"\nWrote {rows} county rows → {args.out}")
+            p, o, z = pm25.get(fips), ozone.get(fips), radon.get(fips)
+            w.writerow([fips,
+                        "" if p is None else f"{p:.2f}",
+                        "" if o is None else f"{o:.1f}",
+                        "" if z is None else z])
+    print(f"Wrote {len(fips_all)} county rows → {args.out}")
 
-    # Print national quantiles to calibrate the scoring breakpoints in
-    # data/air_quality.py (higher pollutant = worse; the score inverts these).
-    if pm25:
-        print(f"PM2.5 µg/m³ national quantiles [10,25,50,75,90,95]: "
-              f"{_quantiles(list(pm25.values()))}")
-    if ozone:
-        print(f"Ozone ppb   national quantiles [10,25,50,75,90,95]: "
-              f"{_quantiles(list(ozone.values()))}")
+    # ── Tract layer (primary resolution for PM2.5 + ozone) ────────────────────
+    print(f"\nPM2.5  tract  ← CDC Tracking vpk8-vfhm ({args.year}) …")
+    pm25_t = _socrata_tract_annual(PM25_TRACT_URL, "ds_pm_pred", args.year)
+    print(f"       {len(pm25_t)} tracts")
+    print(f"Ozone  tract  ← CDC Tracking b72x-p96c ({args.year}) …")
+    ozone_t = _socrata_tract_annual(OZONE_TRACT_URL, "ds_o3_pred", args.year)
+    print(f"       {len(ozone_t)} tracts")
+
+    geoids = sorted(set(pm25_t) | set(ozone_t))
+    with gzip.open(args.tracts_out, "wt", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["geoid", "pm25_ugm3", "ozone_ppb"])
+        for g in geoids:
+            p, o = pm25_t.get(g), ozone_t.get(g)
+            w.writerow([g,
+                        "" if p is None else f"{p:.2f}",
+                        "" if o is None else f"{o:.1f}"])
+    print(f"Wrote {len(geoids)} tract rows → {args.tracts_out}")
+
+    # National quantiles that calibrate the scoring breakpoints in
+    # data/air_quality.py. Anchor on the TRACT distribution (the primary
+    # resolution) so a tract's score reads as a national percentile among tracts.
+    if pm25_t:
+        print(f"\nPM2.5 µg/m³ tract quantiles [10,25,50,75,90,95]: "
+              f"{_quantiles(list(pm25_t.values()))}")
+    if ozone_t:
+        print(f"Ozone ppb   tract quantiles [10,25,50,75,90,95]: "
+              f"{_quantiles(list(ozone_t.values()))}")
     if radon:
         from collections import Counter
         c = Counter(radon.values())
-        print(f"Radon zone distribution: "
-              f"Z1={c.get(1,0)} Z2={c.get(2,0)} Z3={c.get(3,0)}")
+        print(f"Radon zone distribution: Z1={c.get(1,0)} Z2={c.get(2,0)} Z3={c.get(3,0)}")
     return 0
 
 

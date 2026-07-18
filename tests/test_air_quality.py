@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Tests for the Air Quality lookup + scoring (data/air_quality.py).
 
-Offline — reads the bundled air_quality.csv only. Execute directly
-(python tests/test_air_quality.py) or via pytest.
+Offline — reads the bundled air_quality.csv (county) and air_quality_tracts.csv.gz
+(tract) only. Execute directly (python tests/test_air_quality.py) or via pytest.
 """
 
 from __future__ import annotations
 
 import csv
+import gzip
 
 from housing_label.data import air_quality as A
 
@@ -56,6 +57,45 @@ def test_cleaner_air_scores_higher():
     assert lo > hi
     # Radon Zone 3 (low) beats Zone 1 (high).
     assert A._RADON_SCORE[3] > A._RADON_SCORE[2] > A._RADON_SCORE[1]
+
+
+def test_tract_resolves_at_tract_level():
+    """A real 11-digit tract GEOID scores at tract resolution (geo_level 'tract')
+    using tract PM2.5/ozone plus its county's radon zone."""
+    geoid = next(iter(A._tract_table()))          # any bundled tract
+    rec = A.air_quality_for_tract(geoid)
+    assert rec is not None
+    assert rec["geo_level"] == "tract"
+    assert 0.0 <= rec["score"] <= 100.0
+    assert rec["pm25"] is not None and rec["ozone"] is not None
+
+
+def test_tract_falls_back_to_county():
+    """A tract GEOID whose county exists but whose tract row is absent falls back
+    to the county reading (geo_level 'county'), never unscored."""
+    fake = "06037" + "999999"                     # LA county, non-existent tract
+    assert fake not in A._tract_table()
+    rec = A.air_quality_for_tract(fake)
+    assert rec is not None and rec["geo_level"] == "county"
+    assert rec["score"] == A.air_quality_for_county("06037")["score"]
+
+
+def test_non_conus_tract_and_blank_return_none():
+    assert A.air_quality_for_tract("02020000100") is None   # Anchorage, AK — non-CONUS
+    assert A.air_quality_for_tract(None) is None
+    assert A.air_quality_for_tract("") is None
+
+
+def test_tract_gz_is_well_formed():
+    seen = 0
+    with gzip.open(A._TRACT_CSV_GZ, "rt") as f:
+        for row in csv.DictReader(f):
+            g = row["geoid"]
+            assert len(g) == 11 and g.isdigit()
+            assert float(row["pm25_ugm3"]) > 0
+            assert float(row["ozone_ppb"]) > 0
+            seen += 1
+    assert seen > 50000   # ~84k CONUS tracts
 
 
 def test_bundled_csv_is_well_formed():
