@@ -173,7 +173,8 @@ def _load_radon(path: str | None,
 
     Returns (mapping, unmatched) where `unmatched` lists "State CountyName" the
     join could not resolve (logged, not fatal — those counties ship without a
-    radon zone and fall back to the national baseline at runtime)."""
+    radon zone and are scored on PM2.5 + ozone alone at runtime, with radon's
+    weight redistributed)."""
     if openpyxl is None:  # pragma: no cover
         raise RuntimeError("openpyxl is required to read the EPA radon workbook.")
     if path:
