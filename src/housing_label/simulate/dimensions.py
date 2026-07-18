@@ -770,7 +770,8 @@ def simulate_all_dimensions(
         else:
             _aq_geo = f"county {location.county_fips}"
         location_notes["air_quality"] = (
-            f"CDC Tracking PM2.5/ozone ({_aq_geo}) + EPA radon zone (county)")
+            f"CDC Tracking PM2.5/ozone ({_aq_geo}) + EPA radon zone "
+            f"(county {location.county_fips})")
 
     return {
         "dimensions": dims,
