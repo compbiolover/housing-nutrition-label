@@ -67,7 +67,10 @@ p { margin-bottom: 1rem; }
 /* Comparison table */
 .comparison { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.95rem; }
 .comparison th { background: var(--navy); color: #fff; padding: 0.75rem 1rem; text-align: left; }
-.comparison td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); }
+.comparison td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+/* First column holds metric labels ("Energy / Unit / Mo") that should wrap;
+   data cells stay nowrap so a score never breaks away from its grade badge. */
+.comparison td:first-child { white-space: normal; }
 .comparison tr:hover { background: #f1f5f9; }
 .comparison .grade { display: inline-block; width: 28px; height: 28px; line-height: 28px; text-align: center; border-radius: 4px; font-weight: 700; font-size: 0.85rem; color: #fff; }
 .grade-a { background: var(--green); }
