@@ -69,6 +69,13 @@ p { margin-bottom: 1rem; }
    instead of stretching the whole page — otherwise the page scrolls sideways
    and the sticky nav (only ever viewport-wide) ends before the table does. */
 .table-scroll { overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; }
+/* The wrapper is a new block formatting context, so a wrapped table's vertical
+   margins no longer collapse with adjacent headings/text — they would add and
+   inflate the gap. Carry the spacing on the wrapper and zero it on the table so
+   the layout matches the pre-wrap spacing (2rem comparison, 1.5rem data-table). */
+.table-scroll:has(> .comparison) { margin: 2rem 0; }
+.table-scroll:has(> .data-table) { margin: 1.5rem 0; }
+.table-scroll > table { margin: 0; }
 
 /* Comparison table */
 .comparison { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.95rem; }
