@@ -64,6 +64,12 @@ p { margin-bottom: 1rem; }
 .fill.orange { background: var(--orange); }
 .fill.red { background: var(--red); }
 
+/* Wide tables can be intrinsically wider than a narrow (mobile) viewport.
+   Wrapping each one in .table-scroll keeps the overflow *inside its own box*
+   instead of stretching the whole page — otherwise the page scrolls sideways
+   and the sticky nav (only ever viewport-wide) ends before the table does. */
+.table-scroll { overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; }
+
 /* Comparison table */
 .comparison { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.95rem; }
 .comparison th { background: var(--navy); color: #fff; padding: 0.75rem 1rem; text-align: left; }
@@ -95,6 +101,9 @@ p { margin-bottom: 1rem; }
 pre { background: var(--navy); color: #e2e8f0; padding: 1.25rem; border-radius: var(--radius); overflow-x: auto; margin: 1rem 0; font-size: 0.9rem; line-height: 1.5; }
 code { font-family: 'SF Mono', 'Fira Code', monospace; }
 p code { background: #f1f5f9; padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.9em; }
+/* Long unbreakable tokens in inline code (URLs, flag lists) must be able to
+   break, or they push the paragraph — and the whole page — past the viewport. */
+p code, li code { overflow-wrap: anywhere; }
 
 /* Insight callouts */
 .insight { border-left: 4px solid var(--blue); background: #eff6ff; padding: 1rem 1.5rem; border-radius: 0 var(--radius) var(--radius) 0; margin: 1.5rem 0; }

@@ -100,7 +100,7 @@ housing-simulate --preset duplex --lat 35.15 --lon -89.85
 housing-simulate --preset icf-quadplex --lat 35.15 --lon -89.85</code></pre>
 
   <h3>Available Presets</h3>
-  <table class="data-table">
+  <div class="table-scroll"><table class="data-table">
     <thead><tr><th>Preset</th><th>Description</th></tr></thead>
     <tbody>
       <tr><td><code>baseline</code></td><td>2000 wood frame, slab, average condition, 2,000 sqft, 0.25 ac</td></tr>
@@ -112,7 +112,7 @@ housing-simulate --preset icf-quadplex --lat 35.15 --lon -89.85</code></pre>
       <tr><td><code>quadplex</code></td><td>2026 brick, 4 units &times; 900 sqft, 0.20 ac, $500K</td></tr>
       <tr><td><code>icf-quadplex</code></td><td>2026 ICF, 4 units + solar + passive + straps + hip roof, $600K</td></tr>
     </tbody>
-  </table>
+  </table></div>
 
   <h3>Custom Builds</h3>
   <pre><code># Build your own scenario
@@ -133,7 +133,7 @@ housing-simulate \
   --sealed-roof-deck</code></pre>
 
   <h3>Above-Code Feature Flags</h3>
-  <table class="data-table">
+  <div class="table-scroll"><table class="data-table">
     <thead><tr><th>Category</th><th>Flags</th></tr></thead>
     <tbody>
       <tr><td>Wind/Tornado</td><td><code>--hurricane-straps</code> <code>--hip-roof</code> <code>--impact-garage-door</code> <code>--sealed-roof-deck</code> <code>--metal-roof</code> <code>--reinforced-gable</code> <code>--ring-shank-nails</code> <code>--truss-16oc</code></td></tr>
@@ -142,7 +142,7 @@ housing-simulate \
       <tr><td>Flood</td><td><code>--elevation-1ft</code> <code>--elevation-2ft</code> <code>--elevation-3ft</code> <code>--flood-vents</code> <code>--backflow-valve</code> <code>--leak-detection</code></td></tr>
       <tr><td>General</td><td><code>--solar</code> <code>--backup-generator</code> <code>--passive-house</code> <code>--tornado-safe-room</code> <code>--fire-sprinklers</code></td></tr>
     </tbody>
-  </table>
+  </table></div>
 </section>
 
 <section id="api">

@@ -47,7 +47,7 @@
   <div id="sfc-live"><p class="sfc-loading" style="text-align:center;color:var(--muted);padding:1rem;">Loading live comparison&hellip;</p></div>
 
   <h3>Key Metrics <small style="font-weight:400;color:var(--muted);">(illustrative)</small></h3>
-  <table class="comparison">
+  <div class="table-scroll"><table class="comparison">
     <thead>
       <tr>
         <th>Metric</th>
@@ -92,7 +92,7 @@
         <td>0.83</td>
       </tr>
     </tbody>
-  </table>
+  </table></div>
 
   <div class="insight">
     <strong>Key insight:</strong> Construction choices lift the composite from <strong>C (42.9)</strong> for the worst-case build to <strong>A (81.6)</strong> for the ICF passive house &mdash; which posts an A on resilience, energy, and durability, plus a strong environmental score (78.5, B) once its long-lived concrete shell amortizes embodied carbon over a ~100-year service life rather than the ~60 years typical of stick-built. The three location dimensions are identical across presets (same parcel): strong health (87.6, A) and solid walkability (65.4, B) in Cooper-Young lift every build, while the modeled ICF passive home runs about $55/mo on energy (EUI 11.1) versus $140 for the baseline frame &mdash; roughly $30,000 less over a 30-year mortgage.
@@ -101,7 +101,7 @@
 
 <section>
   <h2>The Density Dividend: Multi-Unit Comparison</h2>
-  <table class="comparison">
+  <div class="table-scroll"><table class="comparison">
     <thead>
       <tr>
         <th>Metric</th>
@@ -148,7 +148,7 @@
         <td>0.36</td>
       </tr>
     </tbody>
-  </table>
+  </table></div>
 
   <div class="insight">
     <strong>The density dividend:</strong> going from a single-family home to a quadplex lowers the per-unit infrastructure cost &mdash; the same roads and water mains serve more homes &mdash; which lifts the fiscal ratio. Multi-unit energy is now scored off the <strong>measured NREL ResStock EUI</strong> for that building type rather than the detached curve, so the per-unit energy figures reflect the real intensity of that stock (small 2&ndash;4 unit buildings can even run higher per sqft than a detached home).
@@ -182,7 +182,7 @@
   <h2>Location, Location, Location: The Walkability Dimension</h2>
   <p>Unlike construction-driven dimensions, walkability is purely a function of <em>where</em> a house sits. The same building &mdash; identical resilience, energy, and durability &mdash; earns a very different walkability grade depending on its neighborhood. Walkability comes from the <strong>EPA National Walkability Index</strong> (a national index of intersection density, transit proximity, and land-use mix), scaled to 0&ndash;100 and resolved by census tract.</p>
 
-  <table class="comparison">
+  <div class="table-scroll"><table class="comparison">
     <thead>
       <tr>
         <th>Location</th>
@@ -194,7 +194,7 @@
       <tr><td><strong>EPA Walkability (0&ndash;100)</strong></td><td>92.0 <small>(highly walkable)</small></td><td>&asymp; 6 <small>(car-dependent)</small></td></tr>
       <tr><td><strong>National Grade</strong></td><td><span class="grade grade-a">A</span></td><td><span class="grade grade-f">F</span></td></tr>
     </tbody>
-  </table>
+  </table></div>
 
   <div class="insight">
     <strong>Key insight:</strong> Shelby County spans nearly the whole national range &mdash; from car-dependent exurban tracts near the bottom to Downtown's older street grid at 92 (an A on the national scale). Because the EPA index is national, the grade is directly comparable across cities: the Downtown tract is genuinely walkable by national standards, not merely relative to its neighbors. Nationally, most US neighborhoods are car-dependent &mdash; the household-weighted national mean is ~45.
@@ -279,7 +279,7 @@
           return '<td>' + (c == null ? '<span class="na">N/A</span>'
             : '<strong>' + c.toFixed(1) + '</strong> ' + gsp(p.composite_national_grade)) + '</td>';
         }).join("") + '</tr>';
-        host.innerHTML = '<table class="comparison"><thead>' + head + '</thead><tbody>' + rows + '</tbody></table>';
+        host.innerHTML = '<div class="table-scroll"><table class="comparison"><thead>' + head + '</thead><tbody>' + rows + '</tbody></table></div>';
       })
       .catch(function (err) {
         host.innerHTML = '<p class="meta">Live comparison unavailable (' + esc(err.message)
