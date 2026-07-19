@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.52](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.51...v0.1.52) (2026-07-19)
+
+
+### Bug Fixes
+
+* **docs:** keep grade badge inline with score in comparison tables ([#176](https://github.com/compbiolover/housing-nutrition-label/issues/176)) ([09e3247](https://github.com/compbiolover/housing-nutrition-label/commit/09e32471c5ce37ca8f4cd29332d69671ad14d489))
+
 ## [0.1.51](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.50...v0.1.51) (2026-07-18)
 
 
