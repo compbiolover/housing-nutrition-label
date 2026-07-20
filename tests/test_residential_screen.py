@@ -54,10 +54,13 @@ def test_user_message_has_no_cli_or_override_instructions():
     """The shared refusal message is shown verbatim in the website notice, where a
     visitor can't run a CLI flag or set an API param — so it must not mention them.
     The CLI appends its own --allow-non-residential hint separately (see main())."""
+    import re
     from housing_label.simulate.house import _NON_RESIDENTIAL_MESSAGE
     lowered = _NON_RESIDENTIAL_MESSAGE.lower()
-    for banned in ("--allow-non-residential", "allow_non_residential", "cli"):
+    for banned in ("--allow-non-residential", "allow_non_residential"):
         assert banned not in lowered, f"user-facing message leaks {banned!r}"
+    # "cli" as a standalone word only — an unrelated word like "click" is fine.
+    assert not re.search(r"\bcli\b", lowered), "user-facing message mentions the CLI"
 
 
 def test_allow_override_scores_anyway():
