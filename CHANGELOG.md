@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.56](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.55...v0.1.56) (2026-07-20)
+
+
+### Features
+
+* **water:** score the zero-inflated exposure with a hurdle model ([#184](https://github.com/compbiolover/housing-nutrition-label/issues/184)) ([ea21b10](https://github.com/compbiolover/housing-nutrition-label/commit/ea21b1062fc5a73c79250f7b77030446ba02e67d))
+
 ## [0.1.55](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.54...v0.1.55) (2026-07-20)
 
 
