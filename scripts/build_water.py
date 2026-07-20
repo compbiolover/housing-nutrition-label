@@ -259,6 +259,14 @@ def main() -> int:
         pct = 100.0 * viol_pop.get(fips, 0) / tp if tp else 0.0
         rows.append((fips, round(pct, 2), tp, n_cws[fips]))
 
+    # No rows means the SDWIS parse yielded nothing (bad/empty input) — a failed
+    # build. Fail loudly *before* writing, so we neither overwrite the shipped
+    # artifact with an empty CSV nor let rebuild/CI tooling read exit 0 as success.
+    if not rows:
+        print("no county rows produced — check the SDWIS input; not writing output",
+              file=sys.stderr)
+        return 1
+
     with open(args.county_out, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["county_fips", "pct_pop_hb_violation", "cws_pop", "n_cws"])
@@ -266,12 +274,6 @@ def main() -> int:
             w.writerow([fips, f"{pct:.2f}", tp, n])
     print(f"Wrote {len(rows)} county rows → {args.county_out}")
 
-    # The county CSV is already written above; the diagnostics below are best-effort
-    # summary output, so an empty/degenerate parse must not crash the run with a
-    # ZeroDivisionError after the artifact is on disk.
-    if not rows:
-        print("no county rows produced — check the SDWIS input")
-        return 0
     q = _weighted_quantiles([(pct, tp) for _, pct, tp, _ in rows])
     print(f"pop-weighted pct_pop_hb_violation quantiles "
           f"[10,25,50,75,90,95,99]: {q}")
