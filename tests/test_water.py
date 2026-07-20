@@ -72,6 +72,7 @@ def test_hardcoded_anchors_match_bundled_data():
             if pct > 0 and pop > 0:
                 exposed.append((pct, pop))
     ep = sum(p for _, p in exposed)
+    assert ep > 0, "bundled CSV has no exposed (X>0) population to anchor against"
     recomputed = [round(100.0 * sum(p for pct, p in exposed if pct > x) / ep, 1)
                   for x in W._EXPOSED_XS]
     assert recomputed == W._EXPOSED_YS, (recomputed, W._EXPOSED_YS)

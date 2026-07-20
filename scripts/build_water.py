@@ -266,15 +266,21 @@ def main() -> int:
             w.writerow([fips, f"{pct:.2f}", tp, n])
     print(f"Wrote {len(rows)} county rows → {args.county_out}")
 
+    # The county CSV is already written above; the diagnostics below are best-effort
+    # summary output, so an empty/degenerate parse must not crash the run with a
+    # ZeroDivisionError after the artifact is on disk.
+    if not rows:
+        print("no county rows produced — check the SDWIS input")
+        return 0
     q = _weighted_quantiles([(pct, tp) for _, pct, tp, _ in rows])
     print(f"pop-weighted pct_pop_hb_violation quantiles "
           f"[10,25,50,75,90,95,99]: {q}")
     zero_pop = sum(tp for _, pct, tp, _ in rows if pct == 0.0)
     all_pop = sum(tp for _, _, tp, _ in rows)
     zero_counties = sum(1 for _, pct, _, _ in rows if pct == 0.0)
+    pop_share = f"{100 * zero_pop / all_pop:.0f}% of pop" if all_pop else "pop n/a"
     print(f"counties with 0% health-based exposure: {zero_counties} "
-          f"({100 * zero_counties / len(rows):.0f}% of counties, "
-          f"{100 * zero_pop / all_pop:.0f}% of pop)")
+          f"({100 * zero_counties / len(rows):.0f}% of counties, {pop_share})")
     # Hurdle-score anchors for the exposed (X > 0) branch — paste into
     # data/water.py (_EXPOSED_XS / _EXPOSED_YS) when the data is rebuilt.
     axs, ays = _hurdle_anchors([(pct, tp) for _, pct, tp, _ in rows])

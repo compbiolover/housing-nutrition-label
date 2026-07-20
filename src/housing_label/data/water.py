@@ -77,8 +77,8 @@ _CSV = pathlib.Path(__file__).resolve().parent / "water_county.csv"
 #     exposure. HIGHER score = safer.
 #
 # `_EXPOSED_*` are the conditional-survival anchors of the exposed distribution,
-# emitted by scripts/build_water.py (`--print-anchors`); X == 0 is handled directly
-# in water_for_county, so these cover only the X > 0 branch.
+# printed by scripts/build_water.py at the end of a rebuild (paste them here);
+# X == 0 is handled directly in water_for_county, so these cover only the X > 0 branch.
 _EXPOSED_XS = [0.001, 0.2, 0.5, 1.0, 2.0, 5.0, 11.83, 25.0, 52.72, 76.16, 100.0]
 _EXPOSED_YS = [100.0, 90.5, 83.9, 78.7, 68.6, 49.3, 34.2, 23.5, 12.0, 6.8, 0.0]
 
