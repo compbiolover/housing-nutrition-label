@@ -197,6 +197,30 @@ def _weighted_quantiles(rows, qs=(0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99)):
     return out
 
 
+# Exposure anchor points (%) for the hurdle score's exposed branch — dense at the
+# low end where the exposed population concentrates. data/water.py interpolates
+# score between these; X == 0 is scored 100 directly (the clean class), so the
+# anchors cover only X > 0.
+_ANCHOR_XS = (0.001, 0.2, 0.5, 1.0, 2.0, 5.0, 11.83, 25.0, 52.72, 76.16, 100.0)
+
+
+def _hurdle_anchors(rows):
+    """Population-weighted conditional-survival anchors of the EXPOSED distribution.
+
+    For each anchor exposure x, the score is ``100 · P(X > x | X > 0)`` — the share
+    of the exposed (X > 0) population whose exposure is *worse* than x. This is the
+    conditional national percentile among the exposed used by the hurdle model in
+    ``data/water.py``; paste the printed XS/YS there when the SDWIS data is rebuilt.
+    """
+    exposed = [(pct, w) for pct, w in rows if pct > 0 and w > 0]
+    ep = sum(w for _, w in exposed)
+    if not ep:
+        return list(_ANCHOR_XS), [0.0 for _ in _ANCHOR_XS]
+    ys = [round(100.0 * sum(w for pct, w in exposed if pct > x) / ep, 1)
+          for x in _ANCHOR_XS]
+    return list(_ANCHOR_XS), ys
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -232,14 +256,31 @@ def main() -> int:
     rows = []
     for fips in sorted(total_pop):
         tp = total_pop[fips]
-        pct = 100.0 * viol_pop.get(fips, 0) / tp if tp else 0.0
-        rows.append((fips, round(pct, 2), tp, n_cws[fips]))
+        viol = viol_pop.get(fips, 0)
+        pct = 100.0 * viol / tp if tp else 0.0
+        # The hurdle score in data/water.py treats pct == 0 as the spotless class
+        # (→ 100), so a county with ANY violating population must never be recorded
+        # as 0. A 2-dp round collapsed exposures below 0.005% to "0.00" and would
+        # mislabel them spotless; keep 6-dp precision and floor a nonzero share to
+        # the smallest value 6 dp records, so viol_pop > 0 always stays exposed.
+        pct = round(pct, 6)
+        if viol > 0 and pct == 0.0:
+            pct = 1e-6
+        rows.append((fips, pct, tp, n_cws[fips]))
+
+    # No rows means the SDWIS parse yielded nothing (bad/empty input) — a failed
+    # build. Fail loudly *before* writing, so we neither overwrite the shipped
+    # artifact with an empty CSV nor let rebuild/CI tooling read exit 0 as success.
+    if not rows:
+        print("no county rows produced — check the SDWIS input; not writing output",
+              file=sys.stderr)
+        return 1
 
     with open(args.county_out, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["county_fips", "pct_pop_hb_violation", "cws_pop", "n_cws"])
         for fips, pct, tp, n in rows:
-            w.writerow([fips, f"{pct:.2f}", tp, n])
+            w.writerow([fips, f"{pct:.6f}", tp, n])
     print(f"Wrote {len(rows)} county rows → {args.county_out}")
 
     q = _weighted_quantiles([(pct, tp) for _, pct, tp, _ in rows])
@@ -247,8 +288,16 @@ def main() -> int:
           f"[10,25,50,75,90,95,99]: {q}")
     zero_pop = sum(tp for _, pct, tp, _ in rows if pct == 0.0)
     all_pop = sum(tp for _, _, tp, _ in rows)
-    print(f"population in counties with 0% health-based exposure: "
-          f"{100 * zero_pop / all_pop:.0f}%")
+    zero_counties = sum(1 for _, pct, _, _ in rows if pct == 0.0)
+    pop_share = f"{100 * zero_pop / all_pop:.0f}% of pop" if all_pop else "pop n/a"
+    print(f"counties with 0% health-based exposure: {zero_counties} "
+          f"({100 * zero_counties / len(rows):.0f}% of counties, {pop_share})")
+    # Hurdle-score anchors for the exposed (X > 0) branch — paste into
+    # data/water.py (_EXPOSED_XS / _EXPOSED_YS) when the data is rebuilt.
+    axs, ays = _hurdle_anchors([(pct, tp) for _, pct, tp, _ in rows])
+    print("hurdle exposed-branch anchors (data/water.py):")
+    print(f"    _EXPOSED_XS = {axs}")
+    print(f"    _EXPOSED_YS = {ays}")
     return 0
 
 

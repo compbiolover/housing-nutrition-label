@@ -27,12 +27,27 @@ def test_county_resolves_and_cleaner_scores_higher():
     assert rec is not None and rec["geo_level"] == "county"
     assert 0.0 <= rec["score"] <= 100.0
     assert W.WATER_VINTAGE in rec["label"]
-    # Monotonicity: more exposure ⇒ lower (cleaner=higher) score.
-    clean = W._interp(0.0, W._PCT_XS, W._PCT_YS)
-    dirty = W._interp(50.0, W._PCT_XS, W._PCT_YS)
-    assert clean > dirty
-    # Zero-inflation: a spotless county maps to the tie-adjusted mass, not 100.
-    assert clean == W._PCT_YS[0] < 100.0
+    # Monotonicity within the exposed branch: more exposure ⇒ lower score.
+    cleaner = W._interp(1.0, W._EXPOSED_XS, W._EXPOSED_YS)
+    dirtier = W._interp(50.0, W._EXPOSED_XS, W._EXPOSED_YS)
+    assert cleaner > dirtier
+
+
+def test_hurdle_spotless_scores_100():
+    """Hurdle model: a spotless (0%) county has reached the optimum → top score,
+    not the old ~86.5 tie-adjusted rank."""
+    table = W._table()
+    spotless = next(f for f, r in table.items() if r["pct_pop_hb_violation"] == 0.0)
+    assert W.water_for_county(spotless)["score"] == 100.0
+
+
+def test_hurdle_exposed_branch_is_continuous_no_cliff():
+    """The exposed branch starts at ~100 for X→0+, so the clean class (100) and the
+    least-exposed county are adjacent — not separated by the old ~14-point (86.5→73)
+    cliff. A modestly-exposed 0.2% county still scores well into the A/B range."""
+    assert W._EXPOSED_YS[0] == 100.0
+    assert W._EXPOSED_XS[0] <= 0.01                  # first anchor sits just above 0
+    assert W._interp(0.2, W._EXPOSED_XS, W._EXPOSED_YS) > 85.0
 
 
 def test_spotless_county_beats_exposed_county():
@@ -42,6 +57,25 @@ def test_spotless_county_beats_exposed_county():
     spotless = next(f for f, r in table.items() if r["pct_pop_hb_violation"] == 0.0)
     exposed = next(f for f, r in table.items() if r["pct_pop_hb_violation"] > 5.0)
     assert W.water_for_county(spotless)["score"] > W.water_for_county(exposed)["score"]
+
+
+def test_hardcoded_anchors_match_bundled_data():
+    """The exposed-branch anchors hardcoded in water.py must equal the conditional
+    survival of the exposed distribution recomputed from the shipped CSV, so the
+    hurdle score can't silently drift from the data it summarizes. (Mirrors what
+    scripts/build_water.py emits.)"""
+    exposed = []
+    with W._CSV.open(newline="") as f:
+        for row in csv.DictReader(f):
+            pct = float(row["pct_pop_hb_violation"])
+            pop = float(row["cws_pop"] or 0)
+            if pct > 0 and pop > 0:
+                exposed.append((pct, pop))
+    ep = sum(p for _, p in exposed)
+    assert ep > 0, "bundled CSV has no exposed (X>0) population to anchor against"
+    recomputed = [round(100.0 * sum(p for pct, p in exposed if pct > x) / ep, 1)
+                  for x in W._EXPOSED_XS]
+    assert recomputed == W._EXPOSED_YS, (recomputed, W._EXPOSED_YS)
 
 
 def test_missing_and_absent_return_none():
