@@ -15,15 +15,24 @@ county FIPS with no network call:
 
 Scoring
 -------
-The exposure percentage is mapped to a 0-100 score by piecewise-linear
-interpolation over the **population-weighted national distribution** (lower
-exposure → higher score), so the score reads directly as "cleaner tap water than
-N% of US homes" — an identity national percentile in
-``data/national_percentile.py``, comparable across locations. Because a large share
-of the population (~27%) lives in a county with zero recent health-based exposure,
-the spotless anchor is the tie-adjusted percentile of that mass (not 100), and the
-remaining anchors are the strict "cleaner-than" population share at each exposure
-level.
+The exposure share is a **zero-inflated** variable — ~28% of counties (~27% of the
+CWS population) sit at exactly 0% (no recent health-based violation), a genuine and
+common optimum — so it is scored with a **hurdle (two-part) model** rather than a
+single percentile:
+
+  • **X == 0 → 100.** A spotless county has achieved the best possible outcome; all
+    such ties for first receive the top score.
+  • **X > 0 → the conditional national percentile among the exposed population** —
+    the share of residents-on-a-flagged-system whose exposure is worse than this
+    county's (lower exposure → higher score). This is continuous with the clean
+    class (the least-exposed county ≈ 100) and monotone down to 0 at full exposure.
+
+This replaces an earlier single population-weighted percentile with **mid-rank**
+tie-breaking, which capped a spotless county at the tie-adjusted rank of the zero
+mass (~86.5) — so "perfect water" could never read as ~100 and the score fell off a
+cliff at the first sign of any exposure. Mid-rank is only appropriate when ties are
+a measurement artifact; here 0 is a real, reachable optimum, so the two parts are
+scored on their own terms. Anchors come from scripts/build_water.py.
 
 Data
 ----
@@ -50,16 +59,28 @@ WATER_VINTAGE = "EPA SDWIS federal reporting (community water systems, health-ba
 
 _CSV = pathlib.Path(__file__).resolve().parent / "water_county.csv"
 
-# ── Score breakpoints: (pct of population on a CWS with a recent health-based
-# violation → score) — a piecewise-linear approximation to the population-weighted
-# national CDF, so the score reads directly as a national percentile. LOWER
-# exposure = HIGHER score. The first two anchors handle the zero-inflated spike:
-# ~27% of the population lives in a spotless (0%) county, so pct=0 maps to the
-# tie-adjusted percentile of that mass (~86.5) and drops immediately once any
-# exposure appears; the remaining anchors are the strict "cleaner-than" population
-# share at each exposure level (from scripts/build_water.py). HIGHER score = safer.
-_PCT_XS = [0.0, 0.001, 0.5, 1.0, 2.0, 5.0, 11.83, 25.0, 52.72, 76.16, 100.0]
-_PCT_YS = [86.5, 73.0, 61.3, 57.5, 50.1, 36.0, 25.0, 17.2, 8.8, 5.0, 0.5]
+# ── Hurdle (two-part) score for a zero-inflated exposure variable ─────────────────
+# `pct_pop_hb_violation` piles a huge point mass at its own optimum: ~28% of
+# counties (~27% of the CWS population) sit at exactly 0% — no recent health-based
+# violation, the best achievable outcome. A single population-weighted percentile
+# with mid-rank tie-breaking capped that spotless mass at its tie-adjusted rank
+# (0.73 strictly-worse + 0.27/2 tied ≈ 86.5) — so "perfect water" could never reach
+# ~100, and the score fell off a cliff at the first sign of any exposure. Mid-rank
+# is only right when ties are a measurement artifact; here 0 is a genuine, common
+# optimum, so we score the two parts separately:
+#
+#   • X == 0  → 100  (the "clean class"; ties for first all win).
+#   • X  > 0  → the county's population-weighted CONDITIONAL national percentile
+#     among the EXPOSED population — the share of residents-on-a-flagged-system
+#     whose exposure is *worse* than this county's. Continuous with the clean class
+#     (the least-exposed county ≈ 100, no cliff) and monotone down to 0 at full
+#     exposure. HIGHER score = safer.
+#
+# `_EXPOSED_*` are the conditional-survival anchors of the exposed distribution,
+# emitted by scripts/build_water.py (`--print-anchors`); X == 0 is handled directly
+# in water_for_county, so these cover only the X > 0 branch.
+_EXPOSED_XS = [0.001, 0.2, 0.5, 1.0, 2.0, 5.0, 11.83, 25.0, 52.72, 76.16, 100.0]
+_EXPOSED_YS = [100.0, 90.5, 83.9, 78.7, 68.6, 49.3, 34.2, 23.5, 12.0, 6.8, 0.0]
 
 
 def _interp(x: float, xs: list[float], ys: list[float]) -> float:
@@ -114,9 +135,13 @@ def water_for_county(county_fips: str | None) -> dict | None:
     rec = _table().get(str(county_fips).strip().zfill(5))
     if rec is None:
         return None
+    pct = rec["pct_pop_hb_violation"]
+    # Hurdle: a spotless county (no recent health-based violation) is the optimum →
+    # top score; any exposure is scored by its conditional rank among the exposed.
+    score = 100.0 if pct <= 0 else _interp(pct, _EXPOSED_XS, _EXPOSED_YS)
     return {
-        "score": round(_interp(rec["pct_pop_hb_violation"], _PCT_XS, _PCT_YS), 1),
-        "pct_pop_hb_violation": rec["pct_pop_hb_violation"],
+        "score": round(score, 1),
+        "pct_pop_hb_violation": pct,
         "n_cws": rec["n_cws"],
         "geo_level": "county",
         "label": WATER_VINTAGE,

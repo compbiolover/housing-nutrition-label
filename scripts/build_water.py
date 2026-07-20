@@ -197,6 +197,30 @@ def _weighted_quantiles(rows, qs=(0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99)):
     return out
 
 
+# Exposure anchor points (%) for the hurdle score's exposed branch — dense at the
+# low end where the exposed population concentrates. data/water.py interpolates
+# score between these; X == 0 is scored 100 directly (the clean class), so the
+# anchors cover only X > 0.
+_ANCHOR_XS = (0.001, 0.2, 0.5, 1.0, 2.0, 5.0, 11.83, 25.0, 52.72, 76.16, 100.0)
+
+
+def _hurdle_anchors(rows):
+    """Population-weighted conditional-survival anchors of the EXPOSED distribution.
+
+    For each anchor exposure x, the score is ``100 · P(X > x | X > 0)`` — the share
+    of the exposed (X > 0) population whose exposure is *worse* than x. This is the
+    conditional national percentile among the exposed used by the hurdle model in
+    ``data/water.py``; paste the printed XS/YS there when the SDWIS data is rebuilt.
+    """
+    exposed = [(pct, w) for pct, w in rows if pct > 0 and w > 0]
+    ep = sum(w for _, w in exposed)
+    if not ep:
+        return list(_ANCHOR_XS), [0.0 for _ in _ANCHOR_XS]
+    ys = [round(100.0 * sum(w for pct, w in exposed if pct > x) / ep, 1)
+          for x in _ANCHOR_XS]
+    return list(_ANCHOR_XS), ys
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -247,8 +271,16 @@ def main() -> int:
           f"[10,25,50,75,90,95,99]: {q}")
     zero_pop = sum(tp for _, pct, tp, _ in rows if pct == 0.0)
     all_pop = sum(tp for _, _, tp, _ in rows)
-    print(f"population in counties with 0% health-based exposure: "
-          f"{100 * zero_pop / all_pop:.0f}%")
+    zero_counties = sum(1 for _, pct, _, _ in rows if pct == 0.0)
+    print(f"counties with 0% health-based exposure: {zero_counties} "
+          f"({100 * zero_counties / len(rows):.0f}% of counties, "
+          f"{100 * zero_pop / all_pop:.0f}% of pop)")
+    # Hurdle-score anchors for the exposed (X > 0) branch — paste into
+    # data/water.py (_EXPOSED_XS / _EXPOSED_YS) when the data is rebuilt.
+    axs, ays = _hurdle_anchors([(pct, tp) for _, pct, tp, _ in rows])
+    print("hurdle exposed-branch anchors (data/water.py):")
+    print(f"    _EXPOSED_XS = {axs}")
+    print(f"    _EXPOSED_YS = {ays}")
     return 0
 
 
