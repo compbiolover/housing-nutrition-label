@@ -50,6 +50,16 @@ def test_non_residential_address_is_refused():
     raise AssertionError("expected NonResidentialProperty for a non-residential address")
 
 
+def test_user_message_has_no_cli_or_override_instructions():
+    """The shared refusal message is shown verbatim in the website notice, where a
+    visitor can't run a CLI flag or set an API param — so it must not mention them.
+    The CLI appends its own --allow-non-residential hint separately (see main())."""
+    from housing_label.simulate.house import _NON_RESIDENTIAL_MESSAGE
+    lowered = _NON_RESIDENTIAL_MESSAGE.lower()
+    for banned in ("--allow-non-residential", "allow_non_residential", "cli"):
+        assert banned not in lowered, f"user-facing message leaks {banned!r}"
+
+
 def test_allow_override_scores_anyway():
     """allow_non_residential=True bypasses the screen (misclassified real home)."""
     assert _scores(location=_loc("non_residential"), allow_non_residential=True) is not None
@@ -105,6 +115,7 @@ def test_api_maps_refusal_to_422():
 
 if __name__ == "__main__":
     test_non_residential_address_is_refused()
+    test_user_message_has_no_cli_or_override_instructions()
     test_allow_override_scores_anyway()
     test_preset_is_a_hypothetical_and_bypasses()
     test_entered_units_gt_1_are_treated_residential()
