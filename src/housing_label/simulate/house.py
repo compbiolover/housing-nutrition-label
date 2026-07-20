@@ -458,6 +458,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--stories",    type=_positive_int,   default=None,
                    help="Number of floors. Drives floor-aware flood and the embodied-"
                         "carbon footprint (foundation + roof per m2 of floor).")
+    p.add_argument("--allow-non-residential", dest="allow_non_residential",
+                   action="store_true",
+                   help="Score even when the address is detected as a non-residential "
+                        "building (workplace/store/etc). By default such addresses are "
+                        "refused — the label rates residential dwellings only.")
     p.add_argument("--basement-depth-ft", dest="basement_depth_ft", type=_positive_float,
                    default=None,
                    help="Actual basement/foundation-wall depth (ft) for the embodied-"
@@ -1674,11 +1679,43 @@ def _building_block(cfg: dict, struct: dict, explicit: set, autofilled: dict,
     return out
 
 
+class NonResidentialProperty(ValueError):
+    """Raised when a scored address is a positively-identified non-residential
+    building (a workplace, store, warehouse, …) rather than a home.
+
+    The Housing Nutrition Label rates *residential* dwellings, so scoring a
+    commercial/industrial parcel produces a meaningless label. This is a subclass
+    of ``ValueError`` so existing callers still treat it as bad input, but the API
+    catches it specifically to return a friendly 422 (vs. a generic 400).
+
+    Only fires on a *positive* NSI classification (Hazus COM*/IND*/AGR*/GOV*/…);
+    an unknown building (NSI unavailable or no match) never blocks scoring.
+    ``structure_type`` carries the coarse category for the caller's message.
+    """
+
+    def __init__(self, message: str, *, structure_type: str | None = None):
+        super().__init__(message)
+        self.structure_type = structure_type
+
+
+# Human phrasing for the refusal message. The Hazus non-residential umbrella
+# covers commercial, industrial, agricultural, and government/education/religious
+# occupancy — all "not a home".
+_NON_RESIDENTIAL_MESSAGE = (
+    "This address looks like a non-residential property (e.g. a commercial, "
+    "industrial, or institutional building) rather than a home, so it was not "
+    "scored. The Housing Nutrition Label rates residential dwellings only. "
+    "If this really is a residence that was misidentified, score it anyway with "
+    "allow_non_residential=true (CLI: --allow-non-residential)."
+)
+
+
 def build_label_parts(*, address: str | None = None,
                       lat: float | None = None, lon: float | None = None,
                       preset: str | None = None, flood_zone: str | None = None,
                       allow_network: bool = True, overrides: dict | None = None,
                       upgrades: list[str] | None = None, location=None,
+                      allow_non_residential: bool = False,
                       **fields) -> tuple[dict, dict, dict]:
     """Resolve a location, build the house config, and run the full simulation.
 
@@ -1686,6 +1723,12 @@ def build_label_parts(*, address: str | None = None,
     construction, foundation, condition, value, units, sqft, lot_acres) and
     ``upgrades`` is a list of resilience-upgrade flag names (see BONUS_FLAGS).
     Mirrors the CLI flow so both share one code path.
+
+    Raises ``NonResidentialProperty`` when a real address (no ``preset``) resolves
+    to a building NSI positively classifies as non-residential — unless
+    ``allow_non_residential`` is set. A ``preset`` is a hypothetical "what if you
+    built this here" scenario, so it always bypasses the screen; so does an
+    entered unit count > 1 (the caller is asserting it's a residence).
     """
     from argparse import Namespace
     from housing_label.simulate.location import resolve_location
@@ -1747,6 +1790,20 @@ def build_label_parts(*, address: str | None = None,
     # value-per-door estimate (rent-derived NOI ÷ cap rate); other addresses keep the
     # single-family county median.
     struct = effective_structure(cfg, location)
+
+    # Residential screen: refuse a real address (no hypothetical preset) that NSI
+    # positively identified as non-residential — a workplace / store / warehouse
+    # produces a meaningless "home" label. ``struct["structure_type"]`` is
+    # "non_residential" only when NSI classified it so AND the caller didn't declare
+    # a multi-unit count (an entered units > 1 flips it to "multifamily" — an
+    # explicit assertion that it's a residence, so it isn't screened). An unknown
+    # building (NSI unavailable / no match) leaves the type None and is never
+    # blocked, so a transient outage can't refuse a real home.
+    if (preset is None and not allow_non_residential
+            and struct["structure_type"] == "non_residential"):
+        raise NonResidentialProperty(
+            _NON_RESIDENTIAL_MESSAGE, structure_type="non_residential")
+
     explicit = {f for f in _EDITABLE_FIELDS if fields.get(f) is not None}
     autofilled: dict = {}
     if location is not None and fields.get("value") is None:
@@ -1903,7 +1960,11 @@ def density_comparison(*, address: str | None = None,
             f.pop("value", None)            # let build_label_parts auto-fill
         return build_label_parts(
             address=address, lat=lat, lon=lon, preset=preset, flood_zone=flood_zone,
-            allow_network=allow_network, overrides=overrides, upgrades=upgrades, **f,
+            allow_network=allow_network, overrides=overrides, upgrades=upgrades,
+            # Density is an explicit "what could be built on this parcel" tool, and
+            # its units=1 baseline run would otherwise trip the residential screen
+            # on a non-residential lot — so it opts out of the screen.
+            allow_non_residential=True, **f,
         )
 
     # Establish the per-unit value from a single-unit baseline when none was given,
@@ -2072,11 +2133,17 @@ def main() -> None:
             address=args.address, lat=args.lat, lon=args.lon,
             preset=args.preset, flood_zone=args.flood_zone,
             allow_network=allow_network, overrides=overrides, upgrades=upgrades,
+            allow_non_residential=args.allow_non_residential,
             year_built=args.year_built, construction=args.construction,
             foundation=args.foundation, condition=args.condition,
             value=args.value, units=args.units, sqft=args.sqft, lot_acres=args.lot_acres,
             bldg_material=args.bldg_material, stories=args.stories,
         )
+    except NonResidentialProperty as exc:
+        # A deliberate refusal, not a usage error — print the guidance to stderr and
+        # exit non-zero without argparse's "usage:" banner (which would bury it).
+        print(str(exc), file=sys.stderr)
+        raise SystemExit(2)
     except ValueError as exc:
         parser.error(str(exc))
 

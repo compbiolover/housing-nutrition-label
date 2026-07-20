@@ -22,7 +22,11 @@ Endpoints::
     GET /label?address=<addr>        full label JSON for the address
     GET /label?lat=<y>&lon=<x>       …or by coordinates
         optional: preset, construction, year_built, foundation, condition,
-                  value, units, sqft, lot_acres, flood_zone
+                  value, units, sqft, lot_acres, flood_zone,
+                  allow_non_residential (score a detected non-residential building)
+        → 422 when the address is a positively-detected non-residential building
+          (workplace/store/…): the label rates homes only. Bypass with a preset,
+          units>1, or allow_non_residential=true.
     GET /density?address=<addr>      compare 1–4 dwelling units on the same parcel
         optional: units=1,2,4 (counts), per_unit_value, + all /label house params
 
@@ -56,6 +60,7 @@ from slowapi.util import get_remote_address
 from housing_label.config import HEADERS, PHOTON_URL, GEOAPIFY_URL, GEOAPIFY_API_KEY
 from housing_label.simulate.house import (
     build_label_parts, label_payload, density_comparison, cost_flows,
+    NonResidentialProperty,
     PRESETS, CONSTRUCTION_FACTOR, FOUNDATION_FACTOR, CONDITION_FACTOR,
     BONUS_FLAGS, ELEVATION_FLAGS,
 )
@@ -362,6 +367,7 @@ def label(
     bldg_material: str | None = None,
     stories: int | None = None,
     upgrades: str | None = None,
+    allow_non_residential: bool = False,
 ) -> dict:
     """Return the full nutrition-label payload for an address or lat/lon.
 
@@ -369,6 +375,10 @@ def label(
     BONUS_FLAGS), e.g. ``upgrades=solar,fortified_roof,hurricane_straps``.
     `bldg_material` (wood|masonry|concrete|steel) and `stories` describe a
     multi-unit building's shell for Resilience/Durability when NSI didn't detect it.
+
+    A real address (no `preset`) that NSI positively identifies as a
+    non-residential building is refused with **422** — the label rates residential
+    dwellings only. Pass `allow_non_residential=true` to score it anyway.
     """
     bldg_material, upgrade_list = _validate_request(
         address=address, lat=lat, lon=lon, preset=preset, construction=construction,
@@ -377,7 +387,8 @@ def label(
 
     cache_key = ("label", address, lat, lon, preset, construction, year_built,
                  foundation, condition, value, units, sqft, lot_acres, flood_zone,
-                 bldg_material, stories, tuple(upgrade_list))   # already sorted + unique
+                 bldg_material, stories, tuple(upgrade_list),   # already sorted + unique
+                 allow_non_residential)
     cached = _result_cache.get(cache_key)
     if cached is not None:
         return cached
@@ -386,11 +397,16 @@ def label(
         cfg, r, lbl = build_label_parts(
             address=address, lat=lat, lon=lon, preset=preset, flood_zone=flood_zone,
             upgrades=upgrade_list,
-            allow_network=True,
+            allow_network=True, allow_non_residential=allow_non_residential,
             year_built=year_built, construction=construction, foundation=foundation,
             condition=condition, value=value, units=units, sqft=sqft, lot_acres=lot_acres,
             bldg_material=bldg_material, stories=stories,
         )
+    except NonResidentialProperty as exc:
+        # Not bad input — a deliberate residential-only screen. 422 (Unprocessable
+        # Content) lets the frontend distinguish "we won't score this" from a 400
+        # validation error or a 502 upstream failure, and show the guidance verbatim.
+        raise HTTPException(422, str(exc))
     except ValueError as exc:
         raise HTTPException(400, str(exc))
     except Exception:  # noqa: BLE001 — don't leak internals; log server-side
