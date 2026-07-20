@@ -214,8 +214,8 @@ window.LabelForm = (function () {
     function clampIdx(i) { return Math.max(0, Math.min(i, state.presets.length - 1)); }
     function okJson(r) {
       if (!r.ok) return r.json().then(
-        function (j) { throw new Error((j && j.detail) || ("HTTP " + r.status)); },
-        function () { throw new Error("HTTP " + r.status); });
+        function (j) { var e = new Error((j && j.detail) || ("HTTP " + r.status)); e.status = r.status; throw e; },
+        function () { var e = new Error("HTTP " + r.status); e.status = r.status; throw e; });
       return r.json();
     }
     function fieldEl(key) { return q('[data-field="' + key + '"]'); }
@@ -271,8 +271,14 @@ window.LabelForm = (function () {
     function render() {
       if (!API_BASE) { app.innerHTML = ""; return; }
       if (state.error) {
-        app.innerHTML = '<div class="error">Could not load the label: ' + esc(state.error)
-          + '.<br>The scoring API may be temporarily unavailable &mdash; retry in a moment.</div>';
+        // A 422 is the residential-only screen (a non-residential address), not an
+        // outage — show the guidance as a neutral notice, without the "retry" line.
+        if (state.errorStatus === 422) {
+          app.innerHTML = '<div class="insight warn label-notice">' + esc(state.error) + '</div>';
+        } else {
+          app.innerHTML = '<div class="error">Could not load the label: ' + esc(state.error)
+            + '.<br>The scoring API may be temporarily unavailable &mdash; retry in a moment.</div>';
+        }
         return;
       }
       var loadingData = state.mode === "detected" ? !state.detected : !state.presets;
@@ -432,7 +438,7 @@ window.LabelForm = (function () {
     }
 
     // ── data loading ────────────────────────────────────────────────────────────
-    function fail(seq) { return function (err) { if (seq === reqSeq) { state.error = err.message; render(); } }; }
+    function fail(seq) { return function (err) { if (seq === reqSeq) { state.error = err.message; state.errorStatus = err.status || 0; render(); } }; }
     function persistLocation() { if (persist) { syncUrl(state.desc || null); saveLast(state.desc || null); } }
 
     function loadPresets() {
