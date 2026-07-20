@@ -22,10 +22,13 @@ single percentile:
 
   • **X == 0 → 100.** A spotless county has achieved the best possible outcome; all
     such ties for first receive the top score.
-  • **X > 0 → the conditional national percentile among the exposed population** —
-    the share of residents-on-a-flagged-system whose exposure is worse than this
-    county's (lower exposure → higher score). This is continuous with the clean
-    class (the least-exposed county ≈ 100) and monotone down to 0 at full exposure.
+  • **X > 0 → a population-weighted conditional national percentile among the
+    counties that have any recent health-based exposure (X > 0).** The score is the
+    share of *that exposed-county CWS population* (weighted by each county's total
+    community-water-system population, not by its violating population) which lives
+    in a county whose exposure is worse than this one's (lower exposure → higher
+    score). Continuous with the clean class (the least-exposed county ≈ 100) and
+    monotone down to 0 at full exposure.
 
 This replaces an earlier single population-weighted percentile with **mid-rank**
 tie-breaking, which capped a spotless county at the tie-adjusted rank of the zero
@@ -70,11 +73,13 @@ _CSV = pathlib.Path(__file__).resolve().parent / "water_county.csv"
 # optimum, so we score the two parts separately:
 #
 #   • X == 0  → 100  (the "clean class"; ties for first all win).
-#   • X  > 0  → the county's population-weighted CONDITIONAL national percentile
-#     among the EXPOSED population — the share of residents-on-a-flagged-system
-#     whose exposure is *worse* than this county's. Continuous with the clean class
-#     (the least-exposed county ≈ 100, no cliff) and monotone down to 0 at full
-#     exposure. HIGHER score = safer.
+#   • X  > 0  → the county's CONDITIONAL national percentile among the counties that
+#     have any recent exposure (X > 0), population-weighted by each county's total
+#     community-water-system population (cws_pop) — i.e. the share of that exposed-
+#     county CWS population that lives in a county *worse* than this one. (The weight
+#     is the county's whole CWS population, NOT its violating population.) Continuous
+#     with the clean class (least-exposed county ≈ 100, no cliff) and monotone down
+#     to 0 at full exposure. HIGHER score = safer.
 #
 # `_EXPOSED_*` are the conditional-survival anchors of the exposed distribution,
 # printed by scripts/build_water.py at the end of a rebuild (paste them here);

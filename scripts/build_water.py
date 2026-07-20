@@ -256,8 +256,17 @@ def main() -> int:
     rows = []
     for fips in sorted(total_pop):
         tp = total_pop[fips]
-        pct = 100.0 * viol_pop.get(fips, 0) / tp if tp else 0.0
-        rows.append((fips, round(pct, 2), tp, n_cws[fips]))
+        viol = viol_pop.get(fips, 0)
+        pct = 100.0 * viol / tp if tp else 0.0
+        # The hurdle score in data/water.py treats pct == 0 as the spotless class
+        # (→ 100), so a county with ANY violating population must never be recorded
+        # as 0. A 2-dp round collapsed exposures below 0.005% to "0.00" and would
+        # mislabel them spotless; keep 6-dp precision and floor a nonzero share to
+        # the smallest value 6 dp records, so viol_pop > 0 always stays exposed.
+        pct = round(pct, 6)
+        if viol > 0 and pct == 0.0:
+            pct = 1e-6
+        rows.append((fips, pct, tp, n_cws[fips]))
 
     # No rows means the SDWIS parse yielded nothing (bad/empty input) — a failed
     # build. Fail loudly *before* writing, so we neither overwrite the shipped
@@ -271,7 +280,7 @@ def main() -> int:
         w = csv.writer(f)
         w.writerow(["county_fips", "pct_pop_hb_violation", "cws_pop", "n_cws"])
         for fips, pct, tp, n in rows:
-            w.writerow([fips, f"{pct:.2f}", tp, n])
+            w.writerow([fips, f"{pct:.6f}", tp, n])
     print(f"Wrote {len(rows)} county rows → {args.county_out}")
 
     q = _weighted_quantiles([(pct, tp) for _, pct, tp, _ in rows])
