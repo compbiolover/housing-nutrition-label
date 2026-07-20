@@ -1802,7 +1802,7 @@ def build_label_parts(*, address: str | None = None,
     if (preset is None and not allow_non_residential
             and struct["structure_type"] == "non_residential"):
         raise NonResidentialProperty(
-            _NON_RESIDENTIAL_MESSAGE, structure_type="non_residential")
+            _NON_RESIDENTIAL_MESSAGE, structure_type=struct["structure_type"])
 
     explicit = {f for f in _EDITABLE_FIELDS if fields.get(f) is not None}
     autofilled: dict = {}

@@ -26,6 +26,8 @@ def _load():
     """Import scripts/sync_readme.py by path (it's a script, not a package module)."""
     path = _ROOT / "scripts" / "sync_readme.py"
     spec = importlib.util.spec_from_file_location("sync_readme", path)
+    if spec is None or spec.loader is None:   # clear failure if the script can't be loaded
+        raise ImportError(f"could not load {path}")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
