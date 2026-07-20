@@ -1700,13 +1700,14 @@ class NonResidentialProperty(ValueError):
 
 # Human phrasing for the refusal message. The Hazus non-residential umbrella
 # covers commercial, industrial, agricultural, and government/education/religious
-# occupancy — all "not a home".
+# occupancy — all "not a home". Kept UI-agnostic: this is what the website shows a
+# visitor, so it must NOT mention the CLI flag or the API override (a web user
+# can't act on either). The CLI appends its own `--allow-non-residential` hint (see
+# main()); the API documents `allow_non_residential` in its OpenAPI schema.
 _NON_RESIDENTIAL_MESSAGE = (
     "This address looks like a non-residential property (e.g. a commercial, "
     "industrial, or institutional building) rather than a home, so it was not "
-    "scored. The Housing Nutrition Label rates residential dwellings only. "
-    "If this really is a residence that was misidentified, score it anyway with "
-    "allow_non_residential=true (CLI: --allow-non-residential)."
+    "scored. The Housing Nutrition Label rates residential dwellings only."
 )
 
 
@@ -2141,8 +2142,11 @@ def main() -> None:
         )
     except NonResidentialProperty as exc:
         # A deliberate refusal, not a usage error — print the guidance to stderr and
-        # exit non-zero without argparse's "usage:" banner (which would bury it).
+        # exit non-zero without argparse's "usage:" banner (which would bury it). The
+        # override hint is CLI-only (appended here, not baked into the shared message)
+        # so the website's notice stays free of instructions a web user can't follow.
         print(str(exc), file=sys.stderr)
+        print("Pass --allow-non-residential to score it anyway.", file=sys.stderr)
         raise SystemExit(2)
     except ValueError as exc:
         parser.error(str(exc))
