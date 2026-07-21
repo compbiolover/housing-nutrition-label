@@ -18,7 +18,7 @@ Install + run::
 Endpoints::
 
     GET /healthz                     liveness probe
-    GET /suggest?q=<text>            US address typeahead [{label, lat, lon}]
+    GET /suggest?q=<text>            US address / place-name typeahead [{label, lat, lon}]
     GET /label?address=<addr>        full label JSON for the address
     GET /label?lat=<y>&lon=<x>       …or by coordinates
         optional: preset, construction, year_built, foundation, condition,
@@ -258,10 +258,30 @@ def _coord(v) -> float | None:
 
 
 def _photon_label(props: dict) -> str:
-    """Build a one-line US address label from a Photon feature's properties."""
+    """Build a one-line US label from a Photon feature's properties.
+
+    A plain address renders as "<house> <street>, city, state, postcode".
+    A *named* feature — a business, campus, or landmark, where Photon puts the
+    name in `name` — leads with the name and then appends its street address, so
+    searching by place or company name shows the address it resolves to (e.g.
+    "Acme Corp, 500 Oak Ave, Memphis, TN"). Named features with no street data
+    still fall back to just the name + city/state.
+    """
     house = props.get("housenumber")
-    street = props.get("street") or props.get("name")
-    line1 = f"{house} {street}".strip() if house and street else (street or props.get("name") or "")
+    street = props.get("street")
+    name = props.get("name")
+    if house and street:
+        addr_line = f"{house} {street}"
+    elif street:
+        addr_line = street
+    else:
+        addr_line = ""
+    # Lead with the POI name (when it isn't just the street name repeated), then
+    # its street address — otherwise the label is the plain street address.
+    if name and name != street:
+        line1 = f"{name}, {addr_line}" if addr_line else name
+    else:
+        line1 = addr_line or name or ""
     parts = [p for p in (line1, props.get("city"), props.get("state"), props.get("postcode")) if p]
     return ", ".join(parts)
 
@@ -323,8 +343,11 @@ def _geoapify_results_to_suggestions(results: list, limit: int) -> list[dict]:
 
 @app.get("/suggest")
 def suggest(q: str | None = None) -> list[dict]:
-    """US address typeahead. Uses Geoapify when a key is set (better ranking),
-    else keyless Photon. Degrades to [] — never breaks the page."""
+    """US address / place-name typeahead. Both back-ends resolve business,
+    campus, and landmark names as well as street addresses, so typing a company
+    or place name surfaces the address it sits at. Uses Geoapify when a key is
+    set (better ranking), else keyless Photon. Degrades to [] — never breaks the
+    page."""
     text = (q or "").strip()
     if len(text) < _SUGGEST_MIN_CHARS:
         return []                                     # too short — empty, not an error

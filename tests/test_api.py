@@ -62,6 +62,15 @@ def test_photon_label_formatter():
     # POI with a name but no street/housenumber falls back to the name.
     assert _photon_label({"name": "Griffith Observatory", "city": "Los Angeles"}) \
         == "Griffith Observatory, Los Angeles"
+    # Named POI with a street address leads with the name, then the address, so a
+    # search by company/place name shows where it resolves to.
+    assert _photon_label({
+        "name": "Acme Corp", "housenumber": "500", "street": "Oak Ave",
+        "city": "Memphis", "state": "TN",
+    }) == "Acme Corp, 500 Oak Ave, Memphis, TN"
+    # A named feature whose name just repeats the street isn't duplicated.
+    assert _photon_label({"name": "Main St", "street": "Main St", "city": "Reno"}) \
+        == "Main St, Reno"
 
     feats = [
         {"properties": {"countrycode": "US", "name": "A", "city": "X", "state": "CA"},
