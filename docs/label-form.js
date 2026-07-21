@@ -292,7 +292,15 @@ window.LabelForm = (function () {
       var profileText = ctx.isCustom ? "This home (custom)" : "This home (detected from address)";
       var subline = '<strong>' + esc(profileText) + '</strong>'
         + (bits.length ? " &middot; " + esc(bits.join(" · ")) : "");
-      return LC.renderCard(data, { subline: subline });
+      // Title the card with the address the user entered/picked (the API's
+      // location label is only county-level and just repeats the meta line). Falls
+      // back to the default heading (county) for geolocation / coord deep links.
+      var d = state.desc || {};
+      var addrHeading = (d.address && String(d.address).trim())
+        || (d.label && String(d.label).trim()) || "";
+      var opts = { subline: subline };
+      if (addrHeading) opts.heading = addrHeading;
+      return LC.renderCard(data, opts);
     }
 
     function render() {
