@@ -581,7 +581,9 @@ window.LabelForm = (function () {
         var d = JSON.parse(localStorage.getItem(LS_KEY));
         if (d && d.address && String(d.address).trim()) return { address: String(d.address).trim() };
         var c = coord(d && d.lat, d && d.lon);
-        if (c) return c;
+        // Carry a picked suggestion's address label so a coord-only descriptor can
+        // still pre-fill the box on the next visit (it has no `address` text).
+        if (c) { if (d && d.label) c.label = String(d.label); return c; }
       } catch (e) {}
       return null;
     }
@@ -648,7 +650,9 @@ window.LabelForm = (function () {
       navigator.geolocation.getCurrentPosition(
         function (pos) {
           locateBtn.disabled = false; geoStatus(""); ac.close(); addrInput.value = "";
-          load({ lat: pos.coords.latitude, lon: pos.coords.longitude, label: "your location" });
+          // No label here: "your location" isn't a re-typable address, so it must
+          // not be persisted as pre-fill text for the next visit.
+          load({ lat: pos.coords.latitude, lon: pos.coords.longitude });
         },
         function (err) {
           locateBtn.disabled = false;
@@ -671,7 +675,10 @@ window.LabelForm = (function () {
     // Pre-fill the address box for convenience (so the user can just hit "Score
     // it"), but don't score it automatically.
     var prefill = urlDesc || lastDesc;
-    if (prefill && prefill.address) addrInput.value = prefill.address;
+    // Pre-fill from the typed address or a picked suggestion's remembered label
+    // (coord deep links / geolocation have no re-typable text and stay empty).
+    var prefillText = prefill ? (prefill.address || prefill.label || "") : "";
+    if (prefillText) addrInput.value = prefillText;
     if (urlDesc) load(urlDesc);            // deep link → score it now
     else render();                         // fresh visit → idle prompt, awaiting input
   }
