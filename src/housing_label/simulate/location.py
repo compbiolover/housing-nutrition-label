@@ -81,6 +81,7 @@ class Location:
     # used by the embodied-carbon model in place of the shape-factor estimate.
     footprint_area_m2: float | None = None
     footprint_perimeter_m: float | None = None
+    occ_cls: str | None = None            # USA Structures occupancy class (Residential/Commercial/…)
     notes: dict = field(default_factory=dict)
 
     @property
@@ -302,6 +303,7 @@ def resolve_location(
         if fp:
             loc.footprint_area_m2 = fp.get("footprint_area_m2")
             loc.footprint_perimeter_m = fp.get("footprint_perimeter_m")
+            loc.occ_cls = fp.get("occ_cls")   # occupancy class → residential screen
         else:
             notes["footprint"] = "no USA Structures footprint (no mapped building at point, or service unavailable)"
     else:

@@ -87,13 +87,44 @@ def test_photon_label_formatter():
     ]
     out = _photon_features_to_suggestions(feats, 5)
     assert out == [                                                    # note lon/lat swap
-        {"label": "A, X, CA", "lat": 34.0, "lon": -118.0},
-        {"label": "B, Y, TX", "lat": 30.0, "lon": -97.0},
+        {"label": "A, X, CA", "lat": 34.0, "lon": -118.0, "residential": None},
+        {"label": "B, Y, TX", "lat": 30.0, "lon": -97.0, "residential": None},
     ]
     # limit is respected
     many = [{"properties": {"countrycode": "US", "name": str(i)},
              "geometry": {"coordinates": [float(i), 1.0]}} for i in range(10)]
     assert len(_photon_features_to_suggestions(many, 3)) == 3
+
+
+def test_residential_hint():
+    """OSM-tag → residential verdict, so the scorer can refuse a non-residential
+    POI the NSI-at-coordinate screen can't see. Skip if FastAPI absent."""
+    try:
+        import fastapi  # noqa: F401 — housing_label.api needs it at import time
+    except ImportError:
+        print("  skip test_residential_hint (fastapi not installed)")
+        return
+    from housing_label.api import _residential_hint, _photon_features_to_suggestions
+    # Positively non-residential (the exact tags Photon returns for "Bank of America").
+    assert _residential_hint("leisure", "stadium") is False
+    assert _residential_hint("office", "company") is False
+    assert _residential_hint("amenity", "bank") is False
+    assert _residential_hint("building", "commercial") is False
+    assert _residential_hint("building", "office") is False
+    # Dwellings.
+    assert _residential_hint("building", "residential") is True
+    assert _residential_hint("building", "apartments") is True
+    assert _residential_hint("building", "house") is True
+    # Unknown → deferred to the NSI screen (a plain street / untagged / place name).
+    assert _residential_hint("highway", "residential") is None
+    assert _residential_hint("building", "yes") is None
+    assert _residential_hint("place", "city") is None
+    assert _residential_hint(None, None) is None
+    # The verdict rides along on each suggestion.
+    feats = [{"properties": {"countrycode": "US", "name": "BofA Stadium", "city": "Charlotte",
+                             "state": "NC", "osm_key": "leisure", "osm_value": "stadium"},
+              "geometry": {"coordinates": [-80.85, 35.22]}}]
+    assert _photon_features_to_suggestions(feats, 5)[0]["residential"] is False
 
 
 def test_geoapify_formatter():
@@ -121,8 +152,15 @@ def test_geoapify_formatter():
         {"country_code": "us", "address_line1": "Y", "lat": None, "lon": 1.0},    # drop bad coords
     ]
     assert _geoapify_results_to_suggestions(results, 5) == [
-        {"label": "1234 Scott St, San Francisco, CA 94115", "lat": 37.7811, "lon": -122.4373},
+        {"label": "1234 Scott St, San Francisco, CA 94115", "lat": 37.7811,
+         "lon": -122.4373, "residential": None},
     ]
+    # Geoapify category → residential verdict.
+    from housing_label.api import _geoapify_residential
+    assert _geoapify_residential({"category": "building.residential"}) is True
+    assert _geoapify_residential({"category": "commercial.supermarket"}) is False
+    assert _geoapify_residential({"category": "leisure.stadium"}) is False
+    assert _geoapify_residential({"category": ""}) is None
 
 
 def test_suggest_short_query():
@@ -137,6 +175,24 @@ def test_suggest_short_query():
     assert client.get("/suggest").status_code == 200
     assert client.get("/suggest").json() == []
     assert client.get("/suggest", params={"q": "ab"}).json() == []
+
+
+def test_label_nonresidential_flag_screens():
+    """?nonresidential=1 (the geocoder said this is a stadium/office/store) refuses
+    with 422 before any network call, and allow_non_residential overrides it."""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_label_nonresidential_flag_screens (fastapi not installed)")
+        return
+    from housing_label.api import app
+    client = TestClient(app)
+    # Bank of America Stadium coords — refused up front (no scoring, no network).
+    r = client.get("/label", params={"lat": 35.2258, "lon": -80.8528, "nonresidential": "true"})
+    assert r.status_code == 422
+    assert "residential" in r.json().get("detail", "").lower()
+    # Without the flag, the same coords are NOT screened up front (they'd proceed to
+    # scoring — not asserted here to keep this test network-free).
 
 
 def test_density_endpoint_validation():
