@@ -629,8 +629,13 @@ window.LabelForm = (function () {
       if (!API_BASE) { noteEl.style.display = ""; return; }
       ac.close(); geoStatus("");
       var addr = addrInput.value.trim(), p = ac.picked();
-      if (p && p.label === addr) load({ lat: p.lat, lon: p.lon, label: p.label });
-      else load(addr ? { address: addr } : null);
+      if (p && p.label === addr) { load({ lat: p.lat, lon: p.lon, label: p.label }); return; }
+      if (addr) { load({ address: addr }); return; }
+      // Empty submit: nudge for input instead of scoring an unchosen default —
+      // scoring DEFAULT_LAT/LON here would undo the "wait for input" behavior.
+      addrInput.focus();
+      geoStatus("Enter a U.S. address or place name to score"
+        + (wantGeo ? ", or use your location." : "."), false);
     });
     if (resetBtn) resetBtn.addEventListener("click", function () {
       ac.close(); addrInput.value = ""; geoStatus("");
