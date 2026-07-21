@@ -68,7 +68,24 @@ window.LabelForm = (function () {
     ["fortified_roof", "FORTIFIED roof"], ["tornado_safe_room", "Tornado safe room"],
     ["seismic_retrofit", "Seismic retrofit"], ["flood_vents", "Flood vents"]
   ];
-  var MODE_LABELS = { detected: "Detected", single: "Single", compare: "Compare" };
+  // Toggle labels + a one-line explanation of what each view actually scores.
+  // The old "Detected / Single / Compare" gave no hint of the difference; these
+  // say it in plain terms (the real home vs. hypothetical construction profiles).
+  var MODE_LABELS = {
+    detected: "This home",
+    single: "What-if build",
+    compare: "Compare builds"
+  };
+  var MODE_HELP = {
+    detected: "Scores the real home at this address, using building details "
+      + "pulled from public records. Edit any detail under “Refine building "
+      + "details” to correct it and the label updates.",
+    single: "Scores one hypothetical construction profile at this location — "
+      + "pick a build type to see how construction choices alone move each "
+      + "dimension. The home’s real details are ignored here.",
+    compare: "Scores two hypothetical construction profiles side by side at this "
+      + "location, with the per-dimension difference between them."
+  };
   var SUPPORTED_MODES = ["detected", "single", "compare"];
   var _mountSeq = 0;   // per-page counter → unique element IDs when >1 widget mounts
 
@@ -109,9 +126,9 @@ window.LabelForm = (function () {
     var lb = opts.listboxId;   // links the combobox input ↔ its suggestions listbox
     return '<form class="label-addr-form lf-form">'
       + '<div class="addr-ac" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-owns="' + lb + '">'
-      + '<input type="text" class="lf-addr" aria-label="US address to score" autocomplete="off" '
+      + '<input type="text" class="lf-addr" aria-label="US address or place name to score" autocomplete="off" '
       + 'role="textbox" aria-autocomplete="list" aria-controls="' + lb + '" aria-activedescendant="" '
-      + 'placeholder="Enter any U.S. address &mdash; e.g. 111 S Grand Ave, Los Angeles, CA">'
+      + 'placeholder="Enter a U.S. address or place name &mdash; e.g. 111 S Grand Ave, Los Angeles">'
       + '<ul class="addr-suggest lf-suggest" id="' + lb + '" role="listbox" hidden></ul></div>'
       + buttons + '</form>'
       + '<p class="label-privacy lf-geo" role="status" aria-live="polite" style="display:none;"></p>'
@@ -202,9 +219,13 @@ window.LabelForm = (function () {
 
     // View state. `presets`/`detected` are cached per location so switching modes
     // doesn't refetch; `desc` is the current location descriptor.
+    // `idle` is the pre-scoring state: on a fresh visit the widget waits for the
+    // user to enter an address (or use their location) instead of auto-scoring a
+    // default — auto-scoring a place nobody asked for read as confusing. A shared
+    // deep link (?address / ?lat,lon) clears it and scores immediately.
     var state = { mode: modes[0], idx: 0, idxA: 0, idxB: 0,
                   presets: null, detected: null, building: null, detectedCtx: null,
-                  detectedQuery: "", desc: null, error: null, initialized: false };
+                  detectedQuery: "", desc: null, error: null, initialized: false, idle: true };
     var touched = {};                 // field key -> true once the user edits it
     var reqSeq = 0;                   // drop out-of-order responses from rapid submits
 
@@ -236,8 +257,14 @@ window.LabelForm = (function () {
       return '<div class="mode-toggle" role="group" aria-label="View mode">'
         + modes.map(function (m) {
             return '<button data-mode="' + m + '"' + (state.mode === m ? ' class="on"' : '')
-              + ' aria-pressed="' + (state.mode === m) + '">' + esc(MODE_LABELS[m] || m) + '</button>';
-          }).join("") + '</div>';
+              + ' aria-pressed="' + (state.mode === m) + '" title="' + esc(MODE_HELP[m] || "") + '">'
+              + esc(MODE_LABELS[m] || m) + '</button>';
+          }).join("") + '</div>'
+        // Plain-language caption for the active view, so the toggle is
+        // self-explanatory rather than three opaque one-word buttons.
+        + (MODE_HELP[state.mode]
+            ? '<p class="mode-help lf-mode-help">' + esc(MODE_HELP[state.mode]) + '</p>'
+            : "");
     }
     function pickerSel(cls, id, val) {
       return '<select class="' + cls + '" id="' + id + '">' + state.presets.map(function (p, i) {
@@ -265,11 +292,28 @@ window.LabelForm = (function () {
       var profileText = ctx.isCustom ? "This home (custom)" : "This home (detected from address)";
       var subline = '<strong>' + esc(profileText) + '</strong>'
         + (bits.length ? " &middot; " + esc(bits.join(" · ")) : "");
-      return LC.renderCard(data, { subline: subline });
+      // Title the card with the address the user entered/picked (the API's
+      // location label is only county-level and just repeats the meta line). Falls
+      // back to the default heading (county) for geolocation / coord deep links.
+      var d = state.desc || {};
+      var addrHeading = (d.address && String(d.address).trim())
+        || (d.label && String(d.label).trim()) || "";
+      var cardOpts = { subline: subline };   // not mount()'s `opts` — distinct name to avoid shadowing
+      if (addrHeading) cardOpts.heading = addrHeading;
+      return LC.renderCard(data, cardOpts);
     }
 
     function render() {
       if (!API_BASE) { app.innerHTML = ""; return; }
+      if (state.idle) {
+        // Nothing scored yet — prompt for input rather than auto-scoring a default.
+        var locateHint = wantGeo ? " or use <strong>your location</strong>" : "";
+        app.innerHTML = '<div class="insight label-prompt">Enter a U.S. address or place name above'
+          + locateHint + ' to generate its nutrition label. You can search by street address '
+          + '(<em>111 S Grand Ave, Los Angeles</em>) or by the name of a place or business.</div>';
+        if (densWrap) densWrap.hidden = true;
+        return;
+      }
       if (state.error) {
         // A 422 is the residential-only screen (a non-residential address), not an
         // outage — show the guidance as a neutral notice, without the "retry" line.
@@ -399,7 +443,7 @@ window.LabelForm = (function () {
     // The refine panel only makes sense in Detected mode AND when there's an API to
     // re-score against — without one it would be an empty, non-functional control.
     function syncRefineVisibility() {
-      refineEl.style.display = (API_BASE && state.mode === "detected") ? "" : "none";
+      refineEl.style.display = (API_BASE && state.mode === "detected" && !state.idle) ? "" : "none";
     }
     function applyBuilding(building) {
       var estimated = 0, total = 0;
@@ -475,13 +519,27 @@ window.LabelForm = (function () {
     }
     function ensureData() { if (state.mode === "detected") loadDetected(false); else loadPresets(); }
     function load(desc) {
+      state.idle = false;               // a location was requested — leave the prompt state
       state.desc = desc || null;
       state.presets = null; state.detected = null; state.building = null;
       state.detectedCtx = null; state.detectedQuery = "";
       touched = {}; applyBuilding(null);
       qa(".addr-upgrades input").forEach(function (cb) { cb.checked = false; });
       if (densResult) densResult.innerHTML = "";
+      syncRefineVisibility();           // reveal the refine panel now that we're scoring
       ensureData();
+    }
+    // Return to the pre-scoring prompt (Reset) — clears the scored result and any
+    // in-flight response rather than re-scoring a default location.
+    function resetToIdle() {
+      reqSeq++;                         // invalidate any in-flight response
+      state.idle = true; state.error = null; state.desc = null;
+      state.presets = null; state.detected = null; state.building = null;
+      state.detectedCtx = null; state.detectedQuery = "";
+      touched = {}; applyBuilding(null);
+      qa(".addr-upgrades input").forEach(function (cb) { cb.checked = false; });
+      if (densResult) densResult.innerHTML = "";
+      syncRefineVisibility(); render();
     }
     function applyDefaults() {
       if (state.initialized) return;
@@ -531,7 +589,9 @@ window.LabelForm = (function () {
         var d = JSON.parse(localStorage.getItem(LS_KEY));
         if (d && d.address && String(d.address).trim()) return { address: String(d.address).trim() };
         var c = coord(d && d.lat, d && d.lon);
-        if (c) return c;
+        // Carry a picked suggestion's address label so a coord-only descriptor can
+        // still pre-fill the box on the next visit (it has no `address` text).
+        if (c) { if (d && d.label) c.label = String(d.label); return c; }
       } catch (e) {}
       return null;
     }
@@ -579,13 +639,18 @@ window.LabelForm = (function () {
       if (!API_BASE) { noteEl.style.display = ""; return; }
       ac.close(); geoStatus("");
       var addr = addrInput.value.trim(), p = ac.picked();
-      if (p && p.label === addr) load({ lat: p.lat, lon: p.lon, label: p.label });
-      else load(addr ? { address: addr } : null);
+      if (p && p.label === addr) { load({ lat: p.lat, lon: p.lon, label: p.label }); return; }
+      if (addr) { load({ address: addr }); return; }
+      // Empty submit: nudge for input instead of scoring an unchosen default —
+      // scoring DEFAULT_LAT/LON here would undo the "wait for input" behavior.
+      addrInput.focus();
+      geoStatus("Enter a U.S. address or place name to score"
+        + (wantGeo ? ", or use your location." : "."), false);
     });
     if (resetBtn) resetBtn.addEventListener("click", function () {
       ac.close(); addrInput.value = ""; geoStatus("");
       syncUrl(null); saveLast(null);
-      load(null);
+      resetToIdle();
     });
     if (locateBtn) locateBtn.addEventListener("click", function () {
       if (!navigator.geolocation) { geoStatus("Your browser doesn't support location sharing.", true); return; }
@@ -593,7 +658,9 @@ window.LabelForm = (function () {
       navigator.geolocation.getCurrentPosition(
         function (pos) {
           locateBtn.disabled = false; geoStatus(""); ac.close(); addrInput.value = "";
-          load({ lat: pos.coords.latitude, lon: pos.coords.longitude, label: "your location" });
+          // No label here: "your location" isn't a re-typable address, so it must
+          // not be persisted as pre-fill text for the next visit.
+          load({ lat: pos.coords.latitude, lon: pos.coords.longitude });
         },
         function (err) {
           locateBtn.disabled = false;
@@ -608,11 +675,20 @@ window.LabelForm = (function () {
     // ── init ────────────────────────────────────────────────────────────────────
     syncRefineVisibility();
     if (!API_BASE) { render(); return; }   // no endpoint: markup + disclosure only
-    // Initial location precedence: shared URL (?lat,lon or ?address=) > last visit
-    // (when persist) > the default location.
-    var initDesc = descFromUrl() || (persist ? loadLast() : null);
-    if (initDesc && initDesc.address) addrInput.value = initDesc.address;
-    load(initDesc || null);
+    // Only an explicit shared/bookmarked link (?lat,lon or ?address=) auto-scores
+    // on load — that's a deliberate deep link. A fresh visit (or just a remembered
+    // last location) shows the prompt instead of auto-scoring something unasked-for.
+    var urlDesc = descFromUrl();
+    var lastDesc = persist ? loadLast() : null;
+    // Pre-fill the address box for convenience (so the user can just hit "Score
+    // it"), but don't score it automatically.
+    var prefill = urlDesc || lastDesc;
+    // Pre-fill from the typed address or a picked suggestion's remembered label
+    // (coord deep links / geolocation have no re-typable text and stay empty).
+    var prefillText = prefill ? (prefill.address || prefill.label || "") : "";
+    if (prefillText) addrInput.value = prefillText;
+    if (urlDesc) load(urlDesc);            // deep link → score it now
+    else render();                         // fresh visit → idle prompt, awaiting input
   }
 
   return { mount: mount };

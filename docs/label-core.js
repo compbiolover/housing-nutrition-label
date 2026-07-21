@@ -275,7 +275,7 @@ window.LabelCore = (function () {
     }
 
     var html = '<div class="label-card"><div class="label-head"><div>'
-      + '<div style="font-weight:700;color:var(--navy);">' + esc(heading) + '</div>'
+      + '<div class="label-title">' + esc(heading) + '</div>'
       + '<div class="meta">' + metaParts.join(" &middot; ") + '</div>'
       + (subline ? '<div class="build-line">' + subline + '</div>' : '')
       + (structLine ? '<div class="build-line">' + structLine + '</div>' : '')

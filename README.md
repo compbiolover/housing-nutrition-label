@@ -295,9 +295,10 @@ housing-api                            # no API keys required; GET /label?addres
 <details>
 <summary><strong>Autocomplete & deployment details</strong></summary>
 
-The search bar also has **address autocomplete**: `GET /suggest?q=...` returns US
+The search bar also has **address & place-name autocomplete**: `GET /suggest?q=...` returns US
 `[{label, lat, lon}]`, proxied server-side (visitors' keystrokes never reach a third party
-directly). By default it uses the keyless [Photon](https://photon.komoot.io) geocoder
+directly). Typing a business, campus, or landmark name resolves it to the street address it
+sits at, so you don't have to know the address to score a place. By default it uses the keyless [Photon](https://photon.komoot.io) geocoder
 (`PHOTON_URL` to self-host); set `GEOAPIFY_API_KEY` ([free tier](https://www.geoapify.com),
 EU/GDPR) for sharper US ranking, with automatic Photon fallback. Keys stay server-side.
 
