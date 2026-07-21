@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.58](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.57...v0.1.58) (2026-07-21)
+
+
+### Bug Fixes
+
+* residential-only screen (reject stadiums/offices) + Google Places typeahead ([#189](https://github.com/compbiolover/housing-nutrition-label/issues/189)) ([e9b6a78](https://github.com/compbiolover/housing-nutrition-label/commit/e9b6a78e118ee88c0172fdc7fa1e8666ecdde857))
+
 ## [0.1.57](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.56...v0.1.57) (2026-07-21)
 
 
