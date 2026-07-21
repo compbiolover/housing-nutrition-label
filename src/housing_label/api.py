@@ -267,9 +267,15 @@ def _photon_label(props: dict) -> str:
     "Acme Corp, 500 Oak Ave, Memphis, TN"). Named features with no street data
     still fall back to just the name + city/state.
     """
-    house = props.get("housenumber")
-    street = props.get("street")
-    name = props.get("name")
+    def _clean(v):
+        return v.strip() if isinstance(v, str) else v
+
+    # Strip upstream fields before comparing/composing so trivial formatting
+    # differences (e.g. a trailing space in `street`) don't defeat the name-vs-
+    # street de-dup and produce a doubled "Main St, Main St, …" label.
+    house = _clean(props.get("housenumber"))
+    street = _clean(props.get("street"))
+    name = _clean(props.get("name"))
     if house and street:
         addr_line = f"{house} {street}"
     elif street:
@@ -282,8 +288,8 @@ def _photon_label(props: dict) -> str:
         line1 = f"{name}, {addr_line}" if addr_line else name
     else:
         line1 = addr_line or name or ""
-    parts = [p for p in (line1, props.get("city"), props.get("state"), props.get("postcode")) if p]
-    return ", ".join(parts)
+    parts = [_clean(p) for p in (line1, props.get("city"), props.get("state"), props.get("postcode"))]
+    return ", ".join(p for p in parts if p)
 
 
 def _photon_features_to_suggestions(features: list, limit: int) -> list[dict]:

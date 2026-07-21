@@ -68,8 +68,11 @@ def test_photon_label_formatter():
         "name": "Acme Corp", "housenumber": "500", "street": "Oak Ave",
         "city": "Memphis", "state": "TN",
     }) == "Acme Corp, 500 Oak Ave, Memphis, TN"
-    # A named feature whose name just repeats the street isn't duplicated.
+    # A named feature whose name just repeats the street isn't duplicated —
+    # including when the upstream fields differ only by trailing whitespace.
     assert _photon_label({"name": "Main St", "street": "Main St", "city": "Reno"}) \
+        == "Main St, Reno"
+    assert _photon_label({"name": "Main St", "street": "Main St ", "city": " Reno "}) \
         == "Main St, Reno"
 
     feats = [
