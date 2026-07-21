@@ -296,11 +296,14 @@ housing-api                            # no API keys required; GET /label?addres
 <summary><strong>Autocomplete & deployment details</strong></summary>
 
 The search bar also has **address & place-name autocomplete**: `GET /suggest?q=...` returns US
-`[{label, lat, lon}]`, proxied server-side (visitors' keystrokes never reach a third party
-directly). Typing a business, campus, or landmark name resolves it to the street address it
-sits at, so you don't have to know the address to score a place. By default it uses the keyless [Photon](https://photon.komoot.io) geocoder
-(`PHOTON_URL` to self-host); set `GEOAPIFY_API_KEY` ([free tier](https://www.geoapify.com),
-EU/GDPR) for sharper US ranking, with automatic Photon fallback. Keys stay server-side.
+`[{label, lat, lon, residential}]`, proxied server-side (visitors' keystrokes never reach a third
+party directly). Typing a business, campus, or landmark name resolves it to the street address it
+sits at, so you don't have to know the address to score a place; the `residential` field flags a
+non-residential POI (a stadium, office, or store) so the scorer refuses to grade it as a home.
+Back-end priority: **Google Places** (`GOOGLE_PLACES_API_KEY`, best US business/landmark coverage —
+enable "Places API (New)") → **Geoapify** (`GEOAPIFY_API_KEY`, [free tier](https://www.geoapify.com),
+EU/GDPR, sharper US ranking) → keyless [**Photon**](https://photon.komoot.io) (`PHOTON_URL` to
+self-host), each falling back to the next if unreachable. Keys stay server-side.
 
 Deploy it anywhere that runs Python (GitHub Pages can't host it). The repo ships a
 [`render.yaml`](render.yaml) Blueprint and a [`Dockerfile`](Dockerfile) (Fly / Cloud Run /

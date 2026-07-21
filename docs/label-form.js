@@ -467,6 +467,8 @@ window.LabelForm = (function () {
       if (d && d.lat != null) { params.set("lat", d.lat); params.set("lon", d.lon); }
       else if (d && d.address) { params.set("address", d.address); }
       else { params.set("lat", DEFAULT_LAT); params.set("lon", DEFAULT_LON); }
+      // The picked place was a non-residential POI — ask the API to refuse it.
+      if (d && d.nonResidential) params.set("nonresidential", "1");
       FIELDS.forEach(function (f) {
         if (!touched[f.key]) return;
         var el = fieldEl(f.key), v = el.value != null ? el.value : "";
@@ -639,7 +641,12 @@ window.LabelForm = (function () {
       if (!API_BASE) { noteEl.style.display = ""; return; }
       ac.close(); geoStatus("");
       var addr = addrInput.value.trim(), p = ac.picked();
-      if (p && p.label === addr) { load({ lat: p.lat, lon: p.lon, label: p.label }); return; }
+      if (p && p.label === addr) {
+        // Carry the geocoder's non-residential verdict (a stadium/office/store) so
+        // the scorer refuses it — the address's coordinate alone can't reveal it.
+        load({ lat: p.lat, lon: p.lon, label: p.label, nonResidential: p.residential === false });
+        return;
+      }
       if (addr) { load({ address: addr }); return; }
       // Empty submit: nudge for input instead of scoring an unchosen default —
       // scoring DEFAULT_LAT/LON here would undo the "wait for input" behavior.

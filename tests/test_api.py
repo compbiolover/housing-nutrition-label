@@ -87,13 +87,44 @@ def test_photon_label_formatter():
     ]
     out = _photon_features_to_suggestions(feats, 5)
     assert out == [                                                    # note lon/lat swap
-        {"label": "A, X, CA", "lat": 34.0, "lon": -118.0},
-        {"label": "B, Y, TX", "lat": 30.0, "lon": -97.0},
+        {"label": "A, X, CA", "lat": 34.0, "lon": -118.0, "residential": None},
+        {"label": "B, Y, TX", "lat": 30.0, "lon": -97.0, "residential": None},
     ]
     # limit is respected
     many = [{"properties": {"countrycode": "US", "name": str(i)},
              "geometry": {"coordinates": [float(i), 1.0]}} for i in range(10)]
     assert len(_photon_features_to_suggestions(many, 3)) == 3
+
+
+def test_residential_hint():
+    """OSM-tag → residential verdict, so the scorer can refuse a non-residential
+    POI the NSI-at-coordinate screen can't see. Skip if FastAPI absent."""
+    try:
+        import fastapi  # noqa: F401 — housing_label.api needs it at import time
+    except ImportError:
+        print("  skip test_residential_hint (fastapi not installed)")
+        return
+    from housing_label.api import _residential_hint, _photon_features_to_suggestions
+    # Positively non-residential (the exact tags Photon returns for "Bank of America").
+    assert _residential_hint("leisure", "stadium") is False
+    assert _residential_hint("office", "company") is False
+    assert _residential_hint("amenity", "bank") is False
+    assert _residential_hint("building", "commercial") is False
+    assert _residential_hint("building", "office") is False
+    # Dwellings.
+    assert _residential_hint("building", "residential") is True
+    assert _residential_hint("building", "apartments") is True
+    assert _residential_hint("building", "house") is True
+    # Unknown → deferred to the NSI screen (a plain street / untagged / place name).
+    assert _residential_hint("highway", "residential") is None
+    assert _residential_hint("building", "yes") is None
+    assert _residential_hint("place", "city") is None
+    assert _residential_hint(None, None) is None
+    # The verdict rides along on each suggestion.
+    feats = [{"properties": {"countrycode": "US", "name": "BofA Stadium", "city": "Charlotte",
+                             "state": "NC", "osm_key": "leisure", "osm_value": "stadium"},
+              "geometry": {"coordinates": [-80.85, 35.22]}}]
+    assert _photon_features_to_suggestions(feats, 5)[0]["residential"] is False
 
 
 def test_geoapify_formatter():
@@ -121,7 +152,62 @@ def test_geoapify_formatter():
         {"country_code": "us", "address_line1": "Y", "lat": None, "lon": 1.0},    # drop bad coords
     ]
     assert _geoapify_results_to_suggestions(results, 5) == [
-        {"label": "1234 Scott St, San Francisco, CA 94115", "lat": 37.7811, "lon": -122.4373},
+        {"label": "1234 Scott St, San Francisco, CA 94115", "lat": 37.7811,
+         "lon": -122.4373, "residential": None},
+    ]
+    # Geoapify category → residential verdict.
+    from housing_label.api import _geoapify_residential
+    assert _geoapify_residential({"category": "building.residential"}) is True
+    assert _geoapify_residential({"category": "commercial.supermarket"}) is False
+    assert _geoapify_residential({"category": "leisure.stadium"}) is False
+    assert _geoapify_residential({"category": ""}) is None
+
+
+def test_google_places_formatter():
+    """Google Places Text Search parsing/classification — no network/key. Skip if
+    FastAPI absent."""
+    try:
+        import fastapi  # noqa: F401
+    except ImportError:
+        print("  skip test_google_places_formatter (fastapi not installed)")
+        return
+    from housing_label.api import (
+        _google_label, _google_residential, _google_places_to_suggestions, _google_is_us,
+    )
+    # Label leads with the business name, then the address, minus the country suffix.
+    stadium = {
+        "formattedAddress": "800 S Mint St, Charlotte, NC 28202, USA",
+        "location": {"latitude": 35.2258, "longitude": -80.8528},
+        "displayName": {"text": "Bank of America Stadium"},
+        "types": ["stadium", "point_of_interest", "establishment"],
+        "addressComponents": [{"types": ["country"], "shortText": "US"}],
+    }
+    assert _google_label(stadium) == "Bank of America Stadium, 800 S Mint St, Charlotte, NC 28202"
+    assert _google_residential(["stadium", "point_of_interest", "establishment"]) is False
+    assert _google_residential(["insurance_agency", "establishment"]) is False   # Unum HQ
+    assert _google_residential(["establishment", "point_of_interest"]) is False  # generic business
+    assert _google_residential(["street_address"]) is None                       # a home → NSI decides
+    assert _google_residential(["premise", "establishment"]) is None             # address-like wins
+    # A plain address isn't duplicated when displayName repeats the street.
+    addr = {
+        "formattedAddress": "123 Main St, Memphis, TN 38104, USA",
+        "location": {"latitude": 35.13, "longitude": -89.99},
+        "displayName": {"text": "123 Main St"},
+        "types": ["street_address"],
+        "addressComponents": [{"types": ["country"], "shortText": "US"}],
+    }
+    assert _google_label(addr) == "123 Main St, Memphis, TN 38104"
+    # US filter + full suggestion shape; a non-US place is dropped.
+    non_us = {"formattedAddress": "10 Downing St, London, UK",
+              "location": {"latitude": 51.5, "longitude": -0.12},
+              "displayName": {"text": "10 Downing St"}, "types": ["premise"],
+              "addressComponents": [{"types": ["country"], "shortText": "GB"}]}
+    assert _google_is_us(stadium) is True and _google_is_us(non_us) is False
+    assert _google_places_to_suggestions([stadium, non_us, addr], 5) == [
+        {"label": "Bank of America Stadium, 800 S Mint St, Charlotte, NC 28202",
+         "lat": 35.2258, "lon": -80.8528, "residential": False},
+        {"label": "123 Main St, Memphis, TN 38104",
+         "lat": 35.13, "lon": -89.99, "residential": None},
     ]
 
 
@@ -137,6 +223,24 @@ def test_suggest_short_query():
     assert client.get("/suggest").status_code == 200
     assert client.get("/suggest").json() == []
     assert client.get("/suggest", params={"q": "ab"}).json() == []
+
+
+def test_label_nonresidential_flag_screens():
+    """?nonresidential=1 (the geocoder said this is a stadium/office/store) refuses
+    with 422 before any network call, and allow_non_residential overrides it."""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_label_nonresidential_flag_screens (fastapi not installed)")
+        return
+    from housing_label.api import app
+    client = TestClient(app)
+    # Bank of America Stadium coords — refused up front (no scoring, no network).
+    r = client.get("/label", params={"lat": 35.2258, "lon": -80.8528, "nonresidential": "true"})
+    assert r.status_code == 422
+    assert "residential" in r.json().get("detail", "").lower()
+    # Without the flag, the same coords are NOT screened up front (they'd proceed to
+    # scoring — not asserted here to keep this test network-free).
 
 
 def test_density_endpoint_validation():

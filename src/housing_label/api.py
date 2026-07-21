@@ -10,8 +10,10 @@ Install + run::
     pip install -e ".[api]"
     # All 9 dimensions score with no API keys — health, socioeconomic, and
     # walkability are bundled national references.
-    # optional: sharper address autocomplete (else keyless Photon is used):
-    export GEOAPIFY_API_KEY=...
+    # optional: better address autocomplete (else keyless Photon is used).
+    # Priority: Google Places → Geoapify → Photon.
+    export GOOGLE_PLACES_API_KEY=...   # best US business/landmark coverage
+    export GEOAPIFY_API_KEY=...        # sharper US ranking, no billing
     housing-api                      # uvicorn on :8000 (PORT overrides)
     # or: uvicorn housing_label.api:app --host 0.0.0.0 --port 8000
 
@@ -57,10 +59,13 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
-from housing_label.config import HEADERS, PHOTON_URL, GEOAPIFY_URL, GEOAPIFY_API_KEY
+from housing_label.config import (
+    HEADERS, PHOTON_URL, GEOAPIFY_URL, GEOAPIFY_API_KEY,
+    GOOGLE_PLACES_URL, GOOGLE_PLACES_API_KEY,
+)
 from housing_label.simulate.house import (
     build_label_parts, label_payload, density_comparison, cost_flows,
-    NonResidentialProperty,
+    NonResidentialProperty, _NON_RESIDENTIAL_MESSAGE,
     PRESETS, CONSTRUCTION_FACTOR, FOUNDATION_FACTOR, CONDITION_FACTOR,
     BONUS_FLAGS, ELEVATION_FLAGS,
 )
@@ -257,6 +262,49 @@ def _coord(v) -> float | None:
         return None
 
 
+# ── Residential vs non-residential POI classification ────────────────────────────
+# The geocoder knows what a place *is* (a stadium, an office tower, a store) via
+# OSM tags — a signal the NSI-at-coordinate screen can't recover, because a
+# non-residential address in a dense downtown sits amid residential towers and the
+# neighborhood scan reads "residential". So we classify the suggestion here and
+# carry the verdict to /label, which refuses to score a positively non-residential
+# place. Returns True (a dwelling), False (positively non-residential), or None
+# (unknown — a plain street address / untagged result, left for the NSI screen).
+_RESIDENTIAL_BUILDING_VALUES = frozenset({
+    "residential", "apartments", "house", "detached", "semidetached_house",
+    "terrace", "dormitory", "bungalow", "cabin", "static_caravan", "houseboat",
+    "duplex", "manufactured", "hut", "farm",
+})
+_NONRES_OSM_KEYS = frozenset({
+    "shop", "office", "amenity", "leisure", "tourism", "aeroway", "railway",
+    "industrial", "military", "man_made", "healthcare", "historic", "craft",
+    "club", "emergency", "power", "aerialway", "public_transport", "sport",
+})
+_NONRES_BUILDING_VALUES = frozenset({
+    "commercial", "office", "retail", "industrial", "warehouse", "stadium",
+    "hospital", "school", "university", "college", "church", "cathedral",
+    "chapel", "mosque", "temple", "synagogue", "hotel", "motel", "supermarket",
+    "civic", "government", "public", "train_station", "transportation",
+    "kindergarten", "sports_centre", "sports_hall", "grandstand", "hangar",
+    "parking", "garage", "garages", "fire_station", "hospital",
+})
+
+
+def _residential_hint(osm_key, osm_value) -> bool | None:
+    """Coarse residential verdict from a Photon feature's OSM tags."""
+    k = (osm_key or "").strip().lower()
+    v = (osm_value or "").strip().lower()
+    if k == "building":
+        if v in _RESIDENTIAL_BUILDING_VALUES:
+            return True
+        if v in _NONRES_BUILDING_VALUES:
+            return False
+        return None                       # building=yes / other → defer to NSI screen
+    if k in _NONRES_OSM_KEYS:
+        return False
+    return None                           # place / highway / boundary → unknown
+
+
 def _photon_label(props: dict) -> str:
     """Build a one-line US label from a Photon feature's properties.
 
@@ -309,7 +357,8 @@ def _photon_features_to_suggestions(features: list, limit: int) -> list[dict]:
         label = _photon_label(props)
         if not label:
             continue
-        out.append({"label": label, "lat": lat, "lon": lon})
+        out.append({"label": label, "lat": lat, "lon": lon,
+                    "residential": _residential_hint(props.get("osm_key"), props.get("osm_value"))})
         if len(out) >= limit:
             break
     return out
@@ -329,8 +378,22 @@ def _geoapify_label(r: dict) -> str:
     return f
 
 
+def _geoapify_residential(r: dict) -> bool | None:
+    """Coarse residential verdict from a Geoapify result's category/result_type."""
+    cat = (r.get("category") or "").strip().lower()
+    if cat.startswith("building.residential") or cat.startswith("accommodation.apartment"):
+        return True
+    nonres_prefixes = ("commercial", "catering", "office", "leisure", "tourism",
+                       "building.commercial", "building.office", "building.retail",
+                       "building.industrial", "education", "healthcare", "industrial",
+                       "service", "entertainment", "sport", "religion")
+    if any(cat.startswith(p) for p in nonres_prefixes):
+        return False
+    return None
+
+
 def _geoapify_results_to_suggestions(results: list, limit: int) -> list[dict]:
-    """Slim US-only [{label, lat, lon}] from Geoapify autocomplete results."""
+    """Slim US-only [{label, lat, lon, residential}] from Geoapify autocomplete results."""
     out: list[dict] = []
     for r in results or []:
         if (r.get("country_code") or "").lower() != "us":   # US-only (the scorer is US-only)
@@ -341,23 +404,132 @@ def _geoapify_results_to_suggestions(results: list, limit: int) -> list[dict]:
         label = _geoapify_label(r)
         if not label:
             continue
-        out.append({"label": label, "lat": lat, "lon": lon})
+        out.append({"label": label, "lat": lat, "lon": lon,
+                    "residential": _geoapify_residential(r)})
         if len(out) >= limit:
             break
     return out
 
 
+# ── Google Places Text Search (New) — best US business/landmark coverage ─────────
+# Photon/Geoapify miss many US company HQs (e.g. "Unum" resolves to a village in
+# Yemen on Photon). Google Places Text Search finds them and returns the place
+# `types`, which drive the same residential screen. One call per /suggest; the key
+# is server-side only. Highest priority when configured.
+_GOOGLE_NONRES_TYPES = frozenset({
+    "stadium", "arena", "bank", "atm", "store", "shopping_mall", "supermarket",
+    "department_store", "clothing_store", "school", "university", "primary_school",
+    "secondary_school", "hospital", "doctor", "pharmacy", "airport", "train_station",
+    "transit_station", "bus_station", "subway_station", "light_rail_station",
+    "church", "mosque", "synagogue", "hindu_temple", "place_of_worship", "restaurant",
+    "cafe", "bar", "gym", "stadium", "museum", "library", "city_hall",
+    "local_government_office", "courthouse", "police", "fire_station", "post_office",
+    "warehouse", "storage", "car_dealer", "car_repair", "gas_station", "parking",
+    "corporate_office", "insurance_agency", "accounting", "lawyer", "real_estate_agency",
+    "finance", "tourist_attraction", "amusement_park", "zoo", "movie_theater",
+    "night_club", "lodging", "hotel", "motel", "convenience_store", "electronics_store",
+    "hardware_store", "furniture_store", "shopping_center", "factory",
+})
+_GOOGLE_RES_TYPES = frozenset({
+    "street_address", "premise", "subpremise", "route", "geocode", "postal_code",
+    "neighborhood", "sublocality", "locality", "intersection",
+})
+
+
+def _google_residential(types) -> bool | None:
+    """Coarse residential verdict from a Google place's `types`."""
+    t = {str(x).lower() for x in (types or [])}
+    if t & _GOOGLE_NONRES_TYPES:
+        return False
+    # A named establishment / point of interest that isn't an address-like type is a
+    # business, not a home → non-residential (a home is never an "establishment").
+    if ("establishment" in t or "point_of_interest" in t) \
+            and not (t & {"premise", "subpremise", "street_address"}):
+        return False
+    return None                          # plain address / unknown → defer to NSI screen
+
+
+def _google_is_us(place: dict) -> bool:
+    """True when the place is in the US (the scorer is US-only)."""
+    for c in place.get("addressComponents") or []:
+        if "country" in (c.get("types") or []):
+            return (c.get("shortText") or "").upper() == "US"
+    fa = (place.get("formattedAddress") or "").strip()
+    return fa.endswith("USA") or fa.endswith("United States")
+
+
+def _google_label(place: dict) -> str:
+    """One-line US label: lead with the business/place name, then its address."""
+    disp = ((place.get("displayName") or {}).get("text") or "").strip()
+    addr = (place.get("formattedAddress") or "").strip()
+    for suffix in (", USA", ", United States"):
+        if addr.endswith(suffix):
+            addr = addr[: -len(suffix)].strip()
+    if disp and addr and not addr.startswith(disp):
+        return f"{disp}, {addr}"
+    return addr or disp
+
+
+def _google_places_to_suggestions(places: list, limit: int) -> list[dict]:
+    """Slim US-only [{label, lat, lon, residential}] from Text Search places."""
+    out: list[dict] = []
+    for p in places or []:
+        if not _google_is_us(p):
+            continue
+        loc = p.get("location") or {}
+        lat, lon = _coord(loc.get("latitude")), _coord(loc.get("longitude"))
+        if lat is None or lon is None:
+            continue
+        label = _google_label(p)
+        if not label:
+            continue
+        out.append({"label": label, "lat": lat, "lon": lon,
+                    "residential": _google_residential(p.get("types"))})
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _google_suggest(text: str) -> dict | None:
+    """Single short-timeout Text Search POST → JSON or None (quiet fallback)."""
+    try:
+        r = requests.post(
+            GOOGLE_PLACES_URL,
+            json={"textQuery": text, "regionCode": "US",
+                  "pageSize": _SUGGEST_LIMIT, "languageCode": "en"},
+            headers={
+                **HEADERS,
+                "Content-Type": "application/json",
+                "X-Goog-Api-Key": GOOGLE_PLACES_API_KEY,
+                "X-Goog-FieldMask": ("places.formattedAddress,places.location,"
+                                     "places.displayName,places.types,places.addressComponents"),
+            },
+            timeout=_SUGGEST_TIMEOUT,
+        )
+        r.raise_for_status()
+        return r.json()
+    except Exception:  # noqa: BLE001 — any failure → quietly fall back
+        return None
+
+
 @app.get("/suggest")
 def suggest(q: str | None = None) -> list[dict]:
-    """US address / place-name typeahead. Both back-ends resolve business,
-    campus, and landmark names as well as street addresses, so typing a company
-    or place name surfaces the address it sits at. Uses Geoapify when a key is
-    set (better ranking), else keyless Photon. Degrades to [] — never breaks the
-    page."""
+    """US address / place-name typeahead. Resolves business, campus, and landmark
+    names as well as street addresses, so typing a company or place name surfaces
+    the address it sits at, plus a `residential` verdict per result (used by the
+    residential screen). Back-end priority: Google Places (best US business/landmark
+    coverage) when `GOOGLE_PLACES_API_KEY` is set, else Geoapify when
+    `GEOAPIFY_API_KEY` is set (sharper US ranking), else keyless Photon — each
+    falling back to the next if unreachable. Degrades to [] — never breaks the page."""
     text = (q or "").strip()
     if len(text) < _SUGGEST_MIN_CHARS:
         return []                                     # too short — empty, not an error
     text = text[:_SUGGEST_MAX_CHARS]
+
+    if GOOGLE_PLACES_API_KEY:
+        data = _google_suggest(text)
+        if data is not None:                          # only fall through if unreachable
+            return _google_places_to_suggestions(data.get("places") or [], _SUGGEST_LIMIT)
 
     if GEOAPIFY_API_KEY:
         data = _suggest_get(GEOAPIFY_URL, {
@@ -397,6 +569,7 @@ def label(
     stories: int | None = None,
     upgrades: str | None = None,
     allow_non_residential: bool = False,
+    nonresidential: bool = False,
 ) -> dict:
     """Return the full nutrition-label payload for an address or lat/lon.
 
@@ -405,14 +578,26 @@ def label(
     `bldg_material` (wood|masonry|concrete|steel) and `stories` describe a
     multi-unit building's shell for Resilience/Durability when NSI didn't detect it.
 
-    A real address (no `preset`) that NSI positively identifies as a
-    non-residential building is refused with **422** — the label rates residential
-    dwellings only. Pass `allow_non_residential=true` to score it anyway.
+    A real address (no `preset`) is refused with **422** — the label rates
+    residential dwellings only — when it is positively non-residential: NSI or the
+    USA Structures footprint occupancy class identifies it as such, OR the caller
+    passes `nonresidential=true` (set by the frontend when the picked geocoder
+    suggestion was a non-residential POI, e.g. a stadium or office tower — a signal
+    the coordinate alone can't recover downtown). Pass `allow_non_residential=true`
+    to score it anyway.
     """
     bldg_material, upgrade_list = _validate_request(
         address=address, lat=lat, lon=lon, preset=preset, construction=construction,
         foundation=foundation, condition=condition, flood_zone=flood_zone,
         bldg_material=bldg_material, stories=stories, upgrades=upgrades)
+
+    # Geocoder-sourced non-residential screen: the picked suggestion was a
+    # positively non-residential POI (stadium, office, store — classified from OSM
+    # tags in /suggest). Refuse it up front, since the NSI-at-coordinate screen
+    # can't see it in a residential-dense downtown. A hypothetical `preset` isn't a
+    # real address, and `allow_non_residential` is the explicit override.
+    if nonresidential and not allow_non_residential and preset is None:
+        raise HTTPException(422, _NON_RESIDENTIAL_MESSAGE)
 
     cache_key = ("label", address, lat, lon, preset, construction, year_built,
                  foundation, condition, value, units, sqft, lot_acres, flood_zone,

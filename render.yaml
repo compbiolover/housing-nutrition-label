@@ -1,9 +1,10 @@
 # Render Blueprint for the Housing Nutrition Label API.
 # Docs: https://render.com/docs/blueprint-spec
 # Deploy: push this repo, then "New + → Blueprint" and select it.
-# Scoring needs no API keys. GEOAPIFY_API_KEY is the only (optional) key — it
-# sharpens address autocomplete; without it the keyless Photon geocoder is used.
-# It's marked sync:false so it isn't stored in the repo.
+# Scoring needs no API keys. The two optional keys only sharpen address
+# autocomplete: GOOGLE_PLACES_API_KEY (best US business/landmark coverage) and
+# GEOAPIFY_API_KEY (sharper US ranking). Without either, the keyless Photon
+# geocoder is used. Both are sync:false so they aren't stored in the repo.
 services:
   - type: web
     name: housing-label-api
@@ -29,6 +30,10 @@ services:
       # upstreams they proxy). "" or "0" disables it; /healthz is always exempt.
       - key: RATE_LIMIT
         value: "30/minute"
-      # Optional: sharper address autocomplete (else the keyless Photon geocoder).
+      # Optional address-autocomplete upgrades (else the keyless Photon geocoder).
+      # Priority when set: Google Places → Geoapify → Photon. Enable "Places API
+      # (New)" on the Google key. Both proxied server-side; visitors never see them.
+      - key: GOOGLE_PLACES_API_KEY
+        sync: false
       - key: GEOAPIFY_API_KEY
         sync: false
