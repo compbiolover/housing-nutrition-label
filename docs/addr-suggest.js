@@ -143,7 +143,9 @@ window.AddrSuggest = (function () {
       // Drop any highlight from the now-stale list so a fast Enter (before the
       // debounced fetch returns) can't select a suggestion for the old query.
       setActive(-1);
-      if (!apiBase || q.length < minChars) { close(); return; }
+      // Query cleared below the threshold → end this typeahead session so the next
+      // real search starts a fresh Google token (don't bill two searches as one).
+      if (!apiBase || q.length < minChars) { session = null; close(); return; }
       timer = setTimeout(function () { fetchSuggest(q); }, 250);
     });
     input.addEventListener("keydown", function (e) {

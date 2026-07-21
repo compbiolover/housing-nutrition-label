@@ -246,6 +246,23 @@ def test_suggest_short_query():
     assert "google_probe" not in dbg
 
 
+def test_place_endpoint_validation():
+    """The /place endpoint validates before any network call: 400 without a
+    place_id, and 503 when no Google key is configured (the test env has none)."""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_place_endpoint_validation (fastapi not installed)")
+        return
+    import housing_label.api as api
+    client = TestClient(api.app)
+    assert client.get("/place").status_code == 400                       # missing place_id
+    assert client.get("/place", params={"place_id": ""}).status_code == 400
+    # With a place_id but no key configured → 503 (no network attempted).
+    assert not api.GOOGLE_PLACES_API_KEY                                  # guard: test env has no key
+    assert client.get("/place", params={"place_id": "ChIJabc"}).status_code == 503
+
+
 def test_label_nonresidential_flag_screens():
     """?nonresidential=1 (the geocoder said this is a stadium/office/store) refuses
     with 422 before any network call, and allow_non_residential overrides it."""
