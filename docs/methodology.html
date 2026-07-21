@@ -37,6 +37,28 @@
       width: 2.1rem; height: 2.1rem; border-radius: var(--radius);
       background: var(--bg); border: 1px solid var(--border);
       font-size: 1.15rem; line-height: 1; }
+    /* Two-family grouping (construction-driven vs location-driven) breaks the 13
+       cards into scannable chunks that mirror how the label itself splits them. */
+    .dim-group { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--muted); font-weight: 700; margin: 1.75rem 0 0.75rem;
+      padding-bottom: 0.4rem; border-bottom: 1px solid var(--border); }
+    .dim-group:first-child { margin-top: 0; }
+    .dim-group span { text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--muted); }
+    /* Anchored jumps (from the TOC) must clear the sticky nav. */
+    .method-section, .dim-group { scroll-margin-top: 4.5rem; }
+    /* "On this page" jump list. */
+    .toc { background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1rem 1.25rem; margin: 0; }
+    .toc > strong { display: block; color: var(--navy); margin-bottom: 0.6rem; }
+    .toc-groups { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem 2rem; }
+    .toc-label { display: block; font-size: 0.72rem; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--muted); font-weight: 700; margin-bottom: 0.3rem; }
+    .toc ul { list-style: none; margin: 0; padding: 0; }
+    .toc li { margin: 0.1rem 0; }
+    .toc a { display: inline-flex; align-items: baseline; gap: 0.4rem; font-size: 0.9rem; }
+    .toc a .i { font-size: 0.95rem; }
+    @media (max-width: 620px) { .toc-groups { grid-template-columns: 1fr; } }
+    @media (prefers-color-scheme: dark) { .toc > strong { color: #e2e8f0; } }
     @media (prefers-color-scheme: dark) {
       .plain { background: #0e2417; }
       .plain strong, details.tech > summary { color: #e2e8f0; }
@@ -66,7 +88,39 @@
 </section>
 
 <section>
-  <div class="method-section">
+  <div class="toc" role="navigation" aria-label="Dimensions on this page">
+    <strong>On this page</strong>
+    <div class="toc-groups">
+      <div>
+        <span class="toc-label">Construction-driven</span>
+        <ul>
+          <li><a href="#resilience"><span class="i" aria-hidden="true">&#x1F3D7;</span>1. Disaster Resilience</a></li>
+          <li><a href="#energy"><span class="i" aria-hidden="true">&#x26A1;</span>2. Energy Efficiency</a></li>
+          <li><a href="#durability"><span class="i" aria-hidden="true">&#x1F6E0;</span>3. Durability</a></li>
+          <li><a href="#environmental"><span class="i" aria-hidden="true">&#x1F33F;</span>4. Environmental Footprint</a></li>
+          <li><a href="#infrastructure"><span class="i" aria-hidden="true">&#x1F3D8;</span>5. Infrastructure Burden</a></li>
+        </ul>
+      </div>
+      <div>
+        <span class="toc-label">Location-driven</span>
+        <ul>
+          <li><a href="#health"><span class="i" aria-hidden="true">&#x2764;</span>6. Health Impact</a></li>
+          <li><a href="#air-quality"><span class="i" aria-hidden="true">&#x1F32B;</span>7. Air Quality</a></li>
+          <li><a href="#noise"><span class="i" aria-hidden="true">&#x1F507;</span>8. Noise</a></li>
+          <li><a href="#socioeconomic"><span class="i" aria-hidden="true">&#x1F4CA;</span>9. Socioeconomic</a></li>
+          <li><a href="#walkability"><span class="i" aria-hidden="true">&#x1F6B6;</span>10. Walkability</a></li>
+          <li><a href="#climate"><span class="i" aria-hidden="true">&#x1F321;</span>11. Climate Projections</a></li>
+          <li><a href="#solar"><span class="i" aria-hidden="true">&#x2600;</span>12. Solar Potential</a></li>
+          <li><a href="#water"><span class="i" aria-hidden="true">&#x1F6B0;</span>13. Water Quality</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2 class="dim-group">Construction-driven <span>&mdash; how the home is built</span></h2>
+  <div class="method-section" id="resilience">
     <h3><span class="dim-icon" aria-hidden="true">&#x1F3D7;</span>1. Disaster Resilience</h3>
     <p class="plain"><strong>What this tells you:</strong> how much damage the home is likely to suffer from floods, tornadoes, earthquakes, and fire in a typical year &mdash; and how much its construction (age, materials, and upgrades like a reinforced roof) lowers or raises that risk. A higher score means less expected damage.</p>
 
@@ -109,7 +163,7 @@
     </details>
   </div>
 
-  <div class="method-section">
+  <div class="method-section" id="energy">
     <h3><span class="dim-icon" aria-hidden="true">&#x26A1;</span>2. Energy Efficiency</h3>
     <p class="plain"><strong>What this tells you:</strong> roughly how much energy the home uses and what that costs each month at local utility rates &mdash; driven by its age, size, construction, and heating/cooling system. A higher score means it uses less energy.</p>
 
@@ -128,7 +182,7 @@
     </details>
   </div>
 
-  <div class="method-section">
+  <div class="method-section" id="durability">
     <h3><span class="dim-icon" aria-hidden="true">&#x1F6E0;</span>3. Durability</h3>
     <p class="plain"><strong>What this tells you:</strong> how much useful life the home's major systems &mdash; structure, roof, HVAC, plumbing, and so on &mdash; have left, adjusted for the home's observed condition. A higher score means more life left before big repairs.</p>
 
@@ -150,7 +204,7 @@
     </details>
   </div>
 
-  <div class="method-section">
+  <div class="method-section" id="environmental">
     <h3><span class="dim-icon" aria-hidden="true">&#x1F33F;</span>4. Environmental Footprint</h3>
     <p class="plain"><strong>What this tells you:</strong> the home's yearly climate impact &mdash; from the energy it uses day to day, the carbon built into its materials, and its water use. A higher score means a smaller footprint.</p>
 
@@ -169,7 +223,7 @@
     </details>
   </div>
 
-  <div class="method-section">
+  <div class="method-section" id="infrastructure">
     <h3><span class="dim-icon" aria-hidden="true">&#x1F3D8;</span>5. Infrastructure Burden</h3>
     <p class="plain"><strong>What this tells you:</strong> whether the home pays its own way for the city services it needs &mdash; roads, water, sewer, fire, and police. Denser housing shares those costs across more homes, so it scores better. A higher score means more of its cost is covered by the taxes it generates.</p>
 
@@ -205,7 +259,8 @@
     </details>
   </div>
 
-  <div class="method-section">
+  <h2 class="dim-group">Location-driven <span>&mdash; where the home sits</span></h2>
+  <div class="method-section" id="health">
     <h3><span class="dim-icon" aria-hidden="true">&#x2764;</span>6. Health Impact</h3>
     <p class="plain"><strong>What this tells you:</strong> how healthy the surrounding neighborhood is, based on local rates of conditions like obesity, diabetes, high blood pressure, and asthma. A higher score means a healthier area. (This describes the neighborhood, not the building.)</p>
 
@@ -216,7 +271,7 @@
     </details>
   </div>
 
-  <div class="method-section">
+  <div class="method-section" id="air-quality">
     <h3><span class="dim-icon" aria-hidden="true">&#x1F32B;</span>7. Air Quality</h3>
     <p class="plain"><strong>What this tells you:</strong> how clean the local air is &mdash; fine-particle and ozone pollution outdoors, plus the natural radon potential indoors. A higher score means cleaner, safer air. (Like Health, this describes the location, not the building.)</p>
 
@@ -232,7 +287,7 @@
     </details>
   </div>
 
-  <div class="method-section">
+  <div class="method-section" id="noise">
     <h3><span class="dim-icon" aria-hidden="true">&#x1F507;</span>8. Noise</h3>
     <p class="plain"><strong>What this tells you:</strong> how quiet the location is &mdash; how much aircraft, highway, and railroad noise reaches the neighborhood. A higher score means quieter. (Like Health and Air Quality, this describes the location, not the building.)</p>
 
@@ -242,7 +297,7 @@
     </details>
   </div>
 
-  <div class="method-section">
+  <div class="method-section" id="socioeconomic">
     <h3><span class="dim-icon" aria-hidden="true">&#x1F4CA;</span>9. Socioeconomic</h3>
     <p class="plain"><strong>What this tells you:</strong> the economic profile of the neighborhood &mdash; income, poverty, education, and jobs. A higher score means stronger local economic opportunity. (Like Health, this describes the area, not the building.)</p>
 
@@ -251,7 +306,7 @@
     </details>
   </div>
 
-  <div class="method-section">
+  <div class="method-section" id="walkability">
     <h3><span class="dim-icon" aria-hidden="true">&#x1F6B6;</span>10. Walkability</h3>
     <p class="plain"><strong>What this tells you:</strong> how easy it is to get around from this address on foot, by transit, or by bike. A higher score means more of daily life is reachable without a car.</p>
 
@@ -263,7 +318,7 @@
     </details>
   </div>
 
-  <div class="method-section">
+  <div class="method-section" id="climate">
     <h3><span class="dim-icon" aria-hidden="true">&#x1F321;</span>11. Climate Projections</h3>
     <p class="plain"><strong>What this tells you:</strong> how the local climate is projected to change by mid-century &mdash; more extreme heat, heavier rain and flooding, and drought. A higher score means less projected climate hazard. The label shows a range, because how much it changes depends on future emissions.</p>
 
@@ -274,7 +329,7 @@
     </details>
   </div>
 
-  <div class="method-section">
+  <div class="method-section" id="solar">
     <h3><span class="dim-icon" aria-hidden="true">&#x2600;</span>12. Solar Potential</h3>
     <p class="plain"><strong>What this tells you:</strong> how productive rooftop solar is at this location &mdash; how much electricity a panel makes here versus the rest of the country. A higher score means sunnier, so a system pays off faster. The details estimate what a typical system would produce, save on your power bill, and offset in CO&#8322;.</p>
 
@@ -285,7 +340,7 @@
     </details>
   </div>
 
-  <div class="method-section">
+  <div class="method-section" id="water">
     <h3><span class="dim-icon" aria-hidden="true">&#x1F6B0;</span>13. Water Quality</h3>
     <p class="plain"><strong>What this tells you:</strong> how safe the tap water is &mdash; whether the community water systems serving the area have had recent health-based drinking-water violations. A higher score means cleaner water. (Like Health and Air Quality, this describes the location, not the building.)</p>
 
