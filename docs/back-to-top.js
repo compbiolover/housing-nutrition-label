@@ -37,7 +37,10 @@
     sync();   // set the initial state (e.g. when reloaded mid-page)
 
     btn.addEventListener("click", function () {
-      window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+      // Older browsers throw on the ScrollToOptions form — fall back to the
+      // positional call so the button still returns to the top (no smooth-scroll).
+      try { window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" }); }
+      catch (e) { window.scrollTo(0, 0); }
       // Don't strand keyboard users at the bottom: move focus to the first
       // focusable element (the nav logo) without yanking the scroll position.
       var first = document.querySelector("nav .logo");
