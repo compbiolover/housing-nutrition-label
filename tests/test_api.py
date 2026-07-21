@@ -173,7 +173,7 @@ def test_google_autocomplete_and_details():
         print("  skip test_google_autocomplete_and_details (fastapi not installed)")
         return
     from housing_label.api import (
-        _google_residential, _google_label,
+        _google_residential,
         _google_predictions_to_suggestions, _google_detail_to_result,
     )
     # ── Autocomplete: predictions carry a place_id + residential verdict, no coords.
