@@ -10,8 +10,10 @@ Install + run::
     pip install -e ".[api]"
     # All 9 dimensions score with no API keys — health, socioeconomic, and
     # walkability are bundled national references.
-    # optional: sharper address autocomplete (else keyless Photon is used):
-    export GEOAPIFY_API_KEY=...
+    # optional: better address autocomplete (else keyless Photon is used).
+    # Priority: Google Places → Geoapify → Photon.
+    export GOOGLE_PLACES_API_KEY=...   # best US business/landmark coverage
+    export GEOAPIFY_API_KEY=...        # sharper US ranking, no billing
     housing-api                      # uvicorn on :8000 (PORT overrides)
     # or: uvicorn housing_label.api:app --host 0.0.0.0 --port 8000
 
@@ -57,7 +59,10 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
-from housing_label.config import HEADERS, PHOTON_URL, GEOAPIFY_URL, GEOAPIFY_API_KEY
+from housing_label.config import (
+    HEADERS, PHOTON_URL, GEOAPIFY_URL, GEOAPIFY_API_KEY,
+    GOOGLE_PLACES_URL, GOOGLE_PLACES_API_KEY,
+)
 from housing_label.simulate.house import (
     build_label_parts, label_payload, density_comparison, cost_flows,
     NonResidentialProperty, _NON_RESIDENTIAL_MESSAGE,
@@ -406,17 +411,125 @@ def _geoapify_results_to_suggestions(results: list, limit: int) -> list[dict]:
     return out
 
 
+# ── Google Places Text Search (New) — best US business/landmark coverage ─────────
+# Photon/Geoapify miss many US company HQs (e.g. "Unum" resolves to a village in
+# Yemen on Photon). Google Places Text Search finds them and returns the place
+# `types`, which drive the same residential screen. One call per /suggest; the key
+# is server-side only. Highest priority when configured.
+_GOOGLE_NONRES_TYPES = frozenset({
+    "stadium", "arena", "bank", "atm", "store", "shopping_mall", "supermarket",
+    "department_store", "clothing_store", "school", "university", "primary_school",
+    "secondary_school", "hospital", "doctor", "pharmacy", "airport", "train_station",
+    "transit_station", "bus_station", "subway_station", "light_rail_station",
+    "church", "mosque", "synagogue", "hindu_temple", "place_of_worship", "restaurant",
+    "cafe", "bar", "gym", "stadium", "museum", "library", "city_hall",
+    "local_government_office", "courthouse", "police", "fire_station", "post_office",
+    "warehouse", "storage", "car_dealer", "car_repair", "gas_station", "parking",
+    "corporate_office", "insurance_agency", "accounting", "lawyer", "real_estate_agency",
+    "finance", "tourist_attraction", "amusement_park", "zoo", "movie_theater",
+    "night_club", "lodging", "hotel", "motel", "convenience_store", "electronics_store",
+    "hardware_store", "furniture_store", "shopping_center", "factory",
+})
+_GOOGLE_RES_TYPES = frozenset({
+    "street_address", "premise", "subpremise", "route", "geocode", "postal_code",
+    "neighborhood", "sublocality", "locality", "intersection",
+})
+
+
+def _google_residential(types) -> bool | None:
+    """Coarse residential verdict from a Google place's `types`."""
+    t = {str(x).lower() for x in (types or [])}
+    if t & _GOOGLE_NONRES_TYPES:
+        return False
+    # A named establishment / point of interest that isn't an address-like type is a
+    # business, not a home → non-residential (a home is never an "establishment").
+    if ("establishment" in t or "point_of_interest" in t) \
+            and not (t & {"premise", "subpremise", "street_address"}):
+        return False
+    return None                          # plain address / unknown → defer to NSI screen
+
+
+def _google_is_us(place: dict) -> bool:
+    """True when the place is in the US (the scorer is US-only)."""
+    for c in place.get("addressComponents") or []:
+        if "country" in (c.get("types") or []):
+            return (c.get("shortText") or "").upper() == "US"
+    fa = (place.get("formattedAddress") or "").strip()
+    return fa.endswith("USA") or fa.endswith("United States")
+
+
+def _google_label(place: dict) -> str:
+    """One-line US label: lead with the business/place name, then its address."""
+    disp = ((place.get("displayName") or {}).get("text") or "").strip()
+    addr = (place.get("formattedAddress") or "").strip()
+    for suffix in (", USA", ", United States"):
+        if addr.endswith(suffix):
+            addr = addr[: -len(suffix)].strip()
+    if disp and addr and not addr.startswith(disp):
+        return f"{disp}, {addr}"
+    return addr or disp
+
+
+def _google_places_to_suggestions(places: list, limit: int) -> list[dict]:
+    """Slim US-only [{label, lat, lon, residential}] from Text Search places."""
+    out: list[dict] = []
+    for p in places or []:
+        if not _google_is_us(p):
+            continue
+        loc = p.get("location") or {}
+        lat, lon = _coord(loc.get("latitude")), _coord(loc.get("longitude"))
+        if lat is None or lon is None:
+            continue
+        label = _google_label(p)
+        if not label:
+            continue
+        out.append({"label": label, "lat": lat, "lon": lon,
+                    "residential": _google_residential(p.get("types"))})
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _google_suggest(text: str) -> dict | None:
+    """Single short-timeout Text Search POST → JSON or None (quiet fallback)."""
+    try:
+        r = requests.post(
+            GOOGLE_PLACES_URL,
+            json={"textQuery": text, "regionCode": "US",
+                  "pageSize": _SUGGEST_LIMIT, "languageCode": "en"},
+            headers={
+                **HEADERS,
+                "Content-Type": "application/json",
+                "X-Goog-Api-Key": GOOGLE_PLACES_API_KEY,
+                "X-Goog-FieldMask": ("places.formattedAddress,places.location,"
+                                     "places.displayName,places.types,places.addressComponents"),
+            },
+            timeout=_SUGGEST_TIMEOUT,
+        )
+        r.raise_for_status()
+        return r.json()
+    except Exception:  # noqa: BLE001 — any failure → quietly fall back
+        return None
+
+
 @app.get("/suggest")
 def suggest(q: str | None = None) -> list[dict]:
-    """US address / place-name typeahead. Both back-ends resolve business,
-    campus, and landmark names as well as street addresses, so typing a company
-    or place name surfaces the address it sits at. Uses Geoapify when a key is
-    set (better ranking), else keyless Photon. Degrades to [] — never breaks the
-    page."""
+    """US address / place-name typeahead. Resolves business, campus, and landmark
+    names as well as street addresses, so typing a company or place name surfaces
+    the address it sits at, plus a `residential` verdict per result (used by the
+    residential screen). Back-end priority: Google Places (best US business/landmark
+    coverage) when `GOOGLE_PLACES_API_KEY` is set, else Geoapify when
+    `GEOAPIFY_API_KEY` is set (sharper US ranking), else keyless Photon — each
+    falling back to the next if unreachable. Degrades to [] — never breaks the page."""
     text = (q or "").strip()
     if len(text) < _SUGGEST_MIN_CHARS:
         return []                                     # too short — empty, not an error
     text = text[:_SUGGEST_MAX_CHARS]
+
+    if GOOGLE_PLACES_API_KEY:
+        data = _google_suggest(text)
+        if data is not None:                          # only fall through if unreachable
+            return _google_places_to_suggestions(data.get("places") or [], _SUGGEST_LIMIT)
 
     if GEOAPIFY_API_KEY:
         data = _suggest_get(GEOAPIFY_URL, {

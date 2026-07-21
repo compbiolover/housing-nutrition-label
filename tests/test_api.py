@@ -163,6 +163,54 @@ def test_geoapify_formatter():
     assert _geoapify_residential({"category": ""}) is None
 
 
+def test_google_places_formatter():
+    """Google Places Text Search parsing/classification — no network/key. Skip if
+    FastAPI absent."""
+    try:
+        import fastapi  # noqa: F401
+    except ImportError:
+        print("  skip test_google_places_formatter (fastapi not installed)")
+        return
+    from housing_label.api import (
+        _google_label, _google_residential, _google_places_to_suggestions, _google_is_us,
+    )
+    # Label leads with the business name, then the address, minus the country suffix.
+    stadium = {
+        "formattedAddress": "800 S Mint St, Charlotte, NC 28202, USA",
+        "location": {"latitude": 35.2258, "longitude": -80.8528},
+        "displayName": {"text": "Bank of America Stadium"},
+        "types": ["stadium", "point_of_interest", "establishment"],
+        "addressComponents": [{"types": ["country"], "shortText": "US"}],
+    }
+    assert _google_label(stadium) == "Bank of America Stadium, 800 S Mint St, Charlotte, NC 28202"
+    assert _google_residential(["stadium", "point_of_interest", "establishment"]) is False
+    assert _google_residential(["insurance_agency", "establishment"]) is False   # Unum HQ
+    assert _google_residential(["establishment", "point_of_interest"]) is False  # generic business
+    assert _google_residential(["street_address"]) is None                       # a home → NSI decides
+    assert _google_residential(["premise", "establishment"]) is None             # address-like wins
+    # A plain address isn't duplicated when displayName repeats the street.
+    addr = {
+        "formattedAddress": "123 Main St, Memphis, TN 38104, USA",
+        "location": {"latitude": 35.13, "longitude": -89.99},
+        "displayName": {"text": "123 Main St"},
+        "types": ["street_address"],
+        "addressComponents": [{"types": ["country"], "shortText": "US"}],
+    }
+    assert _google_label(addr) == "123 Main St, Memphis, TN 38104"
+    # US filter + full suggestion shape; a non-US place is dropped.
+    non_us = {"formattedAddress": "10 Downing St, London, UK",
+              "location": {"latitude": 51.5, "longitude": -0.12},
+              "displayName": {"text": "10 Downing St"}, "types": ["premise"],
+              "addressComponents": [{"types": ["country"], "shortText": "GB"}]}
+    assert _google_is_us(stadium) is True and _google_is_us(non_us) is False
+    assert _google_places_to_suggestions([stadium, non_us, addr], 5) == [
+        {"label": "Bank of America Stadium, 800 S Mint St, Charlotte, NC 28202",
+         "lat": 35.2258, "lon": -80.8528, "residential": False},
+        {"label": "123 Main St, Memphis, TN 38104",
+         "lat": 35.13, "lon": -89.99, "residential": None},
+    ]
+
+
 def test_suggest_short_query():
     """Short/empty q short-circuits to [] before any network call."""
     try:
