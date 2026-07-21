@@ -223,6 +223,11 @@ def test_suggest_short_query():
     assert client.get("/suggest").status_code == 200
     assert client.get("/suggest").json() == []
     assert client.get("/suggest", params={"q": "ab"}).json() == []
+    # ?debug=1 reports which providers are configured (no key set in the test env,
+    # so no live Google probe runs — stays network-free).
+    dbg = client.get("/suggest", params={"q": "Unum", "debug": "true"}).json()
+    assert dbg["configured"] == {"google": False, "geoapify": False, "photon": True}
+    assert "google_probe" not in dbg
 
 
 def test_label_nonresidential_flag_screens():
