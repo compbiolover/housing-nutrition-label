@@ -29,6 +29,14 @@
     /* Tighter vertical rhythm between this page's stacked sections — the global
        4rem top+bottom leaves a lot of dead space to scroll past. */
     section { padding-top: 2rem; padding-bottom: 2rem; }
+    /* Per-dimension icon badge (same emoji set as the home-page cards). A
+       consistent neutral badge with a varied glyph breaks up the monotony of 13
+       near-identical headers and gives each dimension a quick visual anchor. */
+    .method-section > h3:first-child { display: flex; align-items: center; gap: 0.6rem; }
+    .dim-icon { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+      width: 2.1rem; height: 2.1rem; border-radius: var(--radius);
+      background: var(--bg); border: 1px solid var(--border);
+      font-size: 1.15rem; line-height: 1; }
     @media (prefers-color-scheme: dark) {
       .plain { background: #0e2417; }
       .plain strong, details.tech > summary { color: #e2e8f0; }
@@ -59,7 +67,7 @@
 
 <section>
   <div class="method-section">
-    <h3>1. Disaster Resilience</h3>
+    <h3><span class="dim-icon" aria-hidden="true">&#x1F3D7;</span>1. Disaster Resilience</h3>
     <p class="plain"><strong>What this tells you:</strong> how much damage the home is likely to suffer from floods, tornadoes, earthquakes, and fire in a typical year &mdash; and how much its construction (age, materials, and upgrades like a reinforced roof) lowers or raises that risk. A higher score means less expected damage.</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
@@ -102,7 +110,7 @@
   </div>
 
   <div class="method-section">
-    <h3>2. Energy Efficiency</h3>
+    <h3><span class="dim-icon" aria-hidden="true">&#x26A1;</span>2. Energy Efficiency</h3>
     <p class="plain"><strong>What this tells you:</strong> roughly how much energy the home uses and what that costs each month at local utility rates &mdash; driven by its age, size, construction, and heating/cooling system. A higher score means it uses less energy.</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
@@ -121,7 +129,7 @@
   </div>
 
   <div class="method-section">
-    <h3>3. Durability</h3>
+    <h3><span class="dim-icon" aria-hidden="true">&#x1F6E0;</span>3. Durability</h3>
     <p class="plain"><strong>What this tells you:</strong> how much useful life the home's major systems &mdash; structure, roof, HVAC, plumbing, and so on &mdash; have left, adjusted for the home's observed condition. A higher score means more life left before big repairs.</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
@@ -143,7 +151,7 @@
   </div>
 
   <div class="method-section">
-    <h3>4. Environmental Footprint</h3>
+    <h3><span class="dim-icon" aria-hidden="true">&#x1F33F;</span>4. Environmental Footprint</h3>
     <p class="plain"><strong>What this tells you:</strong> the home's yearly climate impact &mdash; from the energy it uses day to day, the carbon built into its materials, and its water use. A higher score means a smaller footprint.</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
@@ -162,7 +170,7 @@
   </div>
 
   <div class="method-section">
-    <h3>5. Infrastructure Burden</h3>
+    <h3><span class="dim-icon" aria-hidden="true">&#x1F3D8;</span>5. Infrastructure Burden</h3>
     <p class="plain"><strong>What this tells you:</strong> whether the home pays its own way for the city services it needs &mdash; roads, water, sewer, fire, and police. Denser housing shares those costs across more homes, so it scores better. A higher score means more of its cost is covered by the taxes it generates.</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
@@ -198,7 +206,7 @@
   </div>
 
   <div class="method-section">
-    <h3>6. Health Impact</h3>
+    <h3><span class="dim-icon" aria-hidden="true">&#x2764;</span>6. Health Impact</h3>
     <p class="plain"><strong>What this tells you:</strong> how healthy the surrounding neighborhood is, based on local rates of conditions like obesity, diabetes, high blood pressure, and asthma. A higher score means a healthier area. (This describes the neighborhood, not the building.)</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
@@ -209,7 +217,7 @@
   </div>
 
   <div class="method-section">
-    <h3>7. Air Quality</h3>
+    <h3><span class="dim-icon" aria-hidden="true">&#x1F32B;</span>7. Air Quality</h3>
     <p class="plain"><strong>What this tells you:</strong> how clean the local air is &mdash; fine-particle and ozone pollution outdoors, plus the natural radon potential indoors. A higher score means cleaner, safer air. (Like Health, this describes the location, not the building.)</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
@@ -225,7 +233,7 @@
   </div>
 
   <div class="method-section">
-    <h3>8. Noise</h3>
+    <h3><span class="dim-icon" aria-hidden="true">&#x1F507;</span>8. Noise</h3>
     <p class="plain"><strong>What this tells you:</strong> how quiet the location is &mdash; how much aircraft, highway, and railroad noise reaches the neighborhood. A higher score means quieter. (Like Health and Air Quality, this describes the location, not the building.)</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
@@ -235,7 +243,7 @@
   </div>
 
   <div class="method-section">
-    <h3>9. Socioeconomic</h3>
+    <h3><span class="dim-icon" aria-hidden="true">&#x1F4CA;</span>9. Socioeconomic</h3>
     <p class="plain"><strong>What this tells you:</strong> the economic profile of the neighborhood &mdash; income, poverty, education, and jobs. A higher score means stronger local economic opportunity. (Like Health, this describes the area, not the building.)</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
@@ -244,7 +252,7 @@
   </div>
 
   <div class="method-section">
-    <h3>10. Walkability</h3>
+    <h3><span class="dim-icon" aria-hidden="true">&#x1F6B6;</span>10. Walkability</h3>
     <p class="plain"><strong>What this tells you:</strong> how easy it is to get around from this address on foot, by transit, or by bike. A higher score means more of daily life is reachable without a car.</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
@@ -256,7 +264,7 @@
   </div>
 
   <div class="method-section">
-    <h3>11. Climate Projections</h3>
+    <h3><span class="dim-icon" aria-hidden="true">&#x1F321;</span>11. Climate Projections</h3>
     <p class="plain"><strong>What this tells you:</strong> how the local climate is projected to change by mid-century &mdash; more extreme heat, heavier rain and flooding, and drought. A higher score means less projected climate hazard. The label shows a range, because how much it changes depends on future emissions.</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
@@ -267,7 +275,7 @@
   </div>
 
   <div class="method-section">
-    <h3>12. Solar Potential</h3>
+    <h3><span class="dim-icon" aria-hidden="true">&#x2600;</span>12. Solar Potential</h3>
     <p class="plain"><strong>What this tells you:</strong> how productive rooftop solar is at this location &mdash; how much electricity a panel makes here versus the rest of the country. A higher score means sunnier, so a system pays off faster. The details estimate what a typical system would produce, save on your power bill, and offset in CO&#8322;.</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
@@ -278,7 +286,7 @@
   </div>
 
   <div class="method-section">
-    <h3>13. Water Quality</h3>
+    <h3><span class="dim-icon" aria-hidden="true">&#x1F6B0;</span>13. Water Quality</h3>
     <p class="plain"><strong>What this tells you:</strong> how safe the tap water is &mdash; whether the community water systems serving the area have had recent health-based drinking-water violations. A higher score means cleaner water. (Like Health and Air Quality, this describes the location, not the building.)</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
