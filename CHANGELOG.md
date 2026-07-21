@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.59](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.58...v0.1.59) (2026-07-21)
+
+
+### Features
+
+* **api:** make Google Places key failures diagnosable (debug probe + logging) ([#191](https://github.com/compbiolover/housing-nutrition-label/issues/191)) ([cb382d7](https://github.com/compbiolover/housing-nutrition-label/commit/cb382d74116d341d999383c6fb3b5cd7b7978669))
+
 ## [0.1.58](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.57...v0.1.58) (2026-07-21)
 
 
