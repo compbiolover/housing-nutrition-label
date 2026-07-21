@@ -52,5 +52,25 @@ runnable as a plain script (`python tests/test_dimensions.py`) with no pytest.
 **CI** (`.github/workflows/ci.yml`) runs `ruff check` + `pytest` on every push and
 pull request across Python 3.10 and 3.12, so regressions are caught before merge.
 
+## Docs stay in sync with the code
+
+The README's dimension roster and the website's Setup / Reference pages
+(`docs/setup.html`, `docs/reference.html`) are generated from the scoring
+engine's own constants, so they can't silently drift as the code changes. The
+code-derived regions are wrapped in `<!-- BEGIN AUTOGEN:… -->` / `<!-- END
+AUTOGEN:… -->` markers; everything between a marker pair is overwritten by the
+generators. After changing a dimension, construction/condition/foundation
+factor, resilience upgrade, or preset, regenerate and commit the result:
+
+```bash
+python scripts/sync_readme.py --write   # README dimension roster
+python scripts/sync_docs.py --write      # Setup + Reference tables
+```
+
+CI runs both with `--check` and fails until the committed docs match the code.
+The curated prose that annotates each value lives beside the constant it
+describes in `scripts/sync_docs.py`, keyed so a new dimension/upgrade/preset
+fails loudly there until it's documented.
+
 Regenerating the bundled climate data needs the build extra (`pip install -e ".[build]"`,
 heavy: `xarray`/`netCDF4`) and is documented in `scripts/build_climate_projections.py`.

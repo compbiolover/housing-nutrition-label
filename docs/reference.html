@@ -77,6 +77,7 @@
 </section>
 
 <section id="dimensions">
+  <!-- BEGIN AUTOGEN:ref-dimensions (managed by scripts/sync_docs.py — edits here are overwritten; run `python scripts/sync_docs.py --write`) -->
   <h2>The thirteen dimensions</h2>
   <p>The composite is the mean of whichever dimensions could be scored (location dimensions are omitted, not zeroed, when their data/keys are unavailable). National grades use absolute thresholds: A&nbsp;&ge;&nbsp;80, B&nbsp;&ge;&nbsp;60, C&nbsp;&ge;&nbsp;40, D&nbsp;&ge;&nbsp;20, F&nbsp;&lt;&nbsp;20.</p>
   <div class="table-scroll"><table class="data-table">
@@ -97,11 +98,13 @@
       <tr><td>Water Quality</td><td>Community-water-system health-based violation exposure &mdash; % of residents on a system with a recent violation (national percentile)</td><td>EPA SDWIS federal reporting</td><td><span class="tag county">county</span></td></tr>
     </tbody>
   </table></div>
+<!-- END AUTOGEN:ref-dimensions -->
 </section>
 
 <section id="construction">
   <h2>Wall / construction type</h2>
   <p>The structural system. It drives Disaster Resilience (separate factors per peril) and the build-quality grade used by Durability &amp; Environmental. <strong>Lower peril factors = less expected loss = better;</strong> higher build grade = better. ICF/SIP also get extra envelope credit in the Energy model beyond what the wall code below implies.</p>
+  <!-- BEGIN AUTOGEN:ref-construction (managed by scripts/sync_docs.py — edits here are overwritten; run `python scripts/sync_docs.py --write`) -->
   <div class="table-scroll"><table class="data-table">
     <thead><tr><th>Type</th><th>Wind / seismic</th><th>Flood</th><th>Fire</th><th>Build grade</th><th>Notes</th></tr></thead>
     <tbody>
@@ -115,11 +118,13 @@
       <tr><td>SIP (structural insulated panel)</td><td>0.35</td><td>0.35</td><td>1.05</td><td>45</td><td>Engineered wood composite; excellent racking resistance, frame-like fire behavior</td></tr>
     </tbody>
   </table></div>
+<!-- END AUTOGEN:ref-construction -->
 </section>
 
 <section id="condition">
   <h2>Condition</h2>
   <p>Upkeep/deterioration. Multiplies expected loss for every disaster peril (so it now affects the score at any age &mdash; there is no upper cap) and feeds the Durability model.</p>
+  <!-- BEGIN AUTOGEN:ref-condition (managed by scripts/sync_docs.py — edits here are overwritten; run `python scripts/sync_docs.py --write`) -->
   <div class="table-scroll"><table class="data-table">
     <thead><tr><th>Condition</th><th>Loss multiplier</th></tr></thead>
     <tbody>
@@ -131,11 +136,13 @@
       <tr><td>Excellent</td><td>0.8&times; (best)</td></tr>
     </tbody>
   </table></div>
+<!-- END AUTOGEN:ref-condition -->
 </section>
 
 <section id="foundation">
   <h2>Foundation</h2>
   <p>Affects the <strong>flood</strong> peril only (below-grade space is what floods).</p>
+  <!-- BEGIN AUTOGEN:ref-foundation (managed by scripts/sync_docs.py — edits here are overwritten; run `python scripts/sync_docs.py --write`) -->
   <div class="table-scroll"><table class="data-table">
     <thead><tr><th>Foundation</th><th>Flood multiplier</th></tr></thead>
     <tbody>
@@ -145,30 +152,36 @@
       <tr><td>Full basement</td><td>1.4&times; (most flood loss)</td></tr>
     </tbody>
   </table></div>
+<!-- END AUTOGEN:ref-foundation -->
 </section>
 
 <section id="year">
   <h2>Year built</h2>
-  <p>Year built drives two separate vulnerability multipliers &mdash; one for the building code era (wind/seismic) and one for the electrical/wiring era (fire). Both compound with condition; <strong>lower is better.</strong></p>
+  <!-- BEGIN AUTOGEN:ref-year-code (managed by scripts/sync_docs.py — edits here are overwritten; run `python scripts/sync_docs.py --write`) -->
+  <p>The build-code era (wind/seismic) vulnerability is a <strong>continuous</strong> curve, linearly interpolated between the anchor years below and clamped beyond them &mdash; a 1969 and a 1970 build no longer differ by a cliff. <strong>Lower is better.</strong></p>
   <div class="table-scroll"><table class="data-table">
-    <thead><tr><th>Era</th><th>Code factor (wind/seismic)</th></tr></thead>
+    <thead><tr><th>Anchor year</th><th>Code factor (wind/seismic)</th><th>Era</th></tr></thead>
     <tbody>
-      <tr><td>Before 1940</td><td>1.6&times; (balloon framing, no engineered connections)</td></tr>
-      <tr><td>1940&ndash;1969</td><td>1.3&times;</td></tr>
-      <tr><td>1970&ndash;1989</td><td>1.1&times;</td></tr>
-      <tr><td>1990&ndash;2002</td><td>1.0&times;</td></tr>
-      <tr><td>2003 or later</td><td>0.85&times; (post-IBC)</td></tr>
+      <tr><td>1940 or earlier</td><td>1.6&times;</td><td>Pre-WWII: balloon framing, no engineered connections</td></tr>
+      <tr><td>1970</td><td>1.3&times;</td><td>Pre-modern seismic/wind codes (pre-1972 wind, pre-1971 seismic)</td></tr>
+      <tr><td>1990</td><td>1.1&times;</td><td>Early modern (ASCE&nbsp;7 wind), pre-Northridge detailing</td></tr>
+      <tr><td>2003</td><td>1.0&times;</td><td>Baseline &mdash; IBC maturity / ASCE&nbsp;7-02</td></tr>
+      <tr><td>2010 or later</td><td>0.85&times;</td><td>Fully modern IBC / ASCE&nbsp;7-05&ndash;7-10</td></tr>
     </tbody>
   </table></div>
+<!-- END AUTOGEN:ref-year-code -->
+  <!-- BEGIN AUTOGEN:ref-year-fire (managed by scripts/sync_docs.py — edits here are overwritten; run `python scripts/sync_docs.py --write`) -->
+  <p>A separate <strong>continuous</strong> curve captures the electrical/wiring era (fire peril), interpolated between these anchors and clamped beyond them.</p>
   <div class="table-scroll"><table class="data-table">
-    <thead><tr><th>Wiring era</th><th>Fire factor</th></tr></thead>
+    <thead><tr><th>Anchor year</th><th>Fire factor</th><th>Wiring era</th></tr></thead>
     <tbody>
-      <tr><td>Before 1950</td><td>1.5&times; (knob-and-tube era)</td></tr>
-      <tr><td>1950&ndash;1974</td><td>1.2&times; (aluminum branch wiring era)</td></tr>
-      <tr><td>1975&ndash;2001</td><td>1.0&times;</td></tr>
-      <tr><td>2002 or later</td><td>0.85&times; (NEC&nbsp;2002+ AFCI requirements)</td></tr>
+      <tr><td>1950 or earlier</td><td>1.5&times;</td><td>Knob-and-tube era (highest electrical-fire risk)</td></tr>
+      <tr><td>1975</td><td>1.2&times;</td><td>Aluminum branch-wiring era</td></tr>
+      <tr><td>2002</td><td>1.0&times;</td><td>Modern NM-B cable, pre-AFCI baseline</td></tr>
+      <tr><td>2010 or later</td><td>0.85&times;</td><td>NEC&nbsp;2002+ AFCI / tamper-resistant receptacles</td></tr>
     </tbody>
   </table></div>
+<!-- END AUTOGEN:ref-year-fire -->
 </section>
 
 <section id="fields">
@@ -188,7 +201,7 @@
 <section id="upgrades">
   <h2>Resilience upgrades</h2>
   <p>Above-code features that reduce a specific peril's expected loss. Each is a multiplier &mdash; <strong>lower = bigger reduction</strong> &mdash; applied on top of the construction/condition adjustment. FORTIFIED tiers are composite and supersede the individual wind features; the three elevation tiers are mutually exclusive.</p>
-
+  <!-- BEGIN AUTOGEN:ref-upgrades (managed by scripts/sync_docs.py — edits here are overwritten; run `python scripts/sync_docs.py --write`) -->
   <h3>General (apply to flood, tornado &amp; seismic)</h3>
   <div class="table-scroll"><table class="data-table"><thead><tr><th>Upgrade</th><th>Factor</th></tr></thead><tbody>
     <tr><td>Solar panels</td><td>0.97</td></tr>
@@ -196,7 +209,6 @@
     <tr><td>Passive-house certification</td><td>0.92</td></tr>
     <tr><td>Fire sprinklers</td><td>0.92 here, <strong>and 0.40 on fire</strong></td></tr>
   </tbody></table></div>
-
   <h3>Wind / tornado</h3>
   <div class="table-scroll"><table class="data-table"><thead><tr><th>Upgrade</th><th>Factor</th></tr></thead><tbody>
     <tr><td>Tornado safe room (FEMA P-361)</td><td>0.85</td></tr>
@@ -209,14 +221,12 @@
     <tr><td>Ring-shank nails</td><td>0.88</td></tr>
     <tr><td>16&Prime; OC trusses</td><td>0.92</td></tr>
   </tbody></table></div>
-
   <h3>IBHS FORTIFIED (composite &mdash; supersedes the wind features above)</h3>
-  <div class="table-scroll"><table class="data-table"><thead><tr><th>Tier</th><th>Factor</th></tr></thead><tbody>
+  <div class="table-scroll"><table class="data-table"><thead><tr><th>Upgrade</th><th>Factor</th></tr></thead><tbody>
     <tr><td>FORTIFIED Roof</td><td>0.35</td></tr>
     <tr><td>FORTIFIED Silver</td><td>0.25</td></tr>
     <tr><td>FORTIFIED Gold</td><td>0.20</td></tr>
   </tbody></table></div>
-
   <h3>Seismic</h3>
   <div class="table-scroll"><table class="data-table"><thead><tr><th>Upgrade</th><th>Factor</th></tr></thead><tbody>
     <tr><td>Seismic retrofit / base isolation</td><td>0.75</td></tr>
@@ -224,7 +234,6 @@
     <tr><td>Seismic hold-downs</td><td>0.85</td></tr>
     <tr><td>Automatic gas shut-off valve</td><td>0.90</td></tr>
   </tbody></table></div>
-
   <h3>Flood</h3>
   <div class="table-scroll"><table class="data-table"><thead><tr><th>Upgrade</th><th>Factor</th></tr></thead><tbody>
     <tr><td>Elevated +1&nbsp;ft above BFE</td><td>0.15</td></tr>
@@ -234,29 +243,31 @@
     <tr><td>Backflow-prevention valve</td><td>0.90</td></tr>
     <tr><td>Smart leak detection</td><td>0.95</td></tr>
   </tbody></table></div>
-
   <h3>Fire</h3>
   <div class="table-scroll"><table class="data-table"><thead><tr><th>Upgrade</th><th>Factor</th></tr></thead><tbody>
     <tr><td>Fire sprinklers</td><td>0.40 on the fire peril (~60% loss reduction)</td></tr>
   </tbody></table></div>
+<!-- END AUTOGEN:ref-upgrades -->
 </section>
 
 <section id="presets">
   <h2>Presets</h2>
   <p>Starting configurations. Any field you set in <em>Construction details</em> (or via CLI/API) overrides the preset.</p>
+  <!-- BEGIN AUTOGEN:ref-presets (managed by scripts/sync_docs.py — edits here are overwritten; run `python scripts/sync_docs.py --write`) -->
   <div class="table-scroll"><table class="data-table">
     <thead><tr><th>Preset</th><th>Profile</th></tr></thead>
     <tbody>
       <tr><td>baseline</td><td>2000 wood frame, slab, average, zone X, $160k</td></tr>
-      <tr><td>premium</td><td>2026 solid brick, excellent, zone X, $450k</td></tr>
-      <tr><td>icf-passive</td><td>2026 ICF passive house, excellent, full resilience package (solar, generator, safe room, wind upgrades, +1ft)</td></tr>
-      <tr><td>fortified-gold</td><td>2026 frame, FORTIFIED Gold + metal roof + sealed deck, $350k</td></tr>
+      <tr><td>premium</td><td>2026 solid brick, slab, excellent, zone X, $450k</td></tr>
+      <tr><td>icf-passive</td><td>2026 ICF, slab, excellent, zone X, $500k &mdash; solar, generator, passive house, safe room, hurricane straps, hip roof, sealed roof deck, metal roof, +1&nbsp;ft elevation</td></tr>
       <tr><td>worst-case</td><td>1945 wood frame, full basement, poor, zone AE, $80k</td></tr>
-      <tr><td>duplex</td><td>2026 brick, 2 units @ 1,200 sqft</td></tr>
-      <tr><td>quadplex</td><td>2026 brick, 4 units @ 900 sqft</td></tr>
-      <tr><td>icf-quadplex</td><td>2026 ICF, 4 units @ 1,000 sqft, resilience package</td></tr>
+      <tr><td>fortified-gold</td><td>2026 wood frame, slab, excellent, zone X, $350k &mdash; sealed roof deck, metal roof, FORTIFIED Gold</td></tr>
+      <tr><td>duplex</td><td>2026 solid brick, 2 units &times; 1,200 sqft, excellent, zone X, $300k</td></tr>
+      <tr><td>quadplex</td><td>2026 solid brick, 4 units &times; 900 sqft, excellent, zone X, $500k</td></tr>
+      <tr><td>icf-quadplex</td><td>2026 ICF, 4 units &times; 1,000 sqft, excellent, zone X, $600k &mdash; solar, passive house, hurricane straps, hip roof</td></tr>
     </tbody>
   </table></div>
+<!-- END AUTOGEN:ref-presets -->
 </section>
 
 <section id="controls">
