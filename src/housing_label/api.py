@@ -490,38 +490,91 @@ def _google_places_to_suggestions(places: list, limit: int) -> list[dict]:
     return out
 
 
+_GOOGLE_FIELD_MASK = ("places.formattedAddress,places.location,"
+                      "places.displayName,places.types,places.addressComponents")
+
+
+def _google_request(text: str):
+    """POST the Text Search query; returns the requests.Response (may raise)."""
+    return requests.post(
+        GOOGLE_PLACES_URL,
+        json={"textQuery": text, "regionCode": "US",
+              "pageSize": _SUGGEST_LIMIT, "languageCode": "en"},
+        headers={
+            **HEADERS,
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": GOOGLE_PLACES_API_KEY,
+            "X-Goog-FieldMask": _GOOGLE_FIELD_MASK,
+        },
+        timeout=_SUGGEST_TIMEOUT,
+    )
+
+
 def _google_suggest(text: str) -> dict | None:
-    """Single short-timeout Text Search POST → JSON or None (quiet fallback)."""
+    """Single short-timeout Text Search POST → JSON or None. On failure it logs a
+    WARNING (so a misconfigured key surfaces in the server logs) and returns None,
+    so /suggest quietly falls through to the next provider."""
     try:
-        r = requests.post(
-            GOOGLE_PLACES_URL,
-            json={"textQuery": text, "regionCode": "US",
-                  "pageSize": _SUGGEST_LIMIT, "languageCode": "en"},
-            headers={
-                **HEADERS,
-                "Content-Type": "application/json",
-                "X-Goog-Api-Key": GOOGLE_PLACES_API_KEY,
-                "X-Goog-FieldMask": ("places.formattedAddress,places.location,"
-                                     "places.displayName,places.types,places.addressComponents"),
-            },
-            timeout=_SUGGEST_TIMEOUT,
-        )
-        r.raise_for_status()
+        r = _google_request(text)
+    except Exception as exc:  # noqa: BLE001 — network/timeout
+        log.warning("Google Places request failed (network): %s", exc)
+        return None
+    if not r.ok:
+        # Google's error body names the exact cause (API not enabled, billing
+        # required, key/referrer restriction) — log it, but never the API key.
+        log.warning("Google Places HTTP %s: %s", r.status_code, (r.text or "")[:300])
+        return None
+    try:
         return r.json()
-    except Exception:  # noqa: BLE001 — any failure → quietly fall back
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Google Places returned non-JSON: %s", exc)
         return None
 
 
+def _google_probe(text: str) -> dict:
+    """Diagnose the Google Places path for /suggest?debug=1 — the HTTP status and
+    Google's own error message (never the key), so a misconfigured key is
+    self-serviceable without reading server logs."""
+    try:
+        r = _google_request(text)
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "error": f"request failed: {exc}"}
+    try:
+        body = r.json()
+    except Exception:  # noqa: BLE001
+        body = {"raw": (r.text or "")[:300]}
+    if r.ok:
+        return {"ok": True, "http_status": r.status_code,
+                "results": len(body.get("places") or [])}
+    err = (body or {}).get("error") or {}
+    return {"ok": False, "http_status": r.status_code,
+            "google_status": err.get("status"),
+            "message": err.get("message") or body}
+
+
 @app.get("/suggest")
-def suggest(q: str | None = None) -> list[dict]:
+def suggest(q: str | None = None, debug: bool = False):
     """US address / place-name typeahead. Resolves business, campus, and landmark
     names as well as street addresses, so typing a company or place name surfaces
     the address it sits at, plus a `residential` verdict per result (used by the
     residential screen). Back-end priority: Google Places (best US business/landmark
     coverage) when `GOOGLE_PLACES_API_KEY` is set, else Geoapify when
     `GEOAPIFY_API_KEY` is set (sharper US ranking), else keyless Photon — each
-    falling back to the next if unreachable. Degrades to [] — never breaks the page."""
+    falling back to the next if unreachable. Degrades to [] — never breaks the page.
+
+    `?debug=1` returns which providers are configured and, when a Google key is
+    set, a live probe of the Google call (HTTP status + Google's error message,
+    never the key) so a misconfigured key can be diagnosed without server logs."""
     text = (q or "").strip()
+    if debug:
+        info = {"query": text, "configured": {
+            "google": bool(GOOGLE_PLACES_API_KEY),
+            "geoapify": bool(GEOAPIFY_API_KEY),
+            "photon": True,
+        }}
+        if GOOGLE_PLACES_API_KEY and len(text) >= _SUGGEST_MIN_CHARS:
+            info["google_probe"] = _google_probe(text[:_SUGGEST_MAX_CHARS])
+        return info
     if len(text) < _SUGGEST_MIN_CHARS:
         return []                                     # too short — empty, not an error
     text = text[:_SUGGEST_MAX_CHARS]

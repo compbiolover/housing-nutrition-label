@@ -164,6 +164,7 @@ housing-api                        # serves on :8000 (PORT overrides) &mdash; no
     <li style="margin-bottom:0.5rem;"><strong>Photon</strong> (default, keyless) &mdash; OpenStreetMap, <code>PHOTON_URL</code> overridable to self-host. US business-POI coverage is limited.</li>
   </ul>
   <p>Whichever is highest-priority and reachable is used; each falls back to the next if unreachable. All keys stay server-side &mdash; they never reach the browser.</p>
+  <p><strong>Not seeing Google results?</strong> A misconfigured key falls back silently to the next provider. Hit <code>GET /suggest?q=Unum&amp;debug=1</code> on your API to diagnose (it never returns the key): <code>configured.google:&nbsp;false</code> means the key isn't in the running env &mdash; set <code>GOOGLE_PLACES_API_KEY</code> and <em>redeploy</em> (env changes need a fresh deploy). If it's <code>true</code> but <code>google_probe.ok:&nbsp;false</code>, Google's <code>message</code> names the cause &mdash; usually the <strong>Places API (New)</strong> isn't enabled, billing is off, or the key has an <strong>HTTP-referrer restriction</strong> (which blocks server-side calls; use <em>None</em> or IP restrictions instead).</p>
 
   <h3>Deploy it</h3>
   <p>GitHub Pages can't host the Python API &mdash; deploy it anywhere that runs Python (Render, Fly, Cloud Run, Railway, a small VM). The repo ships two ready-to-use configs:</p>
