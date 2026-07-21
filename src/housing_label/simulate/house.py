@@ -1808,15 +1808,18 @@ def build_label_parts(*, address: str | None = None,
     # building (NSI unavailable / no match) leaves the type None and is never
     # blocked, so a transient outage can't refuse a real home.
     #
-    # Second, independent signal: the USA Structures footprint occupancy class at
-    # the point. NSI's neighborhood scan can misread a downtown non-residential
-    # address as the residential towers around it (a stadium reads "multifamily"),
-    # so a positively non-residential OCC_CLS (Commercial/Industrial/…) on the
-    # addressed footprint screens it out even when NSI said residential — unless the
-    # caller declared a unit count (an explicit "this is a residence" assertion).
-    entered_units = max(int(cfg.get("units", 1) or 1), 1)
+    # Second, independent signal — but only a TIE-BREAKER for an unknown structure:
+    # the USA Structures footprint occupancy class at the point. When NSI has no
+    # match (structure_type None), a positively non-residential OCC_CLS
+    # (Commercial/Industrial/…) on the addressed footprint screens the address out.
+    # It deliberately does NOT override a positive NSI residential detection — a
+    # mixed-use "Commercial" footprint sitting over real apartments (NSI-detected
+    # multifamily) must not refuse the residents. (The caller's `nonresidential`
+    # flag from the geocoder, handled at the API layer, is what catches a stadium
+    # NSI misreads as the residential towers around it.)
     occ_cls = (getattr(location, "occ_cls", None) or "").strip().upper()
-    occ_nonres = occ_cls in _NON_RES_OCC_CLS and entered_units <= 1
+    occ_nonres = (occ_cls in _NON_RES_OCC_CLS
+                  and struct["structure_type"] in (None, "non_residential"))
     if (preset is None and not allow_non_residential
             and (struct["structure_type"] == "non_residential" or occ_nonres)):
         raise NonResidentialProperty(

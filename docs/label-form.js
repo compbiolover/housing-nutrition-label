@@ -668,11 +668,14 @@ window.LabelForm = (function () {
         // verdict so the scorer refuses a stadium/office the coordinate can't reveal.
         app.innerHTML = '<div class="loading">Scoring this address&hellip;</div>';
         ac.resolvePicked().then(function (rp) {
+          // Forward the geocoder's non-residential verdict on BOTH paths — a
+          // failed /place lookup must not let a flagged business slip through by
+          // geocoding its name (the API screens `nonresidential` on ?address= too).
+          var nonRes = !!(rp && rp.residential === false);
           if (rp && rp.lat != null && rp.lon != null) {
-            load({ lat: rp.lat, lon: rp.lon, label: rp.label,
-                   nonResidential: rp.residential === false });
+            load({ lat: rp.lat, lon: rp.lon, label: rp.label, nonResidential: nonRes });
           } else {
-            load({ address: addr });   // couldn't resolve coords → geocode the text
+            load({ address: addr, nonResidential: nonRes });   // coords unresolved → geocode the text
           }
         });
         return;

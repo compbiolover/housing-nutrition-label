@@ -26,11 +26,12 @@ from housing_label.simulate.house import (  # noqa: E402
     build_label_parts, NonResidentialProperty)
 
 
-def _loc(structure_type, num_units=None):
-    """A pre-resolved Location (no geocoding) carrying a detected structure type."""
+def _loc(structure_type, num_units=None, occ_cls=None):
+    """A pre-resolved Location (no geocoding) carrying a detected structure type and
+    (optionally) a USA Structures footprint occupancy class."""
     return Location(lat=35.13, lon=-89.99, county_fips="47157",
                     tract="47157003100", structure_type=structure_type,
-                    num_units=num_units)
+                    num_units=num_units, occ_cls=occ_cls)
 
 
 def _scores(**kwargs):
@@ -88,6 +89,32 @@ def test_unknown_structure_is_not_blocked():
     assert _scores(location=_loc(None)) is not None
 
 
+def test_commercial_footprint_screens_unknown_structure():
+    """A non-residential footprint OCC_CLS breaks the tie for an UNKNOWN structure
+    (NSI had no match) — a store/office typed freehand is refused."""
+    try:
+        build_label_parts(location=_loc(None, occ_cls="Commercial"), allow_network=False)
+    except NonResidentialProperty as exc:
+        assert exc.structure_type == "non_residential"
+        return
+    raise AssertionError("expected refusal for an unknown structure on a Commercial footprint")
+
+
+def test_commercial_footprint_does_not_override_detected_residence():
+    """The footprint OCC_CLS must NOT override a positive NSI residential detection:
+    a mixed-use 'Commercial' footprint over NSI-detected apartments (or a detected
+    single-family home) still scores. Regression guard for the occ_cls override bug."""
+    assert _scores(location=_loc("multifamily", num_units=20, occ_cls="Commercial")) is not None
+    assert _scores(location=_loc("single_family", num_units=1, occ_cls="Commercial")) is not None
+
+
+def test_residential_footprint_class_never_blocks():
+    """A Residential/Unclassified OCC_CLS is not in the non-residential set → no block,
+    even for an otherwise-unknown structure."""
+    assert _scores(location=_loc(None, occ_cls="Residential")) is not None
+    assert _scores(location=_loc(None, occ_cls="Unclassified")) is not None
+
+
 def test_api_maps_refusal_to_422():
     """The HTTP API returns 422 (not 400/502) with the guidance in `detail`."""
     try:
@@ -124,5 +151,8 @@ if __name__ == "__main__":
     test_entered_units_gt_1_are_treated_residential()
     test_residential_address_scores_normally()
     test_unknown_structure_is_not_blocked()
+    test_commercial_footprint_screens_unknown_structure()
+    test_commercial_footprint_does_not_override_detected_residence()
+    test_residential_footprint_class_never_blocks()
     test_api_maps_refusal_to_422()
     print("residential-screen tests passed")
