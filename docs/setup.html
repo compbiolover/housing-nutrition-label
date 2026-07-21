@@ -73,9 +73,12 @@ housing-simulate --preset icf-passive --lat 35.15 --lon -89.85   # score a house
 
 <section>
   <h2>House Simulator</h2>
+  <!-- BEGIN AUTOGEN:setup-dimension-counts (managed by scripts/sync_docs.py — edits here are overwritten; run `python scripts/sync_docs.py --write`) -->
   <p>The CLI simulator lets you define a hypothetical house and see its full nutrition label &mdash; all thirteen dimensions &mdash; instantly.</p>
+  <p>Five dimensions are <strong>construction-driven</strong> (resilience, energy, durability, environmental, infrastructure) &mdash; modeled offline from the house configuration; the other eight are <strong>location-driven</strong>, resolved by the house's census tract or county (no API key needed).</p>
+<!-- END AUTOGEN:setup-dimension-counts -->
 
-  <p>The five <strong>construction-driven</strong> dimensions (resilience, energy, durability, environmental, infrastructure) are modeled offline from the house configuration. The eight <strong>location-driven</strong> dimensions depend on where the house sits: health (CDC PLACES), socioeconomic (Census ACS), and walkability (EPA National Walkability Index) are bundled <strong>national</strong> references resolved by the house's census tract &mdash; no API key needed, and comparable across locations; where a tract can't be resolved they show <em>N/A</em> and are excluded from the composite, never filled with a placeholder. Air quality resolves PM2.5 and ozone at the census tract (CDC Tracking, tract → county fallback) plus the county EPA radon zone; noise is a bundled per-tract transportation-noise lookup (US DOT BTS, tract → county fallback); climate projections come from a bundled per-county lookup (no API key). Climate uses a national-average fallback for a known-but-unmapped county; air quality is scored for any tract/county in the bundled tables (and where an individual county lacks an EPA radon zone it is scored on PM2.5 + ozone alone). Solar potential is a bundled per-county rooftop-yield lookup (PVGIS, no API key); water quality is a bundled per-county drinking-water-compliance lookup (EPA SDWIS, no API key). Like the other location dimensions, these are excluded under <code>--no-fetch</code>, since resolving the tract/county still needs the geocoder.</p>
+  <p>The location dimensions are keyless, bundled <strong>national</strong> references resolved by the house's census tract or county, comparable across locations: health (CDC PLACES), socioeconomic (Census ACS), and walkability (EPA National Walkability Index) resolve at the census tract &mdash; where a tract can't be resolved they show <em>N/A</em> and are excluded from the composite, never filled with a placeholder. Air quality resolves PM2.5 and ozone at the census tract (CDC Tracking, tract → county fallback) plus the county EPA radon zone; noise is a bundled per-tract transportation-noise lookup (US DOT BTS, tract → county fallback); climate projections come from a bundled per-county lookup (no API key). Climate uses a national-average fallback for a known-but-unmapped county; air quality is scored for any tract/county in the bundled tables (and where an individual county lacks an EPA radon zone it is scored on PM2.5 + ozone alone). Solar potential is a bundled per-county rooftop-yield lookup (PVGIS, no API key); water quality is a bundled per-county drinking-water-compliance lookup (EPA SDWIS, no API key). Like the other location dimensions, these are excluded under <code>--no-fetch</code>, since resolving the tract/county still needs the geocoder.</p>
 
   <h3>Full-Label Flags</h3>
   <pre><code># Emit the whole label (all dimensions + composite) as JSON
@@ -100,19 +103,21 @@ housing-simulate --preset duplex --lat 35.15 --lon -89.85
 housing-simulate --preset icf-quadplex --lat 35.15 --lon -89.85</code></pre>
 
   <h3>Available Presets</h3>
+  <!-- BEGIN AUTOGEN:setup-presets (managed by scripts/sync_docs.py — edits here are overwritten; run `python scripts/sync_docs.py --write`) -->
   <div class="table-scroll"><table class="data-table">
     <thead><tr><th>Preset</th><th>Description</th></tr></thead>
     <tbody>
-      <tr><td><code>baseline</code></td><td>2000 wood frame, slab, average condition, 2,000 sqft, 0.25 ac</td></tr>
-      <tr><td><code>premium</code></td><td>2026 brick, slab, excellent, 3,000 sqft, 0.35 ac, $450K</td></tr>
-      <tr><td><code>icf-passive</code></td><td>2026 ICF + solar + generator + passive house + safe room + hip roof + straps + metal roof + sealed deck + elevation</td></tr>
-      <tr><td><code>worst-case</code></td><td>1945 frame, full basement, Zone AE, poor condition, 2.0 ac</td></tr>
-      <tr><td><code>fortified-gold</code></td><td>2026 frame + IBHS FORTIFIED Gold certification</td></tr>
-      <tr><td><code>duplex</code></td><td>2026 brick, 2 units &times; 1,200 sqft, 0.15 ac, $300K</td></tr>
-      <tr><td><code>quadplex</code></td><td>2026 brick, 4 units &times; 900 sqft, 0.20 ac, $500K</td></tr>
-      <tr><td><code>icf-quadplex</code></td><td>2026 ICF, 4 units + solar + passive + straps + hip roof, $600K</td></tr>
+      <tr><td><code>baseline</code></td><td>2000 wood frame, slab, average, zone X, $160k</td></tr>
+      <tr><td><code>premium</code></td><td>2026 solid brick, slab, excellent, zone X, $450k</td></tr>
+      <tr><td><code>icf-passive</code></td><td>2026 ICF, slab, excellent, zone X, $500k &mdash; solar, generator, passive house, safe room, hurricane straps, hip roof, sealed roof deck, metal roof, +1&nbsp;ft elevation</td></tr>
+      <tr><td><code>worst-case</code></td><td>1945 wood frame, full basement, poor, zone AE, $80k</td></tr>
+      <tr><td><code>fortified-gold</code></td><td>2026 wood frame, slab, excellent, zone X, $350k &mdash; sealed roof deck, metal roof, FORTIFIED Gold</td></tr>
+      <tr><td><code>duplex</code></td><td>2026 solid brick, 2 units &times; 1,200 sqft, excellent, zone X, $300k</td></tr>
+      <tr><td><code>quadplex</code></td><td>2026 solid brick, 4 units &times; 900 sqft, excellent, zone X, $500k</td></tr>
+      <tr><td><code>icf-quadplex</code></td><td>2026 ICF, 4 units &times; 1,000 sqft, excellent, zone X, $600k &mdash; solar, passive house, hurricane straps, hip roof</td></tr>
     </tbody>
   </table></div>
+<!-- END AUTOGEN:setup-presets -->
 
   <h3>Custom Builds</h3>
   <pre><code># Build your own scenario
@@ -133,6 +138,7 @@ housing-simulate \
   --sealed-roof-deck</code></pre>
 
   <h3>Above-Code Feature Flags</h3>
+  <!-- BEGIN AUTOGEN:setup-feature-flags (managed by scripts/sync_docs.py — edits here are overwritten; run `python scripts/sync_docs.py --write`) -->
   <div class="table-scroll"><table class="data-table">
     <thead><tr><th>Category</th><th>Flags</th></tr></thead>
     <tbody>
@@ -143,6 +149,7 @@ housing-simulate \
       <tr><td>General</td><td><code>--solar</code> <code>--backup-generator</code> <code>--passive-house</code> <code>--tornado-safe-room</code> <code>--fire-sprinklers</code></td></tr>
     </tbody>
   </table></div>
+<!-- END AUTOGEN:setup-feature-flags -->
 </section>
 
 <section id="api">
