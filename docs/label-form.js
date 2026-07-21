@@ -298,9 +298,9 @@ window.LabelForm = (function () {
       var d = state.desc || {};
       var addrHeading = (d.address && String(d.address).trim())
         || (d.label && String(d.label).trim()) || "";
-      var opts = { subline: subline };
-      if (addrHeading) opts.heading = addrHeading;
-      return LC.renderCard(data, opts);
+      var cardOpts = { subline: subline };   // not mount()'s `opts` — distinct name to avoid shadowing
+      if (addrHeading) cardOpts.heading = addrHeading;
+      return LC.renderCard(data, cardOpts);
     }
 
     function render() {
