@@ -662,9 +662,19 @@ window.LabelForm = (function () {
       ac.close(); geoStatus(""); poiHintEl.style.display = "none";   // 422 notice replaces the pre-hint
       var addr = addrInput.value.trim(), p = ac.picked();
       if (p && p.label === addr) {
-        // Carry the geocoder's non-residential verdict (a stadium/office/store) so
-        // the scorer refuses it — the address's coordinate alone can't reveal it.
-        load({ lat: p.lat, lon: p.lon, label: p.label, nonResidential: p.residential === false });
+        // A Google pick carries a place_id, not coordinates — resolve them (Place
+        // Details) before scoring. Fill the gap with a loading line so the button
+        // feels responsive during the lookup. Carry the geocoder's non-residential
+        // verdict so the scorer refuses a stadium/office the coordinate can't reveal.
+        app.innerHTML = '<div class="loading">Scoring this address&hellip;</div>';
+        ac.resolvePicked().then(function (rp) {
+          if (rp && rp.lat != null && rp.lon != null) {
+            load({ lat: rp.lat, lon: rp.lon, label: rp.label,
+                   nonResidential: rp.residential === false });
+          } else {
+            load({ address: addr });   // couldn't resolve coords → geocode the text
+          }
+        });
         return;
       }
       if (addr) { load({ address: addr }); return; }

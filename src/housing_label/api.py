@@ -20,7 +20,8 @@ Install + run::
 Endpoints::
 
     GET /healthz                     liveness probe
-    GET /suggest?q=<text>            US address / place-name typeahead [{label, lat, lon}]
+    GET /suggest?q=<text>            US address / place-name typeahead
+    GET /place?place_id=<id>         resolve a Google place_id → {label, lat, lon, residential}
     GET /label?address=<addr>        full label JSON for the address
     GET /label?lat=<y>&lon=<x>       …or by coordinates
         optional: preset, construction, year_built, foundation, condition,
@@ -61,7 +62,7 @@ from slowapi.util import get_remote_address
 
 from housing_label.config import (
     HEADERS, PHOTON_URL, GEOAPIFY_URL, GEOAPIFY_API_KEY,
-    GOOGLE_PLACES_URL, GOOGLE_PLACES_API_KEY,
+    GOOGLE_PLACES_AUTOCOMPLETE_URL, GOOGLE_PLACES_DETAILS_URL, GOOGLE_PLACES_API_KEY,
 )
 from housing_label.simulate.house import (
     build_label_parts, label_payload, density_comparison, cost_flows,
@@ -411,11 +412,12 @@ def _geoapify_results_to_suggestions(results: list, limit: int) -> list[dict]:
     return out
 
 
-# ── Google Places Text Search (New) — best US business/landmark coverage ─────────
+# ── Google Places Autocomplete (New) — best US business/landmark coverage ────────
 # Photon/Geoapify miss many US company HQs (e.g. "Unum" resolves to a village in
-# Yemen on Photon). Google Places Text Search finds them and returns the place
-# `types`, which drive the same residential screen. One call per /suggest; the key
-# is server-side only. Highest priority when configured.
+# Yemen on Photon). Google Autocomplete finds them and, being the typeahead-native
+# API, ranks canonical entities well. Predictions carry the place `types` (drive
+# the same residential screen) and a place_id resolved to coords via /place. The
+# key is server-side only. Highest priority when configured.
 _GOOGLE_NONRES_TYPES = frozenset({
     "stadium", "arena", "bank", "atm", "store", "shopping_mall", "supermarket",
     "department_store", "clothing_store", "school", "university", "primary_school",
@@ -449,15 +451,6 @@ def _google_residential(types) -> bool | None:
     return None                          # plain address / unknown → defer to NSI screen
 
 
-def _google_is_us(place: dict) -> bool:
-    """True when the place is in the US (the scorer is US-only)."""
-    for c in place.get("addressComponents") or []:
-        if "country" in (c.get("types") or []):
-            return (c.get("shortText") or "").upper() == "US"
-    fa = (place.get("formattedAddress") or "").strip()
-    return fa.endswith("USA") or fa.endswith("United States")
-
-
 def _google_label(place: dict) -> str:
     """One-line US label: lead with the business/place name, then its address."""
     disp = ((place.get("displayName") or {}).get("text") or "").strip()
@@ -470,73 +463,117 @@ def _google_label(place: dict) -> str:
     return addr or disp
 
 
-def _google_places_to_suggestions(places: list, limit: int) -> list[dict]:
-    """Slim US-only [{label, lat, lon, residential}] from Text Search places."""
+def _google_prediction_label(pred: dict) -> str:
+    """One-line label from an Autocomplete prediction, minus the country suffix."""
+    txt = ((pred.get("text") or {}).get("text") or "").strip()
+    if not txt:
+        sf = pred.get("structuredFormat") or {}
+        main = ((sf.get("mainText") or {}).get("text") or "").strip()
+        sec = ((sf.get("secondaryText") or {}).get("text") or "").strip()
+        txt = ", ".join(p for p in (main, sec) if p)
+    for suffix in (", USA", ", United States"):
+        if txt.endswith(suffix):
+            txt = txt[: -len(suffix)].strip()
+    return txt
+
+
+def _google_predictions_to_suggestions(suggestions: list, limit: int) -> list[dict]:
+    """Slim [{label, place_id, residential}] from Autocomplete predictions. These
+    carry a place_id but NO coordinates — the frontend resolves the picked one's
+    lat/lon via /place (Place Details) so the pair is one billed session."""
     out: list[dict] = []
-    for p in places or []:
-        if not _google_is_us(p):
-            continue
-        loc = p.get("location") or {}
-        lat, lon = _coord(loc.get("latitude")), _coord(loc.get("longitude"))
-        if lat is None or lon is None:
-            continue
-        label = _google_label(p)
+    for s in suggestions or []:
+        pred = s.get("placePrediction") or {}
+        pid = pred.get("placeId")
+        if not pid:
+            continue                          # query predictions (no place) → skip
+        label = _google_prediction_label(pred)
         if not label:
             continue
-        out.append({"label": label, "lat": lat, "lon": lon,
-                    "residential": _google_residential(p.get("types"))})
+        out.append({"label": label, "place_id": pid,
+                    "residential": _google_residential(pred.get("types"))})
         if len(out) >= limit:
             break
     return out
 
 
-_GOOGLE_FIELD_MASK = ("places.formattedAddress,places.location,"
-                      "places.displayName,places.types,places.addressComponents")
+def _google_detail_to_result(place: dict) -> dict | None:
+    """{label, lat, lon, residential} from a Place Details response, or None."""
+    loc = place.get("location") or {}
+    lat, lon = _coord(loc.get("latitude")), _coord(loc.get("longitude"))
+    if lat is None or lon is None:
+        return None
+    label = _google_label(place)
+    if not label:
+        return None
+    return {"label": label, "lat": lat, "lon": lon,
+            "residential": _google_residential(place.get("types"))}
 
 
-def _google_request(text: str):
-    """POST the Text Search query; returns the requests.Response (may raise)."""
+_GOOGLE_AC_FIELD_MASK = ("suggestions.placePrediction.placeId,suggestions.placePrediction.text,"
+                         "suggestions.placePrediction.structuredFormat,"
+                         "suggestions.placePrediction.types")
+_GOOGLE_DETAILS_FIELD_MASK = "location,formattedAddress,displayName,types"
+
+
+def _google_autocomplete_request(text: str, session: str | None):
+    """POST the Autocomplete query; returns the requests.Response (may raise)."""
+    body = {"input": text, "includedRegionCodes": ["us"], "languageCode": "en"}
+    if session:
+        body["sessionToken"] = session
     return requests.post(
-        GOOGLE_PLACES_URL,
-        json={"textQuery": text, "regionCode": "US",
-              "pageSize": _SUGGEST_LIMIT, "languageCode": "en"},
+        GOOGLE_PLACES_AUTOCOMPLETE_URL, json=body,
         headers={
-            **HEADERS,
-            "Content-Type": "application/json",
+            **HEADERS, "Content-Type": "application/json",
             "X-Goog-Api-Key": GOOGLE_PLACES_API_KEY,
-            "X-Goog-FieldMask": _GOOGLE_FIELD_MASK,
+            "X-Goog-FieldMask": _GOOGLE_AC_FIELD_MASK,
         },
         timeout=_SUGGEST_TIMEOUT,
     )
 
 
-def _google_suggest(text: str) -> dict | None:
-    """Single short-timeout Text Search POST → JSON or None. On failure it logs a
-    WARNING (so a misconfigured key surfaces in the server logs) and returns None,
-    so /suggest quietly falls through to the next provider."""
-    try:
-        r = _google_request(text)
-    except Exception as exc:  # noqa: BLE001 — network/timeout
-        log.warning("Google Places request failed (network): %s", exc)
-        return None
+def _google_details_request(place_id: str, session: str | None):
+    """GET Place Details for a place_id; returns the requests.Response (may raise)."""
+    params = {"sessionToken": session} if session else None
+    return requests.get(
+        GOOGLE_PLACES_DETAILS_URL.rstrip("/") + "/" + place_id, params=params,
+        headers={
+            **HEADERS,
+            "X-Goog-Api-Key": GOOGLE_PLACES_API_KEY,
+            "X-Goog-FieldMask": _GOOGLE_DETAILS_FIELD_MASK,
+        },
+        timeout=_SUGGEST_TIMEOUT,
+    )
+
+
+def _google_json(r, what: str) -> dict | None:
+    """Response → JSON, or None with a WARNING (so a misconfigured key surfaces in
+    the server logs). The error body names the exact cause; never the key."""
     if not r.ok:
-        # Google's error body names the exact cause (API not enabled, billing
-        # required, key/referrer restriction) — log it, but never the API key.
-        log.warning("Google Places HTTP %s: %s", r.status_code, (r.text or "")[:300])
+        log.warning("Google Places %s HTTP %s: %s", what, r.status_code, (r.text or "")[:300])
         return None
     try:
         return r.json()
     except Exception as exc:  # noqa: BLE001
-        log.warning("Google Places returned non-JSON: %s", exc)
+        log.warning("Google Places %s returned non-JSON: %s", what, exc)
         return None
 
 
-def _google_probe(text: str) -> dict:
-    """Diagnose the Google Places path for /suggest?debug=1 — the HTTP status and
-    Google's own error message (never the key), so a misconfigured key is
-    self-serviceable without reading server logs."""
+def _google_suggest(text: str, session: str | None) -> dict | None:
+    """Autocomplete → JSON or None (quiet fallback to the next provider)."""
     try:
-        r = _google_request(text)
+        r = _google_autocomplete_request(text, session)
+    except Exception as exc:  # noqa: BLE001 — network/timeout
+        log.warning("Google Places autocomplete failed (network): %s", exc)
+        return None
+    return _google_json(r, "autocomplete")
+
+
+def _google_probe(text: str, session: str | None = None) -> dict:
+    """Diagnose the Google Autocomplete path for /suggest?debug=1 — the HTTP status
+    and Google's own error message (never the key)."""
+    try:
+        r = _google_autocomplete_request(text, session)
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "error": f"request failed: {exc}"}
     try:
@@ -545,15 +582,18 @@ def _google_probe(text: str) -> dict:
         body = {"raw": (r.text or "")[:300]}
     if r.ok:
         return {"ok": True, "http_status": r.status_code,
-                "results": len(body.get("places") or [])}
+                "results": len(body.get("suggestions") or [])}
     err = (body or {}).get("error") or {}
     return {"ok": False, "http_status": r.status_code,
             "google_status": err.get("status"),
             "message": err.get("message") or body}
 
 
+_SESSION_MAX_CHARS = 128            # a client UUID session token; bound the input
+
+
 @app.get("/suggest")
-def suggest(q: str | None = None, debug: bool = False):
+def suggest(q: str | None = None, session: str | None = None, debug: bool = False):
     """US address / place-name typeahead. Resolves business, campus, and landmark
     names as well as street addresses, so typing a company or place name surfaces
     the address it sits at, plus a `residential` verdict per result (used by the
@@ -562,10 +602,17 @@ def suggest(q: str | None = None, debug: bool = False):
     `GEOAPIFY_API_KEY` is set (sharper US ranking), else keyless Photon — each
     falling back to the next if unreachable. Degrades to [] — never breaks the page.
 
+    Google Autocomplete results carry a `place_id` (no coordinates); the caller
+    resolves the picked one's lat/lon via GET /place. Geoapify/Photon results carry
+    `lat`/`lon` directly. `session` is a client-generated token that bundles a
+    typeahead's autocomplete calls + its one /place lookup into a single billed
+    Google session (ignored by Geoapify/Photon).
+
     `?debug=1` returns which providers are configured and, when a Google key is
     set, a live probe of the Google call (HTTP status + Google's error message,
     never the key) so a misconfigured key can be diagnosed without server logs."""
     text = (q or "").strip()
+    session = (session or "").strip()[:_SESSION_MAX_CHARS] or None
     if debug:
         info = {"query": text, "configured": {
             "google": bool(GOOGLE_PLACES_API_KEY),
@@ -573,16 +620,16 @@ def suggest(q: str | None = None, debug: bool = False):
             "photon": True,
         }}
         if GOOGLE_PLACES_API_KEY and len(text) >= _SUGGEST_MIN_CHARS:
-            info["google_probe"] = _google_probe(text[:_SUGGEST_MAX_CHARS])
+            info["google_probe"] = _google_probe(text[:_SUGGEST_MAX_CHARS], session)
         return info
     if len(text) < _SUGGEST_MIN_CHARS:
         return []                                     # too short — empty, not an error
     text = text[:_SUGGEST_MAX_CHARS]
 
     if GOOGLE_PLACES_API_KEY:
-        data = _google_suggest(text)
+        data = _google_suggest(text, session)
         if data is not None:                          # only fall through if unreachable
-            return _google_places_to_suggestions(data.get("places") or [], _SUGGEST_LIMIT)
+            return _google_predictions_to_suggestions(data.get("suggestions") or [], _SUGGEST_LIMIT)
 
     if GEOAPIFY_API_KEY:
         data = _suggest_get(GEOAPIFY_URL, {
@@ -601,6 +648,31 @@ def suggest(q: str | None = None, debug: bool = False):
     if not data:                                      # upstream down/timeout → quietly empty
         return []
     return _photon_features_to_suggestions(data.get("features") or [], _SUGGEST_LIMIT)
+
+
+@app.get("/place")
+def place(place_id: str | None = None, session: str | None = None) -> dict:
+    """Resolve a Google Autocomplete `place_id` to `{label, lat, lon, residential}`
+    via Place Details, closing the `session` started by /suggest (so the pair bills
+    as one Google session). Only meaningful with a Google key; returns 404 when the
+    place can't be resolved and 503 when Places isn't configured/unreachable. The
+    key is proxied server-side and never returned."""
+    pid = (place_id or "").strip()
+    if not pid:
+        raise HTTPException(400, "place_id is required")
+    if not GOOGLE_PLACES_API_KEY:
+        raise HTTPException(503, "Place lookup is unavailable (no Google Places key configured).")
+    session = (session or "").strip()[:_SESSION_MAX_CHARS] or None
+    try:
+        r = _google_details_request(pid, session)
+    except Exception as exc:  # noqa: BLE001 — network/timeout
+        log.warning("Google Places details failed (network): %s", exc)
+        raise HTTPException(503, "Place lookup is temporarily unavailable.")
+    data = _google_json(r, "details")
+    result = _google_detail_to_result(data) if data else None
+    if result is None:
+        raise HTTPException(404, "Could not resolve that place.")
+    return result
 
 
 @app.get("/label")
