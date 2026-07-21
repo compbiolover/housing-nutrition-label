@@ -34,13 +34,23 @@ window.AddrSuggest = (function () {
     // The element carrying aria-expanded (the combobox wrapper), if present.
     var wrap = (input.closest && input.closest('[aria-haspopup="listbox"], .addr-ac')) || null;
 
-    var picked = null;   // {label, lat, lon} once chosen; cleared on edit
+    var picked = null;   // chosen suggestion; cleared on edit. Google results carry a
+                         // {label, place_id} (coords resolved on pick via /place);
+                         // Geoapify/Photon carry {label, lat, lon} directly.
     var items = [];      // current suggestion objects
     var active = -1;     // highlighted index for keyboard nav
     var timer = null;    // debounce handle
     var seq = 0;         // request sequence — drop out-of-order responses
+    var session = null;  // Google session token: bundles a typeahead's autocomplete
+                         // calls + its one /place lookup into one billed session.
 
     function setExpanded(v) { if (wrap) wrap.setAttribute("aria-expanded", v ? "true" : "false"); }
+
+    function newToken() {
+      try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
+      return "s-" + new Date().getTime().toString(36) + "-"
+        + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    }
 
     function close() {
       clearTimeout(timer);   // cancel a pending debounced fetch
@@ -73,17 +83,56 @@ window.AddrSuggest = (function () {
 
     function fetchSuggest(q) {
       var mine = ++seq;
-      fetch(apiBase + "/suggest?q=" + encodeURIComponent(q))
+      if (!session) session = newToken();   // one session per typeahead → selection
+      fetch(apiBase + "/suggest?q=" + encodeURIComponent(q) + "&session=" + encodeURIComponent(session))
         .then(function (r) { return r.ok ? r.json() : []; })
         .then(function (list) { if (mine === seq) render(Array.isArray(list) ? list : []); })
         .catch(function () { if (mine === seq) close(); });   // never throw to the page
     }
 
+    // Resolve a picked suggestion to coordinates. Geoapify/Photon results already
+    // have lat/lon; a Google result has only a place_id → GET /place (Place Details)
+    // closes the session and fills in lat/lon (+ refined label/residential). The
+    // promise is cached on the picked object so an eager pick-time resolve and the
+    // submit-time await share one network call. Never rejects — resolves to the
+    // picked object (with coords when available), so the caller can fall back to
+    // geocoding the label text if resolution failed.
+    function resolvePicked() {
+      if (!picked) return Promise.resolve(null);
+      if (picked._resolve) return picked._resolve;
+      if (picked.lat != null && picked.lon != null) {
+        picked._resolve = Promise.resolve(picked); return picked._resolve;
+      }
+      if (!picked.place_id || !apiBase) {
+        picked._resolve = Promise.resolve(picked); return picked._resolve;
+      }
+      var target = picked, sess = session;
+      var url = apiBase + "/place?place_id=" + encodeURIComponent(picked.place_id)
+        + (sess ? "&session=" + encodeURIComponent(sess) : "");
+      session = null;             // this session is spent on the details lookup
+      picked._resolve = fetch(url)
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          if (d && d.lat != null && d.lon != null) {
+            target.lat = d.lat; target.lon = d.lon;
+            // Keep the label the user picked (still in the input) — overwriting it
+            // with the details label breaks the submit-time input-vs-pick match.
+            // Only ever *add* a non-residential flag (never downgrade one the
+            // prediction already set), so the screen can't be lost on resolve.
+            if (d.residential === false) target.residential = false;
+          }
+          return target;
+        })
+        .catch(function () { return target; });   // network error → caller falls back
+      return picked._resolve;
+    }
+
     function choose(i) {
       var s = items[i]; if (!s) return;
-      picked = s;                 // remember {label, lat, lon}
+      picked = s;
       input.value = s.label;
       close();
+      resolvePicked();            // eager: have coords ready by the time Score is pressed
       onPick(s);
     }
 
@@ -114,6 +163,7 @@ window.AddrSuggest = (function () {
 
     return {
       picked: function () { return picked; },
+      resolvePicked: resolvePicked,
       close: close
     };
   }

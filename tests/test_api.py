@@ -163,52 +163,68 @@ def test_geoapify_formatter():
     assert _geoapify_residential({"category": ""}) is None
 
 
-def test_google_places_formatter():
-    """Google Places Text Search parsing/classification — no network/key. Skip if
-    FastAPI absent."""
+def test_google_autocomplete_and_details():
+    """Google Places Autocomplete (predictions → suggestions) and Place Details
+    (→ scored result) parsing/classification — no network/key. Skip if FastAPI
+    absent."""
     try:
         import fastapi  # noqa: F401
     except ImportError:
-        print("  skip test_google_places_formatter (fastapi not installed)")
+        print("  skip test_google_autocomplete_and_details (fastapi not installed)")
         return
     from housing_label.api import (
-        _google_label, _google_residential, _google_places_to_suggestions, _google_is_us,
+        _google_residential,
+        _google_predictions_to_suggestions, _google_detail_to_result,
     )
-    # Label leads with the business name, then the address, minus the country suffix.
-    stadium = {
+    # ── Autocomplete: predictions carry a place_id + residential verdict, no coords.
+    suggestions = [
+        {"placePrediction": {
+            "placeId": "ChIJstadium",
+            "text": {"text": "Bank of America Stadium, South Mint Street, Charlotte, NC, USA"},
+            "types": ["stadium", "establishment"]}},
+        {"placePrediction": {
+            "placeId": "ChIJunum",
+            "structuredFormat": {"mainText": {"text": "Unum"},
+                                 "secondaryText": {"text": "Fountain Square, Chattanooga, TN, USA"}},
+            "types": ["insurance_agency", "establishment"]}},
+        {"placePrediction": {
+            "placeId": "ChIJhome",
+            "text": {"text": "123 Main St, Memphis, TN, USA"},
+            "types": ["street_address"]}},
+        {"queryPrediction": {"text": {"text": "pizza near me"}}},   # no placeId → skipped
+    ]
+    assert _google_predictions_to_suggestions(suggestions, 5) == [
+        {"label": "Bank of America Stadium, South Mint Street, Charlotte, NC",
+         "place_id": "ChIJstadium", "residential": False},
+        {"label": "Unum, Fountain Square, Chattanooga, TN",
+         "place_id": "ChIJunum", "residential": False},
+        {"label": "123 Main St, Memphis, TN", "place_id": "ChIJhome", "residential": None},
+    ]
+
+    # ── Residential classifier (shared by autocomplete + details `types`).
+    assert _google_residential(["stadium", "establishment"]) is False
+    assert _google_residential(["insurance_agency", "establishment"]) is False    # Unum HQ
+    assert _google_residential(["establishment", "point_of_interest"]) is False   # generic business
+    assert _google_residential(["street_address"]) is None                        # a home → NSI decides
+    assert _google_residential(["premise", "establishment"]) is None              # address-like wins
+
+    # ── Place Details → {label, lat, lon, residential}. Label leads with the name,
+    # then the address (country suffix stripped, no duplication for a plain address).
+    assert _google_detail_to_result({
         "formattedAddress": "800 S Mint St, Charlotte, NC 28202, USA",
         "location": {"latitude": 35.2258, "longitude": -80.8528},
         "displayName": {"text": "Bank of America Stadium"},
-        "types": ["stadium", "point_of_interest", "establishment"],
-        "addressComponents": [{"types": ["country"], "shortText": "US"}],
-    }
-    assert _google_label(stadium) == "Bank of America Stadium, 800 S Mint St, Charlotte, NC 28202"
-    assert _google_residential(["stadium", "point_of_interest", "establishment"]) is False
-    assert _google_residential(["insurance_agency", "establishment"]) is False   # Unum HQ
-    assert _google_residential(["establishment", "point_of_interest"]) is False  # generic business
-    assert _google_residential(["street_address"]) is None                       # a home → NSI decides
-    assert _google_residential(["premise", "establishment"]) is None             # address-like wins
-    # A plain address isn't duplicated when displayName repeats the street.
-    addr = {
+        "types": ["stadium", "establishment"],
+    }) == {"label": "Bank of America Stadium, 800 S Mint St, Charlotte, NC 28202",
+           "lat": 35.2258, "lon": -80.8528, "residential": False}
+    assert _google_detail_to_result({
         "formattedAddress": "123 Main St, Memphis, TN 38104, USA",
         "location": {"latitude": 35.13, "longitude": -89.99},
-        "displayName": {"text": "123 Main St"},
-        "types": ["street_address"],
-        "addressComponents": [{"types": ["country"], "shortText": "US"}],
-    }
-    assert _google_label(addr) == "123 Main St, Memphis, TN 38104"
-    # US filter + full suggestion shape; a non-US place is dropped.
-    non_us = {"formattedAddress": "10 Downing St, London, UK",
-              "location": {"latitude": 51.5, "longitude": -0.12},
-              "displayName": {"text": "10 Downing St"}, "types": ["premise"],
-              "addressComponents": [{"types": ["country"], "shortText": "GB"}]}
-    assert _google_is_us(stadium) is True and _google_is_us(non_us) is False
-    assert _google_places_to_suggestions([stadium, non_us, addr], 5) == [
-        {"label": "Bank of America Stadium, 800 S Mint St, Charlotte, NC 28202",
-         "lat": 35.2258, "lon": -80.8528, "residential": False},
-        {"label": "123 Main St, Memphis, TN 38104",
-         "lat": 35.13, "lon": -89.99, "residential": None},
-    ]
+        "displayName": {"text": "123 Main St"}, "types": ["street_address"],
+    }) == {"label": "123 Main St, Memphis, TN 38104",
+           "lat": 35.13, "lon": -89.99, "residential": None}
+    # No coordinates → unresolvable.
+    assert _google_detail_to_result({"formattedAddress": "X", "displayName": {"text": "X"}}) is None
 
 
 def test_suggest_short_query():

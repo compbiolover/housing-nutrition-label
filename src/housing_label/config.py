@@ -44,14 +44,20 @@ PHOTON_URL = os.environ.get("PHOTON_URL", "https://photon.komoot.io/api")
 # lives server-side only — visitors never see it (the API proxies the call).
 GEOAPIFY_URL = os.environ.get("GEOAPIFY_URL", "https://api.geoapify.com/v1/geocode/autocomplete")
 GEOAPIFY_API_KEY = os.environ.get("GEOAPIFY_API_KEY", "")
-# Optional: a Google Places API key upgrades /suggest to Google Places Text Search
-# (New) — the best US coverage for business/landmark names (e.g. a company HQ that
-# Photon/Geoapify miss). Highest priority when set (Google → Geoapify → Photon),
-# falling back to the next source if Google is unreachable. Server-side only; the
-# call is proxied so visitors never see the key. Enable the "Places API (New)" on
-# the key and (recommended) restrict it to that API. See docs/setup.html.
-GOOGLE_PLACES_URL = os.environ.get(
-    "GOOGLE_PLACES_URL", "https://places.googleapis.com/v1/places:searchText")
+# Optional: a Google Places API key upgrades /suggest to Google Places
+# Autocomplete (New) — the best US coverage for business/landmark names (e.g. a
+# company HQ that Photon/Geoapify miss), and the API purpose-built for typeahead
+# (more canonical partial-name ranking). Highest priority when set (Google →
+# Geoapify → Photon), falling back to the next source if Google is unreachable.
+# Autocomplete returns a place_id (no coordinates); the frontend resolves the
+# picked place's lat/lon via /place → Place Details, bundling both into one
+# session token so the pair is billed as a single session. Server-side only; the
+# calls are proxied so visitors never see the key. Enable the "Places API (New)"
+# on the key and (recommended) restrict it to that API. See docs/setup.html.
+GOOGLE_PLACES_AUTOCOMPLETE_URL = os.environ.get(
+    "GOOGLE_PLACES_AUTOCOMPLETE_URL", "https://places.googleapis.com/v1/places:autocomplete")
+GOOGLE_PLACES_DETAILS_URL = os.environ.get(
+    "GOOGLE_PLACES_DETAILS_URL", "https://places.googleapis.com/v1/places")
 GOOGLE_PLACES_API_KEY = os.environ.get("GOOGLE_PLACES_API_KEY", "")
 
 # ── Geographic reference points ─────────────────────────────────────────────────
