@@ -126,7 +126,7 @@ window.LabelForm = (function () {
     var lb = opts.listboxId;   // links the combobox input ↔ its suggestions listbox
     return '<form class="label-addr-form lf-form">'
       + '<div class="addr-ac" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-owns="' + lb + '">'
-      + '<input type="text" class="lf-addr" aria-label="US address to score" autocomplete="off" '
+      + '<input type="text" class="lf-addr" aria-label="US address or place name to score" autocomplete="off" '
       + 'role="textbox" aria-autocomplete="list" aria-controls="' + lb + '" aria-activedescendant="" '
       + 'placeholder="Enter a U.S. address or place name &mdash; e.g. 111 S Grand Ave, Los Angeles">'
       + '<ul class="addr-suggest lf-suggest" id="' + lb + '" role="listbox" hidden></ul></div>'
