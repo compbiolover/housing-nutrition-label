@@ -133,6 +133,9 @@ window.LabelForm = (function () {
       + buttons + '</form>'
       + '<p class="label-privacy lf-geo" role="status" aria-live="polite" style="display:none;"></p>'
       + '<p class="label-privacy lf-privacy" style="display:none;"></p>'
+      // Shown the moment a non-residential suggestion is picked, so the reader knows
+      // it won't score *before* pressing "Score it" (not only via the 422 after).
+      + '<div class="insight warn lf-poi-hint" role="status" aria-live="polite" style="display:none;max-width:640px;margin:-0.5rem auto 1rem;"></div>'
       + '<div class="insight warn lf-warn" style="display:none;max-width:640px;margin:-0.5rem auto 1rem;"></div>'
       + '<div class="insight lf-note" style="display:none;max-width:640px;margin:0 auto 1rem;">'
       + 'Set a scoring API to run live scores — append <code>?api=&lt;your-endpoint&gt;</code> to the URL '
@@ -194,6 +197,7 @@ window.LabelForm = (function () {
     var app = q(".lf-app");
     var form = q(".lf-form"), addrInput = q(".lf-addr");
     var geoEl = q(".lf-geo"), privEl = q(".lf-privacy"), warnEl = q(".lf-warn"), noteEl = q(".lf-note");
+    var poiHintEl = q(".lf-poi-hint");
     var refineEl = q(".lf-refine"), refineCount = q(".lf-refine-count");
     var densWrap = wantDensity ? q(".lf-density-wrap") : null;
     var densBtn = wantDensity ? q(".lf-density-btn") : null;
@@ -215,7 +219,22 @@ window.LabelForm = (function () {
       privEl.style.display = "";
     }
 
-    var ac = AS.attach({ input: addrInput, box: q(".lf-suggest"), apiBase: API_BASE, idPrefix: uid + "opt-" });
+    // Pre-score heads-up: when the picked suggestion is a non-residential POI (a
+    // stadium/office/store the geocoder flagged), tell the reader it won't score
+    // *now*, not only after they press "Score it". Editing (onPick null) clears it.
+    function showPoiHint(s) {
+      if (s && s.residential === false) {
+        var name = (s.label || "").split(",")[0];
+        poiHintEl.innerHTML = '<strong>' + esc(name || "This place")
+          + '</strong> looks like a business or venue, not a home &mdash; the label scores '
+          + 'residential addresses only, so it won’t be graded.';
+        poiHintEl.style.display = "";
+      } else {
+        poiHintEl.style.display = "none";
+      }
+    }
+    var ac = AS.attach({ input: addrInput, box: q(".lf-suggest"), apiBase: API_BASE,
+                         idPrefix: uid + "opt-", onPick: showPoiHint });
 
     // View state. `presets`/`detected` are cached per location so switching modes
     // doesn't refetch; `desc` is the current location descriptor.
@@ -541,6 +560,7 @@ window.LabelForm = (function () {
       touched = {}; applyBuilding(null);
       qa(".addr-upgrades input").forEach(function (cb) { cb.checked = false; });
       if (densResult) densResult.innerHTML = "";
+      poiHintEl.style.display = "none";
       syncRefineVisibility(); render();
     }
     function applyDefaults() {
@@ -639,7 +659,7 @@ window.LabelForm = (function () {
     form.addEventListener("submit", function (e) {
       e.preventDefault();
       if (!API_BASE) { noteEl.style.display = ""; return; }
-      ac.close(); geoStatus("");
+      ac.close(); geoStatus(""); poiHintEl.style.display = "none";   // 422 notice replaces the pre-hint
       var addr = addrInput.value.trim(), p = ac.picked();
       if (p && p.label === addr) {
         // Carry the geocoder's non-residential verdict (a stadium/office/store) so
