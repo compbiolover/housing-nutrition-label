@@ -120,17 +120,24 @@ window.LabelForm = (function () {
   }
 
   function formHtml(opts) {
-    var buttons = '<button type="submit" class="go">Score it</button>';
-    if (opts.geolocate) buttons += '<button type="button" class="reset lf-locate">Use my location</button>';
-    if (opts.persist)   buttons += '<button type="button" class="reset lf-reset">Reset</button>';
     var lb = opts.listboxId;   // links the combobox input ↔ its suggestions listbox
+    // Two rows by design. The field and its primary action ("Score it") stay on one
+    // row so the submit sits with the input it acts on. The alternate/clear actions
+    // group on a second row, kept subordinate to the primary and never orphan-wrapping
+    // beneath the field the way a single shared row did on mid-width screens.
+    var secondary = "";
+    if (opts.geolocate) secondary += '<button type="button" class="reset lf-locate">Use my location</button>';
+    if (opts.persist)   secondary += '<button type="button" class="reset lf-reset">Reset</button>';
     return '<form class="label-addr-form lf-form">'
+      + '<div class="addr-primary">'
       + '<div class="addr-ac" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-owns="' + lb + '">'
       + '<input type="text" class="lf-addr" aria-label="US address or place name to score" autocomplete="off" '
       + 'role="textbox" aria-autocomplete="list" aria-controls="' + lb + '" aria-activedescendant="" '
       + 'placeholder="Enter a U.S. address or place name &mdash; e.g. 111 S Grand Ave, Los Angeles">'
       + '<ul class="addr-suggest lf-suggest" id="' + lb + '" role="listbox" hidden></ul></div>'
-      + buttons + '</form>'
+      + '<button type="submit" class="go">Score it</button></div>'
+      + (secondary ? '<div class="addr-actions">' + secondary + '</div>' : '')
+      + '</form>'
       + '<p class="label-privacy lf-geo" role="status" aria-live="polite" style="display:none;"></p>'
       + '<p class="label-privacy lf-privacy" style="display:none;"></p>'
       // Shown the moment a non-residential suggestion is picked, so the reader knows

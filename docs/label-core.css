@@ -171,15 +171,26 @@
  * widget looks identical. (Mode toggle, pickers, refine panel, compare grid, and
  * legends are already shared above.)
  * ───────────────────────────────────────────────────────────────────────────── */
-.label-addr-form { max-width: 640px; margin: 0 auto 1.25rem; display: flex; flex-wrap: wrap; gap: 0.6rem; }
-.label-addr-form .addr-ac { flex: 1 1 300px; }
+/* Two stacked rows. Row 1 keeps the field and its primary action together (the
+   submit stays with the input it acts on); row 2 groups the alternate/clear
+   actions, subordinate to the primary CTA. This replaces a single wrap row where
+   a third button orphan-wrapped under the field once the trio outgrew 640px. */
+.label-addr-form { max-width: 640px; margin: 0 auto 1.25rem; display: flex; flex-direction: column; gap: 0.6rem; }
+.label-addr-form .addr-primary { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: stretch; }
+.label-addr-form .addr-ac { flex: 1 1 260px; }
+.label-addr-form .addr-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; }
 .label-addr-form input { width: 100%; font: inherit; padding: 0.6rem 0.8rem;
   border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); color: var(--text); }
 .label-addr-form .go { font: inherit; font-weight: 600; padding: 0.6rem 1.2rem; border: none;
-  border-radius: var(--radius); background: var(--navy); color: #fff; cursor: pointer; }
+  border-radius: var(--radius); background: var(--navy); color: #fff; cursor: pointer; flex: 0 0 auto; }
 .label-addr-form .go:disabled { opacity: 0.6; cursor: progress; }
 .label-addr-form .reset { font: inherit; padding: 0.6rem 1rem; border: 1px solid var(--border);
   border-radius: var(--radius); background: var(--card); color: var(--text); cursor: pointer; }
+/* On narrow screens the field takes the full width and the primary button drops
+   below it as a full-width tap target, keeping the layout predictable. */
+@media (max-width: 480px) {
+  .label-addr-form .addr-primary .go { flex: 1 1 100%; }
+}
 
 .label-privacy { max-width: 640px; margin: -0.5rem auto 1rem; color: var(--muted); font-size: 0.8rem; text-align: center; }
 .label-privacy.err { color: #b91c1c; }
