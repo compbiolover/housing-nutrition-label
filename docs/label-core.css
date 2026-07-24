@@ -91,6 +91,12 @@
 .mode-toggle button:last-child { border-radius: 0 var(--radius) var(--radius) 0; border-left: none; }
 .mode-toggle button.on { background: var(--navy); color: #fff; border-color: var(--navy); }
 .mode-toggle + .mode-help { margin: -0.5rem auto 1.25rem; }
+/* Comfortable touch targets on coarse pointers (phones/tablets): the mode toggle
+   and the address-suggestion rows were ~38–39px tall. */
+@media (pointer: coarse) {
+  .mode-toggle button { padding: 0.6rem 1rem; }
+  .addr-suggest li { padding: 0.7rem 0.8rem; }
+}
 .mode-help { max-width: 560px; text-align: center; color: var(--muted);
   font-size: 0.85rem; line-height: 1.45; }
 .compare-grid { display: flex; flex-wrap: wrap; gap: 1.25rem; justify-content: center; align-items: flex-start; }

@@ -17,8 +17,11 @@
        label-core.css; only these dark-hero re-theming overrides stay page-local.
        The widget mounts into #score-widget and generates .lf-* / .label-* nodes. */
     .addr-search { max-width: 640px; margin: 0 auto; text-align: left; }
-    .hero .label-addr-form .go { background: var(--green); }   /* hero-accent CTA */
-    .hero .mode-toggle button, .hero .picker label { color: #e2e8f0; }
+    .hero .label-addr-form .go { background: var(--green); color: var(--navy); }   /* hero-accent CTA: dark text on green = 6.9:1 */
+    /* Only re-light text that sits directly on the dark hero. The mode-toggle
+       buttons keep their own white background, so lightening their text made them
+       near-invisible; leave them on the shared var(--text). */
+    .hero .picker label { color: #e2e8f0; }
     .hero .addr-details summary, .hero .addr-upgrades legend { color: #cbd5e1; }
     .hero .addr-fields label { color: #cbd5e1; }
     .hero .lf-privacy, .hero .lf-geo { color: #cbd5e1; }
@@ -51,6 +54,7 @@
   </style>
 </head>
 <body>
+<a href="#main" class="skip-link">Skip to content</a>
 <nav>
   <a href="index.html" class="logo">Housing<span>Label</span>.dev</a>
   <button class="hamburger" aria-label="Menu">&#9776;</button>
@@ -64,6 +68,7 @@
     <li><a href="https://github.com/compbiolover/housing-nutrition-label">GitHub</a></li>
   </ul>
 </nav>
+<main id="main">
 
 <div class="hero">
   <div class="badge">Open source &middot; 13 dimensions &middot; any U.S. address</div>
@@ -93,67 +98,67 @@
   <h2>Scored Dimensions</h2>
   <div class="card-grid">
     <div class="card">
-      <div class="icon">&#x1F3D7;</div>
+      <div class="icon" aria-hidden="true">&#x1F3D7;</div>
       <h3>Disaster Resilience</h3>
       <p>How much damage floods, tornadoes, earthquakes, and fire are likely to cause in a typical year, and how much the home's construction, age, and upgrades (like a reinforced roof) change that. Built on FEMA and USGS hazard data.</p>
     </div>
     <div class="card">
-      <div class="icon">&#x26A1;</div>
+      <div class="icon" aria-hidden="true">&#x26A1;</div>
       <h3>Energy Efficiency</h3>
       <p>How much energy the home is likely to use, and what that costs each month at local utility rates, based on its age, size, construction, and heating and cooling system. Benchmarked to U.S. Department of Energy data.</p>
     </div>
     <div class="card">
-      <div class="icon">&#x1F6E0;</div>
+      <div class="icon" aria-hidden="true">&#x1F6E0;</div>
       <h3>Durability</h3>
       <p>How much useful life the home's major systems (structure, roof, HVAC, plumbing, wiring, windows) have left, adjusted for its condition. A longevity score, kept separate from disaster risk.</p>
     </div>
     <div class="card">
-      <div class="icon">&#x1F33F;</div>
+      <div class="icon" aria-hidden="true">&#x1F33F;</div>
       <h3>Environmental Footprint</h3>
       <p>The home's yearly climate impact: the energy it uses (on the local power grid), the carbon built into its materials, and its water use. A higher score means a smaller footprint.</p>
     </div>
     <div class="card">
-      <div class="icon">&#x1F3D8;</div>
+      <div class="icon" aria-hidden="true">&#x1F3D8;</div>
       <h3>Infrastructure Burden</h3>
       <p>Whether the home covers the cost of the city services it needs: roads, water, sewer, fire, police. Compact housing shares those costs across more homes, so it scores better.</p>
     </div>
     <div class="card">
-      <div class="icon">&#x2764;</div>
+      <div class="icon" aria-hidden="true">&#x2764;</div>
       <h3>Health Impact</h3>
       <p>How healthy the surrounding neighborhood is, from local rates of conditions like obesity, diabetes, high blood pressure, and asthma (CDC data). This describes the area, not the building.</p>
     </div>
     <div class="card">
-      <div class="icon">&#x1F32B;</div>
+      <div class="icon" aria-hidden="true">&#x1F32B;</div>
       <h3>Air Quality</h3>
       <p>How clean the local air is: annual fine-particulate (PM2.5) and ozone at the census tract from the CDC Tracking model, plus the county EPA radon zone. Scored against all U.S. tracts; higher means cleaner, safer air.</p>
     </div>
     <div class="card">
-      <div class="icon">&#x1F507;</div>
+      <div class="icon" aria-hidden="true">&#x1F507;</div>
       <h3>Noise</h3>
       <p>How quiet the neighborhood is: the share of the census tract's residents exposed to loud (&ge;60&nbsp;dB) transportation noise from aircraft, highways, and railroads (US DOT BTS National Transportation Noise Map). Scored against all U.S. tracts; higher means quieter.</p>
     </div>
     <div class="card">
-      <div class="icon">&#x1F4CA;</div>
+      <div class="icon" aria-hidden="true">&#x1F4CA;</div>
       <h3>Socioeconomic</h3>
       <p>The neighborhood's economic profile: income, poverty, education, and jobs (Census data). Like the health score, this reflects the area, not the building itself.</p>
     </div>
     <div class="card">
-      <div class="icon">&#x1F6B6;</div>
+      <div class="icon" aria-hidden="true">&#x1F6B6;</div>
       <h3>Walkability</h3>
       <p>How easy it is to run daily errands on foot, by transit, or by bike (EPA National Walkability Index: intersection density, transit proximity, and land-use mix).</p>
     </div>
     <div class="card">
-      <div class="icon">&#x1F321;</div>
+      <div class="icon" aria-hidden="true">&#x1F321;</div>
       <h3>Climate Projections</h3>
       <p>How the local climate is projected to shift by mid-century: more extreme heat, heavy rain and flooding, and drought (USGS downscaled projections). Shown as a range for lower- vs. higher-emissions futures.</p>
     </div>
     <div class="card">
-      <div class="icon">&#x2600;</div>
+      <div class="icon" aria-hidden="true">&#x2600;</div>
       <h3>Solar Potential</h3>
       <p>How productive rooftop solar is here: the annual energy a standard array makes per kW installed (PVGIS on NREL NSRDB satellite data). Higher means sunnier; the details estimate what a typical system produces, saves, and offsets in CO&#8322;.</p>
     </div>
     <div class="card">
-      <div class="icon">&#x1F6B0;</div>
+      <div class="icon" aria-hidden="true">&#x1F6B0;</div>
       <h3>Water Quality</h3>
       <p>How safe the tap water is: of the county's residents on a community water system, the share served by a system that had a recent health-based drinking-water violation (EPA SDWIS). Scored against all U.S. counties; higher means cleaner, safer drinking water. Covers community water systems, not private wells.</p>
     </div>
@@ -208,11 +213,13 @@
   </table></div>
 </section>
 
+</main>
 <footer>
   <p>Housing Nutrition Label &middot; MIT License &middot; <a href="https://github.com/compbiolover/housing-nutrition-label">GitHub</a></p>
   <p style="margin-top:0.5rem;font-size:0.85rem;">Built with public data. No proprietary sources. Fully reproducible.</p>
 </footer>
 <script src="nav.js"></script>
+<script src="back-to-top.js"></script>
 <script src="label-core.js"></script>
 <script src="addr-suggest.js"></script>
 <script src="label-form.js"></script>

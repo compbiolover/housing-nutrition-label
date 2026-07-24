@@ -66,6 +66,7 @@
   </style>
 </head>
 <body>
+<a href="#main" class="skip-link">Skip to content</a>
 <nav>
   <a href="index.html" class="logo">Housing<span>Label</span>.dev</a>
   <button class="hamburger" aria-label="Menu">&#9776;</button>
@@ -79,9 +80,10 @@
     <li><a href="https://github.com/compbiolover/housing-nutrition-label">GitHub</a></li>
   </ul>
 </nav>
+<main id="main">
 
 <section>
-  <h2>How the scores work</h2>
+  <h1>How the scores work</h1>
   <p>Each of the thirteen dimensions is scored from 0 to 100. Every score starts with a short, plain-language summary of what it tells you; open <strong>&ldquo;How it&rsquo;s calculated&rdquo;</strong> under any dimension for the full method, data sources, and formulas. Everything is built from public data and documented so the numbers can be checked.</p>
   <div class="insight"><strong>Where the data comes from:</strong> the label scores any U.S. address using national datasets: FEMA, USGS, EPA, CDC, the Census Bureau, and the EIA. It began as a pilot in one county (Shelby County, TN), and a few cost-model baselines are still being generalized nationwide. Wherever one of those still applies, the label flags it, so a score is never presented as more locally precise than it is.</p>
   </div>
@@ -358,6 +360,7 @@
   <p><strong>National percentile:</strong> e.g. &ldquo;72nd US&rdquo;, the share of comparable U.S. homes this dimension beats, from a bundled national reference distribution.</p>
   <p><strong>Composite score:</strong> the average of the dimensions that could be scored. Dimensions with no data (for example, a location dimension whose census tract can't be resolved) are left out rather than counted as zero, so a strong home isn't dragged down by a missing input.</p>
 </section>
+</main>
 
 <footer>
   <p>Housing Nutrition Label &middot; MIT License &middot; <a href="https://github.com/compbiolover/housing-nutrition-label">GitHub</a></p>
