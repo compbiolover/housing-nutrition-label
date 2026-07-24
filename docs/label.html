@@ -18,6 +18,7 @@
   </style>
 </head>
 <body>
+<a href="#main" class="skip-link">Skip to content</a>
 <nav>
   <a href="index.html" class="logo">Housing<span>Label</span>.dev</a>
   <button class="hamburger" aria-label="Menu">&#9776;</button>
@@ -31,9 +32,10 @@
     <li><a href="https://github.com/compbiolover/housing-nutrition-label">GitHub</a></li>
   </ul>
 </nav>
+<main id="main">
 
 <section>
-  <h2>Interactive Nutrition Label</h2>
+  <h1>Interactive Nutrition Label</h1>
   <p>The thirteen scored dimensions as a single at-a-glance label, scored live by the same API that powers the home-page address search. <strong>Enter any U.S. address or place name</strong> below (or <strong>use your current location</strong>). Nothing is scored until you do. <strong>This home</strong> mode auto-fills the real building&rsquo;s details from public records (USACE structure inventory + Census) and scores it. Edit any detail in <em>Refine building details</em> to correct it and the label updates. Prefer a what-if? Switch to <strong>What-if build</strong> or <strong>Compare builds</strong> to see how five hypothetical construction profiles move each dimension at the same location (the location-driven dimensions shift with the address while the construction-driven ones stay comparable). You can also search by the name of a place or business: the typeahead resolves it to its street address. Each dimension also shows where it lands <em>vs US homes</em> as a national percentile. Your scored location is kept in the page link, so you can bookmark or share it, and it&rsquo;s pre-filled on your next visit. A <strong>&ldquo;cost over a mortgage&rdquo;</strong> strip present-values the dollar difference in energy and expected disaster losses against a typical comparable, and <strong>Compare builds</strong> mode puts two profiles side by side with a per-dimension delta.</p>
 
   <!-- Unified scoring widget (label-form.js) generates the form, refine panel,
@@ -44,6 +46,7 @@
     <strong>About this data:</strong> Every profile here is scored live by the project's HTTP API (the CLI simulator behind HTTP) at the location you enter above (Cooper-Young, Memphis by default). The five construction-driven dimensions (resilience, energy, durability, environmental footprint, and infrastructure burden) are modeled from each build's configuration and stay comparable across locations. Location-driven dimensions are resolved for the scored location: <strong>Health</strong> (CDC PLACES), <strong>Socioeconomic</strong> (Census ACS), and <strong>Walkability</strong> (EPA National Walkability Index) are each scored against the <em>national</em> distribution of US census tracts. These sources are bundled, keyless, and comparable across locations. Where a location's tract can't be resolved they show <em>N/A</em>: excluded from the composite rather than filled with a placeholder, so a strong build isn't unfairly penalized for a missing input. <strong>Climate Projections</strong> is a sub-county downscaled climate-hazard score (USGS CMIP6-LOCA2 ensemble mean for heat, precipitation &amp; drought, SSP2-4.5 to SSP5-8.5, mid-century, plus an Argonne ClimRR 12&nbsp;km Fire Weather Index fire leg) sampled at this location's census tract, identical across profiles. The composite is the mean of the scored dimensions. National grades use the absolute thresholds A&nbsp;&ge;&nbsp;80, B&nbsp;&ge;&nbsp;60, C&nbsp;&ge;&nbsp;40, D&nbsp;&ge;&nbsp;20, F&nbsp;&lt;&nbsp;20, and each dimension also shows a national percentile (&ldquo;vs US homes&rdquo;). The <strong>&ldquo;cost over a mortgage&rdquo;</strong> figure is a comparative present value of only the two dollar-defensible flows (modeled <strong>energy cost</strong> and <strong>expected annual disaster loss</strong>) discounted in constant (real) dollars at ~4% real (homeowner mortgage opportunity cost; ~2% OMB social rate shown as the band), with no real cost escalation. It deliberately excludes purchase price, property tax, maintenance, and the qualitative dimensions, so it answers &ldquo;which home is cheaper to <em>run and insure</em>,&rdquo; not &ldquo;which is cheaper all-in.&rdquo; Full methodology and citations: <a href="https://github.com/compbiolover/housing-nutrition-label/blob/main/research/lifetime-cost-research.md">research/lifetime-cost-research.md</a>. The small <strong>confidence dot</strong> on each row (&#9679;&nbsp;High, &#9680;&nbsp;Moderate, &#9675;&nbsp;Low) and the composite&rsquo;s <em>&ldquo;N of 9 scored&rdquo;</em> line report <strong>data quality</strong> (source, geographic resolution, completeness) on a channel kept deliberately <em>separate</em> from the grade, so &ldquo;high confidence&rdquo; never reads as &ldquo;good score&rdquo; (a parcel can be confidently an F). It is a provenance judgement, <em>not</em> a statistical margin; the only true numeric interval drawn is the faint <strong>whisker</strong> on Climate Projections, spanning the SSP2-4.5&nbsp;&rarr;&nbsp;SSP5-8.5 emissions-scenario range. Full methodology and citations: <a href="https://github.com/compbiolover/housing-nutrition-label/blob/main/research/uncertainty-confidence-research.md">research/uncertainty-confidence-research.md</a>.
   </div>
 </section>
+</main>
 
 <footer>
   <p>Housing Nutrition Label &middot; MIT License &middot; <a href="https://github.com/compbiolover/housing-nutrition-label">GitHub</a></p>
@@ -65,5 +68,6 @@
     defaultLat: 35.13, defaultLon: -89.99
   });
 </script>
+<script src="back-to-top.js"></script>
 </body>
 </html>

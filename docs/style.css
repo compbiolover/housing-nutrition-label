@@ -1,54 +1,86 @@
 /* Housing Nutrition Label — housinglabel.dev */
 :root {
   color-scheme: light dark;   /* native form controls + scrollbars follow the OS theme */
-  --navy: #1a2332;
-  --slate: #2d3748;
-  --green: #22c55e;
+  /* Brand: Bureau Blue "Harbor" — a deep ink-navy surface with a petrol-leaning
+     blue accent, set over subtly warm neutrals so the page reads credible rather
+     than clinical. The green→red grade scale stays vivid: the data, not the
+     chrome, is what carries color. */
+  --navy: #13233d;            /* dark brand surface: nav, hero, footer, headings, table headers */
+  --slate: #1d3350;           /* hero-gradient end */
+  --accent-on-dark: #4fb3d9;  /* Harbor accent where it sits on the dark brand (nav/footer/hero) */
+  --cta: #15618c;             /* primary-button fill, white text = 6.7:1 (constant across themes) */
+  --green: #22c55e;           /* data green: score-bar fills only (grades keep their own scale) */
   --yellow: #eab308;
   --red: #ef4444;
   --orange: #f97316;
   --blue: #3b82f6;
   --purple: #8b5cf6;
   --teal: #14b8a6;
-  --bg: #f8fafc;
-  --card: #ffffff;
-  --text: #334155;
-  --muted: #64748b;
-  --border: #e2e8f0;
+  --bg: #f6f4f0;              /* warm paper */
+  --card: #fffdf9;           /* warm card */
+  --text: #22262e;
+  --muted: #6b6960;          /* warm grey, 4.8:1 on --bg */
+  --border: #e8e3da;
+  --link: #15618c;           /* Harbor accent on light (5.8:1); brightened for dark below */
   --radius: 8px;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; color: var(--text); background: var(--bg); line-height: 1.6; }
-a { color: var(--blue); text-decoration: none; }
+a { color: var(--link); text-decoration: none; }
 a:hover { text-decoration: underline; }
+
+/* ── Accessibility baseline ─────────────────────────────────────────────────── */
+/* A visible keyboard focus ring for every interactive element. Several custom
+   controls (nav links, buttons, the hamburger) otherwise showed no focus state. */
+:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; border-radius: 2px; }
+nav ul a:focus-visible, .hamburger:focus-visible, nav .logo:focus-visible { outline-color: #fff; }
+/* Skip-to-content link: off-screen until focused, so keyboard/screen-reader users
+   can jump past the nav on every page. */
+.skip-link { position: absolute; left: -9999px; top: 0; z-index: 200;
+  background: var(--card); color: var(--text); padding: 0.6rem 1rem;
+  border: 1px solid var(--border); border-radius: 0 0 var(--radius) 0; }
+.skip-link:focus { left: 0; }
+/* Jump targets clear the sticky nav instead of hiding beneath it. */
+:target, section[id], [id].method-section { scroll-margin-top: 4.5rem; }
 
 /* Nav */
 nav { background: var(--navy); padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
 nav .logo { color: #fff; font-weight: 700; font-size: 1.1rem; padding: 1rem 0; }
 nav .logo:hover, nav .logo:focus { text-decoration: none; }   /* logo links home, no underline */
-nav .logo span { color: var(--green); }
+nav .logo span { color: var(--accent-on-dark); }
 nav ul { list-style: none; display: flex; gap: 0.5rem; }
 nav ul a { color: #cbd5e1; padding: 0.5rem 1rem; border-radius: var(--radius); transition: 0.2s; }
 nav ul a:hover, nav ul a.active { color: #fff; background: rgba(255,255,255,0.1); text-decoration: none; }
-.hamburger { display: none; background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer; }
+.hamburger { display: none; background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer;
+  padding: 0.5rem; min-width: 44px; min-height: 44px; line-height: 1; }   /* ≥44px tap target */
 @media (max-width: 768px) {
-  .hamburger { display: block; }
+  .hamburger { display: flex; align-items: center; justify-content: center; }
   nav ul { display: none; flex-direction: column; position: absolute; top: 100%; left: 0; right: 0; background: var(--navy); padding: 1rem; }
   nav ul.open { display: flex; }
+}
+/* Comfortable touch targets on coarse pointers (phones/tablets). */
+@media (pointer: coarse) {
+  nav ul a { padding: 0.7rem 1rem; }
 }
 
 /* Sections */
 .hero { background: linear-gradient(135deg, var(--navy) 0%, var(--slate) 100%); color: #fff; padding: 5rem 2rem; text-align: center; }
-.hero h1 { font-size: 2.8rem; margin-bottom: 1rem; }
+.hero h1 { font-size: 2.8rem; margin-bottom: 1rem; color: #fff; }
 .hero .tagline { font-size: 1.25rem; color: #94a3b8; max-width: 700px; margin: 0 auto 2rem; }
-.hero .badge { display: inline-block; background: rgba(34,197,94,0.15); color: var(--green); padding: 0.4rem 1rem; border-radius: 20px; font-size: 0.9rem; margin-bottom: 1.5rem; }
+.hero .badge { display: inline-block; background: rgba(79,179,217,0.14); color: var(--accent-on-dark); padding: 0.4rem 1rem; border-radius: 20px; font-size: 0.9rem; margin-bottom: 1.5rem; }
 section { padding: 4rem 2rem; max-width: 1100px; margin: 0 auto; }
+/* Content pages carry a real <h1> (the hero <h1> is larger, styled below). Sized
+   to match the old lead <h2> so promoting the heading changes the outline, not the
+   look. */
+h1 { font-size: 1.9rem; color: var(--navy); margin-bottom: 1.5rem; line-height: 1.25; }
 h2 { font-size: 1.8rem; color: var(--navy); margin-bottom: 1.5rem; }
 h3 { font-size: 1.3rem; color: var(--slate); margin: 1.5rem 0 0.75rem; }
 p { margin-bottom: 1rem; }
 
 /* Cards */
-.card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin: 2rem 0; }
+/* min(100%, 300px) so a single card never demands 300px on a ~320px phone and
+   pushes the page into horizontal scroll. */
+.card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 1.5rem; margin: 2rem 0; }
 .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; transition: box-shadow 0.2s; }
 .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
 .card .icon { font-size: 2rem; margin-bottom: 0.75rem; }
@@ -85,12 +117,19 @@ p { margin-bottom: 1rem; }
    data cells stay nowrap so a score never breaks away from its grade badge. */
 .comparison td:first-child { white-space: normal; }
 .comparison tr:hover { background: #f1f5f9; }
-.comparison .grade { display: inline-block; width: 28px; height: 28px; line-height: 28px; text-align: center; border-radius: 4px; font-weight: 700; font-size: 0.85rem; color: #fff; }
-.grade-a { background: var(--green); }
-.grade-b { background: #84cc16; }
-.grade-c { background: var(--yellow); }
-.grade-d { background: var(--orange); }
-.grade-f { background: var(--red); }
+/* Badge box for every grade chip (was scoped to .comparison, so the grade legends
+   on the home/examples pages rendered as unstyled colored letters). */
+.grade { display: inline-block; min-width: 28px; height: 28px; line-height: 28px; padding: 0 0.35rem;
+  text-align: center; border-radius: 4px; font-weight: 700; font-size: 0.85rem; }
+/* White on the light A–D fills was ~1.9–2.3:1 (failing). Dark ink on the light
+   fills (the Nutri-Score / EU-energy-label convention) clears AA on every chip;
+   grade-A is deepened to green-600 so it never reads as the brand/CTA green, and
+   grade-F keeps the classic white-on-red at a darker red that passes. */
+.grade-a { background: #16a34a; color: #0f172a; }   /* 5.4:1 */
+.grade-b { background: #84cc16; color: #0f172a; }   /* 9.0:1 */
+.grade-c { background: var(--yellow); color: #0f172a; }   /* 9.3:1 */
+.grade-d { background: var(--orange); color: #0f172a; }   /* 6.4:1 */
+.grade-f { background: #dc2626; color: #fff; }      /* 4.8:1 */
 
 /* Methodology — compact cards: less chrome per section means less scrolling
    through the 13 dimensions to reach the one you want. */
@@ -119,8 +158,8 @@ p { margin-bottom: 1rem; }
 .data-table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; }
 .data-table th { background: #f1f5f9; padding: 0.75rem; text-align: left; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
 .data-table td { padding: 0.75rem; border-bottom: 1px solid var(--border); }
-.data-table .free { color: var(--green); font-weight: 600; }
-.data-table .key-needed { color: var(--orange); font-weight: 600; }
+.data-table .free { color: #15803d; font-weight: 600; }        /* accessible positive green (5:1) */
+.data-table .key-needed { color: #c2410c; font-weight: 600; }   /* accessible caution orange */
 
 /* Code blocks */
 pre { background: var(--navy); color: #e2e8f0; padding: 1.25rem; border-radius: var(--radius); overflow-x: auto; margin: 1rem 0; font-size: 0.9rem; line-height: 1.5; }
@@ -137,7 +176,7 @@ p code, li code { overflow-wrap: anywhere; }
 
 /* Footer */
 footer { background: var(--navy); color: #94a3b8; text-align: center; padding: 2rem; margin-top: 3rem; }
-footer a { color: var(--green); }
+footer a { color: var(--accent-on-dark); }
 
 /* Pipeline diagram */
 .pipeline { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 1.5rem 0; }
@@ -148,14 +187,27 @@ footer a { color: var(--green); }
   section { padding: 2rem 1rem; }
 }
 
+/* Honor reduced-motion globally: the score bars animate their width on render,
+   chevrons rotate, cards transition their shadow. Near-zero (not 0) keeps any
+   transitionend handlers firing. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* ── Dark mode (follows the OS via prefers-color-scheme) ─────────────────────── */
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg:     #0f172a;   /* slate-900 page background */
-    --card:   #1e293b;   /* slate-800 surfaces */
-    --text:   #cbd5e1;   /* slate-300 body text */
-    --muted:  #94a3b8;   /* slate-400 secondary text */
-    --border: #334155;   /* slate-700 borders / bar tracks */
+    --bg:     #0f1522;   /* deep blue-black page background */
+    --card:   #18202e;   /* raised surfaces */
+    --text:   #e8e6e0;   /* warm off-white body text */
+    --muted:  #9b988e;   /* warm grey secondary text (5.8:1 on --bg) */
+    --border: #29313f;   /* borders / bar tracks */
+    --link:   #4fb3d9;   /* Harbor accent brightened for the dark ground (7:1) */
     /* semantic hazard/grade colors stay the same — they read fine on dark */
   }
   /* --navy doubles as a dark brand surface (nav/footer/hero/pre/table headers),

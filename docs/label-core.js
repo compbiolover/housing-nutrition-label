@@ -15,7 +15,11 @@ window.LabelCore = (function () {
   "use strict";
 
   // ── Grades ─────────────────────────────────────────────────────────────────
-  var GRADE_COLORS = { A: "#22c55e", B: "#84cc16", C: "#eab308", D: "#f97316", F: "#ef4444" };
+  // Chip backgrounds + their letter ink. White on the light A–D fills failed WCAG
+  // AA (~1.9–2.3:1); dark ink clears it. A is green-600 so the chip never reads as
+  // the brand/CTA green; F keeps white-on-red at a darker red that passes.
+  var GRADE_COLORS = { A: "#16a34a", B: "#84cc16", C: "#eab308", D: "#f97316", F: "#dc2626" };
+  var GRADE_INK = { A: "#0f172a", B: "#0f172a", C: "#0f172a", D: "#0f172a", F: "#ffffff" };
   function gradeFor(s) {
     if (s >= 80) return "A"; if (s >= 60) return "B"; if (s >= 40) return "C";
     if (s >= 20) return "D"; return "F";
@@ -243,6 +247,7 @@ window.LabelCore = (function () {
     var comp = data.composite_score;
     var compGrade = data.composite_national_grade || "—";
     var color = GRADE_COLORS[compGrade] || "#64748b";
+    var ink = GRADE_INK[compGrade] || "#ffffff";   /* white on the gray fallback = 4.7:1 */
     var m = data.metrics || {};
     var h = data.house || {};
 
@@ -281,7 +286,7 @@ window.LabelCore = (function () {
       + (structLine ? '<div class="build-line">' + structLine + '</div>' : '')
       + '</div><div style="text-align:right;"><div class="composite-num">'
       + (comp == null ? "N/A" : comp.toFixed(1)) + '</div>'
-      + '<span class="grade-lg" style="background:' + color + '">' + esc(compGrade) + '</span></div></div>';
+      + '<span class="grade-lg" style="background:' + color + ';color:' + ink + '">' + esc(compGrade) + '</span></div></div>';
 
     var confLine = compositeConfLine(data);
     html += confLine.html;

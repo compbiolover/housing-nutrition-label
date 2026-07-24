@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<a href="#main" class="skip-link">Skip to content</a>
 <nav>
   <a href="index.html" class="logo">Housing<span>Label</span>.dev</a>
   <button class="hamburger" aria-label="Menu">&#9776;</button>
@@ -23,9 +24,10 @@
     <li><a href="https://github.com/compbiolover/housing-nutrition-label">GitHub</a></li>
   </ul>
 </nav>
+<main id="main">
 
 <section>
-  <h2>Quick Start</h2>
+  <h1>Quick Start</h1>
   <pre><code>git clone https://github.com/compbiolover/housing-nutrition-label.git
 cd housing-nutrition-label
 python3 -m venv .venv
@@ -215,10 +217,12 @@ housing-api                        # serves on :8000 (PORT overrides) &mdash; no
     <li style="margin-bottom:0.5rem;"><strong>Scale beyond Shelby County:</strong> parameterize for any US county</li>
   </ul>
 </section>
+</main>
 
 <footer>
   <p>Housing Nutrition Label &middot; MIT License &middot; <a href="https://github.com/compbiolover/housing-nutrition-label">GitHub</a></p>
 </footer>
 <script src="nav.js"></script>
+<script src="back-to-top.js"></script>
 </body>
 </html>

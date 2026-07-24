@@ -13,6 +13,7 @@
   <script>window.HOUSING_LABEL_API = "https://housing-nutrition-label.onrender.com"</script>
 </head>
 <body>
+<a href="#main" class="skip-link">Skip to content</a>
 <nav>
   <a href="index.html" class="logo">Housing<span>Label</span>.dev</a>
   <button class="hamburger" aria-label="Menu">&#9776;</button>
@@ -26,14 +27,15 @@
     <li><a href="https://github.com/compbiolover/housing-nutrition-label">GitHub</a></li>
   </ul>
 </nav>
+<main id="main">
 
 <section>
-  <h2>Case Studies</h2>
+  <h1>Case Studies</h1>
   <p>These examples use the CLI house simulator with real scoring models. Each preset is a different construction profile at the same walkable Cooper-Young location in Midtown Memphis (lat 35.13, lon -89.99). The five construction-driven dimensions are modeled from each build; health, socioeconomic, and walkability are fetched live for the location (so they're identical across presets).</p>
   <p><a href="label.html">See the interactive nutrition label &rarr;</a>. It shows the same construction profiles rendered as an interactive label across all thirteen dimensions.</p>
 </section>
 
-<section>
+<section id="score-address">
   <h2>Score Any US Address</h2>
   <p>Type any US address (or the name of a place or business, which resolves to its street address) to generate a live nutrition label for the <strong>real building at that location</strong>, auto-filled from public records (USACE structure inventory + Census) and scored across the same thirteen dimensions the CLI produces. Health, socioeconomic &amp; walkability are scored against national reference distributions (comparable across locations); energy uses the local climate zone; seismic and flood are pulled for the exact point. Disaster Resilience is the combined expected loss from flood, tornado, earthquake, and fire. Expand <em>Refine building details</em> to correct any auto-filled value (year built, wall type, square footage, upgrades) and the label re-scores. To compare hypothetical construction profiles head-to-head, see the <a href="label.html">interactive label</a> or the side-by-side table below.</p>
 
@@ -153,7 +155,7 @@
   <div class="insight">
     <strong>The density dividend:</strong> going from a single-family home to a quadplex lowers the per-unit infrastructure cost (the same roads and water mains serve more homes), which lifts the fiscal ratio. Multi-unit energy is now scored off the <strong>measured NREL ResStock EUI</strong> for that building type rather than the detached curve, so the per-unit energy figures reflect the real intensity of that stock (small 2&ndash;4 unit buildings can even run higher per sqft than a detached home).
   </div>
-  <p style="margin-top:0.6rem;font-size:0.9rem;">The table above is an illustrative snapshot; the <strong>live density tool is authoritative</strong>. Score any address in <a href="#">Score Any US Address</a> above, then hit <em>&ldquo;What if this parcel were denser?&rdquo;</em> to compare 1&ndash;4 units on that exact lot, including <strong>fiscal productivity per acre</strong> (a quadplex generates roughly 4&times; the property-tax revenue per acre on the same land), or call the <code>/density</code> API endpoint directly.</p>
+  <p style="margin-top:0.6rem;font-size:0.9rem;">The table above is an illustrative snapshot; the <strong>live density tool is authoritative</strong>. Score any address in <a href="#score-address">Score Any US Address</a> above, then hit <em>&ldquo;What if this parcel were denser?&rdquo;</em> to compare 1&ndash;4 units on that exact lot, including <strong>fiscal productivity per acre</strong> (a quadplex generates roughly 4&times; the property-tax revenue per acre on the same land), or call the <code>/density</code> API endpoint directly.</p>
 </section>
 
 <section>
@@ -200,12 +202,13 @@
     <strong>Key insight:</strong> Shelby County spans nearly the whole national range, from car-dependent exurban tracts near the bottom to Downtown's older street grid at 92 (an A on the national scale). Because the EPA index is national, the grade is directly comparable across cities: the Downtown tract is genuinely walkable by national standards, not merely relative to its neighbors. Nationally, most US neighborhoods are car-dependent. The household-weighted national mean is ~45.
   </div>
 </section>
-
+</main>
 <footer>
   <p>Housing Nutrition Label &middot; MIT License &middot; <a href="https://github.com/compbiolover/housing-nutrition-label">GitHub</a></p>
   <p style="margin-top:0.5rem;font-size:0.85rem;">Resilience/energy scores from the CLI simulator; walkability from the EPA National Walkability Index. Try it: <code>python simulate_house.py --preset icf-passive --lat 35.15 --lon -89.85</code></p>
 </footer>
 <script src="nav.js"></script>
+<script src="back-to-top.js"></script>
 <script src="label-core.js"></script>
 <script src="addr-suggest.js"></script>
 <script src="label-form.js"></script>

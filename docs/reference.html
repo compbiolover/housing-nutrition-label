@@ -29,6 +29,7 @@
   </style>
 </head>
 <body>
+<a href="#main" class="skip-link">Skip to content</a>
 <nav>
   <a href="index.html" class="logo">Housing<span>Label</span>.dev</a>
   <button class="hamburger" aria-label="Menu">&#9776;</button>
@@ -42,9 +43,10 @@
     <li><a href="https://github.com/compbiolover/housing-nutrition-label">GitHub</a></li>
   </ul>
 </nav>
+<main id="main">
 
 <section>
-  <h2>Reference</h2>
+  <h1>Reference</h1>
   <p>A complete catalog of the label's thirteen dimensions, every variable you can control, and where each input comes from geographically. For the underlying formulas and sources, see <a href="methodology.html">Methodology</a>; to run it yourself, see <a href="setup.html">Setup</a>.</p>
   <ul class="ref-toc">
     <li><a href="#geo">Geographic resolution</a></li>
@@ -290,10 +292,12 @@
   <pre><code>GET /density?address=&lt;addr&gt;&amp;units=1,2,4&amp;per_unit_value=250000</code></pre>
   <p>Compares the parcel across densities (fixed lot, vary units). Accepts every <code>/label</code> house parameter plus <code>units=</code> (comma-separated counts, default <code>1,2,3,4</code>) and <code>per_unit_value=</code> (held constant; otherwise an explicit <code>value=</code> is the per-unit value, else the county median is auto-filled). Each scenario returns its scores plus <strong>fiscal productivity per acre</strong> (<code>revenue_per_acre</code>, <code>cost_per_acre</code>, <code>net_fiscal_per_acre</code>), and the response includes the headline density dividend (fiscal ratio, Infrastructure grade, and property-tax-revenue-per-acre multiplier from fewest to most units).</p>
 </section>
+</main>
 
 <footer>
   Housing Nutrition Label &middot; <a href="https://github.com/compbiolover/housing-nutrition-label">open source on GitHub</a>
 </footer>
 <script src="nav.js"></script>
+<script src="back-to-top.js"></script>
 </body>
 </html>
