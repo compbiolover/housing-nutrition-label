@@ -100,7 +100,7 @@ window.LabelCore = (function () {
     var lbl = i.label + " confidence" + (note ? " — " + note : "");
     // Focusable + labelled so the provenance reaches keyboard/screen-reader
     // users, not just on hover.
-    return '<span class="conf-dot" role="img" tabindex="0" aria-label="' + esc(lbl) + '" title="' + esc(lbl) + '">' + i.glyph + '</span>';
+    return '<span class="conf-dot tip" role="img" tabindex="0" aria-label="' + esc(lbl) + '" data-tip="' + esc(lbl) + '">' + i.glyph + '</span>';
   }
 
   // ── Lifetime "cost over a mortgage" (delta vs. a typical comparable) ───────
@@ -207,8 +207,8 @@ window.LabelCore = (function () {
       if (typeof d.national_percentile === "number" && isFinite(d.national_percentile)) {
         var p = d.national_percentile, o = p % 10, t = Math.floor(p / 10) % 10;
         var suf = (t === 1) ? "th" : (o === 1 ? "st" : o === 2 ? "nd" : o === 3 ? "rd" : "th");
-        pctStr = ' <span class="natl-pct" title="About the ' + p + suf
-          + ' percentile nationally — better than ~' + p + '% of US homes (modeled estimate)">'
+        var pctTip = 'About the ' + p + suf + ' percentile nationally: better than ~' + p + '% of US homes (modeled estimate)';
+        pctStr = ' <span class="natl-pct tip" tabindex="0" aria-label="' + esc(pctTip) + '" data-tip="' + esc(pctTip) + '">'
           + p + suf + ' US</span>';
       }
       right = '<span>' + sc.toFixed(1) + ' / ' + esc(d.national_grade) + pctStr + dot + chev + '</span>';
@@ -226,7 +226,7 @@ window.LabelCore = (function () {
     var ci = confInfo(cc.tier);
     var ccLbl = ci.label + " confidence, " + cc.nScored + " of " + cc.nTotal
       + " dimensions scored. " + (data.confidence_legend || "");
-    var html = '<div class="composite-conf" tabindex="0" aria-label="' + esc(ccLbl) + '" title="' + esc(data.confidence_legend || "") + '">'
+    var html = '<div class="composite-conf tip" tabindex="0" aria-label="' + esc(ccLbl) + '" data-tip="' + esc(data.confidence_legend || "") + '">'
       + '<span class="conf-dot" aria-hidden="true">' + ci.glyph + '</span> ' + ci.label + ' confidence &middot; '
       + cc.nScored + ' of ' + cc.nTotal + ' dimensions scored</div>';
     return { html: html, cc: cc };
