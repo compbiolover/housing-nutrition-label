@@ -9,8 +9,6 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180">
   <link rel="stylesheet" href="style.css">
   <style>
-    .ref-toc { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; margin: 1rem 0 0; padding: 0; list-style: none; }
-    .ref-toc a { font-size: 0.92rem; }
     .data-table td:first-child, .data-table th:first-child { white-space: nowrap; }
     .tag { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.75rem;
       font-weight: 600; }
@@ -45,25 +43,35 @@
 </nav>
 <main id="main">
 
-<section>
+<section class="doc-intro">
   <h1>Reference</h1>
   <p>A complete catalog of the label's thirteen dimensions, every variable you can control, and where each input comes from geographically. For the underlying formulas and sources, see <a href="methodology.html">Methodology</a>; to run it yourself, see <a href="setup.html">Setup</a>.</p>
-  <ul class="ref-toc">
-    <li><a href="#geo">Geographic resolution</a></li>
-    <li><a href="#dimensions">The thirteen dimensions</a></li>
-    <li><a href="#construction">Wall / construction type</a></li>
-    <li><a href="#condition">Condition</a></li>
-    <li><a href="#foundation">Foundation</a></li>
-    <li><a href="#year">Year built</a></li>
-    <li><a href="#fields">Other house fields</a></li>
-    <li><a href="#upgrades">Resilience upgrades</a></li>
-    <li><a href="#presets">Presets</a></li>
-    <li><a href="#controls">CLI &amp; API</a></li>
-  </ul>
 </section>
 
+<div class="doc-layout">
+  <aside class="doc-toc">
+    <div class="toc-nav" role="navigation" aria-label="On this page">
+      <p class="toc-title">On this page</p>
+      <ul>
+        <li><a href="#geo">Geographic resolution</a></li>
+        <li><a href="#dimensions">Dimensions</a></li>
+        <li><a href="#construction">Construction type</a></li>
+        <li><a href="#condition">Condition</a></li>
+        <li><a href="#foundation">Foundation</a></li>
+        <li><a href="#year">Year built</a></li>
+        <li><a href="#fields">Other fields</a></li>
+        <li><a href="#upgrades">Resilience upgrades</a></li>
+        <li><a href="#presets">Presets</a></li>
+        <li><a href="#controls">CLI &amp; API</a></li>
+      </ul>
+    </div>
+  </aside>
+  <div class="doc-body">
+
 <section id="geo">
-  <h2>Geographic resolution: what's measured where</h2>
+  <details class="acc" open>
+    <summary><span class="acc-ico" aria-hidden="true">🗺️</span><h2>Geographic resolution: what's measured where</h2><span class="acc-chev" aria-hidden="true">&rsaquo;</span></summary>
+    <div class="acc-body">
   <p>Some inputs are pulled for your <strong>exact address</strong>; others describe the surrounding <strong>census tract</strong> or <strong>county</strong>; a couple use <strong>national</strong> models; and a few depend only on <strong>your house</strong> and are identical anywhere. This is the single most common source of confusion, so here it is up front.</p>
   <div class="table-scroll"><table class="data-table">
     <thead><tr><th>Resolution</th><th>What's resolved at this level</th></tr></thead>
@@ -76,12 +84,16 @@
     </tbody>
   </table></div>
   <div class="insight"><strong>Why it matters:</strong> two identical buildings can score very differently on Health, Socioeconomic, or Walkability purely because of location, while Durability and the construction-driven dimensions move only when you change the build.</div>
+    </div>
+  </details>
 </section>
 
 <section id="dimensions">
+  <details class="acc" open>
+    <summary><span class="acc-ico" aria-hidden="true">📊</span><h2>The dimensions</h2><span class="acc-chev" aria-hidden="true">&rsaquo;</span></summary>
+    <div class="acc-body">
   <!-- BEGIN AUTOGEN:ref-dimensions (managed by scripts/sync_docs.py — edits here are overwritten; run `python scripts/sync_docs.py --write`) -->
-  <h2>The thirteen dimensions</h2>
-  <p>The composite is the mean of whichever dimensions could be scored (location dimensions are omitted, not zeroed, when their data/keys are unavailable). National grades use absolute thresholds: A&nbsp;&ge;&nbsp;80, B&nbsp;&ge;&nbsp;60, C&nbsp;&ge;&nbsp;40, D&nbsp;&ge;&nbsp;20, F&nbsp;&lt;&nbsp;20.</p>
+  <p>The engine scores <strong>thirteen dimensions</strong>. The composite is the mean of whichever could be scored (location dimensions are omitted, not zeroed, when their data/keys are unavailable). National grades use absolute thresholds: A&nbsp;&ge;&nbsp;80, B&nbsp;&ge;&nbsp;60, C&nbsp;&ge;&nbsp;40, D&nbsp;&ge;&nbsp;20, F&nbsp;&lt;&nbsp;20.</p>
   <div class="table-scroll"><table class="data-table">
     <thead><tr><th>Dimension</th><th>Measures</th><th>Data source</th><th>Resolution</th></tr></thead>
     <tbody>
@@ -101,10 +113,14 @@
     </tbody>
   </table></div>
 <!-- END AUTOGEN:ref-dimensions -->
+    </div>
+  </details>
 </section>
 
 <section id="construction">
-  <h2>Wall / construction type</h2>
+  <details class="acc" open>
+    <summary><span class="acc-ico" aria-hidden="true">🧱</span><h2>Wall / construction type</h2><span class="acc-chev" aria-hidden="true">&rsaquo;</span></summary>
+    <div class="acc-body">
   <p>The structural system. It drives Disaster Resilience (separate factors per peril) and the build-quality grade used by Durability &amp; Environmental. <strong>Lower peril factors = less expected loss = better;</strong> higher build grade = better. ICF/SIP also get extra envelope credit in the Energy model beyond what the wall code below implies.</p>
   <!-- BEGIN AUTOGEN:ref-construction (managed by scripts/sync_docs.py — edits here are overwritten; run `python scripts/sync_docs.py --write`) -->
   <div class="table-scroll"><table class="data-table">
@@ -121,10 +137,14 @@
     </tbody>
   </table></div>
 <!-- END AUTOGEN:ref-construction -->
+    </div>
+  </details>
 </section>
 
 <section id="condition">
-  <h2>Condition</h2>
+  <details class="acc" open>
+    <summary><span class="acc-ico" aria-hidden="true">🛠️</span><h2>Condition</h2><span class="acc-chev" aria-hidden="true">&rsaquo;</span></summary>
+    <div class="acc-body">
   <p>Upkeep/deterioration. Multiplies expected loss for every disaster peril (so it affects the score at any age, with no upper cap) and feeds the Durability model.</p>
   <!-- BEGIN AUTOGEN:ref-condition (managed by scripts/sync_docs.py — edits here are overwritten; run `python scripts/sync_docs.py --write`) -->
   <div class="table-scroll"><table class="data-table">
@@ -139,10 +159,14 @@
     </tbody>
   </table></div>
 <!-- END AUTOGEN:ref-condition -->
+    </div>
+  </details>
 </section>
 
 <section id="foundation">
-  <h2>Foundation</h2>
+  <details class="acc" open>
+    <summary><span class="acc-ico" aria-hidden="true">🪨</span><h2>Foundation</h2><span class="acc-chev" aria-hidden="true">&rsaquo;</span></summary>
+    <div class="acc-body">
   <p>Affects the <strong>flood</strong> peril only (below-grade space is what floods).</p>
   <!-- BEGIN AUTOGEN:ref-foundation (managed by scripts/sync_docs.py — edits here are overwritten; run `python scripts/sync_docs.py --write`) -->
   <div class="table-scroll"><table class="data-table">
@@ -155,10 +179,14 @@
     </tbody>
   </table></div>
 <!-- END AUTOGEN:ref-foundation -->
+    </div>
+  </details>
 </section>
 
 <section id="year">
-  <h2>Year built</h2>
+  <details class="acc" open>
+    <summary><span class="acc-ico" aria-hidden="true">📅</span><h2>Year built</h2><span class="acc-chev" aria-hidden="true">&rsaquo;</span></summary>
+    <div class="acc-body">
   <!-- BEGIN AUTOGEN:ref-year-code (managed by scripts/sync_docs.py — edits here are overwritten; run `python scripts/sync_docs.py --write`) -->
   <p>The build-code era (wind/seismic) vulnerability is a <strong>continuous</strong> curve, linearly interpolated between the anchor years below and clamped beyond them. A 1969 and a 1970 build no longer differ by a cliff. <strong>Lower is better.</strong></p>
   <div class="table-scroll"><table class="data-table">
@@ -184,10 +212,14 @@
     </tbody>
   </table></div>
 <!-- END AUTOGEN:ref-year-fire -->
+    </div>
+  </details>
 </section>
 
 <section id="fields">
-  <h2>Other house fields</h2>
+  <details class="acc" open>
+    <summary><span class="acc-ico" aria-hidden="true">🎛️</span><h2>Other house fields</h2><span class="acc-chev" aria-hidden="true">&rsaquo;</span></summary>
+    <div class="acc-body">
   <div class="table-scroll"><table class="data-table">
     <thead><tr><th>Field</th><th>What it does</th><th>Default</th></tr></thead>
     <tbody>
@@ -198,62 +230,92 @@
       <tr><td>Lot acres</td><td>Parcel size; feeds the infrastructure cost-to-serve model.</td><td>0.25</td></tr>
     </tbody>
   </table></div>
+    </div>
+  </details>
 </section>
 
 <section id="upgrades">
-  <h2>Resilience upgrades</h2>
+  <details class="acc" open>
+    <summary><span class="acc-ico" aria-hidden="true">🛡️</span><h2>Resilience upgrades</h2><span class="acc-chev" aria-hidden="true">&rsaquo;</span></summary>
+    <div class="acc-body">
   <p>Above-code features that reduce a specific peril's expected loss. Each is a multiplier (<strong>lower = bigger reduction</strong>) applied on top of the construction/condition adjustment. FORTIFIED tiers are composite and supersede the individual wind features; the three elevation tiers are mutually exclusive.</p>
   <!-- BEGIN AUTOGEN:ref-upgrades (managed by scripts/sync_docs.py — edits here are overwritten; run `python scripts/sync_docs.py --write`) -->
-  <h3>General (apply to flood, tornado &amp; seismic)</h3>
-  <div class="table-scroll"><table class="data-table"><thead><tr><th>Upgrade</th><th>Factor</th></tr></thead><tbody>
-    <tr><td>Solar panels</td><td>0.97</td></tr>
-    <tr><td>Backup generator / battery</td><td>0.95</td></tr>
-    <tr><td>Passive-house certification</td><td>0.92</td></tr>
-    <tr><td>Fire sprinklers</td><td>0.92 here, <strong>and 0.40 on fire</strong></td></tr>
-  </tbody></table></div>
-  <h3>Wind / tornado</h3>
-  <div class="table-scroll"><table class="data-table"><thead><tr><th>Upgrade</th><th>Factor</th></tr></thead><tbody>
-    <tr><td>Tornado safe room (FEMA P-361)</td><td>0.85</td></tr>
-    <tr><td>Hurricane straps (continuous load path)</td><td>0.70</td></tr>
-    <tr><td>Hip roof</td><td>0.55</td></tr>
-    <tr><td>Impact-rated garage door</td><td>0.75</td></tr>
-    <tr><td>Sealed roof deck</td><td>0.80</td></tr>
-    <tr><td>Standing-seam metal roof</td><td>0.75</td></tr>
-    <tr><td>Reinforced gable ends</td><td>0.80</td></tr>
-    <tr><td>Ring-shank nails</td><td>0.88</td></tr>
-    <tr><td>16&Prime; OC trusses</td><td>0.92</td></tr>
-  </tbody></table></div>
-  <h3>IBHS FORTIFIED (composite that supersedes the wind features above)</h3>
-  <div class="table-scroll"><table class="data-table"><thead><tr><th>Upgrade</th><th>Factor</th></tr></thead><tbody>
-    <tr><td>FORTIFIED Roof</td><td>0.35</td></tr>
-    <tr><td>FORTIFIED Silver</td><td>0.25</td></tr>
-    <tr><td>FORTIFIED Gold</td><td>0.20</td></tr>
-  </tbody></table></div>
-  <h3>Seismic</h3>
-  <div class="table-scroll"><table class="data-table"><thead><tr><th>Upgrade</th><th>Factor</th></tr></thead><tbody>
-    <tr><td>Seismic retrofit / base isolation</td><td>0.75</td></tr>
-    <tr><td>Cripple-wall bracing</td><td>0.45</td></tr>
-    <tr><td>Seismic hold-downs</td><td>0.85</td></tr>
-    <tr><td>Automatic gas shut-off valve</td><td>0.90</td></tr>
-  </tbody></table></div>
-  <h3>Flood</h3>
-  <div class="table-scroll"><table class="data-table"><thead><tr><th>Upgrade</th><th>Factor</th></tr></thead><tbody>
-    <tr><td>Elevated +1&nbsp;ft above BFE</td><td>0.15</td></tr>
-    <tr><td>Elevated +2&nbsp;ft</td><td>0.08</td></tr>
-    <tr><td>Elevated +3&nbsp;ft</td><td>0.04</td></tr>
-    <tr><td>Engineered flood vents</td><td>0.85</td></tr>
-    <tr><td>Backflow-prevention valve</td><td>0.90</td></tr>
-    <tr><td>Smart leak detection</td><td>0.95</td></tr>
-  </tbody></table></div>
-  <h3>Fire</h3>
-  <div class="table-scroll"><table class="data-table"><thead><tr><th>Upgrade</th><th>Factor</th></tr></thead><tbody>
-    <tr><td>Fire sprinklers</td><td>0.40 on the fire peril (~60% loss reduction)</td></tr>
-  </tbody></table></div>
+  <div class="tabs" data-tabs>
+    <div class="tablist" role="tablist" aria-label="Resilience upgrade categories">
+      <button type="button" role="tab" id="uptab-general" aria-controls="uppanel-general" aria-selected="true">General</button>
+      <button type="button" role="tab" id="uptab-wind-tornado" aria-controls="uppanel-wind-tornado" aria-selected="false">Wind / tornado</button>
+      <button type="button" role="tab" id="uptab-ibhs-fortified" aria-controls="uppanel-ibhs-fortified" aria-selected="false">IBHS FORTIFIED</button>
+      <button type="button" role="tab" id="uptab-seismic" aria-controls="uppanel-seismic" aria-selected="false">Seismic</button>
+      <button type="button" role="tab" id="uptab-flood" aria-controls="uppanel-flood" aria-selected="false">Flood</button>
+      <button type="button" role="tab" id="uptab-fire" aria-controls="uppanel-fire" aria-selected="false">Fire</button>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="uppanel-general" aria-labelledby="uptab-general" tabindex="0">
+      <p class="tab-caption">General (apply to flood, tornado &amp; seismic)</p>
+      <div class="table-scroll"><table class="data-table"><thead><tr><th>Upgrade</th><th>Factor</th></tr></thead><tbody>
+        <tr><td>Solar panels</td><td>0.97</td></tr>
+        <tr><td>Backup generator / battery</td><td>0.95</td></tr>
+        <tr><td>Passive-house certification</td><td>0.92</td></tr>
+        <tr><td>Fire sprinklers</td><td>0.92 here, <strong>and 0.40 on fire</strong></td></tr>
+      </tbody></table></div>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="uppanel-wind-tornado" aria-labelledby="uptab-wind-tornado" tabindex="0">
+      <p class="tab-caption">Wind / tornado</p>
+      <div class="table-scroll"><table class="data-table"><thead><tr><th>Upgrade</th><th>Factor</th></tr></thead><tbody>
+        <tr><td>Tornado safe room (FEMA P-361)</td><td>0.85</td></tr>
+        <tr><td>Hurricane straps (continuous load path)</td><td>0.70</td></tr>
+        <tr><td>Hip roof</td><td>0.55</td></tr>
+        <tr><td>Impact-rated garage door</td><td>0.75</td></tr>
+        <tr><td>Sealed roof deck</td><td>0.80</td></tr>
+        <tr><td>Standing-seam metal roof</td><td>0.75</td></tr>
+        <tr><td>Reinforced gable ends</td><td>0.80</td></tr>
+        <tr><td>Ring-shank nails</td><td>0.88</td></tr>
+        <tr><td>16&Prime; OC trusses</td><td>0.92</td></tr>
+      </tbody></table></div>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="uppanel-ibhs-fortified" aria-labelledby="uptab-ibhs-fortified" tabindex="0">
+      <p class="tab-caption">IBHS FORTIFIED (composite that supersedes the wind features above)</p>
+      <div class="table-scroll"><table class="data-table"><thead><tr><th>Upgrade</th><th>Factor</th></tr></thead><tbody>
+        <tr><td>FORTIFIED Roof</td><td>0.35</td></tr>
+        <tr><td>FORTIFIED Silver</td><td>0.25</td></tr>
+        <tr><td>FORTIFIED Gold</td><td>0.20</td></tr>
+      </tbody></table></div>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="uppanel-seismic" aria-labelledby="uptab-seismic" tabindex="0">
+      <p class="tab-caption">Seismic</p>
+      <div class="table-scroll"><table class="data-table"><thead><tr><th>Upgrade</th><th>Factor</th></tr></thead><tbody>
+        <tr><td>Seismic retrofit / base isolation</td><td>0.75</td></tr>
+        <tr><td>Cripple-wall bracing</td><td>0.45</td></tr>
+        <tr><td>Seismic hold-downs</td><td>0.85</td></tr>
+        <tr><td>Automatic gas shut-off valve</td><td>0.90</td></tr>
+      </tbody></table></div>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="uppanel-flood" aria-labelledby="uptab-flood" tabindex="0">
+      <p class="tab-caption">Flood</p>
+      <div class="table-scroll"><table class="data-table"><thead><tr><th>Upgrade</th><th>Factor</th></tr></thead><tbody>
+        <tr><td>Elevated +1&nbsp;ft above BFE</td><td>0.15</td></tr>
+        <tr><td>Elevated +2&nbsp;ft</td><td>0.08</td></tr>
+        <tr><td>Elevated +3&nbsp;ft</td><td>0.04</td></tr>
+        <tr><td>Engineered flood vents</td><td>0.85</td></tr>
+        <tr><td>Backflow-prevention valve</td><td>0.90</td></tr>
+        <tr><td>Smart leak detection</td><td>0.95</td></tr>
+      </tbody></table></div>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="uppanel-fire" aria-labelledby="uptab-fire" tabindex="0">
+      <p class="tab-caption">Fire</p>
+      <div class="table-scroll"><table class="data-table"><thead><tr><th>Upgrade</th><th>Factor</th></tr></thead><tbody>
+        <tr><td>Fire sprinklers</td><td>0.40 on the fire peril (~60% loss reduction)</td></tr>
+      </tbody></table></div>
+    </div>
+  </div>
 <!-- END AUTOGEN:ref-upgrades -->
+    </div>
+  </details>
 </section>
 
 <section id="presets">
-  <h2>Presets</h2>
+  <details class="acc" open>
+    <summary><span class="acc-ico" aria-hidden="true">📦</span><h2>Presets</h2><span class="acc-chev" aria-hidden="true">&rsaquo;</span></summary>
+    <div class="acc-body">
   <p>Starting configurations. Any field you set in <em>Construction details</em> (or via CLI/API) overrides the preset.</p>
   <!-- BEGIN AUTOGEN:ref-presets (managed by scripts/sync_docs.py — edits here are overwritten; run `python scripts/sync_docs.py --write`) -->
   <div class="table-scroll"><table class="data-table">
@@ -270,10 +332,14 @@
     </tbody>
   </table></div>
 <!-- END AUTOGEN:ref-presets -->
+    </div>
+  </details>
 </section>
 
 <section id="controls">
-  <h2>Controlling it: CLI &amp; API</h2>
+  <details class="acc" open>
+    <summary><span class="acc-ico" aria-hidden="true">⌨️</span><h2>Controlling it: CLI &amp; API</h2><span class="acc-chev" aria-hidden="true">&rsaquo;</span></summary>
+    <div class="acc-body">
   <p>Every variable above is settable three ways: the <a href="examples.html">Examples</a> search form, the <code>housing-simulate</code> CLI, and the <code>/label</code> HTTP API (see <a href="setup.html#api">Setup</a>).</p>
 
   <h3>CLI</h3>
@@ -291,7 +357,11 @@
   <p>Same parameters as the CLI; resilience upgrades are a single comma-separated <code>upgrades=</code> list. <code>GET /suggest?q=</code> powers the address autocomplete.</p>
   <pre><code>GET /density?address=&lt;addr&gt;&amp;units=1,2,4&amp;per_unit_value=250000</code></pre>
   <p>Compares the parcel across densities (fixed lot, vary units). Accepts every <code>/label</code> house parameter plus <code>units=</code> (comma-separated counts, default <code>1,2,3,4</code>) and <code>per_unit_value=</code> (held constant; otherwise an explicit <code>value=</code> is the per-unit value, else the county median is auto-filled). Each scenario returns its scores plus <strong>fiscal productivity per acre</strong> (<code>revenue_per_acre</code>, <code>cost_per_acre</code>, <code>net_fiscal_per_acre</code>), and the response includes the headline density dividend (fiscal ratio, Infrastructure grade, and property-tax-revenue-per-acre multiplier from fewest to most units).</p>
+    </div>
+  </details>
 </section>
+  </div>
+</div>
 </main>
 
 <footer>
@@ -299,5 +369,6 @@
 </footer>
 <script src="nav.js"></script>
 <script src="back-to-top.js"></script>
+<script src="docs.js"></script>
 </body>
 </html>

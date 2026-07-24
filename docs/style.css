@@ -177,6 +177,71 @@ details.tech > p, details.tech > ul, details.tech > ol { max-width: 68ch; }
 .data-table td { padding: 0.75rem; border-bottom: 1px solid var(--border); }
 .data-table .free { color: #15803d; font-weight: 600; }        /* accessible positive green (5:1) */
 .data-table .key-needed { color: #c2410c; font-weight: 600; }   /* accessible caution orange */
+/* Zebra striping + row hover, using surface-agnostic tints so they read on the
+   page, inside a section card, and in dark mode alike. */
+.data-table td { border-bottom: 1px solid color-mix(in srgb, var(--border) 65%, transparent); }
+.data-table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--text) 4%, transparent); }
+.data-table tbody tr:hover { background: color-mix(in srgb, var(--link) 9%, transparent); }
+
+/* ── Documentation layout (reference.html, setup.html) ──────────────────────────
+   A sticky "On this page" rail beside collapsible section cards, so these long,
+   table-dense pages can be scanned and folded instead of scrolled top to bottom. */
+.doc-intro { max-width: 1180px; margin: 0 auto; padding: 2.5rem 1.5rem 0; }
+.doc-layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 2.5rem;
+  max-width: 1180px; margin: 0 auto; padding: 1.5rem 1.5rem 4rem; align-items: start; }
+.doc-body { min-width: 0; }
+.doc-body > section { max-width: none; margin: 0; padding: 0; }
+
+/* Sticky rail */
+.doc-toc { position: sticky; top: 5rem; align-self: start; font-size: 0.9rem; }
+.doc-toc .toc-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--muted); font-weight: 700; margin: 0 0 0.6rem; }
+.doc-toc ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.doc-toc a { display: block; padding: 0.3rem 0.6rem; border-radius: 6px; color: var(--muted);
+  border-left: 2px solid transparent; text-decoration: none; line-height: 1.3; }
+.doc-toc a:hover { color: var(--text); background: color-mix(in srgb, var(--text) 5%, transparent); text-decoration: none; }
+.doc-toc a.active { color: var(--link); border-left-color: var(--link);
+  background: color-mix(in srgb, var(--link) 8%, transparent); font-weight: 600; }
+
+/* Collapsible section card */
+.acc { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  margin: 0 0 1rem; overflow: hidden; }
+.acc > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 0.7rem;
+  padding: 0.85rem 1.2rem; }
+.acc > summary::-webkit-details-marker { display: none; }
+.acc > summary:hover { background: color-mix(in srgb, var(--text) 4%, transparent); }
+.acc > summary:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
+.acc > summary h2 { font-size: 1.2rem; margin: 0; flex: 1; }
+.acc-ico { font-size: 1.15rem; line-height: 1; }
+.acc-chev { color: var(--muted); font-size: 1.3rem; line-height: 1; transition: transform 0.2s ease; }
+.acc[open] > summary .acc-chev { transform: rotate(90deg); }
+.acc-body { padding: 0 1.2rem 1.2rem; }
+.acc-body > *:first-child { margin-top: 0; }
+@media (prefers-reduced-motion: reduce) { .acc-chev { transition: none; } }
+
+/* Tabs (the resilience-upgrade groups). Progressive enhancement: with no JS the
+   tab strip is hidden and every panel shows stacked; docs.js adds .js-tabs to
+   switch to one-at-a-time. */
+.tabs .tablist { display: none; }
+.tabs.js-tabs .tablist { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0 0 1rem;
+  border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+.tabs .tablist [role="tab"] { font: inherit; font-size: 0.88rem; font-weight: 600; cursor: pointer;
+  border: 1px solid transparent; background: none; color: var(--muted); padding: 0.4rem 0.8rem; border-radius: 7px; }
+.tabs .tablist [role="tab"]:hover { color: var(--text); background: color-mix(in srgb, var(--text) 5%, transparent); }
+.tabs .tablist [role="tab"][aria-selected="true"] { color: #fff; background: var(--cta); }
+.tabs .tablist [role="tab"]:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.tabs.js-tabs [role="tabpanel"]:not(.is-active) { display: none; }
+.tab-caption { font-size: 0.9rem; font-weight: 600; color: var(--text); margin: 0 0 0.6rem; }
+
+/* Mobile: the rail becomes a horizontal chip strip above the content. */
+@media (max-width: 900px) {
+  .doc-layout { grid-template-columns: 1fr; gap: 0.5rem; padding: 1rem 1rem 3rem; }
+  .doc-toc { position: static; top: auto; order: -1; overflow-x: auto; padding-bottom: 0.5rem; }
+  .doc-toc .toc-title { display: none; }
+  .doc-toc ul { flex-direction: row; flex-wrap: nowrap; gap: 0.4rem; }
+  .doc-toc a { white-space: nowrap; border-left: none; border: 1px solid var(--border); }
+  .doc-toc a.active { border-color: var(--link); }
+}
 
 /* Code blocks */
 pre { background: var(--navy); color: #e2e8f0; padding: 1.25rem; border-radius: var(--radius); overflow-x: auto; margin: 1rem 0; font-size: 0.9rem; line-height: 1.5; }

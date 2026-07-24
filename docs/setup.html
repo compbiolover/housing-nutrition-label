@@ -26,8 +26,33 @@
 </nav>
 <main id="main">
 
-<section>
-  <h1>Quick Start</h1>
+<section class="doc-intro">
+  <h1>Setup</h1>
+  <p>Install the scorer, run the CLI house simulator, and (optionally) stand up the address-search API behind the live label. Every field the simulator accepts is catalogued in the <a href="reference.html">Reference</a>.</p>
+</section>
+
+<div class="doc-layout">
+  <aside class="doc-toc">
+    <div class="toc-nav" role="navigation" aria-label="On this page">
+      <p class="toc-title">On this page</p>
+      <ul>
+        <li><a href="#quick-start">Quick Start</a></li>
+        <li><a href="#api-keys">API keys</a></li>
+        <li><a href="#structure">Project structure</a></li>
+        <li><a href="#simulator">House simulator</a></li>
+        <li><a href="#api">Address-search API</a></li>
+        <li><a href="#adding-dimension">Add a dimension</a></li>
+        <li><a href="#tech-stack">Tech stack</a></li>
+        <li><a href="#roadmap">Roadmap</a></li>
+      </ul>
+    </div>
+  </aside>
+  <div class="doc-body">
+
+<section id="quick-start">
+  <details class="acc" open>
+    <summary><span class="acc-ico" aria-hidden="true">⚡</span><h2>Quick Start</h2><span class="acc-chev" aria-hidden="true">&rsaquo;</span></summary>
+    <div class="acc-body">
   <pre><code>git clone https://github.com/compbiolover/housing-nutrition-label.git
 cd housing-nutrition-label
 python3 -m venv .venv
@@ -36,15 +61,23 @@ pip install -e .                    # installs package + dependencies
 housing-simulate --preset icf-passive --lat 35.15 --lon -89.85   # score a house</code></pre>
   <p>Installing with <code>pip install -e .</code> (editable mode) gives you the <code>housing-simulate</code> and <code>housing-api</code> console commands, plus installs <code>requests</code> and <code>pandas</code> automatically from <code>pyproject.toml</code>.</p>
   <p>Scoring is on-demand per address. There is no build step. The location-driven dimensions call a few keyless government APIs (FEMA flood, CDC PLACES, Census ACS) the first time a location is scored.</p>
+    </div>
+  </details>
 </section>
 
-<section>
-  <h2>API Keys</h2>
+<section id="api-keys">
+  <details class="acc" open>
+    <summary><span class="acc-ico" aria-hidden="true">🔑</span><h2>API Keys</h2><span class="acc-chev" aria-hidden="true">&rsaquo;</span></summary>
+    <div class="acc-body">
   <p>Scoring any US address needs <strong>no API keys</strong>. Health, socioeconomic, and walkability are bundled national references (CDC PLACES, Census ACS, and the public-domain EPA National Walkability Index), and the geocoding and hazard/energy lookups use keyless government APIs.</p>
+    </div>
+  </details>
 </section>
 
-<section>
-  <h2>Project Structure</h2>
+<section id="structure">
+  <details class="acc" open>
+    <summary><span class="acc-ico" aria-hidden="true">🗂️</span><h2>Project Structure</h2><span class="acc-chev" aria-hidden="true">&rsaquo;</span></summary>
+    <div class="acc-body">
   <pre><code>housing-nutrition-label/
 &#x251C;&#x2500;&#x2500; src/housing_label/           # Installable Python package
 &#x2502;   &#x251C;&#x2500;&#x2500; config.py                # Shared constants (URLs, rates, thresholds)
@@ -71,10 +104,14 @@ housing-simulate --preset icf-passive --lat 35.15 --lon -89.85   # score a house
 &#x251C;&#x2500;&#x2500; docs/                        # housinglabel.dev site
 &#x251C;&#x2500;&#x2500; pyproject.toml               # Package metadata &amp; dependencies
 &#x2514;&#x2500;&#x2500; README.md</code></pre>
+    </div>
+  </details>
 </section>
 
-<section>
-  <h2>House Simulator</h2>
+<section id="simulator">
+  <details class="acc" open>
+    <summary><span class="acc-ico" aria-hidden="true">🏠</span><h2>House Simulator</h2><span class="acc-chev" aria-hidden="true">&rsaquo;</span></summary>
+    <div class="acc-body">
   <!-- BEGIN AUTOGEN:setup-dimension-counts (managed by scripts/sync_docs.py — edits here are overwritten; run `python scripts/sync_docs.py --write`) -->
   <p>The CLI simulator lets you define a hypothetical house and see its full nutrition label (all thirteen dimensions) instantly.</p>
   <p>Five dimensions are <strong>construction-driven</strong> (resilience, energy, durability, environmental, infrastructure), modeled offline from the house configuration. The other eight are <strong>location-driven</strong>, resolved by the house's census tract or county (no API key needed).</p>
@@ -152,10 +189,14 @@ housing-simulate \
     </tbody>
   </table></div>
 <!-- END AUTOGEN:setup-feature-flags -->
+    </div>
+  </details>
 </section>
 
 <section id="api">
-  <h2>Address-search API</h2>
+  <details class="acc" open>
+    <summary><span class="acc-ico" aria-hidden="true">🔌</span><h2>Address-search API</h2><span class="acc-chev" aria-hidden="true">&rsaquo;</span></summary>
+    <div class="acc-body">
   <p>The <a href="examples.html">Examples</a> page can score any US address with a live nutrition label. Because the site is static (GitHub Pages), the scoring runs behind a small HTTP API that wraps the CLI simulator: the same scoring path, no model drift.</p>
 
   <h3>Run it</h3>
@@ -187,26 +228,38 @@ housing-api                        # serves on :8000 (PORT overrides) &mdash; no
   <p>The search bar reads its API base URL from, in order: a <code>?api=</code> query param on the Examples page, then <code>window.HOUSING_LABEL_API</code>. For a permanent default, set the global before <code>nav.js</code> loads, e.g.:</p>
   <pre><code>&lt;script&gt;window.HOUSING_LABEL_API = "https://your-api-host"&lt;/script&gt;</code></pre>
   <p>Until an API URL is configured the search bar shows a short setup note instead of calling out.</p>
+    </div>
+  </details>
 </section>
 
-<section>
-  <h2>Adding a New Dimension</h2>
+<section id="adding-dimension">
+  <details class="acc" open>
+    <summary><span class="acc-ico" aria-hidden="true">➕</span><h2>Adding a New Dimension</h2><span class="acc-chev" aria-hidden="true">&rsaquo;</span></summary>
+    <div class="acc-body">
   <p>The scorer is designed to be extensible. To add a new scoring dimension:</p>
   <ol style="margin:1rem 0;padding-left:1.5rem;">
     <li style="margin-bottom:0.75rem;">Add a model function in <code>src/housing_label/enrich/</code> (for a construction-driven dimension) or a bundled lookup in <code>src/housing_label/data/</code> (for a location-driven one) that returns your metric for a house / location.</li>
     <li style="margin-bottom:0.75rem;">Map the metric to a 0&ndash;100 score against published good-vs-poor benchmarks, and register the dimension in <code>src/housing_label/simulate/dimensions.py</code>.</li>
     <li style="margin-bottom:0.75rem;">The national grade / percentile and the composite automatically include the new dimension.</li>
   </ol>
+    </div>
+  </details>
 </section>
 
-<section>
-  <h2>Tech Stack</h2>
+<section id="tech-stack">
+  <details class="acc" open>
+    <summary><span class="acc-ico" aria-hidden="true">🧰</span><h2>Tech Stack</h2><span class="acc-chev" aria-hidden="true">&rsaquo;</span></summary>
+    <div class="acc-body">
   <p>Python 3.9+ with two dependencies: <code>requests</code> and <code>pandas</code>. No geo libraries, no databases, no frameworks. All spatial calculations (Haversine, Web Mercator conversion, polygon centroids) use pure math. This is intentional: the whole scorer runs on any machine with Python installed.</p>
   <p>The project is packaged as a standard Python package via <code>pyproject.toml</code> and can be installed with <code>pip install -e .</code> for development or built as a wheel for distribution.</p>
+    </div>
+  </details>
 </section>
 
-<section>
-  <h2>Roadmap</h2>
+<section id="roadmap">
+  <details class="acc" open>
+    <summary><span class="acc-ico" aria-hidden="true">🧭</span><h2>Roadmap</h2><span class="acc-chev" aria-hidden="true">&rsaquo;</span></summary>
+    <div class="acc-body">
   <p>Phase 1 (current) covers data ingestion and scoring. The longer-term vision includes:</p>
   <ul style="margin:1rem 0;padding-left:1.5rem;">
     <li style="margin-bottom:0.5rem;"><strong>Durability dimension:</strong> estimated major maintenance over 15/30 years by construction type and age</li>
@@ -216,7 +269,11 @@ housing-api                        # serves on :8000 (PORT overrides) &mdash; no
     <li style="margin-bottom:0.5rem;"><strong>API layer:</strong> REST API for Zillow/Redfin/Realtor.com integration</li>
     <li style="margin-bottom:0.5rem;"><strong>Scale beyond Shelby County:</strong> parameterize for any US county</li>
   </ul>
+    </div>
+  </details>
 </section>
+  </div>
+</div>
 </main>
 
 <footer>
@@ -224,5 +281,6 @@ housing-api                        # serves on :8000 (PORT overrides) &mdash; no
 </footer>
 <script src="nav.js"></script>
 <script src="back-to-top.js"></script>
+<script src="docs.js"></script>
 </body>
 </html>
