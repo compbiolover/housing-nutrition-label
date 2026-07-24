@@ -9,6 +9,14 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.63](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.62...v0.1.63) (2026-07-24)
+
+
+### Features
+
+* accessibility and readability follow-ups ([#204](https://github.com/compbiolover/housing-nutrition-label/issues/204)) ([2a312cf](https://github.com/compbiolover/housing-nutrition-label/commit/2a312cf5235fe8b8bddb4f7fa38c4d178f613f83))
+* accessibility pass and Bureau Blue (Harbor) palette ([#202](https://github.com/compbiolover/housing-nutrition-label/issues/202)) ([68668fc](https://github.com/compbiolover/housing-nutrition-label/commit/68668fc8be67a743758b983e5ddfe317fa0d2c4c))
+
 ## [0.1.62](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.61...v0.1.62) (2026-07-24)
 
 
