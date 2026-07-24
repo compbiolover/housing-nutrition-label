@@ -131,7 +131,7 @@ DIM_META = {
         source="CDC Tracking (PM2.5/ozone) + EPA radon zones",
         res='<span class="tag tract">tract</span> <span class="tag county">+ county radon</span>'),
     "noise": dict(
-        measures="Transportation-noise exposure &mdash; % of residents at &ge;60&nbsp;dB "
+        measures="Transportation-noise exposure: % of residents at &ge;60&nbsp;dB "
                  "(national percentile)",
         source="US DOT BTS National Transportation Noise Map",
         res='<span class="tag tract">tract</span>'),
@@ -149,12 +149,12 @@ DIM_META = {
         source="NOAA/DOI CMRA (LOCA/NCA4)",
         res='<span class="tag county">county</span>'),
     "solar": dict(
-        measures="Rooftop specific yield (kWh/kW&middot;yr) &mdash; production, $ saved &amp; "
+        measures="Rooftop specific yield (kWh/kW&middot;yr): production, $ saved &amp; "
                  "CO&#8322; avoided (national percentile)",
         source="PVGIS v5.2 on NREL NSRDB",
         res='<span class="tag county">county</span>'),
     "water": dict(
-        measures="Community-water-system health-based violation exposure &mdash; % of residents "
+        measures="Community-water-system health-based violation exposure: % of residents "
                  "on a system with a recent violation (national percentile)",
         source="EPA SDWIS federal reporting",
         res='<span class="tag county">county</span>'),
@@ -165,13 +165,13 @@ DIM_META = {
 CONSTRUCTION_META = {
     "frame": dict(
         label="Wood frame", short="wood frame",
-        notes="Light wood frame &mdash; the baseline; most vulnerable to wind/seismic"),
+        notes="Light wood frame, the baseline; most vulnerable to wind/seismic"),
     "vinyl": dict(
         label="Vinyl-sided frame", short="vinyl-sided frame",
         notes="Wood frame with vinyl siding: slight wind benefit, slightly lower build grade"),
     "brick-frame": dict(
         label="Brick veneer / frame", short="brick veneer / frame",
-        notes="Brick veneer over a wood frame &mdash; composite baseline"),
+        notes="Brick veneer over a wood frame, composite baseline"),
     "brick": dict(
         label="Brick (solid masonry)", short="solid brick",
         notes="Solid brick; better lateral resistance &amp; less combustible"),
@@ -215,7 +215,7 @@ CODE_ERA_NOTES = {
     1940: "Pre-WWII: balloon framing, no engineered connections",
     1970: "Pre-modern seismic/wind codes (pre-1972 wind, pre-1971 seismic)",
     1990: "Early modern (ASCE&nbsp;7 wind), pre-Northridge detailing",
-    2003: "Baseline &mdash; IBC maturity / ASCE&nbsp;7-02",
+    2003: "Baseline: IBC maturity / ASCE&nbsp;7-02",
     2010: "Fully modern IBC / ASCE&nbsp;7-05&ndash;7-10",
 }
 
@@ -268,7 +268,7 @@ UPGRADE_GROUPS = [
         ("Ring-shank nails", BONUS_RING_SHANK_NAILS, "ring_shank_nails", None),
         ("16&Prime; OC trusses", BONUS_TRUSS_16OC, "truss_16oc", None),
     ]),
-    ("IBHS FORTIFIED (composite &mdash; supersedes the wind features above)", [
+    ("IBHS FORTIFIED (composite that supersedes the wind features above)", [
         ("FORTIFIED Roof", BONUS_FORTIFIED_ROOF, "fortified_roof", None),
         ("FORTIFIED Silver", BONUS_FORTIFIED_SILVER, "fortified_silver", None),
         ("FORTIFIED Gold", BONUS_FORTIFIED_GOLD, "fortified_gold", None),
@@ -437,7 +437,7 @@ def gen_ref_year_code() -> str:
     lines = [
         '  <p>The build-code era (wind/seismic) vulnerability is a <strong>continuous</strong> '
         'curve, linearly interpolated between the anchor years below and clamped beyond '
-        'them &mdash; a 1969 and a 1970 build no longer differ by a cliff. <strong>Lower '
+        'them. A 1969 and a 1970 build no longer differ by a cliff. <strong>Lower '
         'is better.</strong></p>',
         '  <div class="table-scroll"><table class="data-table">',
         '    <thead><tr><th>Anchor year</th><th>Code factor (wind/seismic)</th><th>Era</th></tr></thead>',
@@ -494,7 +494,7 @@ def _preset_profile(name: str, p: dict) -> str:
     base = ", ".join(parts)
     ups = [SHORT_UPGRADE[f] for f in BONUS_FLAGS if p.get(f)]
     if ups:
-        base += " &mdash; " + ", ".join(ups)
+        base += " &middot; " + ", ".join(ups)
     return base
 
 
@@ -549,10 +549,10 @@ def gen_setup_dimension_counts() -> str:
     names = ", ".join(constr_names)
     return (
         f'  <p>The CLI simulator lets you define a hypothetical house and see its full '
-        f'nutrition label &mdash; all {_cardinal(n)} dimensions &mdash; instantly.</p>\n'
+        f'nutrition label (all {_cardinal(n)} dimensions) instantly.</p>\n'
         f'  <p>{_cardinal(n_constr).capitalize()} dimensions are '
-        f'<strong>construction-driven</strong> ({names}) &mdash; modeled offline from the '
-        f'house configuration; the other {_cardinal(n_loc)} are '
+        f'<strong>construction-driven</strong> ({names}), modeled offline from the '
+        f'house configuration. The other {_cardinal(n_loc)} are '
         f'<strong>location-driven</strong>, resolved by the house\'s census tract or county '
         f'(no API key needed).</p>')
 

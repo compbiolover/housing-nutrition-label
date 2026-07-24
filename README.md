@@ -4,7 +4,7 @@
 [![Site](https://img.shields.io/badge/live-housinglabel.dev-2e7d32)](https://housinglabel.dev/label.html)
 [![Status](https://img.shields.io/badge/phase%201-complete-brightgreen)](#current-status)
 
-An open-source platform for scoring residential properties across multiple dimensions — disaster resilience, energy efficiency, durability, environmental footprint, infrastructure burden, health impact, air quality, transportation noise, socioeconomic context, walkability, climate projections, rooftop solar potential, and drinking-water quality — and presenting them in a clear, standardized format, **like a nutrition label for housing**.
+An open-source platform that scores residential properties across multiple dimensions (disaster resilience, energy efficiency, durability, environmental footprint, infrastructure burden, health impact, air quality, transportation noise, socioeconomic context, walkability, climate projections, rooftop solar potential, and drinking-water quality) and presents them in a clear, standardized format, **like a nutrition label for housing**.
 
 The goal: give homebuyers, renters, insurers, and policymakers an at-a-glance understanding of a property's true risk and quality profile, beyond what typical listings or appraisals reveal.
 
@@ -30,9 +30,9 @@ The goal: give homebuyers, renters, insurers, and policymakers an at-a-glance un
 
 ## Current Status
 
-> **Phase 1 complete — Shelby County, TN (Memphis) pilot, now generalized nationwide across 13 scored dimensions.**
+> **Phase 1 complete: Shelby County, TN (Memphis) pilot, now generalized nationwide across 13 scored dimensions.**
 
-Enter any U.S. residential address (or lat/lon) and it scores thirteen dimensions plus a rolled-up composite, each with a national (absolute) letter grade and a national percentile, from bundled offline reference data plus a few keyless government APIs. An **interactive nutrition label visualization** is live on the project site — [housinglabel.dev/label.html](https://housinglabel.dev/label.html) — backed by the same scoring API.
+Enter any U.S. residential address (or lat/lon) and it scores thirteen dimensions plus a rolled-up composite, each with a national (absolute) letter grade and a national percentile, from bundled offline reference data plus a few keyless government APIs. An **interactive nutrition label visualization** is live on the project site ([housinglabel.dev/label.html](https://housinglabel.dev/label.html)), backed by the same scoring API.
 
 ## Quick Start
 
@@ -55,7 +55,7 @@ address / lat-lon  →  location resolve   →  per-dimension models   →  nutr
  tract lookups)
 ```
 
-The thirteen dimensions are scored per address on demand — the five construction-driven ones from the house configuration and the eight location-driven ones from the resolved location — using the shared `enrich/` model libraries. There is no offline batch step: the same models back both the CLI simulator and the address-search API.
+The thirteen dimensions are scored per address on demand using the shared `enrich/` model libraries: the five construction-driven ones from the house configuration, and the eight location-driven ones from the resolved location. There is no offline batch step; the same models back both the CLI simulator and the address-search API.
 
 ## Scored Dimensions
 
@@ -84,111 +84,111 @@ The engine scores **thirteen dimensions** (0–100, higher is better) plus a rol
 Expand any dimension below for its full methodology.
 
 <details>
-<summary><strong>🛡️ Disaster Resilience</strong> — flood + tornado + seismic + fire EAL</summary>
+<summary><strong>🛡️ Disaster Resilience</strong>: flood + tornado + seismic + fire EAL</summary>
 
 Expected Annual Loss (EAL) model combining flood, tornado, seismic, and fire hazards, weighted by a construction-quality modifier (year built, construction type, roof shape, foundation, condition). The fire peril blends a national-average structural/electrical fire baseline with the location's FEMA National Risk Index **wildfire** EAL, so it is genuinely location-aware (near-zero in Memphis, materially higher in the fire-prone West).
 
 </details>
 
 <details>
-<summary><strong>⚡ Energy Efficiency</strong> — modeled Energy Use Intensity</summary>
+<summary><strong>⚡ Energy Efficiency</strong>: modeled Energy Use Intensity</summary>
 
 Energy Use Intensity (EUI) from NREL ResStock 2024 simulation medians by building type (single-family, multi-family, mobile/manufactured), climate zone, and vintage, adjusted for the home's size, construction, and (ResStock-derived) foundation/heating-system factors.
 
 </details>
 
 <details>
-<summary><strong>🏗️ Durability</strong> — component-lifespan / effective-age model</summary>
+<summary><strong>🏗️ Durability</strong>: component-lifespan / effective-age model</summary>
 
 Component-lifespan / effective-age model blending the remaining service life of eight major building systems (structural shell, roof, HVAC, plumbing, electrical, windows, interior finishes, water heater) with the assessor's condition rating (CDU/COND), then adjusted for exterior-wall material and construction grade. Unscored for vacant / non-residential parcels with no building data.
 
 </details>
 
 <details>
-<summary><strong>🌱 Environmental Footprint</strong> — operational + embodied carbon + water</summary>
+<summary><strong>🌱 Environmental Footprint</strong>: operational + embodied carbon + water</summary>
 
 Three components blended 0.50 operational / 0.30 embodied / 0.20 water: operational CO₂e from modeled energy use × EPA eGRID2023 Rev 2 grid **average** + natural-gas factors, with solar/efficiency-avoided kWh credited at the NREL Cambium 2023 LRMER **marginal** rate (what actually turns off long-run; CONUS only); embodied carbon from material/size (calibrated to the ~39–121 kgCO₂e/m² US single-family band) amortized over a 60-yr study period; and water use from EPA WaterSense benchmarks (with the Memphis Sand aquifer's low embedded-energy advantage). See [research/environmental-footprint-research.md](research/environmental-footprint-research.md). Unscored for vacant / non-residential parcels.
 
 </details>
 
 <details>
-<summary><strong>🏙️ Infrastructure Burden</strong> — density-based municipal fiscal ratio</summary>
+<summary><strong>🏙️ Infrastructure Burden</strong>: density-based municipal fiscal ratio</summary>
 
 Density-based municipal cost model producing a per-parcel fiscal ratio (revenue vs. infrastructure cost) by density and distance to the urban core. The per-function cost levels are calibrated to each county's actual local-government spending (Census of Governments per-capita direct expenditure on roads, water/sewer, fire, police, sanitation, parks), so the estimate reflects local fiscal reality rather than reusing the Memphis pilot everywhere. See [research/infrastructure-burden-research.md](research/infrastructure-burden-research.md).
 
 </details>
 
 <details>
-<summary><strong>❤️ Health Impact</strong> — CDC PLACES chronic-disease prevalence</summary>
+<summary><strong>❤️ Health Impact</strong>: CDC PLACES chronic-disease prevalence</summary>
 
-CDC PLACES census-tract chronic-disease prevalence (7 measures) scored against the **full national distribution of US census tracts** (population-weighted), not ranked within the local county — so a health score means the same thing in Memphis and in Denver. Bundled offline and keyless ([`data/health.py`](src/housing_label/data/health.py), built by [`scripts/build_health_ref.py`](scripts/build_health_ref.py)); resolves tract → county → national.
+CDC PLACES census-tract chronic-disease prevalence (7 measures) scored against the **full national distribution of US census tracts** (population-weighted), not ranked within the local county, so a health score means the same thing in Memphis and in Denver. Bundled offline and keyless ([`data/health.py`](src/housing_label/data/health.py), built by [`scripts/build_health_ref.py`](scripts/build_health_ref.py)); resolves tract → county → national.
 
 </details>
 
 <details>
-<summary><strong>🌫️ Air Quality</strong> — PM2.5 + ozone (CDC Tracking) + EPA radon zone</summary>
+<summary><strong>🌫️ Air Quality</strong>: PM2.5 + ozone (CDC Tracking) + EPA radon zone</summary>
 
 Tract-level ambient air quality: annual **PM2.5** and daily-max-8-hour **ozone** from the CDC Environmental Public Health Tracking downscaler model at the **census tract** (~84k US tracts, full coverage incl. unmonitored areas), plus the **EPA Map of Radon Zones** class (a county-level dataset with no finer public source, broadcast to the tract's county). Each layer maps to a national-percentile sub-score against the distribution of US **tracts** and blends (PM2.5 0.45, ozone 0.25, radon 0.30; radon's weight redistributed for the ~0.2% of counties with no EPA zone). PM2.5/ozone resolve tract → county fallback. Bundled offline and keyless ([`data/air_quality.py`](src/housing_label/data/air_quality.py), built by [`scripts/build_air_quality.py`](scripts/build_air_quality.py)).
 
 </details>
 
 <details>
-<summary><strong>🔇 Noise</strong> — transportation-noise exposure (US DOT BTS)</summary>
+<summary><strong>🔇 Noise</strong>: transportation-noise exposure (US DOT BTS)</summary>
 
-Tract-level transportation-noise exposure from the **US DOT BTS National Transportation Noise Map** (via the census-tract National Transportation Noise Exposure Map, Seto & Huang 2023) — combined aviation + road + rail noise. The metric is the **share of a tract's residents exposed to LAeq ≥ 60 dB**, mapped to a national-percentile score against the distribution of US tracts (more exposure → lower score; higher = quieter), with a tract → county-mean fallback. Bundled offline and keyless — read from the map's per-state shapefile `.dbf` attribute tables with a pure-Python dBASE reader (no GIS dependency) ([`data/noise.py`](src/housing_label/data/noise.py), built by [`scripts/build_noise.py`](scripts/build_noise.py)).
-
-</details>
-
-<details>
-<summary><strong>👥 Socioeconomic</strong> — Census ACS income / poverty / housing-cost burden</summary>
-
-Census ACS poverty, income, and housing-cost-burden indicators scored against the **full national distribution of US census tracts** (household-weighted), not ranked within the local county. Bundled offline from the keyless ACS 5-year Summary File ([`data/socioeconomic.py`](src/housing_label/data/socioeconomic.py), built by [`scripts/build_socio_ref.py`](scripts/build_socio_ref.py)) — the live scoring path no longer needs a Census API key.
+Tract-level transportation-noise exposure from the **US DOT BTS National Transportation Noise Map** (via the census-tract National Transportation Noise Exposure Map, Seto & Huang 2023): combined aviation + road + rail noise. The metric is the **share of a tract's residents exposed to LAeq ≥ 60 dB**, mapped to a national-percentile score against the distribution of US tracts (more exposure → lower score; higher = quieter), with a tract → county-mean fallback. Bundled offline and keyless, read from the map's per-state shapefile `.dbf` attribute tables with a pure-Python dBASE reader (no GIS dependency) ([`data/noise.py`](src/housing_label/data/noise.py), built by [`scripts/build_noise.py`](scripts/build_noise.py)).
 
 </details>
 
 <details>
-<summary><strong>🚶 Walkability</strong> — EPA National Walkability Index</summary>
+<summary><strong>👥 Socioeconomic</strong>: Census ACS income / poverty / housing-cost burden</summary>
 
-**EPA National Walkability Index** — public-domain, national (every US census block group), keyless, and freely storable. Its 1–20 index (intersection density + transit proximity + land-use mix) is scaled to 0–100 and aggregated to census tracts ([`data/walkability.py`](src/housing_label/data/walkability.py), built by [`scripts/build_walkability.py`](scripts/build_walkability.py)). This replaces the Walk Score API, whose Terms of Use prohibit storing scores and whose free tier caps at ~5,000 calls/day.
-
-</details>
-
-<details>
-<summary><strong>🌡️ Climate Projections</strong> — sub-county downscaled hazard band (heat / precip / drought / fire)</summary>
-
-Sub-county downscaled climate-hazard projection from the USGS [CMIP6-LOCA2](https://doi.org/10.5066/P13OV6GY) Weighted Multi-Model Mean (~6 km grid, sampled at each census tract's internal point; county = the mean of its tracts). Blends four hazard legs — extreme heat (days > 95 °F / 100 °F), heavy precipitation & flood (days > 1″, annual max 5-day total), drought (max consecutive dry days), and **wildfire (Fire Weather Index)** — into a 0–100 score, reported as a low/high band from SSP2-4.5 → SSP5-8.5 at mid-century (2040–2069), with the SSP2-4.5 value as the headline.
-
-The fire leg is Argonne National Laboratory's [ClimRR](https://www.anl.gov/ccrds/climrr) 12 km 95th-percentile **Fire Weather Index** (RCP8.5), spatially joined to census geography by parsing the ClimRR grid shapefile and sampling the nearest cell at each tract's internal point; because ClimRR publishes a single RCP8.5 pathway, its mid-century FWI drives both bands (no scenario spread). Fire only *enriches* the composite where covered — the LOCA2 heat/precip/drought legs stay the required backbone — so every CONUS place carries all four legs, while a place outside the CONUS grid (Alaska, Hawaii, Puerto Rico lack the core legs too) falls back to a coarser geography rather than being scored on fire alone. A tract internal-point sample (not parcel-resolution) but a real, composite-included value, with tract → county → national-average fallback. See [research/climate-projections-research.md](research/climate-projections-research.md).
+Census ACS poverty, income, and housing-cost-burden indicators scored against the **full national distribution of US census tracts** (household-weighted), not ranked within the local county. Bundled offline from the keyless ACS 5-year Summary File ([`data/socioeconomic.py`](src/housing_label/data/socioeconomic.py), built by [`scripts/build_socio_ref.py`](scripts/build_socio_ref.py)); the live scoring path no longer needs a Census API key.
 
 </details>
 
 <details>
-<summary><strong>☀️ Solar Potential</strong> — rooftop specific yield (PVGIS on NREL NSRDB)</summary>
+<summary><strong>🚶 Walkability</strong>: EPA National Walkability Index</summary>
 
-County rooftop-solar **specific yield** — the annual energy a standard 1 kWp array makes (kWh per kW installed per year) — modeled by the EU JRC's **PVGIS v5.2** on the **PVGIS-NSRDB** satellite database (the same NREL NSRDB resource PVWatts uses), for a building-mounted array at optimal tilt facing south with 14% losses, queried at each county's Census-gazetteer internal point. Mapped to a national-percentile score against the distribution of US counties (sunny Southwest ~1,700+ ≈ 2× cloudy Pacific NW ~950). The drill-down scales the yield to a representative 6 kW system: annual production, bill savings at the local EIA electricity rate, and CO₂ avoided at the **marginal** grid rate (Cambium LRMER; eGRID average fallback) — reusing the Energy/Environmental rate and grid factors. Bundled offline and keyless ([`data/solar.py`](src/housing_label/data/solar.py), built by [`scripts/build_solar.py`](scripts/build_solar.py)). PVGIS-NSRDB covers CONUS + Hawai'i + Puerto Rico; far-north Alaska is outside coverage and left unscored.
+**EPA National Walkability Index**: public-domain, national (every US census block group), keyless, and freely storable. Its 1–20 index (intersection density + transit proximity + land-use mix) is scaled to 0–100 and aggregated to census tracts ([`data/walkability.py`](src/housing_label/data/walkability.py), built by [`scripts/build_walkability.py`](scripts/build_walkability.py)). This replaces the Walk Score API, whose Terms of Use prohibit storing scores and whose free tier caps at ~5,000 calls/day.
 
 </details>
 
 <details>
-<summary><strong>🚰 Water Quality</strong> — community drinking-water compliance (EPA SDWIS)</summary>
+<summary><strong>🌡️ Climate Projections</strong>: sub-county downscaled hazard band (heat / precip / drought / fire)</summary>
 
-County drinking-water safety from the EPA **Safe Drinking Water Information System (SDWIS)** federal reporting. The metric is the **share of the county's community-water-system-served population** (residents on an active CWS — not all county residents, so private wells are out of scope) **that is on a system with a health-based drinking-water violation** (a contaminant exceedance or treatment-technique failure — not a monitoring/paperwork lapse) whose non-compliance period began within the trailing 5-year window. Because the exposure share is **zero-inflated** — ~28% of counties (~27% of the CWS population) sit at exactly 0%, a genuine and common optimum — it is scored with a **hurdle (two-part) model**: a **spotless county scores 100** (no recent health-based violation is the best achievable outcome), and an **exposed county is scored by its conditional national percentile among the counties that have any recent exposure** (the share of that exposed-county community-water-system population — weighted by each county's total CWS population, not its violating population — living in a county whose exposure is worse than this one's; less exposure → higher score). This is continuous with the clean class (the least-exposed county ≈ 100) and monotone down to 0 at full exposure — replacing an earlier single population-weighted percentile whose **mid-rank** tie-breaking capped a spotless county at ~86.5 (the tie-adjusted rank of the zero mass) and dropped off a cliff at the first sign of any exposure. Bundled offline and keyless ([`data/water.py`](src/housing_label/data/water.py), built by [`scripts/build_water.py`](scripts/build_water.py)). Reflects reported community-water-system compliance — not private wells or in-home plumbing.
+Sub-county downscaled climate-hazard projection from the USGS [CMIP6-LOCA2](https://doi.org/10.5066/P13OV6GY) Weighted Multi-Model Mean (~6 km grid, sampled at each census tract's internal point; county = the mean of its tracts). Blends four hazard legs into a 0–100 score: extreme heat (days > 95 °F / 100 °F), heavy precipitation & flood (days > 1″, annual max 5-day total), drought (max consecutive dry days), and **wildfire (Fire Weather Index)**. The score is reported as a low/high band from SSP2-4.5 → SSP5-8.5 at mid-century (2040–2069), with the SSP2-4.5 value as the headline.
+
+The fire leg is Argonne National Laboratory's [ClimRR](https://www.anl.gov/ccrds/climrr) 12 km 95th-percentile **Fire Weather Index** (RCP8.5), spatially joined to census geography by parsing the ClimRR grid shapefile and sampling the nearest cell at each tract's internal point; because ClimRR publishes a single RCP8.5 pathway, its mid-century FWI drives both bands (no scenario spread). Fire only *enriches* the composite where covered (the LOCA2 heat/precip/drought legs stay the required backbone), so every CONUS place carries all four legs, while a place outside the CONUS grid (Alaska, Hawaii, Puerto Rico lack the core legs too) falls back to a coarser geography rather than being scored on fire alone. This is a tract internal-point sample (not parcel-resolution) but a real, composite-included value, with tract → county → national-average fallback. See [research/climate-projections-research.md](research/climate-projections-research.md).
+
+</details>
+
+<details>
+<summary><strong>☀️ Solar Potential</strong>: rooftop specific yield (PVGIS on NREL NSRDB)</summary>
+
+County rooftop-solar **specific yield** (the annual energy a standard 1 kWp array makes, in kWh per kW installed per year), modeled by the EU JRC's **PVGIS v5.2** on the **PVGIS-NSRDB** satellite database (the same NREL NSRDB resource PVWatts uses), for a building-mounted array at optimal tilt facing south with 14% losses, queried at each county's Census-gazetteer internal point. Mapped to a national-percentile score against the distribution of US counties (sunny Southwest ~1,700+ ≈ 2× cloudy Pacific NW ~950). The drill-down scales the yield to a representative 6 kW system: annual production, bill savings at the local EIA electricity rate, and CO₂ avoided at the **marginal** grid rate (Cambium LRMER; eGRID average fallback), reusing the Energy/Environmental rate and grid factors. Bundled offline and keyless ([`data/solar.py`](src/housing_label/data/solar.py), built by [`scripts/build_solar.py`](scripts/build_solar.py)). PVGIS-NSRDB covers CONUS + Hawai'i + Puerto Rico; far-north Alaska is outside coverage and left unscored.
+
+</details>
+
+<details>
+<summary><strong>🚰 Water Quality</strong>: community drinking-water compliance (EPA SDWIS)</summary>
+
+County drinking-water safety from the EPA **Safe Drinking Water Information System (SDWIS)** federal reporting. The metric is the **share of the county's community-water-system-served population** (residents on an active CWS, not all county residents, so private wells are out of scope) **that is on a system with a health-based drinking-water violation** (a contaminant exceedance or treatment-technique failure, not a monitoring/paperwork lapse) whose non-compliance period began within the trailing 5-year window. Because the exposure share is **zero-inflated** (~28% of counties, ~27% of the CWS population, sit at exactly 0%, a genuine and common optimum), it is scored with a **hurdle (two-part) model**: a **spotless county scores 100** (no recent health-based violation is the best achievable outcome), and an **exposed county is scored by its conditional national percentile among the counties that have any recent exposure** (the share of that exposed-county community-water-system population, weighted by each county's total CWS population rather than its violating population, living in a county whose exposure is worse than this one's; less exposure → higher score). This is continuous with the clean class (the least-exposed county ≈ 100) and monotone down to 0 at full exposure. It replaces an earlier single population-weighted percentile whose **mid-rank** tie-breaking capped a spotless county at ~86.5 (the tie-adjusted rank of the zero mass) and dropped off a cliff at the first sign of any exposure. Bundled offline and keyless ([`data/water.py`](src/housing_label/data/water.py), built by [`scripts/build_water.py`](scripts/build_water.py)). Reflects reported community-water-system compliance, not private wells or in-home plumbing.
 
 </details>
 
 ## Scoring System
 
-- **0–100 score per dimension** — higher is better.
+- **0–100 score per dimension**, higher is better.
 - **Dual grading** for every dimension:
   - **National (absolute):** A ≥ 80, B ≥ 60, C ≥ 40, D ≥ 20, F < 20.
-  - **Local (percentile-based):** ranked within the dataset — A = top 10%, B = next 25%, C = middle 30%, D = next 25%, F = bottom 10%.
-- **Composite score** — the mean of the scored dimensions, itself carrying a national grade, a local grade, and a percentile rank.
+  - **Local (percentile-based):** ranked within the dataset: A = top 10%, B = next 25%, C = middle 30%, D = next 25%, F = bottom 10%.
+- **Composite score**: the mean of the scored dimensions, itself carrying a national grade, a local grade, and a percentile rank.
 
 The national/local thresholds are identical across all dimensions, so a grade means exactly the same thing whether it's read from the resilience dimension, the composite, or any other.
 
-> **Nationally-anchored scores.** The location-driven dimensions — health, socioeconomic, walkability, air quality, noise, and water — plus infrastructure and climate are scored against **national reference distributions** (bundled, versioned, and reproducible from the `scripts/build_*` builders), so a dimension's 0–100 score and its **absolute national grade are comparable across locations**. This replaces the earlier within-county percentile for health/socioeconomic, which re-baselined every county to a ~50 median and was not comparable place-to-place. The optional *local* percentile grade remains a rank within whatever dataset is loaded and is labelled with its reference population and vintage — never presented as a national percentile.
+> **Nationally-anchored scores.** The location-driven dimensions (health, socioeconomic, walkability, air quality, noise, and water) plus infrastructure and climate are scored against **national reference distributions** (bundled, versioned, and reproducible from the `scripts/build_*` builders), so a dimension's 0–100 score and its **absolute national grade are comparable across locations**. This replaces the earlier within-county percentile for health/socioeconomic, which re-baselined every county to a ~50 median and was not comparable place-to-place. The optional *local* percentile grade remains a rank within whatever dataset is loaded and is labelled with its reference population and vintage, never presented as a national percentile.
 >
-> **National percentile per dimension ("vs US homes").** Each dimension also shows where the home stands nationally — e.g. *"72nd US"*. The construction-driven dimensions (energy, durability, environmental, resilience) map their score through a bundled national distribution built by [`scripts/calibrate_construction_percentiles.py`](scripts/calibrate_construction_percentiles.py) (a household-weighted panel of every US county × documented building archetypes, scored with the real models); walkability maps through the EPA-NWI crosswalk distribution; health/socioeconomic already are national percentiles; climate/infrastructure/air quality track national quantiles. These construction/walkability references are **modeled** distributions, so the percentile is an honest, versioned *estimate* (labelled as such on the label).
+> **National percentile per dimension ("vs US homes").** Each dimension also shows where the home stands nationally, e.g. *"72nd US"*. The construction-driven dimensions (energy, durability, environmental, resilience) map their score through a bundled national distribution built by [`scripts/calibrate_construction_percentiles.py`](scripts/calibrate_construction_percentiles.py) (a household-weighted panel of every US county × documented building archetypes, scored with the real models); walkability maps through the EPA-NWI crosswalk distribution; health/socioeconomic already are national percentiles; climate/infrastructure/air quality track national quantiles. These construction/walkability references are **modeled** distributions, so the percentile is an honest, versioned *estimate* (labelled as such on the label).
 
 ## Data Sources
 
@@ -197,24 +197,24 @@ The national/local thresholds are identical across all dimensions, so a grade me
 
 | Source | Provides | API key |
 |---|---|---|
-| [Shelby County Assessor ArcGIS](https://www.shelbycountytn.gov/) | Parcel boundaries + CAMA building data | Free — no key |
-| [FEMA NFHL](https://msc.fema.gov/portal/home) | Flood zone designations | Free — no key |
-| [NOAA Climate Normals](https://www.ncdc.noaa.gov/cdo-web/) | Temperature, heating/cooling degree days (1991–2020) | Free — no key |
-| [USGS CMIP6-LOCA2](https://doi.org/10.5066/P13OV6GY) | Sub-county climate-hazard projections (CMIP6-LOCA2 WMMM ~6 km, SSP2-4.5–5-8.5) | Free — no key |
-| [Argonne ClimRR](https://www.anl.gov/ccrds/climrr) | Projected Fire Weather Index (12 km, RCP8.5) — the Climate Projections fire leg | Free — no key (bulk CSVs) |
-| [SPC Historical Tornadoes](https://www.spc.noaa.gov/) | Historical tornado tracks / frequency | Free — no key |
-| [USGS NSHM](https://earthquake.usgs.gov/hazards/interactive/) | Seismic hazard (peak ground acceleration) — reference data | Free — no key |
-| [FEMA National Risk Index](https://hazards.fema.gov/nri/) | Wildfire expected-annual-loss (the location-based fire peril) | Free — no key |
-| [Census of Governments](https://www.census.gov/programs-surveys/cog.html) + [Population Estimates](https://www.census.gov/programs-surveys/popest.html) | Per-county local-government spending by function (Infrastructure Burden cost calibration) | Free — no key (bulk files) |
-| [Census ACS 5-yr Summary File](https://www.census.gov/programs-surveys/acs/data/summary-file.html) | Per-county effective property-tax rate (Infrastructure Burden revenue calibration) | Free — no key (bulk table file) |
-| [DOE/EIA ResStock](https://resstock.nrel.gov/) | Residential energy use intensity benchmarks — reference data | Free — no key |
-| [CDC PLACES](https://www.cdc.gov/places/) | Census-tract health metrics (national Health Impact reference) | Free — no key (bundled) |
-| [CDC EPH Tracking](https://ephtracking.cdc.gov/) + [EPA Map of Radon Zones](https://www.epa.gov/radon/epa-map-radon-zones) | County PM2.5, ozone & radon zone (Air Quality) | Free — no key (bundled) |
-| [US DOT BTS National Transportation Noise Map](https://www.bts.gov/geospatial/national-transportation-noise-map) | Tract transportation-noise exposure (Noise) | Free — no key (bundled) |
-| [PVGIS](https://re.jrc.ec.europa.eu/) (EU JRC) on NREL NSRDB | County rooftop solar specific yield (Solar Potential) | Free — no key (bundled) |
-| [EPA SDWIS](https://www.epa.gov/ground-water-and-drinking-water/safe-drinking-water-information-system-sdwis-federal-reporting) | County community-water-system health-based violations (Water Quality) | Free — no key (bundled) |
-| [Census ACS 5-yr Summary File](https://www.census.gov/programs-surveys/acs/data/summary-file.html) | Socioeconomic indicators (poverty, income, housing-cost burden) — national reference | Free — no key (bundled; the live scoring path needs no key) |
-| [EPA National Walkability Index](https://www.epa.gov/smartgrowth/national-walkability-index-user-guide-and-methodology) | Walkability (block-group index, aggregated to tract) | Free — public domain (bundled) |
+| [Shelby County Assessor ArcGIS](https://www.shelbycountytn.gov/) | Parcel boundaries + CAMA building data | Free, no key |
+| [FEMA NFHL](https://msc.fema.gov/portal/home) | Flood zone designations | Free, no key |
+| [NOAA Climate Normals](https://www.ncdc.noaa.gov/cdo-web/) | Temperature, heating/cooling degree days (1991–2020) | Free, no key |
+| [USGS CMIP6-LOCA2](https://doi.org/10.5066/P13OV6GY) | Sub-county climate-hazard projections (CMIP6-LOCA2 WMMM ~6 km, SSP2-4.5–5-8.5) | Free, no key |
+| [Argonne ClimRR](https://www.anl.gov/ccrds/climrr) | Projected Fire Weather Index (12 km, RCP8.5), the Climate Projections fire leg | Free, no key (bulk CSVs) |
+| [SPC Historical Tornadoes](https://www.spc.noaa.gov/) | Historical tornado tracks / frequency | Free, no key |
+| [USGS NSHM](https://earthquake.usgs.gov/hazards/interactive/) | Seismic hazard (peak ground acceleration), reference data | Free, no key |
+| [FEMA National Risk Index](https://hazards.fema.gov/nri/) | Wildfire expected-annual-loss (the location-based fire peril) | Free, no key |
+| [Census of Governments](https://www.census.gov/programs-surveys/cog.html) + [Population Estimates](https://www.census.gov/programs-surveys/popest.html) | Per-county local-government spending by function (Infrastructure Burden cost calibration) | Free, no key (bulk files) |
+| [Census ACS 5-yr Summary File](https://www.census.gov/programs-surveys/acs/data/summary-file.html) | Per-county effective property-tax rate (Infrastructure Burden revenue calibration) | Free, no key (bulk table file) |
+| [DOE/EIA ResStock](https://resstock.nrel.gov/) | Residential energy use intensity benchmarks, reference data | Free, no key |
+| [CDC PLACES](https://www.cdc.gov/places/) | Census-tract health metrics (national Health Impact reference) | Free, no key (bundled) |
+| [CDC EPH Tracking](https://ephtracking.cdc.gov/) + [EPA Map of Radon Zones](https://www.epa.gov/radon/epa-map-radon-zones) | County PM2.5, ozone & radon zone (Air Quality) | Free, no key (bundled) |
+| [US DOT BTS National Transportation Noise Map](https://www.bts.gov/geospatial/national-transportation-noise-map) | Tract transportation-noise exposure (Noise) | Free, no key (bundled) |
+| [PVGIS](https://re.jrc.ec.europa.eu/) (EU JRC) on NREL NSRDB | County rooftop solar specific yield (Solar Potential) | Free, no key (bundled) |
+| [EPA SDWIS](https://www.epa.gov/ground-water-and-drinking-water/safe-drinking-water-information-system-sdwis-federal-reporting) | County community-water-system health-based violations (Water Quality) | Free, no key (bundled) |
+| [Census ACS 5-yr Summary File](https://www.census.gov/programs-surveys/acs/data/summary-file.html) | Socioeconomic indicators (poverty, income, housing-cost burden), national reference | Free, no key (bundled; the live scoring path needs no key) |
+| [EPA National Walkability Index](https://www.epa.gov/smartgrowth/national-walkability-index-user-guide-and-methodology) | Walkability (block-group index, aggregated to tract) | Free, public domain (bundled) |
 
 > Tract geocoding for the health and socioeconomic joins uses the free [FCC Area API](https://geo.fcc.gov/api/census/) (no key).
 
@@ -233,23 +233,23 @@ housing-simulate --preset icf-passive --lat 35.15 --lon -89.85
 <details>
 <summary><strong>Available presets</strong></summary>
 
-- `baseline` — typical 2000s suburban tract home
-- `premium` — high-end new build (solid brick, excellent condition, post-IBC)
-- `icf-passive` — ICF passive house with the full resilience package
-- `worst-case` — pre-1950 wood frame, full basement, AE flood zone, poor condition
-- `fortified-gold` — 2026 frame build with IBHS FORTIFIED Gold + metal roof + sealed deck
-- `duplex` — 2026 brick duplex (2 units × 1,200 sqft, 0.15 ac, excellent condition)
-- `quadplex` — 2026 brick quadplex (4 units × 900 sqft, 0.20 ac, excellent condition)
-- `icf-quadplex` — 2026 ICF quadplex (4 units × 1,000 sqft, 0.20 ac) with solar, passive house, hurricane straps + hip roof
+- `baseline`: typical 2000s suburban tract home
+- `premium`: high-end new build (solid brick, excellent condition, post-IBC)
+- `icf-passive`: ICF passive house with the full resilience package
+- `worst-case`: pre-1950 wood frame, full basement, AE flood zone, poor condition
+- `fortified-gold`: 2026 frame build with IBHS FORTIFIED Gold + metal roof + sealed deck
+- `duplex`: 2026 brick duplex (2 units × 1,200 sqft, 0.15 ac, excellent condition)
+- `quadplex`: 2026 brick quadplex (4 units × 900 sqft, 0.20 ac, excellent condition)
+- `icf-quadplex`: 2026 ICF quadplex (4 units × 1,000 sqft, 0.20 ac) with solar, passive house, hurricane straps + hip roof
 
 All preset fields can be overridden from the CLI (e.g. `--year-built`, `--construction`, `--flood-zone`, `--value`, `--units`, `--sqft`, `--lot-acres`). Run `python src/housing_label/simulate/house.py --help` for the full flag list.
 
 </details>
 
 <details>
-<summary><strong>Scoring model — construction-driven vs. location-driven dimensions</strong></summary>
+<summary><strong>Scoring model: construction-driven vs. location-driven dimensions</strong></summary>
 
-The five **construction-driven** dimensions — resilience, energy efficiency, durability, environmental footprint, and infrastructure burden — are modeled offline from the house configuration using the `enrich/` model libraries. The eight **location-driven** dimensions depend on where the house sits: health, socioeconomic, walkability, air quality, and noise are bundled national references (CDC PLACES, Census ACS, the EPA National Walkability Index, CDC Tracking PM2.5/ozone + EPA radon zone, and the US DOT BTS transportation-noise map) resolved by the house's census tract (air quality's radon layer is county-level); climate projections come from the bundled CMIP6-LOCA2 tract/county crosswalk (tract → county → national-average fallback); solar potential is a bundled per-county PVGIS rooftop-yield lookup; and water quality is a bundled per-county EPA SDWIS drinking-water-compliance lookup — all keyless. When a location can't be resolved (e.g. offline, so no census tract), the affected dimension is reported as `N/A` and **excluded from the composite rather than filled with a placeholder**, so a strong build isn't penalized for a missing input.
+The five **construction-driven** dimensions (resilience, energy efficiency, durability, environmental footprint, and infrastructure burden) are modeled offline from the house configuration using the `enrich/` model libraries. The eight **location-driven** dimensions depend on where the house sits: health, socioeconomic, walkability, air quality, and noise are bundled national references (CDC PLACES, Census ACS, the EPA National Walkability Index, CDC Tracking PM2.5/ozone + EPA radon zone, and the US DOT BTS transportation-noise map) resolved by the house's census tract (air quality's radon layer is county-level); climate projections come from the bundled CMIP6-LOCA2 tract/county crosswalk (tract → county → national-average fallback); solar potential is a bundled per-county PVGIS rooftop-yield lookup; and water quality is a bundled per-county EPA SDWIS drinking-water-compliance lookup, all keyless. When a location can't be resolved (e.g. offline, so no census tract), the affected dimension is reported as `N/A` and **excluded from the composite rather than filled with a placeholder**, so a strong build isn't penalized for a missing input.
 
 </details>
 
@@ -258,13 +258,13 @@ The five **construction-driven** dimensions — resilience, energy efficiency, d
 
 Full-label flags:
 
-- `--address "<US address>"` — score a house at **any US address** (geocoded via the keyless
+- `--address "<US address>"`: score a house at **any US address** (geocoded via the keyless
   Census geocoder to lat/lon + county + census tract). `--lat/--lon` also work anywhere.
-- `--json` — emit the complete nutrition label (all dimensions, composite, metrics) as JSON.
-- `--no-fetch` — skip the live location lookups; leave health/socioeconomic/walkability unscored.
-- `--health-index` / `--socioeconomic-index` / `--walk-score` — supply a location dimension directly instead of fetching it.
+- `--json`: emit the complete nutrition label (all dimensions, composite, metrics) as JSON.
+- `--no-fetch`: skip the live location lookups; leave health/socioeconomic/walkability unscored.
+- `--health-index` / `--socioeconomic-index` / `--walk-score`: supply a location dimension directly instead of fetching it.
 
-**Any-location support:** the resolved location drives the location-dependent dimensions —
+**Any-location support:** the resolved location drives the location-dependent dimensions:
 health & socioeconomic are ranked within the address's *own county*; energy is scaled by the
 location's IECC climate zone; the flood zone is auto-derived from FEMA NFHL; **Disaster
 Resilience uses live USGS seismic hazard** (2%/50yr PGA, with a bundled national fallback grid),
@@ -276,11 +276,11 @@ with a national-average fallback for unmapped counties, and Environmental uses t
 location's **eGRID2023 Rev 2 subregion** grid-carbon factor as the grid **average** (a bundled
 county→subregion crosswalk; counties that can't be mapped fall back to the US-average factor) plus the
 county's **NREL Cambium 2023 LRMER** long-run **marginal** factor (a bundled county→GEA-region crosswalk)
-to credit solar/efficiency-avoided kWh at the marginal rate — CONUS only, with the average used elsewhere.
+to credit solar/efficiency-avoided kWh at the marginal rate (CONUS only, with the average used elsewhere).
 
 </details>
 
-The website nutrition label at [housinglabel.dev/label.html](https://housinglabel.dev/label.html) is scored live by the HTTP API (this simulator behind `/label` and `/presets`) and rendered by the shared [`docs/label-core.js`](docs/label-core.js) — the same renderer the home-page address search uses, so there is no static snapshot to regenerate.
+The website nutrition label at [housinglabel.dev/label.html](https://housinglabel.dev/label.html) is scored live by the HTTP API (this simulator behind `/label` and `/presets`) and rendered by the shared [`docs/label-core.js`](docs/label-core.js), the same renderer the home-page address search uses, so there is no static snapshot to regenerate.
 
 ## Address-search API
 
@@ -300,15 +300,15 @@ The search bar also has **address & place-name autocomplete**: `GET /suggest?q=.
 party directly). Typing a business, campus, or landmark name resolves it to the street address it
 sits at, so you don't have to know the address to score a place; the `residential` field flags a
 non-residential POI (a stadium, office, or store) so the scorer refuses to grade it as a home.
-Back-end priority: **Google Places** (`GOOGLE_PLACES_API_KEY`, best US business/landmark coverage —
+Back-end priority: **Google Places** (`GOOGLE_PLACES_API_KEY`, best US business/landmark coverage,
 enable "Places API (New)") → **Geoapify** (`GEOAPIFY_API_KEY`, [free tier](https://www.geoapify.com),
 EU/GDPR, sharper US ranking) → keyless [**Photon**](https://photon.komoot.io) (`PHOTON_URL` to
 self-host), each falling back to the next if unreachable. Keys stay server-side.
 
 Deploy it anywhere that runs Python (GitHub Pages can't host it). The repo ships a
 [`render.yaml`](render.yaml) Blueprint and a [`Dockerfile`](Dockerfile) (Fly / Cloud Run /
-Railway / any container host). CORS is locked to `https://housinglabel.dev` by default —
-override via the `ALLOWED_ORIGINS` env var. Then point the Examples-page search bar at the
+Railway / any container host). CORS is locked to `https://housinglabel.dev` by default.
+Override it via the `ALLOWED_ORIGINS` env var. Then point the Examples-page search bar at the
 deployed URL with `?api=https://your-api-host` or `window.HOUSING_LABEL_API`. See
 [`docs/setup.html`](docs/setup.html) → *Address-search API*.
 
@@ -352,12 +352,12 @@ you invoke an individual stage.
 ## Tech Stack
 
 - **Python 3.x**
-- [`requests`](https://requests.readthedocs.io/) — HTTP calls to ArcGIS, FEMA, NOAA, USGS, SPC, CDC, FCC, and Census APIs
-- [`pandas`](https://pandas.pydata.org/) (+ `numpy`) — data processing, enrichment joins, and scoring
+- [`requests`](https://requests.readthedocs.io/): HTTP calls to ArcGIS, FEMA, NOAA, USGS, SPC, CDC, FCC, and Census APIs
+- [`pandas`](https://pandas.pydata.org/) (+ `numpy`): data processing, enrichment joins, and scoring
 
 ## Roadmap
 
-The board below is the at-a-glance view; expand the sections under it for details. It's a plain Markdown table, so it renders everywhere — GitHub web **and** the mobile app, PyPI, any viewer — and moving an item between columns is a one-line edit here in the README. The code-derived facts (the scored-dimension roster under [Scored Dimensions](#scored-dimensions), and its count) are regenerated by [`scripts/sync_readme.py`](scripts/sync_readme.py) and verified in CI, so the shipped list can't silently drift from the engine.
+The board below is the at-a-glance view; expand the sections under it for details. It's a plain Markdown table, so it renders everywhere (GitHub web **and** the mobile app, PyPI, any viewer), and moving an item between columns is a one-line edit here in the README. The code-derived facts (the scored-dimension roster under [Scored Dimensions](#scored-dimensions), and its count) are regenerated by [`scripts/sync_readme.py`](scripts/sync_readme.py) and verified in CI, so the shipped list can't silently drift from the engine.
 
 | ✅ Shipped | 🚧 Next up | 🔭 Exploring |
 |---|---|---|
@@ -374,28 +374,28 @@ The board below is the at-a-glance view; expand the sections under it for detail
 | Wildfire hazard in Disaster Resilience | | |
 
 <details>
-<summary><strong>🚧 Next up & 🔭 Exploring</strong> — what each planned card means</summary>
+<summary><strong>🚧 Next up & 🔭 Exploring</strong>: what each planned card means</summary>
 
 **Next up**
 
-- **Methodology "show-your-math" drill-down** — expandable per-dimension provenance on the label (sources, the EAL/BRM breakdown, the exact eGRID subregion, the calibrating county's spending), so a curious user can trace any score to its inputs.
-- **Parcel-level (sub-tract) resolution** — push the location-driven dimensions below the census tract to the individual parcel where finer public data exists.
+- **Methodology "show-your-math" drill-down**: expandable per-dimension provenance on the label (sources, the EAL/BRM breakdown, the exact eGRID subregion, the calibrating county's spending), so a curious user can trace any score to its inputs.
+- **Parcel-level (sub-tract) resolution**: push the location-driven dimensions below the census tract to the individual parcel where finer public data exists.
 
 **Exploring**
 
-- **Rust scoring engine** — port the hot scoring path for performance at scale.
-- **Historical / time-series labels** — score how a location's profile has shifted over time (e.g. air quality or climate trend), not just its current snapshot.
-- **Automatic roadmap-column sync from commit history** — extend [`scripts/sync_readme.py`](scripts/sync_readme.py) to propose Shipped/Next-up moves from merged `feat:` commits, so the qualitative columns self-update too (today it keeps the code-derived dimension roster in sync).
+- **Rust scoring engine**: port the hot scoring path for performance at scale.
+- **Historical / time-series labels**: score how a location's profile has shifted over time (e.g. air quality or climate trend), not just its current snapshot.
+- **Automatic roadmap-column sync from commit history**: extend [`scripts/sync_readme.py`](scripts/sync_readme.py) to propose Shipped/Next-up moves from merged `feat:` commits, so the qualitative columns self-update too (today it keeps the code-derived dimension roster in sync).
 
 </details>
 
 <details>
-<summary><strong>✅ Shipped</strong> — completed roadmap items with methodology notes</summary>
+<summary><strong>✅ Shipped</strong>: completed roadmap items with methodology notes</summary>
 
 <details>
 <summary>Residential-only screening (refuse non-residential addresses)</summary>
 
-Scoring a **workplace, store, or warehouse** used to return a meaningless "home" label. The engine now screens a typed address against the **USACE National Structure Inventory** building it resolves to: when NSI *positively* classifies the structure as non-residential (a Hazus `COM*`/`IND*`/`AGR*`/`GOV*` occupancy), scoring is refused rather than dressed up as a house. The check lives in the shared `build_label_parts` ([`src/housing_label/simulate/house.py`](src/housing_label/simulate/house.py)) so the CLI and the API behave identically; the API returns **HTTP 422** with a plain-language explanation (distinct from a 400 validation error or a 502 upstream failure) and the site shows it as a neutral notice, not a scary "couldn't load" error. It fails *open*: an unknown building (NSI unavailable or no match) is never blocked, so a transient outage can't refuse a real home. Deliberate hypotheticals bypass it — a construction **preset** ("what if you built here"), an entered **unit count > 1** (asserting a residence), or an explicit `allow_non_residential=true` (CLI `--allow-non-residential`).
+Scoring a **workplace, store, or warehouse** used to return a meaningless "home" label. The engine now screens a typed address against the **USACE National Structure Inventory** building it resolves to: when NSI *positively* classifies the structure as non-residential (a Hazus `COM*`/`IND*`/`AGR*`/`GOV*` occupancy), scoring is refused rather than dressed up as a house. The check lives in the shared `build_label_parts` ([`src/housing_label/simulate/house.py`](src/housing_label/simulate/house.py)) so the CLI and the API behave identically; the API returns **HTTP 422** with a plain-language explanation (distinct from a 400 validation error or a 502 upstream failure) and the site shows it as a neutral notice, not a scary "couldn't load" error. It fails *open*: an unknown building (NSI unavailable or no match) is never blocked, so a transient outage can't refuse a real home. Deliberate hypotheticals bypass it: a construction **preset** ("what if you built here"), an entered **unit count > 1** (asserting a residence), or an explicit `allow_non_residential=true` (CLI `--allow-non-residential`).
 
 </details>
 
@@ -409,21 +409,21 @@ Four location-driven dimensions added since the original nine, each a bundled, k
 <details>
 <summary>Nationwide coverage + a self-syncing README (past the Shelby County pilot)</summary>
 
-The pipeline was generalized from the Memphis/Shelby County pilot to **any U.S. residential address** — every location-driven dimension resolves from bundled national reference data (keyed on county/tract) rather than the pilot's hard-coded defaults, and the construction-driven dimensions are scored against national distributions, so a grade is comparable place-to-place. To keep the docs honest as the engine grows, [`scripts/sync_readme.py`](scripts/sync_readme.py) regenerates the code-derived **scored-dimension roster** (count + table) in this README directly from `housing_label.simulate.dimensions.DIMENSIONS`, and CI runs it in `--check` mode so a dimension added in code fails the build until the README is regenerated (`python scripts/sync_readme.py --write`).
+The pipeline was generalized from the Memphis/Shelby County pilot to **any U.S. residential address**: every location-driven dimension resolves from bundled national reference data (keyed on county/tract) rather than the pilot's hard-coded defaults, and the construction-driven dimensions are scored against national distributions, so a grade is comparable place-to-place. To keep the docs honest as the engine grows, [`scripts/sync_readme.py`](scripts/sync_readme.py) regenerates the code-derived **scored-dimension roster** (count + table) in this README directly from `housing_label.simulate.dimensions.DIMENSIONS`, and CI runs it in `--check` mode so a dimension added in code fails the build until the README is regenerated (`python scripts/sync_readme.py --write`).
 
 </details>
 
 <details>
 <summary>Address input on the label page</summary>
 
-The Label page ([`docs/label.html`](docs/label.html)) now lets a visitor **score any U.S. address** (or their **current location**) instead of only the fixed Cooper-Young presets: the page geocodes the typed address — or uses a picked autocomplete suggestion's coordinates — and scores the standard construction profiles there via `GET /presets?address=…` / `?lat=&lon=`, reusing the shared [`docs/addr-suggest.js`](docs/addr-suggest.js) typeahead. The scored location is mirrored into the page URL (`history.replaceState`, preserving any `?api=` override) so results are **bookmarkable and shareable**, remembered across visits via `localStorage` (precedence URL > last visit > default), and cleared by Reset. A **"Use my location"** button scores the visitor's current position via the browser geolocation API, with a graceful message when permission is denied or unavailable.
+The Label page ([`docs/label.html`](docs/label.html)) now lets a visitor **score any U.S. address** (or their **current location**) instead of only the fixed Cooper-Young presets: the page geocodes the typed address (or uses a picked autocomplete suggestion's coordinates) and scores the standard construction profiles there via `GET /presets?address=…` / `?lat=&lon=`, reusing the shared [`docs/addr-suggest.js`](docs/addr-suggest.js) typeahead. The scored location is mirrored into the page URL (`history.replaceState`, preserving any `?api=` override) so results are **bookmarkable and shareable**, remembered across visits via `localStorage` (precedence URL > last visit > default), and cleared by Reset. A **"Use my location"** button scores the visitor's current position via the browser geolocation API, with a graceful message when permission is denied or unavailable.
 
 </details>
 
 <details>
 <summary>Unified label renderer fed by the live API</summary>
 
-The three bespoke label implementations (the React + D3 `label.html` reading a static `sample-parcels.json`, plus the plain-JS renderers duplicated across `index.html` and `examples.html`) are replaced by **one dependency-free renderer, [`docs/label-core.js`](docs/label-core.js) + [`docs/label-core.css`](docs/label-core.css)**, used by every page. All pages are now scored **live by the same HTTP API**: the home page and examples use `/label`, and the Label page fetches a new **`GET /presets`** endpoint that scores the standard construction profiles at one location in a single response (one geocode + one location fetch total). The confidence rubric stays the single Python source of truth in [`src/housing_label/confidence.py`](src/housing_label/confidence.py); `label-core.js` only renders it. `label.html` dropped its React/D3 + Babel CDN dependencies (plain JS now), and the static `docs/data/sample-parcels.json` snapshot and its `generate_label_data.py` generator were removed — there is no snapshot to drift.
+The three bespoke label implementations (the React + D3 `label.html` reading a static `sample-parcels.json`, plus the plain-JS renderers duplicated across `index.html` and `examples.html`) are replaced by **one dependency-free renderer, [`docs/label-core.js`](docs/label-core.js) + [`docs/label-core.css`](docs/label-core.css)**, used by every page. All pages are now scored **live by the same HTTP API**: the home page and examples use `/label`, and the Label page fetches a new **`GET /presets`** endpoint that scores the standard construction profiles at one location in a single response (one geocode + one location fetch total). The confidence rubric stays the single Python source of truth in [`src/housing_label/confidence.py`](src/housing_label/confidence.py); `label-core.js` only renders it. `label.html` dropped its React/D3 + Babel CDN dependencies (plain JS now), and the static `docs/data/sample-parcels.json` snapshot and its `generate_label_data.py` generator were removed. There is no snapshot to drift.
 
 </details>
 
@@ -437,42 +437,42 @@ Surfaced the uncertainty the models already carry as a neutral **confidence dot*
 <details>
 <summary>"Cost over a mortgage" (lifetime cost of ownership) + comparison mode</summary>
 
-The label now present-values the two dollar-defensible flows — modeled **energy cost** and **expected annual disaster loss** — over a 30-year mortgage and shows the result as a **comparative delta vs. a typical comparable** at the same location (never an absolute "total cost"), mirroring the EPA fuel-economy sticker's "you save $X over 5 years" construction. Constant (real) dollars, no real escalation, discounted at ~4% real (homeowner mortgage opportunity cost) with an OMB ~2% social-rate band; the headline is rounded to 2 significant figures. A new **Compare (A/B)** mode puts two profiles side by side with a per-dimension delta table. The strip is fed by numeric `cost` fields in the label payload; no scoring/model change was required. Full methodology, discount-rate/escalation citations, and the dollarizable-vs-qualitative dimension audit: [research/lifetime-cost-research.md](research/lifetime-cost-research.md).
+The label now present-values the two dollar-defensible flows (modeled **energy cost** and **expected annual disaster loss**) over a 30-year mortgage and shows the result as a **comparative delta vs. a typical comparable** at the same location (never an absolute "total cost"), mirroring the EPA fuel-economy sticker's "you save $X over 5 years" construction. Constant (real) dollars, no real escalation, discounted at ~4% real (homeowner mortgage opportunity cost) with an OMB ~2% social-rate band; the headline is rounded to 2 significant figures. A new **Compare (A/B)** mode puts two profiles side by side with a per-dimension delta table. The strip is fed by numeric `cost` fields in the label payload; no scoring/model change was required. Full methodology, discount-rate/escalation citations, and the dollarizable-vs-qualitative dimension audit: [research/lifetime-cost-research.md](research/lifetime-cost-research.md).
 
 </details>
 
 <details>
 <summary>True Fire Weather Index (Argonne ClimRR) for the Climate Projections fire leg</summary>
 
-The **Climate Projections** dimension now carries a genuine **wildfire (Fire Weather Index)** leg from Argonne National Laboratory's [ClimRR](https://www.anl.gov/ccrds/climrr) 12 km dynamically-downscaled projections (95th-percentile FWI, RCP8.5, mid-century), replacing the consecutive-dry-days stand-in for fire. The keyless ClimRR CSVs (grid keyed by `Crossmodel` cell id) are joined to census geography by parsing the companion grid **shapefile** in pure stdlib — bbox centre → Web Mercator → WGS84 (same formula as `utils.webmercator_to_wgs84`) — and sampling the nearest cell at each tract's internal point (county = the mean of its tracts). Built by [`scripts/build_climate_projections.py --source fwi`](scripts/build_climate_projections.py), which augments the existing crosswalks in place with `fire_fwi_{hist,low,high}`. ClimRR publishes a single RCP8.5 pathway, so the mid-century FWI drives both bands (no scenario spread). Fire is an *optional enrichment* on top of the required LOCA2 core (heat/precip/drought): where present it adds a fourth leg (every CONUS place), and where a CONUS place lacks it the composite is the mean of the core legs — but a place outside the CONUS LOCA2 grid (Alaska/Hawaii/Puerto Rico) lacks the core legs too and falls back to a coarser geography rather than being scored on fire alone. This is the forward-looking climate-fire signal; the *present-day* wildfire hazard ships separately in Disaster Resilience. See [research/climate-projections-research.md](research/climate-projections-research.md).
+The **Climate Projections** dimension now carries a genuine **wildfire (Fire Weather Index)** leg from Argonne National Laboratory's [ClimRR](https://www.anl.gov/ccrds/climrr) 12 km dynamically-downscaled projections (95th-percentile FWI, RCP8.5, mid-century), replacing the consecutive-dry-days stand-in for fire. The keyless ClimRR CSVs (grid keyed by `Crossmodel` cell id) are joined to census geography by parsing the companion grid **shapefile** in pure stdlib (bbox centre → Web Mercator → WGS84, the same formula as `utils.webmercator_to_wgs84`) and sampling the nearest cell at each tract's internal point (county = the mean of its tracts). Built by [`scripts/build_climate_projections.py --source fwi`](scripts/build_climate_projections.py), which augments the existing crosswalks in place with `fire_fwi_{hist,low,high}`. ClimRR publishes a single RCP8.5 pathway, so the mid-century FWI drives both bands (no scenario spread). Fire is an *optional enrichment* on top of the required LOCA2 core (heat/precip/drought): where present it adds a fourth leg (every CONUS place), and where a CONUS place lacks it the composite is the mean of the core legs. But a place outside the CONUS LOCA2 grid (Alaska/Hawaii/Puerto Rico) lacks the core legs too and falls back to a coarser geography rather than being scored on fire alone. This is the forward-looking climate-fire signal; the *present-day* wildfire hazard ships separately in Disaster Resilience. See [research/climate-projections-research.md](research/climate-projections-research.md).
 
 </details>
 
 <details>
 <summary>Locally calibrated Infrastructure Burden (replace the Memphis-everywhere cost model)</summary>
 
-The per-function cost levels are now calibrated to each county's **actual local-government spending** from the **Census of Governments** (2022 Individual Unit File — the most recent full count: per-capita direct expenditure on roads, water/sewer, fire, police, sanitation, parks), normalized to the Shelby pilot so the pilot is unchanged while every other county scales by its real spending ratio (e.g. LA County ~2.0× roads, ~2.6× water/sewer). Bundled national crosswalk (`govfinance_county.csv`, built by [`scripts/build_govfinance.py`](scripts/build_govfinance.py)); county → national-average fallback via [`data/govfinance.py`](src/housing_label/data/govfinance.py). Phase 1 of the locally-calibrated-infrastructure roadmap (parcel→special-district mapping remains). See [research/infrastructure-burden-research.md](research/infrastructure-burden-research.md).
+The per-function cost levels are now calibrated to each county's **actual local-government spending** from the **Census of Governments** (2022 Individual Unit File, the most recent full count: per-capita direct expenditure on roads, water/sewer, fire, police, sanitation, parks), normalized to the Shelby pilot so the pilot is unchanged while every other county scales by its real spending ratio (e.g. LA County ~2.0× roads, ~2.6× water/sewer). Bundled national crosswalk (`govfinance_county.csv`, built by [`scripts/build_govfinance.py`](scripts/build_govfinance.py)); county → national-average fallback via [`data/govfinance.py`](src/housing_label/data/govfinance.py). Phase 1 of the locally-calibrated-infrastructure roadmap (parcel→special-district mapping remains). See [research/infrastructure-burden-research.md](research/infrastructure-burden-research.md).
 
 </details>
 
 <details>
 <summary>Auto-fill home value + reconcile school scope in Infrastructure Burden</summary>
 
-Two fiscal-ratio accuracy fixes. **(1) Auto-fill value:** when no home value is supplied, it now defaults to the **county median** (Census ACS) instead of the construction profile's flat default, so the revenue side (and dollar EALs) reflect the local market — e.g. a Manhattan address no longer scores as if the home were worth $250k. **(2) School-scope reconciliation:** the revenue side now **nets out the school-district share** of property tax (Census of Governments; ~41% nationally, with a national-average fallback for dependent-school counties that fund schools through general government), so it's like-for-like with the school-excluded cost side. Both sides are now non-school; the national median fiscal ratio drops to ~0.31 and the breakpoints were re-calibrated accordingly. This corrects places like high-property-tax suburbs that looked municipally self-sustaining only because their (school-heavy) taxes were counted in full.
+Two fiscal-ratio accuracy fixes. **(1) Auto-fill value:** when no home value is supplied, it now defaults to the **county median** (Census ACS) instead of the construction profile's flat default, so the revenue side (and dollar EALs) reflect the local market. For example, a Manhattan address no longer scores as if the home were worth $250k. **(2) School-scope reconciliation:** the revenue side now **nets out the school-district share** of property tax (Census of Governments; ~41% nationally, with a national-average fallback for dependent-school counties that fund schools through general government), so it's like-for-like with the school-excluded cost side. Both sides are now non-school; the national median fiscal ratio drops to ~0.31 and the breakpoints were re-calibrated accordingly. This corrects places like high-property-tax suburbs that looked municipally self-sustaining only because their (school-heavy) taxes were counted in full.
 
 </details>
 
 <details>
 <summary>Re-anchor the Infrastructure Burden score breakpoints to a national distribution</summary>
 
-Once cost and revenue were localized per county, the fiscal-ratio→score breakpoints (which had been anchored to the Shelby pilot) were re-anchored to the **national distribution** of fiscal ratios — a population-weighted reference over U.S. counties × residential-density archetypes ([`scripts/calibrate_infra_breakpoints.py`](scripts/calibrate_infra_breakpoints.py)) — so a score now tracks national percentile rank (A = top ~20% … F = bottom ~20%). The density gradient (sprawl scores worse) is preserved; the thresholds are just nationally meaningful now.
+Once cost and revenue were localized per county, the fiscal-ratio→score breakpoints (which had been anchored to the Shelby pilot) were re-anchored to the **national distribution** of fiscal ratios, a population-weighted reference over U.S. counties × residential-density archetypes ([`scripts/calibrate_infra_breakpoints.py`](scripts/calibrate_infra_breakpoints.py)), so a score now tracks national percentile rank (A = top ~20% … F = bottom ~20%). The density gradient (sprawl scores worse) is preserved; the thresholds are just nationally meaningful now.
 
 </details>
 
 <details>
 <summary>Locally calibrate the Infrastructure Burden revenue side (per-county property-tax rate)</summary>
 
-The fiscal ratio's revenue side now uses each county's **effective property-tax rate** (median real-estate taxes ÷ median home value) from the **Census ACS** 2022 5-year table-based Summary File, replacing the single national rate applied everywhere — effective rates vary ~10× nationally (~0.3%–3%). Keyless bundled crosswalk (`property_tax_county.csv`, built by [`scripts/build_property_tax.py`](scripts/build_property_tax.py)); county → national-average fallback via [`data/propertytax.py`](src/housing_label/data/propertytax.py). Phase 2 of the roadmap; sub-county/per-jurisdiction millage (state DOR tables) remains a future precision refinement. See [research/infrastructure-burden-research.md](research/infrastructure-burden-research.md).
+The fiscal ratio's revenue side now uses each county's **effective property-tax rate** (median real-estate taxes ÷ median home value) from the **Census ACS** 2022 5-year table-based Summary File, replacing the single national rate applied everywhere. Effective rates vary ~10× nationally (~0.3%–3%). Keyless bundled crosswalk (`property_tax_county.csv`, built by [`scripts/build_property_tax.py`](scripts/build_property_tax.py)); county → national-average fallback via [`data/propertytax.py`](src/housing_label/data/propertytax.py). Phase 2 of the roadmap; sub-county/per-jurisdiction millage (state DOR tables) remains a future precision refinement. See [research/infrastructure-burden-research.md](research/infrastructure-burden-research.md).
 
 </details>
 
@@ -486,7 +486,7 @@ The fiscal ratio's revenue side now uses each county's **effective property-tax 
 <details>
 <summary>Finer climate resolution (sub-county / census tract)</summary>
 
-The **Climate Projections** dimension now carries real **sub-county (census-tract)** values from the USGS **CMIP6-LOCA2** Weighted Multi-Model Mean (~6 km), sampled at each tract's internal point and bundled as `climate_projections_tracts.csv.gz` (county = the mean of its tracts). Built by [`scripts/build_climate_projections.py --source loca2`](scripts/build_climate_projections.py) (SSP2-4.5/5-8.5 mid-century 2040–2069); breakpoints re-anchored to the CMIP6 national distribution. Tracts within a large county now genuinely differ — the inverse of CMRA's tract layer, which broadcast the county value. Live point sampling was ruled out (no keyless LOCA2 point API; single-model point samples aren't defensible), so the signal comes from an offline ensemble-mean grid build.
+The **Climate Projections** dimension now carries real **sub-county (census-tract)** values from the USGS **CMIP6-LOCA2** Weighted Multi-Model Mean (~6 km), sampled at each tract's internal point and bundled as `climate_projections_tracts.csv.gz` (county = the mean of its tracts). Built by [`scripts/build_climate_projections.py --source loca2`](scripts/build_climate_projections.py) (SSP2-4.5/5-8.5 mid-century 2040–2069); breakpoints re-anchored to the CMIP6 national distribution. Tracts within a large county now genuinely differ, the inverse of CMRA's tract layer, which broadcast the county value. Live point sampling was ruled out (no keyless LOCA2 point API; single-model point samples aren't defensible), so the signal comes from an offline ensemble-mean grid build.
 
 </details>
 
@@ -505,9 +505,9 @@ The **Climate Projections** dimension is now a real per-county score from CMRA (
 </details>
 
 <details>
-<summary>Frontend visualization — React + D3 nutrition label UI</summary>
+<summary>Frontend visualization: React + D3 nutrition label UI</summary>
 
-An initial version is live at [housinglabel.dev/label.html](https://housinglabel.dev/label.html) ([`docs/label.html`](docs/label.html)). It renders the scored dimensions as an at-a-glance label with a switchable set of construction profiles, served statically with no build step. *(Since superseded by the dependency-free shared renderer — see above.)*
+An initial version is live at [housinglabel.dev/label.html](https://housinglabel.dev/label.html) ([`docs/label.html`](docs/label.html)). It renders the scored dimensions as an at-a-glance label with a switchable set of construction profiles, served statically with no build step. *(Since superseded by the dependency-free shared renderer, see above.)*
 
 </details>
 
@@ -515,4 +515,4 @@ An initial version is live at [housinglabel.dev/label.html](https://housinglabel
 
 ## License
 
-MIT — see [LICENSE](LICENSE)
+MIT. See [LICENSE](LICENSE)
