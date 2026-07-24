@@ -26,6 +26,21 @@
 .composite-conf .conf-dot { margin-left: 0; }
 .conf-legend { font-size: 0.72rem; color: var(--muted); margin-top: 0.75rem; font-style: italic; }
 
+/* Accessible tooltip. Native `title` only appears on mouse hover; this bubble also
+   shows on keyboard focus (the trigger carries tabindex + aria-label). Touch users
+   reach the same numbers by expanding the row, so the hover-only gap is closed. */
+.tip { position: relative; }
+.tip[data-tip]:hover::after, .tip[data-tip]:focus-visible::after {
+  content: attr(data-tip);
+  position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%);
+  width: max-content; max-width: 240px; white-space: normal; text-align: left;
+  background: var(--navy); color: #fff; font: 400 0.75rem/1.4 inherit;
+  padding: 0.45rem 0.6rem; border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,0.22);
+  z-index: 60; pointer-events: none; }
+.tip[data-tip]:hover::before, .tip[data-tip]:focus-visible::before {
+  content: ""; position: absolute; left: 50%; bottom: calc(100% + 3px); transform: translateX(-50%);
+  border: 5px solid transparent; border-top-color: var(--navy); z-index: 60; pointer-events: none; }
+
 /* ── Climate scenario-band whisker over the score bar ───────────────────────*/
 .score-bar { position: relative; }
 .ci-whisker { position: absolute; top: 0; bottom: 0; }

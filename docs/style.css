@@ -77,6 +77,14 @@ h2 { font-size: 1.8rem; color: var(--navy); margin-bottom: 1.5rem; }
 h3 { font-size: 1.3rem; color: var(--slate); margin: 1.5rem 0 0.75rem; }
 p { margin-bottom: 1rem; }
 
+/* Comfortable reading measure. Running prose was ~120–140 characters per line on
+   a wide screen; cap the text columns near 68ch while tables, card grids, the
+   pipeline, and code blocks keep the full section width. Card and callout text
+   is already column-width, so it's left alone. */
+section > p, section > ul, section > ol,
+.method-section > p, .method-section > .plain,
+details.tech > p, details.tech > ul, details.tech > ol { max-width: 68ch; }
+
 /* Cards */
 /* min(100%, 300px) so a single card never demands 300px on a ~320px phone and
    pushes the page into horizontal scroll. */
@@ -100,7 +108,16 @@ p { margin-bottom: 1rem; }
    Wrapping each one in .table-scroll keeps the overflow *inside its own box*
    instead of stretching the whole page — otherwise the page scrolls sideways
    and the sticky nav (only ever viewport-wide) ends before the table does. */
-.table-scroll { overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; }
+.table-scroll { overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; position: relative; }
+/* When a table is wider than its box, nav.js makes the wrapper a focusable region
+   (tabindex/role/aria) so keyboard users can scroll it, and toggles .can-scroll-*
+   classes to fade the clipped edge as a "there's more this way" cue. */
+.table-scroll:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.table-scroll.can-scroll-right::after,
+.table-scroll.can-scroll-left::before {
+  content: ""; position: absolute; top: 0; bottom: 0; width: 2.25rem; pointer-events: none; z-index: 1; }
+.table-scroll.can-scroll-right::after { right: 0; background: linear-gradient(to right, transparent, var(--bg)); }
+.table-scroll.can-scroll-left::before { left: 0; background: linear-gradient(to left, transparent, var(--bg)); }
 /* The wrapper is a new block formatting context, so a wrapped table's vertical
    margins no longer collapse with adjacent headings/text — they would add and
    inflate the gap. Carry the spacing on the wrapper and zero it on the table so
