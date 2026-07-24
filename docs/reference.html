@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reference &mdash; Housing Nutrition Label</title>
+  <title>Reference &middot; Housing Nutrition Label</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" sizes="any">
   <link rel="icon" href="favicon.ico" type="image/x-icon" sizes="any">
   <link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180">
@@ -61,16 +61,16 @@
 </section>
 
 <section id="geo">
-  <h2>Geographic resolution &mdash; what's measured where</h2>
+  <h2>Geographic resolution: what's measured where</h2>
   <p>Some inputs are pulled for your <strong>exact address</strong>; others describe the surrounding <strong>census tract</strong> or <strong>county</strong>; a couple use <strong>national</strong> models; and a few depend only on <strong>your house</strong> and are identical anywhere. This is the single most common source of confusion, so here it is up front.</p>
   <div class="table-scroll"><table class="data-table">
     <thead><tr><th>Resolution</th><th>What's resolved at this level</th></tr></thead>
     <tbody>
       <tr><td><span class="tag point">Address point</span></td><td>Flood zone (FEMA NFHL), seismic PGA (USGS)</td></tr>
-      <tr><td><span class="tag tract">Census tract</span></td><td>Tornado &amp; wildfire expected annual loss (FEMA National Risk Index); <strong>Health</strong> (CDC PLACES), <strong>Socioeconomic</strong> (Census ACS), <strong>Walkability</strong> (EPA National Walkability Index), <strong>Air Quality</strong> PM2.5 + ozone (CDC Tracking), and <strong>Noise</strong> (US DOT BTS transportation-noise exposure) &mdash; each scored against the <em>national</em> distribution of US tracts, comparable across locations</td></tr>
-      <tr><td><span class="tag county">County</span></td><td>Energy climate zone (IECC), Infrastructure Burden (cost / property-tax model), the <strong>Air Quality</strong> radon layer (EPA Map of Radon Zones &mdash; a county-level dataset), <strong>Solar Potential</strong> (PVGIS rooftop specific yield), and <strong>Water Quality</strong> (EPA SDWIS community-water-system health-based violations) &mdash; scored against the <em>national</em> distribution of US counties</td></tr>
-      <tr><td><span class="tag county">County</span></td><td>Environmental grid-carbon factors (kg&nbsp;CO&#8322;e/kWh) &mdash; the location's eGRID2023 Rev 2 subregion rate as the grid <strong>average</strong> (county&rarr;subregion crosswalk, US-average fallback) plus the county's <strong>NREL Cambium 2023 LRMER</strong> long-run <strong>marginal</strong> rate (county&rarr;GEA-region crosswalk, CONUS-only) used to credit solar/efficiency-avoided kWh</td></tr>
-      <tr><td><span class="tag config">Your house only</span></td><td>Durability, embodied carbon, and the <strong>fire</strong> peril &mdash; driven by construction / year / condition, identical at any location</td></tr>
+      <tr><td><span class="tag tract">Census tract</span></td><td>Tornado &amp; wildfire expected annual loss (FEMA National Risk Index); <strong>Health</strong> (CDC PLACES), <strong>Socioeconomic</strong> (Census ACS), <strong>Walkability</strong> (EPA National Walkability Index), <strong>Air Quality</strong> PM2.5 + ozone (CDC Tracking), and <strong>Noise</strong> (US DOT BTS transportation-noise exposure), each scored against the <em>national</em> distribution of US tracts and comparable across locations</td></tr>
+      <tr><td><span class="tag county">County</span></td><td>Energy climate zone (IECC), Infrastructure Burden (cost / property-tax model), the <strong>Air Quality</strong> radon layer (EPA Map of Radon Zones, a county-level dataset), <strong>Solar Potential</strong> (PVGIS rooftop specific yield), and <strong>Water Quality</strong> (EPA SDWIS community-water-system health-based violations), all scored against the <em>national</em> distribution of US counties</td></tr>
+      <tr><td><span class="tag county">County</span></td><td>Environmental grid-carbon factors (kg&nbsp;CO&#8322;e/kWh): the location's eGRID2023 Rev 2 subregion rate as the grid <strong>average</strong> (county&rarr;subregion crosswalk, US-average fallback) plus the county's <strong>NREL Cambium 2023 LRMER</strong> long-run <strong>marginal</strong> rate (county&rarr;GEA-region crosswalk, CONUS-only) used to credit solar/efficiency-avoided kWh</td></tr>
+      <tr><td><span class="tag config">Your house only</span></td><td>Durability, embodied carbon, and the <strong>fire</strong> peril: driven by construction / year / condition, identical at any location</td></tr>
     </tbody>
   </table></div>
   <div class="insight"><strong>Why it matters:</strong> two identical buildings can score very differently on Health, Socioeconomic, or Walkability purely because of location, while Durability and the construction-driven dimensions move only when you change the build.</div>
@@ -90,12 +90,12 @@
       <tr><td>Infrastructure Burden</td><td>Fiscal cost-to-serve vs. the revenue the parcel generates</td><td>Census of Governments spending + ACS tax model (per county)</td><td><span class="tag county">county</span></td></tr>
       <tr><td>Health Impact</td><td>Neighborhood health outcomes (national percentile)</td><td>CDC PLACES</td><td><span class="tag tract">tract</span></td></tr>
       <tr><td>Air Quality</td><td>Ambient PM2.5 + ozone &amp; radon zone (national percentile)</td><td>CDC Tracking (PM2.5/ozone) + EPA radon zones</td><td><span class="tag tract">tract</span> <span class="tag county">+ county radon</span></td></tr>
-      <tr><td>Noise</td><td>Transportation-noise exposure &mdash; % of residents at &ge;60&nbsp;dB (national percentile)</td><td>US DOT BTS National Transportation Noise Map</td><td><span class="tag tract">tract</span></td></tr>
+      <tr><td>Noise</td><td>Transportation-noise exposure: % of residents at &ge;60&nbsp;dB (national percentile)</td><td>US DOT BTS National Transportation Noise Map</td><td><span class="tag tract">tract</span></td></tr>
       <tr><td>Socioeconomic</td><td>Neighborhood socioeconomic index (national percentile)</td><td>Census ACS</td><td><span class="tag tract">tract</span></td></tr>
       <tr><td>Walkability</td><td>How walkable the location is</td><td>EPA National Walkability Index</td><td><span class="tag tract">tract</span></td></tr>
       <tr><td>Climate Projections</td><td>Projected extreme heat, heavy precip/flood &amp; drought (RCP4.5&ndash;8.5, mid-century)</td><td>NOAA/DOI CMRA (LOCA/NCA4)</td><td><span class="tag county">county</span></td></tr>
-      <tr><td>Solar Potential</td><td>Rooftop specific yield (kWh/kW&middot;yr) &mdash; production, $ saved &amp; CO&#8322; avoided (national percentile)</td><td>PVGIS v5.2 on NREL NSRDB</td><td><span class="tag county">county</span></td></tr>
-      <tr><td>Water Quality</td><td>Community-water-system health-based violation exposure &mdash; % of residents on a system with a recent violation (national percentile)</td><td>EPA SDWIS federal reporting</td><td><span class="tag county">county</span></td></tr>
+      <tr><td>Solar Potential</td><td>Rooftop specific yield (kWh/kW&middot;yr): production, $ saved &amp; CO&#8322; avoided (national percentile)</td><td>PVGIS v5.2 on NREL NSRDB</td><td><span class="tag county">county</span></td></tr>
+      <tr><td>Water Quality</td><td>Community-water-system health-based violation exposure: % of residents on a system with a recent violation (national percentile)</td><td>EPA SDWIS federal reporting</td><td><span class="tag county">county</span></td></tr>
     </tbody>
   </table></div>
 <!-- END AUTOGEN:ref-dimensions -->
@@ -108,9 +108,9 @@
   <div class="table-scroll"><table class="data-table">
     <thead><tr><th>Type</th><th>Wind / seismic</th><th>Flood</th><th>Fire</th><th>Build grade</th><th>Notes</th></tr></thead>
     <tbody>
-      <tr><td>Wood frame</td><td>1.20</td><td>1.20</td><td>1.10</td><td>38</td><td>Light wood frame &mdash; the baseline; most vulnerable to wind/seismic</td></tr>
+      <tr><td>Wood frame</td><td>1.20</td><td>1.20</td><td>1.10</td><td>38</td><td>Light wood frame, the baseline; most vulnerable to wind/seismic</td></tr>
       <tr><td>Vinyl-sided frame</td><td>1.15</td><td>1.15</td><td>1.10</td><td>35</td><td>Wood frame with vinyl siding: slight wind benefit, slightly lower build grade</td></tr>
-      <tr><td>Brick veneer / frame</td><td>1.00</td><td>1.00</td><td>1.00</td><td>42</td><td>Brick veneer over a wood frame &mdash; composite baseline</td></tr>
+      <tr><td>Brick veneer / frame</td><td>1.00</td><td>1.00</td><td>1.00</td><td>42</td><td>Brick veneer over a wood frame, composite baseline</td></tr>
       <tr><td>Brick (solid masonry)</td><td>0.95</td><td>0.95</td><td>0.85</td><td>48</td><td>Solid brick; better lateral resistance &amp; less combustible</td></tr>
       <tr><td>Concrete block (CMU)</td><td>0.90</td><td>0.90</td><td>0.80</td><td>46</td><td>Reinforced masonry; strong lateral resistance</td></tr>
       <tr><td>Stone</td><td>0.85</td><td>0.85</td><td>0.80</td><td>52</td><td>Solid masonry; best of the traditional types</td></tr>
@@ -123,7 +123,7 @@
 
 <section id="condition">
   <h2>Condition</h2>
-  <p>Upkeep/deterioration. Multiplies expected loss for every disaster peril (so it now affects the score at any age &mdash; there is no upper cap) and feeds the Durability model.</p>
+  <p>Upkeep/deterioration. Multiplies expected loss for every disaster peril (so it affects the score at any age, with no upper cap) and feeds the Durability model.</p>
   <!-- BEGIN AUTOGEN:ref-condition (managed by scripts/sync_docs.py — edits here are overwritten; run `python scripts/sync_docs.py --write`) -->
   <div class="table-scroll"><table class="data-table">
     <thead><tr><th>Condition</th><th>Loss multiplier</th></tr></thead>
@@ -158,14 +158,14 @@
 <section id="year">
   <h2>Year built</h2>
   <!-- BEGIN AUTOGEN:ref-year-code (managed by scripts/sync_docs.py — edits here are overwritten; run `python scripts/sync_docs.py --write`) -->
-  <p>The build-code era (wind/seismic) vulnerability is a <strong>continuous</strong> curve, linearly interpolated between the anchor years below and clamped beyond them &mdash; a 1969 and a 1970 build no longer differ by a cliff. <strong>Lower is better.</strong></p>
+  <p>The build-code era (wind/seismic) vulnerability is a <strong>continuous</strong> curve, linearly interpolated between the anchor years below and clamped beyond them. A 1969 and a 1970 build no longer differ by a cliff. <strong>Lower is better.</strong></p>
   <div class="table-scroll"><table class="data-table">
     <thead><tr><th>Anchor year</th><th>Code factor (wind/seismic)</th><th>Era</th></tr></thead>
     <tbody>
       <tr><td>1940 or earlier</td><td>1.6&times;</td><td>Pre-WWII: balloon framing, no engineered connections</td></tr>
       <tr><td>1970</td><td>1.3&times;</td><td>Pre-modern seismic/wind codes (pre-1972 wind, pre-1971 seismic)</td></tr>
       <tr><td>1990</td><td>1.1&times;</td><td>Early modern (ASCE&nbsp;7 wind), pre-Northridge detailing</td></tr>
-      <tr><td>2003</td><td>1.0&times;</td><td>Baseline &mdash; IBC maturity / ASCE&nbsp;7-02</td></tr>
+      <tr><td>2003</td><td>1.0&times;</td><td>Baseline: IBC maturity / ASCE&nbsp;7-02</td></tr>
       <tr><td>2010 or later</td><td>0.85&times;</td><td>Fully modern IBC / ASCE&nbsp;7-05&ndash;7-10</td></tr>
     </tbody>
   </table></div>
@@ -192,7 +192,7 @@
       <tr><td>Flood zone</td><td>FEMA zone (<code>X</code> minimal, <code>X500</code> moderate, <code>AE</code> high). Auto-derived from the resolved location (address or lat/lon) via FEMA NFHL if not set.</td><td>auto (FEMA NFHL)</td></tr>
       <tr><td>Value</td><td>Market value; scales the dollar-denominated expected loss (not the 0&ndash;100 scores, which are rates).</td><td>$160,000</td></tr>
       <tr><td>Units</td><td>Dwelling units; the parcel is framed per-unit for the construction dimensions.</td><td>1</td></tr>
-      <tr><td>Square footage</td><td>Living area of a single dwelling unit (<strong>per unit</strong>, not the whole building &mdash; it is not divided by the unit count); feeds the energy &amp; environmental per-area models.</td><td>2,000</td></tr>
+      <tr><td>Square footage</td><td>Living area of a single dwelling unit (<strong>per unit</strong>, not the whole building, so it is not divided by the unit count); feeds the energy &amp; environmental per-area models.</td><td>2,000</td></tr>
       <tr><td>Lot acres</td><td>Parcel size; feeds the infrastructure cost-to-serve model.</td><td>0.25</td></tr>
     </tbody>
   </table></div>
@@ -200,7 +200,7 @@
 
 <section id="upgrades">
   <h2>Resilience upgrades</h2>
-  <p>Above-code features that reduce a specific peril's expected loss. Each is a multiplier &mdash; <strong>lower = bigger reduction</strong> &mdash; applied on top of the construction/condition adjustment. FORTIFIED tiers are composite and supersede the individual wind features; the three elevation tiers are mutually exclusive.</p>
+  <p>Above-code features that reduce a specific peril's expected loss. Each is a multiplier (<strong>lower = bigger reduction</strong>) applied on top of the construction/condition adjustment. FORTIFIED tiers are composite and supersede the individual wind features; the three elevation tiers are mutually exclusive.</p>
   <!-- BEGIN AUTOGEN:ref-upgrades (managed by scripts/sync_docs.py — edits here are overwritten; run `python scripts/sync_docs.py --write`) -->
   <h3>General (apply to flood, tornado &amp; seismic)</h3>
   <div class="table-scroll"><table class="data-table"><thead><tr><th>Upgrade</th><th>Factor</th></tr></thead><tbody>
@@ -221,7 +221,7 @@
     <tr><td>Ring-shank nails</td><td>0.88</td></tr>
     <tr><td>16&Prime; OC trusses</td><td>0.92</td></tr>
   </tbody></table></div>
-  <h3>IBHS FORTIFIED (composite &mdash; supersedes the wind features above)</h3>
+  <h3>IBHS FORTIFIED (composite that supersedes the wind features above)</h3>
   <div class="table-scroll"><table class="data-table"><thead><tr><th>Upgrade</th><th>Factor</th></tr></thead><tbody>
     <tr><td>FORTIFIED Roof</td><td>0.35</td></tr>
     <tr><td>FORTIFIED Silver</td><td>0.25</td></tr>
@@ -259,12 +259,12 @@
     <tbody>
       <tr><td>baseline</td><td>2000 wood frame, slab, average, zone X, $160k</td></tr>
       <tr><td>premium</td><td>2026 solid brick, slab, excellent, zone X, $450k</td></tr>
-      <tr><td>icf-passive</td><td>2026 ICF, slab, excellent, zone X, $500k &mdash; solar, generator, passive house, safe room, hurricane straps, hip roof, sealed roof deck, metal roof, +1&nbsp;ft elevation</td></tr>
+      <tr><td>icf-passive</td><td>2026 ICF, slab, excellent, zone X, $500k &middot; solar, generator, passive house, safe room, hurricane straps, hip roof, sealed roof deck, metal roof, +1&nbsp;ft elevation</td></tr>
       <tr><td>worst-case</td><td>1945 wood frame, full basement, poor, zone AE, $80k</td></tr>
-      <tr><td>fortified-gold</td><td>2026 wood frame, slab, excellent, zone X, $350k &mdash; sealed roof deck, metal roof, FORTIFIED Gold</td></tr>
+      <tr><td>fortified-gold</td><td>2026 wood frame, slab, excellent, zone X, $350k &middot; sealed roof deck, metal roof, FORTIFIED Gold</td></tr>
       <tr><td>duplex</td><td>2026 solid brick, 2 units &times; 1,200 sqft, excellent, zone X, $300k</td></tr>
       <tr><td>quadplex</td><td>2026 solid brick, 4 units &times; 900 sqft, excellent, zone X, $500k</td></tr>
-      <tr><td>icf-quadplex</td><td>2026 ICF, 4 units &times; 1,000 sqft, excellent, zone X, $600k &mdash; solar, passive house, hurricane straps, hip roof</td></tr>
+      <tr><td>icf-quadplex</td><td>2026 ICF, 4 units &times; 1,000 sqft, excellent, zone X, $600k &middot; solar, passive house, hurricane straps, hip roof</td></tr>
     </tbody>
   </table></div>
 <!-- END AUTOGEN:ref-presets -->
@@ -280,7 +280,7 @@
     --foundation slab --sqft 1800 --value 350000 \
     --solar --hurricane-straps --fire-sprinklers --json</code></pre>
   <p>Core flags: <code>--preset</code>, <code>--address</code> (or <code>--lat</code>/<code>--lon</code>), <code>--construction</code>, <code>--year-built</code>, <code>--foundation</code>, <code>--condition</code>, <code>--flood-zone</code>, <code>--value</code>, <code>--units</code>, <code>--sqft</code>, <code>--lot-acres</code>. Each resilience upgrade is a flag (e.g. <code>--solar</code>, <code>--fortified-gold</code>, <code>--elevation-1ft</code>). <code>--json</code> emits the full payload; <code>--no-fetch</code> runs offline.</p>
-  <p><strong>Density comparison:</strong> add <code>--density</code> to compare the same parcel at 1&ndash;4 dwelling units (fixed lot, constant per-unit value) &mdash; the density dividend. Set the counts with <code>--density-units 1,2,4</code>; combine with <code>--json</code> for machine-readable output.</p>
+  <p><strong>Density comparison:</strong> add <code>--density</code> to compare the same parcel at 1&ndash;4 dwelling units (fixed lot, constant per-unit value). This is the density dividend. Set the counts with <code>--density-units 1,2,4</code>; combine with <code>--json</code> for machine-readable output.</p>
 
   <h3>API</h3>
   <pre><code>GET /label?address=&lt;addr&gt;&amp;preset=baseline&amp;construction=icf&amp;year_built=2026
@@ -292,7 +292,7 @@
 </section>
 
 <footer>
-  Housing Nutrition Label &mdash; <a href="https://github.com/compbiolover/housing-nutrition-label">open source on GitHub</a>
+  Housing Nutrition Label &middot; <a href="https://github.com/compbiolover/housing-nutrition-label">open source on GitHub</a>
 </footer>
 <script src="nav.js"></script>
 </body>

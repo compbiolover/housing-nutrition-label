@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Setup Guide &mdash; Housing Nutrition Label</title>
+  <title>Setup Guide &middot; Housing Nutrition Label</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" sizes="any">
   <link rel="icon" href="favicon.ico" type="image/x-icon" sizes="any">
   <link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180">
@@ -33,7 +33,7 @@ source .venv/bin/activate
 pip install -e .                    # installs package + dependencies
 housing-simulate --preset icf-passive --lat 35.15 --lon -89.85   # score a house</code></pre>
   <p>Installing with <code>pip install -e .</code> (editable mode) gives you the <code>housing-simulate</code> and <code>housing-api</code> console commands, plus installs <code>requests</code> and <code>pandas</code> automatically from <code>pyproject.toml</code>.</p>
-  <p>Scoring is on-demand per address &mdash; there is no build step. The location-driven dimensions call a few keyless government APIs (FEMA flood, CDC PLACES, Census ACS) the first time a location is scored.</p>
+  <p>Scoring is on-demand per address. There is no build step. The location-driven dimensions call a few keyless government APIs (FEMA flood, CDC PLACES, Census ACS) the first time a location is scored.</p>
 </section>
 
 <section>
@@ -74,11 +74,11 @@ housing-simulate --preset icf-passive --lat 35.15 --lon -89.85   # score a house
 <section>
   <h2>House Simulator</h2>
   <!-- BEGIN AUTOGEN:setup-dimension-counts (managed by scripts/sync_docs.py — edits here are overwritten; run `python scripts/sync_docs.py --write`) -->
-  <p>The CLI simulator lets you define a hypothetical house and see its full nutrition label &mdash; all thirteen dimensions &mdash; instantly.</p>
-  <p>Five dimensions are <strong>construction-driven</strong> (resilience, energy, durability, environmental, infrastructure) &mdash; modeled offline from the house configuration; the other eight are <strong>location-driven</strong>, resolved by the house's census tract or county (no API key needed).</p>
+  <p>The CLI simulator lets you define a hypothetical house and see its full nutrition label (all thirteen dimensions) instantly.</p>
+  <p>Five dimensions are <strong>construction-driven</strong> (resilience, energy, durability, environmental, infrastructure), modeled offline from the house configuration. The other eight are <strong>location-driven</strong>, resolved by the house's census tract or county (no API key needed).</p>
 <!-- END AUTOGEN:setup-dimension-counts -->
 
-  <p>The location dimensions are keyless, bundled <strong>national</strong> references resolved by the house's census tract or county, comparable across locations: health (CDC PLACES), socioeconomic (Census ACS), and walkability (EPA National Walkability Index) resolve at the census tract &mdash; where a tract can't be resolved they show <em>N/A</em> and are excluded from the composite, never filled with a placeholder. Air quality resolves PM2.5 and ozone at the census tract (CDC Tracking, tract → county fallback) plus the county EPA radon zone; noise is a bundled per-tract transportation-noise lookup (US DOT BTS, tract → county fallback); climate projections come from a bundled per-county lookup (no API key). Climate uses a national-average fallback for a known-but-unmapped county; air quality is scored for any tract/county in the bundled tables (and where an individual county lacks an EPA radon zone it is scored on PM2.5 + ozone alone). Solar potential is a bundled per-county rooftop-yield lookup (PVGIS, no API key); water quality is a bundled per-county drinking-water-compliance lookup (EPA SDWIS, no API key). Like the other location dimensions, these are excluded under <code>--no-fetch</code>, since resolving the tract/county still needs the geocoder.</p>
+  <p>The location dimensions are keyless, bundled <strong>national</strong> references resolved by the house's census tract or county, comparable across locations: health (CDC PLACES), socioeconomic (Census ACS), and walkability (EPA National Walkability Index) resolve at the census tract. Where a tract can't be resolved they show <em>N/A</em> and are excluded from the composite, never filled with a placeholder. Air quality resolves PM2.5 and ozone at the census tract (CDC Tracking, tract → county fallback) plus the county EPA radon zone; noise is a bundled per-tract transportation-noise lookup (US DOT BTS, tract → county fallback); climate projections come from a bundled per-county lookup (no API key). Climate uses a national-average fallback for a known-but-unmapped county; air quality is scored for any tract/county in the bundled tables (and where an individual county lacks an EPA radon zone it is scored on PM2.5 + ozone alone). Solar potential is a bundled per-county rooftop-yield lookup (PVGIS, no API key); water quality is a bundled per-county drinking-water-compliance lookup (EPA SDWIS, no API key). Like the other location dimensions, these are excluded under <code>--no-fetch</code>, since resolving the tract/county still needs the geocoder.</p>
 
   <h3>Full-Label Flags</h3>
   <pre><code># Emit the whole label (all dimensions + composite) as JSON
@@ -109,12 +109,12 @@ housing-simulate --preset icf-quadplex --lat 35.15 --lon -89.85</code></pre>
     <tbody>
       <tr><td><code>baseline</code></td><td>2000 wood frame, slab, average, zone X, $160k</td></tr>
       <tr><td><code>premium</code></td><td>2026 solid brick, slab, excellent, zone X, $450k</td></tr>
-      <tr><td><code>icf-passive</code></td><td>2026 ICF, slab, excellent, zone X, $500k &mdash; solar, generator, passive house, safe room, hurricane straps, hip roof, sealed roof deck, metal roof, +1&nbsp;ft elevation</td></tr>
+      <tr><td><code>icf-passive</code></td><td>2026 ICF, slab, excellent, zone X, $500k &middot; solar, generator, passive house, safe room, hurricane straps, hip roof, sealed roof deck, metal roof, +1&nbsp;ft elevation</td></tr>
       <tr><td><code>worst-case</code></td><td>1945 wood frame, full basement, poor, zone AE, $80k</td></tr>
-      <tr><td><code>fortified-gold</code></td><td>2026 wood frame, slab, excellent, zone X, $350k &mdash; sealed roof deck, metal roof, FORTIFIED Gold</td></tr>
+      <tr><td><code>fortified-gold</code></td><td>2026 wood frame, slab, excellent, zone X, $350k &middot; sealed roof deck, metal roof, FORTIFIED Gold</td></tr>
       <tr><td><code>duplex</code></td><td>2026 solid brick, 2 units &times; 1,200 sqft, excellent, zone X, $300k</td></tr>
       <tr><td><code>quadplex</code></td><td>2026 solid brick, 4 units &times; 900 sqft, excellent, zone X, $500k</td></tr>
-      <tr><td><code>icf-quadplex</code></td><td>2026 ICF, 4 units &times; 1,000 sqft, excellent, zone X, $600k &mdash; solar, passive house, hurricane straps, hip roof</td></tr>
+      <tr><td><code>icf-quadplex</code></td><td>2026 ICF, 4 units &times; 1,000 sqft, excellent, zone X, $600k &middot; solar, passive house, hurricane straps, hip roof</td></tr>
     </tbody>
   </table></div>
 <!-- END AUTOGEN:setup-presets -->
@@ -154,7 +154,7 @@ housing-simulate \
 
 <section id="api">
   <h2>Address-search API</h2>
-  <p>The <a href="examples.html">Examples</a> page can score any US address with a live nutrition label. Because the site is static (GitHub Pages), the scoring runs behind a small HTTP API that wraps the CLI simulator &mdash; the same scoring path, no model drift.</p>
+  <p>The <a href="examples.html">Examples</a> page can score any US address with a live nutrition label. Because the site is static (GitHub Pages), the scoring runs behind a small HTTP API that wraps the CLI simulator: the same scoring path, no model drift.</p>
 
   <h3>Run it</h3>
   <pre><code>pip install -e ".[api]"            # installs FastAPI + uvicorn
@@ -163,18 +163,18 @@ housing-api                        # serves on :8000 (PORT overrides) &mdash; no
   <p>Endpoints: <code>GET /healthz</code>, <code>GET /suggest?q=&lt;text&gt;</code> (address typeahead), and <code>GET /label?address=&lt;addr&gt;&amp;preset=&lt;preset&gt;</code> (or <code>?lat=&amp;lon=</code>). Optional <code>/label</code> overrides: <code>year_built</code>, <code>construction</code>, <code>foundation</code>, <code>condition</code>, <code>sqft</code>, <code>units</code>, <code>lot_acres</code>, <code>value</code>, <code>flood_zone</code>, and <code>upgrades</code> (comma-separated resilience flags, e.g. <code>upgrades=solar,fortified_roof,hurricane_straps</code>). Unknown values return a 400.</p>
 
   <h3>Address autocomplete</h3>
-  <p><code>GET /suggest?q=&lt;text&gt;</code> returns up to five US suggestions, proxied <em>server-side</em> so visitors' partial text reaches only your origin (no third-party script, IP, or cookies leave the browser). With Google (Autocomplete) each result is <code>{label, place_id, residential}</code> &mdash; the picked one's coordinates are resolved on selection via <code>GET /place?place_id=&amp;session=</code> (Place Details), which the frontend then submits to <code>/label?lat=&amp;lon=</code>. With Geoapify/Photon each result already carries <code>{label, lat, lon, residential}</code>, scored directly. A client <code>session</code> token bundles a typeahead's autocomplete calls plus its one <code>/place</code> lookup into a single billed Google session. Free-typed addresses fall back to <code>?address=</code> geocoding. The <code>residential</code> field flags a non-residential POI (a stadium, office, or store) so the scorer refuses to grade it as a home.</p>
+  <p><code>GET /suggest?q=&lt;text&gt;</code> returns up to five US suggestions, proxied <em>server-side</em> so visitors' partial text reaches only your origin (no third-party script, IP, or cookies leave the browser). With Google (Autocomplete) each result is <code>{label, place_id, residential}</code>. The picked one's coordinates are resolved on selection via <code>GET /place?place_id=&amp;session=</code> (Place Details), which the frontend then submits to <code>/label?lat=&amp;lon=</code>. With Geoapify/Photon each result already carries <code>{label, lat, lon, residential}</code>, scored directly. A client <code>session</code> token bundles a typeahead's autocomplete calls plus its one <code>/place</code> lookup into a single billed Google session. Free-typed addresses fall back to <code>?address=</code> geocoding. The <code>residential</code> field flags a non-residential POI (a stadium, office, or store) so the scorer refuses to grade it as a home.</p>
   <p><strong>Provider (priority order):</strong></p>
   <ul style="margin:0.5rem 0;padding-left:1.5rem;">
-    <li style="margin-bottom:0.5rem;"><strong>Google Places</strong> &mdash; set <code>GOOGLE_PLACES_API_KEY</code> for the best US coverage of business, campus, and landmark names (a company HQ that OSM-based geocoders miss). In <a href="https://console.cloud.google.com">Google Cloud</a>: create a project, enable <strong>Places API (New)</strong>, create an API key, and (recommended) restrict it to that API. Billing must be enabled; at low traffic the cost is small and Google includes a recurring free allotment (Autocomplete + Place Details are bundled into one billed session per search). The key stays server-side. <code>GOOGLE_PLACES_AUTOCOMPLETE_URL</code> / <code>GOOGLE_PLACES_DETAILS_URL</code> override the endpoints.</li>
-    <li style="margin-bottom:0.5rem;"><strong>Geoapify</strong> &mdash; set <code>GEOAPIFY_API_KEY</code> (free tier at <a href="https://www.geoapify.com">geoapify.com</a>, EU/GDPR, OSM&nbsp;+&nbsp;OpenAddresses) for sharper US ranking than Photon, no billing. <code>GEOAPIFY_URL</code> overrides the endpoint.</li>
-    <li style="margin-bottom:0.5rem;"><strong>Photon</strong> (default, keyless) &mdash; OpenStreetMap, <code>PHOTON_URL</code> overridable to self-host. US business-POI coverage is limited.</li>
+    <li style="margin-bottom:0.5rem;"><strong>Google Places:</strong> set <code>GOOGLE_PLACES_API_KEY</code> for the best US coverage of business, campus, and landmark names (a company HQ that OSM-based geocoders miss). In <a href="https://console.cloud.google.com">Google Cloud</a>: create a project, enable <strong>Places API (New)</strong>, create an API key, and (recommended) restrict it to that API. Billing must be enabled; at low traffic the cost is small and Google includes a recurring free allotment (Autocomplete + Place Details are bundled into one billed session per search). The key stays server-side. <code>GOOGLE_PLACES_AUTOCOMPLETE_URL</code> / <code>GOOGLE_PLACES_DETAILS_URL</code> override the endpoints.</li>
+    <li style="margin-bottom:0.5rem;"><strong>Geoapify:</strong> set <code>GEOAPIFY_API_KEY</code> (free tier at <a href="https://www.geoapify.com">geoapify.com</a>, EU/GDPR, OSM&nbsp;+&nbsp;OpenAddresses) for sharper US ranking than Photon, no billing. <code>GEOAPIFY_URL</code> overrides the endpoint.</li>
+    <li style="margin-bottom:0.5rem;"><strong>Photon</strong> (default, keyless): OpenStreetMap. <code>PHOTON_URL</code> overridable to self-host. US business-POI coverage is limited.</li>
   </ul>
-  <p>Whichever is highest-priority and reachable is used; each falls back to the next if unreachable. All keys stay server-side &mdash; they never reach the browser.</p>
-  <p><strong>Not seeing Google results?</strong> A misconfigured key falls back silently to the next provider. Hit <code>GET /suggest?q=Unum&amp;debug=1</code> on your API to diagnose (it never returns the key): <code>configured.google:&nbsp;false</code> means the key isn't in the running env &mdash; set <code>GOOGLE_PLACES_API_KEY</code> and <em>redeploy</em> (env changes need a fresh deploy). If it's <code>true</code> but <code>google_probe.ok:&nbsp;false</code>, Google's <code>message</code> names the cause &mdash; usually the <strong>Places API (New)</strong> isn't enabled, billing is off, or the key has an <strong>HTTP-referrer restriction</strong> (which blocks server-side calls; use <em>None</em> or IP restrictions instead).</p>
+  <p>Whichever is highest-priority and reachable is used; each falls back to the next if unreachable. All keys stay server-side. They never reach the browser.</p>
+  <p><strong>Not seeing Google results?</strong> A misconfigured key falls back silently to the next provider. Hit <code>GET /suggest?q=Unum&amp;debug=1</code> on your API to diagnose (it never returns the key): <code>configured.google:&nbsp;false</code> means the key isn't in the running env. Set <code>GOOGLE_PLACES_API_KEY</code> and <em>redeploy</em> (env changes need a fresh deploy). If it's <code>true</code> but <code>google_probe.ok:&nbsp;false</code>, Google's <code>message</code> names the cause. Usually the <strong>Places API (New)</strong> isn't enabled, billing is off, or the key has an <strong>HTTP-referrer restriction</strong> (which blocks server-side calls; use <em>None</em> or IP restrictions instead).</p>
 
   <h3>Deploy it</h3>
-  <p>GitHub Pages can't host the Python API &mdash; deploy it anywhere that runs Python (Render, Fly, Cloud Run, Railway, a small VM). The repo ships two ready-to-use configs:</p>
+  <p>GitHub Pages can't host the Python API. Deploy it anywhere that runs Python (Render, Fly, Cloud Run, Railway, a small VM). The repo ships two ready-to-use configs:</p>
   <ul style="margin:1rem 0;padding-left:1.5rem;">
     <li style="margin-bottom:0.5rem;"><strong>Render:</strong> <code>render.yaml</code> (a Blueprint). Push the repo, then <em>New&nbsp;+ &rarr; Blueprint</em> and select it. The API needs no keys; optionally set <code>GOOGLE_PLACES_API_KEY</code> (or <code>GEOAPIFY_API_KEY</code>) for better address autocomplete.</li>
     <li style="margin-bottom:0.5rem;"><strong>Containers</strong> (Fly / Cloud Run / Railway / any host): <code>Dockerfile</code>. Build with <code>docker build -t housing-label-api .</code> and run with <code>-p 8000:8000</code> plus the env vars below.</li>
@@ -199,7 +199,7 @@ housing-api                        # serves on :8000 (PORT overrides) &mdash; no
 
 <section>
   <h2>Tech Stack</h2>
-  <p>Python 3.9+ with two dependencies: <code>requests</code> and <code>pandas</code>. No geo libraries, no databases, no frameworks. All spatial calculations (Haversine, Web Mercator conversion, polygon centroids) use pure math. This is intentional &mdash; the whole scorer runs on any machine with Python installed.</p>
+  <p>Python 3.9+ with two dependencies: <code>requests</code> and <code>pandas</code>. No geo libraries, no databases, no frameworks. All spatial calculations (Haversine, Web Mercator conversion, polygon centroids) use pure math. This is intentional: the whole scorer runs on any machine with Python installed.</p>
   <p>The project is packaged as a standard Python package via <code>pyproject.toml</code> and can be installed with <code>pip install -e .</code> for development or built as a wheel for distribution.</p>
 </section>
 
@@ -207,17 +207,17 @@ housing-api                        # serves on :8000 (PORT overrides) &mdash; no
   <h2>Roadmap</h2>
   <p>Phase 1 (current) covers data ingestion and scoring. The longer-term vision includes:</p>
   <ul style="margin:1rem 0;padding-left:1.5rem;">
-    <li style="margin-bottom:0.5rem;"><strong>Durability dimension</strong> &mdash; estimated major maintenance over 15/30 years by construction type and age</li>
-    <li style="margin-bottom:0.5rem;"><strong>Environmental footprint</strong> &mdash; carbon, stormwater, impervious surface</li>
-    <li style="margin-bottom:0.5rem;"><strong>Frontend visualization</strong> &mdash; interactive nutrition label card and map explorer</li>
-    <li style="margin-bottom:0.5rem;"><strong>Rust scoring engine</strong> &mdash; high-performance API for real-time lookups</li>
-    <li style="margin-bottom:0.5rem;"><strong>API layer</strong> &mdash; REST API for Zillow/Redfin/Realtor.com integration</li>
-    <li style="margin-bottom:0.5rem;"><strong>Scale beyond Shelby County</strong> &mdash; parameterize for any US county</li>
+    <li style="margin-bottom:0.5rem;"><strong>Durability dimension:</strong> estimated major maintenance over 15/30 years by construction type and age</li>
+    <li style="margin-bottom:0.5rem;"><strong>Environmental footprint:</strong> carbon, stormwater, impervious surface</li>
+    <li style="margin-bottom:0.5rem;"><strong>Frontend visualization:</strong> interactive nutrition label card and map explorer</li>
+    <li style="margin-bottom:0.5rem;"><strong>Rust scoring engine:</strong> high-performance API for real-time lookups</li>
+    <li style="margin-bottom:0.5rem;"><strong>API layer:</strong> REST API for Zillow/Redfin/Realtor.com integration</li>
+    <li style="margin-bottom:0.5rem;"><strong>Scale beyond Shelby County:</strong> parameterize for any US county</li>
   </ul>
 </section>
 
 <footer>
-  <p>Housing Nutrition Label &mdash; MIT License &mdash; <a href="https://github.com/compbiolover/housing-nutrition-label">GitHub</a></p>
+  <p>Housing Nutrition Label &middot; MIT License &middot; <a href="https://github.com/compbiolover/housing-nutrition-label">GitHub</a></p>
 </footer>
 <script src="nav.js"></script>
 </body>
