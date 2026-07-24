@@ -188,7 +188,7 @@
 .label-addr-form input { width: 100%; font: inherit; padding: 0.6rem 0.8rem;
   border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); color: var(--text); }
 .label-addr-form .go { font: inherit; font-weight: 600; padding: 0.6rem 1.2rem; border: none;
-  border-radius: var(--radius); background: var(--navy); color: #fff; cursor: pointer; flex: 0 0 auto; }
+  border-radius: var(--radius); background: var(--cta); color: #fff; cursor: pointer; flex: 0 0 auto; }
 .label-addr-form .go:disabled { opacity: 0.6; cursor: progress; }
 .label-addr-form .reset { font: inherit; padding: 0.6rem 1rem; border: 1px solid var(--border);
   border-radius: var(--radius); background: var(--card); color: var(--text); cursor: pointer; }
