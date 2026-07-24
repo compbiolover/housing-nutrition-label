@@ -352,12 +352,14 @@ def _validate() -> None:
 # ── Region generators (return the inner HTML, markers added by _block) ──────────
 def gen_ref_dimensions() -> str:
     n = len(DIMENSIONS)
+    # The section heading lives in the (static) collapsible summary; the count stays
+    # here in the intro sentence so it can't drift from the code.
     lines = [
-        f'  <h2>The {_cardinal(n)} dimensions</h2>',
-        '  <p>The composite is the mean of whichever dimensions could be scored '
-        '(location dimensions are omitted, not zeroed, when their data/keys are '
-        'unavailable). National grades use absolute thresholds: A&nbsp;&ge;&nbsp;80, '
-        'B&nbsp;&ge;&nbsp;60, C&nbsp;&ge;&nbsp;40, D&nbsp;&ge;&nbsp;20, F&nbsp;&lt;&nbsp;20.</p>',
+        f'  <p>The engine scores <strong>{_cardinal(n)} dimensions</strong>. The composite is '
+        'the mean of whichever could be scored (location dimensions are omitted, not zeroed, '
+        'when their data/keys are unavailable). National grades use absolute thresholds: '
+        'A&nbsp;&ge;&nbsp;80, B&nbsp;&ge;&nbsp;60, C&nbsp;&ge;&nbsp;40, D&nbsp;&ge;&nbsp;20, '
+        'F&nbsp;&lt;&nbsp;20.</p>',
         '  <div class="table-scroll"><table class="data-table">',
         '    <thead><tr><th>Dimension</th><th>Measures</th><th>Data source</th>'
         '<th>Resolution</th></tr></thead>',
@@ -466,15 +468,38 @@ def gen_ref_year_fire() -> str:
 
 
 def gen_ref_upgrades() -> str:
-    lines = []
+    """A tab widget (one tab per upgrade group). Progressive enhancement: docs.js
+    switches panels one at a time; with no JS the tab strip hides and the panels
+    show stacked, each labelled by its caption."""
+    def _short(title: str) -> str:
+        return title.split(" (")[0]
+
+    def _slug(short: str) -> str:
+        return re.sub(r"[^a-z0-9]+", "-", short.lower()).strip("-")
+
+    lines = ['  <div class="tabs" data-tabs>',
+             '    <div class="tablist" role="tablist" aria-label="Resilience upgrade categories">']
+    for i, (title, _rows) in enumerate(UPGRADE_GROUPS):
+        short, slug = _short(title), _slug(_short(title))
+        sel = "true" if i == 0 else "false"
+        lines.append(
+            f'      <button type="button" role="tab" id="uptab-{slug}" '
+            f'aria-controls="uppanel-{slug}" aria-selected="{sel}">{short}</button>')
+    lines.append('    </div>')
     for title, rows in UPGRADE_GROUPS:
-        lines.append(f'  <h3>{title}</h3>')
-        lines.append('  <div class="table-scroll"><table class="data-table">'
+        slug = _slug(_short(title))
+        lines.append(
+            f'    <div class="tabpanel" role="tabpanel" id="uppanel-{slug}" '
+            f'aria-labelledby="uptab-{slug}" tabindex="0">')
+        lines.append(f'      <p class="tab-caption">{title}</p>')
+        lines.append('      <div class="table-scroll"><table class="data-table">'
                      '<thead><tr><th>Upgrade</th><th>Factor</th></tr></thead><tbody>')
         for label, factor, _flag, cell in rows:
             value = cell if cell is not None else _f2(factor)
-            lines.append(f'    <tr><td>{label}</td><td>{value}</td></tr>')
-        lines.append('  </tbody></table></div>')
+            lines.append(f'        <tr><td>{label}</td><td>{value}</td></tr>')
+        lines.append('      </tbody></table></div>')
+        lines.append('    </div>')
+    lines.append('  </div>')
     return "\n".join(lines)
 
 
