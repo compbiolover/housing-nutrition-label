@@ -45,6 +45,10 @@ window.AddrSuggest = (function () {
                          // calls + its one /place lookup into one billed session.
 
     function setExpanded(v) { if (wrap) wrap.setAttribute("aria-expanded", v ? "true" : "false"); }
+    // Typing is the first half of a search, and it hits the network too. A small
+    // spinner in the field (styled in label-core.css) says the suggestions are on
+    // their way instead of leaving the box looking inert.
+    function setBusy(v) { if (wrap) wrap.classList.toggle("ac-busy", !!v); }
 
     function newToken() {
       try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
@@ -55,6 +59,7 @@ window.AddrSuggest = (function () {
     function close() {
       clearTimeout(timer);   // cancel a pending debounced fetch
       seq++;                 // invalidate any in-flight /suggest response (mine !== seq)
+      setBusy(false);
       box.hidden = true; box.innerHTML = ""; items = []; active = -1;
       setExpanded(false);
       input.setAttribute("aria-activedescendant", "");
@@ -84,9 +89,10 @@ window.AddrSuggest = (function () {
     function fetchSuggest(q) {
       var mine = ++seq;
       if (!session) session = newToken();   // one session per typeahead → selection
+      setBusy(true);
       fetch(apiBase + "/suggest?q=" + encodeURIComponent(q) + "&session=" + encodeURIComponent(session))
         .then(function (r) { return r.ok ? r.json() : []; })
-        .then(function (list) { if (mine === seq) render(Array.isArray(list) ? list : []); })
+        .then(function (list) { if (mine === seq) { setBusy(false); render(Array.isArray(list) ? list : []); } })
         .catch(function () { if (mine === seq) close(); });   // never throw to the page
     }
 
