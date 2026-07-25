@@ -9,6 +9,18 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.65](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.64...v0.1.65) (2026-07-25)
+
+
+### Features
+
+* show when a score is running and when it lands ([#207](https://github.com/compbiolover/housing-nutrition-label/issues/207)) ([99d2540](https://github.com/compbiolover/housing-nutrition-label/commit/99d25402773090cf8a185254bcb28072d4f5580f))
+
+
+### Bug Fixes
+
+* make the hero's callouts and density table readable ([#209](https://github.com/compbiolover/housing-nutrition-label/issues/209)) ([9a926dd](https://github.com/compbiolover/housing-nutrition-label/commit/9a926dd1ca0c0ce2ea08581c2b1106f277bbce34))
+
 ## [0.1.64](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.63...v0.1.64) (2026-07-24)
 
 
