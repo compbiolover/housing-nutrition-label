@@ -6,8 +6,9 @@
  * disclosure, the address input + autocomplete, the Detected / Single / Compare
  * view modes, the "Refine building details" auto-fill panel, the optional
  * density-on-this-parcel comparison, deep-linking, shareable-URL sync,
- * remembered last location, and "use my location". Rendering of the label card
- * itself stays in label-core.js (LabelCore); autocomplete stays in AddrSuggest.
+ * remembered last location, "use my location", and the busy/confirmation states
+ * that bracket every request. Rendering of the label card itself stays in
+ * label-core.js (LabelCore); autocomplete stays in AddrSuggest.
  *
  * No build step, no framework: exposes a single global `window.LabelForm` whose
  * `mount(opts)` generates the widget markup into a container and wires it up.
@@ -152,8 +153,22 @@ window.LabelForm = (function () {
   function densityHtml() {
     return '<div class="lf-density-wrap" hidden style="max-width:640px;margin:0.75rem auto 0;">'
       + '<button type="button" class="density-btn lf-density-btn">Compare densities on this parcel</button>'
-      + '<p class="label-privacy lf-density-status" style="display:none;"></p>'
+      + '<div class="lf-status lf-density-status" role="status" aria-live="polite" hidden></div>'
       + '<div class="lf-density-result"></div></div>';
+  }
+
+  // The in-place "a label is coming" panel: a shimmering outline of the card
+  // being built, shown wherever there's no previous card to keep on screen. It
+  // carries no words — the status banner right above it says what's happening,
+  // and repeating the sentence twice in a row just read as noise.
+  function loadingHtml() {
+    var rows = [96, 88, 92, 80, 90].map(function (w) {
+      return '<span class="lf-skel-row" style="width:' + w + '%"></span>';
+    }).join("");
+    return '<div class="lf-loading" aria-hidden="true">'
+      + '<div class="lf-skel">'
+      + '<div class="lf-skel-head"><span class="lf-skel-num"></span><span class="lf-skel-grade"></span></div>'
+      + rows + '</div></div>';
   }
 
   // ── Controller ──────────────────────────────────────────────────────────────
@@ -193,22 +208,24 @@ window.LabelForm = (function () {
 
     // Build the widget markup. The scored label card (.lf-app) comes before the
     // density comparison, which is a follow-on "what if this parcel were denser?".
+    // The busy/confirmation banner sits directly above the result area so the
+    // start and the finish of a score both land where the reader is looking.
     root.innerHTML = formHtml({ geolocate: wantGeo, persist: persist, listboxId: uid + "listbox" })
       + refineHtml()
-      + '<div class="lf-app"><div class="loading">Scoring this address&hellip;</div></div>'
+      + '<div class="lf-status lf-main-status" role="status" aria-live="polite" hidden></div>'
+      + '<div class="lf-app">' + loadingHtml() + '</div>'
       + (wantDensity ? densityHtml() : "");
 
     // Element refs (scoped to this widget's root — no global IDs).
     function q(sel) { return root.querySelector(sel); }
     function qa(sel) { return Array.prototype.slice.call(root.querySelectorAll(sel)); }
     var app = q(".lf-app");
-    var form = q(".lf-form"), addrInput = q(".lf-addr");
+    var form = q(".lf-form"), addrInput = q(".lf-addr"), goBtn = q(".lf-form .go");
     var geoEl = q(".lf-geo"), privEl = q(".lf-privacy"), warnEl = q(".lf-warn"), noteEl = q(".lf-note");
     var poiHintEl = q(".lf-poi-hint");
     var refineEl = q(".lf-refine"), refineCount = q(".lf-refine-count");
     var densWrap = wantDensity ? q(".lf-density-wrap") : null;
     var densBtn = wantDensity ? q(".lf-density-btn") : null;
-    var densStatus = wantDensity ? q(".lf-density-status") : null;
     var densResult = wantDensity ? q(".lf-density-result") : null;
     var locateBtn = wantGeo ? q(".lf-locate") : null;
     var resetBtn = persist ? q(".lf-reset") : null;
@@ -270,6 +287,78 @@ window.LabelForm = (function () {
       var c = (g || "").toLowerCase();
       return "abcdf".indexOf(c) >= 0 && c.length === 1
         ? '<span class="grade grade-' + c + '">' + esc(g) + '</span>' : esc(g);
+    }
+
+    // ── busy / done status banner ───────────────────────────────────────────────
+    // Scoring is a multi-second round trip (geocode, then a dozen federal
+    // datasets), and the only signal used to be one grey "Scoring this address…"
+    // line — quiet enough to miss, and nothing at all marked the finish. Every
+    // request now opens with a spinner and a moving bar, and closes with a green
+    // confirmation that fades out on its own. The banner is a single aria-live
+    // region, so screen readers get the same start/finish beats.
+    var SLOW_MS = 6000;    // how long before the banner admits it's taking a while
+    var DONE_MS = 7000;    // how long the confirmation stays before fading out
+    var SLOW_TEXT = "Still working — pulling federal datasets for this location.";
+    function makeStatus(el) {
+      var slowT = null, doneT = null, fadeT = null;
+      var base = el.className;   // the element's own classes survive every repaint
+      function stopTimers() {
+        clearTimeout(slowT); clearTimeout(doneT); clearTimeout(fadeT);
+        slowT = doneT = fadeT = null;
+      }
+      function paint(kind, icon, msg, sub) {
+        el.className = base + " " + kind;
+        el.innerHTML = '<div class="lf-status-row">' + icon
+          + '<span class="lf-status-text"><strong>' + esc(msg) + '</strong>'
+          + '<span class="lf-status-sub">' + esc(sub || "") + '</span></span></div>'
+          + (kind === "busy" ? '<span class="lf-bar" aria-hidden="true"><span></span></span>' : "");
+        el.hidden = false;
+      }
+      return {
+        busy: function (msg, sub) {
+          stopTimers();
+          paint("busy", '<span class="lf-spinner" aria-hidden="true"></span>', msg, sub);
+          slowT = setTimeout(function () { el.querySelector(".lf-status-sub").textContent = SLOW_TEXT; }, SLOW_MS);
+        },
+        done: function (msg, sub) {
+          stopTimers();
+          paint("done", '<span class="lf-check" aria-hidden="true">&#10003;</span>', msg, sub);
+          doneT = setTimeout(function () {
+            el.classList.add("fade");
+            fadeT = setTimeout(function () { el.hidden = true; el.classList.remove("fade"); }, 700);
+          }, DONE_MS);
+        },
+        error: function (msg, sub) {
+          stopTimers();
+          paint("error", '<span class="lf-x" aria-hidden="true">!</span>', msg, sub);
+        },
+        hide: function () { stopTimers(); el.hidden = true; el.className = base; el.innerHTML = ""; }
+      };
+    }
+    var mainStatus = makeStatus(q(".lf-main-status"));
+    var densStatus = wantDensity ? makeStatus(q(".lf-density-status")) : null;
+
+    // The place being scored, in the reader's own words where we have them.
+    function placeText() {
+      var d = state.desc || {};
+      var t = String(d.address || d.label || "").trim();
+      return t || "this location";
+    }
+    // Mirror the in-flight state onto the controls: the submit button becomes a
+    // spinner, and a stale card left on screen during a re-score is dimmed so it
+    // reads as superseded rather than current.
+    var goLabel = goBtn ? goBtn.innerHTML : "";
+    function setFormBusy(on) {
+      if (goBtn) {
+        goBtn.disabled = !!on;
+        goBtn.setAttribute("aria-busy", on ? "true" : "false");
+        goBtn.innerHTML = on
+          ? '<span class="lf-spinner lf-spinner-btn" aria-hidden="true"></span>Scoring&hellip;'
+          : goLabel;
+      }
+      if (locateBtn) locateBtn.disabled = !!on;
+      app.setAttribute("aria-busy", on ? "true" : "false");
+      app.classList.toggle("is-busy", !!on && !!app.querySelector(".label-card"));
     }
 
     // ── render ──────────────────────────────────────────────────────────────────
@@ -353,9 +442,7 @@ window.LabelForm = (function () {
       }
       var loadingData = state.mode === "detected" ? !state.detected : !state.presets;
       if (loadingData) {
-        app.innerHTML = '<div class="loading">'
-          + (state.mode === "detected" ? 'Scoring this address&hellip;' : 'Scoring construction profiles&hellip;')
-          + '</div>';
+        app.innerHTML = loadingHtml();
         return;
       }
       var loc0 = state.mode === "detected"
@@ -363,7 +450,10 @@ window.LabelForm = (function () {
         : (((state.presets || [])[0] || {}).location || {});
       var locName = loc0.label || loc0.county_name || "";
       var scoredWhat = state.mode === "detected" ? "This home scored at" : "Profiles scored at";
-      var html = locName ? '<div class="label-loc">' + scoredWhat + ' <strong>' + esc(locName) + '</strong></div>' : "";
+      // The tick is the finished-state marker that outlives the confirmation
+      // banner: the caption itself says the score on screen is a completed one.
+      var html = locName ? '<div class="label-loc"><span class="lf-tick" aria-hidden="true">&#10003;</span> '
+        + scoredWhat + ' <strong>' + esc(locName) + '</strong></div>' : "";
       html += toggleBar();
       if (state.mode === "detected") {
         html += detectedCard() + gradeLegend();
@@ -455,12 +545,17 @@ window.LabelForm = (function () {
     if (densBtn) densBtn.addEventListener("click", function () {
       if (!API_BASE || !state.detectedQuery) return;
       densResult.innerHTML = "";
-      densStatus.textContent = "Comparing densities on this parcel …"; densStatus.style.display = "";
+      densStatus.busy("Comparing densities on this parcel…", "Re-scoring this same lot at several unit counts.");
       densBtn.disabled = true;
       fetch(API_BASE + "/density?" + state.detectedQuery)
         .then(okJson)
-        .then(function (data) { densStatus.style.display = "none"; renderDensity(data); })
-        .catch(function (err) { densStatus.textContent = "Could not compare densities: " + err.message; })
+        .then(function (data) {
+          var n = ((data && data.scenarios) || []).length;
+          renderDensity(data);
+          densStatus.done("Density comparison ready",
+            n ? n + " scenario" + (n === 1 ? "" : "s") + " scored on this parcel — see the table below." : "");
+        })
+        .catch(function (err) { densStatus.error("Could not compare densities", err.message); })
         .finally(function () { densBtn.disabled = false; });
     });
 
@@ -510,13 +605,29 @@ window.LabelForm = (function () {
     }
 
     // ── data loading ────────────────────────────────────────────────────────────
-    function fail(seq) { return function (err) { if (seq === reqSeq) { state.error = err.message; state.errorStatus = err.status || 0; render(); } }; }
+    // A failure ends the busy state too — the error panel takes over from the
+    // banner, so leaving a spinner running underneath it would contradict it.
+    function fail(seq) {
+      return function (err) {
+        if (seq !== reqSeq) return;
+        state.error = err.message; state.errorStatus = err.status || 0;
+        mainStatus.hide(); setFormBusy(false); render();
+      };
+    }
     function persistLocation() { if (persist) { syncUrl(state.desc || null); saveLast(state.desc || null); } }
+    // Name the place in the confirmation, falling back to what the user typed
+    // when the payload carries no location label.
+    function scoredAt(data) {
+      var loc = (data && data.location) || {};
+      return loc.label || loc.county_name || placeText();
+    }
 
     function loadPresets() {
       if (state.presets) { render(); return; }
       if (!API_BASE) { return; }
       var seq = ++reqSeq; state.error = null; render();
+      mainStatus.busy("Scoring construction profiles…", "Building each profile at " + placeText() + ".");
+      setFormBusy(true);
       fetch(API_BASE + "/presets" + descQuery(state.desc))
         .then(okJson)
         .then(function (data) {
@@ -525,7 +636,9 @@ window.LabelForm = (function () {
           if (!ps.length) throw new Error("no presets returned");
           state.presets = ps; applyDefaults();
           state.idx = clampIdx(state.idx); state.idxA = clampIdx(state.idxA); state.idxB = clampIdx(state.idxB);
-          persistLocation(); render();
+          persistLocation(); setFormBusy(false); render();
+          mainStatus.done("Profiles scored", ps.length + " construction profiles scored at "
+            + scoredAt(ps[0]) + ".");
         })
         .catch(fail(seq));
     }
@@ -534,6 +647,13 @@ window.LabelForm = (function () {
       if (!API_BASE) { return; }
       var seq = ++reqSeq; state.error = null;
       if (!state.detected) render();
+      // A refine-panel edit re-scores with the previous card still on screen, so
+      // say which of the two is happening rather than "Scoring…" for both.
+      var rescore = !!state.detected;
+      mainStatus.busy(rescore ? "Re-scoring with your details…" : "Scoring this address…",
+        rescore ? "Applying your edits to " + placeText() + "."
+                : "Reading flood, climate, energy, and neighborhood data for " + placeText() + ".");
+      setFormBusy(true);
       var built = buildDetectedParams();
       fetch(API_BASE + "/label" + built.qs)
         .then(okJson)
@@ -541,7 +661,13 @@ window.LabelForm = (function () {
           if (seq !== reqSeq) return;
           state.detected = data; state.building = data.building || null;
           state.detectedCtx = built.ctx; state.detectedQuery = built.query;
-          persistLocation(); render(); applyBuilding(state.building);
+          persistLocation(); setFormBusy(false); render(); applyBuilding(state.building);
+          // The payload uses "—" when there's no composite to grade; only a real
+          // letter grade belongs in the confirmation line.
+          var grade = String(data.composite_national_grade || "");
+          var hasGrade = grade.length === 1 && "ABCDF".indexOf(grade) >= 0;
+          mainStatus.done(rescore ? "Label updated" : "Label ready",
+            "Scored " + scoredAt(data) + (hasGrade ? " — overall grade " + grade + "." : "."));
         })
         .catch(fail(seq));
     }
@@ -554,6 +680,7 @@ window.LabelForm = (function () {
       touched = {}; applyBuilding(null);
       qa(".addr-upgrades input").forEach(function (cb) { cb.checked = false; });
       if (densResult) densResult.innerHTML = "";
+      if (densStatus) densStatus.hide();
       syncRefineVisibility();           // reveal the refine panel now that we're scoring
       ensureData();
     }
@@ -567,7 +694,9 @@ window.LabelForm = (function () {
       touched = {}; applyBuilding(null);
       qa(".addr-upgrades input").forEach(function (cb) { cb.checked = false; });
       if (densResult) densResult.innerHTML = "";
+      if (densStatus) densStatus.hide();
       poiHintEl.style.display = "none";
+      mainStatus.hide(); setFormBusy(false);
       syncRefineVisibility(); render();
     }
     function applyDefaults() {
@@ -673,7 +802,9 @@ window.LabelForm = (function () {
         // Details) before scoring. Fill the gap with a loading line so the button
         // feels responsive during the lookup. Carry the geocoder's non-residential
         // verdict so the scorer refuses a stadium/office the coordinate can't reveal.
-        app.innerHTML = '<div class="loading">Scoring this address&hellip;</div>';
+        app.innerHTML = loadingHtml();
+        mainStatus.busy("Looking up this address…", p.label);
+        setFormBusy(true);
         ac.resolvePicked().then(function (rp) {
           // Forward the geocoder's non-residential verdict on BOTH paths — a
           // failed /place lookup must not let a flagged business slip through by
@@ -701,7 +832,10 @@ window.LabelForm = (function () {
     });
     if (locateBtn) locateBtn.addEventListener("click", function () {
       if (!navigator.geolocation) { geoStatus("Your browser doesn't support location sharing.", true); return; }
-      geoStatus("Locating…"); locateBtn.disabled = true;
+      geoStatus(""); locateBtn.disabled = true;
+      // The permission prompt + fix can take a while, so it gets the same banner
+      // as a score rather than a one-line "Locating…" that reads as nothing.
+      mainStatus.busy("Getting your location…", "Waiting for your browser to share it.");
       navigator.geolocation.getCurrentPosition(
         function (pos) {
           locateBtn.disabled = false; geoStatus(""); ac.close(); addrInput.value = "";
@@ -711,6 +845,7 @@ window.LabelForm = (function () {
         },
         function (err) {
           locateBtn.disabled = false;
+          mainStatus.hide();
           geoStatus(err && err.code === 1
             ? "Location permission denied — enter an address instead."
             : "Couldn't get your location — enter an address instead.", true);

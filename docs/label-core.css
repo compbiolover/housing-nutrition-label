@@ -169,8 +169,9 @@
 /* ── Grade legend + page states ─────────────────────────────────────────────*/
 .legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; justify-content: center; margin-top: 1.5rem; font-size: 0.8rem; color: var(--muted); }
 .legend .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 0.35rem; vertical-align: middle; }
-.loading, .error { text-align: center; color: var(--muted); padding: 2rem; }
-.error { color: var(--red); }
+/* The loading state is now the .lf-loading panel below (spinner + skeleton);
+   .error stays the shared failure state for every page. */
+.error { text-align: center; color: var(--red); padding: 2rem; }
 
 @media (prefers-color-scheme: dark) {
   .label-card { border-color: #475569; }
@@ -219,13 +220,97 @@
 .label-prompt { max-width: 560px; margin: 0.5rem auto 0; text-align: center; }
 .label-loc { text-align: center; color: var(--muted); font-size: 0.85rem; margin: -0.5rem auto 1rem; }
 .label-loc strong { color: var(--navy); }
+/* The finished-state tick on the scored-location caption. It outlives the
+   confirmation banner, so a label on screen always reads as a completed score. */
+.lf-tick { color: #16a34a; font-weight: 800; }
+
+/* ── Search progress: busy banner, spinner, skeleton, done confirmation ──────*/
+/* A score is a multi-second round trip (geocode, then a dozen federal datasets).
+   Both ends of it are now stated plainly: a banner with a spinner and a moving
+   bar while the request is out, and a green confirmation when the label lands.
+   The banner is the widget's one aria-live region, so the same start/finish
+   beats reach screen readers. */
+.lf-status { max-width: 640px; margin: 0 auto 1rem; padding: 0.7rem 0.9rem;
+  border: 1px solid var(--border); border-left: 4px solid var(--cta);
+  border-radius: 0 var(--radius) var(--radius) 0; background: #eef5fb;
+  display: flex; flex-direction: column; gap: 0.55rem; text-align: left; }
+.lf-status[hidden] { display: none; }
+.lf-status-row { display: flex; align-items: center; gap: 0.65rem; }
+.lf-status-text { font-size: 0.9rem; color: var(--text); }
+.lf-status-text strong { color: var(--navy); }
+.lf-status-sub { display: block; font-size: 0.8rem; color: var(--muted); }
+.lf-status-sub:empty { display: none; }
+.lf-status.done { border-left-color: #16a34a; background: #ecfdf5; }
+.lf-status.done .lf-status-text strong { color: #14532d; }
+.lf-status.error { border-left-color: var(--red); background: #fef2f2; }
+.lf-status.error .lf-status-text strong { color: #991b1b; }
+/* The confirmation retires itself after a few seconds; the tick on the caption
+   above the card is what carries the finished state from then on. */
+.lf-status.fade { opacity: 0; transition: opacity 0.6s ease; }
+
+.lf-spinner { flex: 0 0 auto; width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid rgba(21, 97, 140, 0.25); border-top-color: var(--cta);
+  animation: lf-spin 0.8s linear infinite; }
+.lf-spinner-btn { display: inline-block; width: 14px; height: 14px; vertical-align: -2px;
+  margin-right: 0.45rem; border-color: rgba(255, 255, 255, 0.4); border-top-color: #fff; }
+@keyframes lf-spin { to { transform: rotate(360deg); } }
+
+.lf-check, .lf-x { flex: 0 0 auto; width: 20px; height: 20px; border-radius: 50%;
+  color: #fff; font-size: 0.75rem; font-weight: 800; line-height: 20px; text-align: center;
+  animation: lf-pop 0.3s ease-out; }
+.lf-check { background: #16a34a; }
+.lf-x { background: var(--red); }
+@keyframes lf-pop { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+/* Indeterminate progress bar — the request has no measurable percentage, so the
+   bar says "still running", not "this far along". */
+.lf-bar { position: relative; height: 4px; border-radius: 999px;
+  background: rgba(19, 35, 61, 0.12); overflow: hidden; }
+.lf-bar > span { position: absolute; top: 0; bottom: 0; width: 40%; border-radius: 999px;
+  background: var(--cta); animation: lf-slide 1.15s ease-in-out infinite; }
+@keyframes lf-slide { from { left: -45%; } to { left: 100%; } }
+
+/* In-place card skeleton, shown wherever there's no previous label to keep on
+   screen: the shape of the answer, arriving. The words are the banner's job. */
+.lf-loading { max-width: 640px; margin: 0 auto; padding: 1.25rem 1.5rem;
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); }
+.lf-skel { display: flex; flex-direction: column; gap: 0.55rem; }
+.lf-skel-head { display: flex; align-items: center; justify-content: space-between; }
+.lf-skel-num { width: 130px; height: 24px; border-radius: 6px; }
+.lf-skel-grade { width: 44px; height: 44px; border-radius: var(--radius); }
+.lf-skel-row { height: 12px; border-radius: 999px; }
+.lf-skel-num, .lf-skel-grade, .lf-skel-row {
+  background: linear-gradient(90deg, var(--border) 25%, rgba(255, 255, 255, 0.7) 37%, var(--border) 63%);
+  background-size: 400% 100%; animation: lf-shimmer 1.5s ease-in-out infinite; }
+@keyframes lf-shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+
+/* A stale label kept on screen during a re-score reads as superseded, and can't
+   be clicked into while the numbers under it are being replaced. */
+.lf-app { transition: opacity 0.2s ease; }
+.lf-app.is-busy { opacity: 0.45; pointer-events: none; }
+
+/* Typeahead: the suggestion fetch gets its own small spinner in the field, so
+   even the first stage of a search shows it's working. */
+.addr-ac.ac-busy input[type=text] { padding-right: 2.3rem; }
+.addr-ac.ac-busy::after { content: ""; position: absolute; right: 0.75rem; top: 50%;
+  width: 16px; height: 16px; margin-top: -8px; border-radius: 50%;
+  border: 2px solid rgba(19, 35, 61, 0.2); border-top-color: var(--cta);
+  animation: lf-spin 0.8s linear infinite; pointer-events: none; }
+
+/* Motion is the cue here, so with motion off the same states have to read from
+   shape and color alone: static rings, a filled bar, flat skeleton blocks. */
+@media (prefers-reduced-motion: reduce) {
+  .lf-spinner, .addr-ac.ac-busy::after { border-color: var(--cta); }
+  .lf-spinner-btn { border-color: #fff; }
+  .lf-bar > span { position: static; display: block; width: 100%; height: 100%; }
+  .lf-skel-num, .lf-skel-grade, .lf-skel-row { background: var(--border); }
+}
 
 /* Density-on-this-parcel comparison (fixed lot, vary units). */
 .lf-density-wrap { max-width: 640px; margin: 0.75rem auto 0; }
-/* The density status line reuses .label-privacy for styling, but its negative top
-   margin (meant to tuck under the address form) would pull it up over the density
-   button — reset the spacing here. */
-.lf-density-wrap .label-privacy { margin: 0.4rem 0; text-align: left; }
+/* The density comparison reuses the busy/done banner, whose auto margins would
+   centre it away from the button it belongs to — pin it under the button. */
+.lf-density-wrap .lf-status { margin: 0.5rem 0 0; }
 .lf-density-result:not(:empty) { margin-top: 0.6rem; }
 .density-table { width: 100%; }
 .density-table small { color: var(--muted); font-weight: 400; }
@@ -241,4 +326,21 @@
   .label-loc strong { color: #e2e8f0; }
   .density-btn { border-color: #475569; color: #e2e8f0; }
   .row-highlight { background: #0b1220; }
+  .lf-tick { color: #4ade80; }
+  .lf-status { background: #172033; border-color: #334155; }
+  .lf-status-text strong { color: #e2e8f0; }
+  .lf-status.done { background: #10241c; border-left-color: #22c55e; }
+  .lf-status.done .lf-status-text strong { color: #bbf7d0; }
+  .lf-status.error { background: #2a1618; }
+  .lf-status.error .lf-status-text strong { color: #fecaca; }
+  .lf-bar { background: rgba(226, 232, 240, 0.15); }
+  .lf-spinner, .addr-ac.ac-busy::after { border-color: rgba(226, 232, 240, 0.25); border-top-color: var(--accent-on-dark); }
+  .lf-spinner-btn { border-color: rgba(255, 255, 255, 0.4); border-top-color: #fff; }
+  .lf-skel-num, .lf-skel-grade, .lf-skel-row {
+    background: linear-gradient(90deg, #334155 25%, #475569 37%, #334155 63%); background-size: 400% 100%; }
+  @media (prefers-reduced-motion: reduce) {
+    .lf-spinner, .addr-ac.ac-busy::after { border-color: var(--accent-on-dark); }
+    .lf-spinner-btn { border-color: #fff; }
+    .lf-skel-num, .lf-skel-grade, .lf-skel-row { background: #334155; }
+  }
 }
