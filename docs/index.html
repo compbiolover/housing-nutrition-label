@@ -25,6 +25,12 @@
     .hero .addr-details summary, .hero .addr-upgrades legend { color: #cbd5e1; }
     .hero .addr-fields label { color: #cbd5e1; }
     .hero .lf-privacy, .hero .lf-geo { color: #cbd5e1; }
+    /* The callouts under the form — the no-API note, the ?api= warning, and the
+       "this looks like a business" heads-up — paint their own light panel but sit
+       outside .lf-app, so they inherited the hero's white text: white on cream,
+       1.06:1. Give them the body ink the card subtree already gets (it re-lights
+       itself in dark mode, where those panels turn dark). */
+    .hero .addr-search .insight { color: var(--text); }
     /* The scored-location caption and grade legend default to navy/muted text;
        re-light them so they're legible on the dark hero. */
     .hero .label-loc, .hero .label-loc strong { color: #cbd5e1; }
@@ -45,7 +51,14 @@
     .hero .lf-app .na { color: var(--muted); font-style: italic; }
     .hero .lf-app .meta { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.75rem; }
     .hero .lf-density-wrap { text-align: left; color: var(--text); }
+    /* The density comparison is body ink by design (a data table, plus insight and
+       caveat boxes), but on the hero it painted straight onto the navy gradient —
+       dark text on dark, and the table's navy header row vanished into it. Give it
+       the same light card surface the label card sits on. */
     .hero .lf-density-result { overflow-x: auto; }
+    .hero .lf-density-result:not(:empty) { background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 0.1rem 1rem 1rem; }
+    .hero .lf-density-result .comparison { margin: 1rem 0 0; }
     @media (prefers-color-scheme: dark) {
       .hero .lf-app .label-card { border-color: #475569; }
       .hero .lf-app .composite-num,
