@@ -67,6 +67,11 @@ nav ul a:hover, nav ul a.active { color: #fff; background: rgba(255,255,255,0.1)
 .hero { background: linear-gradient(135deg, var(--navy) 0%, var(--slate) 100%); color: #fff; padding: 5rem 2rem; text-align: center; }
 .hero h1 { font-size: 2.8rem; margin-bottom: 1rem; color: #fff; }
 .hero .tagline { font-size: 1.25rem; color: #94a3b8; max-width: 700px; margin: 0 auto 2rem; }
+/* Prose links in the hero: --link is the Harbor accent tuned for the light page,
+   which lands at 2.12:1 on the navy. --accent-on-dark exists for exactly this
+   and was never applied here. Scoped to the hero's own paragraphs so the scoring
+   widget's subtree is untouched. */
+.hero p a { color: var(--accent-on-dark); }
 .hero .badge { display: inline-block; background: rgba(79,179,217,0.14); color: var(--accent-on-dark); padding: 0.4rem 1rem; border-radius: 20px; font-size: 0.9rem; margin-bottom: 1.5rem; }
 section { padding: 4rem 2rem; max-width: 1100px; margin: 0 auto; }
 /* Content pages carry a real <h1> (the hero <h1> is larger, styled below). Sized
@@ -175,8 +180,11 @@ details.tech > p, details.tech > ul, details.tech > ol { max-width: 68ch; }
 .data-table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; }
 .data-table th { background: #f1f5f9; padding: 0.75rem; text-align: left; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
 .data-table td { padding: 0.75rem; border-bottom: 1px solid var(--border); }
-.data-table .free { color: #15803d; font-weight: 600; }        /* accessible positive green (5:1) */
-.data-table .key-needed { color: #c2410c; font-weight: 600; }   /* accessible caution orange */
+/* One shade darker than the greens/oranges these used to carry: the old pair
+   cleared 4.5:1 against the plain page, but these cells sit in a zebra-striped
+   table, and the stripe pulled them to 4.22:1 and 4.32:1. */
+.data-table .free { color: #166534; font-weight: 600; }         /* positive green, 5.9:1 on the stripe */
+.data-table .key-needed { color: #9a3412; font-weight: 600; }   /* caution orange */
 /* Zebra striping + row hover, using surface-agnostic tints so they read on the
    page, inside a section card, and in dark mode alike. */
 .data-table td { border-bottom: 1px solid color-mix(in srgb, var(--border) 65%, transparent); }
@@ -259,6 +267,10 @@ p code, li code { overflow-wrap: anywhere; }
 /* Footer */
 footer { background: var(--navy); color: #94a3b8; text-align: center; padding: 2rem; margin-top: 3rem; }
 footer a { color: var(--accent-on-dark); }
+/* The footer runs on the navy in both themes, so the inline-code chip's light
+   page treatment (near-white fill) put grey-on-white at 2.34:1 there. Tint it
+   from the footer's own surface instead. */
+footer code { background: rgba(255, 255, 255, 0.1); color: #cbd5e1; }
 
 /* Pipeline diagram */
 .pipeline { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 1.5rem 0; }
@@ -294,9 +306,17 @@ footer a { color: var(--accent-on-dark); }
   }
   /* --navy doubles as a dark brand surface (nav/footer/hero/pre/table headers),
      which still works on a dark page, AND as heading text, which would vanish.
-     Re-light just the text usages. */
-  h2, .insight strong { color: #e2e8f0; }
+     Re-light just the text usages. h1 belongs here with h2 — they share the same
+     navy in light mode, and without it every content page's title rendered at
+     1.16:1, a barely-there smudge above the first paragraph. (The hero h1 is
+     already white and was never affected, which is how this stayed hidden.) */
+  h1, h2, .insight strong { color: #e2e8f0; }
   h3 { color: #cbd5e1; }
+  /* Positive/caution inks in the data-sources table are picked for the light
+     page (5:1 there, 3.6:1 and 3.5:1 here). Brighten to the greens and oranges
+     the rest of the dark theme already uses. */
+  .data-table .free { color: #4ade80; }
+  .data-table .key-needed { color: #fb923c; }
 
   /* Hardcoded light backgrounds → dark equivalents */
   .formula, p code, .data-table th, .comparison tr:hover { background: #0b1220; }
