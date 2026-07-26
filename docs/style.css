@@ -294,9 +294,17 @@ footer a { color: var(--accent-on-dark); }
   }
   /* --navy doubles as a dark brand surface (nav/footer/hero/pre/table headers),
      which still works on a dark page, AND as heading text, which would vanish.
-     Re-light just the text usages. */
-  h2, .insight strong { color: #e2e8f0; }
+     Re-light just the text usages. h1 belongs here with h2 — they share the same
+     navy in light mode, and without it every content page's title rendered at
+     1.16:1, a barely-there smudge above the first paragraph. (The hero h1 is
+     already white and was never affected, which is how this stayed hidden.) */
+  h1, h2, .insight strong { color: #e2e8f0; }
   h3 { color: #cbd5e1; }
+  /* Positive/caution inks in the data-sources table are picked for the light
+     page (5:1 there, 3.6:1 and 3.5:1 here). Brighten to the greens and oranges
+     the rest of the dark theme already uses. */
+  .data-table .free { color: #4ade80; }
+  .data-table .key-needed { color: #fb923c; }
 
   /* Hardcoded light backgrounds → dark equivalents */
   .formula, p code, .data-table th, .comparison tr:hover { background: #0b1220; }
