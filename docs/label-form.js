@@ -338,12 +338,17 @@ window.LabelForm = (function () {
     var mainStatus = makeStatus(q(".lf-main-status"));
     var densStatus = wantDensity ? makeStatus(q(".lf-density-status")) : null;
 
-    // The place being scored, in the reader's own words where we have them.
-    function placeText() {
+    // The address the reader typed or picked, when there is one. Everywhere we
+    // name the scored place, this comes first: the API's location label is only
+    // city/county level ("Memphis city"), which reads as though a different,
+    // vaguer place got scored than the address that was entered. Geolocation and
+    // coordinate deep links have no re-typable text, so those fall back to the
+    // API's label.
+    function enteredAddress() {
       var d = state.desc || {};
-      var t = String(d.address || d.label || "").trim();
-      return t || "this location";
+      return String(d.address || d.label || "").trim();
     }
+    function placeText() { return enteredAddress() || "this location"; }
     // Mirror the in-flight state onto the controls: the submit button becomes a
     // spinner, and a stale card left on screen during a re-score is dimmed so it
     // reads as superseded rather than current.
@@ -410,9 +415,7 @@ window.LabelForm = (function () {
       // Title the card with the address the user entered/picked (the API's
       // location label is only county-level and just repeats the meta line). Falls
       // back to the default heading (county) for geolocation / coord deep links.
-      var d = state.desc || {};
-      var addrHeading = (d.address && String(d.address).trim())
-        || (d.label && String(d.label).trim()) || "";
+      var addrHeading = enteredAddress();
       var cardOpts = { subline: subline };   // not mount()'s `opts` — distinct name to avoid shadowing
       if (addrHeading) cardOpts.heading = addrHeading;
       return LC.renderCard(data, cardOpts);
@@ -448,7 +451,8 @@ window.LabelForm = (function () {
       var loc0 = state.mode === "detected"
         ? ((state.detected || {}).location || {})
         : (((state.presets || [])[0] || {}).location || {});
-      var locName = loc0.label || loc0.county_name || "";
+      // Say the address back, not the city the API resolved it to.
+      var locName = enteredAddress() || loc0.label || loc0.county_name || "";
       var scoredWhat = state.mode === "detected" ? "This home scored at" : "Profiles scored at";
       // The tick is the finished-state marker that outlives the confirmation
       // banner: the caption itself says the score on screen is a completed one.
@@ -615,11 +619,11 @@ window.LabelForm = (function () {
       };
     }
     function persistLocation() { if (persist) { syncUrl(state.desc || null); saveLast(state.desc || null); } }
-    // Name the place in the confirmation, falling back to what the user typed
-    // when the payload carries no location label.
+    // Name the place in the confirmation — the entered address first, the
+    // payload's city/county label only when there isn't one.
     function scoredAt(data) {
       var loc = (data && data.location) || {};
-      return loc.label || loc.county_name || placeText();
+      return enteredAddress() || loc.label || loc.county_name || "this location";
     }
 
     function loadPresets() {
