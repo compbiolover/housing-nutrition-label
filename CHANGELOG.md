@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.68](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.67...v0.1.68) (2026-07-26)
+
+
+### Bug Fixes
+
+* distinguish grid-region resolution from county on the Reference page ([#214](https://github.com/compbiolover/housing-nutrition-label/issues/214)) ([3a3fbdf](https://github.com/compbiolover/housing-nutrition-label/commit/3a3fbdf9731c478da9974d02a5015ad6f37c3b94))
+
 ## [0.1.67](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.66...v0.1.67) (2026-07-26)
 
 
