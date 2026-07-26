@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.67](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.66...v0.1.67) (2026-07-26)
+
+
+### Bug Fixes
+
+* re-light the page title in dark mode ([#212](https://github.com/compbiolover/housing-nutrition-label/issues/212)) ([8381788](https://github.com/compbiolover/housing-nutrition-label/commit/83817889859d09441647909cb787f81e8858551f))
+
 ## [0.1.66](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.65...v0.1.66) (2026-07-26)
 
 
