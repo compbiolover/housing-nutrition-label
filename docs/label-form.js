@@ -72,10 +72,15 @@ window.LabelForm = (function () {
   // Toggle labels + a one-line explanation of what each view actually scores.
   // The old "Detected / Single / Compare" gave no hint of the difference; these
   // say it in plain terms (the real home vs. hypothetical construction profiles).
+  // "What-if denser" is the old free-floating "Compare densities on this parcel"
+  // button: it is another view of the same address, so it belongs in this group
+  // with the rest rather than orphaned below the card, and it inherits the
+  // group's plain-language caption instead of having to explain itself.
   var MODE_LABELS = {
     detected: "This home",
     single: "What-if build",
-    compare: "Compare builds"
+    compare: "Compare builds",
+    density: "What-if denser"
   };
   var MODE_HELP = {
     detected: "Scores the real home at this address, using building details "
@@ -85,9 +90,13 @@ window.LabelForm = (function () {
       + "pick a build type to see how construction choices alone move each "
       + "dimension. The home’s real details are ignored here.",
     compare: "Scores two hypothetical construction profiles side by side at this "
-      + "location, with the per-dimension difference between them."
+      + "location, with the per-dimension difference between them.",
+    density: "Re-scores this same lot with more homes on it — one house, a duplex, "
+      + "a fourplex — so you can see how sharing the same streets, pipes, and "
+      + "services across more homes moves the cost per home and the Infrastructure "
+      + "Burden grade. The building itself stays as it is."
   };
-  var SUPPORTED_MODES = ["detected", "single", "compare"];
+  var SUPPORTED_MODES = ["detected", "single", "compare", "density"];
   var _mountSeq = 0;   // per-page counter → unique element IDs when >1 widget mounts
 
   function esc(s) { return LC.esc(s); }
@@ -122,13 +131,30 @@ window.LabelForm = (function () {
 
   function formHtml(opts) {
     var lb = opts.listboxId;   // links the combobox input ↔ its suggestions listbox
-    // Two rows by design. The field and its primary action ("Score it") stay on one
-    // row so the submit sits with the input it acts on. The alternate/clear actions
-    // group on a second row, kept subordinate to the primary and never orphan-wrapping
-    // beneath the field the way a single shared row did on mid-width screens.
-    var secondary = "";
-    if (opts.geolocate) secondary += '<button type="button" class="reset lf-locate">Use my location</button>';
-    if (opts.persist)   secondary += '<button type="button" class="reset lf-reset">Reset</button>';
+    var uid = opts.uid;
+    // Two rows by design. The field and its primary action ("Score this address")
+    // stay on one row so the submit sits with the input it acts on. The
+    // alternate/clear actions group on a second row, kept subordinate to the
+    // primary and never orphan-wrapping beneath the field the way a single shared
+    // row did on mid-width screens.
+    //
+    // Every button says what it does to the *label*, not to the form: a bare
+    // "Reset" gave no hint of what it would throw away. Each also carries a
+    // one-line description — `title` for pointers, aria-describedby for screen
+    // readers — so the effect is knowable before the click, not after it.
+    function hint(id, text) { return '<span id="' + id + '" class="lf-sr-only">' + esc(text) + '</span>'; }
+    var secondary = "", hints = "";
+    if (opts.geolocate) {
+      var gh = uid + "locate-h", gt = "Scores where you are now instead of a typed address. Your browser asks permission first.";
+      secondary += '<button type="button" class="reset lf-locate" title="' + esc(gt) + '" aria-describedby="' + gh + '">Use my location</button>';
+      hints += hint(gh, gt);
+    }
+    if (opts.persist) {
+      var rh = uid + "reset-h", rt = "Clears the address and the label on screen, and forgets this location for next time.";
+      secondary += '<button type="button" class="reset lf-reset" title="' + esc(rt) + '" aria-describedby="' + rh + '">Start over</button>';
+      hints += hint(rh, rt);
+    }
+    var sh = uid + "go-h", stt = "Looks up the address in the box and scores it across all thirteen dimensions.";
     return '<form class="label-addr-form lf-form">'
       + '<div class="addr-primary">'
       + '<div class="addr-ac" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-owns="' + lb + '">'
@@ -136,8 +162,9 @@ window.LabelForm = (function () {
       + 'role="textbox" aria-autocomplete="list" aria-controls="' + lb + '" aria-activedescendant="" '
       + 'placeholder="Enter a U.S. address or place name &mdash; e.g. 111 S Grand Ave, Los Angeles">'
       + '<ul class="addr-suggest lf-suggest" id="' + lb + '" role="listbox" hidden></ul></div>'
-      + '<button type="submit" class="go">Score it</button></div>'
+      + '<button type="submit" class="go" title="' + esc(stt) + '" aria-describedby="' + sh + '">Score this address</button></div>'
       + (secondary ? '<div class="addr-actions">' + secondary + '</div>' : '')
+      + hint(sh, stt) + hints
       + '</form>'
       + '<p class="label-privacy lf-geo" role="status" aria-live="polite" style="display:none;"></p>'
       + '<p class="label-privacy lf-privacy" style="display:none;"></p>'
@@ -150,9 +177,14 @@ window.LabelForm = (function () {
       + 'or configure <code>window.HOUSING_LABEL_API</code>.</div>';
   }
 
+  // The density comparison's own panel. It has no button of its own any more —
+  // the "What-if denser" entry in the mode toggle is the control, and this panel
+  // is its result. It stays a sibling of .lf-app (rather than markup inside it)
+  // so its status banner and table survive .lf-app's re-renders; in density mode
+  // .lf-app holds only the caption + toggle, which puts this directly beneath the
+  // buttons that opened it.
   function densityHtml() {
-    return '<div class="lf-density-wrap" hidden style="max-width:640px;margin:0.75rem auto 0;">'
-      + '<button type="button" class="density-btn lf-density-btn">Compare densities on this parcel</button>'
+    return '<div class="lf-density-wrap" hidden>'
       + '<div class="lf-status lf-density-status" role="status" aria-live="polite" hidden></div>'
       + '<div class="lf-density-result"></div></div>';
   }
@@ -192,7 +224,12 @@ window.LabelForm = (function () {
       return SUPPORTED_MODES.indexOf(m) >= 0 && a.indexOf(m) === i;
     });
     if (!modes.length) modes = ["detected"];
-    var wantDensity = !!opts.density;
+    // Density is a view of the same parcel, so it joins the toggle rather than
+    // sitting as a lone button under the card. Last in the row keeps the two
+    // "what-if" views next to each other. `density: true` stays the page-facing
+    // switch; naming it in `modes` works too.
+    var wantDensity = !!opts.density || modes.indexOf("density") >= 0;
+    if (wantDensity && modes.indexOf("density") < 0) modes.push("density");
     var wantGeo = !!opts.geolocate;
     var persist = !!opts.persist;
     var DEFAULT_LAT = opts.defaultLat != null ? opts.defaultLat : 35.13;
@@ -206,11 +243,12 @@ window.LabelForm = (function () {
     var API_BASE = (apiFromQuery || window.HOUSING_LABEL_API || "").replace(/\/+$/, "");
     function apiHost() { try { return new URL(API_BASE).host || API_BASE; } catch (e) { return API_BASE; } }
 
-    // Build the widget markup. The scored label card (.lf-app) comes before the
-    // density comparison, which is a follow-on "what if this parcel were denser?".
-    // The busy/confirmation banner sits directly above the result area so the
-    // start and the finish of a score both land where the reader is looking.
-    root.innerHTML = formHtml({ geolocate: wantGeo, persist: persist, listboxId: uid + "listbox" })
+    // Build the widget markup. The density panel trails .lf-app so that in
+    // density mode — where .lf-app renders only the caption and the view toggle —
+    // its table lands right under the buttons. The busy/confirmation banner sits
+    // directly above the result area so the start and the finish of a score both
+    // land where the reader is looking.
+    root.innerHTML = formHtml({ geolocate: wantGeo, persist: persist, uid: uid, listboxId: uid + "listbox" })
       + refineHtml()
       + '<div class="lf-status lf-main-status" role="status" aria-live="polite" hidden></div>'
       + '<div class="lf-app">' + loadingHtml() + '</div>'
@@ -225,7 +263,6 @@ window.LabelForm = (function () {
     var poiHintEl = q(".lf-poi-hint");
     var refineEl = q(".lf-refine"), refineCount = q(".lf-refine-count");
     var densWrap = wantDensity ? q(".lf-density-wrap") : null;
-    var densBtn = wantDensity ? q(".lf-density-btn") : null;
     var densResult = wantDensity ? q(".lf-density-result") : null;
     var locateBtn = wantGeo ? q(".lf-locate") : null;
     var resetBtn = persist ? q(".lf-reset") : null;
@@ -268,7 +305,7 @@ window.LabelForm = (function () {
     // deep link (?address / ?lat,lon) clears it and scores immediately.
     var state = { mode: modes[0], idx: 0, idxA: 0, idxB: 0,
                   presets: null, detected: null, building: null, detectedCtx: null,
-                  detectedQuery: "", desc: null, error: null, initialized: false, idle: true };
+                  density: null, desc: null, error: null, initialized: false, idle: true };
     var touched = {};                 // field key -> true once the user edits it
     var reqSeq = 0;                   // drop out-of-order responses from rapid submits
 
@@ -367,24 +404,41 @@ window.LabelForm = (function () {
     }
 
     // ── render ──────────────────────────────────────────────────────────────────
+    // The thresholds travel with the swatches: a reader who sees "C" can't learn
+    // what C means from a legend that only names the colors.
+    var GRADE_RANGE = { A: "80+", B: "60–79", C: "40–59", D: "20–39", F: "under 20" };
     function gradeLegend() {
       return '<div class="legend">' + ["A", "B", "C", "D", "F"].map(function (g) {
-        return '<span><span class="swatch" style="background:' + LC.GRADE_COLORS[g] + '"></span>' + g + '</span>';
+        return '<span><span class="swatch" style="background:' + LC.GRADE_COLORS[g] + '"></span>'
+          + g + ' <span class="range">' + GRADE_RANGE[g] + '</span></span>';
       }).join("") + '</div>';
     }
+    // The density sweep varies a parcel from 1 to a few units on a fixed lot, so
+    // it's only meaningful for a home that isn't already a multi-unit building —
+    // you can't add hypothetical density to a tower. Drop that button once we've
+    // detected one (mirrors label-core's multi-family test).
+    function availableModes() {
+      var st = (state.detected || {}).structure;
+      var alreadyMulti = !!(st && (st.structure_type === "multifamily"
+        || (st.num_units && st.num_units > 1)));
+      return modes.filter(function (m) { return !(m === "density" && alreadyMulti); });
+    }
     function toggleBar() {
-      if (modes.length < 2) return "";     // single-mode widget → no toggle
-      return '<div class="mode-toggle" role="group" aria-label="View mode">'
-        + modes.map(function (m) {
+      var ms = availableModes();
+      if (ms.length < 2) return "";     // single-mode widget → no toggle
+      var helpId = uid + "mode-help";
+      // A heading over the group: the buttons are one question ("what should we
+      // score?"), and without it a reader has to infer that from the labels.
+      return '<p class="mode-cap" id="' + uid + 'mode-cap">What do you want to score?</p>'
+        + '<div class="mode-toggle" role="group" aria-labelledby="' + uid + 'mode-cap" aria-describedby="' + helpId + '">'
+        + ms.map(function (m) {
             return '<button data-mode="' + m + '"' + (state.mode === m ? ' class="on"' : '')
               + ' aria-pressed="' + (state.mode === m) + '" title="' + esc(MODE_HELP[m] || "") + '">'
               + esc(MODE_LABELS[m] || m) + '</button>';
           }).join("") + '</div>'
         // Plain-language caption for the active view, so the toggle is
         // self-explanatory rather than three opaque one-word buttons.
-        + (MODE_HELP[state.mode]
-            ? '<p class="mode-help lf-mode-help">' + esc(MODE_HELP[state.mode]) + '</p>'
-            : "");
+        + '<p class="mode-help lf-mode-help" id="' + helpId + '">' + esc(MODE_HELP[state.mode] || "") + '</p>';
     }
     function pickerSel(cls, id, val) {
       return '<select class="' + cls + '" id="' + id + '">' + state.presets.map(function (p, i) {
@@ -443,23 +497,32 @@ window.LabelForm = (function () {
         }
         return;
       }
-      var loadingData = state.mode === "detected" ? !state.detected : !state.presets;
+      // Density paints into its own persistent panel below, so it never waits on
+      // the card skeleton here.
+      var loadingData = state.mode === "density" ? false
+        : state.mode === "detected" ? !state.detected : !state.presets;
       if (loadingData) {
         app.innerHTML = loadingHtml();
+        if (densWrap) densWrap.hidden = true;
         return;
       }
-      var loc0 = state.mode === "detected"
-        ? ((state.detected || {}).location || {})
-        : (((state.presets || [])[0] || {}).location || {});
+      var loc0 = state.mode === "single" || state.mode === "compare"
+        ? (((state.presets || [])[0] || {}).location || {})
+        : ((state.detected || {}).location || {});
       // Say the address back, not the city the API resolved it to.
       var locName = enteredAddress() || loc0.label || loc0.county_name || "";
-      var scoredWhat = state.mode === "detected" ? "This home scored at" : "Profiles scored at";
+      var scoredWhat = state.mode === "detected" ? "This home scored at"
+        : state.mode === "density" ? "This lot scored at"
+        : "Profiles scored at";
       // The tick is the finished-state marker that outlives the confirmation
       // banner: the caption itself says the score on screen is a completed one.
       var html = locName ? '<div class="label-loc"><span class="lf-tick" aria-hidden="true">&#10003;</span> '
         + scoredWhat + ' <strong>' + esc(locName) + '</strong></div>' : "";
       html += toggleBar();
-      if (state.mode === "detected") {
+      if (state.mode === "density") {
+        // Nothing more here: the density panel is the next node in the DOM, so
+        // the table lands directly under the button that asked for it.
+      } else if (state.mode === "detected") {
         html += detectedCard() + gradeLegend();
       } else if (state.mode === "single") {
         html += '<div class="picker"><label for="' + uid + 'p-sel">Construction profile: </label>'
@@ -482,16 +545,7 @@ window.LabelForm = (function () {
         html += gradeLegend();
       }
       app.innerHTML = html;
-      if (densWrap) {
-        // The density sweep varies a parcel from 1 to a few units on a fixed lot,
-        // so it's only meaningful for a home that isn't already a multi-unit
-        // building. Hide it once we've detected one (mirrors label-core's
-        // multi-family test) — you can't add hypothetical density to a tower.
-        var st = (state.detected || {}).structure;
-        var alreadyMulti = !!(st && (st.structure_type === "multifamily"
-          || (st.num_units && st.num_units > 1)));
-        densWrap.hidden = !(state.mode === "detected" && state.detected) || alreadyMulti;
-      }
+      if (densWrap) densWrap.hidden = state.mode !== "density";
     }
 
     // ── density comparison (fixed lot, vary units — Detected mode) ──────────────
@@ -505,17 +559,20 @@ window.LabelForm = (function () {
         return '<tr><td><strong>' + label + '</strong></td>'
           + scn.map(function (s) { return '<td>' + fn(s) + '</td>'; }).join("") + '</tr>';
       }
+      // Plain-language row labels: this is a view a first-time reader can land on
+      // now, not a follow-on table for someone already deep in the methodology,
+      // so "Energy / unit / mo" and "Net fiscal / acre" say what they mean.
       var rows = "";
-      rows += row("Total value", function (s) { return s.value == null ? "—" : "$" + Math.round(s.value).toLocaleString(); });
-      rows += row("Per-unit value", function (s) { return s.per_unit_value == null ? "—" : "$" + Math.round(s.per_unit_value).toLocaleString(); });
-      rows += row("Density (DU/acre)", function (s) { return s.per_unit_acres ? (1 / s.per_unit_acres).toFixed(1) : "—"; });
-      rows += row("Infrastructure", function (s) { return s.infrastructure_score == null ? "—" : s.infrastructure_score.toFixed(0) + " " + gradeSpan(s.infrastructure_grade); });
-      rows += row("Fiscal ratio", function (s) { return s.fiscal_ratio == null ? "—" : s.fiscal_ratio.toFixed(2); });
-      rows += row("Energy", function (s) { return s.energy_score == null ? "—" : s.energy_score.toFixed(0); });
-      rows += row("Energy / unit / mo", function (s) { return s.est_monthly_energy_cost == null ? "—" : "$" + Math.round(s.est_monthly_energy_cost); });
-      rows += row("Composite", function (s) { return s.composite_score == null ? "—" : s.composite_score.toFixed(0) + " " + gradeSpan(s.composite_national_grade); });
-      rows += row("Property tax / acre", function (s) { return s.revenue_per_acre == null ? "—" : "$" + Math.round(s.revenue_per_acre).toLocaleString() + "/ac"; });
-      rows += row("Net fiscal / acre", function (s) {
+      rows += row("Total value on the lot", function (s) { return s.value == null ? "—" : "$" + Math.round(s.value).toLocaleString(); });
+      rows += row("Value per home", function (s) { return s.per_unit_value == null ? "—" : "$" + Math.round(s.per_unit_value).toLocaleString(); });
+      rows += row("Homes per acre", function (s) { return s.per_unit_acres ? (1 / s.per_unit_acres).toFixed(1) : "—"; });
+      rows += row("Infrastructure Burden", function (s) { return s.infrastructure_score == null ? "—" : s.infrastructure_score.toFixed(0) + " " + gradeSpan(s.infrastructure_grade); });
+      rows += row("Property tax ÷ cost to serve", function (s) { return s.fiscal_ratio == null ? "—" : s.fiscal_ratio.toFixed(2) + "×"; });
+      rows += row("Energy Efficiency score", function (s) { return s.energy_score == null ? "—" : s.energy_score.toFixed(0); });
+      rows += row("Energy bill per home", function (s) { return s.est_monthly_energy_cost == null ? "—" : "$" + Math.round(s.est_monthly_energy_cost) + "/mo"; });
+      rows += row("Overall score", function (s) { return s.composite_score == null ? "—" : s.composite_score.toFixed(0) + " " + gradeSpan(s.composite_national_grade); });
+      rows += row("Property tax raised per acre", function (s) { return s.revenue_per_acre == null ? "—" : "$" + Math.round(s.revenue_per_acre).toLocaleString() + "/ac"; });
+      rows += row("Left over for the city, per acre", function (s) {
         return s.net_fiscal_per_acre == null ? "—"
           : (s.net_fiscal_per_acre < 0 ? "−$" + Math.round(-s.net_fiscal_per_acre).toLocaleString()
                                        : "$" + Math.round(s.net_fiscal_per_acre).toLocaleString()) + "/ac"; });
@@ -546,22 +603,33 @@ window.LabelForm = (function () {
       });
       densResult.innerHTML = html;
     }
-    if (densBtn) densBtn.addEventListener("click", function () {
-      if (!API_BASE || !state.detectedQuery) return;
+    // Picking "What-if denser" runs the comparison straight away — it's a view,
+    // not a two-step ritual, so selecting it should produce the answer. The
+    // result is cached per location; a refine edit clears it (see loadDetected).
+    function loadDensity(force) {
+      if (!API_BASE || !wantDensity) return;
+      if (state.density && !force) { render(); return; }
+      var seq = ++reqSeq;
+      state.error = null;
+      render();
       densResult.innerHTML = "";
-      densStatus.busy("Comparing densities on this parcel…", "Re-scoring this same lot at several unit counts.");
-      densBtn.disabled = true;
-      fetch(API_BASE + "/density?" + state.detectedQuery)
+      densStatus.busy("Comparing densities on this lot…",
+        "Re-scoring " + placeText() + " at several unit counts.");
+      fetch(API_BASE + "/density?" + buildDetectedParams().query)
         .then(okJson)
         .then(function (data) {
+          if (seq !== reqSeq) return;
+          state.density = data;
           var n = ((data && data.scenarios) || []).length;
           renderDensity(data);
           densStatus.done("Density comparison ready",
-            n ? n + " scenario" + (n === 1 ? "" : "s") + " scored on this parcel — see the table below." : "");
+            n ? n + " scenario" + (n === 1 ? "" : "s") + " scored on this lot — see the table below." : "");
         })
-        .catch(function (err) { densStatus.error("Could not compare densities", err.message); })
-        .finally(function () { densBtn.disabled = false; });
-    });
+        .catch(function (err) {
+          if (seq !== reqSeq) return;
+          densStatus.error("Could not compare densities", err.message);
+        });
+    }
 
     // ── refine panel ────────────────────────────────────────────────────────────
     var TAG_LABEL = { confirmed: "you edited", estimated: "estimated", assumed: "default" };
@@ -664,7 +732,11 @@ window.LabelForm = (function () {
         .then(function (data) {
           if (seq !== reqSeq) return;
           state.detected = data; state.building = data.building || null;
-          state.detectedCtx = built.ctx; state.detectedQuery = built.query;
+          state.detectedCtx = built.ctx;
+          state.density = null;   // refine edits change the parcel the sweep runs on
+          // Detection can retire a view: the density sweep is meaningless once
+          // this turns out to be a multi-unit building.
+          if (availableModes().indexOf(state.mode) < 0) state.mode = availableModes()[0];
           persistLocation(); setFormBusy(false); render(); applyBuilding(state.building);
           // The payload uses "—" when there's no composite to grade; only a real
           // letter grade belongs in the confirmation line.
@@ -675,12 +747,16 @@ window.LabelForm = (function () {
         })
         .catch(fail(seq));
     }
-    function ensureData() { if (state.mode === "detected") loadDetected(false); else loadPresets(); }
+    function ensureData() {
+      if (state.mode === "density") loadDensity(false);
+      else if (state.mode === "detected") loadDetected(false);
+      else loadPresets();
+    }
     function load(desc) {
       state.idle = false;               // a location was requested — leave the prompt state
       state.desc = desc || null;
       state.presets = null; state.detected = null; state.building = null;
-      state.detectedCtx = null; state.detectedQuery = "";
+      state.detectedCtx = null; state.density = null;
       touched = {}; applyBuilding(null);
       qa(".addr-upgrades input").forEach(function (cb) { cb.checked = false; });
       if (densResult) densResult.innerHTML = "";
@@ -694,7 +770,7 @@ window.LabelForm = (function () {
       reqSeq++;                         // invalidate any in-flight response
       state.idle = true; state.error = null; state.desc = null;
       state.presets = null; state.detected = null; state.building = null;
-      state.detectedCtx = null; state.detectedQuery = "";
+      state.detectedCtx = null; state.density = null;
       touched = {}; applyBuilding(null);
       qa(".addr-upgrades input").forEach(function (cb) { cb.checked = false; });
       if (densResult) densResult.innerHTML = "";

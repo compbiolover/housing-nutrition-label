@@ -24,11 +24,13 @@ window.LabelCore = (function () {
     if (s >= 80) return "A"; if (s >= 60) return "B"; if (s >= 40) return "C";
     if (s >= 20) return "D"; return "F";
   }
-  function fillClass(score) {          // → a style.css .fill.* color
-    if (score >= 60) return "green";   // A & B share the green bar; the grade
-    if (score >= 40) return "yellow";  // badge carries the precise A–F color
-    if (score >= 20) return "orange";
-    return "red";
+  // The grade the API sent, falling back to the score's own band. Everything that
+  // carries a color for a row — the chip and the bar fill — reads from this one
+  // letter, so color and letter can never disagree.
+  function gradeOf(d) {
+    var g = String(d.national_grade || "");
+    if (g.length === 1 && "ABCDF".indexOf(g) >= 0) return g;
+    return typeof d.score === "number" ? gradeFor(d.score) : "";
   }
 
   var WALL_LABELS = {
@@ -93,14 +95,15 @@ window.LabelCore = (function () {
     return { tier: ["low", "moderate", "high"][rank - 1], nScored: nScored, nTotal: nTotal };
   }
 
+  // ●/◐/○ differ by a few pixels of ink at row size, so the glyph alone can't
+  // carry the tier — it's paired with its word ("High data", "Low data") and a
+  // per-tier weight. Shape, text, and value, so it survives small type and
+  // grayscale. No tabindex here: the row's own panel repeats the provenance in
+  // full, and 13 focusable dots put 13 dead stops before the caveats.
   function confDot(data, key) {
-    var i = confInfo((data.confidence || {})[key]);
+    var t = (data.confidence || {})[key], i = confInfo(t);
     if (!i) return "";
-    var note = (data.confidence_notes || {})[key] || "";
-    var lbl = i.label + " confidence" + (note ? " — " + note : "");
-    // Focusable + labelled so the provenance reaches keyboard/screen-reader
-    // users, not just on hover.
-    return '<span class="conf-dot tip" role="img" tabindex="0" aria-label="' + esc(lbl) + '" data-tip="' + esc(lbl) + '">' + i.glyph + '</span>';
+    return '<span class="conf-dot conf-' + t + '" aria-hidden="true">' + i.glyph + '</span> ' + esc(i.label) + ' data';
   }
 
   // ── Lifetime "cost over a mortgage" (delta vs. a typical comparable) ───────
@@ -130,32 +133,49 @@ window.LabelCore = (function () {
 
   // `secondary` (optional) adds a second comparison line — the density dividend on
   // multi-unit buildings: this unit vs. "the same home standing alone" (detached).
-  function costStrip(house, baseline, secondary) {
+  // `monthly` (optional) is the modeled energy bill, promoted here from the
+  // metrics footnote: it's the one figure on the card a reader can check against
+  // their own life, and it belongs with the other money.
+  //
+  // The headline names what it's measured against and in what units. "$2,600
+  // higher" beside a house reads as a purchase-price difference; it is in fact the
+  // present value of a modeled running-cost gap — around $90 a year — so the
+  // referent ("than a typical home here"), the scope, and the per-year figure sit
+  // with the number instead of two smaller lines below it.
+  function costStrip(house, baseline, secondary, monthly) {
     if (!house || !baseline) return "";
     var pv = costPv(house, baseline, 0.04);
     if (pv == null) return "";
     var pvs = [Math.abs(pv), Math.abs(costPv(house, baseline, 0.02))];
     var lo = Math.min.apply(null, pvs), hi = Math.max.apply(null, pvs);
     var same = Math.abs(pv) < 1, cheaper = pv > 0;
-    var dir = same ? "about the same" : (cheaper ? "lower" : "higher");
-    var head = same ? "About the same"
-      : fmtMoney(roundMoney(pv)) + ' <span class="' + (cheaper ? "cheaper" : "pricier") + '">' + dir + '</span>';
+    var dir = same ? "about the same" : (cheaper ? "less" : "more");
+    var head = same ? "About the same to run"
+      : fmtMoney(roundMoney(pv)) + ' <span class="' + (cheaper ? "cheaper" : "pricier") + '">' + dir + '</span> to run';
+    var perYear = Math.round(Math.abs(pv / annuityFactor(30, 0.04)) / 10) * 10;
     var secLine = "";
     if (secondary) {
       var spv = costPv(house, secondary, 0.04);
       if (spv != null && Math.abs(spv) >= 1) {
-        var sdir = spv > 0 ? "lower" : "higher";
+        var sdir = spv > 0 ? "less" : "more";
         secLine = '<div class="cost-secondary">' + fmtMoney(roundMoney(spv))
-          + ' <span class="' + (spv > 0 ? "cheaper" : "pricier") + '">' + sdir + '</span> vs. '
+          + ' <span class="' + (spv > 0 ? "cheaper" : "pricier") + '">' + sdir + '</span> to run than '
           + esc(secondary.label || "the same home standing alone") + '</div>';
       }
     }
-    return '<div class="cost-strip"><div class="cost-cap">Cost over a 30-year mortgage</div>'
+    return '<div class="cost-strip"><div class="cost-cap">Cost to run, over a 30-year mortgage</div>'
       + '<div class="cost-delta">' + head + '</div>'
-      + (same ? "" : '<div class="cost-band">' + fmtK(lo) + '–' + fmtK(hi) + ' ' + dir + ' depending on how future costs are weighed</div>')
+      + (same
+          ? '<div class="cost-vs">as ' + esc(baseline.label || "a typical comparable here") + '</div>'
+          : '<div class="cost-vs">than ' + esc(baseline.label || "a typical comparable here")
+            + ' &mdash; about ' + fmtMoney(perYear) + ' a year</div>')
+      + (same ? "" : '<div class="cost-band">' + fmtK(lo) + '–' + fmtK(hi) + ' ' + dir
+          + ' depending on how future costs are weighed</div>')
       + secLine
-      + '<div class="cost-vs">vs. ' + esc((baseline.label) || "a typical comparable here")
-      + ' &mdash; counts only energy bills and likely disaster losses, in today’s dollars</div></div>';
+      + (monthly != null ? '<div class="cost-energy">Estimated energy bill: <strong>$'
+          + Math.round(monthly) + ' a month</strong></div>' : "")
+      + '<div class="cost-note">Counts energy bills and likely disaster losses only &mdash; not the '
+      + 'purchase price, property tax, or upkeep. In today’s dollars.</div></div>';
   }
 
   // Expandable detail panel body: plain-language "what this measures" + the real
@@ -165,8 +185,14 @@ window.LabelCore = (function () {
     var about = DIM_ABOUT[d.key];
     if (about) html += '<p class="dim-about">' + esc(about) + '</p>';
     var rows = (data.details || {})[d.key] || [];
-    if (rows.length) {
+    var pct = typeof d.national_percentile === "number" && isFinite(d.national_percentile)
+      ? d.national_percentile : null;
+    if (rows.length || pct != null) {
       html += '<dl class="dim-nums">';
+      // The percentile spelled out, in the one place with room for a sentence.
+      if (pct != null) {
+        html += '<div class="dim-num"><dt>Compared with US homes</dt><dd>Better than ' + pct + '% of them</dd></div>';
+      }
       rows.forEach(function (row) {
         html += '<div class="dim-num"><dt>' + esc(row.label) + '</dt><dd>' + esc(row.value) + '</dd></div>';
       });
@@ -186,13 +212,18 @@ window.LabelCore = (function () {
   // the category measures and the actual numbers behind the score. Native
   // <details> gives free mobile-tap, mouse-click, and keyboard/screen-reader
   // support with no JS wiring and no inline handlers (CSP-safe).
+  // The row is three beats: name + score/grade, the bar, then a small caption for
+  // everything that used to be crowded onto the first line. That caption is where
+  // the percentile gets to be a sentence — "17th US" reads as a rank *from the
+  // top* (i.e. excellent) when it means the opposite — and where the data-quality
+  // tier can carry its own word instead of an 11px glyph nobody can resolve.
   function dimRow(d, data) {
-    var dot = confDot(data, d.key);
     var chev = '<span class="dim-chevron" aria-hidden="true">&#9656;</span>';
-    var right, bar;
+    var right, bar, notes = [];
     if (d.score == null) {
-      right = '<span class="na">N/A' + dot + chev + '</span>';
+      right = '<span class="na">Not scored here</span>';
       bar = '<div class="score-bar"></div>';
+      notes.push("No data for this address &mdash; left out of the overall score");
     } else {
       var sc = Number(d.score);
       if (!isFinite(sc)) sc = 0;
@@ -203,38 +234,76 @@ window.LabelCore = (function () {
         whisker = '<div class="ci-whisker" style="left:' + wlo + '%;width:' + Math.max(0, whi - wlo)
           + '%"><div class="ci-line"></div></div>';
       }
-      var pctStr = "";
       if (typeof d.national_percentile === "number" && isFinite(d.national_percentile)) {
-        var p = d.national_percentile, o = p % 10, t = Math.floor(p / 10) % 10;
-        var suf = (t === 1) ? "th" : (o === 1 ? "st" : o === 2 ? "nd" : o === 3 ? "rd" : "th");
-        var pctTip = 'About the ' + p + suf + ' percentile nationally: better than ~' + p + '% of US homes (modeled estimate)';
-        pctStr = ' <span class="natl-pct tip" tabindex="0" aria-label="' + esc(pctTip) + '" data-tip="' + esc(pctTip) + '">'
-          + p + suf + ' US</span>';
+        notes.push("Beats " + d.national_percentile + "% of US homes");
       }
-      right = '<span>' + sc.toFixed(1) + ' / ' + esc(d.national_grade) + pctStr + dot + chev + '</span>';
-      bar = '<div class="score-bar"><div class="fill ' + fillClass(sc)
-        + '" style="width:' + sc + '%"></div>' + whisker + '</div>';
+      var g = gradeOf(d);
+      // Score and grade, not "48.5 / C" — a slash between them reads as a
+      // fraction ("48.5 out of C"). The chip is the same badge the composite
+      // uses, and the bar takes its color from the same letter.
+      right = '<span class="dim-score">' + sc.toFixed(1)
+        + (g ? '<span class="grade grade-' + g.toLowerCase() + '">' + esc(g) + '</span>' : '') + '</span>';
+      bar = '<div class="score-bar"><div class="fill" style="width:' + sc + '%'
+        + (g ? ';background:' + GRADE_COLORS[g] : '') + '"></div>' + whisker + '</div>';
     }
+    var dot = confDot(data, d.key);
+    if (dot) notes.push(dot);
     return '<details class="score-bar-container dim-row"><summary class="dim-summary">'
-      + '<div class="score-bar-label"><span>' + esc(d.label) + '</span>' + right + '</div>'
-      + bar + '</summary><div class="dim-detail">' + dimDetail(d, data) + '</div></details>';
+      + '<div class="score-bar-label"><span class="dim-name">' + esc(d.label) + '</span>' + right + '</div>'
+      + bar
+      + '<div class="dim-meta"><span class="dim-notes">' + notes.join(" &middot; ") + '</span>' + chev + '</div>'
+      + '</summary><div class="dim-detail">' + dimDetail(d, data) + '</div></details>';
   }
 
+  // The 13 rows split the way a buyer's question does: is the problem the house,
+  // or the block? The payload already tags each dimension `construction` or
+  // `location` — this only draws the line it already knows about.
+  var GROUP_LABEL = { construction: "The building itself", location: "The neighborhood &amp; location" };
+  function dimRows(dims, data) {
+    var groups = [], byKind = {};
+    dims.forEach(function (d) {
+      var k = d.kind === "location" || d.kind === "construction" ? d.kind : "";
+      if (!byKind[k]) { byKind[k] = []; groups.push(k); }
+      byKind[k].push(d);
+    });
+    var grouped = groups.length > 1 && groups.every(function (k) { return !!GROUP_LABEL[k]; });
+    return groups.map(function (k) {
+      var rows = byKind[k].map(function (d) { return dimRow(d, data); }).join("");
+      return (grouped ? '<div class="dim-group">' + GROUP_LABEL[k] + '</div>' : "") + rows;
+    }).join("");
+  }
+
+  // Two facts, not one: how the overall number was built (an average over only the
+  // dimensions that could be scored — so two addresses with different coverage
+  // aren't strictly comparable), and how solid the underlying data is. Joining
+  // them with a middot made them look like the same kind of claim.
   function compositeConfLine(data) {
     var cc = compositeConfidence(data);
     if (!cc) return { html: "", cc: null };
     var ci = confInfo(cc.tier);
-    var ccLbl = ci.label + " confidence, " + cc.nScored + " of " + cc.nTotal
-      + " dimensions scored. " + (data.confidence_legend || "");
-    var html = '<div class="composite-conf tip" tabindex="0" aria-label="' + esc(ccLbl) + '" data-tip="' + esc(data.confidence_legend || "") + '">'
-      + '<span class="conf-dot" aria-hidden="true">' + ci.glyph + '</span> ' + ci.label + ' confidence &middot; '
-      + cc.nScored + ' of ' + cc.nTotal + ' dimensions scored</div>';
+    var missing = (data.dimensions || []).filter(function (d) { return d.score == null; })
+      .map(function (d) { return d.label; });
+    var ccLbl = ci.label + " data quality overall. " + (data.confidence_legend || "");
+    var html = '<div class="composite-conf">'
+      + '<div class="cc-avg">The average of the ' + cc.nScored + ' dimension'
+      + (cc.nScored === 1 ? "" : "s") + ' we could score'
+      + (cc.nTotal !== cc.nScored ? ' here, out of ' + cc.nTotal : "") + '.'
+      + (missing.length ? ' Not scored: ' + esc(missing.join(", ")) + '.' : "") + '</div>'
+      + '<div class="cc-conf tip" tabindex="0" aria-label="' + esc(ccLbl) + '" data-tip="' + esc(data.confidence_legend || "") + '">'
+      + '<span class="conf-dot conf-' + cc.tier + '" aria-hidden="true">' + ci.glyph + '</span> '
+      + esc(ci.label) + ' data quality overall</div></div>';
     return { html: html, cc: cc };
   }
 
+  // The instruction for the card's core interaction, placed *above* the rows it
+  // describes. It used to sit below all thirteen — two-and-a-half phone screens
+  // past the first row it was explaining — and only when confidence data existed,
+  // even though the rows expand either way.
+  function tapHint() {
+    return '<p class="dim-hint"><strong>Tap any row</strong> to see what it measures and the numbers behind it.</p>';
+  }
   function legendHtml() {
-    return '<div class="conf-legend"><strong>Tap any row</strong> for what it measures and the numbers behind it. '
-      + '&nbsp;●&nbsp;High &nbsp;◐&nbsp;Moderate &nbsp;○&nbsp;Low &mdash; '
+    return '<div class="conf-legend">&nbsp;●&nbsp;High &nbsp;◐&nbsp;Moderate &nbsp;○&nbsp;Low &mdash; '
       + 'the dot shows how solid the data is (not how good the score is); the whisker shows the climate range</div>';
   }
 
@@ -251,16 +320,26 @@ window.LabelCore = (function () {
     var m = data.metrics || {};
     var h = data.house || {};
 
+    // The energy bill moves into the cost strip when there is one; the two terms
+    // of art left here get their plain-language gloss inline, because "fiscal
+    // ratio 0.14" tells a reader nothing on its own.
+    var strip = costStrip(data.cost, data.baseline_cost, data.detached_cost, m.est_monthly_energy_cost);
     var metricBits = [];
-    if (m.eui_kbtu_sqft_yr != null) metricBits.push("EUI " + m.eui_kbtu_sqft_yr.toFixed(1) + " kBTU/sqft/yr");
-    if (m.est_monthly_energy_cost != null) metricBits.push("$" + Math.round(m.est_monthly_energy_cost) + "/mo energy");
-    if (m.fiscal_ratio != null) metricBits.push("fiscal ratio " + m.fiscal_ratio.toFixed(2));
+    if (m.eui_kbtu_sqft_yr != null)
+      metricBits.push("Uses " + m.eui_kbtu_sqft_yr.toFixed(1) + " kBTU of energy per sqft a year (EUI)");
+    if (!strip && m.est_monthly_energy_cost != null)
+      metricBits.push("Estimated energy bill $" + Math.round(m.est_monthly_energy_cost) + " a month");
+    if (m.fiscal_ratio != null)
+      metricBits.push("Its property tax covers " + m.fiscal_ratio.toFixed(2)
+        + "× what city services here cost (fiscal ratio)");
 
     var heading = opts.heading || loc.label || (h.lat + ", " + h.lon);
+    // The scored/total count is stated in words under the composite ("the average
+    // of the 12 dimensions we could score here, out of 13"), so the bare "12/13
+    // dimensions" here was the same fact twice, in the more cryptic form.
     var metaParts = [];
     if (loc.county_name) metaParts.push(esc(loc.county_name));
     if (loc.climate_zone) metaParts.push("IECC " + esc(loc.climate_zone));
-    metaParts.push(data.n_scored + "/" + (data.dimensions ? data.dimensions.length : data.n_scored) + " dimensions");
 
     var subline = opts.subline != null ? opts.subline : (function () {
       var bits = [];
@@ -281,21 +360,29 @@ window.LabelCore = (function () {
 
     var html = '<div class="label-card"><div class="label-head"><div>'
       + '<div class="label-title">' + esc(heading) + '</div>'
-      + '<div class="meta">' + metaParts.join(" &middot; ") + '</div>'
+      + (metaParts.length ? '<div class="meta">' + metaParts.join(" &middot; ") + '</div>' : "")
       + (subline ? '<div class="build-line">' + subline + '</div>' : '')
       + (structLine ? '<div class="build-line">' + structLine + '</div>' : '')
-      + '</div><div style="text-align:right;"><div class="composite-num">'
-      + (comp == null ? "N/A" : comp.toFixed(1)) + '</div>'
+      // "59.9" alone is not a quantity — readers guess percent, price, or index.
+      // The denominator and a one-word caption say what it is before the grade
+      // chip has to.
+      + '</div><div class="label-score"><div class="composite-cap">Overall</div>'
+      + '<div class="composite-num">'
+      + (comp == null ? "N/A" : comp.toFixed(1)) + (comp == null ? "" : '<span class="of100">/100</span>') + '</div>'
       + '<span class="grade-lg" style="background:' + color + ';color:' + ink + '">' + esc(compGrade) + '</span></div></div>';
 
     var confLine = compositeConfLine(data);
     html += confLine.html;
-    html += costStrip(data.cost, data.baseline_cost, data.detached_cost);
-    html += (data.dimensions || []).map(function (d) { return dimRow(d, data); }).join("");
-    if (metricBits.length) html += '<p class="meta" style="margin-top:0.75rem;">' + esc(metricBits.join("  ·  ")) + '</p>';
+    // Caveats change how a specific row should be read ("Infrastructure Burden
+    // falls back to the pilot cost model"), so they land before the numbers they
+    // qualify rather than below all thirteen.
     (data.caveats || []).forEach(function (c) {
-      html += '<div class="insight warn" style="margin-top:0.75rem;font-size:0.85rem;">' + esc(c) + '</div>';
+      html += '<div class="insight warn card-caveat">' + esc(c) + '</div>';
     });
+    html += strip;
+    html += tapHint();
+    html += dimRows(data.dimensions || [], data);
+    if (metricBits.length) html += '<p class="meta card-metrics">' + esc(metricBits.join("  ·  ")) + '</p>';
     if (confLine.cc) html += legendHtml();
     return html + '</div>';
   }
@@ -326,10 +413,10 @@ window.LabelCore = (function () {
   }
 
   return {
-    GRADE_COLORS: GRADE_COLORS, gradeFor: gradeFor, fillClass: fillClass, esc: esc,
+    GRADE_COLORS: GRADE_COLORS, gradeFor: gradeFor, gradeOf: gradeOf, esc: esc,
     WALL_LABELS: WALL_LABELS, UPGRADE_LABELS: UPGRADE_LABELS,
     CONFIDENCE: CONFIDENCE, confInfo: confInfo, compositeConfidence: compositeConfidence,
-    confDot: confDot, dimRow: dimRow, costStrip: costStrip,
-    renderCard: renderCard, deltaTable: deltaTable, legendHtml: legendHtml
+    confDot: confDot, dimRow: dimRow, dimRows: dimRows, costStrip: costStrip,
+    renderCard: renderCard, deltaTable: deltaTable, legendHtml: legendHtml, tapHint: tapHint
   };
 })();
