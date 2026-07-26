@@ -117,7 +117,11 @@ DIM_META = {
         measures="Embodied + operational carbon over the building's life",
         source="Material carbon + eGRID2023 Rev 2 subregion grid average + NREL Cambium 2023 "
                "LRMER marginal factor",
-        res='<span class="tag county">county</span> <span class="tag config">+ config</span>'),
+        # Not county: both grid factors are looked up *by* county but describe a
+        # multi-state grid area (eGRID subregion / Cambium GEA region). Tagging
+        # them "county" overstated the resolution and made the geographic table
+        # above read as two identical County rows.
+        res='<span class="tag region">grid region</span> <span class="tag config">+ config</span>'),
     "infrastructure": dict(
         measures="Fiscal cost-to-serve vs. the revenue the parcel generates",
         source="Census of Governments spending + ACS tax model (per county)",
