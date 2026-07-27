@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.69](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.68...v0.1.69) (2026-07-27)
+
+
+### Features
+
+* fold the density view into the toggle and rewrite the label for lay readers ([#216](https://github.com/compbiolover/housing-nutrition-label/issues/216)) ([29343e6](https://github.com/compbiolover/housing-nutrition-label/commit/29343e65c793793a8eff62578c21efda4cd3fde9))
+
 ## [0.1.68](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.67...v0.1.68) (2026-07-26)
 
 
