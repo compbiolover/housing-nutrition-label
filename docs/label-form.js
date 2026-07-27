@@ -653,7 +653,14 @@ window.LabelForm = (function () {
         tag.title = (info.source || "") + (info.confidence ? " · " + info.confidence + " confidence" : "");
       });
       refineCount.textContent = total ? "— " + estimated + " of " + total + " estimated from public data (edit any to refine)" : "";
-      if (total && !refineEl.open) refineEl.open = true;
+      // Deliberately does NOT open the panel. It used to force itself open on
+      // every score, which pushed the label — the thing that was just asked for —
+      // a full phone screen below the fold behind ten fields and eight
+      // checkboxes. The collapsed summary still reports what matters ("5 of 9
+      // estimated from public data — edit any to refine"), so the provenance and
+      // the invitation to correct it survive; only the form itself waits to be
+      // asked for. A panel the reader opened stays open across re-scores, since
+      // nothing here closes it either.
     }
     function buildDetectedParams() {
       var params = new URLSearchParams(), d = state.desc, edited = false;
