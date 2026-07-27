@@ -103,11 +103,11 @@ details.tech > p, details.tech > ul, details.tech > ol { max-width: 68ch; }
 .score-bar-container { margin: 0.5rem 0; }
 .score-bar-label { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.25rem; }
 .score-bar { height: 10px; background: var(--border); border-radius: 5px; overflow: hidden; }
-.score-bar .fill { height: 100%; border-radius: 5px; transition: width 0.6s ease; }
-.fill.green { background: var(--green); }
-.fill.yellow { background: var(--yellow); }
-.fill.orange { background: var(--orange); }
-.fill.red { background: var(--red); }
+/* The fill's color is the row's grade color, set inline by label-core.js from the
+   same letter the chip shows — the old four-bucket .fill.green/.yellow/… scale
+   disagreed with the five-grade scale (an A and a B drew the same green). */
+.score-bar .fill { height: 100%; border-radius: 5px; background: var(--muted);
+  transition: width 0.6s ease; }
 
 /* Wide tables can be intrinsically wider than a narrow (mobile) viewport.
    Wrapping each one in .table-scroll keeps the overflow *inside its own box*

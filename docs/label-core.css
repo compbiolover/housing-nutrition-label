@@ -7,23 +7,36 @@
 /* ── Card container ─────────────────────────────────────────────────────────*/
 .label-card { background: var(--card); border: 2px solid var(--navy); border-radius: var(--radius);
   padding: 1.25rem 1.5rem; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); }
+/* A long single-token address must not squeeze the score block on a phone. */
 .label-card .label-head { display: flex; justify-content: space-between; align-items: center;
   border-bottom: 2px solid var(--border); padding-bottom: 0.6rem; margin-bottom: 0.6rem; gap: 1rem; }
-.label-card .composite-num { font-size: 2rem; font-weight: 800; color: var(--navy); line-height: 1; }
+.label-card .label-head > :first-child { min-width: 0; overflow-wrap: anywhere; }
+.label-card .label-score { flex: 0 0 auto; text-align: right; }
+.label-card .composite-cap { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--muted); font-weight: 700; }
+.label-card .composite-num { font-size: 2rem; font-weight: 800; color: var(--navy); line-height: 1.05; }
+.label-card .of100 { font-size: 0.9rem; font-weight: 600; color: var(--muted); letter-spacing: 0; }
 .label-card .label-title { font-weight: 700; color: var(--navy); }
-.label-card .grade-lg { width: 48px; height: 48px; line-height: 48px; text-align: center;
-  border-radius: var(--radius); color: #fff; font-weight: 800; font-size: 1.5rem; }
+.label-card .grade-lg { display: inline-block; width: 48px; height: 48px; line-height: 48px; text-align: center;
+  border-radius: var(--radius); color: #fff; font-weight: 800; font-size: 1.5rem; margin-top: 0.25rem; }
 .label-card .build-line { color: var(--muted); font-size: 0.85rem; margin-top: 0.2rem; }
 .label-card .build-line strong { color: var(--navy); }
 .label-card .na { color: var(--muted); font-style: italic; }
-.natl-pct { font-size: 0.72em; font-weight: 600; color: var(--muted); opacity: 0.9;
-  margin-left: 0.15em; white-space: nowrap; cursor: help; }
 .label-card .meta { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.75rem; }
+.label-card .card-metrics { margin: 1rem 0 0; }
+.label-card .card-caveat { margin: 0.75rem 0; font-size: 0.85rem; padding: 0.7rem 1rem; }
 
 /* ── Confidence (data-quality) channel — neutral, separate from the grade ────*/
-.conf-dot { color: var(--muted); font-size: 0.8em; margin-left: 0.15rem; cursor: help; }
-.composite-conf { font-size: 0.78rem; color: var(--muted); margin: 0 0 0.75rem; cursor: help; }
-.composite-conf .conf-dot { margin-left: 0; }
+/* ●/◐/○ differ by a few pixels of ink at this size, so the tier is carried by
+   its word (rendered beside the glyph) plus weight/value here — never by the
+   glyph alone, and never by hue, which belongs to the grade. */
+.conf-dot { font-size: 0.95em; }
+.conf-dot.conf-high { color: var(--text); }
+.conf-dot.conf-moderate { color: var(--muted); }
+.conf-dot.conf-low { color: var(--muted); opacity: 0.65; }
+.composite-conf { font-size: 0.8rem; color: var(--muted); margin: 0 0 0.75rem; }
+.composite-conf .cc-avg { margin-bottom: 0.15rem; }
+.composite-conf .cc-conf { display: inline-block; cursor: help; }
 .conf-legend { font-size: 0.72rem; color: var(--muted); margin-top: 0.75rem; font-style: italic; }
 
 /* Accessible tooltip. Native `title` only appears on mouse hover; this bubble also
@@ -71,9 +84,27 @@
 .dim-row > summary::marker { content: ""; }
 .dim-row > summary:hover { background: var(--bg); }
 .dim-row > summary:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
-.dim-chevron { display: inline-block; font-size: 0.7em; color: var(--muted);
-  margin-left: 0.35rem; transition: transform 0.15s ease; }
+/* The expand affordance has to work on a phone, where there is no hover state to
+   reveal it: a chevron at readable size, in the link ink so it reads as a
+   control, on its own baseline beside the row's caption. */
+.dim-chevron { display: inline-block; flex: 0 0 auto; font-size: 1.15em; line-height: 1;
+  color: var(--link); margin-left: 0.5rem; transition: transform 0.15s ease; }
 .dim-row[open] > summary .dim-chevron { transform: rotate(90deg); }
+.dim-name { font-weight: 600; }
+.dim-score { display: inline-flex; align-items: center; gap: 0.4rem; flex: 0 0 auto;
+  font-weight: 700; font-variant-numeric: tabular-nums; }
+/* Everything that used to crowd the score line — the percentile, the data-quality
+   tier — reads as a caption under the bar, where each has room to be words. */
+.dim-meta { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+  margin-top: 0.3rem; font-size: 0.75rem; color: var(--muted); }
+.dim-notes { min-width: 0; }
+/* Section headings over the rows: is the problem the house, or the block? */
+.dim-group { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em;
+  font-weight: 700; color: var(--navy); margin: 1.1rem 0 0.2rem;
+  padding-top: 0.6rem; border-top: 1px solid var(--border); }
+.dim-group:first-of-type { margin-top: 0.6rem; }
+.dim-hint { font-size: 0.8rem; color: var(--muted); margin: 0.75rem 0 0; }
+.dim-hint strong { color: var(--navy); }
 .dim-detail { background: var(--bg); border-radius: 6px; padding: 0.6rem 0.8rem;
   margin: 0.4rem 0 0.2rem; font-size: 0.85rem; }
 .dim-about { color: var(--text); margin: 0 0 0.5rem; line-height: 1.5; }
@@ -81,6 +112,13 @@
 .dim-num { display: contents; }
 .dim-num dt { color: var(--muted); }
 .dim-num dd { text-align: right; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+/* Two columns in a ~250px-wide panel wraps both sides to ribbons; stack the
+   label over its value instead. */
+@media (max-width: 520px) {
+  .dim-nums { grid-template-columns: 1fr; gap: 0.5rem; }
+  .dim-num dt { font-size: 0.8rem; }
+  .dim-num dd { text-align: left; }
+}
 .dim-prov { margin: 0.55rem 0 0; font-size: 0.75rem; color: var(--muted); }
 .dim-prov .conf-dot { cursor: default; margin-left: 0; }
 
@@ -91,26 +129,48 @@
 .cost-delta { font-size: 1.3rem; font-weight: 800; color: var(--navy); line-height: 1.15; }
 .cost-delta .cheaper { color: #16a34a; }
 .cost-delta .pricier { color: #dc2626; }
-.cost-band, .cost-vs { font-size: 0.78rem; color: var(--muted); }
-.cost-vs { margin-top: 0.15rem; }
+.cost-band, .cost-vs, .cost-note { font-size: 0.78rem; color: var(--muted); }
+/* The referent sits with the number, not three lines under it. */
+.cost-vs { margin-top: 0.1rem; color: var(--text); font-size: 0.85rem; }
+.cost-note { margin-top: 0.35rem; }
+.cost-energy { font-size: 0.85rem; color: var(--text); margin-top: 0.35rem; }
+.cost-energy strong { color: var(--navy); }
 /* Density-dividend line for multi-unit buildings (vs. a detached house). */
 .cost-secondary { font-size: 0.92rem; font-weight: 700; color: var(--navy); margin-top: 0.35rem; }
 .cost-secondary .cheaper { color: #16a34a; }
 .cost-secondary .pricier { color: #dc2626; }
 
 /* ── Mode toggle + compare (A/B) + profile picker (Label page) ──────────────*/
-.mode-toggle { display: flex; justify-content: center; gap: 0; margin: 0 auto 1rem; }
+/* A heading over the group, so the buttons read as the answer to one question
+   instead of three labels the reader has to reverse-engineer. */
+.mode-cap { text-align: center; font-size: 0.85rem; font-weight: 600; color: var(--muted);
+  margin: 0 auto 0.45rem; }
+.mode-toggle { display: flex; flex-wrap: wrap; justify-content: center; gap: 0; margin: 0 auto 1rem; }
 .mode-toggle button { font: inherit; font-weight: 600; padding: 0.4rem 1rem; border: 1px solid var(--border);
   background: var(--card); color: var(--text); cursor: pointer; }
+.mode-toggle button + button { margin-left: -1px; }   /* one shared hairline, not two */
 .mode-toggle button:first-child { border-radius: var(--radius) 0 0 var(--radius); }
-.mode-toggle button:last-child { border-radius: 0 var(--radius) var(--radius) 0; border-left: none; }
-.mode-toggle button.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+.mode-toggle button:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+/* The selected view is filled with the Harbor CTA rather than --navy: navy is
+   also the dark-hero and dark-page surface, so the active button used to read as
+   an unlit gap in the row on exactly the two surfaces this widget ships on. */
+.mode-toggle button.on { background: var(--cta); color: #fff; border-color: var(--cta);
+  position: relative; z-index: 1; }
 .mode-toggle + .mode-help { margin: -0.5rem auto 1.25rem; }
 /* Comfortable touch targets on coarse pointers (phones/tablets): the mode toggle
    and the address-suggestion rows were ~38–39px tall. */
 @media (pointer: coarse) {
-  .mode-toggle button { padding: 0.6rem 1rem; }
+  .mode-toggle button { padding: 0.6rem 1rem; min-height: 44px; }
   .addr-suggest li { padding: 0.7rem 0.8rem; }
+}
+/* Three views don't fit one phone row. Stack them full-width rather than letting
+   them shrink to unreadable slivers or spill past the viewport. */
+@media (max-width: 560px) {
+  .mode-toggle { flex-direction: column; max-width: 22rem; }
+  .mode-toggle button { width: 100%; border-radius: 0; }
+  .mode-toggle button + button { margin-left: 0; margin-top: -1px; }
+  .mode-toggle button:first-child { border-radius: var(--radius) var(--radius) 0 0; }
+  .mode-toggle button:last-child { border-radius: 0 0 var(--radius) var(--radius); }
 }
 .mode-help { max-width: 560px; text-align: center; color: var(--muted);
   font-size: 0.85rem; line-height: 1.45; }
@@ -167,8 +227,16 @@
 .addr-suggest[hidden] { display: none; }
 
 /* ── Grade legend + page states ─────────────────────────────────────────────*/
-.legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; justify-content: center; margin-top: 1.5rem; font-size: 0.8rem; color: var(--muted); }
-.legend .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 0.35rem; vertical-align: middle; }
+/* A legend without the scale is decoration: the thresholds ride along, since
+   they appear nowhere else a reader of the card will look. */
+.legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; justify-content: center; margin-top: 1.5rem; font-size: 0.8rem; color: var(--muted); }
+.legend .swatch { display: inline-block; width: 16px; height: 16px; border-radius: 3px; margin-right: 0.35rem; vertical-align: -3px; }
+.legend .range { font-variant-numeric: tabular-nums; }
+
+/* Visually hidden, still announced — one-line descriptions of what a button
+   does, paired to it with aria-describedby. */
+.lf-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 /* The loading state is now the .lf-loading panel below (spinner + skeleton);
    .error stays the shared failure state for every page. */
 .error { text-align: center; color: var(--red); padding: 2rem; }
@@ -176,10 +244,12 @@
 @media (prefers-color-scheme: dark) {
   .label-card { border-color: #475569; }
   .label-card .composite-num, .label-card .label-title, .label-card .build-line strong,
-  .cost-delta, .cost-secondary, .delta-table thead th, .picker label { color: #e2e8f0; }
+  .cost-delta, .cost-secondary, .cost-energy strong, .dim-group, .dim-hint strong,
+  .delta-table thead th, .picker label { color: #e2e8f0; }
   .cost-delta .cheaper, .cost-secondary .cheaper, .delta-table .up { color: #4ade80; }
   .cost-delta .pricier, .cost-secondary .pricier, .delta-table .down { color: #f87171; }
   .addr-suggest li.active, .addr-suggest li:hover { background: #334155; }
+  .conf-dot.conf-high { color: #e2e8f0; }
   .field-tag.confirmed { background: #14532d; color: #bbf7d0; }
   .field-tag.estimated { background: #312e81; color: #c7d2fe; }
   .field-tag.assumed   { background: #334155; color: #cbd5e1; }
@@ -306,25 +376,19 @@
   .lf-skel-num, .lf-skel-grade, .lf-skel-row { background: var(--border); }
 }
 
-/* Density-on-this-parcel comparison (fixed lot, vary units). */
-.lf-density-wrap { max-width: 640px; margin: 0.75rem auto 0; }
-/* The density comparison reuses the busy/done banner, whose auto margins would
-   centre it away from the button it belongs to — pin it under the button. */
-.lf-density-wrap .lf-status { margin: 0.5rem 0 0; }
-.lf-density-result:not(:empty) { margin-top: 0.6rem; }
+/* Density-on-this-lot comparison (fixed lot, vary units). It is now a view in
+   the mode toggle rather than a lone button below the card, so this panel is
+   just its result and sits directly beneath those buttons. */
+.lf-density-wrap { max-width: 640px; margin: 0 auto; }
+.lf-density-wrap .lf-status { margin: 0 0 0.6rem; }
 .density-table { width: 100%; }
 .density-table small { color: var(--muted); font-weight: 400; }
-.density-btn { font: inherit; font-weight: 600; padding: 0.5rem 1rem; border: 1px solid var(--navy);
-  border-radius: var(--radius); background: var(--card); color: var(--navy); cursor: pointer; }
-.density-btn:hover { background: var(--navy); color: #fff; }
-.density-btn:disabled { opacity: 0.6; cursor: progress; }
 
 .row-highlight { background: #f1f5f9; }
 
 @media (prefers-color-scheme: dark) {
   .label-privacy.err { color: #f87171; }
   .label-loc strong { color: #e2e8f0; }
-  .density-btn { border-color: #475569; color: #e2e8f0; }
   .row-highlight { background: #0b1220; }
   .lf-tick { color: #4ade80; }
   .lf-status { background: #172033; border-color: #334155; }
