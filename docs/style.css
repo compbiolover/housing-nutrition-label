@@ -277,8 +277,20 @@ footer code { background: rgba(255, 255, 255, 0.1); color: #cbd5e1; }
 .pipeline .stage { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.5rem 1rem; font-size: 0.85rem; white-space: nowrap; }
 .pipeline .arrow { color: var(--muted); font-size: 1.2rem; }
 @media (max-width: 768px) {
+  .hero { padding: 3.5rem 1.5rem; }
   .hero h1 { font-size: 2rem; }
   section { padding: 2rem 1rem; }
+}
+/* The hero is a preamble to the address field, and on a phone it was pushing
+   that field — and then the scored label — most of a screen down: 80px of top
+   padding, then a badge, a headline, and an eleven-line tagline. Tighten the
+   whole stack on small screens so the thing the page is for starts near the top.
+   Desktop keeps the roomier proportions, where there is height to spend. */
+@media (max-width: 560px) {
+  .hero { padding: 2.25rem 1.25rem 2.5rem; }
+  .hero .badge { margin-bottom: 1rem; font-size: 0.82rem; padding: 0.35rem 0.8rem; }
+  .hero h1 { font-size: 1.75rem; margin-bottom: 0.6rem; }
+  .hero .tagline { font-size: 1.02rem; margin-bottom: 1.35rem; }
 }
 
 /* Honor reduced-motion globally: the score bars animate their width on render,
