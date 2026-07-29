@@ -5,6 +5,19 @@
 *Compiled from IBHS, FEMA, USACE, PEER-CEA, and insurance loss studies*
 *Date: April 2, 2026*
 
+> **Partially superseded (July 29, 2026).** This document is kept as a dated
+> snapshot. `research/resilience-bonus-calibration-research.md` supersedes it for:
+> the **16" OC truss** modifier (0.92 here; the flag has since been removed — framing
+> spacing is a substitute route to deck uplift capacity, not an additional credit,
+> and no source quantifies it); **seismic retrofit** (redefined as stem-wall sill
+> anchorage and made mutually exclusive with cripple-wall bracing); and the
+> **solar / backup generator / general sprinkler / leak detection** modifiers, all
+> now 1.00. Where this document and the newer one disagree, the newer one governs.
+> Two known drifts against the code remain unresolved here: the hold-down connector
+> modifier (0.75 in §12, 0.85 in the code) and the §11 attribution of the
+> cripple-wall evidence to "FEMA P-1024", which is a Napa reconnaissance report
+> rather than a retrofit standard — FEMA P-1100 is meant.
+
 ---
 
 ## How to Read This Document
