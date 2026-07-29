@@ -27,7 +27,10 @@ build = ["xarray>=2024.1", "netCDF4>=1.6", "numpy>=1.26", "requests>=2.32", "ope
 # Test + lint toolchain (CI installs `.[api,dev]` so the FastAPI-guarded tests
 # run rather than self-skip). httpx2 (Pydantic's maintained continuation of
 # httpx) backs Starlette 1.3+'s TestClient.
-dev = ["pytest>=8", "ruff>=0.5", "httpx2>=2.5"]
+# Pillow is dev-tier, not build-tier, because tests/test_icons.py asserts the
+# committed favicons still match the CSS palette — the drift it guards against
+# (palette changed, icons didn't) is only caught if CI can actually redraw them.
+dev = ["pytest>=8", "ruff>=0.5", "httpx2>=2.5", "Pillow>=10,<13"]
 
 [project.scripts]
 housing-simulate = "housing_label.simulate.house:main"
