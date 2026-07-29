@@ -307,9 +307,22 @@ BONUS_HIP_ROOF           = 0.55  # Hip roof vs. gable; IBHS: 45-50% peak pressur
                                   # Source: IBHS. Strong evidence.
 BONUS_IMPACT_GARAGE_DOOR = 0.75  # Impact-rated garage door; 80% of wind damage initiates
                                   # via garage. Source: FEMA/IBHS. Strong evidence.
-BONUS_SEALED_ROOF_DECK   = 0.80  # Secondary water barrier / peel-and-stick underlayment;
-                                  # prevents water intrusion after shingle loss.
-                                  # Source: IBHS. Strong evidence.
+BONUS_SEALED_ROOF_DECK   = 0.93  # Sealed roof deck / secondary water resistance: a self-adhered
+                                  # membrane or taped deck seams keeps rain out after the cover
+                                  # blows off. ARA 2008 (FL OIR Rpt 18401) Tbl 4-13 puts the
+                                  # average benefit at 6.5% (Terrain B) / 8.0% (Terrain C) =
+                                  # 0.94/0.93; Tbl 4-19/4-20 give 0.91-0.98 over a code-grade
+                                  # roof cover and 0.67-0.98 over a weak one, and ARA's 2024
+                                  # restudy medians land at 0.93. Florida's filed credits
+                                  # replicate it (~0.94 code-grade cover, ~0.85 weak).
+                                  # The former 0.80 read IBHS's "up to 95% less water intrusion"
+                                  # — an attic water-VOLUME measurement, conditional on the cover
+                                  # already being gone — as if it were a loss ratio. Set at the
+                                  # strong-cover end deliberately: SWR is a backup whose value
+                                  # falls as the cover improves, BONUS_METAL_ROOF already pays
+                                  # for a strong cover, post-2015 code eras increasingly require
+                                  # SWR, and anyone who knows they have one has had a recent
+                                  # re-roof. Strong evidence.
 BONUS_METAL_ROOF         = 0.75  # Standing seam metal roof; 150+ mph wind rating.
                                   # Source: industry testing data. Moderate evidence.
 BONUS_REINFORCED_GABLE   = 0.80  # Reinforced gable end walls; documented failure mode.
@@ -413,6 +426,161 @@ ELEVATION_FLAGS = ["elevation_1ft", "elevation_2ft", "elevation_3ft"]
 # composite-supersedes-components pattern as the FORTIFIED tiers). Stacking them
 # gave 0.45 × 0.75 = 0.34 for a single physical intervention.
 SEISMIC_FOUNDATION_FLAGS = ["cripple_wall_bracing", "seismic_retrofit"]
+
+# ── Bonus aggregation: these features are not independent multipliers ─────────
+# Above-code bonuses used to be multiplied together, one constant per checked
+# flag. Every published source that prices these features does the opposite.
+# ARA's Florida wind study — the actuarial basis for Florida's mitigation credits
+# and the source BONUS_RING_SHANK_NAILS derives from — prices the primary
+# features from a JOINT lookup table (4,608 combinations in 2008; 20,736 in the
+# 2024 revalidation) and says so directly: "one cannot add the individual effects
+# together to get a combined mitigation effect … the combined effects are
+# nonlinear in their interaction" (2008 §3.3.9), and "secondary factors should
+# not be applied independently of the primary factors" (§4.2.2). The reason is
+# that the envelope is a SERIAL system, where fixing one link is worth much less
+# once another governs: "no SWR tends to minimize the effect of deck strength"
+# (§4.2.4.4). FEMA Hazus reaches the same place differently — a separate
+# fragility function per combination of roof shape × SWR × deck attachment ×
+# roof-to-wall, never a product of per-feature credits.
+#
+# Two rules replace the bare product, neither of which re-derives a constant:
+#
+#   1. BONUS_GROUPS — flags acting on the same failure path do not stack; the
+#      strongest (lowest) modifier in the group wins. Boundaries mirror ARA's
+#      primary-table dimensions. Flags in DIFFERENT groups still multiply, because
+#      ARA models roof shape, roof cover, roof attachment and opening protection
+#      as separate primary dimensions and they act on genuinely different
+#      mechanisms. This is deliberately not "take the single best modifier",
+#      which would discard real, independently evidenced features.
+#   2. BONUS_FLOOR — the surviving product is floored at the best-evidenced
+#      COMPOSITE credit for that hazard, exactly as BRM_FLOOR bounds the
+#      code-era/construction/condition stack. A pile of self-reported checkboxes
+#      must never outscore the inspected, engineer-stamped certification that
+#      represents achieving all of them.
+BONUS_GROUPS = {
+    "tornado": [
+        # Roof structure / uplift load path. Straps, gable-end bracing and deck
+        # fastening are three ways to keep the same roof on the same building.
+        ("hurricane_straps", "reinforced_gable", "ring_shank_nails"),
+        # Roof aerodynamics. Its own ARA primary dimension in every edition, and
+        # notably not part of any FORTIFIED tier — FORTIFIED is shape-agnostic —
+        # so it legitimately multiplies against the others.
+        ("hip_roof",),
+        # Roof cover + water intrusion once the cover is stressed. ARA couples
+        # these explicitly ("no SWR tends to minimize the effect of deck strength").
+        ("sealed_roof_deck", "metal_roof"),
+        # Opening protection / internal pressurisation — separate primary
+        # dimension, separate failure path from roof uplift.
+        ("impact_garage_door",),
+    ],
+    "flood": [
+        # Elevation and flood openings are ONE rating variable, not two. FEMA's
+        # NFIP Risk Rating 2.0 prices openings from a table indexed BY first floor
+        # height: -1.7% at FFH 3 ft against -22.1% for the height itself. A house
+        # already elevated has little residual inundation loss for vents to reduce,
+        # so elevation supersedes them rather than stacking.
+        ("elevation_3ft", "elevation_2ft", "elevation_1ft", "flood_vents"),
+        # Sewer backup and sump discharge are a different water path from the
+        # FEMA-zone depth-damage inundation elevation prices, so they stay
+        # independent. In practice the floor usually swallows them once elevation
+        # is claimed, which is the correct outcome.
+        ("backflow_valve",),
+        ("sump_backup",),
+    ],
+    # Seismic needs no entry: SEISMIC_FOUNDATION_FLAGS already supersedes the one
+    # overlapping pair, and the remaining constants act on distinct failure paths
+    # (shaking vs fire-following-earthquake), so their product is honest.
+}
+
+# Per-hazard lower bound on the COMBINED bonus stack — the analogue of BRM_FLOOR
+# ("floor only, no ceiling").
+BONUS_FLOOR = {
+    # IBHS FORTIFIED Gold, the best-evidenced number in this file: Alabama DOI /
+    # UA Center for Risk and Insurance Research, "Performance of IBHS FORTIFIED
+    # Home Construction in Hurricane Sally" (2025), n=40,195 policies (5,712
+    # Gold) — mean 69% claim-frequency and 32% severity reduction (0.31 × 0.68 =
+    # 0.21), and 75% of insurer claim dollars avoided under an all-Gold scenario.
+    # Five of the seven individual wind flags reconstruct Gold's own feature list
+    # (deck fasteners + sealed deck = Roof; + impact openings + gable bracing =
+    # Silver; + continuous load path = Gold), so the component stack IS a
+    # self-reported Gold and must not beat a certified one.
+    # BONUS_FORTIFIED_SILVER (0.25) is the defensible stricter choice if we ever
+    # want components to top out strictly below Gold: Gold's distinguishing
+    # requirements are an engineered, inspected continuous load path and
+    # design-pressure-rated openings, neither of which a checkbox can evidence.
+    "tornado": BONUS_FORTIFIED_GOLD,
+    # FEMA depth-damage gives BONUS_ELEVATION_3FT as a TOTAL flood-loss residual
+    # at that elevation, not a partial credit to multiply further. FEMA rates it
+    # the same way — First Floor Height is a primary rating variable, and the
+    # only other credited measures are small and conditioned on it.
+    "flood":   BONUS_ELEVATION_3FT,
+}
+
+# Flood openings need an enclosure to vent. FEMA's Risk Rating 2.0 openings
+# discount is available only for crawlspace and elevated-with-enclosure
+# foundations — never slab-on-grade, never basement. Same eligibility pattern as
+# CRIPPLE_WALL_FOUNDATIONS: claimed on the wrong foundation, it earns no credit
+# rather than silently scoring.
+FLOOD_VENT_FOUNDATIONS = frozenset({"crawl", "partial-basement"})
+
+# Flag → modifier per hazard: one place to wire a new constant in, rather than a
+# scattered call site. leak_detection sits here at 1.00 (reviewed, no EAL effect)
+# so the aggregation sees the full flood roster.
+TORNADO_BONUS_MODIFIERS = {
+    "hurricane_straps":   BONUS_HURRICANE_STRAPS,
+    "hip_roof":           BONUS_HIP_ROOF,
+    "impact_garage_door": BONUS_IMPACT_GARAGE_DOOR,
+    "sealed_roof_deck":   BONUS_SEALED_ROOF_DECK,
+    "metal_roof":         BONUS_METAL_ROOF,
+    "reinforced_gable":   BONUS_REINFORCED_GABLE,
+    "ring_shank_nails":   BONUS_RING_SHANK_NAILS,
+}
+FLOOD_BONUS_MODIFIERS = {
+    "elevation_1ft":  BONUS_ELEVATION_1FT,
+    "elevation_2ft":  BONUS_ELEVATION_2FT,
+    "elevation_3ft":  BONUS_ELEVATION_3FT,
+    "flood_vents":    BONUS_FLOOD_VENTS,
+    "backflow_valve": BONUS_BACKFLOW_VALVE,
+    "sump_backup":    BONUS_SUMP_BACKUP,
+    "leak_detection": BONUS_LEAK_DETECT,
+}
+
+
+def combine_bonuses(cfg: dict, hazard: str, modifiers: dict) -> float:
+    """Aggregate one hazard's active above-code bonuses into a single multiplier.
+
+    Not a plain product — see the BONUS_GROUPS block for why. Flags acting on the
+    same failure path collapse to the strongest (lowest) active modifier; the
+    survivors multiply across groups; the result is floored at BONUS_FLOOR.
+
+    An active flag not named in any group multiplies on its own, so adding a
+    constant without classifying it degrades to the old behaviour rather than
+    being silently dropped.
+    """
+    groups = BONUS_GROUPS.get(hazard, ())
+    grouped = {f for g in groups for f in g}
+    mod = 1.0
+    for group in groups:
+        active = [modifiers[f] for f in group if f in modifiers and cfg.get(f)]
+        if active:
+            mod *= min(active)              # same failure path → strongest wins
+    for flag, value in modifiers.items():
+        if flag not in grouped and cfg.get(flag):
+            mod *= value                    # unclassified → independent, as before
+    return max(mod, BONUS_FLOOR.get(hazard, 0.0))
+
+
+def superseded_bonuses(cfg: dict, hazard: str, modifiers: dict) -> list:
+    """Flags that were set but earned nothing because a stronger flag in the same
+    group superseded them. Mirrors ``inapplicable_upgrades`` so a checked box that
+    did nothing stays visible instead of quietly vanishing."""
+    out = []
+    for group in BONUS_GROUPS.get(hazard, ()):
+        active = [f for f in group if f in modifiers and cfg.get(f)]
+        if len(active) > 1:
+            best = min(active, key=lambda f: modifiers[f])
+            out += [f for f in active if f != best]
+    return out
 
 # Which foundations each seismic retrofit tier is physically possible on. Both
 # retrofits act on the connection between the framing and the foundation, so the
@@ -871,17 +1039,16 @@ def simulate(cfg: dict, structure: dict | None = None) -> dict:
     fire_adj    = fire_raw    * fire_brm
 
     # ── Hazard-specific bonus modifiers (existing) ────────────────────────────
-    # leak_detection carries no flood credit (BONUS_LEAK_DETECT == 1.00, peril
-    # mismatch); the multiplication is kept so the constant stays the single source
-    # of truth and the reviewed-but-neutral finding is visible at the call site.
-    if cfg.get("leak_detection"):    flood_adj   *= BONUS_LEAK_DETECT
-    if cfg.get("sump_backup"):       flood_adj   *= BONUS_SUMP_BACKUP
+    # leak_detection (1.00, peril mismatch) and sump_backup are applied by the
+    # flood aggregation below, via FLOOD_BONUS_MODIFIERS — not here, or they would
+    # count twice.
     if cfg.get("tornado_safe_room"): tornado_adj *= BONUS_SAFE_ROOM
     # Fire sprinklers are applied to the structural fire term in fire_raw above,
     # not to the whole fire leg — see the wildfire note there.
 
     # ── Wind/tornado above-code modifiers ─────────────────────────────────────
     # FORTIFIED tier is composite and supersedes individual wind features.
+    superseded: list = []
     fortified_note = None
     if cfg.get("fortified_gold"):
         tornado_adj  *= BONUS_FORTIFIED_GOLD
@@ -893,14 +1060,11 @@ def simulate(cfg: dict, structure: dict | None = None) -> dict:
         tornado_adj  *= BONUS_FORTIFIED_ROOF
         fortified_note = "FORTIFIED Roof certification supersedes individual wind features."
     else:
-        # Stack individual wind features multiplicatively.
-        if cfg.get("hurricane_straps"):    tornado_adj *= BONUS_HURRICANE_STRAPS
-        if cfg.get("hip_roof"):            tornado_adj *= BONUS_HIP_ROOF
-        if cfg.get("impact_garage_door"):  tornado_adj *= BONUS_IMPACT_GARAGE_DOOR
-        if cfg.get("sealed_roof_deck"):    tornado_adj *= BONUS_SEALED_ROOF_DECK
-        if cfg.get("metal_roof"):          tornado_adj *= BONUS_METAL_ROOF
-        if cfg.get("reinforced_gable"):    tornado_adj *= BONUS_REINFORCED_GABLE
-        if cfg.get("ring_shank_nails"):    tornado_adj *= BONUS_RING_SHANK_NAILS
+        # Individual wind features: grouped by failure path and floored at the
+        # best-evidenced composite, so a set of self-reported checkboxes cannot
+        # outscore the certification that represents achieving all of them.
+        tornado_adj *= combine_bonuses(cfg, "tornado", TORNADO_BONUS_MODIFIERS)
+        superseded += superseded_bonuses(cfg, "tornado", TORNADO_BONUS_MODIFIERS)
     r["fortified_note"] = fortified_note
 
     # ── Seismic above-code modifiers ──────────────────────────────────────────
@@ -923,30 +1087,49 @@ def simulate(cfg: dict, structure: dict | None = None) -> dict:
 
     # Name any tier that was claimed but cannot apply, so a checked box that did
     # nothing is visible rather than silently ignored.
-    inapplicable = [f for f, claimed, ok in
-                    (("cripple_wall_bracing", crip_claimed, crip_ok),
-                     ("seismic_retrofit",     ret_claimed,  ret_ok))
-                    if claimed and not ok]
-    r["inapplicable_upgrades"] = inapplicable
+    seismic_inapplicable = [f for f, claimed, ok in
+                            (("cripple_wall_bracing", crip_claimed, crip_ok),
+                             ("seismic_retrofit",     ret_claimed,  ret_ok))
+                            if claimed and not ok]
     r["seismic_applicability_note"] = (
         f"No seismic credit on a {foundation or 'unknown'} foundation — "
         + "; ".join(
             f"{BONUS_LABELS[f]}: "
             + RETROFIT_INAPPLICABLE_REASON.get(
                 (f, foundation), "that retrofit does not apply to this foundation")
-            for f in inapplicable)
+            for f in seismic_inapplicable)
         + "."
-    ) if inapplicable else None
+    ) if seismic_inapplicable else None
+    # Collected across hazards below; the flood block adds to it.
+    inapplicable = list(seismic_inapplicable)
     if cfg.get("seismic_hold_downs"):    seismic_adj *= BONUS_SEISMIC_HOLD_DOWNS
     if cfg.get("auto_gas_shutoff"):      seismic_adj *= BONUS_AUTO_GAS_SHUTOFF
 
     # ── Flood above-code modifiers ────────────────────────────────────────────
-    # Elevation tiers are mutually exclusive (validated in resolve_config).
-    if cfg.get("elevation_3ft"):   flood_adj *= BONUS_ELEVATION_3FT
-    elif cfg.get("elevation_2ft"): flood_adj *= BONUS_ELEVATION_2FT
-    elif cfg.get("elevation_1ft"): flood_adj *= BONUS_ELEVATION_1FT
-    if cfg.get("flood_vents"):     flood_adj *= BONUS_FLOOD_VENTS
-    if cfg.get("backflow_valve"):  flood_adj *= BONUS_BACKFLOW_VALVE
+    # Elevation tiers are mutually exclusive (validated in resolve_config) and
+    # supersede flood vents — FEMA prices openings from a table indexed by first
+    # floor height, so the two are one rating variable. The stack is floored at
+    # BONUS_ELEVATION_3FT because that FEMA figure is already a total residual.
+    flood_mods = dict(FLOOD_BONUS_MODIFIERS)
+    if foundation not in FLOOD_VENT_FOUNDATIONS:
+        flood_mods.pop("flood_vents", None)      # no enclosure to vent
+        if cfg.get("flood_vents"):
+            inapplicable.append("flood_vents")
+    flood_adj *= combine_bonuses(cfg, "flood", flood_mods)
+    superseded += superseded_bonuses(cfg, "flood", flood_mods)
+
+    # Claimed upgrades that earned nothing, so a checked box never looks counted:
+    # `inapplicable` = ruled out by the foundation, `superseded` = outranked by a
+    # stronger flag acting on the same failure path.
+    r["inapplicable_upgrades"] = inapplicable
+    r["superseded_upgrades"] = superseded
+    r["superseded_note"] = (
+        "Counted once, not twice — "
+        + ", ".join(BONUS_LABELS[f] for f in superseded)
+        + (" acts on the same failure path as a stronger upgrade claimed here."
+           if len(superseded) == 1 else
+           " act on the same failure paths as stronger upgrades claimed here.")
+    ) if superseded else None
 
     # ── General bonus modifiers (apply to flood/tornado/seismic EAL) ─────────
     # Fire is excluded: solar/generator/passive don't reduce ignition, and
@@ -1176,17 +1359,25 @@ def print_scorecard(cfg: dict, r: dict) -> None:
         haz_specific = [b for b in BONUS_LABELS if cfg.get(b)
                         and b not in ("solar","backup_generator","passive_house")]
         inapplicable = set(r.get("inapplicable_upgrades") or ())
+        superseded = set(r.get("superseded_upgrades") or ())
         for b in haz_specific:
-            # Show what actually happened: a flag the foundation rules out never
-            # multiplied anything, so printing its modifier would misrepresent it.
-            desc = (f"not applied — needs a {'raised' if b == 'cripple_wall_bracing' else 'non-slab'}"
-                    f" foundation" if b in inapplicable else BONUS_MODIFIER_DESC[b])
+            # Show what actually happened: a flag the foundation rules out, or one
+            # outranked on its failure path, never multiplied anything — printing
+            # its modifier would misrepresent it.
+            if b in inapplicable:
+                desc = ("not applied — needs an enclosure to vent" if b == "flood_vents"
+                        else f"not applied — needs a "
+                             f"{'raised' if b == 'cripple_wall_bracing' else 'non-slab'} foundation")
+            elif b in superseded:
+                desc = "not applied — same failure path as a stronger upgrade"
+            else:
+                desc = BONUS_MODIFIER_DESC[b]
             # Modifier descriptions can be a full sentence now ("no EAL credit …"),
             # so wrap rather than overflow the box border.
             for line in _wrap_rows(f"    + {BONUS_LABELS[b]:<30}: {desc}", indent=" " * 6):
                 print(row(line))
     for key in ("fortified_note", "seismic_retrofit_note",
-                "seismic_applicability_note", "outage_note"):
+                "seismic_applicability_note", "superseded_note", "outage_note"):
         if r.get(key):
             for line in _wrap_rows(f"    ⚑  {r[key]}", indent=" " * 7):
                 print(row(line))
@@ -1516,6 +1707,8 @@ def dimension_details(cfg: dict, r: dict, label: dict) -> dict:
         # A claimed upgrade that the foundation makes impossible earns no credit;
         # say so rather than letting the box look as though it counted.
         ("Upgrade not applicable", r.get("seismic_applicability_note")),
+        # Claimed, but a stronger upgrade on the same failure path already counted it.
+        ("Counted once", r.get("superseded_note")),
     )
 
     # Energy — modeled energy-use intensity and the resulting cost.

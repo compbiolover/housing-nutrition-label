@@ -18,7 +18,7 @@
 > 1.00** and rewritten in place: retrofit spacing *is* code spacing (CEBC A3 Table
 > A304.3.1 mirrors IRC R403.1.6), so there is no above-code tier to claim, and PEER
 > 2020/22 finds the bolt line is not the governing failure mode. It is not implemented
-> in house.py and should stay that way.
+> in `src/housing_label/simulate/house.py` and should stay that way.
 
 ---
 
@@ -31,7 +31,24 @@ Each feature includes:
 - **Evidence quality** (Strong / Moderate / Expert Estimate)
 - **Source citation**
 
-Modifiers are designed for multiplicative stacking within a hazard category. A house with hip roof (0.55), sealed roof deck (0.70), and hurricane straps (0.75) would have a combined wind modifier of 0.55 x 0.70 x 0.75 = 0.29 (71% reduction) before capping.
+> **Superseded (July 29, 2026).** This paragraph used to read: *"Modifiers are designed
+> for multiplicative stacking within a hazard category. A house with hip roof (0.55),
+> sealed roof deck (0.70), and hurricane straps (0.75) would have a combined wind modifier
+> of 0.55 × 0.70 × 0.75 = 0.29 (71% reduction) before capping."* **That is not how these
+> features combine.** ARA's Florida study — the actuarial basis for the state's mitigation
+> credits — prices the primary features from a *joint lookup table* (4,608 combinations in
+> 2008, 20,736 in the 2024 revalidation) and states plainly that "one cannot add the
+> individual effects together to get a combined mitigation effect … the combined effects
+> are nonlinear in their interaction", because the envelope is a **serial system** where
+> fixing one link is worth much less once another governs. FEMA Hazus reaches the same
+> place differently, with a separate fragility function per attribute combination rather
+> than a product of credits.
+>
+> The code now aggregates in two steps (`BONUS_GROUPS` / `BONUS_FLOOR` in
+> `src/housing_label/simulate/house.py`): flags acting on the **same failure path**
+> collapse to the strongest one, survivors multiply **across** paths, and the result is
+> floored at the best-evidenced *composite* credit for that hazard. Read every modifier
+> below as an input to that rule, not as a factor to multiply out by hand.
 
 ---
 
@@ -54,7 +71,12 @@ The FORTIFIED program is the best-researched tiered above-code system. Your Hous
 | Claim frequency reduction | 73% | 76% |
 | Claim severity reduction (avg claim $) | 15% | 24% |
 | Loss ratio reduction | 72% | 67% |
-| Water intrusion reduction | Up to 95% | Up to 95% |
+
+> The "up to 95% water intrusion reduction" figure that used to sit in this table has been
+> removed from it. It is **not** Hurricane Sally claim data — it is an attic water-**volume**
+> measurement from IBHS full-scale wind-and-rain testing, conditional on the roof cover
+> already having failed. Filing it beside loss-ratio percentages is what led §7 to read it
+> as a loss reduction. See §7.
 
 ### Insurance Premium Discounts (Proxy for Actuarial Risk Assessment)
 
@@ -223,15 +245,58 @@ GABLE_BRACING_MODIFIER = 0.80  // applies only to gable roofs
 
 | Attribute | Value |
 |-----------|-------|
-| **Damage reduction** | Up to 95% water intrusion prevention after shingle loss |
-| **Recommended modifier** | **0.70** |
+| **Damage reduction** | 6.5–8.0% of expected annual wind loss (ARA average) |
+| **Recommended modifier** | **0.93** |
 | **Hazard scope** | Wind (water intrusion component) |
 | **Evidence quality** | Strong |
 
-**Evidence:** IBHS duplex testing showed the sealed side prevented water entry entirely, while the unsealed side had water streaming from light fixtures, saturated drywall/insulation, ruined furniture, and ceiling collapse. This is a mandatory FORTIFIED Roof requirement. The sealed roof deck does not prevent shingle loss but prevents the catastrophic secondary water damage that accounts for a large portion of total hurricane losses. Peel-and-stick underlayment seals joints and self-seals around fastener penetrations.
+> **Revised July 29, 2026.** Previously 0.70, then 0.80 in the code without a new source.
+> Both came from reading IBHS's "up to 95% water intrusion prevention" — a water-**volume**
+> figure — as a loss reduction. Same category error as §3 and §12.
+
+**Evidence:** The IBHS testing is real and correctly stated at source: a sealed deck "can
+reduce water entry into a home by as much as 95% compared to a bare, unsealed roof deck",
+measured as gallons into the attic during full-scale wind-driven-rain testing. That is
+**conditional on the cover already being gone**, and water volume is not property loss.
+
+The loss-based figures are an order of magnitude smaller, because SWR only pays out in the
+joint event that the cover fails *and* it rains hard, and water intrusion is only part of
+the resulting loss. ARA 2008 Table 4-13 gives an average No-SWR/SWR loss increase of
+**6.5% (Terrain B) and 8.0% (Terrain C)** — multipliers of 0.939 and 0.926 — with a
+minimum of 0.0%, i.e. houses where SWR is worth nothing. Tables 4-19/4-20 give
+**0.91–0.98 over a code-grade roof cover and 0.67–0.98 over a weak one**, capping the
+benefit at 0.98 once the rest of the roof is strong. ARA's 2024 restudy medians land at
+**0.93**. Florida's filed credits under §627.0629 replicate this almost exactly:
+a marginal SWR effect of **×0.944** median over an FBC-grade cover and **×0.849** over a
+non-FBC one.
+
+**Definitional check:** ARA's SWR and IBHS's sealed roof deck are the same intervention —
+ARA's 2024 restudy says so outright ("Secondary Water Resistance (SWR), also known as
+sealed roof deck"), and Citizens' current OIR-B1-1802 guide retitled the question "Sealed
+Roof Deck/Secondary Water Resistance" and accepts a FORTIFIED certificate as evidence of
+it. So ARA's numbers apply directly; there is no definitional gap that would justify a
+value outside their range.
+
+**Why the strong-cover end of the range.** SWR is a *backup* — its value is inversely
+proportional to how good the primary cover is, which is exactly why ARA's factor splits
+0.91–0.98 (code-grade cover) against 0.67–0.98 (weak). Three things push our single
+constant toward the strong end: the model already pays generously for a good cover
+(`METAL_ROOF` 0.75, and 0.75 × 0.80 asserted a 40% wind-EAL cut from cover plus SWR
+alone); post-2015 code eras increasingly *require* SWR, so `code_era_factor` carries part
+of it; and self-report skews strong, since an owner who knows they have a sealed deck has
+almost certainly had a recent re-roof or a FORTIFIED designation. If the model ever gains
+conditional modifiers, the faithful refinement is 0.96 with a strong cover and 0.87
+without — reproducing ARA's two table halves.
+
+**No component isolation exists in the FORTIFIED data.** The Hurricane Sally study
+(n = 40,195) reports package-level results only, and IBHS notes FORTIFIED homes beat
+homes built to identical criteria *without* the documentation and inspection — so part of
+the effect is verification, not any component. `FORTIFIED_ROOF_MODIFIER = 0.35` already
+spends that evidence. ARA remains the only published isolation of the sealed-deck
+contribution.
 
 ```
-SEALED_ROOF_DECK_MODIFIER = 0.70  // massive reduction in water-intrusion losses
+SEALED_ROOF_DECK_MODIFIER = 0.93  // ARA-derived loss effect, not the water-volume figure
 ```
 
 **Sources:** IBHS "A Brief History of IBHS Sealed Roof Deck Research" (2020); IBHS FORTIFIED Roof standards
@@ -269,7 +334,7 @@ METAL_ROOF_MODIFIER = 0.65
 
 ## SEISMIC FEATURES
 
-### 10. Anchor Bolt Spacing (Tighter Than Code)
+### 10. Anchor Bolt Spacing (retired — there is no above-code tier)
 
 | Attribute | Value |
 |-----------|-------|
@@ -281,7 +346,7 @@ METAL_ROOF_MODIFIER = 0.65
 > **Revised July 29, 2026.** This section previously recommended 0.90 on an expert
 > estimate while conceding "no published percentage reduction for spacing alone". The
 > concession was right, and resolves *downward* to 1.00. The modifier was never
-> implemented in `house.py`, and should not be. Same defect pattern as §12.
+> implemented in `src/housing_label/simulate/house.py`, and should not be. Same defect pattern as §12.
 
 **Evidence:** Three independent findings retire this section.
 
@@ -339,7 +404,8 @@ the former "Moderate" grade.
 ```
 TIGHT_ANCHOR_BOLT_MODIFIER = 1.00  // retired; not above-code, and subsumed by
                                    // BONUS_SEISMIC_RET and code_era_factor.
-                                   // Do not implement in house.py.
+                                   // Do not implement in
+                                   // src/housing_label/simulate/house.py.
 ```
 
 **Sources:** 2021 IRC R403.1.6 / R403.1.6.1; 2022 California Existing Building Code
@@ -658,7 +724,7 @@ ROOF_PITCH_MODIFIERS = {
 | 4 | Hip roof (vs gable baseline) | 0.55 | Strong |
 | 5 | Impact-rated garage door | 0.70 | Strong |
 | 6 | Reinforced gable ends | 0.80 | Moderate |
-| 7 | Sealed roof deck | 0.70 | Strong |
+| 7 | Sealed roof deck | 0.93 | Strong |
 | 8a | Architectural shingles (vs 3-tab) | 0.85 | Strong |
 | 8b | Metal roof (vs 3-tab) | 0.65 | Strong |
 | 19a | Plywood shutters | 0.80 | Moderate |
