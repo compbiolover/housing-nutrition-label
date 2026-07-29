@@ -144,8 +144,19 @@ FIRE_CONSTRUCTION_FACTOR = {
     "icf":         0.70,  # concrete core is fire-resistant (high fire rating)
     "sip":         1.05,  # OSB/foam composite; roughly frame-like fire behavior
 }
-BONUS_FIRE_SPRINKLERS = 0.40   # residential sprinklers ≈ 60% property-loss reduction
-                                # per fire (NFPA); applied to the fire peril only
+BONUS_FIRE_SPRINKLERS = 0.45   # Residential sprinklers. NFPA (McGree, "US Experience with
+                                # Sprinklers", Apr 2024, NFIRS 2017-21): average property loss
+                                # per HOME fire 55% lower with sprinklers ($10.5M vs $23.5M per
+                                # 1,000 fires). The former 0.40 came from NFPA's broader
+                                # "residential" occupancy row (60%), which also covers hotels and
+                                # dormitories — not the home row this model scores. NIST NISTIR
+                                # 7451 finds only 32% against smoke-alarm-equipped homes, so 0.45
+                                # is the optimistic end of a defensible 0.45-0.68 band.
+                                # Applied to the STRUCTURAL fire term only — see fire_raw below;
+                                # the NFPA figure is derived from interior NFIRS structure fires
+                                # and no source credits interior sprinklers with reducing wildfire
+                                # loss (IBHS attributes wildfire survival to exterior hardening).
+                                # Strong evidence.
 
 # ── Foundation → BRM factor (flood EAL only) ──────────────────────────────────
 # Matches BSMT_FLOOD_FACTOR in score_resilience.py (FEMA P-259 depth-damage curves).
@@ -199,21 +210,51 @@ def flood_floor_factor(stories) -> float:
     return max(round(1.0 / s, 3), 0.15)
 
 # ── Bonus feature modifiers ───────────────────────────────────────────────────
-# All values are v1 estimates, pending literature review.
 # Applied multiplicatively on top of BRM-adjusted EAL rates.
+# Every constant below now carries its source and an evidence grade; see
+# research/resilience-bonus-calibration-research.md for the full review.
+# Several are deliberately 1.00: the feature is real and often valuable, but it
+# does not reduce expected annual loss from THIS model's four perils (flood,
+# wind/tornado, earthquake, fire). A 1.00 records "reviewed, no EAL effect" and
+# is not the same as an unreviewed default.
 
-# General modifiers — applied to every hazard's EAL.
-BONUS_SOLAR      = 0.97  # Solar panels: grid independence reduces post-disaster
-                          # recovery loss and secondary disruption costs. (v1)
-BONUS_GENERATOR  = 0.95  # Backup generator/battery: critical systems stay operational;
-                          # reduces secondary and contents losses post-event. (v1)
+# General modifiers — applied to flood/tornado/seismic (fire is excluded below).
+BONUS_SOLAR      = 1.00  # Rooftop PV: no property-damage mechanism. Grid-tied PV without
+                          # storage disconnects within ~2s of grid loss (UL 1741 / IEEE 1547
+                          # anti-islanding) and yields zero power for the outage, so the former
+                          # "grid independence" rationale was void. Evidence runs the other way:
+                          # FEMA USVI Recovery Advisory 5 (2018) records arrays becoming
+                          # wind-borne debris that damages their own host roof, and RMI "Solar
+                          # Under Storm II" (2020) found 96% of assessed systems used top-down
+                          # clips that failed. No actuarial dataset shows lower loss for PV homes.
+                          # Solar still earns its (well-founded) energy/environmental credit via
+                          # SOLAR_OPERATIONAL_REMAINING. Moderate evidence.
+BONUS_GENERATOR  = 1.00  # Backup generator/battery: the large, well-documented avoided losses
+                          # sit OUTSIDE this model's four perils. Freeze/burst pipe averages
+                          # ~$31k per paid claim (State Farm 2024-H1 2025) and Winter Storm Uri
+                          # alone was $10.3B across ~500k claims (TDI 2022) — but there is no
+                          # winter-weather leg here, so discounting the earthquake leg to
+                          # represent a January cold snap is a category error. LBNL ICE 2.0
+                          # (2025) puts total residential willingness-to-pay to avoid a 24h
+                          # outage at $54.52, most of it non-property. The one in-peril
+                          # mechanism is carried by BONUS_SUMP_BACKUP. Strong evidence that the
+                          # benefit is real; strong evidence it is out of scope for the EAL.
 BONUS_PASSIVE    = 0.92  # Passive house certification: superior envelope, airtightness,
                           # and thermal mass improve moisture resistance and thermal
                           # survivability (RMI study: 6+ days habitable without power).
                           # Structural wind benefit is indirect; 0.92 reflects envelope/
                           # recovery benefit without overstating direct structural effect.
-BONUS_SPRINKLERS = 0.92  # Residential fire sprinklers: limits fire severity; general
-                          # resilience benefit (not disaster-specific). (v1)
+BONUS_SPRINKLERS = 1.00  # Residential fire sprinklers: NO general all-hazard credit.
+                          # Sprinklers act on the fire peril only (BONUS_FIRE_SPRINKLERS);
+                          # the flood/tornado/seismic legs model inundation and shaking, which
+                          # sprinklers cannot reduce. Fire-following-earthquake is real and large
+                          # (ShakeOut: $87B of $191B) but is absent from calc_seismic_eal's
+                          # shaking fragility, 13D piping is IRC-exempt from seismic bracing
+                          # (2024 IRC R301.2.2.10), and it is fed by the domestic main that fails
+                          # post-event (Northridge: 23,200+ service-line breaks). Contra: unbraced
+                          # sprinkler piping is a documented EQ water-damage source — 74% leakage
+                          # or failure in high-shaking Northridge facilities (FM Global / FEMA
+                          # E-74) — which argues >1.00, not <1.00. Strong evidence for no credit.
 
 # Hazard-specific modifiers.
 BONUS_SAFE_ROOM   = 0.85  # FEMA P-361 tornado safe room: applied to property damage EAL
@@ -223,11 +264,39 @@ BONUS_SAFE_ROOM   = 0.85  # FEMA P-361 tornado safe room: applied to property da
                             # NOTE: CDC 2011 Alabama tornado data shows ~99% fatality
                             # elimination for safe room occupants, but this property
                             # damage model does not capture life-safety directly.
-BONUS_LEAK_DETECT = 0.95  # Smart leak detection: early water intrusion alarm limits
-                            # flood damage duration and mold/secondary losses. (v1)
-BONUS_SEISMIC_RET = 0.75  # Seismic retrofit / base isolation: FEMA P-420 retrofit
-                            # standards reduce expected structural damage by ~25-40%;
-                            # base isolation yields even larger reductions. (v1)
+BONUS_LEAK_DETECT = 1.00  # Smart leak detection: NO flood-EAL credit — peril mismatch.
+                            # LexisNexis/Flo (2020: -96% frequency, -72% severity) and
+                            # Nationwide/Resideo (-$4k per claim) measure ESCAPE OF WATER, i.e.
+                            # internal plumbing failure. Shutting the supply main is inert
+                            # against external inundation, which is all this leg models (NFIP
+                            # zone AEP × mean damage ratio, FEMA P-259 depth-damage). FEMA gives
+                            # it no credit under NFIP Risk Rating 2.0 (only elevation, elevated
+                            # machinery, flood openings) nor in P-312, and the USACE Day Curve
+                            # pays 0% at the ~0 lead time a floor sensor provides. Belongs on a
+                            # future non-weather-water peril (~0.35 auto-shutoff, ~0.80
+                            # alarm-only). Strong evidence — for the wrong hazard.
+BONUS_SUMP_BACKUP = 0.97  # Battery/generator-backed sump pump: the one genuinely in-peril
+                            # backup-power mechanism. Loss of power is a leading sump-pump
+                            # failure mode and co-occurs with the storm driving the flood.
+                            # Kept conservative because this leg is FEMA-flood-zone
+                            # depth-damage (inundation), while sump-pump water is typically
+                            # groundwater/surface infiltration — an overlapping but not
+                            # identical loss population. Weak-moderate evidence.
+BONUS_SEISMIC_RET = 0.75  # Foundation / sill-plate anchorage retrofit WITHOUT cripple-wall
+                            # bracing (the stem-wall crawlspace case). PEER-CEA 2020/22 Table
+                            # 7.38: EAL residual 0.57-0.85 (mean 0.71, one-story, n=16); CEA
+                            # rates this tier at 10-15% premium discount vs 20-25% for raised
+                            # foundations, the same split. Two-story benefit is ~0 (PEER finds
+                            # connection sliding acts as accidental base isolation), so 0.75 is
+                            # the one-story figure. Mutually exclusive with BONUS_CRIPPLE_WALL,
+                            # which supersedes it — you cannot brace a cripple wall to an
+                            # unbolted sill, so they are two tiers of one retrofit, not two.
+                            # NB: the former "FEMA P-420 / ~25-40%" citation was a
+                            # misattribution — P-420 covers phased rehab of institutional and
+                            # commercial buildings and contains no such figure; the dwelling
+                            # standard is FEMA P-1100, which publishes no loss percentages at
+                            # all. Base isolation (~0.25) is a different intervention entirely
+                            # and is deliberately not represented here. Moderate evidence.
 
 # ── Wind/Tornado above-code feature modifiers ─────────────────────────────────
 # Applied multiplicatively to tornado/wind EAL only (after BRM).
@@ -247,8 +316,17 @@ BONUS_REINFORCED_GABLE   = 0.80  # Reinforced gable end walls; documented failur
                                   # Source: FEMA failure mode documentation. Moderate evidence.
 BONUS_RING_SHANK_NAILS   = 0.88  # Ring-shank nails for sheathing; IBHS: 12-25% better
                                   # withdrawal resistance. Source: IBHS. Moderate evidence.
-BONUS_TRUSS_16OC         = 0.92  # 16" OC trusses vs 24"; expert structural estimate.
-                                  # Source: engineering estimates. Weak direct evidence.
+# BONUS_TRUSS_16OC removed (was 0.92). Framing spacing acts only through sheathing
+# uplift capacity, which BONUS_RING_SHANK_NAILS already credits — Florida's
+# OIR-B1-1802 mitigation form lists truss spacing as an ALTERNATIVE route to a rated
+# deck uplift psf ("...or truss/rafter spacing that has an equivalent mean uplift
+# resistance of 182 psf"), never as an additional credit, so stacking the two
+# double-counted one physical quantity. No test program, fragility model, FEMA MAT
+# report or claims study isolates framing spacing as a wind variable: APA T325D
+# writes one schedule for "24 inches o.c. or less", FEMA 499 FS-18 omits spacing from
+# its list of levers, and no FORTIFIED tier credits it. It is also not reliably
+# self-reportable — ARA (2008) notes deck attachment can only be established by an
+# inspector in the attic. Do not reintroduce without a quantified source.
 
 # FORTIFIED certification tiers — composite modifier (supersedes individual wind features).
 BONUS_FORTIFIED_ROOF     = 0.35  # IBHS FORTIFIED Roof; actuarial: 73% claim reduction
@@ -287,9 +365,10 @@ BONUS_FLAGS = [
     # existing
     "solar", "backup_generator", "passive_house",
     "tornado_safe_room", "fire_sprinklers", "leak_detection", "seismic_retrofit",
+    "sump_backup",
     # wind/tornado above-code
     "hurricane_straps", "hip_roof", "impact_garage_door", "sealed_roof_deck",
-    "metal_roof", "reinforced_gable", "ring_shank_nails", "truss_16oc",
+    "metal_roof", "reinforced_gable", "ring_shank_nails",
     # FORTIFIED tiers
     "fortified_roof", "fortified_silver", "fortified_gold",
     # seismic above-code
@@ -299,6 +378,14 @@ BONUS_FLAGS = [
     "flood_vents", "backflow_valve",
 ]
 ELEVATION_FLAGS = ["elevation_1ft", "elevation_2ft", "elevation_3ft"]
+
+# Foundation seismic-retrofit tiers, strongest first. These are two tiers of ONE
+# retrofit rather than two independent measures — FEMA P-1100's crawlspace scope
+# bolts the sill *and* braces the wall, and you cannot brace a cripple wall to an
+# unbolted sill — so the stronger tier supersedes rather than stacking (the same
+# composite-supersedes-components pattern as the FORTIFIED tiers). Stacking them
+# gave 0.45 × 0.75 = 0.34 for a single physical intervention.
+SEISMIC_FOUNDATION_FLAGS = ["cripple_wall_bracing", "seismic_retrofit"]
 
 # ── Preset profiles ────────────────────────────────────────────────────────────
 PRESETS = {
@@ -474,9 +561,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--passive-house",     action="store_true", help="Passive house certification.")
     p.add_argument("--tornado-safe-room", action="store_true", help="FEMA P-361 tornado safe room.")
     p.add_argument("--fire-sprinklers",   action="store_true", help="Residential fire sprinklers.")
-    p.add_argument("--leak-detection",    action="store_true", help="Smart leak detection system.")
+    p.add_argument("--leak-detection",    action="store_true",
+                   help="Smart leak detection system (no flood-EAL credit — mitigates "
+                        "non-weather water damage, outside this model's four perils).")
+    p.add_argument("--sump-backup",       action="store_true",
+                   help="Battery/generator-backed sump pump (×0.97 flood EAL).")
     p.add_argument("--seismic-retrofit",  action="store_true",
-                   help="Seismic retrofit or base isolation.")
+                   help="Foundation/sill-plate anchorage retrofit — bolting without "
+                        "cripple-wall bracing (×0.75 seismic EAL; superseded by "
+                        "--cripple-wall-bracing).")
 
     # ── Wind/Tornado above-code features ──────────────────────────────────────────
     wind = p.add_argument_group("wind/tornado above-code features")
@@ -494,8 +587,6 @@ def build_parser() -> argparse.ArgumentParser:
                       help="Reinforced gable end walls (×0.80 tornado/wind EAL; FEMA).")
     wind.add_argument("--ring-shank-nails",    action="store_true",
                       help="Ring-shank nails for sheathing (×0.88 tornado/wind EAL; IBHS).")
-    wind.add_argument("--truss-16oc",          action="store_true",
-                      help="16\" OC trusses vs 24\" (×0.92 tornado/wind EAL).")
 
     # ── FORTIFIED certification (composite — supersedes individual wind features) ──
     fortified = p.add_argument_group("IBHS FORTIFIED certification (composite; supersedes "
@@ -704,7 +795,16 @@ def simulate(cfg: dict, structure: dict | None = None) -> dict:
     except (TypeError, ValueError):    # non-numeric override (JSON/CLI) → ignore
         wildfire_base = 0.0
     wildfire_base = max(0.0, wildfire_base)   # clamp once so the reported base matches use
-    fire_raw    = FIRE_EAL_BASE + wildfire_base
+    # Sprinklers discount the STRUCTURAL fire term only. The NFPA loss reduction is
+    # measured on interior NFIRS structure fires; interior 13D sprinklers have no
+    # published effect on wildfire structure loss (IBHS attributes wildfire survival
+    # to exterior hardening — Class A roof, ember-resistant vents, defensible space —
+    # and treats sprinklers as a supplement, never a replacement). Discounting the
+    # whole leg over-credited sprinklers wherever wildfire dominates the WUI baseline.
+    structural_fire = FIRE_EAL_BASE
+    if cfg.get("fire_sprinklers"):
+        structural_fire *= BONUS_FIRE_SPRINKLERS
+    fire_raw    = structural_fire + wildfire_base
     r["wildfire_eal_base"] = wildfire_base
 
     # ── BRM-adjusted EAL rates ────────────────────────────────────────────────
@@ -714,10 +814,14 @@ def simulate(cfg: dict, structure: dict | None = None) -> dict:
     fire_adj    = fire_raw    * fire_brm
 
     # ── Hazard-specific bonus modifiers (existing) ────────────────────────────
+    # leak_detection carries no flood credit (BONUS_LEAK_DETECT == 1.00, peril
+    # mismatch); the multiplication is kept so the constant stays the single source
+    # of truth and the reviewed-but-neutral finding is visible at the call site.
     if cfg.get("leak_detection"):    flood_adj   *= BONUS_LEAK_DETECT
+    if cfg.get("sump_backup"):       flood_adj   *= BONUS_SUMP_BACKUP
     if cfg.get("tornado_safe_room"): tornado_adj *= BONUS_SAFE_ROOM
-    if cfg.get("seismic_retrofit"):  seismic_adj *= BONUS_SEISMIC_RET
-    if cfg.get("fire_sprinklers"):   fire_adj    *= BONUS_FIRE_SPRINKLERS
+    # Fire sprinklers are applied to the structural fire term in fire_raw above,
+    # not to the whole fire leg — see the wildfire note there.
 
     # ── Wind/tornado above-code modifiers ─────────────────────────────────────
     # FORTIFIED tier is composite and supersedes individual wind features.
@@ -740,11 +844,19 @@ def simulate(cfg: dict, structure: dict | None = None) -> dict:
         if cfg.get("metal_roof"):          tornado_adj *= BONUS_METAL_ROOF
         if cfg.get("reinforced_gable"):    tornado_adj *= BONUS_REINFORCED_GABLE
         if cfg.get("ring_shank_nails"):    tornado_adj *= BONUS_RING_SHANK_NAILS
-        if cfg.get("truss_16oc"):          tornado_adj *= BONUS_TRUSS_16OC
     r["fortified_note"] = fortified_note
 
     # ── Seismic above-code modifiers ──────────────────────────────────────────
-    if cfg.get("cripple_wall_bracing"):  seismic_adj *= BONUS_CRIPPLE_WALL
+    # Foundation retrofit tiers supersede rather than stack (SEISMIC_FOUNDATION_FLAGS).
+    seismic_retrofit_note = None
+    if cfg.get("cripple_wall_bracing"):
+        seismic_adj *= BONUS_CRIPPLE_WALL
+        if cfg.get("seismic_retrofit"):
+            seismic_retrofit_note = ("Cripple-wall bracing supersedes the generic foundation "
+                                     "anchorage retrofit — it already includes sill anchorage.")
+    elif cfg.get("seismic_retrofit"):
+        seismic_adj *= BONUS_SEISMIC_RET
+    r["seismic_retrofit_note"] = seismic_retrofit_note
     if cfg.get("seismic_hold_downs"):    seismic_adj *= BONUS_SEISMIC_HOLD_DOWNS
     if cfg.get("auto_gas_shutoff"):      seismic_adj *= BONUS_AUTO_GAS_SHUTOFF
 
@@ -758,7 +870,7 @@ def simulate(cfg: dict, structure: dict | None = None) -> dict:
 
     # ── General bonus modifiers (apply to flood/tornado/seismic EAL) ─────────
     # Fire is excluded: solar/generator/passive don't reduce ignition, and
-    # sprinklers already apply a strong fire-specific reduction above.
+    # sprinklers apply to the structural fire term in fire_raw instead.
     gen_mod = 1.0
     if cfg.get("solar"):           gen_mod *= BONUS_SOLAR
     if cfg.get("backup_generator"):gen_mod *= BONUS_GENERATOR
@@ -768,6 +880,25 @@ def simulate(cfg: dict, structure: dict | None = None) -> dict:
     flood_adj   *= gen_mod
     tornado_adj *= gen_mod
     seismic_adj *= gen_mod
+
+    # Non-EAL note. Backup power and leak detection have real, well-measured
+    # benefits that this four-peril property-damage model cannot express — winter
+    # freeze/burst pipe, food spoilage, escape-of-water. Saying so beats either
+    # inventing a multiplier for them or dropping the information entirely. Same
+    # honesty pattern as the safe-room comment (life safety, not property damage).
+    outage_bits = []
+    if cfg.get("backup_generator") or cfg.get("solar"):
+        outage_bits.append("winter-outage burst pipes")
+        outage_bits.append("food spoilage")
+    if cfg.get("leak_detection"):
+        outage_bits.append("plumbing-failure water damage")
+    if outage_bits:
+        listed = (outage_bits[0] if len(outage_bits) == 1
+                  else " and ".join([", ".join(outage_bits[:-1]), outage_bits[-1]]))
+        r["outage_note"] = (f"Also mitigates {listed} — real losses, but outside the "
+                            "four perils scored here.")
+    else:
+        r["outage_note"] = None
 
     r.update(flood_raw=flood_raw, tornado_raw=tornado_raw, seismic_raw=seismic_raw,
              fire_raw=fire_raw,
@@ -811,7 +942,8 @@ BONUS_LABELS = {
     "tornado_safe_room":    "FEMA P-361 tornado safe room",
     "fire_sprinklers":      "Residential fire sprinklers",
     "leak_detection":       "Smart leak detection",
-    "seismic_retrofit":     "Seismic retrofit/base isolation",
+    "sump_backup":          "Backup-powered sump pump",
+    "seismic_retrofit":     "Foundation anchorage retrofit (bolting)",
     # wind/tornado above-code
     "hurricane_straps":     "Hurricane straps (load path)",
     "hip_roof":             "Hip roof",
@@ -820,7 +952,6 @@ BONUS_LABELS = {
     "metal_roof":           "Standing seam metal roof",
     "reinforced_gable":     "Reinforced gable end walls",
     "ring_shank_nails":     "Ring-shank nails",
-    "truss_16oc":           "16\" OC trusses",
     # FORTIFIED tiers
     "fortified_roof":       "IBHS FORTIFIED Roof",
     "fortified_silver":     "IBHS FORTIFIED Silver",
@@ -838,13 +969,19 @@ BONUS_LABELS = {
 }
 
 BONUS_MODIFIER_DESC = {
-    "solar":                f"×{BONUS_SOLAR} all hazards",
-    "backup_generator":     f"×{BONUS_GENERATOR} all hazards",
-    "passive_house":        f"×{BONUS_PASSIVE} all hazards",
-    "fire_sprinklers":      f"×{BONUS_SPRINKLERS} all hazards",
+    # The "general" modifiers below are applied to flood/tornado/seismic only —
+    # gen_mod deliberately skips the fire leg (see the general-bonus block).
+    # Several read "no EAL credit": reviewed against the literature and found to
+    # have no effect on this model's four perils, which is not the same as unrated.
+    "solar":                "no EAL credit (energy/carbon credit only)",
+    "backup_generator":     "no EAL credit (see backup-powered sump pump)",
+    "passive_house":        f"×{BONUS_PASSIVE} flood/tornado/seismic",
+    "fire_sprinklers":      f"×{BONUS_FIRE_SPRINKLERS} structural fire only",
     "tornado_safe_room":    f"×{BONUS_SAFE_ROOM} tornado only",
-    "leak_detection":       f"×{BONUS_LEAK_DETECT} flood only",
-    "seismic_retrofit":     f"×{BONUS_SEISMIC_RET} seismic only",
+    "leak_detection":       "no EAL credit (non-weather water, outside the four perils)",
+    "sump_backup":          f"×{BONUS_SUMP_BACKUP} flood only",
+    "seismic_retrofit":     f"×{BONUS_SEISMIC_RET} seismic only "
+                            f"(superseded by cripple wall bracing)",
     "hurricane_straps":     f"×{BONUS_HURRICANE_STRAPS} wind/tornado",
     "hip_roof":             f"×{BONUS_HIP_ROOF} wind/tornado",
     "impact_garage_door":   f"×{BONUS_IMPACT_GARAGE_DOOR} wind/tornado",
@@ -852,7 +989,6 @@ BONUS_MODIFIER_DESC = {
     "metal_roof":           f"×{BONUS_METAL_ROOF} wind/tornado",
     "reinforced_gable":     f"×{BONUS_REINFORCED_GABLE} wind/tornado",
     "ring_shank_nails":     f"×{BONUS_RING_SHANK_NAILS} wind/tornado",
-    "truss_16oc":           f"×{BONUS_TRUSS_16OC} wind/tornado",
     "fortified_roof":       f"×{BONUS_FORTIFIED_ROOF} wind/tornado (composite)",
     "fortified_silver":     f"×{BONUS_FORTIFIED_SILVER} wind/tornado (composite)",
     "fortified_gold":       f"×{BONUS_FORTIFIED_GOLD} wind/tornado (composite)",
@@ -865,6 +1001,16 @@ BONUS_MODIFIER_DESC = {
     "flood_vents":          f"×{BONUS_FLOOD_VENTS} flood only",
     "backflow_valve":       f"×{BONUS_BACKFLOW_VALVE} flood only",
 }
+
+
+def _wrap_rows(text: str, indent: str = "", width: int = 64) -> list[str]:
+    """Wrap one scorecard line to the box's inner width, indenting continuations.
+
+    The bonus rows and the ⚑ notes carry prose long enough to blow past the border,
+    which broke the box drawing. Wrapping keeps them inside it."""
+    import textwrap
+    return textwrap.wrap(text, width=width, subsequent_indent=indent,
+                         break_long_words=False, break_on_hyphens=False) or [text]
 
 
 def _box(inner: int = 64):
@@ -947,14 +1093,18 @@ def print_scorecard(cfg: dict, r: dict) -> None:
     print(row(f"    Fire BRM           : {r['fire_brm']:.3f}  (wiring-era×type×cond, floor {FIRE_BRM_FLOOR})"))
     if active_bonuses:
         print(row(f"    General bonus mod  : {r['gen_mod']:.4f}  (flood/tornado/seismic)"))
-        if cfg.get("fire_sprinklers"):
-            print(row(f"    + {'Fire sprinklers':<30}: ×{BONUS_FIRE_SPRINKLERS} fire only"))
         haz_specific = [b for b in BONUS_LABELS if cfg.get(b)
-                        and b not in ("solar","backup_generator","passive_house","fire_sprinklers")]
+                        and b not in ("solar","backup_generator","passive_house")]
         for b in haz_specific:
-            print(row(f"    + {BONUS_LABELS[b]:<30}: {BONUS_MODIFIER_DESC[b]}"))
-    if r.get("fortified_note"):
-        print(row(f"    ⚑  {r['fortified_note']}"))
+            # Modifier descriptions can be a full sentence now ("no EAL credit …"),
+            # so wrap rather than overflow the box border.
+            for line in _wrap_rows(f"    + {BONUS_LABELS[b]:<30}: {BONUS_MODIFIER_DESC[b]}",
+                                   indent=" " * 6):
+                print(row(line))
+    for key in ("fortified_note", "seismic_retrofit_note", "outage_note"):
+        if r.get(key):
+            for line in _wrap_rows(f"    ⚑  {r[key]}", indent=" " * 7):
+                print(row(line))
     print(SEP)
 
     # ── Per-hazard breakdown ──────────────────────────────────────────────────
@@ -1276,6 +1426,8 @@ def dimension_details(cfg: dict, r: dict, label: dict) -> dict:
         ("Earthquake", _money(r.get("seismic_loss"), "/yr")),
         ("Wildfire", _money(r.get("fire_loss"), "/yr")),
         ("On a home value of", _money(per_unit_home_value(cfg))),
+        # Not scored above — see the outage_note rationale in simulate().
+        ("Beyond these perils", r.get("outage_note")),
     )
 
     # Energy — modeled energy-use intensity and the resulting cost.

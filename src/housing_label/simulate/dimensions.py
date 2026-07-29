@@ -99,7 +99,7 @@ GRADE_BY_CONSTRUCTION = {
     "block": 46, "stone": 52, "icf": 50, "sip": 45,
 }
 
-# ── High-performance feature adjustments (v1 estimates, like the BRM bonuses) ──
+# ── High-performance feature adjustments (v1 estimates) ───────────────────────
 # Applied to the modeled EUI before scoring the energy dimension and before
 # deriving operational carbon for the environmental dimension.
 #   • ICF/SIP envelopes outperform the EXTWALL masonry proxy on air-tightness and

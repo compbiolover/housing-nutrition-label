@@ -61,9 +61,10 @@ from housing_label.simulate.house import (  # noqa: E402
     CONDITION_FACTOR, FOUNDATION_FACTOR, PRESETS, BONUS_FLAGS,
     BONUS_SOLAR, BONUS_GENERATOR, BONUS_PASSIVE, BONUS_SPRINKLERS,
     BONUS_FIRE_SPRINKLERS, BONUS_SAFE_ROOM, BONUS_LEAK_DETECT, BONUS_SEISMIC_RET,
+    BONUS_SUMP_BACKUP,
     BONUS_HURRICANE_STRAPS, BONUS_HIP_ROOF, BONUS_IMPACT_GARAGE_DOOR,
     BONUS_SEALED_ROOF_DECK, BONUS_METAL_ROOF, BONUS_REINFORCED_GABLE,
-    BONUS_RING_SHANK_NAILS, BONUS_TRUSS_16OC,
+    BONUS_RING_SHANK_NAILS,
     BONUS_FORTIFIED_ROOF, BONUS_FORTIFIED_SILVER, BONUS_FORTIFIED_GOLD,
     BONUS_CRIPPLE_WALL, BONUS_SEISMIC_HOLD_DOWNS, BONUS_AUTO_GAS_SHUTOFF,
     BONUS_ELEVATION_1FT, BONUS_ELEVATION_2FT, BONUS_ELEVATION_3FT,
@@ -235,11 +236,12 @@ FIRE_AGE_NOTES = {
 SHORT_UPGRADE = {
     "solar": "solar", "backup_generator": "generator", "passive_house": "passive house",
     "tornado_safe_room": "safe room", "fire_sprinklers": "sprinklers",
-    "leak_detection": "leak detection", "seismic_retrofit": "seismic retrofit",
+    "leak_detection": "leak detection", "sump_backup": "backup-powered sump pump",
+    "seismic_retrofit": "foundation anchorage retrofit",
     "hurricane_straps": "hurricane straps", "hip_roof": "hip roof",
     "impact_garage_door": "impact garage door", "sealed_roof_deck": "sealed roof deck",
     "metal_roof": "metal roof", "reinforced_gable": "reinforced gable",
-    "ring_shank_nails": "ring-shank nails", "truss_16oc": "16&Prime; OC trusses",
+    "ring_shank_nails": "ring-shank nails",
     "fortified_roof": "FORTIFIED Roof", "fortified_silver": "FORTIFIED Silver",
     "fortified_gold": "FORTIFIED Gold", "cripple_wall_bracing": "cripple-wall bracing",
     "seismic_hold_downs": "seismic hold-downs", "auto_gas_shutoff": "auto gas shutoff",
@@ -255,11 +257,14 @@ SHORT_UPGRADE = {
 # two groups — General and Fire — so the union, not the list, is compared).
 UPGRADE_GROUPS = [
     ("General (apply to flood, tornado &amp; seismic)", [
-        ("Solar panels", BONUS_SOLAR, "solar", None),
-        ("Backup generator / battery", BONUS_GENERATOR, "backup_generator", None),
+        ("Solar panels", BONUS_SOLAR, "solar",
+         "no loss credit &mdash; grid-tied PV yields no outage power, "
+         "and it earns its credit in energy &amp; carbon instead"),
+        ("Backup generator / battery", BONUS_GENERATOR, "backup_generator",
+         "no loss credit here &mdash; see the backup-powered sump pump under Flood"),
         ("Passive-house certification", BONUS_PASSIVE, "passive_house", None),
         ("Fire sprinklers", BONUS_SPRINKLERS, "fire_sprinklers",
-         f"{BONUS_SPRINKLERS:.2f} here, <strong>and {BONUS_FIRE_SPRINKLERS:.2f} on fire</strong>"),
+         f"no general credit &mdash; <strong>{BONUS_FIRE_SPRINKLERS:.2f} on structural fire</strong>"),
     ]),
     ("Wind / tornado", [
         ("Tornado safe room (FEMA P-361)", BONUS_SAFE_ROOM, "tornado_safe_room", None),
@@ -270,7 +275,6 @@ UPGRADE_GROUPS = [
         ("Standing-seam metal roof", BONUS_METAL_ROOF, "metal_roof", None),
         ("Reinforced gable ends", BONUS_REINFORCED_GABLE, "reinforced_gable", None),
         ("Ring-shank nails", BONUS_RING_SHANK_NAILS, "ring_shank_nails", None),
-        ("16&Prime; OC trusses", BONUS_TRUSS_16OC, "truss_16oc", None),
     ]),
     ("IBHS FORTIFIED (composite that supersedes the wind features above)", [
         ("FORTIFIED Roof", BONUS_FORTIFIED_ROOF, "fortified_roof", None),
@@ -278,7 +282,8 @@ UPGRADE_GROUPS = [
         ("FORTIFIED Gold", BONUS_FORTIFIED_GOLD, "fortified_gold", None),
     ]),
     ("Seismic", [
-        ("Seismic retrofit / base isolation", BONUS_SEISMIC_RET, "seismic_retrofit", None),
+        ("Foundation anchorage retrofit (bolting)", BONUS_SEISMIC_RET, "seismic_retrofit",
+         f"{BONUS_SEISMIC_RET:.2f} &mdash; superseded by cripple-wall bracing, which includes it"),
         ("Cripple-wall bracing", BONUS_CRIPPLE_WALL, "cripple_wall_bracing", None),
         ("Seismic hold-downs", BONUS_SEISMIC_HOLD_DOWNS, "seismic_hold_downs", None),
         ("Automatic gas shut-off valve", BONUS_AUTO_GAS_SHUTOFF, "auto_gas_shutoff", None),
@@ -289,11 +294,15 @@ UPGRADE_GROUPS = [
         ("Elevated +3&nbsp;ft", BONUS_ELEVATION_3FT, "elevation_3ft", None),
         ("Engineered flood vents", BONUS_FLOOD_VENTS, "flood_vents", None),
         ("Backflow-prevention valve", BONUS_BACKFLOW_VALVE, "backflow_valve", None),
-        ("Smart leak detection", BONUS_LEAK_DETECT, "leak_detection", None),
+        ("Backup-powered sump pump", BONUS_SUMP_BACKUP, "sump_backup", None),
+        ("Smart leak detection", BONUS_LEAK_DETECT, "leak_detection",
+         "no flood credit &mdash; mitigates plumbing-failure water damage, "
+         "which is outside the four perils scored here"),
     ]),
     ("Fire", [
         ("Fire sprinklers", BONUS_FIRE_SPRINKLERS, "fire_sprinklers",
-         f"{BONUS_FIRE_SPRINKLERS:.2f} on the fire peril (~60% loss reduction)"),
+         f"{BONUS_FIRE_SPRINKLERS:.2f} on the structural fire term (~55% loss reduction, "
+         f"NFPA 2024); not applied to the wildfire term"),
     ]),
 ]
 
@@ -302,12 +311,12 @@ UPGRADE_GROUPS = [
 FEATURE_FLAG_GROUPS = [
     ("Wind/Tornado", ["hurricane_straps", "hip_roof", "impact_garage_door",
                       "sealed_roof_deck", "metal_roof", "reinforced_gable",
-                      "ring_shank_nails", "truss_16oc"]),
+                      "ring_shank_nails"]),
     ("FORTIFIED", ["fortified_roof", "fortified_silver", "fortified_gold"]),
     ("Seismic", ["cripple_wall_bracing", "seismic_hold_downs", "auto_gas_shutoff",
                  "seismic_retrofit"]),
     ("Flood", ["elevation_1ft", "elevation_2ft", "elevation_3ft", "flood_vents",
-               "backflow_valve", "leak_detection"]),
+               "backflow_valve", "leak_detection", "sump_backup"]),
     ("General", ["solar", "backup_generator", "passive_house", "tornado_safe_room",
                  "fire_sprinklers"]),
 ]
