@@ -330,8 +330,33 @@ BONUS_HIP_ROOF           = 0.80  # Hip roof (≥90% of the wall perimeter sloped
                                   # (2021) find lower hip uplift under a translating vortex, but
                                   # Ch.32 exempts Risk Category I/II dwellings and no tornado study
                                   # isolates roof shape in loss. Hence the conservative end.
-BONUS_IMPACT_GARAGE_DOOR = 0.75  # Impact-rated garage door; 80% of wind damage initiates
-                                  # via garage. Source: FEMA/IBHS. Strong evidence.
+BONUS_IMPACT_GARAGE_DOOR = 0.95  # A PRESSURE-rated garage door (ANSI/DASMA 108, ASTM E330) —
+                                  # not an impact-rated one. ARA's own base-case curves fail garage
+                                  # doors 0.91-of-1 by panel/pressure and 0-of-1 by missile impact
+                                  # (Rpt 18401 p.333); FEMA P-804 §4.2.1.3 and IBHS FORTIFIED TB
+                                  # FH 2024-04 both rate the door for pressure and only its glazing
+                                  # for debris. (The flag key is left as-is for API compatibility;
+                                  # the label and CLI help say wind-rated.)
+                                  # The former 0.75 rested on "80% of wind damage initiates via the
+                                  # garage" — a FLASH advocacy figure with no primary source, whose
+                                  # own page now says >90%, uncited. The real datum is Kovar,
+                                  # Brown-Giammanco & Lombardo (2018): 94% of roof-damaged homes
+                                  # also had garage damage — an attribution statistic, running the
+                                  # opposite direction to what a credit needs, and whose Table 5
+                                  # shows 60-73% of failed-door homes had NO roof structural damage.
+                                  # ARA prices this increment directly: Secondary Factor 4 "Opening
+                                  # Coverage - All Openings" = 0.98 (Tbl 4-15, unchanged in 2024),
+                                  # covering all non-glazed doors. ARA's 0.849/0.621 (Tbl 4-13) is
+                                  # WHOLE-HOUSE opening protection, explicitly earned with an
+                                  # unglazed garage door left untouched (App. A.1.2.3) — a different
+                                  # intervention, not an upper bound on this one.
+                                  # Nudged above 0.98 because Jaffe, Riveros & Kopp (2019) put door
+                                  # failure at 81-165 mph, squarely in the EF0-EF2 band that
+                                  # dominates NRI tornado EAL, where the 10 psf garage door fails and
+                                  # the 40 psf windows do not (Hazus; Vickery 2006 Tbl 1). Internal
+                                  # pressurisation is real but compressive: ARA prices designing the
+                                  # whole house for partially-enclosed GCpi at 0.98 too.
+                                  # Moderate evidence.
 BONUS_SEALED_ROOF_DECK   = 0.93  # Sealed roof deck / secondary water resistance: a self-adhered
                                   # membrane or taped deck seams keeps rain out after the cover
                                   # blows off. ARA 2008 (FL OIR Rpt 18401) Tbl 4-13 puts the
@@ -531,8 +556,10 @@ BONUS_GROUPS = {
         # Roof cover + water intrusion once the cover is stressed. ARA couples
         # these explicitly ("no SWR tends to minimize the effect of deck strength").
         ("sealed_roof_deck", "metal_roof"),
-        # Opening protection / internal pressurisation — separate primary
-        # dimension, separate failure path from roof uplift.
+        # Large-opening pressure resistance — a separate failure path from roof
+        # uplift (breach → internal pressurisation). Note this is NOT ARA's
+        # "opening protection" dimension, which covers glazed openings and is not
+        # modelled here; only the garage door is.
         ("impact_garage_door",),
     ],
     "flood": [
@@ -563,9 +590,11 @@ BONUS_FLOOR = {
     # Gold) — mean 69% claim-frequency and 32% severity reduction (0.31 × 0.68 =
     # 0.21), and 75% of insurer claim dollars avoided under an all-Gold scenario.
     # Five of the seven individual wind flags reconstruct Gold's own feature list
-    # (deck fasteners + sealed deck = Roof; + impact openings + gable bracing =
-    # Silver; + continuous load path = Gold), so the component stack IS a
-    # self-reported Gold and must not beat a certified one.
+    # (deck fasteners + sealed deck = Roof; + gable bracing and a rated garage
+    # door = part of Silver; + continuous load path = Gold), so the component
+    # stack is close to a self-reported Gold and must not beat a certified one.
+    # NB it no longer fully reconstructs Silver: Silver requires impact-rated
+    # GLAZED openings, which this model has no flag for.
     # BONUS_FORTIFIED_SILVER (0.25) is the defensible stricter choice if we ever
     # want components to top out strictly below Gold: Gold's distinguishing
     # requirements are an engineered, inspected continuous load path and
@@ -873,8 +902,8 @@ def build_parser() -> argparse.ArgumentParser:
                       help=f"Hip roof — sloped to eaves over ≥90%% of the wall perimeter "
                            f"(×{BONUS_HIP_ROOF} tornado/wind EAL).")
     wind.add_argument("--impact-garage-door",  action="store_true",
-                      help=f"Impact-rated garage door (×{BONUS_IMPACT_GARAGE_DOOR} "
-                           "tornado/wind EAL).")
+                      help=f"Wind/pressure-rated garage door, ANSI/DASMA 108 or ASTM "
+                           f"E330 (×{BONUS_IMPACT_GARAGE_DOOR} tornado/wind EAL).")
     wind.add_argument("--sealed-roof-deck",    action="store_true",
                       help=f"Sealed roof deck / secondary water resistance "
                            f"(×{BONUS_SEALED_ROOF_DECK} tornado/wind EAL).")
@@ -1292,7 +1321,7 @@ BONUS_LABELS = {
     # wind/tornado above-code
     "hurricane_straps":     "Hurricane straps (load path)",
     "hip_roof":             "Hip roof",
-    "impact_garage_door":   "Impact-rated garage door",
+    "impact_garage_door":   "Wind-rated garage door",
     "sealed_roof_deck":     "Sealed roof deck",
     "metal_roof":           "Standing seam metal roof",
     "reinforced_gable":     "Reinforced gable end walls",
