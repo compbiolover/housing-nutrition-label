@@ -238,13 +238,13 @@
     "composite_score": 91.0,
     "cost": {
       "annualEnergyCost": 765,
-      "expectedAnnualLoss": 151
+      "expectedAnnualLoss": 152
     },
     "dimensions": [
       {
         "key": "resilience",
         "national_grade": "B",
-        "score": 74.9
+        "score": 74.8
       },
       {
         "key": "energy",
@@ -309,20 +309,20 @@
     ],
     "fire_loss": 135.66,
     "n_scored": 5,
-    "total_loss": 150.65
+    "total_loss": 151.54
   },
   "icf_passive_shelby": {
     "composite_national_grade": "A",
     "composite_score": 91.3,
     "cost": {
       "annualEnergyCost": 765,
-      "expectedAnnualLoss": 151
+      "expectedAnnualLoss": 152
     },
     "dimensions": [
       {
         "key": "resilience",
         "national_grade": "B",
-        "score": 74.9
+        "score": 74.8
       },
       {
         "key": "energy",
@@ -387,7 +387,7 @@
     ],
     "fire_loss": 135.66,
     "n_scored": 5,
-    "total_loss": 150.65
+    "total_loss": 151.54
   },
   "worst_case_shelby": {
     "composite_national_grade": "D",

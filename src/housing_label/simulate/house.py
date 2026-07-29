@@ -301,8 +301,31 @@ BONUS_SEISMIC_RET = 0.75  # Foundation / sill-plate anchorage retrofit WITHOUT c
 # ── Wind/Tornado above-code feature modifiers ─────────────────────────────────
 # Applied multiplicatively to tornado/wind EAL only (after BRM).
 # FORTIFIED tiers are composite — supersede individual wind features if specified.
-BONUS_HURRICANE_STRAPS   = 0.70  # Continuous load path connections; IBHS: 50% uplift
-                                  # reduction. Source: IBHS FORTIFIED research. Strong evidence.
+BONUS_HURRICANE_STRAPS   = 0.92  # Engineered roof-to-wall connectors replacing a toe-nailed
+                                  # legacy connection. ARA 2008 (FL OIR Rpt 18401) Tbl 4-13 prices
+                                  # toe nail → wrap at 8.2% (Terrain B) / 16.6% (Terrain C) mean
+                                  # loss reduction = 0.92 / 0.86, and ARA's 2024 restudy (Rpt
+                                  # 005480 Tbls 4-3..4-11) gives 0.90 mean / 0.97 median in its
+                                  # lowest-hazard inland region at Terrain B. Terrain B, not C:
+                                  # our default is inland suburban, not coastal.
+                                  # The former 0.70 read "50% uplift reduction" — a CAPACITY
+                                  # figure (Tbl A-1: toe nail 415 lb vs clip 866 lb ultimate, a
+                                  # 0.48 ratio) — as if it were a loss ratio. ARA prices that same
+                                  # +189% capacity step at 8-17% of loss: 13-24x compression. The
+                                  # figure could not be found in any IBHS publication; IBHS's own
+                                  # continuous-load-path page carries no percentage at all.
+                                  # Coherence check that settles it: the Hurricane Sally study
+                                  # prices everything FORTIFIED Gold adds over FORTIFIED Roof —
+                                  # load path, rated openings, gable bracing, wall sheathing and
+                                  # more — at ×0.76 combined. A 0.70 for the load path alone
+                                  # claimed more than the entire bundle containing it.
+                                  # Baseline is a toe-nailed legacy connection. ARA and Florida's
+                                  # filed tables both treat roof-to-wall as PRE-FBC-ONLY, so on a
+                                  # strictly above-code baseline the clip→wrap step (0.95-0.99)
+                                  # would give 0.97; 0.92 is the middle, because IRC prescriptive
+                                  # tables long permitted toe nails at inland design speeds, so a
+                                  # legacy connection is real here in a way it is not in Florida.
+                                  # Strong evidence.
 BONUS_HIP_ROOF           = 0.80  # Hip roof (≥90% of the wall perimeter sloped to horizontal
                                   # eaves) vs gable/other. ARA 2008 (FL OIR Rpt 18401) Tbl 4-13
                                   # "Gable/Hip" = 31.6% (Terrain B) / 35.3% (C) loss INCREASE →
@@ -375,8 +398,18 @@ BONUS_SEALED_ROOF_DECK   = 0.93  # Sealed roof deck / secondary water resistance
                                   # re-roof. Strong evidence.
 BONUS_METAL_ROOF         = 0.75  # Standing seam metal roof; 150+ mph wind rating.
                                   # Source: industry testing data. Moderate evidence.
-BONUS_REINFORCED_GABLE   = 0.80  # Reinforced gable end walls; documented failure mode.
-                                  # Source: FEMA failure mode documentation. Moderate evidence.
+BONUS_REINFORCED_GABLE   = 0.98  # Gable-end bracing. ARA carries this as a SECONDARY factor —
+                                  # "Unbraced Gable End" Ki = 1.02, identical in the 2008 (Tbl
+                                  # 4-15 #5) and 2024 studies — so bracing is worth 1/1.02, and
+                                  # less still once ARA's R' = R·K^(1-R) exponent is applied to a
+                                  # strong house. The former 0.80 had no loss source at all: FEMA
+                                  # MAT reports document gable-end failure as a MECHANISM, which
+                                  # names a failure path rather than quantifying one — the same
+                                  # confusion that took BONUS_SEISMIC_HOLD_DOWNS to 1.00. Pre-FBC
+                                  # only, and not a line item on Florida's OIR-B1-1802 at all.
+                                  # Cross-check: 0.80 for gable bracing alone exceeded the ×0.76
+                                  # the Sally study measures for everything Gold adds over Roof,
+                                  # a bundle that contains gable bracing. Strong evidence.
 BONUS_RING_SHANK_NAILS   = 0.97  # Ring-shank sheathing nails ABOVE the code-era deck schedule
                                   # that code_era_factor already prices. ARA 2008 (FL OIR Rpt
                                   # 18401) "Enhanced Roof Deck" = 0.96 (Tbl 4-15) / 0.99 (Tbl
