@@ -177,6 +177,21 @@ def test_seismic_foundation_retrofits_require_a_foundation_to_retrofit():
     assert "anchorage" in bolted["seismic_applicability_note"].lower()
 
 
+def test_inapplicable_note_gives_the_reason_that_actually_applies():
+    """The two tiers fail for different reasons, so the note must not use one
+    blanket explanation. A full basement genuinely has a sill to bolt — saying it
+    has none would contradict the anchorage tier being credited there."""
+    full = _seismic(foundation="full-basement", cripple_wall_bracing=True)
+    note = full["seismic_applicability_note"]
+    assert "full-height basement walls" in note, note
+    assert "sill" not in note, note        # it HAS a sill; only the cripple wall is absent
+
+    slab = _seismic(foundation="slab", cripple_wall_bracing=True, seismic_retrofit=True)
+    note = slab["seismic_applicability_note"]
+    assert "no cripple wall to brace" in note, note
+    assert "bolted into the slab itself" in note, note
+
+
 def test_seismic_tiers_supersede_and_degrade_gracefully():
     """Cripple-wall bracing supersedes sill anchorage where both apply (they are
     two tiers of one retrofit). Where bracing is impossible but anchorage is not,

@@ -403,6 +403,19 @@ SEISMIC_FOUNDATION_FLAGS = ["cripple_wall_bracing", "seismic_retrofit"]
 CRIPPLE_WALL_FOUNDATIONS = frozenset({"crawl", "partial-basement"})
 SEISMIC_ANCHORAGE_FOUNDATIONS = frozenset({"crawl", "partial-basement", "full-basement"})
 
+# Why a claimed tier cannot apply, keyed by (flag, foundation). Phrased per tier
+# because the two do not fail for the same reason: a full basement has no cripple
+# wall but *does* have a sill to bolt, so a single blanket reason would overstate
+# what is missing and contradict SEISMIC_ANCHORAGE_FOUNDATIONS.
+RETROFIT_INAPPLICABLE_REASON = {
+    ("cripple_wall_bracing", "slab"):
+        "there is no cripple wall to brace",
+    ("cripple_wall_bracing", "full-basement"):
+        "full-height basement walls take the place of a cripple wall",
+    ("seismic_retrofit", "slab"):
+        "the sill is bolted into the slab itself, not a raised stem wall",
+}
+
 # ── Preset profiles ────────────────────────────────────────────────────────────
 PRESETS = {
     "baseline": {
@@ -889,9 +902,13 @@ def simulate(cfg: dict, structure: dict | None = None) -> dict:
                     if claimed and not ok]
     r["inapplicable_upgrades"] = inapplicable
     r["seismic_applicability_note"] = (
-        f"No seismic credit for {' or '.join(BONUS_LABELS[f] for f in inapplicable)} "
-        f"on a {foundation or 'unknown'} foundation — there is no cripple wall or "
-        "raised sill there to retrofit."
+        f"No seismic credit on a {foundation or 'unknown'} foundation — "
+        + "; ".join(
+            f"{BONUS_LABELS[f]}: "
+            + RETROFIT_INAPPLICABLE_REASON.get(
+                (f, foundation), "that retrofit does not apply to this foundation")
+            for f in inapplicable)
+        + "."
     ) if inapplicable else None
     if cfg.get("seismic_hold_downs"):    seismic_adj *= BONUS_SEISMIC_HOLD_DOWNS
     if cfg.get("auto_gas_shutoff"):      seismic_adj *= BONUS_AUTO_GAS_SHUTOFF
