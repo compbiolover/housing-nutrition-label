@@ -9,6 +9,21 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.71](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.70...v0.1.71) (2026-07-29)
+
+
+### Features
+
+* calibrate the last v1 resilience bonuses against the literature ([#220](https://github.com/compbiolover/housing-nutrition-label/issues/220)) ([a6e0f2b](https://github.com/compbiolover/housing-nutrition-label/commit/a6e0f2b94f16a24ff621a2f0fd66ca69c68dae12))
+* redraw the icons in Harbor and price two modifiers off loss ([#223](https://github.com/compbiolover/housing-nutrition-label/issues/223)) ([81c1b0c](https://github.com/compbiolover/housing-nutrition-label/commit/81c1b0ca579c90df217a3f0fe914e641c15b95fa))
+
+
+### Bug Fixes
+
+* close out the remaining resilience calibration follow-ons ([#224](https://github.com/compbiolover/housing-nutrition-label/issues/224)) ([16b4b1e](https://github.com/compbiolover/housing-nutrition-label/commit/16b4b1e149d42020e27917a6db4b9f5ab1835ff4))
+* only credit foundation seismic retrofits where they are possible ([#222](https://github.com/compbiolover/housing-nutrition-label/issues/222)) ([f61f592](https://github.com/compbiolover/housing-nutrition-label/commit/f61f5922a28ff35ff1c383f784bae6c407fc24e2))
+* re-derive the last six resilience constants from loss data ([#225](https://github.com/compbiolover/housing-nutrition-label/issues/225)) ([e1ed6fb](https://github.com/compbiolover/housing-nutrition-label/commit/e1ed6fb0b698fbcf02cc5f59c3e00b7542e33f95))
+
 ## [0.1.70](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.69...v0.1.70) (2026-07-27)
 
 
