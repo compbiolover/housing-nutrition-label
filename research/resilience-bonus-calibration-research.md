@@ -444,23 +444,45 @@ only the CLI readout was wrong. Fixed separately.
   IRC, so there is no above-code tier to claim, and PEER finds the bolt line is not
   the governing failure mode.
 
-**Surfaced by the stacking review — the constants it says still need re-deriving.**
-The aggregation rule caps the symptom; four wind constants are separately 1.7–3.9×
-more generous than ARA's loss-derived values, for the same capacity-read-as-loss
-reason corrected elsewhere in this document. In priority order:
+~~**Surfaced by the stacking review — the constants it says still need re-deriving.**~~
+**All resolved (July 29, 2026).** Every constant the aggregation review flagged has now
+been re-derived from loss data. Each carried the same defect: a figure of the wrong kind
+standing in for a loss ratio.
 
-| Constant | Ours | ARA loss-derived (Terrain B) | Cited basis |
+| Constant | Was | Now | What the old value actually measured |
 |---|---|---|---|
-| `BONUS_HURRICANE_STRAPS` | 0.70 | 0.924 | "IBHS: 50% **uplift** reduction" |
-| `BONUS_HIP_ROOF` | 0.55 | 0.760 | "IBHS: 45–50% peak **pressure** reduction" |
-| `BONUS_IMPACT_GARAGE_DOOR` | 0.75 | 0.849 (0.621 Terrain C) | closest to defensible |
-| `BONUS_ELEVATION_3FT` | 0.04 | — | not refuted, but FEMA's −22.1% is measured above *grade* while ours is above *BFE*; the basis deserves an explicit note |
-| `BONUS_BACKFLOW_VALVE` | 0.90 | — | NFIP Risk Rating 2.0 credits only elevation, openings and elevated machinery; backflow valves are not among them |
+| `BONUS_HURRICANE_STRAPS` | 0.70 | **0.92** | Connector *capacity* (415 lb toe nail vs 866 lb clip = "50%"); ARA prices that step at 8.2% of loss — 13–24× compression |
+| `BONUS_HIP_ROOF` | 0.55 | **0.80** | Worst peak *point pressure* at one tap (Meecham 1991, misattributed to IBHS); ~3× compression, the mildest of the set |
+| `BONUS_IMPACT_GARAGE_DOOR` | 0.75 | **0.95** | "80% of wind damage initiates via the garage" — a FLASH advocacy figure with no primary source, and an *attribution* statistic regardless |
+| `BONUS_REINFORCED_GABLE` | 0.80 | **0.98** | A documented failure *mechanism*, not a quantity. ARA's secondary factor is Ki = 1.02, so bracing is worth 1/1.02 |
+| `BONUS_ELEVATION_3FT` | 0.04 | **0.05** | Basis was never stated. It is an EAL residual against a ~1.5 ft-below-BFE pre-FIRM baseline; 0.04 fell below both derivations |
+| `BONUS_BACKFLOW_VALVE` | 0.90 | **1.00** | Peril mismatch — sewer surcharge, not the external inundation this leg prices |
 
-If those were re-derived, the plain product would land near ARA's own joint-table
-answer (~0.30) and the floor would never bind — which is the real endpoint. Note ARA's
-Table 4-13 is unweighted across table cells and drawn from pre-FBC houses, so it is a
-magnitude reference rather than a drop-in replacement.
+The coherence check that settled the wind side: the Hurricane Sally study (n = 40,195)
+measures everything FORTIFIED Gold adds over FORTIFIED Roof — load path, rated openings,
+gable bracing, wall sheathing and more — at **×0.76 combined**. The old 0.70 for straps
+alone, and 0.80 for gable bracing alone, each claimed more than the entire bundle
+containing them. That was impossible independently of any ARA table.
+
+With all six corrected the wind stack reaches ~0.52 and the flood stack ~0.83, so
+`BONUS_FLOOR` no longer binds on either leg — the endpoint the aggregation review
+predicted. The floor stays as a guard rather than an active correction, which is where a
+bound belongs.
+
+**Remaining, not taken:**
+
+- **Gate `hurricane_straps` on code era.** ARA marks roof-to-wall "Pre-FBC Only" and
+  Florida's filed tables drop the variable entirely for post-2002 houses, because the
+  code era already bought the connectors. Today a 2020 build can still claim the credit.
+  The same argument applies to `reinforced_gable`. This is the `code_era_factor`
+  double-count in its last remaining form, and it needs an eligibility rule rather than a
+  constant change.
+- **Consider renaming `impact_garage_door`.** Garage doors fail by pressure, not debris,
+  so the flag credits the wrong rating in its name. The label, help and docs now say
+  wind-rated, but the flag *key* is unchanged because it is in the public HTTP API.
+- **No flag for glazed opening protection.** ARA's actual opening-protection dimension
+  covers windows and glazed doors, and this model has no way to express it — which is
+  also why the component flags no longer reconstruct FORTIFIED Silver.
 
 - **The "95% water intrusion" figure is also misapplied to impact windows** in
   `feature-modifiers-research.md` ("IBHS finds 95% of water intrusion can be prevented

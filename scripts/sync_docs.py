@@ -239,7 +239,7 @@ SHORT_UPGRADE = {
     "leak_detection": "leak detection", "sump_backup": "backup-powered sump pump",
     "seismic_retrofit": "foundation anchorage retrofit",
     "hurricane_straps": "hurricane straps", "hip_roof": "hip roof",
-    "impact_garage_door": "impact garage door", "sealed_roof_deck": "sealed roof deck",
+    "impact_garage_door": "wind-rated garage door", "sealed_roof_deck": "sealed roof deck",
     "metal_roof": "metal roof", "reinforced_gable": "reinforced gable",
     "ring_shank_nails": "ring-shank nails",
     "fortified_roof": "FORTIFIED Roof", "fortified_silver": "FORTIFIED Silver",
@@ -270,7 +270,9 @@ UPGRADE_GROUPS = [
         ("Tornado safe room (FEMA P-361)", BONUS_SAFE_ROOM, "tornado_safe_room", None),
         ("Hurricane straps (continuous load path)", BONUS_HURRICANE_STRAPS, "hurricane_straps", None),
         ("Hip roof", BONUS_HIP_ROOF, "hip_roof", None),
-        ("Impact-rated garage door", BONUS_IMPACT_GARAGE_DOOR, "impact_garage_door", None),
+        ("Wind-rated garage door", BONUS_IMPACT_GARAGE_DOOR, "impact_garage_door",
+         f"{BONUS_IMPACT_GARAGE_DOOR:.2f} &mdash; rated for wind PRESSURE (ANSI/DASMA 108); "
+         "garage doors fail by pressure, not debris"),
         ("Sealed roof deck", BONUS_SEALED_ROOF_DECK, "sealed_roof_deck", None),
         ("Standing-seam metal roof", BONUS_METAL_ROOF, "metal_roof", None),
         ("Reinforced gable ends", BONUS_REINFORCED_GABLE, "reinforced_gable", None),
@@ -298,9 +300,13 @@ UPGRADE_GROUPS = [
     ("Flood", [
         ("Elevated +1&nbsp;ft above BFE", BONUS_ELEVATION_1FT, "elevation_1ft", None),
         ("Elevated +2&nbsp;ft", BONUS_ELEVATION_2FT, "elevation_2ft", None),
-        ("Elevated +3&nbsp;ft", BONUS_ELEVATION_3FT, "elevation_3ft", None),
+        ("Elevated +3&nbsp;ft", BONUS_ELEVATION_3FT, "elevation_3ft",
+         f"{BONUS_ELEVATION_3FT:.2f} &mdash; also the floor on the whole flood stack, "
+         "since this is a total residual rather than a partial credit"),
         ("Engineered flood vents", BONUS_FLOOD_VENTS, "flood_vents", None),
-        ("Backflow-prevention valve", BONUS_BACKFLOW_VALVE, "backflow_valve", None),
+        ("Backflow-prevention valve", BONUS_BACKFLOW_VALVE, "backflow_valve",
+         "no credit &mdash; acts on sewer backup, which is outside the external "
+         "flooding this leg scores"),
         ("Backup-powered sump pump", BONUS_SUMP_BACKUP, "sump_backup", None),
         ("Smart leak detection", BONUS_LEAK_DETECT, "leak_detection",
          "no flood credit &mdash; mitigates plumbing-failure water damage, "

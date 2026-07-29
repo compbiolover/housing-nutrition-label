@@ -301,12 +301,85 @@ BONUS_SEISMIC_RET = 0.75  # Foundation / sill-plate anchorage retrofit WITHOUT c
 # ── Wind/Tornado above-code feature modifiers ─────────────────────────────────
 # Applied multiplicatively to tornado/wind EAL only (after BRM).
 # FORTIFIED tiers are composite — supersede individual wind features if specified.
-BONUS_HURRICANE_STRAPS   = 0.70  # Continuous load path connections; IBHS: 50% uplift
-                                  # reduction. Source: IBHS FORTIFIED research. Strong evidence.
-BONUS_HIP_ROOF           = 0.55  # Hip roof vs. gable; IBHS: 45-50% peak pressure reduction.
-                                  # Source: IBHS. Strong evidence.
-BONUS_IMPACT_GARAGE_DOOR = 0.75  # Impact-rated garage door; 80% of wind damage initiates
-                                  # via garage. Source: FEMA/IBHS. Strong evidence.
+BONUS_HURRICANE_STRAPS   = 0.92  # Engineered roof-to-wall connectors replacing a toe-nailed
+                                  # legacy connection. ARA 2008 (FL OIR Rpt 18401) Tbl 4-13 prices
+                                  # toe nail → wrap at 8.2% (Terrain B) / 16.6% (Terrain C) mean
+                                  # loss reduction = 0.92 / 0.86, and ARA's 2024 restudy (Rpt
+                                  # 005480 Tbls 4-3..4-11) gives 0.90 mean / 0.97 median in its
+                                  # lowest-hazard inland region at Terrain B. Terrain B, not C:
+                                  # our default is inland suburban, not coastal.
+                                  # The former 0.70 read "50% uplift reduction" — a CAPACITY
+                                  # figure (Tbl A-1: toe nail 415 lb vs clip 866 lb ultimate, a
+                                  # 0.48 ratio) — as if it were a loss ratio. ARA prices that same
+                                  # +189% capacity step at 8-17% of loss: 13-24x compression. The
+                                  # figure could not be found in any IBHS publication; IBHS's own
+                                  # continuous-load-path page carries no percentage at all.
+                                  # Coherence check that settles it: the Hurricane Sally study
+                                  # prices everything FORTIFIED Gold adds over FORTIFIED Roof —
+                                  # load path, rated openings, gable bracing, wall sheathing and
+                                  # more — at ×0.76 combined. A 0.70 for the load path alone
+                                  # claimed more than the entire bundle containing it.
+                                  # Baseline is a toe-nailed legacy connection. ARA and Florida's
+                                  # filed tables both treat roof-to-wall as PRE-FBC-ONLY, so on a
+                                  # strictly above-code baseline the clip→wrap step (0.95-0.99)
+                                  # would give 0.97; 0.92 is the middle, because IRC prescriptive
+                                  # tables long permitted toe nails at inland design speeds, so a
+                                  # legacy connection is real here in a way it is not in Florida.
+                                  # Strong evidence.
+BONUS_HIP_ROOF           = 0.80  # Hip roof (≥90% of the wall perimeter sloped to horizontal
+                                  # eaves) vs gable/other. ARA 2008 (FL OIR Rpt 18401) Tbl 4-13
+                                  # "Gable/Hip" = 31.6% (Terrain B) / 35.3% (C) loss INCREASE →
+                                  # 0.760 / 0.739, and ARA's own claims analysis (Tbl 3-3: 25.9%
+                                  # and 14.1% across two insurers, 18 locations) reads "hips show
+                                  # about a 20% average reduction in loss over gables" (§3.3.9) —
+                                  # the same answer once an increase (denominator = hip) is not
+                                  # mistaken for a reduction (denominator = gable). Citizens'
+                                  # FILED factors replicate it: 0.70 pre-2002, 0.83 post-2002.
+                                  # 0.80 rather than 0.76 because our base is FEMA NRI STOCK-average
+                                  # tornado EAL, which already contains ~23% hip roofs:
+                                  # 0.760 / (0.77 + 0.23×0.760) = 0.80.
+                                  # The former 0.55 read Meecham et al. (1991) — worst peak POINT
+                                  # pressure "as much as 50%" lower, one tap at one 4:12 slope, and
+                                  # misattributed to IBHS — as if it were a loss ratio. ARA prices
+                                  # that same ~2x load ratio at 1.32x loss: ~3x compression. That is
+                                  # the mildest compression of the four constants corrected this way,
+                                  # because roof shape acts on every zone and all four eaves rather
+                                  # than one link of a serial system.
+                                  # Unlike the flags retired for unobservability, this one is
+                                  # genuinely self-reportable: street-visible, aerial-verifiable,
+                                  # Q5 on Florida's OIR-B1-1802, and Citizens accepts roof photos.
+                                  # Strong evidence for the loss magnitude; moderate for tornado
+                                  # transfer — ASCE 7-22 Ch.32 reuses Ch.30 GCp and Razavi & Sarkar
+                                  # (2021) find lower hip uplift under a translating vortex, but
+                                  # Ch.32 exempts Risk Category I/II dwellings and no tornado study
+                                  # isolates roof shape in loss. Hence the conservative end.
+BONUS_IMPACT_GARAGE_DOOR = 0.95  # A PRESSURE-rated garage door (ANSI/DASMA 108, ASTM E330) —
+                                  # not an impact-rated one. ARA's own base-case curves fail garage
+                                  # doors 0.91-of-1 by panel/pressure and 0-of-1 by missile impact
+                                  # (Rpt 18401 p.333); FEMA P-804 §4.2.1.3 and IBHS FORTIFIED TB
+                                  # FH 2024-04 both rate the door for pressure and only its glazing
+                                  # for debris. (The flag key is left as-is for API compatibility;
+                                  # the label and CLI help say wind-rated.)
+                                  # The former 0.75 rested on "80% of wind damage initiates via the
+                                  # garage" — a FLASH advocacy figure with no primary source, whose
+                                  # own page now says >90%, uncited. The real datum is Kovar,
+                                  # Brown-Giammanco & Lombardo (2018): 94% of roof-damaged homes
+                                  # also had garage damage — an attribution statistic, running the
+                                  # opposite direction to what a credit needs, and whose Table 5
+                                  # shows 60-73% of failed-door homes had NO roof structural damage.
+                                  # ARA prices this increment directly: Secondary Factor 4 "Opening
+                                  # Coverage - All Openings" = 0.98 (Tbl 4-15, unchanged in 2024),
+                                  # covering all non-glazed doors. ARA's 0.849/0.621 (Tbl 4-13) is
+                                  # WHOLE-HOUSE opening protection, explicitly earned with an
+                                  # unglazed garage door left untouched (App. A.1.2.3) — a different
+                                  # intervention, not an upper bound on this one.
+                                  # Nudged above 0.98 because Jaffe, Riveros & Kopp (2019) put door
+                                  # failure at 81-165 mph, squarely in the EF0-EF2 band that
+                                  # dominates NRI tornado EAL, where the 10 psf garage door fails and
+                                  # the 40 psf windows do not (Hazus; Vickery 2006 Tbl 1). Internal
+                                  # pressurisation is real but compressive: ARA prices designing the
+                                  # whole house for partially-enclosed GCpi at 0.98 too.
+                                  # Moderate evidence.
 BONUS_SEALED_ROOF_DECK   = 0.93  # Sealed roof deck / secondary water resistance: a self-adhered
                                   # membrane or taped deck seams keeps rain out after the cover
                                   # blows off. ARA 2008 (FL OIR Rpt 18401) Tbl 4-13 puts the
@@ -325,8 +398,18 @@ BONUS_SEALED_ROOF_DECK   = 0.93  # Sealed roof deck / secondary water resistance
                                   # re-roof. Strong evidence.
 BONUS_METAL_ROOF         = 0.75  # Standing seam metal roof; 150+ mph wind rating.
                                   # Source: industry testing data. Moderate evidence.
-BONUS_REINFORCED_GABLE   = 0.80  # Reinforced gable end walls; documented failure mode.
-                                  # Source: FEMA failure mode documentation. Moderate evidence.
+BONUS_REINFORCED_GABLE   = 0.98  # Gable-end bracing. ARA carries this as a SECONDARY factor —
+                                  # "Unbraced Gable End" Ki = 1.02, identical in the 2008 (Tbl
+                                  # 4-15 #5) and 2024 studies — so bracing is worth 1/1.02, and
+                                  # less still once ARA's R' = R·K^(1-R) exponent is applied to a
+                                  # strong house. The former 0.80 had no loss source at all: FEMA
+                                  # MAT reports document gable-end failure as a MECHANISM, which
+                                  # names a failure path rather than quantifying one — the same
+                                  # confusion that took BONUS_SEISMIC_HOLD_DOWNS to 1.00. Pre-FBC
+                                  # only, and not a line item on Florida's OIR-B1-1802 at all.
+                                  # Cross-check: 0.80 for gable bracing alone exceeded the ×0.76
+                                  # the Sally study measures for everything Gold adds over Roof,
+                                  # a bundle that contains gable bracing. Strong evidence.
 BONUS_RING_SHANK_NAILS   = 0.97  # Ring-shank sheathing nails ABOVE the code-era deck schedule
                                   # that code_era_factor already prices. ARA 2008 (FL OIR Rpt
                                   # 18401) "Enhanced Roof Deck" = 0.96 (Tbl 4-15) / 0.99 (Tbl
@@ -388,16 +471,53 @@ BONUS_AUTO_GAS_SHUTOFF   = 0.90  # Automatic seismic gas shutoff valve; prevents
 # ── Flood above-code feature modifiers ────────────────────────────────────────
 # Elevation flags are mutually exclusive (validated in resolve_config).
 # Applied multiplicatively to flood EAL only (after BRM).
-BONUS_ELEVATION_1FT      = 0.15  # Elevated 1 ft above BFE; FEMA: 93% annual loss reduction.
-                                  # Source: FEMA depth-damage curves. Strong evidence.
+# The ladder is an EAL RESIDUAL against THIS leg's own baseline house — not against
+# a code-minimum house sitting at BFE. FLOOD_EAL's 28% AE-zone mean damage ratio
+# corresponds to 1.53 ft of water above the first floor on the USACE EGM 01-03
+# one-story curve, so the reference dwelling is already ~1.5 ft BELOW BFE, i.e.
+# pre-FIRM stock. Two independent derivations from that anchor agree:
+#   • legacy NFIP Rate Table 3B (AE, 1 floor, 1-4 family) building-rate ratios
+#     against -1.5 ft → 0.144 / 0.077 / 0.053
+#   • integrating the USACE curve over a central riverine stage-frequency curve
+#     (~3 ft per log-cycle of return period) → 0.147 / 0.068 / 0.032
+# NB the +3 tier is 0.05, not the 0.04 it used to be: 0.04 fell below BOTH
+# derivations. NFIP's own table flattens after +3 ft (+3 → +4 buys only a further
+# 11%), which is evidence of a real non-inundation tail — scour, below-floor
+# utilities, site works, access — that first-floor depth-damage integration cannot
+# see and which drives the integrated estimate too close to zero.
+# The former "FEMA: 93% annual loss reduction" citation was unsourceable; no FEMA
+# publication states it, and FEMA's freeboard material quotes premium savings only.
+# Limitation: against a post-FIRM house already built at BFE the same NFIP table
+# gives 0.43 / 0.23 / 0.16 — about 4x these. The model cannot observe as-built
+# elevation, so it assumes the pre-FIRM stock average, which is right for a generic
+# AE parcel. Strong evidence for the shape and +1/+2 ft; moderate for +3.
+BONUS_ELEVATION_1FT      = 0.15  # Elevated 1 ft above BFE.
 BONUS_ELEVATION_2FT      = 0.08  # Elevated 2 ft above BFE.
-                                  # Source: FEMA depth-damage curves. Strong evidence.
-BONUS_ELEVATION_3FT      = 0.04  # Elevated 3 ft above BFE.
-                                  # Source: FEMA depth-damage curves. Strong evidence.
+BONUS_ELEVATION_3FT      = 0.05  # Elevated 3 ft above BFE. Also BONUS_FLOOR["flood"].
 BONUS_FLOOD_VENTS        = 0.85  # Engineered flood vents; reduces hydrostatic damage.
                                   # Source: FEMA. Moderate evidence.
-BONUS_BACKFLOW_VALVE     = 0.90  # Backflow prevention valve; prevents sewer backup.
-                                  # Source: FEMA. Moderate evidence.
+BONUS_BACKFLOW_VALVE     = 1.00  # Backflow/backwater valve: NO flood-EAL credit — peril mismatch,
+                                  # the same test that retired BONUS_LEAK_DETECT. This leg is NFIP
+                                  # flood-zone AEP × depth-damage MDR, i.e. external inundation; a
+                                  # valve acts on sewer-lateral surcharge driven by rainfall
+                                  # intensity and municipal drainage capacity. CNT (2014, Cook
+                                  # County IL: 181,094 claims, $773.8M paid, 2007-11) found NO
+                                  # correlation between damage payouts and mapped floodplains — 33
+                                  # ZIP codes contain no floodplain at all and nine of those are
+                                  # among the worst hit, with NFIP just 8% of payouts. The two loss
+                                  # states barely intersect: the NFIP policy pays sewer backup only
+                                  # under a general condition of flooding, where the house is
+                                  # already inundated and the valve moves the damage ratio
+                                  # negligibly; backup without flooding needs an HO water-backup
+                                  # endorsement and is outside this model entirely. FEMA P-259 and
+                                  # P-312 list the device under dry floodproofing but publish no
+                                  # loss percentage, and Risk Rating 2.0 credits only three actions
+                                  # — First Floor Height, flood openings, elevated machinery — never
+                                  # a backflow valve. Effectiveness is maintenance-bound in any
+                                  # case: of ~1,500 Ottawa basement-flooding incidents in July 2009,
+                                  # ~8% were in homes that had one, with a third of inspected covers
+                                  # not screwed down. Belongs on a future urban-drainage peril
+                                  # (~0.5-0.75 there). Strong evidence — for the wrong hazard.
 
 # Resilience-upgrade flag names (the single source of truth shared by the CLI's
 # argparse flags, resolve_config(), and the HTTP API's `upgrades` param).
@@ -469,8 +589,10 @@ BONUS_GROUPS = {
         # Roof cover + water intrusion once the cover is stressed. ARA couples
         # these explicitly ("no SWR tends to minimize the effect of deck strength").
         ("sealed_roof_deck", "metal_roof"),
-        # Opening protection / internal pressurisation — separate primary
-        # dimension, separate failure path from roof uplift.
+        # Large-opening pressure resistance — a separate failure path from roof
+        # uplift (breach → internal pressurisation). Note this is NOT ARA's
+        # "opening protection" dimension, which covers glazed openings and is not
+        # modelled here; only the garage door is.
         ("impact_garage_door",),
     ],
     "flood": [
@@ -501,18 +623,23 @@ BONUS_FLOOR = {
     # Gold) — mean 69% claim-frequency and 32% severity reduction (0.31 × 0.68 =
     # 0.21), and 75% of insurer claim dollars avoided under an all-Gold scenario.
     # Five of the seven individual wind flags reconstruct Gold's own feature list
-    # (deck fasteners + sealed deck = Roof; + impact openings + gable bracing =
-    # Silver; + continuous load path = Gold), so the component stack IS a
-    # self-reported Gold and must not beat a certified one.
+    # (deck fasteners + sealed deck = Roof; + gable bracing and a rated garage
+    # door = part of Silver; + continuous load path = Gold), so the component
+    # stack is close to a self-reported Gold and must not beat a certified one.
+    # NB it no longer fully reconstructs Silver: Silver requires impact-rated
+    # GLAZED openings, which this model has no flag for.
     # BONUS_FORTIFIED_SILVER (0.25) is the defensible stricter choice if we ever
     # want components to top out strictly below Gold: Gold's distinguishing
     # requirements are an engineered, inspected continuous load path and
     # design-pressure-rated openings, neither of which a checkbox can evidence.
     "tornado": BONUS_FORTIFIED_GOLD,
-    # FEMA depth-damage gives BONUS_ELEVATION_3FT as a TOTAL flood-loss residual
-    # at that elevation, not a partial credit to multiply further. FEMA rates it
-    # the same way — First Floor Height is a primary rating variable, and the
-    # only other credited measures are small and conditioned on it.
+    # BONUS_ELEVATION_3FT is a TOTAL flood-loss residual at that elevation — the
+    # ratio of expected annual loss at BFE+3 to this leg's own ~1.5 ft-below-BFE
+    # baseline, cross-checked against legacy NFIP rate ratios and a USACE
+    # depth-damage integration (see the elevation block) — not a partial credit
+    # to multiply further. FEMA rates it the same way: First Floor Height is a
+    # primary rating variable, and the only other credited measures are small and
+    # conditioned on it.
     "flood":   BONUS_ELEVATION_3FT,
 }
 
@@ -797,54 +924,71 @@ def build_parser() -> argparse.ArgumentParser:
 
     # ── Wind/Tornado above-code features ──────────────────────────────────────────
     wind = p.add_argument_group("wind/tornado above-code features")
+    # Multipliers are interpolated from the constants, never retyped: the hardcoded
+    # copies drifted (ring-shank still advertised x0.88 after it moved to 0.97, and
+    # hold-downs x0.85 after they moved to 1.00), which is the same duplication bug
+    # the icon palette had.
     wind.add_argument("--hurricane-straps",    action="store_true",
-                      help="Continuous load path connections (×0.70 tornado/wind EAL; IBHS).")
+                      help=f"Continuous load path connections (×{BONUS_HURRICANE_STRAPS} "
+                           "tornado/wind EAL).")
     wind.add_argument("--hip-roof",            action="store_true",
-                      help="Hip roof instead of gable (×0.55 tornado/wind EAL; IBHS).")
+                      help=f"Hip roof — sloped to eaves over ≥90%% of the wall perimeter "
+                           f"(×{BONUS_HIP_ROOF} tornado/wind EAL).")
     wind.add_argument("--impact-garage-door",  action="store_true",
-                      help="Impact-rated garage door (×0.75 tornado/wind EAL).")
+                      help=f"Wind/pressure-rated garage door, ANSI/DASMA 108 or ASTM "
+                           f"E330 (×{BONUS_IMPACT_GARAGE_DOOR} tornado/wind EAL).")
     wind.add_argument("--sealed-roof-deck",    action="store_true",
-                      help="Secondary water barrier / peel-and-stick underlayment (×0.80).")
+                      help=f"Sealed roof deck / secondary water resistance "
+                           f"(×{BONUS_SEALED_ROOF_DECK} tornado/wind EAL).")
     wind.add_argument("--metal-roof",          action="store_true",
-                      help="Standing seam metal roof (×0.75 tornado/wind EAL).")
+                      help=f"Standing seam metal roof (×{BONUS_METAL_ROOF} tornado/wind EAL).")
     wind.add_argument("--reinforced-gable",    action="store_true",
-                      help="Reinforced gable end walls (×0.80 tornado/wind EAL; FEMA).")
+                      help=f"Reinforced gable end walls (×{BONUS_REINFORCED_GABLE} "
+                           "tornado/wind EAL).")
     wind.add_argument("--ring-shank-nails",    action="store_true",
-                      help="Ring-shank nails for sheathing (×0.88 tornado/wind EAL; IBHS).")
+                      help=f"Ring-shank sheathing nails above the code-era schedule "
+                           f"(×{BONUS_RING_SHANK_NAILS} tornado/wind EAL).")
 
     # ── FORTIFIED certification (composite — supersedes individual wind features) ──
     fortified = p.add_argument_group("IBHS FORTIFIED certification (composite; supersedes "
                                      "individual wind features)")
     fortified.add_argument("--fortified-roof",   action="store_true",
-                           help="IBHS FORTIFIED Roof designation (×0.35 tornado/wind EAL).")
+                           help=f"IBHS FORTIFIED Roof designation (×{BONUS_FORTIFIED_ROOF} "
+                                "tornado/wind EAL).")
     fortified.add_argument("--fortified-silver",  action="store_true",
-                           help="IBHS FORTIFIED Silver (×0.25 tornado/wind EAL).")
+                           help=f"IBHS FORTIFIED Silver (×{BONUS_FORTIFIED_SILVER} "
+                                "tornado/wind EAL).")
     fortified.add_argument("--fortified-gold",    action="store_true",
-                           help="IBHS FORTIFIED Gold (×0.20 tornado/wind EAL).")
+                           help=f"IBHS FORTIFIED Gold (×{BONUS_FORTIFIED_GOLD} tornado/wind EAL).")
 
     # ── Seismic above-code features ───────────────────────────────────────────────
     seismic = p.add_argument_group("seismic above-code features")
     seismic.add_argument("--cripple-wall-bracing", action="store_true",
-                         help="Cripple wall bracing (×0.45 seismic EAL). Raised foundations "
-                              "only — crawl or partial-basement.")
+                         help=f"Cripple wall bracing (×{BONUS_CRIPPLE_WALL} seismic EAL). "
+                              "Raised foundations only — crawl or partial-basement.")
     seismic.add_argument("--seismic-hold-downs",   action="store_true",
-                         help="Hold-down connectors at shear walls (×0.85 seismic EAL).")
+                         help="Hold-down connectors at shear walls (no EAL credit — already "
+                              "counted in cripple-wall bracing and the code era).")
     seismic.add_argument("--auto-gas-shutoff",     action="store_true",
-                         help="Automatic seismic gas shutoff valve (×0.90 seismic EAL).")
+                         help=f"Automatic seismic gas shutoff valve (×{BONUS_AUTO_GAS_SHUTOFF} "
+                              "seismic EAL).")
 
     # ── Flood above-code features (elevation flags are mutually exclusive) ────────
     flood = p.add_argument_group("flood above-code features")
     elev = flood.add_mutually_exclusive_group()
     elev.add_argument("--elevation-1ft", action="store_true",
-                      help="Elevated 1 ft above BFE (×0.15 flood EAL; FEMA: 93%% reduction).")
+                      help=f"Elevated 1 ft above BFE (×{BONUS_ELEVATION_1FT} flood EAL).")
     elev.add_argument("--elevation-2ft", action="store_true",
-                      help="Elevated 2 ft above BFE (×0.08 flood EAL; FEMA).")
+                      help=f"Elevated 2 ft above BFE (×{BONUS_ELEVATION_2FT} flood EAL).")
     elev.add_argument("--elevation-3ft", action="store_true",
-                      help="Elevated 3 ft above BFE (×0.04 flood EAL; FEMA).")
+                      help=f"Elevated 3 ft above BFE (×{BONUS_ELEVATION_3FT} flood EAL; also "
+                           "the floor on the whole flood stack).")
     flood.add_argument("--flood-vents",    action="store_true",
-                       help="Engineered flood vents (×0.85 flood EAL).")
+                       help=f"Engineered flood vents (×{BONUS_FLOOD_VENTS} flood EAL). "
+                            "Needs an enclosure — crawl or partial-basement only.")
     flood.add_argument("--backflow-valve", action="store_true",
-                       help="Backflow prevention valve (×0.90 flood EAL).")
+                       help="Backflow prevention valve (no flood-EAL credit — acts on sewer "
+                            "backup, outside the external flooding this leg scores).")
 
     # ── Full nutrition label (all 9 dimensions) ───────────────────────────────────
     label_grp = p.add_argument_group("full nutrition label (all 9 dimensions)")
@@ -1210,7 +1354,7 @@ BONUS_LABELS = {
     # wind/tornado above-code
     "hurricane_straps":     "Hurricane straps (load path)",
     "hip_roof":             "Hip roof",
-    "impact_garage_door":   "Impact-rated garage door",
+    "impact_garage_door":   "Wind-rated garage door",
     "sealed_roof_deck":     "Sealed roof deck",
     "metal_roof":           "Standing seam metal roof",
     "reinforced_gable":     "Reinforced gable end walls",
