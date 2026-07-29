@@ -200,10 +200,12 @@ def flood_floor_factor(stories) -> float:
 
 # ── Bonus feature modifiers ───────────────────────────────────────────────────
 # Applied multiplicatively on top of BRM-adjusted EAL rates.
-# The hazard-specific above-code modifiers below (wind/tornado, seismic, flood)
-# are calibrated from published FEMA / IBHS / PEER-CEA / NFPA test and claims
-# data — each carries its source and an evidence grade. The general modifiers
-# still marked (v1) are first-pass estimates pending literature review.
+# The three "above-code feature modifiers" sections further down (wind/tornado,
+# seismic, flood) are calibrated from published FEMA / IBHS / PEER-CEA test and
+# claims data — every constant in them carries its source and an evidence grade.
+# The general and hazard-specific modifiers in the two blocks immediately below
+# are a mix: some cite a study (RMI, FEMA P-361, FEMA P-420), others are marked
+# (v1) and remain first-pass estimates pending literature review.
 
 # General modifiers — applied to every hazard's EAL.
 BONUS_SOLAR      = 0.97  # Solar panels: grid independence reduces post-disaster
