@@ -298,9 +298,13 @@ UPGRADE_GROUPS = [
     ("Flood", [
         ("Elevated +1&nbsp;ft above BFE", BONUS_ELEVATION_1FT, "elevation_1ft", None),
         ("Elevated +2&nbsp;ft", BONUS_ELEVATION_2FT, "elevation_2ft", None),
-        ("Elevated +3&nbsp;ft", BONUS_ELEVATION_3FT, "elevation_3ft", None),
+        ("Elevated +3&nbsp;ft", BONUS_ELEVATION_3FT, "elevation_3ft",
+         f"{BONUS_ELEVATION_3FT:.2f} &mdash; also the floor on the whole flood stack, "
+         "since this is a total residual rather than a partial credit"),
         ("Engineered flood vents", BONUS_FLOOD_VENTS, "flood_vents", None),
-        ("Backflow-prevention valve", BONUS_BACKFLOW_VALVE, "backflow_valve", None),
+        ("Backflow-prevention valve", BONUS_BACKFLOW_VALVE, "backflow_valve",
+         "no credit &mdash; acts on sewer backup, which is outside the external "
+         "flooding this leg scores"),
         ("Backup-powered sump pump", BONUS_SUMP_BACKUP, "sump_backup", None),
         ("Smart leak detection", BONUS_LEAK_DETECT, "leak_detection",
          "no flood credit &mdash; mitigates plumbing-failure water damage, "
