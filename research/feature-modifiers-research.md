@@ -13,10 +13,12 @@
 > anchorage and made mutually exclusive with cripple-wall bracing); and the
 > **solar / backup generator / general sprinkler / leak detection** modifiers, all
 > now 1.00. Where this document and the newer one disagree, the newer one governs.
-> Two known drifts against the code remain unresolved here: the hold-down connector
-> modifier (0.75 in §12, 0.85 in the code) and the §11 attribution of the
-> cripple-wall evidence to "FEMA P-1024", which is a Napa reconnaissance report
-> rather than a retrofit standard — FEMA P-1100 is meant.
+> The hold-down drift (0.75 here, 0.85 in the code) is now resolved — §12 is rewritten
+> in place and both settled at 1.00. One known issue remains: §10 "Anchor Bolt Spacing"
+> (0.90) has the same defect §12 had — it concedes "no published percentage reduction
+> for spacing alone (typically studied as part of complete retrofit package)", which is
+> the double-count admitting itself. It is not implemented in house.py; do not implement
+> it without a loss source.
 
 ---
 
@@ -122,21 +124,42 @@ TRUSS_16OC_MODIFIER = 0.92  // modest benefit, well-established engineering prin
 
 | Attribute | Value |
 |-----------|-------|
-| **Damage reduction** | 2x withdrawal resistance (approximately 50% reduction in nail pull-through failures) |
-| **Recommended modifier** | **0.70** |
+| **Damage reduction** | 1–4% of loss above the code-era deck schedule (not the capacity figure) |
+| **Recommended modifier** | **0.97** |
 | **Hazard scope** | Wind only |
 | **Evidence quality** | Strong |
 
-**Evidence:** Ring-shank nails have approximately double the withdrawal resistance of smooth-shank nails in mechanical testing. IBHS states ring-shank nails "almost double the strength of a roof against winds." FEMA requires ring-shank nails in areas with design wind speeds over 110 mph. The FORTIFIED Roof standard mandates 8d ring-shank nails (0.113" diameter, 2-3/8" long) at 6" OC in field and 4" OC at gable ends.
+> **Revised July 29, 2026.** Previously 0.70, on the strength of a withdrawal-resistance
+> figure. That is a mechanical property, not a loss — see below.
 
-**Combined with spacing:** The interaction of ring-shank nails + tighter spacing is greater than either alone. FORTIFIED's 6"/4" OC ring-shank specification represents the combined best practice.
+**Evidence:** The capacity claim is sound: ring-shank nails have roughly double the
+withdrawal resistance of smooth-shank in mechanical testing, and ARA measures ring-shank
+at ~2× the uplift capacity of 8d common at the same spacing. **The loss effect is far
+smaller.** ARA's 2008 Florida study — the actuarial basis for the state's wind mitigation
+credits — prices that same upgrade, as the "Enhanced Roof Deck" secondary factor, at a
+loss relativity of **0.96 (Table 4-15) to 0.99 (Table 4-2)**. A +100% capacity gain buys
+a 1–4% loss reduction: the capacity-to-loss mapping is compressive by roughly 25–100×,
+because it runs through a fragility curve and a hazard distribution. Reading the capacity
+percentage across as a loss percentage is the error corrected here and in §12.
+
+**Baseline matters, and forces the small number.** Ring-shank became *code* in the 2006
+FBC Supplement for design wind speeds above 100 mph, and ARA's FBC 2006 loss relativities
+already assume it ("the modeled buildings for FBC 2006 included ring shank nails"). The
+model's own code-era factor carries that era transition. So an above-code flag can only
+mean "better than the era required", which is exactly ARA's 0.96–0.99 case. Crediting
+ring-shank against a legacy (6d, 55 psf) deck would double-count the code-era term.
+
+For scale: ARA's full Level A → Level C deck span — 55 → 182 psf, a +231% capacity
+increase — is worth an average **22–34%** loss reduction (Table 4-13). A 0.70 for nails
+alone claimed more than the entire deck span delivers.
 
 ```
-RING_SHANK_NAILS_MODIFIER = 0.70   // ring-shank at code spacing
-RING_SHANK_PLUS_TIGHT_SPACING_MODIFIER = 0.55  // ring-shank at 6"/4" OC (FORTIFIED spec)
+RING_SHANK_NAILS_MODIFIER = 0.97   // above the code-era schedule; ARA "Enhanced Roof Deck"
 ```
 
-**Sources:** IBHS FORTIFIED Roof Standards; FEMA P-2181 Fact Sheet 3.3.1; Florida Building Code
+**Sources:** ARA, *2008 Florida Residential Wind Loss Mitigation Study* (Report 18401 for
+Florida OIR), Tables 4-2, 4-13, 4-15 and §2.2.4; Florida OIR-B1-1802 wind mitigation form;
+IBHS FORTIFIED Roof Standards; FEMA P-2181 Fact Sheet 3.3.1
 
 ### 4. Hip Roof vs Gable Roof
 
@@ -288,18 +311,83 @@ CRIPPLE_WALL_BRACING_MODIFIER = 0.45  // average of 40-70% range; applies only t
 
 | Attribute | Value |
 |-----------|-------|
-| **Damage reduction** | 213% increase in peak load capacity (928 lbs without vs 2,907 lbs with); 88% stiffness increase |
-| **Recommended modifier** | **0.75** |
-| **Hazard scope** | Seismic + wind |
-| **Evidence quality** | Strong (engineering testing) |
+| **Damage reduction** | None demonstrated independently of measures already credited |
+| **Recommended modifier** | **1.00** (reviewed; no separable EAL effect) |
+| **Hazard scope** | Seismic only if ever reinstated — never wind (would double-count hurricane straps) |
+| **Evidence quality** | Weak |
 
-**Evidence:** Published testing shows hold-downs increase wall stiffness (up to 88%), capacity (213% increase), and ductility (up to 83%) of shear wall assemblies. Building codes require Hold-down Effect Factor (Jhd) to reduce design shear strength when anchorages are used instead of hold-downs, implicitly acknowledging the performance gap. Advanced systems (resilient slip friction connectors) provide damage-free self-centering behavior.
+> **Revised July 29, 2026.** This section previously recommended 0.75 on the strength
+> of component test figures. The code carried 0.85. Both were wrong, and the drift was
+> resolved *downward* to 1.00 rather than by picking one — see
+> `research/resilience-bonus-calibration-research.md`.
+
+**Evidence:** The prior 0.75 rested on component mechanical properties — +88% wall
+stiffness, +213% peak capacity (928 lb → 2,907 lb), +83% ductility. None of those is a
+loss figure. The mapping from component capacity to expected annual loss runs through
+fragility curves and a hazard distribution and is strongly non-linear; the same category
+error inflated the ring-shank nail modifier (§2 of the calibration report). The
+928/2,907 pair traces to a Simpson Strong-Tie blog post (2014) on a single 4 ft × 8 ft
+(2:1 aspect) specimen — the one geometry where overturning governs and hold-downs
+therefore look best — with no replicates and no third-party review. The cited MDPI paper
+(Tannert & Loss 2022) reviews mass-timber CLT rocking walls for mid- and high-rise
+construction and contains no loss, repair-cost or EAL data at all.
+
+The Jhd argument is inverted. Jhd is a **CSA O86 design** factor that reduces shear
+strength when anchorages are used *instead of* hold-downs, precisely so the two options
+come out equivalent at the design level. That makes hold-downs a **substitute** for wall
+length or nailing, not a surplus on top of it — the same "alternative route, not
+additional credit" structure that retired the truss-spacing modifier (§2).
+
+The only loss-capable datum is the FEMA P-58 fragility pair B1071.001 (no hold-downs)
+vs B1071.002 (hold-downs): a uniform 1.5× median drift capacity at every damage state.
+Propagated over a power-law drift hazard and weighted by the exterior-wall share of
+woodframe repair cost, that implies a whole-building multiplier around 0.72–0.92 — which
+is roughly why 0.85 looked plausible. But it is a **package** effect, descending from a
+single Fischer et al. (2001) shake-table comparison of engineered vs conventional
+construction (roof displacement 2.49/1.66 = 1.5), which Ekiert & Filiatrault label
+"basic strength design" vs "engineered construction with modern seismic detailing such
+as hold-downs" — nailing, framing and connectors all moving together.
+
+**Why 1.00 rather than a reduced value — it double-counts at both possible loci:**
+
+1. *Foundation.* Tie-downs are an integral option **within** the cripple-wall retrofit.
+   FEMA P-1024/RA2 carries sheets D4 ("with Tie-Downs") and D5 ("without"), chosen from
+   the same Earthquake Strengthening Schedule by available wall length, and PEER-CEA's
+   6-ft cripple-wall variants "assume tie-downs". §11's 0.45 was measured on retrofits
+   that already include them.
+2. *Superstructure.* Hold-downs are what separates an engineered shear wall from a
+   prescriptive IRC braced wall panel. Where present they are code-required, and the
+   model's code-era vulnerability curve already carries that distinction (1.60 at 1940 →
+   0.85 at 2010, a 1.88× spread that comfortably exceeds the ~1.3× the P-58 pair could
+   justify). Crediting them again applies the code-era term twice.
+
+**Not self-reportable.** Superstructure hold-downs are concealed in finished walls and
+verifiable only at rough inspection or destructively. The only hold-downs a homeowner
+can see are the crawlspace tie-downs of §11 — already credited. The CEA's
+actuarially-mandated discount schedule (cripple-wall bracing, foundation bolting,
+continuous perimeter foundation, water-heater strapping) contains no hold-down item; if
+the effect were both real and verifiable, the insurer paying for it would price it.
+
+**Corroborating evidence that superstructure strengthening is low-leverage:** Porter,
+Scawthorn & Beck (2006) computed EAL by California ZIP for 19 CUREE index-building
+variants. *None* of the large-house superstructure redesigns — including a +$7,500
+Immediate-Occupancy upgrade with thicker, higher-grade sheathing and heavier, closer
+nailing — was cost-effective anywhere in California, and the median 30-year benefit of
+superior over poor construction quality was $970 on a $220,000 house. The foundation
+retrofit was cost-effective in 781 of 1,653 ZIPs. The leverage in woodframe dwellings is
+at the foundation.
 
 ```
-HOLD_DOWN_CONNECTOR_MODIFIER = 0.75
+HOLD_DOWN_CONNECTOR_MODIFIER = 1.00  // reviewed; subsumed by §11 and by code era
 ```
 
-**Sources:** MDPI Buildings (2022), "Contemporary Hold-Down Solutions for Mass Timber"; Springer Bulletin of Earthquake Engineering (2022)
+**Sources:** FEMA P-1024/RA2 (2015), sheets D4/D5 and §I; PEER Report 2020/22 (Welch &
+Deierlein), Tables 5.1 and 7.19–7.20, §5.2; FEMA P-58/BD-3.8.1 (Ekiert & Filiatrault
+2008); Fischer et al., CUREE W-06 (2001); Porter, Scawthorn & Beck, *Earthquake Spectra*
+22(1):239–266 (2006); Simpson Strong-Tie SE Blog (2014) — cited to document the
+provenance of the retired figures; Tannert & Loss, *Buildings* 12(2):202 (2022) — cited
+to document the scope mismatch; CSA O86 Jhd via WoodWorks Shearwalls documentation; CEA
+premium discount schedule (CIC §10089.40)
 
 ### 13. Flexible Gas Lines
 
@@ -501,8 +589,7 @@ ROOF_PITCH_MODIFIERS = {
 | 1 | Hurricane clips (only) | 0.75 | Moderate |
 | 1b | Full continuous load path | 0.60 | Moderate |
 | 2 | 16" OC truss spacing | 0.92 | Expert Est. |
-| 3 | Ring-shank nails (code spacing) | 0.70 | Strong |
-| 3b | Ring-shank nails + 6"/4" OC | 0.55 | Strong |
+| 3 | Ring-shank nails (above the code-era schedule) | 0.97 | Strong |
 | 4 | Hip roof (vs gable baseline) | 0.55 | Strong |
 | 5 | Impact-rated garage door | 0.70 | Strong |
 | 6 | Reinforced gable ends | 0.80 | Moderate |
@@ -520,7 +607,7 @@ ROOF_PITCH_MODIFIERS = {
 |---|---------|----------|----------|
 | 10 | Tight anchor bolt spacing | 0.90 | Moderate |
 | 11 | Cripple wall bracing | 0.45 | Strong |
-| 12 | Hold-down connectors | 0.75 | Strong |
+| 12 | Hold-down connectors | 1.00 | Weak (subsumed by #11 and code era) |
 | 13 | Flexible gas lines | 0.90 | Strong |
 | 14 | Auto gas shutoff valve | 0.92 | Moderate |
 | 13+14 | Both gas features combined | 0.85 | Strong |

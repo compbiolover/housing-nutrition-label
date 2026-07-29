@@ -394,15 +394,44 @@ only the CLI readout was wrong. Fixed separately.
 - **No seismic modifier floor.** The wind leg has FORTIFIED tiers that supersede and
   the flood leg has mutually-exclusive elevation; the seismic leg has neither beyond
   the new foundation-tier rule, making it the easiest leg to drive toward zero.
-- **`BONUS_RING_SHANK_NAILS` = 0.88 warrants its own review.** Its comment cites
-  "IBHS: 12-25% better withdrawal resistance" — a *material property* being read
-  directly as an EAL multiplier, which is the same category error corrected
-  elsewhere in this pass. ARA prices a verified ring-shank + 5/8" deck upgrade above
-  Level C at 0.96–0.99.
-- **`BONUS_SEISMIC_HOLD_DOWNS` doc/code drift.** `feature-modifiers-research.md`
-  recommends 0.75; the code uses 0.85. One is stale. Hold-downs also partially
-  overlap cripple-wall bracing, since hold-downs at braced-panel ends are part of the
-  P-1100 detail.
+- ~~**`BONUS_RING_SHANK_NAILS` = 0.88 warrants its own review.**~~ **Resolved → 0.97.**
+  The category error was confirmed and quantified: ARA measures ring-shank at ~2×
+  the uplift capacity of 8d common at the same spacing, yet prices that same upgrade
+  at a loss relativity of 0.96–0.99 ("Enhanced Roof Deck", Tables 4-15 / 4-2). A
+  +100% capacity gain buys 1–4% of loss — compressive by 25–100×, so 0.88 was 3–12×
+  too large. The "12-25% withdrawal resistance" figure could not be traced to any
+  IBHS publication and is not even a correct capacity figure. The baseline is fixed
+  by the model itself: ring-shank became code in the 2006 FBC Supplement above
+  100 mph, and `code_era_factor` already prices that era, so the flag can only mean
+  "above what the era required".
+- ~~**`BONUS_SEISMIC_HOLD_DOWNS` doc/code drift.**~~ **Resolved → 1.00, neither
+  0.75 nor 0.85.** Both rested on component capacity (+213% peak load, +88%
+  stiffness), which is a mechanical property rather than a loss; the 928 lb → 2,907 lb
+  pair traces to a connector manufacturer's blog post on a single 4 ft × 8 ft
+  specimen, and the second cited source reviews mass-timber CLT rocking walls and
+  contains no loss data at all. The Jhd argument is inverted — Jhd is a CSA O86
+  *design* factor that equalizes hold-down and anchorage-only walls, making
+  hold-downs a substitute rather than a surplus. The flag double-counts at both
+  possible loci: tie-downs are a row of the FEMA P-1024/RA2 cripple-wall schedule
+  (sheets D4/D5) that `BONUS_CRIPPLE_WALL`'s 0.45 was measured on, and in the
+  superstructure they mark engineered-vs-prescriptive construction, which
+  `code_era_factor` already carries. Not self-reportable either: the only hold-downs
+  a homeowner can see are the crawlspace tie-downs already credited.
+
+- **`BONUS_SEALED_ROOF_DECK` = 0.80 is the next candidate.** ARA's secondary
+  water-resistance factors run 0.94–0.98 for modern roof covers (Tables 4-19/4-20),
+  and Table 4-13 puts the average SWR benefit at 6.5–8.0%. 0.80 is defensible only at
+  the weak-roof-cover tail. Same class of error as the two resolved above.
+- **Wind bonuses stack independently; ARA's tables are joint and sub-additive.**
+  ARA warns the effects form a "serial system" — "no SWR tends to minimize the effect
+  of deck strength" — and Florida's credits are a joint lookup across roof cover ×
+  deck × roof-wall × opening protection × SWR × shape × terrain, explicitly not
+  independent multipliers. Multiplying our per-feature constants will overstate
+  combined upgrades regardless of any single constant's value.
+- **`feature-modifiers-research.md` §10 "Anchor Bolt Spacing" (0.90)** carries the
+  same defect §12 did, and concedes it: "no published percentage reduction for
+  spacing alone (typically studied as part of complete retrofit package)". It is not
+  implemented in `house.py`; it should not be without a loss source.
 - **Metric composition.** This model's HAZUS-derived damage ratios are ground-up
   structural loss; PEER's EAL is FEMA P-58 repair cost normalised by replacement
   value. Close enough to compose, but not identical metrics.

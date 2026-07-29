@@ -43,5 +43,7 @@ jobs:
         run: python scripts/sync_readme.py --check
       - name: Docs site in sync with code (Setup / Reference pages)
         run: python scripts/sync_docs.py --check
+      - name: Icons in sync with the palette (favicons / apple-touch-icon)
+        run: python scripts/build_icons.py --check
       - name: Test (pytest)
         run: pytest -q

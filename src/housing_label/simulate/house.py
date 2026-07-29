@@ -314,8 +314,17 @@ BONUS_METAL_ROOF         = 0.75  # Standing seam metal roof; 150+ mph wind ratin
                                   # Source: industry testing data. Moderate evidence.
 BONUS_REINFORCED_GABLE   = 0.80  # Reinforced gable end walls; documented failure mode.
                                   # Source: FEMA failure mode documentation. Moderate evidence.
-BONUS_RING_SHANK_NAILS   = 0.88  # Ring-shank nails for sheathing; IBHS: 12-25% better
-                                  # withdrawal resistance. Source: IBHS. Moderate evidence.
+BONUS_RING_SHANK_NAILS   = 0.97  # Ring-shank sheathing nails ABOVE the code-era deck schedule
+                                  # that code_era_factor already prices. ARA 2008 (FL OIR Rpt
+                                  # 18401) "Enhanced Roof Deck" = 0.96 (Tbl 4-15) / 0.99 (Tbl
+                                  # 4-2). The former 0.88 read a *withdrawal capacity* figure as
+                                  # a loss ratio: ARA measures ring-shank at ~2x the uplift
+                                  # capacity of 8d common at the same spacing, yet prices that
+                                  # same upgrade at only 1-4% of loss — the capacity-to-loss
+                                  # mapping is compressive by 25-100x, not 1:1. Ring-shank
+                                  # became code in the 2006 FBC Supplement above 100 mph, so a
+                                  # legacy-deck baseline would double-count code_era_factor;
+                                  # this credit is strictly above-code. Strong evidence.
 # BONUS_TRUSS_16OC removed (was 0.92). Framing spacing acts only through sheathing
 # uplift capacity, which BONUS_RING_SHANK_NAILS already credits — Florida's
 # OIR-B1-1802 mitigation form lists truss spacing as an ALTERNATIVE route to a rated
@@ -340,7 +349,25 @@ BONUS_FORTIFIED_GOLD     = 0.20  # IBHS FORTIFIED Gold; actuarial: 76% claim red
 # Applied multiplicatively to seismic EAL only (after BRM).
 BONUS_CRIPPLE_WALL       = 0.45  # Cripple wall bracing for raised foundations;
                                   # PEER-CEA: 40-70% loss reduction. Strong evidence.
-BONUS_SEISMIC_HOLD_DOWNS = 0.85  # Hold-down connectors at shear walls.
+BONUS_SEISMIC_HOLD_DOWNS = 1.00  # Hold-downs at shear-wall ends: NO independent credit —
+                                  # double-counted at both places they could act. At the
+                                  # foundation, tie-downs are a row of the FEMA P-1024/RA2
+                                  # cripple-wall Earthquake Strengthening Schedule (sheets D4
+                                  # "with" / D5 "without"), and PEER-CEA's 6-ft cripple-wall
+                                  # retrofits "assume tie-downs" — so BONUS_CRIPPLE_WALL was
+                                  # measured on retrofits that already include them. In the
+                                  # superstructure they are what separates an engineered shear
+                                  # wall from a prescriptive IRC braced wall panel, i.e. the
+                                  # engineered-vs-conventional split code_era_factor already
+                                  # carries. The former 0.85 (and the research doc's 0.75) came
+                                  # from component capacity — +213% peak load, +88% stiffness —
+                                  # which is a mechanical property, not a loss. No study
+                                  # isolates hold-downs in dwelling loss; the CEA discount
+                                  # schedule has no such item; and in-wall hardware is not
+                                  # self-reportable (the only visible hold-downs are the
+                                  # crawlspace ones already credited). Weak evidence for any
+                                  # value below 1.00 — do not reintroduce without a dwelling
+                                  # EAL or claims source.
                                   # Source: engineering practice. Moderate evidence.
 BONUS_AUTO_GAS_SHUTOFF   = 0.90  # Automatic seismic gas shutoff valve; prevents fire.
                                   # Source: FEMA guidelines. Moderate evidence.
@@ -1046,7 +1073,7 @@ BONUS_MODIFIER_DESC = {
     "fortified_silver":     f"×{BONUS_FORTIFIED_SILVER} wind/tornado (composite)",
     "fortified_gold":       f"×{BONUS_FORTIFIED_GOLD} wind/tornado (composite)",
     "cripple_wall_bracing": f"×{BONUS_CRIPPLE_WALL} seismic only",
-    "seismic_hold_downs":   f"×{BONUS_SEISMIC_HOLD_DOWNS} seismic only",
+    "seismic_hold_downs":   "no EAL credit (counted in cripple-wall bracing / code era)",
     "auto_gas_shutoff":     f"×{BONUS_AUTO_GAS_SHUTOFF} seismic only",
     "elevation_1ft":        f"×{BONUS_ELEVATION_1FT} flood only",
     "elevation_2ft":        f"×{BONUS_ELEVATION_2FT} flood only",
