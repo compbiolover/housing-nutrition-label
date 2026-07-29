@@ -133,6 +133,85 @@ def test_simulator_shares_one_implementation():
     assert house.fire_age_factor is fire_age_factor
 
 
+def _seismic(**kw):
+    """seismic_adj for a Shelby parcel with the given overrides."""
+    from housing_label.simulate.house import simulate, PRESETS
+    cfg = dict(PRESETS["baseline"])
+    cfg.update(lat=35.13, lon=-89.99)
+    cfg.update(kw)
+    return simulate(cfg)
+
+
+def test_seismic_foundation_retrofits_require_a_foundation_to_retrofit():
+    """Both foundation retrofit tiers act on the framing-to-foundation connection,
+    so they only score where that connection exists. A slab has no cripple wall and
+    no raised sill; a full basement has full-height walls rather than a cripple
+    wall. A claimed-but-impossible upgrade earns no credit and is named in a note."""
+    from housing_label.simulate.house import BONUS_CRIPPLE_WALL, BONUS_SEISMIC_RET
+
+    # Cripple-wall bracing: credited on a raised foundation, ignored on slab and
+    # on a full basement.
+    for foundation in ("crawl", "partial-basement"):
+        plain = _seismic(foundation=foundation)["seismic_adj"]
+        braced = _seismic(foundation=foundation, cripple_wall_bracing=True)
+        assert np.isclose(braced["seismic_adj"], plain * BONUS_CRIPPLE_WALL), foundation
+        assert braced["seismic_applicability_note"] is None, foundation
+
+    for foundation in ("slab", "full-basement"):
+        plain = _seismic(foundation=foundation)["seismic_adj"]
+        braced = _seismic(foundation=foundation, cripple_wall_bracing=True)
+        assert np.isclose(braced["seismic_adj"], plain), foundation
+        assert "Cripple wall bracing" in braced["seismic_applicability_note"], foundation
+        # The CLI reads this key to avoid printing a modifier that never applied.
+        assert braced["inapplicable_upgrades"] == ["cripple_wall_bracing"], foundation
+
+    # Sill anchorage is the broader tier: any non-slab foundation, never slab.
+    for foundation in ("crawl", "partial-basement", "full-basement"):
+        plain = _seismic(foundation=foundation)["seismic_adj"]
+        bolted = _seismic(foundation=foundation, seismic_retrofit=True)
+        assert np.isclose(bolted["seismic_adj"], plain * BONUS_SEISMIC_RET), foundation
+
+    plain = _seismic(foundation="slab")["seismic_adj"]
+    bolted = _seismic(foundation="slab", seismic_retrofit=True)
+    assert np.isclose(bolted["seismic_adj"], plain)
+    assert "anchorage" in bolted["seismic_applicability_note"].lower()
+
+
+def test_inapplicable_note_gives_the_reason_that_actually_applies():
+    """The two tiers fail for different reasons, so the note must not use one
+    blanket explanation. A full basement genuinely has a sill to bolt — saying it
+    has none would contradict the anchorage tier being credited there."""
+    full = _seismic(foundation="full-basement", cripple_wall_bracing=True)
+    note = full["seismic_applicability_note"]
+    assert "full-height basement walls" in note, note
+    assert "sill" not in note, note        # it HAS a sill; only the cripple wall is absent
+
+    slab = _seismic(foundation="slab", cripple_wall_bracing=True, seismic_retrofit=True)
+    note = slab["seismic_applicability_note"]
+    assert "no cripple wall to brace" in note, note
+    assert "bolted into the slab itself" in note, note
+
+
+def test_seismic_tiers_supersede_and_degrade_gracefully():
+    """Cripple-wall bracing supersedes sill anchorage where both apply (they are
+    two tiers of one retrofit). Where bracing is impossible but anchorage is not,
+    anchorage still scores rather than being swallowed by the superseded branch."""
+    from housing_label.simulate.house import BONUS_CRIPPLE_WALL, BONUS_SEISMIC_RET
+
+    plain = _seismic(foundation="crawl")["seismic_adj"]
+    both = _seismic(foundation="crawl", cripple_wall_bracing=True, seismic_retrofit=True)
+    assert np.isclose(both["seismic_adj"], plain * BONUS_CRIPPLE_WALL)   # not the product
+    assert "supersedes" in both["seismic_retrofit_note"]
+
+    # Full basement: bracing cannot apply, so anchorage takes effect on its own.
+    plain = _seismic(foundation="full-basement")["seismic_adj"]
+    both = _seismic(foundation="full-basement",
+                    cripple_wall_bracing=True, seismic_retrofit=True)
+    assert np.isclose(both["seismic_adj"], plain * BONUS_SEISMIC_RET)
+    assert both["seismic_retrofit_note"] is None
+    assert "Cripple wall bracing" in both["seismic_applicability_note"]
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

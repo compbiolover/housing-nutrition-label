@@ -387,6 +387,35 @@ ELEVATION_FLAGS = ["elevation_1ft", "elevation_2ft", "elevation_3ft"]
 # gave 0.45 × 0.75 = 0.34 for a single physical intervention.
 SEISMIC_FOUNDATION_FLAGS = ["cripple_wall_bracing", "seismic_retrofit"]
 
+# Which foundations each seismic retrofit tier is physically possible on. Both
+# retrofits act on the connection between the framing and the foundation, so the
+# foundation type decides whether there is anything there to retrofit — a claimed
+# upgrade on the wrong foundation earns no credit rather than silently scoring.
+#
+# A cripple wall is the short stud wall between the foundation sill and the first
+# floor, which is what defines raised/crawlspace construction. A slab has no such
+# wall at all, and a full basement has full-height concrete walls instead — so the
+# FEMA P-1100 crawlspace retrofit has nothing to brace on either. Sill anchorage
+# (bolting) is the broader case and needs only a non-slab foundation; on a slab the
+# sill is bolted into the slab itself, which is not the stem-wall case PEER-CEA
+# measured. This mirrors the CEA's own eligibility split, which pays 20-25% on
+# "raised" foundations, 10-15% on "other non-slab", and nothing on slab.
+CRIPPLE_WALL_FOUNDATIONS = frozenset({"crawl", "partial-basement"})
+SEISMIC_ANCHORAGE_FOUNDATIONS = frozenset({"crawl", "partial-basement", "full-basement"})
+
+# Why a claimed tier cannot apply, keyed by (flag, foundation). Phrased per tier
+# because the two do not fail for the same reason: a full basement has no cripple
+# wall but *does* have a sill to bolt, so a single blanket reason would overstate
+# what is missing and contradict SEISMIC_ANCHORAGE_FOUNDATIONS.
+RETROFIT_INAPPLICABLE_REASON = {
+    ("cripple_wall_bracing", "slab"):
+        "there is no cripple wall to brace",
+    ("cripple_wall_bracing", "full-basement"):
+        "full-height basement walls take the place of a cripple wall",
+    ("seismic_retrofit", "slab"):
+        "the sill is bolted into the slab itself, not a raised stem wall",
+}
+
 # ── Preset profiles ────────────────────────────────────────────────────────────
 PRESETS = {
     "baseline": {
@@ -569,7 +598,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--seismic-retrofit",  action="store_true",
                    help="Foundation/sill-plate anchorage retrofit — bolting without "
                         "cripple-wall bracing (×0.75 seismic EAL; superseded by "
-                        "--cripple-wall-bracing).")
+                        "--cripple-wall-bracing). Non-slab foundations only.")
 
     # ── Wind/Tornado above-code features ──────────────────────────────────────────
     wind = p.add_argument_group("wind/tornado above-code features")
@@ -601,7 +630,8 @@ def build_parser() -> argparse.ArgumentParser:
     # ── Seismic above-code features ───────────────────────────────────────────────
     seismic = p.add_argument_group("seismic above-code features")
     seismic.add_argument("--cripple-wall-bracing", action="store_true",
-                         help="Cripple wall bracing for raised foundations (×0.45 seismic EAL).")
+                         help="Cripple wall bracing (×0.45 seismic EAL). Raised foundations "
+                              "only — crawl or partial-basement.")
     seismic.add_argument("--seismic-hold-downs",   action="store_true",
                          help="Hold-down connectors at shear walls (×0.85 seismic EAL).")
     seismic.add_argument("--auto-gas-shutoff",     action="store_true",
@@ -847,16 +877,39 @@ def simulate(cfg: dict, structure: dict | None = None) -> dict:
     r["fortified_note"] = fortified_note
 
     # ── Seismic above-code modifiers ──────────────────────────────────────────
-    # Foundation retrofit tiers supersede rather than stack (SEISMIC_FOUNDATION_FLAGS).
+    # Foundation retrofit tiers supersede rather than stack (SEISMIC_FOUNDATION_FLAGS),
+    # and each only applies on a foundation it is physically possible on.
+    foundation = cfg.get("foundation")
+    crip_claimed, ret_claimed = (bool(cfg.get(f)) for f in SEISMIC_FOUNDATION_FLAGS)
+    crip_ok = crip_claimed and foundation in CRIPPLE_WALL_FOUNDATIONS
+    ret_ok  = ret_claimed  and foundation in SEISMIC_ANCHORAGE_FOUNDATIONS
+
     seismic_retrofit_note = None
-    if cfg.get("cripple_wall_bracing"):
+    if crip_ok:
         seismic_adj *= BONUS_CRIPPLE_WALL
-        if cfg.get("seismic_retrofit"):
+        if ret_ok:
             seismic_retrofit_note = ("Cripple-wall bracing supersedes the generic foundation "
                                      "anchorage retrofit — it already includes sill anchorage.")
-    elif cfg.get("seismic_retrofit"):
+    elif ret_ok:
         seismic_adj *= BONUS_SEISMIC_RET
     r["seismic_retrofit_note"] = seismic_retrofit_note
+
+    # Name any tier that was claimed but cannot apply, so a checked box that did
+    # nothing is visible rather than silently ignored.
+    inapplicable = [f for f, claimed, ok in
+                    (("cripple_wall_bracing", crip_claimed, crip_ok),
+                     ("seismic_retrofit",     ret_claimed,  ret_ok))
+                    if claimed and not ok]
+    r["inapplicable_upgrades"] = inapplicable
+    r["seismic_applicability_note"] = (
+        f"No seismic credit on a {foundation or 'unknown'} foundation — "
+        + "; ".join(
+            f"{BONUS_LABELS[f]}: "
+            + RETROFIT_INAPPLICABLE_REASON.get(
+                (f, foundation), "that retrofit does not apply to this foundation")
+            for f in inapplicable)
+        + "."
+    ) if inapplicable else None
     if cfg.get("seismic_hold_downs"):    seismic_adj *= BONUS_SEISMIC_HOLD_DOWNS
     if cfg.get("auto_gas_shutoff"):      seismic_adj *= BONUS_AUTO_GAS_SHUTOFF
 
@@ -1095,13 +1148,18 @@ def print_scorecard(cfg: dict, r: dict) -> None:
         print(row(f"    General bonus mod  : {r['gen_mod']:.4f}  (flood/tornado/seismic)"))
         haz_specific = [b for b in BONUS_LABELS if cfg.get(b)
                         and b not in ("solar","backup_generator","passive_house")]
+        inapplicable = set(r.get("inapplicable_upgrades") or ())
         for b in haz_specific:
+            # Show what actually happened: a flag the foundation rules out never
+            # multiplied anything, so printing its modifier would misrepresent it.
+            desc = (f"not applied — needs a {'raised' if b == 'cripple_wall_bracing' else 'non-slab'}"
+                    f" foundation" if b in inapplicable else BONUS_MODIFIER_DESC[b])
             # Modifier descriptions can be a full sentence now ("no EAL credit …"),
             # so wrap rather than overflow the box border.
-            for line in _wrap_rows(f"    + {BONUS_LABELS[b]:<30}: {BONUS_MODIFIER_DESC[b]}",
-                                   indent=" " * 6):
+            for line in _wrap_rows(f"    + {BONUS_LABELS[b]:<30}: {desc}", indent=" " * 6):
                 print(row(line))
-    for key in ("fortified_note", "seismic_retrofit_note", "outage_note"):
+    for key in ("fortified_note", "seismic_retrofit_note",
+                "seismic_applicability_note", "outage_note"):
         if r.get(key):
             for line in _wrap_rows(f"    ⚑  {r[key]}", indent=" " * 7):
                 print(row(line))
@@ -1428,6 +1486,9 @@ def dimension_details(cfg: dict, r: dict, label: dict) -> dict:
         ("On a home value of", _money(per_unit_home_value(cfg))),
         # Not scored above — see the outage_note rationale in simulate().
         ("Beyond these perils", r.get("outage_note")),
+        # A claimed upgrade that the foundation makes impossible earns no credit;
+        # say so rather than letting the box look as though it counted.
+        ("Upgrade not applicable", r.get("seismic_applicability_note")),
     )
 
     # Energy — modeled energy-use intensity and the resulting cost.

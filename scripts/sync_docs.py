@@ -283,8 +283,11 @@ UPGRADE_GROUPS = [
     ]),
     ("Seismic", [
         ("Foundation anchorage retrofit (bolting)", BONUS_SEISMIC_RET, "seismic_retrofit",
-         f"{BONUS_SEISMIC_RET:.2f} &mdash; superseded by cripple-wall bracing, which includes it"),
-        ("Cripple-wall bracing", BONUS_CRIPPLE_WALL, "cripple_wall_bracing", None),
+         f"{BONUS_SEISMIC_RET:.2f} on non-slab foundations &mdash; superseded by "
+         "cripple-wall bracing, which includes it"),
+        ("Cripple-wall bracing", BONUS_CRIPPLE_WALL, "cripple_wall_bracing",
+         f"{BONUS_CRIPPLE_WALL:.2f} on raised foundations only (crawl or "
+         "partial&nbsp;basement) &mdash; a slab has no cripple wall to brace"),
         ("Seismic hold-downs", BONUS_SEISMIC_HOLD_DOWNS, "seismic_hold_downs", None),
         ("Automatic gas shut-off valve", BONUS_AUTO_GAS_SHUTOFF, "auto_gas_shutoff", None),
     ]),

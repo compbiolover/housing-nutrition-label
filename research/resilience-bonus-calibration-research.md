@@ -378,12 +378,19 @@ only the CLI readout was wrong. Fixed separately.
 
 ## 8. Known limitations and follow-on work
 
-- **No applicability gating.** `seismic_retrofit`, `cripple_wall_bracing` and
-  `seismic_hold_downs` apply regardless of `foundation`, but cripple-wall bracing is
-  physically impossible on a slab. `feature-modifiers-research.md` §"Applicability
-  Flags" already specifies `CRIPPLE_WALL_BRACING # only raised foundation homes`; the
-  code never implemented it. This is arguably a larger accuracy problem than any
-  single constant.
+- ~~**No applicability gating.**~~ **Resolved.** Both foundation retrofit tiers are
+  now gated on `foundation` (`CRIPPLE_WALL_FOUNDATIONS`,
+  `SEISMIC_ANCHORAGE_FOUNDATIONS`), implementing what
+  `feature-modifiers-research.md` §"Applicability Flags" had specified but the code
+  never applied. Cripple-wall bracing scores only on raised foundations (crawl,
+  partial basement) — a slab has no cripple wall, and a full basement has
+  full-height walls instead. Sill anchorage is the broader tier and needs only a
+  non-slab foundation; on a slab the sill bolts into the slab itself, which is not
+  the stem-wall case PEER-CEA measured. This mirrors the CEA's own eligibility
+  split (20–25% raised, 10–15% other non-slab, nothing on slab). A claimed but
+  impossible upgrade earns no credit and is named in a user-facing note rather than
+  being silently dropped. `seismic_hold_downs` is deliberately left ungated — it
+  acts on superstructure shear walls, not the foundation connection.
 - **No seismic modifier floor.** The wind leg has FORTIFIED tiers that supersede and
   the flood leg has mutually-exclusive elevation; the seismic leg has neither beyond
   the new foundation-tier rule, making it the easiest leg to drive toward zero.
