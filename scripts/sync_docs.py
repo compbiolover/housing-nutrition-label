@@ -274,7 +274,9 @@ UPGRADE_GROUPS = [
         ("Sealed roof deck", BONUS_SEALED_ROOF_DECK, "sealed_roof_deck", None),
         ("Standing-seam metal roof", BONUS_METAL_ROOF, "metal_roof", None),
         ("Reinforced gable ends", BONUS_REINFORCED_GABLE, "reinforced_gable", None),
-        ("Ring-shank nails", BONUS_RING_SHANK_NAILS, "ring_shank_nails", None),
+        ("Ring-shank nails", BONUS_RING_SHANK_NAILS, "ring_shank_nails",
+         f"{BONUS_RING_SHANK_NAILS:.2f} &mdash; credited only above the deck schedule the "
+         "build year already assumes"),
     ]),
     ("IBHS FORTIFIED (composite that supersedes the wind features above)", [
         ("FORTIFIED Roof", BONUS_FORTIFIED_ROOF, "fortified_roof", None),
@@ -288,7 +290,9 @@ UPGRADE_GROUPS = [
         ("Cripple-wall bracing", BONUS_CRIPPLE_WALL, "cripple_wall_bracing",
          f"{BONUS_CRIPPLE_WALL:.2f} on raised foundations only (crawl or "
          "partial&nbsp;basement) &mdash; a slab has no cripple wall to brace"),
-        ("Seismic hold-downs", BONUS_SEISMIC_HOLD_DOWNS, "seismic_hold_downs", None),
+        ("Seismic hold-downs", BONUS_SEISMIC_HOLD_DOWNS, "seismic_hold_downs",
+         "no separate credit &mdash; tie-downs are part of the cripple-wall retrofit, "
+         "and in upper walls they mark engineered construction the build year covers"),
         ("Automatic gas shut-off valve", BONUS_AUTO_GAS_SHUTOFF, "auto_gas_shutoff", None),
     ]),
     ("Flood", [
