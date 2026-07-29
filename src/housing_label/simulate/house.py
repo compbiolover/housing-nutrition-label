@@ -843,10 +843,13 @@ BONUS_LABELS = {
 }
 
 BONUS_MODIFIER_DESC = {
-    "solar":                f"×{BONUS_SOLAR} all hazards",
-    "backup_generator":     f"×{BONUS_GENERATOR} all hazards",
-    "passive_house":        f"×{BONUS_PASSIVE} all hazards",
-    "fire_sprinklers":      f"×{BONUS_SPRINKLERS} all hazards",
+    # The "general" modifiers below are applied to flood/tornado/seismic only —
+    # gen_mod deliberately skips the fire leg (see the general-bonus block).
+    "solar":                f"×{BONUS_SOLAR} flood/tornado/seismic",
+    "backup_generator":     f"×{BONUS_GENERATOR} flood/tornado/seismic",
+    "passive_house":        f"×{BONUS_PASSIVE} flood/tornado/seismic",
+    "fire_sprinklers":      f"×{BONUS_SPRINKLERS} flood/tornado/seismic, "
+                            f"×{BONUS_FIRE_SPRINKLERS} fire",
     "tornado_safe_room":    f"×{BONUS_SAFE_ROOM} tornado only",
     "leak_detection":       f"×{BONUS_LEAK_DETECT} flood only",
     "seismic_retrofit":     f"×{BONUS_SEISMIC_RET} seismic only",
