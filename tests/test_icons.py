@@ -23,8 +23,10 @@ import re
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
 
-_spec = importlib.util.spec_from_file_location(
-    "build_icons", _ROOT / "scripts" / "build_icons.py")
+_GENERATOR = _ROOT / "scripts" / "build_icons.py"
+_spec = importlib.util.spec_from_file_location("build_icons", _GENERATOR)
+if _spec is None or _spec.loader is None:      # renamed/moved generator
+    raise ImportError(f"cannot load the icon generator at {_GENERATOR} — did it move?")
 build_icons = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(build_icons)
 
@@ -46,6 +48,21 @@ def test_committed_icons_match_the_generator():
         assert path.exists(), f"{path.name} is missing — run scripts/build_icons.py"
         assert path.read_bytes() == want, (
             f"{path.name} is out of date — run `python scripts/build_icons.py`")
+
+
+def test_svg_geometry_is_derived_from_the_shared_constants():
+    """The SVG is generated from the same ROOF/BODY/DOOR constants the rasters
+    draw from. Moving a constant must move the markup — if the SVG ever goes back
+    to being a hand-written literal, the vector and bitmap marks can drift apart
+    silently, which is the failure this whole module exists to prevent."""
+    before = build_icons.svg()
+    original = build_icons.BODY
+    try:
+        build_icons.BODY = (7.0, 15.5, 25.0, 26.0)      # widen the house
+        assert build_icons.svg() != before, "SVG markup ignored a geometry change"
+    finally:
+        build_icons.BODY = original
+    assert build_icons.svg() == before                   # restored cleanly
 
 
 def test_palette_tracks_the_stylesheet():
