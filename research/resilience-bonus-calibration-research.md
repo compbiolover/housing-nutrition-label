@@ -418,20 +418,54 @@ only the CLI readout was wrong. Fixed separately.
   `code_era_factor` already carries. Not self-reportable either: the only hold-downs
   a homeowner can see are the crawlspace tie-downs already credited.
 
-- **`BONUS_SEALED_ROOF_DECK` = 0.80 is the next candidate.** ARA's secondary
-  water-resistance factors run 0.94–0.98 for modern roof covers (Tables 4-19/4-20),
-  and Table 4-13 puts the average SWR benefit at 6.5–8.0%. 0.80 is defensible only at
-  the weak-roof-cover tail. Same class of error as the two resolved above.
-- **Wind bonuses stack independently; ARA's tables are joint and sub-additive.**
-  ARA warns the effects form a "serial system" — "no SWR tends to minimize the effect
-  of deck strength" — and Florida's credits are a joint lookup across roof cover ×
-  deck × roof-wall × opening protection × SWR × shape × terrain, explicitly not
-  independent multipliers. Multiplying our per-feature constants will overstate
-  combined upgrades regardless of any single constant's value.
-- **`feature-modifiers-research.md` §10 "Anchor Bolt Spacing" (0.90)** carries the
-  same defect §12 did, and concedes it: "no published percentage reduction for
-  spacing alone (typically studied as part of complete retrofit package)". It is not
-  implemented in `house.py`; it should not be without a loss source.
+- ~~**`BONUS_SEALED_ROOF_DECK` = 0.80 is the next candidate.**~~ **Resolved → 0.93.**
+  Same category error again: the 0.80 descended from IBHS's "up to 95% water
+  intrusion prevention", which is an attic water-**volume** figure measured
+  conditional on the cover already having failed, not a loss ratio. ARA Table 4-13
+  puts the average benefit at 6.5% (Terrain B) / 8.0% (Terrain C) = 0.94/0.93;
+  Tables 4-19/4-20 give 0.91–0.98 over a code-grade cover and 0.67–0.98 over a weak
+  one; ARA's 2024 restudy medians land at 0.93; and Florida's filed credits
+  replicate it (~0.94 code-grade cover, ~0.85 weak). Set at the strong-cover end
+  deliberately — SWR is a backup whose value falls as the cover improves, and both
+  `BONUS_METAL_ROOF` and recent code eras already pay for a good cover.
+- ~~**Wind bonuses stack independently.**~~ **Resolved — `BONUS_GROUPS` +
+  `BONUS_FLOOR`.** Flags acting on one failure path now collapse to the strongest;
+  survivors multiply across paths; the result is floored at that hazard's
+  best-evidenced composite. This fixed a live inversion — the seven wind flags
+  stacked to 0.1344 (86.6%) against FORTIFIED Gold's 0.20, so self-reported
+  checkboxes beat the inspected certification the code makes them defer to. They now
+  reach 0.2166, leaving Gold strictly better. On the flood side, elevation supersedes
+  vents (FEMA prices openings from a table indexed *by* first floor height: −1.7% at
+  3 ft against −22.1% for the height itself) and the leg is floored at
+  `BONUS_ELEVATION_3FT`, because that FEMA figure is already a total residual. Flood
+  vents also now require an enclosure to vent, mirroring FEMA's own eligibility.
+- ~~**§10 "Anchor Bolt Spacing" (0.90)**~~ **Resolved → 1.00, retired.** See the
+  rewritten §10: the retrofit standard prescribes the *same* spacing ladder as the
+  IRC, so there is no above-code tier to claim, and PEER finds the bolt line is not
+  the governing failure mode.
+
+**Surfaced by the stacking review — the constants it says still need re-deriving.**
+The aggregation rule caps the symptom; four wind constants are separately 1.7–3.9×
+more generous than ARA's loss-derived values, for the same capacity-read-as-loss
+reason corrected elsewhere in this document. In priority order:
+
+| Constant | Ours | ARA loss-derived (Terrain B) | Cited basis |
+|---|---|---|---|
+| `BONUS_HURRICANE_STRAPS` | 0.70 | 0.924 | "IBHS: 50% **uplift** reduction" |
+| `BONUS_HIP_ROOF` | 0.55 | 0.760 | "IBHS: 45–50% peak **pressure** reduction" |
+| `BONUS_IMPACT_GARAGE_DOOR` | 0.75 | 0.849 (0.621 Terrain C) | closest to defensible |
+| `BONUS_ELEVATION_3FT` | 0.04 | — | not refuted, but FEMA's −22.1% is measured above *grade* while ours is above *BFE*; the basis deserves an explicit note |
+| `BONUS_BACKFLOW_VALVE` | 0.90 | — | NFIP Risk Rating 2.0 credits only elevation, openings and elevated machinery; backflow valves are not among them |
+
+If those were re-derived, the plain product would land near ARA's own joint-table
+answer (~0.30) and the floor would never bind — which is the real endpoint. Note ARA's
+Table 4-13 is unweighted across table cells and drawn from pre-FBC houses, so it is a
+magnitude reference rather than a drop-in replacement.
+
+- **The "95% water intrusion" figure is also misapplied to impact windows** in
+  `feature-modifiers-research.md` ("IBHS finds 95% of water intrusion can be prevented
+  by maintaining envelope integrity"), in the section behind
+  `BONUS_IMPACT_GARAGE_DOOR`. Worth checking when that constant is re-derived.
 - **Metric composition.** This model's HAZUS-derived damage ratios are ground-up
   structural loss; PEER's EAL is FEMA P-58 repair cost normalised by replacement
   value. Close enough to compose, but not identical metrics.
