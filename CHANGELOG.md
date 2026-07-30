@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.72](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.71...v0.1.72) (2026-07-30)
+
+
+### Bug Fixes
+
+* reconcile the fiscal ratio's revenue scope with its cost scope ([#226](https://github.com/compbiolover/housing-nutrition-label/issues/226)) ([117fbfe](https://github.com/compbiolover/housing-nutrition-label/commit/117fbfe1fb9fa1f07eeb97211f1857af5d5edfee))
+
 ## [0.1.71](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.70...v0.1.71) (2026-07-29)
 
 
