@@ -52,6 +52,9 @@ construction + `G` other capital):
 | sanitation | 81 (solid waste management) |
 | parks | 61 (parks & recreation) |
 
+The same file's **current-charges revenue** (object `A`) for these functions feeds the
+fee-recovery ratios added in Phase 5 — see that section for the code mapping.
+
 Local government units only (types 1–4: county / municipal / township / special
 district); state (0) and school-district (5) governments are excluded.
 
@@ -166,7 +169,134 @@ density comparison barely moved the needle (1→4 units capped the gain).
   per-unit value a quadplex yields ~4× the property-tax revenue per acre on the
   same shared infrastructure (the "value per acre" lens).
 
+## Phase 5 (implemented) — revenue-scope reconciliation + rental classification
+
+Phase 3 made both sides of the ratio like-for-like on *schools*. They were still
+mismatched on *user fees* and on *tax classification*, and both errors ran the same
+direction: understating revenue for exactly the dense housing the cost model treats
+most favorably.
+
+### The symptom
+
+A 12-story, 157-unit downtown Memphis building scored an A while showing a fiscal
+ratio of 0.60, under label copy reading "a ratio above ~1 means it pays its own way."
+Both statements were defensible on their own and incoherent together. Investigating
+the gap turned up two real modeling errors rather than a copy problem.
+
+At that building's density the model is already at its cost asymptote: of $2,014/unit
+of modeled cost, only ~$163 is density-responsive (roads + water/sewer). The rest is
+per-capita or flat (police $840, fire $408, sanitation $302, parks $300). Past
+~50 DU/acre, adding density cannot move the ratio further — so if the ratio was wrong
+there, it had to be wrong on the revenue side.
+
+### Fix 1 — count user-fee revenue
+
+The cost side counted water, sewer, and trash in full. The revenue side counted only
+property tax. But residents pay for those services through utility bills and a monthly
+fee, so the ratio was comparing the full cost of service against a revenue stream that
+was never meant to cover it.
+
+`scripts/build_govfinance.py` now also parses **current-charges revenue** (object code
+`A`) for the same functions from the same Census of Governments file, and writes a
+per-county **fee-recovery ratio** = charges ÷ direct expenditure:
+
+| Component | Census revenue code(s) | National recovery |
+|---|---|---|
+| roads | A44 (regular highways) | 2.9% |
+| water_sewer | A80 (sewerage) + A91 (water utility revenue) | 100% (capped; raw 102.7%) |
+| fire | *none exists* | 0% |
+| police | *none exists* | 0% |
+| sanitation | A81 (solid waste management) | 75.2% |
+| parks | A61 (parks & recreation) | 22.5% |
+
+`enrich_row` multiplies each modeled cost component by its county's recovery rate and
+adds the result to the numerator. Ratios are capped at 1.0 — Shelby's MLGW recovers
+more than its own expenditure, but crediting >100% would let a home generate phantom
+general-fund revenue on its pipes. (The surplus MLGW actually transfers to the general
+fund is real but unmodeled: a conservatism in the same direction as the rest.)
+
+That fire and police recover **0% everywhere** is the substantive finding, not a data
+gap: the Census classification has no current-charge code for either, so property tax
+really is the only thing paying for them. This is why the typical home still doesn't
+reach 1.0 even with fees counted, and why the remaining gap is a genuine result rather
+than an accounting artifact.
+
+### Fix 2 — rental housing is not assessed as residential in Tennessee
+
+The model applied a flat 25% assessment ratio to every parcel. Tennessee's
+**constitution** says otherwise: Tenn. Const. art. II, § 28 assesses residential
+property at 25% "provided that residential property containing two (2) or more rental
+units is hereby defined as industrial and commercial property," which § 67-5-801
+assesses at **40%**. Codified at Tenn. Code Ann. § 67-5-501(11) and § 67-5-501(4).
+
+The operative count is **rental units, not dwelling units**. Tenn. Att'y Gen. Op. No.
+25-016 (Aug. 25, 2025) applies it: a single-family home rented long-term stays
+residential, and so does an owner-occupied duplex, since each holds only one rental
+unit. There is no bright-line physical test — *Spring Hill, L.P. v. State Bd. of
+Equalization*, No. M2001-02683-COA-R3-CV, 2003 WL 23099679, at \*17–\*18 (Tenn. Ct.
+App. Dec. 31, 2003) classified 44 detached homes as commercial because they were one
+commonly owned rental development.
+
+So a Memphis apartment building generates **1.6×** the property tax the model credited
+it. New module `src/housing_label/data/assessment.py` encodes this. Two design choices
+matter:
+
+- It returns the commercial ratio **or `None`** — never the residential ratio — so the
+  correction is strictly additive and can only move parcels the statute actually
+  reclassifies. A caller supplying its own assessment basis is never silently
+  overridden. (A test asserts this; an earlier draft that returned the residential
+  ratio broke the national path, which passes `assess_ratio=1.0`.)
+- Tenure defaults to rental for multi-unit buildings, which ACS 2024 table B25032
+  supports for **86.1%** of units in 2+ unit structures and 87.9% in 5+ unit
+  structures. Callers can state tenure explicitly for a condo or owner-occupied duplex.
+
+### Re-calibration
+
+With both sides covering the same services, the national median fiscal ratio moves
+**0.31 → 0.66** and `INFRA_XS` was re-anchored. Roughly **13%** of US homes now clear
+1.0 (p90 ≈ 1.15), versus essentially none before — a distribution that can actually
+distinguish "pays its way" from "doesn't."
+
+The 157-unit Memphis building lands at **1.17**: a net contributor. The two fixes
+contribute about equally (fees ≈ +$447/unit of revenue; classification ≈ +$638/unit).
+
+### Per-acre productivity, restated
+
+Phase 4's `revenue_per_acre` had the same scope mismatch as the ratio itself — a
+tax-only numerator against a full-cost `cost_per_acre`, which made
+`net_fiscal_per_acre` systematically too negative. It now uses total revenue, so the
+Phase 4 note above ("~4× the property-tax revenue per acre") no longer describes what
+the field reports. On a fixed Memphis lot at constant per-unit value, 1 → 4 units:
+
+| Leg | 1 → 4 units | why |
+|---|---|---|
+| property tax / acre | **6.4×** | 4× units × 1.6× residential→commercial reclassification (≈4× outside TN) |
+| user fees / acre | **2.0×** | fees ride on modeled cost, so they amortize with density rather than scaling with units |
+| **total revenue / acre** | **4.6×** | the blend, and what the UI shows |
+| **net fiscal / acre** | **−$6,900 → +$15,900** | net drain to net contributor on identical land |
+
+### Copy
+
+The label said "a ratio above ~1 means it pays its own way" while the scale graded a
+0.31 as average — so the tooltip described an accounting identity the model never
+computed. The dimension is a **national percentile rank**, and the copy now says so:
+the typical US home covers about two-thirds of its cost, an A can coexist with not
+fully paying your way, and the reason is fire and police.
+
+**Limitation (unfixed):** only Tennessee is encoded. Off the pilot path the revenue
+side uses an ACS effective rate derived from *owner-occupied* homes (B25103 ÷ B25077),
+which already embeds whatever classification those homes fall under — so applying the
+uplift there would double-count, and classification is disabled. In any other
+split-roll state, a rental building's property tax is still understated. Extending the
+table means reading each state's constitution or code individually; it should not be
+guessed from a secondary source.
+
 ## Future phases (not in this change)
+
+- **Split-roll classification beyond Tennessee**: several states classify multi-unit
+  rental housing separately, with different thresholds and ratios. Each needs primary
+  sources, and the national path needs a rate that isn't owner-occupied-derived before
+  the uplift can be applied without double-counting.
 
 - **Sub-county / per-jurisdiction property tax**: state DOR millage tables (and
   Lincoln/MCFE city benchmarks) for municipal-level precision — PDF-only, ~50 bespoke

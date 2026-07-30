@@ -442,7 +442,15 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
     if mf_units and mf_units > cfg_units:
         infra_row = row.copy()
         infra_row["CALC_ACRE"] = row["CALC_ACRE"] * (cfg_units / mf_units)
-    infra = infra_enrich_row(infra_row, **infra_params) if infra_params else infra_enrich_row(infra_row)
+    # Dwelling units on the parcel — entered, or detected for a multi-family
+    # structure. Drives property-tax classification: in Tennessee a parcel with 2+
+    # rental units is assessed at the 40% commercial ratio, not 25% residential.
+    # ``owner_occupied`` is unknown here, so it resolves to the ACS-backed default
+    # (a multi-unit building is rental); callers can state it explicitly.
+    parcel_units = max(cfg_units, int(mf_units or 0))
+    infra_kwargs = {"units": parcel_units,
+                    "owner_occupied": cfg.get("owner_occupied")}
+    infra = infra_enrich_row(infra_row, **{**(infra_params or {}), **infra_kwargs})
     fr = infra.get("fiscal_ratio")
     infrastructure_score = (
         round(_loglin(fr, INFRA_XS, INFRA_YS), 1)
@@ -455,6 +463,9 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
         "fiscal_ratio": None if fr is None or pd.isna(fr) else round(float(fr), 2),
         "est_annual_infra_cost": infra.get("est_annual_infra_cost"),
         "est_property_tax": infra.get("est_property_tax"),
+        "est_fee_revenue": infra.get("est_fee_revenue"),
+        "est_total_revenue": infra.get("est_total_revenue"),
+        "assess_ratio_applied": infra.get("assess_ratio_applied"),
         # Durability drivers (component-lifespan model).
         "durability_material_class": dur.get("durability_material_class"),
         "durability_remaining_life_pct": dur.get("durability_remaining_life_pct"),

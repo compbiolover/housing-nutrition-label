@@ -20,13 +20,15 @@ def _score(ratio: float) -> float:
 
 
 def test_breakpoints_well_formed():
-    """XS strictly increasing, aligned with YS, and the national (school-netted) set."""
+    """XS strictly increasing, aligned with YS, and the national (school-netted,
+    fee-inclusive) set."""
     assert len(INFRA_XS) == len(INFRA_YS) == 6
     assert all(b > a for a, b in zip(INFRA_XS, INFRA_XS[1:])), "XS must be increasing"
     assert INFRA_YS == [0.0, 20.0, 40.0, 60.0, 80.0, 100.0]
-    # National non-school distribution: lower than the Shelby pilot's top anchor
-    # (1.5) since school property tax is netted out of the revenue side.
-    assert 0.05 < INFRA_XS[0] < 0.20 and 0.7 < INFRA_XS[-1] < 1.5
+    # National non-school distribution, with user-fee revenue counted alongside
+    # property tax so both sides of the ratio cover the same services. That lifts
+    # the whole distribution well above the tax-only anchors it replaced.
+    assert 0.20 < INFRA_XS[0] < 0.45 and 1.2 < INFRA_XS[-1] < 2.0
 
 
 def test_score_is_monotonic_in_ratio():
@@ -38,15 +40,28 @@ def test_score_is_monotonic_in_ratio():
 
 
 def test_national_median_ratio_scores_mid():
-    """The national (school-netted) median fiscal ratio (~0.31) should land in the
-    C band (~50), i.e. the score tracks national percentile rank."""
-    s = _score(0.31)
+    """The national median fiscal ratio (~0.66) should land in the C band (~50),
+    i.e. the score tracks national percentile rank."""
+    s = _score(0.66)
     assert 40.0 <= s <= 60.0
     assert score_to_grade(s) == "C"
 
 
+def test_break_even_is_well_above_median():
+    """Paying your own way (ratio 1.0) is genuinely uncommon, not the average.
+
+    Guards the copy as much as the model: the label used to say "above ~1 means it
+    pays its own way" while grading a typical home a C at 0.31, which read as "no
+    home passes". Break-even should sit high in the distribution but below the
+    top anchor — around the 85th-90th percentile.
+    """
+    s = _score(1.0)
+    assert 80.0 <= s < 100.0, f"break-even scored {s}"
+    assert _score(1.0) > _score(0.66), "break-even must beat the median"
+
+
 def test_tails_clamp():
-    assert _score(0.02) == 0.0           # well below the bottom breakpoint → F floor
+    assert _score(0.10) == 0.0           # well below the bottom breakpoint → F floor
     assert _score(5.0) == 100.0          # well above the top breakpoint → A ceiling
     assert score_to_grade(_score(1.0)) == "A"
 

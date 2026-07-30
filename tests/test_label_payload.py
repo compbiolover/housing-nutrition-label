@@ -75,7 +75,9 @@ def _rich_parts():
     r.update({"flood_loss": 60.2, "tornado_loss": 40.0, "seismic_loss": 1.1})
     label["metrics"].update({
         "eui_kbtu_sqft_yr": 42.3, "fiscal_ratio": 1.12,
-        "est_property_tax": 2100.0, "est_annual_infra_cost": 1875.0,
+        # Revenue splits into tax + user fees; total ÷ cost is the fiscal ratio.
+        "est_property_tax": 1575.0, "est_fee_revenue": 525.0,
+        "est_total_revenue": 2100.0, "est_annual_infra_cost": 1875.0,
         "durability_material_class": "wood frame", "durability_remaining_life_pct": 78.0,
         "durability_components_past_life": 1, "durability_condition": "average",
         "env_total_co2e_kg_yr": 8421.0, "env_operational_co2e_kg_yr": 6100.0,
@@ -106,7 +108,12 @@ def test_details_carry_real_formatted_numbers():
     assert _rowmap(det["energy"])["Energy use intensity"] == "42.3 kBTU/sqft·yr"
     assert _rowmap(det["durability"])["Remaining service life"] == "78%"
     assert _rowmap(det["environmental"])["Total carbon footprint"] == "8,421 kg CO₂e/yr"
-    assert _rowmap(det["infrastructure"])["Fiscal ratio (tax ÷ cost to serve)"] == "1.12"
+    infra = _rowmap(det["infrastructure"])
+    assert infra["Fiscal ratio (revenue ÷ cost to serve)"] == "1.12"
+    # Both revenue legs are shown, and they add up to the total the ratio uses.
+    assert infra["Est. property tax (per unit)"].endswith("/yr")
+    assert infra["Est. user fees — water, sewer, trash (per unit)"].endswith("/yr")
+    assert infra["Est. total revenue (per unit)"].endswith("/yr")
 
 
 def test_details_explain_unscored_and_omit_missing():
