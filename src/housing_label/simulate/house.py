@@ -1883,8 +1883,11 @@ def dimension_details(cfg: dict, r: dict, label: dict) -> dict:
     # Infrastructure — the fiscal ratio and the two sides that make it (per unit).
     fr = _finite(m.get("fiscal_ratio"))
     details["infrastructure"] = rows(
-        ("Fiscal ratio (tax ÷ cost to serve)", None if fr is None else f"{fr:.2f}"),
+        ("Fiscal ratio (revenue ÷ cost to serve)", None if fr is None else f"{fr:.2f}"),
         ("Est. property tax (per unit)", _money(m.get("est_property_tax"), "/yr")),
+        ("Est. user fees — water, sewer, trash (per unit)",
+         _money(m.get("est_fee_revenue"), "/yr")),
+        ("Est. total revenue (per unit)", _money(m.get("est_total_revenue"), "/yr")),
         ("Est. public cost to serve (per unit)", _money(m.get("est_annual_infra_cost"), "/yr")),
     )
 
@@ -2481,9 +2484,13 @@ def _density_scenario_summary(units: int, cfg: dict, label: dict) -> dict:
     # Fiscal productivity per ACRE (the "value per acre" lens): the infra metrics
     # are per dwelling unit, so total-per-lot ÷ lot = per-unit ÷ per_unit_acres.
     # This surfaces the infill dividend the per-unit ratio hides — denser forms
-    # generate far more property-tax revenue on the same land and shared infra.
+    # generate far more revenue on the same land and shared infra.
+    # Revenue is total revenue (property tax + user fees), not tax alone, so it
+    # covers the same services as cost_per_acre — otherwise net_fiscal_per_acre
+    # charges the parcel for water, sewer, and trash while crediting none of the
+    # bills residents pay for them.
     pu_acres = lot / units if lot and units else None
-    pu_tax = metrics.get("est_property_tax")
+    pu_tax = metrics.get("est_total_revenue")
     pu_cost = metrics.get("est_annual_infra_cost")
     revenue_per_acre = (round(float(pu_tax) / pu_acres, 2)
                         if pu_tax is not None and pu_acres else None)
@@ -2502,6 +2509,10 @@ def _density_scenario_summary(units: int, cfg: dict, label: dict) -> dict:
         "composite_score": label["composite_score"],
         "composite_national_grade": label["composite_national_grade"],
         "fiscal_ratio": metrics.get("fiscal_ratio"),
+        # The assessment ratio the parcel was taxed at — 0.25 residential vs 0.40
+        # industrial-and-commercial in Tennessee, which flips at 2+ rental units and
+        # is a real part of the density dividend.
+        "assess_ratio_applied": metrics.get("assess_ratio_applied"),
         "infrastructure_score": infra.get("score"),
         "infrastructure_grade": infra.get("national_grade"),
         "energy_score": energy.get("score"),

@@ -54,7 +54,7 @@ window.LabelCore = (function () {
     energy: "How much energy the home needs per square foot each year (its Energy Use Intensity), from its age, construction, and local climate zone. Less energy per square foot scores higher.",
     durability: "How much service life the home's major components — structure, roof, systems — still have, from its material, age, grade, and condition. More remaining life scores higher.",
     environmental: "The home's yearly climate footprint: operational carbon from energy, embodied carbon from materials (spread over the building's life), and water use. A smaller total scores higher.",
-    infrastructure: "The property tax this home generates versus the public cost to serve it (roads, water, sewer, fire, police). A ratio above ~1 means it pays its own way. Higher is better.",
+    infrastructure: "The revenue this home generates — property tax plus the utility and trash fees its residents pay — versus the public cost to serve it (roads, water, sewer, fire, police). The score is a national percentile: the typical US home covers about two-thirds of its cost, so a ratio near 0.66 scores about average and above ~1 the home fully pays its way. Higher is better.",
     health: "A neighborhood health index (CDC PLACES) — the census tract's percentile against the national distribution of US tracts across chronic-disease and health-outcome measures, so it's comparable across cities. Higher means a healthier local context.",
     air_quality: "The neighborhood's ambient air quality — annual fine-particulate (PM2.5) and ozone at the census tract from the CDC Tracking model, plus the county's EPA radon zone — scored against the national distribution of US tracts. Higher means cleaner, safer air.",
     noise: "How quiet the location is — the share of the census tract's residents exposed to loud (≥60 dB) transportation noise from aircraft, highways, and railroads (US DOT BTS National Transportation Noise Map), scored against the national distribution of US tracts. Higher means quieter.",
@@ -330,7 +330,7 @@ window.LabelCore = (function () {
     if (!strip && m.est_monthly_energy_cost != null)
       metricBits.push("Estimated energy bill $" + Math.round(m.est_monthly_energy_cost) + " a month");
     if (m.fiscal_ratio != null)
-      metricBits.push("Its property tax covers " + m.fiscal_ratio.toFixed(2)
+      metricBits.push("Its property tax and utility fees cover " + m.fiscal_ratio.toFixed(2)
         + "× what city services here cost (fiscal ratio)");
 
     var heading = opts.heading || loc.label || (h.lat + ", " + h.lon);

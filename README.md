@@ -114,7 +114,7 @@ Three components blended 0.50 operational / 0.30 embodied / 0.20 water: operatio
 <details>
 <summary><strong>🏙️ Infrastructure Burden</strong>: density-based municipal fiscal ratio</summary>
 
-Density-based municipal cost model producing a per-parcel fiscal ratio (revenue vs. infrastructure cost) by density and distance to the urban core. The per-function cost levels are calibrated to each county's actual local-government spending (Census of Governments per-capita direct expenditure on roads, water/sewer, fire, police, sanitation, parks), so the estimate reflects local fiscal reality rather than reusing the Memphis pilot everywhere. See [research/infrastructure-burden-research.md](research/infrastructure-burden-research.md).
+Density-based municipal cost model producing a per-parcel fiscal ratio (revenue vs. infrastructure cost) by density and distance to the urban core. The per-function cost levels are calibrated to each county's actual local-government spending (Census of Governments per-capita direct expenditure on roads, water/sewer, fire, police, sanitation, parks), so the estimate reflects local fiscal reality rather than reusing the Memphis pilot everywhere. Both sides of the ratio cover the same services: the revenue side counts property tax **plus** modeled user-fee income (water, sewer, trash), since the cost side includes services residents pay for by bill rather than by tax. The score is a **national percentile** — the typical US home covers ~⅔ of its cost — not a pass/fail against 1.0. See [research/infrastructure-burden-research.md](research/infrastructure-burden-research.md).
 
 </details>
 
@@ -391,6 +391,19 @@ The board below is the at-a-glance view; expand the sections under it for detail
 
 <details>
 <summary><strong>✅ Shipped</strong>: completed roadmap items with methodology notes</summary>
+
+<details>
+<summary>Reconcile the fiscal ratio's revenue scope (user fees + rental tax classification)</summary>
+
+Two revenue-side errors, both understating exactly the dense housing the cost model treats most favorably. Found by asking why a 157-unit downtown Memphis building scored an **A** while showing a fiscal ratio of **0.60** under copy reading "a ratio above ~1 means it pays its own way."
+
+**(1) User fees now count.** The cost side included water, sewer, and trash; the revenue side counted only property tax — but residents pay for those by utility bill and monthly fee. [`scripts/build_govfinance.py`](scripts/build_govfinance.py) now also parses **current-charges revenue** (object code `A`: A44 highways, A80 sewerage, A91 water utility, A81 solid waste, A61 parks) from the same Census of Governments file and writes a per-county **fee-recovery ratio** = charges ÷ expenditure. Nationally water/sewer recovers ~100% of its cost and solid waste ~75%, while **fire and police recover 0% — no current-charge code exists for either**, which is why property tax alone must cover them and why the typical home still doesn't reach 1.0. Recovery is capped at 100% so a surplus-running utility (Memphis's MLGW) is credited at break-even, never above.
+
+**(2) Rental housing isn't assessed as residential in Tennessee.** Tenn. Const. art. II, § 28 assesses residential property at 25% "provided that residential property containing two (2) or more **rental** units is hereby defined as industrial and commercial property" — assessed at **40%** (Tenn. Code Ann. § 67-5-501(11), § 67-5-801). The count is rental units, not dwelling units: a rented single-family home and an owner-occupied duplex both stay residential (Tenn. Att'y Gen. Op. No. 25-016, Aug. 25, 2025). So a Memphis apartment building generates **1.6×** the tax the flat ratio credited it. New [`data/assessment.py`](src/housing_label/data/assessment.py) encodes it, returning the commercial ratio *or nothing* so the correction is strictly additive and never overrides a caller's own assessment basis. Unknown tenure defaults to rental for multi-unit buildings (ACS 2024 B25032: 86% of units in 2+ unit structures are renter-occupied).
+
+With both sides covering the same services the national median fiscal ratio moves **0.31 → 0.66**, ~13% of homes clear 1.0 (was ~none), and `INFRA_XS` was re-anchored. The label copy now states what the dimension actually measures — a **national percentile rank**, where an A can coexist with not fully paying your way. **Known gap:** only Tennessee is encoded; off the pilot path the ACS effective rate is owner-occupied-derived, so applying the uplift would double-count and classification stays off. See [research/infrastructure-burden-research.md](research/infrastructure-burden-research.md).
+
+</details>
 
 <details>
 <summary>Residential-only screening (refuse non-residential addresses)</summary>

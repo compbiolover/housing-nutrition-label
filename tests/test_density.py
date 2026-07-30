@@ -75,8 +75,8 @@ def test_density_credit_does_not_floor_at_triplex():
 
 
 def test_fiscal_productivity_per_acre():
-    """The per-acre lens: tax base per acre scales ~linearly with units (same
-    per-unit value on a fixed lot), and net-fiscal-per-acre is reported."""
+    """The per-acre lens: revenue per acre rises steeply with units (same per-unit
+    value on a fixed lot), and net-fiscal-per-acre is reported."""
     comp = density_comparison(**_COMMON)
     by_units = {s["units"]: s for s in comp["scenarios"]}
     one, four = by_units[1], by_units[4]
@@ -85,10 +85,27 @@ def test_fiscal_productivity_per_acre():
         assert s["cost_per_acre"] is not None and s["cost_per_acre"] > 0
         assert abs(s["net_fiscal_per_acre"]
                    - (s["revenue_per_acre"] - s["cost_per_acre"])) < 0.01
-    # 4 units on the same lot at constant per-unit value → ~4× the tax base/acre.
-    assert abs(four["revenue_per_acre"] / one["revenue_per_acre"] - 4.0) < 0.05
+    # 4 units on the same lot at constant per-unit value quadruples the tax base,
+    # and in Tennessee also reclassifies the parcel from residential (25%) to
+    # industrial-and-commercial (40%) because it now holds 2+ rental units — so the
+    # per-acre gain on the tax leg alone is ~4 × 1.6 = 6.4×. Fee revenue rides on
+    # the modeled cost rather than on value, so it amortizes with density instead
+    # of scaling with units, pulling the blended ratio below that.
+    ratio = four["revenue_per_acre"] / one["revenue_per_acre"]
+    assert 4.0 < ratio < 6.4, f"revenue/acre ratio {ratio:.2f} outside expected band"
     dd = comp["density_dividend"]
     assert dd["revenue_per_acre_to"] > dd["revenue_per_acre_from"]
+
+
+def test_tn_rental_reclassification_applies_at_two_units():
+    """Tenn. Const. art. II, §28: 2+ rental units → commercial (40%) assessment.
+
+    The jump belongs between 1 and 2 units, and single-family must be untouched.
+    """
+    comp = density_comparison(unit_counts=[1, 2], **_COMMON)
+    by_units = {s["units"]: s for s in comp["scenarios"]}
+    assert by_units[1]["assess_ratio_applied"] == 0.25
+    assert by_units[2]["assess_ratio_applied"] == 0.40
 
 
 def test_explicit_value_treated_as_per_unit():

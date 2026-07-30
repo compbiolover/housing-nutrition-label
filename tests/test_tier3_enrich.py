@@ -54,8 +54,16 @@ def test_normalize_fips():
 def test_infra_params_national_county():
     p = RC.infra_params_for_county("06037", in_urban_area=True)   # Los Angeles County
     assert p is not None
-    assert set(p) == {"assess_ratio", "tax_rate", "in_urban_area", "cost_multipliers"}
+    assert set(p) == {"assess_ratio", "tax_rate", "in_urban_area", "cost_multipliers",
+                      "fee_recovery", "classification_state"}
     assert p["assess_ratio"] == 1.0 and p["in_urban_area"] is True
+    # Fee recovery joins the revenue side; fire/police have no user charge anywhere.
+    assert set(p["fee_recovery"]) == {"roads", "water_sewer", "fire", "police",
+                                      "sanitation", "parks"}
+    assert p["fee_recovery"]["fire"] == 0.0 and p["fee_recovery"]["police"] == 0.0
+    assert 0.0 < p["fee_recovery"]["water_sewer"] <= 1.0
+    # An ACS effective rate already embeds classification → uplift must stay off.
+    assert p["classification_state"] is None
     assert isinstance(p["tax_rate"], float) and p["tax_rate"] > 0
     # in_urban_area is parcel-level → omitted (not forced) when not supplied
     p2 = RC.infra_params_for_county("06037")

@@ -39,11 +39,19 @@ Memphis-specific calibration notes
   The cost curves below are calibrated to this context; they are NOT generic
   national averages. Comments flag where national benchmarks are used as-is.
 
+Both sides of the fiscal ratio cover the same services
+------------------------------------------------------
+The cost side counts every service the public provides — including water, sewer,
+and trash, which residents pay for through utility bills and a monthly fee rather
+than through property tax. So the revenue side counts both: property tax **plus**
+modeled user-fee revenue, derived from each county's actual charges-to-expenditure
+ratio in the Census of Governments. Comparing tax revenue alone against the full
+cost of service made every home look like a fiscal drain — nationally, water/sewer
+recovers ~100% of its cost from charges and solid waste ~75%.
+
 IMPORTANT: This is a modeled estimate, not an accounting audit. All cost
 components are approximations intended for relative comparison across parcels.
-Absolute dollar values carry ±30% uncertainty. Fiscal balance figures assume
-a single dwelling unit per parcel (DWELDAT-type records); multi-unit parcels
-are not adjusted in this pilot.
+Absolute dollar values carry ±30% uncertainty.
 
 Columns added
 -------------
@@ -57,8 +65,11 @@ Columns added
   infra_cost_parks          Parks & other general services cost ($/yr)
   est_annual_infra_cost     Sum of all cost components ($/yr)
   est_property_tax          Estimated annual property tax revenue ($/yr)
-  fiscal_balance            est_property_tax − est_annual_infra_cost ($/yr)
-  fiscal_ratio              est_property_tax / est_annual_infra_cost
+  est_fee_revenue           Estimated annual user-fee revenue ($/yr)
+  est_total_revenue         est_property_tax + est_fee_revenue ($/yr)
+  assess_ratio_applied      Assessment ratio used, after classification
+  fiscal_balance            est_total_revenue − est_annual_infra_cost ($/yr)
+  fiscal_ratio              est_total_revenue / est_annual_infra_cost
   infra_burden_rating       Categorical rating (net contributor / break-even /
                             minor burden / major burden)
 """
@@ -69,6 +80,7 @@ import math
 
 import pandas as pd
 
+from housing_label.data.assessment import commercial_assess_ratio
 from housing_label.utils import haversine_miles
 
 REQUIRED_COLUMNS = ["latitude", "longitude", "CALC_ACRE"]
@@ -85,7 +97,34 @@ MEMPHIS_CORE_LON = -90.0490
 # Note: Shelby County levies an additional ~$2.71/$100 not included here;
 #       this model estimates only the CITY portion of the tax.
 CITY_TAX_RATE           = 0.0319    # per $1 of assessed value
-RESIDENTIAL_ASSESS_RATIO = 0.25     # 25% of appraised value; TN state law (TCA 67-5-502)
+RESIDENTIAL_ASSESS_RATIO = 0.25     # 25% of appraised value; Tenn. Code Ann. § 67-5-801
+
+# Tennessee classifies residential property containing 2+ RENTAL units as
+# industrial and commercial, assessed at 40% instead of 25% (Tenn. Const. art. II,
+# § 28; Tenn. Code Ann. § 67-5-501(11), § 67-5-801). A rental apartment building
+# therefore generates 1.6x the property tax per dollar of value that the flat 25%
+# ratio credited it. See ``data/assessment.py`` for the statute, the controlling AG
+# opinion, and why only Tennessee is encoded.
+CLASSIFICATION_STATE = "TN"         # the pilot state these defaults describe
+
+# ── Fee recovery: the share of each service's cost paid by user charges ───────
+# Shelby County, from the bundled Census of Governments crosswalk
+# (``data/govfinance_county.csv``, geoid 47157): current-charges revenue ÷ direct
+# expenditure per function. Memphis residents pay the water and sewer bill (MLGW)
+# and a $42/month solid-waste fee, so those services are already almost entirely
+# funded outside the property tax — while fire and police have no user charge at
+# all. Counting their COST against property-tax revenue alone, as this model did
+# before, compared unlike things and understated every home's cost recovery.
+# Ratios are capped at 1.0: MLGW recovers more than its own expenditure, but a home
+# should not be credited with generating a surplus on its pipes.
+SHELBY_FEE_RECOVERY = {
+    "roads":       0.0079,
+    "water_sewer": 1.0000,
+    "fire":        0.0000,   # no current-charge code exists for fire protection
+    "police":      0.0000,   # nor for police
+    "sanitation":  0.9737,
+    "parks":       0.1906,
+}
 
 # ── Road cost vs density (continuous, $/household/yr) ─────────────────────────
 # Source: Halifax Regional Municipality "Cost of Sprawl" (2004, updated 2020);
@@ -223,8 +262,8 @@ SANITATION_DENSITY_MULTIPLIERS = [
 PARKS_OTHER_COST = 300   # $/HH/yr; Memphis-calibrated (flat)
 
 # ── Fiscal balance rating thresholds (fiscal_ratio) ──────────────────────────
-# Interpretation: fiscal_ratio = property_tax_revenue / infra_cost
-#   >1.0  = property generates more tax than it costs to serve (net contributor)
+# Interpretation: fiscal_ratio = (property_tax + user fees) / infra_cost
+#   >1.0  = property generates more revenue than it costs to serve (net contributor)
 #   0.75–1.0  = roughly break-even (within ±25% of cost recovery)
 #   0.40–0.75 = minor burden (city subsidizes 25–60% of cost)
 #   <0.40     = major burden (city subsidizes 60%+ of cost)
@@ -304,8 +343,12 @@ def enrich_row(row: pd.Series, *,
                assess_ratio: float = RESIDENTIAL_ASSESS_RATIO,
                tax_rate: float = CITY_TAX_RATE,
                in_urban_area: bool | None = None,
-               cost_multipliers: dict | None = None) -> pd.Series:
-    """Compute all infrastructure cost fields for a single parcel row.
+               cost_multipliers: dict | None = None,
+               fee_recovery: dict | None = None,
+               units: int = 1,
+               owner_occupied: bool | None = None,
+               classification_state: str | None = CLASSIFICATION_STATE) -> pd.Series:
+    """Compute all infrastructure cost and revenue fields for a single parcel row.
 
     Memphis defaults reproduce the Shelby pilot. For other locations the simulator
     passes a national-average parameterization: a national effective property-tax
@@ -318,8 +361,24 @@ def enrich_row(row: pd.Series, *,
     ``water_sewer``, ``fire``, ``police``, ``sanitation``, ``parks``, each scaling
     that component. The Memphis-calibrated curves give the density *shape*; these
     multipliers give the local *level* (1.0 = Shelby pilot, the default).
+
+    ``fee_recovery`` is the same six keys again, each the share of that service's
+    cost residents already pay through user charges rather than property tax (also
+    from the Census of Governments crosswalk). It converts the parcel's modeled cost
+    into modeled fee revenue, which joins property tax in the fiscal-ratio numerator
+    so both sides of the ratio cover the same services. Defaults to the Shelby
+    pilot's own recovery rates.
+
+    ``units`` / ``owner_occupied`` / ``classification_state`` drive the property-tax
+    *classification*: in Tennessee a parcel with two or more rental units is
+    assessed at the 40% commercial ratio rather than 25% residential, so a rental
+    apartment building generates 1.6x the tax the flat residential ratio implied.
+    Pass ``classification_state=None`` to disable — required when ``tax_rate`` is an
+    observed effective rate rather than a statutory levy, since an observed rate
+    already embeds whatever classification produced it (see ``data/assessment.py``).
     """
     mult = cost_multipliers or {}
+    fees = SHELBY_FEE_RECOVERY if fee_recovery is None else fee_recovery
 
     # ── Density metric ─────────────────────────────────────────────────────────
     acres = row["CALC_ACRE"]
@@ -351,21 +410,37 @@ def enrich_row(row: pd.Series, *,
                         * density_multiplier(lot_density, SANITATION_DENSITY_MULTIPLIERS) * mult.get("sanitation", 1.0))
     cost_parks       = float(PARKS_OTHER_COST) * mult.get("parks", 1.0)
 
-    total_infra = (
-        cost_roads + cost_water_sewer + cost_fire
-        + cost_police + cost_sanitation + cost_parks
-    )
+    components = {
+        "roads": cost_roads, "water_sewer": cost_water_sewer, "fire": cost_fire,
+        "police": cost_police, "sanitation": cost_sanitation, "parks": cost_parks,
+    }
+    total_infra = sum(components.values())
+
+    # ── User-fee revenue estimate ──────────────────────────────────────────────
+    # Each service's modeled cost times the share of that service residents fund
+    # through charges. Water/sewer and trash are nearly all fee-funded; fire and
+    # police are not fee-funded at all. Without this term the denominator counted
+    # services the numerator had no way to be paid for.
+    est_fees = sum(cost * float(fees.get(name, 0.0)) for name, cost in components.items())
 
     # ── Property tax revenue estimate ──────────────────────────────────────────
     appraised = row["RTOTAPR"]
     if pd.isna(appraised) or appraised <= 0:
         appraised = 0.0
-    est_tax = appraised * assess_ratio * tax_rate
+    # Classification: a 2+ rental-unit parcel in Tennessee is commercial (40%), not
+    # residential (25%). Returns None unless the parcel is actually reclassified, so
+    # ordinary housing — and any caller supplying its own assessment basis — keeps
+    # the ratio it passed in.
+    commercial = commercial_assess_ratio(classification_state, units,
+                                         owner_occupied=owner_occupied)
+    effective_assess_ratio = assess_ratio if commercial is None else commercial
+    est_tax = appraised * effective_assess_ratio * tax_rate
 
     # ── Fiscal balance ─────────────────────────────────────────────────────────
-    fiscal_bal = est_tax - total_infra
+    est_revenue = est_tax + est_fees
+    fiscal_bal = est_revenue - total_infra
     if total_infra > 0:
-        ratio = est_tax / total_infra
+        ratio = est_revenue / total_infra
     else:
         ratio = float("nan")
 
@@ -382,6 +457,9 @@ def enrich_row(row: pd.Series, *,
         "infra_cost_parks":      round(cost_parks, 2),
         "est_annual_infra_cost": round(total_infra, 2),
         "est_property_tax":      round(est_tax, 2),
+        "est_fee_revenue":       round(est_fees, 2),
+        "est_total_revenue":     round(est_revenue, 2),
+        "assess_ratio_applied":  round(effective_assess_ratio, 4),
         "fiscal_balance":        round(fiscal_bal, 2),
         "fiscal_ratio":          round(ratio, 4),
         "infra_burden_rating":   rating,
@@ -398,6 +476,7 @@ ADDED_COLUMNS = [
     "infra_cost_fire", "infra_cost_police",
     "infra_cost_sanitation", "infra_cost_parks",
     "est_annual_infra_cost", "est_property_tax",
+    "est_fee_revenue", "est_total_revenue", "assess_ratio_applied",
     "fiscal_balance", "fiscal_ratio", "infra_burden_rating",
 ]
 

@@ -102,6 +102,10 @@ def build_distribution() -> list[tuple[float, float]]:
         if pop <= 0:
             continue
         mult = {c: (_num(grow.get(f"mult_{c}")) or 1.0) for c in components}
+        # Fee recovery joins the revenue side so both halves of the ratio cover the
+        # same services; a missing column reads as 0.0 (no fee credit), matching
+        # data/govfinance.py rather than inventing revenue.
+        fee = {c: min(max(_num(grow.get(f"fee_{c}")) or 0.0, 0.0), 1.0) for c in components}
         # Net schools out of the revenue rate (like-for-like with the non-school
         # cost side), matching simulate/dimensions.py.
         school = _num(grow.get("school_tax_share"))
@@ -111,7 +115,12 @@ def build_distribution() -> list[tuple[float, float]]:
             row = pd.Series({"CALC_ACRE": 1.0 / du_acre, "latitude": None,
                              "longitude": None, "RTOTAPR": value})
             out = enrich_row(row, assess_ratio=1.0, tax_rate=municipal_rate,
-                             in_urban_area=urban, cost_multipliers=mult)
+                             in_urban_area=urban, cost_multipliers=mult,
+                             fee_recovery=fee,
+                             # ACS effective rates are owner-occupied-derived, so
+                             # they already embed classification — same reason
+                             # region_context.py disables it off the pilot path.
+                             classification_state=None)
             fr = out.get("fiscal_ratio")
             if fr is not None and not pd.isna(fr):
                 points.append((float(fr), pop * share))

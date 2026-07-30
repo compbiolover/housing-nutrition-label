@@ -1,19 +1,31 @@
 """Per-county local-government finance calibration (Census of Governments, keyless).
 
-Returns per-function **cost multipliers** that scale the Infrastructure Burden
-density cost curves from the Memphis (Shelby County) pilot calibration to a
-county's actual local spending level. A county that spends 2x the Memphis
-per-capita rate on roads gets ``mult_roads = 2.0``; Shelby itself is 1.0 on every
-function, so the pilot is unchanged.
+Returns two per-function calibrations for the Infrastructure Burden dimension:
+
+**Cost multipliers** scale the density cost curves from the Memphis (Shelby
+County) pilot calibration to a county's actual local spending level. A county that
+spends 2x the Memphis per-capita rate on roads gets ``mult_roads = 2.0``; Shelby
+itself is 1.0 on every function, so the pilot is unchanged.
+
+**Fee-recovery ratios** give the share of each service's cost that residents
+already pay through user charges — the water bill, the sewer bill, the trash fee —
+rather than through property tax. These feed the *revenue* side of the fiscal
+ratio, which previously counted only property tax while the cost side counted
+fee-funded services in full. Nationally water/sewer recovers ~100% of its cost from
+charges and solid waste ~75%, while fire and police recover 0% (no current-charge
+code exists for them), so leaving fees out understated cost recovery substantially
+and unevenly.
 
 Data
 ----
 Bundled by ``scripts/build_govfinance.py`` as ``govfinance_county.csv`` from the
 U.S. Census Bureau **2022 Census of Governments — Individual Unit File** (direct
-general expenditure by function, per capita, normalized to Shelby) plus Census
-**Population Estimates** for the denominator. Multipliers are pre-clamped to
-[0.25, 4.0]; a county with zero recorded local spend on a function already carries
-the national-average multiplier for it.
+general expenditure by function, per capita, normalized to Shelby; current-charges
+revenue by function for the fee ratios) plus Census **Population Estimates** for the
+denominator. Multipliers are pre-clamped to [0.25, 4.0]; a county with zero recorded
+local spend on a function already carries the national-average multiplier for it.
+Fee-recovery ratios are pre-clamped to [0, 1.0] — a utility running a surplus
+(Memphis's MLGW does) is credited at break-even, never above it.
 
 Resolution
 ----------
@@ -75,6 +87,19 @@ def _multipliers(row: dict) -> dict[str, float]:
     return out
 
 
+def _fee_recovery(row: dict) -> dict[str, float]:
+    """Extract the six fee-recovery ratios from a row (missing/invalid → 0.0).
+
+    A missing column degrades to 0.0 — no fee revenue credited — which reproduces
+    the pre-fee behavior rather than inventing revenue from absent data.
+    """
+    out = {}
+    for c in COMPONENTS:
+        v = _num(row.get(f"fee_{c}"))
+        out[c] = min(max(v, 0.0), 1.0) if v is not None else 0.0
+    return out
+
+
 def _national() -> dict | None:
     return _table().get(_NATIONAL_GEOID)
 
@@ -99,6 +124,8 @@ def govfinance_for_county(county_fips: str | None) -> dict:
     the Memphis baseline rather than failing.
 
     Keys: ``label``, ``multipliers`` (dict of the six components),
+    ``fee_recovery`` (dict of the six components: the share of each service's cost
+    residents already pay through user charges rather than property tax),
     ``school_tax_share`` (fraction of local property tax funding schools, for
     netting the revenue side to a like-for-like non-school basis), ``resolved``,
     ``geo_level``.
@@ -112,6 +139,7 @@ def govfinance_for_county(county_fips: str | None) -> dict:
         return {
             "label": f"{place} ({DATA_VINTAGE})",
             "multipliers": _multipliers(row),
+            "fee_recovery": _fee_recovery(row),
             "school_tax_share": _school_share(row),
             "resolved": "county",
             "geo_level": "county",
@@ -121,6 +149,7 @@ def govfinance_for_county(county_fips: str | None) -> dict:
         return {
             "label": US_AVG_LABEL,
             "multipliers": _multipliers(nat),
+            "fee_recovery": _fee_recovery(nat),
             "school_tax_share": _school_share(nat),
             "resolved": "national",
             "geo_level": "us",
@@ -129,6 +158,7 @@ def govfinance_for_county(county_fips: str | None) -> dict:
     return {
         "label": "uncalibrated (Memphis baseline)",
         "multipliers": {c: 1.0 for c in COMPONENTS},
+        "fee_recovery": {c: 0.0 for c in COMPONENTS},
         "school_tax_share": LEGACY_SCHOOL_SHARE,
         "resolved": "none",
         "geo_level": "us",

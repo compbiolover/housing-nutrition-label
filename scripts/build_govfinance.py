@@ -21,6 +21,20 @@ thousands of jurisdictions; see research/infrastructure-burden-research.md)
        parks        = parks & recreation (61)
    Local units only (county/municipal/township/special-district types 1-4);
    state (0) and school-district (5) governments are excluded.
+1b. Sum **current charges** (revenue object ``A``) for the same functions, and
+   divide by that function's expenditure → a per-county **fee-recovery ratio**:
+   the share of a service's cost that residents already pay through user fees
+   (water/sewer bills, the trash fee) rather than through property tax.
+       roads        = A44 (regular highways)
+       water_sewer  = A80 (sewerage) + A91 (water utility revenue)
+       sanitation   = A81 (solid waste management)
+       parks        = A61 (parks & recreation)
+       fire, police = no current-charge code exists — these are tax-funded (0.0)
+   The fiscal ratio needs this because the cost side counts fee-funded services
+   (water, sewer, trash) in full while the revenue side counted only property
+   tax — an apples-to-oranges comparison that understated every home's cost
+   recovery. Nationally water/sewer recovers ~103% of its cost from charges and
+   solid waste ~75%, so the omission was large, not marginal.
 2. Divide by county population → per-capita spend per function.
 3. Normalize each county to **Shelby County, TN (47157)** — the pilot the cost
    curves are calibrated to — so ``mult = county_per_capita / shelby_per_capita``.
@@ -86,6 +100,27 @@ FUNC_TO_COMPONENT = {
 }
 COMPONENTS = ["roads", "water_sewer", "fire", "police", "sanitation", "parks"]
 EXPENDITURE_OBJECTS = set("EFG")
+
+# Census REVENUE item codes → our cost components. Object "A" is current charges
+# (amounts collected from the public for a service); A91-A94 are utility revenue.
+# Definitions per the Census Government Finance and Employment Classification
+# Manual: A44 "Regular Highways" (street-cut fees, street-lighting assessments),
+# A61 "Parks and Recreation" (pools, golf, marinas, zoos), A80 "Sewerage",
+# A81 "Solid Waste Management", A91 water supply utility revenue.
+# Fire (24) and police (62) have NO current-charge code — they are tax-funded.
+REVENUE_ITEM_TO_COMPONENT = {
+    "A44": "roads",
+    "A80": "water_sewer",
+    "A91": "water_sewer",
+    "A81": "sanitation",
+    "A61": "parks",
+}
+# A utility that runs a surplus can recover >100% of its own expenditure (Memphis's
+# MLGW does). Crediting >100% would let a home generate phantom general-fund
+# revenue on its pipes, so cap cost recovery at break-even. The surplus a utility
+# actually transfers to the general fund is real but unmodeled — a documented
+# conservatism, in the same direction as the rest of the model.
+FEE_RECOVERY_CEIL = 1.0
 LOCAL_GOV_TYPES = set("1234")   # county, municipal, township, special district
 ALL_LOCAL_TYPES = set("12345")  # …plus independent school districts (type 5)
 SCHOOL_TYPE = "5"
@@ -101,7 +136,9 @@ SCHOOL_SHARE_FLOOR = 0.08       # below this → treat as dependent-school → n
 SCHOOL_SHARE_CEIL = 0.75        # clamp extreme outliers
 LEGACY_NATIONAL_SCHOOL_SHARE = 0.41   # conservative fallback if T01 parsing yields nothing
 OUT_COLUMNS = (["geoid", "county_name", "state", "pop"]
-               + [f"mult_{c}" for c in COMPONENTS] + ["school_tax_share", "resolved"])
+               + [f"mult_{c}" for c in COMPONENTS]
+               + [f"fee_{c}" for c in COMPONENTS]
+               + ["school_tax_share", "resolved"])
 
 
 def _download(url: str, dest: pathlib.Path, *, min_size: int = 1024) -> pathlib.Path:
@@ -133,11 +170,14 @@ def parse_county_records(fin_text: io.TextIOBase):
     - ``spend[fips][component]``  — direct general expenditure by function ($),
       local general-purpose + special-district governments (types 1-4; schools
       excluded, matching the cost side of the fiscal ratio).
+    - ``charges[fips][component]`` — current-charges revenue ($) for the same
+      functions and the same government types, for the fee-recovery ratio.
     - ``proptax[fips]``           — property-tax revenue ($): ``total`` across all
       local governments (types 1-5) and ``school`` for independent school
       districts (type 5), for the school-tax-share computation.
     """
     spend: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    charges: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     proptax: dict[str, dict[str, float]] = defaultdict(lambda: {"total": 0.0, "school": 0.0})
     for line in fin_text:
         line = line.rstrip("\n")
@@ -162,7 +202,10 @@ def parse_county_records(fin_text: io.TextIOBase):
             component = FUNC_TO_COMPONENT.get(item[1:3])
             if component is not None and item[0] in EXPENDITURE_OBJECTS:
                 spend[county_fips][component] += amount
-    return spend, proptax
+            rev_component = REVENUE_ITEM_TO_COMPONENT.get(item)
+            if rev_component is not None:
+                charges[county_fips][rev_component] += amount
+    return spend, charges, proptax
 
 
 def load_population(pep_text: io.TextIOBase) -> dict[str, dict]:
@@ -182,9 +225,11 @@ def load_population(pep_text: io.TextIOBase) -> dict[str, dict]:
 
 
 def build_rows(spend: dict[str, dict[str, float]],
+               charges: dict[str, dict[str, float]],
                pop: dict[str, dict],
                proptax: dict[str, dict[str, float]]) -> list[dict]:
-    """Compute per-capita spend (normalized to Shelby) + school-tax share per county."""
+    """Compute per-capita spend (normalized to Shelby), fee-recovery ratios, and
+    school-tax share per county."""
     # Per-capita spend per county per component (only counties with population).
     pc: dict[str, dict[str, float]] = {}
     for fips, comps in spend.items():
@@ -224,6 +269,25 @@ def build_rows(spend: dict[str, dict[str, float]],
             return nat_school_share
         return round(min(raw, SCHOOL_SHARE_CEIL), 4)
 
+    # National fee recovery (spend-weighted): charges ÷ expenditure per function
+    # across all local units. The fallback for counties with no recorded spend on
+    # a function, so a data gap doesn't read as "residents pay no fees for this".
+    nat_charges = {c: sum(charges[f].get(c, 0.0) for f in charges) for c in COMPONENTS}
+    nat_fee = {c: (min(nat_charges[c] / nat_spend[c], FEE_RECOVERY_CEIL)
+                   if nat_spend[c] > 0 else 0.0)
+               for c in COMPONENTS}
+
+    def fees_for(fips: str) -> dict[str, float]:
+        """Share of each function's cost already covered by user charges."""
+        out = {}
+        for c in COMPONENTS:
+            s = spend.get(fips, {}).get(c, 0.0)
+            # No recorded spend → no denominator to measure recovery against; use
+            # the national rate rather than implying zero fee funding.
+            out[c] = (min(charges.get(fips, {}).get(c, 0.0) / s, FEE_RECOVERY_CEIL)
+                      if s > 0 else nat_fee[c])
+        return out
+
     def mults_for(fips: str) -> dict[str, float]:
         out = {}
         for c in COMPONENTS:
@@ -237,15 +301,18 @@ def build_rows(spend: dict[str, dict[str, float]],
     rows = [{
         "geoid": "00000", "county_name": "US national average", "state": "",
         "pop": nat_pop, **{f"mult_{c}": round(nat_mult[c], 4) for c in COMPONENTS},
+        **{f"fee_{c}": round(nat_fee[c], 4) for c in COMPONENTS},
         "school_tax_share": nat_school_share, "resolved": "national",
     }]
     for fips in sorted(pc):
         meta = pop.get(fips, {})
         m = mults_for(fips)
+        fee = fees_for(fips)
         rows.append({
             "geoid": fips, "county_name": meta.get("county_name", ""),
             "state": meta.get("state", ""), "pop": meta.get("pop", ""),
             **{f"mult_{c}": round(m[c], 4) for c in COMPONENTS},
+            **{f"fee_{c}": round(fee[c], 4) for c in COMPONENTS},
             "school_tax_share": school_share_for(fips), "resolved": "county",
         })
     return rows
@@ -276,14 +343,15 @@ def main() -> int:
         if member is None:
             raise SystemExit(f"No {COG_FIN_PATTERN} member found in {zip_path.name}")
         with zf.open(member) as raw:
-            spend, proptax = parse_county_records(io.TextIOWrapper(raw, encoding="latin-1"))
+            spend, charges, proptax = parse_county_records(
+                io.TextIOWrapper(raw, encoding="latin-1"))
     print(f"  {len(spend)} counties with local-government spend", file=sys.stderr)
 
     with pep_path.open(encoding="latin-1") as f:
         pop = load_population(f)
     print(f"  {len(pop)} counties with population", file=sys.stderr)
 
-    rows = build_rows(spend, pop, proptax)
+    rows = build_rows(spend, charges, pop, proptax)
     out = pathlib.Path(args.out) if args.out else _DATA_DIR / "govfinance_county.csv"
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w", newline="") as f:
@@ -296,6 +364,8 @@ def main() -> int:
     print(f"\nWrote {len(rows)-1} counties + 1 national row → {out}", file=sys.stderr)
     print(f"National-vs-Shelby multipliers: "
           + "  ".join(f"{c}={nat['mult_'+c]}" for c in COMPONENTS), file=sys.stderr)
+    print(f"National fee recovery (charges ÷ spend): "
+          + "  ".join(f"{c}={nat['fee_'+c]:.0%}" for c in COMPONENTS), file=sys.stderr)
     print(f"National school-tax share: {nat['school_tax_share']:.1%} "
           "(fallback for dependent-school / unmapped counties)", file=sys.stderr)
     return 0

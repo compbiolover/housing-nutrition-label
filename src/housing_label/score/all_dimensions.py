@@ -165,14 +165,23 @@ ENERGY_YS = [100.0, 80.0, 60.0, 40.0, 20.0, 0.0]
 # computed with the localized cost+revenue model (see
 # scripts/calibrate_infra_breakpoints.py). The score therefore tracks national
 # percentile rank: A = top ~20%, B = 60–80th, C = 40–60th, D = 20–40th,
-# F = bottom ~20%. Both sides are now like-for-like NON-SCHOOL: the revenue is
-# municipal property tax (the school-district share netted out, matching the
-# school-excluded cost side), so the ratios are lower — the national median
-# fiscal ratio ≈ 0.31 → score ≈ 50 (the typical US home's non-school property tax
-# covers only ~31% of its non-school municipal cost — ≈31¢ of revenue per $1 of
-# cost). Replaces the Shelby-pilot thresholds.
-#   ≥1.05→100, 0.54→80, 0.37→60, 0.26→40, 0.17→20, ≤0.09→0   (log-linear between).
-INFRA_XS = [0.091, 0.167, 0.262, 0.366, 0.543, 1.048]
+# F = bottom ~20%.
+#
+# Both sides of the ratio cover the same services. NON-SCHOOL: the revenue is
+# municipal property tax with the school-district share netted out, matching the
+# school-excluded cost side. And FEE-INCLUSIVE: the revenue also counts modeled
+# user-fee income (water, sewer, trash), because the cost side counts those
+# services in full and residents pay for them through bills rather than property
+# tax. Counting the cost but not the fee was the single largest distortion in this
+# dimension — it put the national median fiscal ratio at 0.31, implying almost no
+# American home comes close to paying its way.
+#
+# The national median is now ≈ 0.66 → score ≈ 50: the typical US home covers about
+# two-thirds of what it costs to serve, and ~13% of homes clear 1.0 (p90 ≈ 1.15).
+# The remaining gap is real, not an artifact — fire and police have no user charge
+# anywhere in the Census data, so property tax is the only thing paying for them.
+#   ≥1.45→100, 0.92→80, 0.73→60, 0.60→40, 0.47→20, ≤0.32→0   (log-linear between).
+INFRA_XS = [0.324, 0.468, 0.598, 0.726, 0.923, 1.449]
 INFRA_YS = [0.0, 20.0, 40.0, 60.0, 80.0, 100.0]
 
 

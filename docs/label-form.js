@@ -567,7 +567,7 @@ window.LabelForm = (function () {
       rows += row("Value per home", function (s) { return s.per_unit_value == null ? "—" : "$" + Math.round(s.per_unit_value).toLocaleString(); });
       rows += row("Homes per acre", function (s) { return s.per_unit_acres ? (1 / s.per_unit_acres).toFixed(1) : "—"; });
       rows += row("Infrastructure Burden", function (s) { return s.infrastructure_score == null ? "—" : s.infrastructure_score.toFixed(0) + " " + gradeSpan(s.infrastructure_grade); });
-      rows += row("Property tax ÷ cost to serve", function (s) { return s.fiscal_ratio == null ? "—" : s.fiscal_ratio.toFixed(2) + "×"; });
+      rows += row("Revenue ÷ cost to serve", function (s) { return s.fiscal_ratio == null ? "—" : s.fiscal_ratio.toFixed(2) + "×"; });
       rows += row("Energy Efficiency score", function (s) { return s.energy_score == null ? "—" : s.energy_score.toFixed(0); });
       rows += row("Energy bill per home", function (s) { return s.est_monthly_energy_cost == null ? "—" : "$" + Math.round(s.est_monthly_energy_cost) + "/mo"; });
       rows += row("Overall score", function (s) { return s.composite_score == null ? "—" : s.composite_score.toFixed(0) + " " + gradeSpan(s.composite_national_grade); });

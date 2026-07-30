@@ -71,6 +71,15 @@ def infra_params_for_county(
         "assess_ratio": 1.0,
         "tax_rate": municipal_rate,
         "cost_multipliers": gov["multipliers"],
+        "fee_recovery": gov["fee_recovery"],
+        # The ACS effective rate is derived from OWNER-OCCUPIED homes (B25103 median
+        # taxes paid ÷ B25077 median value), so it already embeds whatever
+        # classification those homes fall under. Applying a rental/commercial
+        # uplift on top would double-count, and only Tennessee has been researched
+        # to primary sources anyway — so classification is off on this path. It
+        # means a rental apartment building in a split-roll state outside Shelby
+        # still has its property tax understated. See ``data/assessment.py``.
+        "classification_state": None,
     }
     if in_urban_area is not None:
         params["in_urban_area"] = bool(in_urban_area)
