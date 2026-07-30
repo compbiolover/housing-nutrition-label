@@ -571,7 +571,7 @@ window.LabelForm = (function () {
       rows += row("Energy Efficiency score", function (s) { return s.energy_score == null ? "—" : s.energy_score.toFixed(0); });
       rows += row("Energy bill per home", function (s) { return s.est_monthly_energy_cost == null ? "—" : "$" + Math.round(s.est_monthly_energy_cost) + "/mo"; });
       rows += row("Overall score", function (s) { return s.composite_score == null ? "—" : s.composite_score.toFixed(0) + " " + gradeSpan(s.composite_national_grade); });
-      rows += row("Property tax raised per acre", function (s) { return s.revenue_per_acre == null ? "—" : "$" + Math.round(s.revenue_per_acre).toLocaleString() + "/ac"; });
+      rows += row("Revenue raised per acre", function (s) { return s.revenue_per_acre == null ? "—" : "$" + Math.round(s.revenue_per_acre).toLocaleString() + "/ac"; });
       rows += row("Left over for the city, per acre", function (s) {
         return s.net_fiscal_per_acre == null ? "—"
           : (s.net_fiscal_per_acre < 0 ? "−$" + Math.round(-s.net_fiscal_per_acre).toLocaleString()
@@ -587,7 +587,7 @@ window.LabelForm = (function () {
           + '. Same land &amp; services, shared across more homes.';
         if (dd.revenue_per_acre_from && dd.revenue_per_acre_to) {
           html += ' It also generates <strong>' + (dd.revenue_per_acre_to / dd.revenue_per_acre_from).toFixed(1)
-            + '&times; the property-tax revenue per acre</strong> ($'
+            + '&times; the revenue per acre</strong> ($'
             + Math.round(dd.revenue_per_acre_from).toLocaleString() + ' &rarr; $'
             + Math.round(dd.revenue_per_acre_to).toLocaleString()
             + '/acre) on the same land &mdash; the value-per-acre dividend.';

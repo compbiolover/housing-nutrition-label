@@ -260,6 +260,21 @@ distinguish "pays its way" from "doesn't."
 The 157-unit Memphis building lands at **1.17**: a net contributor. The two fixes
 contribute about equally (fees ≈ +$447/unit of revenue; classification ≈ +$638/unit).
 
+### Per-acre productivity, restated
+
+Phase 4's `revenue_per_acre` had the same scope mismatch as the ratio itself — a
+tax-only numerator against a full-cost `cost_per_acre`, which made
+`net_fiscal_per_acre` systematically too negative. It now uses total revenue, so the
+Phase 4 note above ("~4× the property-tax revenue per acre") no longer describes what
+the field reports. On a fixed Memphis lot at constant per-unit value, 1 → 4 units:
+
+| Leg | 1 → 4 units | why |
+|---|---|---|
+| property tax / acre | **6.4×** | 4× units × 1.6× residential→commercial reclassification (≈4× outside TN) |
+| user fees / acre | **2.0×** | fees ride on modeled cost, so they amortize with density rather than scaling with units |
+| **total revenue / acre** | **4.6×** | the blend, and what the UI shows |
+| **net fiscal / acre** | **−$6,900 → +$15,900** | net drain to net contributor on identical land |
+
 ### Copy
 
 The label said "a ratio above ~1 means it pays its own way" while the scale graded a

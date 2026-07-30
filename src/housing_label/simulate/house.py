@@ -2490,10 +2490,10 @@ def _density_scenario_summary(units: int, cfg: dict, label: dict) -> dict:
     # charges the parcel for water, sewer, and trash while crediting none of the
     # bills residents pay for them.
     pu_acres = lot / units if lot and units else None
-    pu_tax = metrics.get("est_total_revenue")
+    pu_revenue = metrics.get("est_total_revenue")
     pu_cost = metrics.get("est_annual_infra_cost")
-    revenue_per_acre = (round(float(pu_tax) / pu_acres, 2)
-                        if pu_tax is not None and pu_acres else None)
+    revenue_per_acre = (round(float(pu_revenue) / pu_acres, 2)
+                        if pu_revenue is not None and pu_acres else None)
     cost_per_acre = (round(float(pu_cost) / pu_acres, 2)
                      if pu_cost is not None and pu_acres else None)
     net_per_acre = (round(revenue_per_acre - cost_per_acre, 2)
@@ -2666,7 +2666,7 @@ def print_density(comp: dict) -> None:
     rpa_from, rpa_to = d.get("revenue_per_acre_from"), d.get("revenue_per_acre_to")
     if rpa_from and rpa_to:        # both present and non-zero (guards the divide)
         mult = rpa_to / rpa_from
-        line = (f"Property tax per acre ${rpa_from:,.0f}→${rpa_to:,.0f}/ac"
+        line = (f"Revenue per acre ${rpa_from:,.0f}→${rpa_to:,.0f}/ac"
                 f" (×{mult:.1f} on the same land)")
         for ln in _wrap(line, 60):
             print(row(f"  {ln}"))

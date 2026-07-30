@@ -311,6 +311,25 @@ def density_multiplier(density: float, table: list[tuple]) -> float:
     return table[-1][1]
 
 
+def _fee_rate(value) -> float:
+    """Coerce one ``fee_recovery`` entry to a usable rate in [0, 1].
+
+    ``enrich_row`` is importable, so this dict can arrive from somewhere other than
+    the govfinance crosswalk that normally sanitizes it. A missing, ``None``,
+    non-numeric, or NaN entry reads as 0.0 — no fee credit, which reproduces the
+    tax-only behavior rather than raising. The 100% cap is enforced here too, so the
+    documented "never credit a home with a utility surplus" invariant holds at the
+    point of use and not only at the loader.
+    """
+    try:
+        rate = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    if rate != rate:                      # NaN (min/max would pass it through)
+        return 0.0
+    return min(max(rate, 0.0), 1.0)
+
+
 def police_cost(base: float, density: float) -> float:
     """Apply density multiplier to base police cost."""
     return base * density_multiplier(density, POLICE_DENSITY_MULTIPLIERS)
@@ -421,7 +440,7 @@ def enrich_row(row: pd.Series, *,
     # through charges. Water/sewer and trash are nearly all fee-funded; fire and
     # police are not fee-funded at all. Without this term the denominator counted
     # services the numerator had no way to be paid for.
-    est_fees = sum(cost * float(fees.get(name, 0.0)) for name, cost in components.items())
+    est_fees = sum(cost * _fee_rate(fees.get(name)) for name, cost in components.items())
 
     # ── Property tax revenue estimate ──────────────────────────────────────────
     appraised = row["RTOTAPR"]

@@ -77,6 +77,29 @@ def test_zero_fee_recovery_reproduces_tax_only_behavior():
     assert float(enrich_row(_row())["fiscal_ratio"]) > float(zero["fiscal_ratio"])
 
 
+def test_malformed_fee_recovery_degrades_instead_of_raising():
+    """enrich_row is importable, so fee_recovery can arrive from outside the
+    crosswalk that normally sanitizes it. Junk entries must read as "no fee credit"
+    rather than raising, and must never over-credit."""
+    baseline = float(enrich_row(_row(), fee_recovery={c: 0.0 for c in COMPONENTS})
+                     ["est_fee_revenue"])
+    for junk in ({}, {c: None for c in COMPONENTS}, {c: "n/a" for c in COMPONENTS},
+                 {c: float("nan") for c in COMPONENTS}, {c: -5.0 for c in COMPONENTS}):
+        out = enrich_row(_row(), fee_recovery=junk)
+        assert float(out["est_fee_revenue"]) == baseline == 0.0
+        assert float(out["est_total_revenue"]) == float(out["est_property_tax"])
+
+
+def test_out_of_range_fee_recovery_is_capped_at_break_even():
+    """The documented "never credit a utility surplus" cap holds at the point of
+    use, not only in the loader — a caller can't hand in 300% recovery."""
+    over = enrich_row(_row(), fee_recovery={c: 3.0 for c in COMPONENTS})
+    full = enrich_row(_row(), fee_recovery={c: 1.0 for c in COMPONENTS})
+    assert float(over["est_fee_revenue"]) == float(full["est_fee_revenue"])
+    # Capped at 1.0 means fee revenue can never exceed the cost it is recovering.
+    assert float(over["est_fee_revenue"]) <= float(over["est_annual_infra_cost"]) + 0.01
+
+
 def test_fee_revenue_amortizes_with_density():
     """Fee revenue rides on modeled cost, so per-unit it falls as density rises —
     unlike property tax, which tracks value per door. A dense parcel therefore gains
