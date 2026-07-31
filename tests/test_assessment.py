@@ -200,6 +200,46 @@ def test_coverage_is_honest_about_the_gap():
     assert "TN" not in unresearched_jurisdictions()
 
 
+# ── The CLI tenure contract ──────────────────────────────────────────────────────
+
+def test_tenure_flags_are_tri_state_and_exclusive():
+    """Unspecified tenure must reach the config as None, not as a boolean.
+
+    None is not a third cosmetic state: it selects the ACS-backed default in
+    rental_unit_count, which differs from an explicit True. For a duplex that is the
+    whole ballgame — unknown resolves to rental (reclassified), while True means the
+    owner lives in one half (not reclassified). Silently defaulting to a boolean would
+    change scores with nothing visibly broken.
+
+    Both flags therefore carry an explicit default=None. argparse seeds a shared dest
+    from the first-declared action that supplies a default, so relying on
+    --owner-occupied's default alone would make the tri-state depend on declaration
+    order. This test pins the behavior rather than the ordering.
+    """
+    from housing_label.simulate.house import build_parser, resolve_config
+
+    parser = build_parser()
+    loc = ["--lat", "36.06", "--lon", "-86.72"]
+    for argv, expected in (([], None), (["--owner-occupied"], True), (["--rental"], False)):
+        args = parser.parse_args(argv + loc)
+        assert args.owner_occupied is expected, f"{argv}: argparse gave {args.owner_occupied!r}"
+        assert resolve_config(args).get("owner_occupied") is expected, f"{argv}: lost in cfg"
+
+    # Asserting the two flags cannot both be given, so the dest is never ambiguous.
+    try:
+        parser.parse_args(["--owner-occupied", "--rental"] + loc)
+    except SystemExit:
+        pass
+    else:
+        raise AssertionError("--owner-occupied and --rental must be mutually exclusive")
+
+
+def test_unknown_tenure_differs_from_explicit_owner_occupied_for_a_duplex():
+    """The case that makes the tri-state load-bearing rather than cosmetic."""
+    assert classified_assess_ratio("TN", 2) == TN_COMMERCIAL_ASSESS_RATIO      # unknown
+    assert classified_assess_ratio("TN", 2, owner_occupied=True) is None       # stated
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

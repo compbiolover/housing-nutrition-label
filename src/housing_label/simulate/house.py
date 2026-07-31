@@ -890,12 +890,20 @@ def build_parser() -> argparse.ArgumentParser:
     # Tri-state tenure. This CLI has no BooleanOptionalAction/store_false precedent, so
     # use the mutually-exclusive-group idiom already used for flood elevation: both
     # flags write the same dest, and supplying neither leaves it None (unknown).
+    #
+    # BOTH actions carry an explicit default=None. argparse seeds a shared dest from the
+    # first-declared action that has a default, so with store_false's implicit default of
+    # True left in place the unknown state would survive only as long as
+    # --owner-occupied stayed declared first — and a reorder would silently start
+    # treating unspecified tenure as owner-occupied. Stating it on both makes the
+    # tri-state independent of declaration order.
     tenure = p.add_mutually_exclusive_group()
     tenure.add_argument("--owner-occupied", dest="owner_occupied", action="store_true",
                         default=None,
                         help="The owner lives in the home (or in one unit of it). "
                              "Affects property-tax classification in split-roll states.")
     tenure.add_argument("--rental", dest="owner_occupied", action="store_false",
+                        default=None,
                         help="Every unit is rented. In states that tax rental housing "
                              "as commercial, this raises the estimated property tax.")
     p.add_argument("--lot-acres",  type=float, default=None,
