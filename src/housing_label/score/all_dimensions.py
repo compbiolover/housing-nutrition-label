@@ -180,9 +180,21 @@ ENERGY_YS = [100.0, 80.0, 60.0, 40.0, 20.0, 0.0]
 # two-thirds of what it costs to serve, and ~13% of homes clear 1.0 (p90 ≈ 1.15).
 # The remaining gap is real, not an artifact — fire and police have no user charge
 # anywhere in the Census data, so property tax is the only thing paying for them.
-#   ≥1.45→100, 0.92→80, 0.73→60, 0.60→40, 0.47→20, ≤0.32→0   (log-linear between).
-INFRA_XS = [0.324, 0.468, 0.598, 0.726, 0.923, 1.449]
+#   ≥1.46→100, 0.93→80, 0.73→60, 0.60→40, 0.47→20, ≤0.32→0   (log-linear between).
+INFRA_XS = [0.324, 0.467, 0.600, 0.729, 0.931, 1.456]
 INFRA_YS = [0.0, 20.0, 40.0, 60.0, 80.0, 100.0]
+
+# Which jurisdictions carried an active property-tax classification correction when the
+# breakpoints above were last computed, and at what multiplier. The reference
+# distribution has to be built by the same model the app runs, or "score = national
+# percentile" stops being true — so adding a state to data/assessment.py without
+# re-running scripts/calibrate_infra_breakpoints.py must fail loudly rather than quietly
+# mis-scoring every parcel in the country. tests/test_infra_breakpoints.py recomputes this
+# from the rules table and asserts it matches.
+#
+# A sorted tuple rather than a hash, so the diff is legible: a reviewer sees exactly which
+# jurisdictions entered the distribution and at what strength.
+INFRA_XS_BASIS = ("TN:1.60",)
 
 
 def score_energy(df: pd.DataFrame) -> pd.Series:

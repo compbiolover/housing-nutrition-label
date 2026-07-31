@@ -466,6 +466,7 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
         "est_fee_revenue": infra.get("est_fee_revenue"),
         "est_total_revenue": infra.get("est_total_revenue"),
         "assess_ratio_applied": infra.get("assess_ratio_applied"),
+        "classification_multiplier_applied": infra.get("classification_multiplier_applied"),
         # Durability drivers (component-lifespan model).
         "durability_material_class": dur.get("durability_material_class"),
         "durability_remaining_life_pct": dur.get("durability_remaining_life_pct"),

@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import pandas as pd
 
+from housing_label.data.assessment import active_basis
 from housing_label.score.all_dimensions import (
-    INFRA_XS, INFRA_YS, score_infrastructure, score_to_grade,
+    INFRA_XS, INFRA_XS_BASIS, INFRA_YS, score_infrastructure, score_to_grade,
 )
 
 
@@ -64,6 +65,23 @@ def test_tails_clamp():
     assert _score(0.10) == 0.0           # well below the bottom breakpoint → F floor
     assert _score(5.0) == 100.0          # well above the top breakpoint → A ceiling
     assert score_to_grade(_score(1.0)) == "A"
+
+
+def test_infra_xs_basis_matches_the_rules_table():
+    """The reference distribution must be built by the same model the app runs.
+
+    INFRA_XS is anchored to percentiles of a national distribution that now applies
+    property-tax classification. Adding a jurisdiction to data/assessment.py without
+    re-running scripts/calibrate_infra_breakpoints.py would leave the yardstick
+    measuring a different model than the labels — every Infrastructure grade in the
+    country would be quietly mis-anchored, with nothing visibly broken.
+
+    If this fails: re-run the calibrator, paste the new INFRA_XS, and update
+    INFRA_XS_BASIS to active_basis().
+    """
+    assert INFRA_XS_BASIS == active_basis(), (
+        "classification table changed without recalibrating INFRA_XS — "
+        f"basis records {INFRA_XS_BASIS}, table now has {active_basis()}")
 
 
 def _run_all():

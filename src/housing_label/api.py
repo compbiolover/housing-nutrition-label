@@ -692,6 +692,7 @@ def label(
     flood_zone: str | None = None,
     bldg_material: str | None = None,
     stories: int | None = None,
+    owner_occupied: bool | None = None,
     upgrades: str | None = None,
     allow_non_residential: bool = False,
     nonresidential: bool = False,
@@ -726,7 +727,8 @@ def label(
 
     cache_key = ("label", address, lat, lon, preset, construction, year_built,
                  foundation, condition, value, units, sqft, lot_acres, flood_zone,
-                 bldg_material, stories, tuple(upgrade_list),   # already sorted + unique
+                 bldg_material, stories, owner_occupied,
+                 tuple(upgrade_list),   # already sorted + unique
                  allow_non_residential)
     cached = _result_cache.get(cache_key)
     if cached is not None:
@@ -740,6 +742,7 @@ def label(
             year_built=year_built, construction=construction, foundation=foundation,
             condition=condition, value=value, units=units, sqft=sqft, lot_acres=lot_acres,
             bldg_material=bldg_material, stories=stories,
+            owner_occupied=owner_occupied,
         )
     except NonResidentialProperty as exc:
         # Not bad input — a deliberate residential-only screen. 422 (Unprocessable
