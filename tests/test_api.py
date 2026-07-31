@@ -365,6 +365,54 @@ def test_label_result_is_cached():
         api._result_cache.clear()
 
 
+def test_owner_occupied_is_part_of_the_cache_key():
+    """A tenure-differing request must not be served another request's cached answer.
+
+    The /label cache key is a hand-maintained tuple, so every scoring-relevant param has
+    to be added to it by hand. Omitting one is silent: the second request simply gets the
+    first's result. Tenure changes the property-tax leg in split-roll states, so it
+    belongs in the key — and nothing else in the suite would notice if it were dropped.
+    """
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_owner_occupied_is_part_of_the_cache_key (fastapi not installed)")
+        return
+    import housing_label.api as api
+
+    if not api._result_cache.enabled:
+        print("  skip test_owner_occupied_is_part_of_the_cache_key (result cache disabled)")
+        return
+
+    seen = []
+    real = api.build_label_parts
+
+    def recording(**kw):
+        seen.append(kw.get("owner_occupied"))
+        kw["allow_network"] = False
+        return real(**kw)
+
+    api._result_cache.clear()
+    api.build_label_parts = recording
+    try:
+        client = TestClient(api.app)
+        base = {"lat": 35.13, "lon": -89.99, "units": 4}
+        client.get("/label", params={**base, "owner_occupied": "true"})
+        client.get("/label", params={**base, "owner_occupied": "false"})
+        # Each request also builds a baseline-construction comparable, which inherits
+        # only _BASELINE_SIZE_FIELDS — tenure is not a construction attribute, so that
+        # inner call correctly carries None. The subject runs are the non-None ones.
+        subject_runs = [t for t in seen if t is not None]
+        assert subject_runs == [True, False], f"cache collided across tenure: {seen}"
+        # An identical repeat IS served from cache — no further scoring at all.
+        before = len(seen)
+        client.get("/label", params={**base, "owner_occupied": "false"})
+        assert len(seen) == before, f"identical repeat was rescored: {seen}"
+    finally:
+        api.build_label_parts = real
+        api._result_cache.clear()
+
+
 def test_degraded_detection_is_not_cached():
     """When NSI structure detection was unavailable (a transient outage), the label
     falls back to generic building defaults and must NOT be cached — otherwise a

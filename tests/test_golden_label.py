@@ -38,6 +38,10 @@ CASES = [
     ("fortified_gold_shelby", "fortified-gold", 35.13,  -89.99),
     ("baseline_la",           "baseline",       34.05, -118.24),
     ("icf_passive_la",        "icf-passive",    34.05, -118.24),
+    # A multi-unit case, so property-tax classification actually fires in the snapshot.
+    # Every other case is single-family at units=1, where the correction is a no-op by
+    # design — without this row the snapshot pins only the yardstick, never the rule.
+    ("quadplex_shelby",       "quadplex",       35.13,  -89.99),
 ]
 
 # Round every float this many places before comparing/storing, so cross-platform
@@ -55,6 +59,7 @@ def _core(preset: str, lat: float, lon: float) -> dict:
     cfg, r, lbl = build_label_parts(preset=preset, lat=lat, lon=lon,
                                     allow_network=False)
     p = label_payload(cfg, r, lbl)
+    m = lbl["metrics"]
     return {
         "dimensions": [
             {"key": d.get("key"),
@@ -68,6 +73,12 @@ def _core(preset: str, lat: float, lon: float) -> dict:
         "cost": {k: _round(v) for k, v in (p.get("cost") or {}).items()},
         "total_loss": _round(p["total_loss"]),
         "fire_loss": _round(p["fire_loss"]),
+        # The raw fiscal ratio and the two classification outputs, not just the rounded
+        # score they feed. A classification bug that left the score inside its percentile
+        # band would otherwise slip through unnoticed.
+        "fiscal_ratio": _round(m.get("fiscal_ratio")),
+        "assess_ratio_applied": _round(m.get("assess_ratio_applied")),
+        "classification_multiplier_applied": _round(m.get("classification_multiplier_applied")),
     }
 
 

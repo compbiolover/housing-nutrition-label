@@ -68,6 +68,8 @@ Columns added
   est_fee_revenue           Estimated annual user-fee revenue ($/yr)
   est_total_revenue         est_property_tax + est_fee_revenue ($/yr)
   assess_ratio_applied      Assessment ratio used, after classification
+  classification_multiplier_applied
+                            Rate multiplier from classification (1.0 = none)
   fiscal_balance            est_total_revenue − est_annual_infra_cost ($/yr)
   fiscal_ratio              est_total_revenue / est_annual_infra_cost
   infra_burden_rating       Categorical rating (net contributor / break-even /
@@ -80,7 +82,7 @@ import math
 
 import pandas as pd
 
-from housing_label.data.assessment import commercial_assess_ratio
+from housing_label.data.assessment import classification_multiplier, classified_assess_ratio
 from housing_label.utils import haversine_miles
 
 REQUIRED_COLUMNS = ["latitude", "longitude", "CALC_ACRE"]
@@ -366,7 +368,10 @@ def enrich_row(row: pd.Series, *,
                fee_recovery: dict | None = None,
                units: int = 1,
                owner_occupied: bool | None = None,
-               classification_state: str | None = CLASSIFICATION_STATE) -> pd.Series:
+               separately_parceled: bool | None = None,
+               classification_state: str | None = CLASSIFICATION_STATE,
+               classification_rate_state: str | None = None,
+               classification_county_fips: str | None = None) -> pd.Series:
     """Compute all infrastructure cost and revenue fields for a single parcel row.
 
     Memphis defaults reproduce the Shelby pilot. For other locations the simulator
@@ -396,6 +401,16 @@ def enrich_row(row: pd.Series, *,
     observed effective rate rather than a statutory levy, since an observed rate
     already embeds whatever classification produced it (see ``data/assessment.py``).
     """
+    # Guard before computing anything: the two classification paths are alternatives, and
+    # a caller wiring up both would apply the correction twice (1.6 x 1.6 = 2.56 in
+    # Tennessee) — the exact silent over-correction this split exists to prevent. A loud
+    # failure in a pure function is cheap; a silent precedence rule is not auditable.
+    if classification_state and classification_rate_state:
+        raise ValueError(
+            "classification_state (statutory, absolute) and classification_rate_state "
+            "(observed-rate, multiplicative) are alternatives — pass one, not both, or "
+            "the classification correction is applied twice.")
+
     mult = cost_multipliers or {}
     fees = SHELBY_FEE_RECOVERY if fee_recovery is None else fee_recovery
 
@@ -446,14 +461,23 @@ def enrich_row(row: pd.Series, *,
     appraised = row["RTOTAPR"]
     if pd.isna(appraised) or appraised <= 0:
         appraised = 0.0
-    # Classification: a 2+ rental-unit parcel in Tennessee is commercial (40%), not
-    # residential (25%). Returns None unless the parcel is actually reclassified, so
-    # ordinary housing — and any caller supplying its own assessment basis — keeps
-    # the ratio it passed in.
-    commercial = commercial_assess_ratio(classification_state, units,
-                                         owner_occupied=owner_occupied)
+    # Classification, by whichever path the caller is on.
+    #
+    # Statutory path: a 2+ rental-unit parcel in Tennessee is assessed at the 40%
+    # commercial ratio, not 25% residential. Returns None unless the parcel is actually
+    # reclassified, so ordinary housing — and any caller supplying its own assessment
+    # basis — keeps the ratio it passed in.
+    commercial = classified_assess_ratio(
+        classification_state, units, owner_occupied=owner_occupied,
+        separately_parceled=separately_parceled, county_fips=classification_county_fips)
     effective_assess_ratio = assess_ratio if commercial is None else commercial
-    est_tax = appraised * effective_assess_ratio * tax_rate
+    # Observed-rate path: tax_rate is an ACS effective rate measured over owner-occupied
+    # homes, so it already carries the residential class in its denominator. The correction
+    # is the ratio BETWEEN the classes, applied to the rate. 1.0 unless reclassified.
+    class_mult = classification_multiplier(
+        classification_rate_state, units, owner_occupied=owner_occupied,
+        separately_parceled=separately_parceled, county_fips=classification_county_fips)
+    est_tax = appraised * effective_assess_ratio * tax_rate * class_mult
 
     # ── Fiscal balance ─────────────────────────────────────────────────────────
     est_revenue = est_tax + est_fees
@@ -479,6 +503,7 @@ def enrich_row(row: pd.Series, *,
         "est_fee_revenue":       round(est_fees, 2),
         "est_total_revenue":     round(est_revenue, 2),
         "assess_ratio_applied":  round(effective_assess_ratio, 4),
+        "classification_multiplier_applied": round(class_mult, 4),
         "fiscal_balance":        round(fiscal_bal, 2),
         "fiscal_ratio":          round(ratio, 4),
         "infra_burden_rating":   rating,
@@ -496,6 +521,7 @@ ADDED_COLUMNS = [
     "infra_cost_sanitation", "infra_cost_parks",
     "est_annual_infra_cost", "est_property_tax",
     "est_fee_revenue", "est_total_revenue", "assess_ratio_applied",
+    "classification_multiplier_applied",
     "fiscal_balance", "fiscal_ratio", "infra_burden_rating",
 ]
 

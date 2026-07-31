@@ -887,6 +887,17 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Number of dwelling units (e.g. 2 = duplex, 4 = quadplex). Default: 1.")
     p.add_argument("--sqft",       type=float, default=None,
                    help="Heated area per unit (sqft). Default: 2,000.")
+    # Tri-state tenure. This CLI has no BooleanOptionalAction/store_false precedent, so
+    # use the mutually-exclusive-group idiom already used for flood elevation: both
+    # flags write the same dest, and supplying neither leaves it None (unknown).
+    tenure = p.add_mutually_exclusive_group()
+    tenure.add_argument("--owner-occupied", dest="owner_occupied", action="store_true",
+                        default=None,
+                        help="The owner lives in the home (or in one unit of it). "
+                             "Affects property-tax classification in split-roll states.")
+    tenure.add_argument("--rental", dest="owner_occupied", action="store_false",
+                        help="Every unit is rented. In states that tax rental housing "
+                             "as commercial, this raises the estimated property tax.")
     p.add_argument("--lot-acres",  type=float, default=None,
                    help="Lot size (acres). Default: 0.25.")
     p.add_argument("--building-material", dest="bldg_material",
@@ -1027,6 +1038,10 @@ def resolve_config(args: argparse.Namespace) -> dict:
         # its height, used to score Resilience/Durability for a multi-unit building
         # the NSI lookup didn't (or couldn't) classify. Default absent → single-family.
         "bldg_material": None, "stories": None, "basement_depth_ft": None,
+        # Tenure, tri-state: None = unknown (resolved by an ACS-backed default in
+        # data/assessment.rental_unit_count), True = owner-occupied, False = rental.
+        # Drives property-tax classification in split-roll states.
+        "owner_occupied": None,
     }
     cfg = dict(PRESETS[args.preset]) if args.preset else {}
 
@@ -1043,6 +1058,7 @@ def resolve_config(args: argparse.Namespace) -> dict:
         "bldg_material": getattr(args, "bldg_material", None),
         "stories":      getattr(args, "stories", None),
         "basement_depth_ft": getattr(args, "basement_depth_ft", None),
+        "owner_occupied": getattr(args, "owner_occupied", None),
     }
     for key, cli_val in CLI_FIELDS.items():
         if cli_val is not None:
@@ -1455,8 +1471,13 @@ def print_scorecard(cfg: dict, r: dict) -> None:
     print(row(f"    Foundation       : {cfg['foundation']}"))
     print(row(f"    Condition        : {cfg['condition']}"))
     unit_label = "unit" if cfg.get("units", 1) == 1 else "units"
+    # Tenure only prints when the caller stated it — an unknown tenure is scored on a
+    # documented default, and showing "unknown" would imply it was an input.
+    oo = cfg.get("owner_occupied")
+    tenure = "" if oo is None else ("  ·  owner-occupied" if oo else "  ·  rental")
     print(row(f"    Units / size     : {cfg.get('units', 1)} {unit_label} × "
-              f"{cfg.get('sqft', 2000):,.0f} sqft on {cfg.get('lot_acres', 0.25):.2f} ac"))
+              f"{cfg.get('sqft', 2000):,.0f} sqft on {cfg.get('lot_acres', 0.25):.2f} ac"
+              f"{tenure}"))
     print(row(f"    Flood zone       : {cfg['flood_zone']}  ({r['flood_risk']} risk)"))
     print(row(f"    Location         : {cfg['lat']:.4f}°N, {abs(cfg['lon']):.4f}°W"))
     print(row(f"    Appraised value  : ${cfg['value']:,.0f}"))
@@ -2001,6 +2022,7 @@ def label_payload(cfg: dict, r: dict, label: dict, include_building: bool = True
             "lot_acres": cfg.get("lot_acres", 0.25),
             "flood_zone": cfg["flood_zone"],
             "value": cfg["value"],
+            "owner_occupied": cfg.get("owner_occupied"),
             # How the home value was determined: "county median (ACS)" when
             # auto-filled, else None (taken as entered / from the profile).
             "value_source": cfg.get("value_source"),
@@ -2346,6 +2368,7 @@ def build_label_parts(*, address: str | None = None,
         value=fields.get("value"), units=fields.get("units"),
         sqft=fields.get("sqft"), lot_acres=fields.get("lot_acres"),
         bldg_material=fields.get("bldg_material"), stories=fields.get("stories"),
+        owner_occupied=fields.get("owner_occupied"),
     )
     for flag in BONUS_FLAGS:            # resilience upgrades → Namespace booleans
         setattr(ns, flag, flag in (upgrades or []))

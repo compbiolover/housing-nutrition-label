@@ -64,6 +64,8 @@ def infra_params_for_county(
     from housing_label.data.govfinance import govfinance_for_county
     from housing_label.data.propertytax import property_tax_for_county
 
+    from housing_label.data.states import usps_for_fips
+
     gov = govfinance_for_county(fips)
     tax = property_tax_for_county(fips)
     municipal_rate = tax["effective_tax_rate"] * (1.0 - gov["school_tax_share"])
@@ -72,14 +74,25 @@ def infra_params_for_county(
         "tax_rate": municipal_rate,
         "cost_multipliers": gov["multipliers"],
         "fee_recovery": gov["fee_recovery"],
-        # The ACS effective rate is derived from OWNER-OCCUPIED homes (B25103 median
-        # taxes paid ÷ B25077 median value), so it already embeds whatever
-        # classification those homes fall under. Applying a rental/commercial
-        # uplift on top would double-count, and only Tennessee has been researched
-        # to primary sources anyway — so classification is off on this path. It
-        # means a rental apartment building in a split-roll state outside Shelby
-        # still has its property tax understated. See ``data/assessment.py``.
+        # Two classification keys, deliberately never one with two meanings — a caller
+        # that set both would apply the correction twice, and ``enrich_row`` raises
+        # rather than let that happen silently.
+        #
+        # The ABSOLUTE correction stays off here. It swaps in a statutory assessment
+        # ratio, which only makes sense against a statutory millage; ``tax_rate`` above
+        # is an ACS effective rate.
         "classification_state": None,
+        # The MULTIPLICATIVE correction is on. The ACS rate is derived from
+        # OWNER-OCCUPIED homes (B25103 median taxes ÷ B25077 median value), so it
+        # already carries the residential class in its denominator — which is exactly
+        # the denominator a class multiplier needs. The state comes from the county
+        # FIPS rather than a separate parameter: ``Location.state_fips`` is itself
+        # populated with a ``county_fips[:2]`` fallback, so deriving it here removes a
+        # parameter, covers the batch path too, and makes a state/county mismatch
+        # impossible. Unresearched states return a 1.0 multiplier, so this is a no-op
+        # everywhere outside the encoded table. See ``data/assessment.py``.
+        "classification_rate_state": usps_for_fips(fips),
+        "classification_county_fips": fips,
     }
     if in_urban_area is not None:
         params["in_urban_area"] = bool(in_urban_area)

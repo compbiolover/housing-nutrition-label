@@ -54,6 +54,8 @@ import zipfile
 
 import requests
 
+from housing_label.data.states import USPS_TO_STATE_FIPS
+
 _DATA = pathlib.Path(__file__).resolve().parent.parent / "src" / "housing_label" / "data"
 _COUNTY_OUT = _DATA / "water_county.csv"
 
@@ -68,17 +70,7 @@ _VIOL_MEMBER = "SDWA_VIOLATIONS_ENFORCEMENT.csv"
 _RECENT_YEARS = 5   # trailing window (inclusive) anchored to the newest data year
 
 # State USPS abbreviation (PWSID prefix) → 2-digit state FIPS.
-_STATE_ABBR_TO_FIPS = {
-    "AL": "01", "AK": "02", "AZ": "04", "AR": "05", "CA": "06", "CO": "08",
-    "CT": "09", "DE": "10", "DC": "11", "FL": "12", "GA": "13", "HI": "15",
-    "ID": "16", "IL": "17", "IN": "18", "IA": "19", "KS": "20", "KY": "21",
-    "LA": "22", "ME": "23", "MD": "24", "MA": "25", "MI": "26", "MN": "27",
-    "MS": "28", "MO": "29", "MT": "30", "NE": "31", "NV": "32", "NH": "33",
-    "NJ": "34", "NM": "35", "NY": "36", "NC": "37", "ND": "38", "OH": "39",
-    "OK": "40", "OR": "41", "PA": "42", "RI": "44", "SC": "45", "SD": "46",
-    "TN": "47", "TX": "48", "UT": "49", "VT": "50", "VA": "51", "WA": "53",
-    "WV": "54", "WI": "55", "WY": "56", "PR": "72",
-}
+_STATE_ABBR_TO_FIPS = USPS_TO_STATE_FIPS
 
 
 def _open_member(z: zipfile.ZipFile, name: str):

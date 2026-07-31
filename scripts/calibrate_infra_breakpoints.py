@@ -40,6 +40,7 @@ import pathlib
 import pandas as pd
 
 from housing_label.enrich.infrastructure import enrich_row
+from housing_label.enrich.region_context import infra_params_for_county
 
 _DATA = pathlib.Path(__file__).resolve().parents[1] / "src" / "housing_label" / "data"
 
@@ -47,13 +48,20 @@ _DATA = pathlib.Path(__file__).resolve().parents[1] / "src" / "housing_label" / 
 # household shares. These are deliberately coarse but transparent — adjust the
 # shares to reweight the reference mix. (Most US households are single-family on
 # small-to-moderate lots, with a meaningful urban-multifamily tail.)
+# Renter shares are ACS 2024 5-yr table B25032 (tenure by units in structure): 14.0% of
+# 1-unit detached homes are renter-occupied, rising to 90.2% in 10-19 unit structures.
+# Each archetype contributes TWO weighted points — an owner leg and a renter leg — with
+# the total weight unchanged, so the only delta classification introduces is the
+# reclassification of renter legs in states that have a rule. That keeps any movement in
+# the breakpoints fully attributable.
 DENSITY_ARCHETYPES = [
-    # (label, dwelling_units_per_acre, national_household_share, is_urban)
-    ("rural / exurban (~2 ac)",      0.5, 0.12, False),
-    ("large-lot suburb (~0.6 ac)",   1.5, 0.18, False),
-    ("standard suburb (~0.2 ac)",    4.0, 0.35, True),
-    ("compact suburb / townhome",    8.0, 0.20, True),
-    ("urban multifamily",           20.0, 0.15, True),
+    # (label, dwelling_units_per_acre, national_household_share, is_urban,
+    #  units_on_parcel, renter_share)
+    ("rural / exurban (~2 ac)",      0.5, 0.12, False,  1, 0.140),
+    ("large-lot suburb (~0.6 ac)",   1.5, 0.18, False,  1, 0.140),
+    ("standard suburb (~0.2 ac)",    4.0, 0.35, True,   1, 0.140),
+    ("compact suburb / townhome",    8.0, 0.20, True,   1, 0.140),
+    ("urban multifamily",           20.0, 0.15, True,  10, 0.902),
 ]
 
 # Map each score anchor to a percentile of the national fiscal-ratio distribution,
@@ -82,48 +90,50 @@ def build_distribution() -> list[tuple[float, float]]:
     """Return [(fiscal_ratio, weight)] over all (county × archetype) points."""
     tax = _load(_DATA / "property_tax_county.csv")
     gov = _load(_DATA / "govfinance_county.csv")
-    components = ["roads", "water_sewer", "fire", "police", "sanitation", "parks"]
-
-    # School-share fallback = the bundled national row (00000), so recalibration
-    # stays consistent with the crosswalk/runtime; 0.41 only if it's missing.
-    nat_school = _num(gov.get("00000", {}).get("school_tax_share"))
-    nat_school = nat_school if nat_school is not None and 0.0 <= nat_school <= 1.0 else 0.41
 
     points: list[tuple[float, float]] = []
     for fips, trow in tax.items():
         if fips == "00000":
             continue
         value = _num(trow.get("median_value"))
-        rate = _num(trow.get("effective_tax_rate"))
         grow = gov.get(fips)
-        if value is None or value <= 0 or rate is None or grow is None:
+        # A county absent from the gov-finance crosswalk is skipped outright rather than
+        # falling back to national-average cost. This is what keeps Puerto Rico out of the
+        # reference distribution: its 72 municipios carry ACS tax data but no Census of
+        # Governments rows, so a fallback would score them against a cost model that was
+        # never measured there. infra_params_for_county WOULD supply that fallback, so the
+        # check has to happen here, before it is called.
+        if value is None or value <= 0 or grow is None:
             continue
         pop = _num(grow.get("pop")) or 0.0
         if pop <= 0:
             continue
-        mult = {c: (_num(grow.get(f"mult_{c}")) or 1.0) for c in components}
-        # Fee recovery joins the revenue side so both halves of the ratio cover the
-        # same services; a missing column reads as 0.0 (no fee credit), matching
-        # data/govfinance.py rather than inventing revenue.
-        fee = {c: min(max(_num(grow.get(f"fee_{c}")) or 0.0, 0.0), 1.0) for c in components}
-        # Net schools out of the revenue rate (like-for-like with the non-school
-        # cost side), matching simulate/dimensions.py.
-        school = _num(grow.get("school_tax_share"))
-        school = school if school is not None and 0.0 <= school <= 1.0 else nat_school
-        municipal_rate = rate * (1.0 - school)
-        for _, du_acre, share, urban in DENSITY_ARCHETYPES:
+
+        # Build the county's parameters with the SAME function the app uses, rather than
+        # re-deriving them here. A second implementation would let the reference
+        # distribution drift away from the model it is supposed to be the yardstick for,
+        # which would quietly invalidate "score = national percentile".
+        params = infra_params_for_county(fips)
+        if params is None:
+            # Shelby is the pilot: infra_params_for_county returns None so enrich_row
+            # falls back to its Memphis statutory defaults. Deliberately skipped — one
+            # county of ~3,140 carries negligible weight, and mixing a statutory basis
+            # into a distribution built on observed effective rates would not be
+            # like-for-like.
+            continue
+
+        for _, du_acre, share, urban, units, renter_share in DENSITY_ARCHETYPES:
             row = pd.Series({"CALC_ACRE": 1.0 / du_acre, "latitude": None,
                              "longitude": None, "RTOTAPR": value})
-            out = enrich_row(row, assess_ratio=1.0, tax_rate=municipal_rate,
-                             in_urban_area=urban, cost_multipliers=mult,
-                             fee_recovery=fee,
-                             # ACS effective rates are owner-occupied-derived, so
-                             # they already embed classification — same reason
-                             # region_context.py disables it off the pilot path.
-                             classification_state=None)
-            fr = out.get("fiscal_ratio")
-            if fr is not None and not pd.isna(fr):
-                points.append((float(fr), pop * share))
+            for owner_occupied, leg_share in ((True, 1.0 - renter_share),
+                                              (False, renter_share)):
+                if leg_share <= 0:
+                    continue
+                out = enrich_row(row, in_urban_area=urban,
+                                 units=units, owner_occupied=owner_occupied, **params)
+                fr = out.get("fiscal_ratio")
+                if fr is not None and not pd.isna(fr):
+                    points.append((float(fr), pop * share * leg_share))
     return points
 
 

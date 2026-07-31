@@ -55,15 +55,22 @@ def test_infra_params_national_county():
     p = RC.infra_params_for_county("06037", in_urban_area=True)   # Los Angeles County
     assert p is not None
     assert set(p) == {"assess_ratio", "tax_rate", "in_urban_area", "cost_multipliers",
-                      "fee_recovery", "classification_state"}
+                      "fee_recovery", "classification_state",
+                      "classification_rate_state", "classification_county_fips"}
     assert p["assess_ratio"] == 1.0 and p["in_urban_area"] is True
     # Fee recovery joins the revenue side; fire/police have no user charge anywhere.
     assert set(p["fee_recovery"]) == {"roads", "water_sewer", "fire", "police",
                                       "sanitation", "parks"}
     assert p["fee_recovery"]["fire"] == 0.0 and p["fee_recovery"]["police"] == 0.0
     assert 0.0 < p["fee_recovery"]["water_sewer"] <= 1.0
-    # An ACS effective rate already embeds classification → uplift must stay off.
+    # The ABSOLUTE correction stays off: it swaps in a statutory assessment ratio,
+    # which is meaningless against an observed effective rate.
     assert p["classification_state"] is None
+    # The MULTIPLICATIVE one is on, with the state derived from the county FIPS.
+    # California has no researched rule, so this resolves to a 1.0 no-op — the key
+    # being populated is what matters, not that it does anything here.
+    assert p["classification_rate_state"] == "CA"
+    assert p["classification_county_fips"] == "06037"
     assert isinstance(p["tax_rate"], float) and p["tax_rate"] > 0
     # in_urban_area is parcel-level → omitted (not forced) when not supplied
     p2 = RC.infra_params_for_county("06037")
