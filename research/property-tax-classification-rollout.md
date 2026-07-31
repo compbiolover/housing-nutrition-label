@@ -24,9 +24,9 @@ Tennessee is not unusual. Spot-checking the Southeast already confirms:
 
 In each of those states the model currently understates rental-housing property tax by
 50–100%. But the correction is switched **off everywhere except Shelby County**:
-`enrich/region_context.py` hard-codes `"classification_state": None` and takes no state
-parameter at all. The fix that made a Memphis tower legible is invisible in Birmingham,
-Columbia, Jackson, and New Orleans.
+`src/housing_label/enrich/region_context.py` hard-codes `"classification_state": None`
+and takes no state parameter at all. The fix that made a Memphis tower legible is
+invisible in Birmingham, Columbia, Jackson, and New Orleans.
 
 ## Scope — what "all states and territories" resolves to
 
@@ -178,7 +178,7 @@ The returned params dict gains **two new keys rather than reusing one**:
 One key with two meanings is how a 1.6 × 1.6 = 2.56 bug gets written. The existing
 `tests/test_tier3_enrich.py:66` assertion stays true and stays meaningful.
 
-### 0.5 `enrich/infrastructure.py` — guard first, compute second
+### 0.5 `src/housing_label/enrich/infrastructure.py` — guard first, compute second
 
 If both `classification_state` and `classification_rate_state` are non-`None`, **raise
 `ValueError`**. A caller wiring up both would apply the correction twice, which is exactly
@@ -228,8 +228,8 @@ attributable. Hold `du_acre` and `share` fixed here; refining the archetype rost
 separate, separately-reviewed change.
 
 **(c) `INFRA_XS_BASIS` — the drift guard.** Next to `INFRA_XS` in
-`score/all_dimensions.py`, record a sorted tuple of the jurisdictions carrying an active
-correction when the constant was last computed, e.g.
+`src/housing_label/score/all_dimensions.py`, record a sorted tuple of the jurisdictions
+carrying an active correction when the constant was last computed, e.g.
 `("AL:2.00", "LA:1.50", "MS:1.50", "SC:1.50", "TN:1.60")`. A test recomputes it from
 `assessment.py` and asserts equality.
 
