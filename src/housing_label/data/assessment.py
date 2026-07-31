@@ -158,7 +158,11 @@ class ClassificationRule:
             raw = self.commercial / self.residential
         else:
             return 1.0
-        return min(max(raw, 1.0), CLASSIFICATION_MULT_CEIL)
+        # Rounded because the legs are decimal statutory percentages whose quotient is
+        # not always exact in binary — Mississippi's 0.15/0.10 lands on
+        # 1.4999999999999998. Six places is far finer than any real statute distinguishes
+        # and keeps the multiplier comparable to the literal a test or a reader expects.
+        return round(min(max(raw, 1.0), CLASSIFICATION_MULT_CEIL), 6)
 
 
 CLASSIFICATION_RULES: dict[str, ClassificationRule] = {
@@ -176,6 +180,57 @@ CLASSIFICATION_RULES: dict[str, ClassificationRule] = {
                "owner-occupied duplex both stay residential. Spring Hill, L.P. v. State Bd. "
                "of Equalization, 2003 WL 23099679, at *17-*18, holds there is no "
                "bright-line physical test."),
+    ),
+    # ── East South Central ────────────────────────────────────────────────────
+    "AL": ClassificationRule(
+        usps="AL",
+        rule_type=RULE_ASSESSMENT,
+        threshold_basis=BASIS_RENTAL_UNITS,
+        # Class III requires single-family AND owner-occupied, so ANY rental housing
+        # falls to Class II — an apartment building and a rented detached house alike.
+        # Threshold 1, unlike Tennessee's 2.
+        rental_unit_threshold=1,
+        residential=0.10,
+        commercial=0.20,
+        authority=("Ala. Const. amend. 373 (recompiled as Ala. Const. of 2022, art. XI, "
+                   "§ 217); Ala. Code § 40-8-1"),
+        verified="2026-07-31",
+        notes=("Class III (10%) is 'all agricultural, forest, and single-family, "
+               "owner-occupied residential property ... and historic buildings and "
+               "sites'; Class II (20%) is 'all property not otherwise classified'. "
+               "Verified against the Alabama Department of Revenue's published class "
+               "table. UNDER-CORRECTS: Alabama also grants a homestead exemption on "
+               "Class III, which depresses the observed owner-occupied rate further, so "
+               "the true gap exceeds 2.0x. Safe direction."),
+    ),
+    "MS": ClassificationRule(
+        usps="MS",
+        rule_type=RULE_ASSESSMENT,
+        threshold_basis=BASIS_RENTAL_UNITS,
+        rental_unit_threshold=1,
+        residential=0.10,
+        commercial=0.15,
+        authority="Miss. Const. art. 4, § 112; Miss. Code Ann. § 27-35-4",
+        verified="2026-07-31",
+        notes=("Class I (10%) is 'single-family, owner-occupied, residential real "
+               "property'; Class II (15%) is 'all other real property, except for real "
+               "property included in Class I or IV'. Same single-family-AND-owner-"
+               "occupied test as Alabama, so the same threshold of 1. UNDER-CORRECTS "
+               "for the same homestead-exemption reason."),
+    ),
+    "KY": ClassificationRule(
+        usps="KY",
+        rule_type=RULE_UNIFORM,
+        authority="Ky. Const. § 172; Ky. Rev. Stat. § 132.020",
+        verified="2026-07-31",
+        notes=("No classification of real property. Ky. Const. § 172 requires all "
+               "property be assessed at fair cash value, which the General Assembly has "
+               "confirmed means 100%, and the KRS 132.020 state real property rate does "
+               "not distinguish residential from commercial; local district rates apply "
+               "uniformly within a district. FOUND AND REJECTED: the Ky. Const. § 170 "
+               "homestead exemption for owners 65+ or totally disabled — an exemption "
+               "keyed to owner characteristics rather than a property class, so it falls "
+               "under the documented exclusion rule."),
     ),
 }
 
