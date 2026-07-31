@@ -53,7 +53,7 @@ def test_unknown_tenure_defaults_multiunit_to_rental():
 
 
 def test_unresearched_states_return_none():
-    """Only Tennessee is encoded; everywhere else the caller keeps its own ratio."""
+    """An unresearched state leaves the caller's own ratio untouched."""
     for state in ("CA", "NY", "tx", "", None):
         assert classified_assess_ratio(state, 157) is None
     # Case-insensitive on the state that IS encoded.
@@ -189,15 +189,25 @@ def test_reporting_view_is_always_a_dict():
 
 
 def test_active_basis_fingerprint():
-    """What score/all_dimensions.INFRA_XS_BASIS must match after a recalibration."""
-    assert active_basis() == ("TN:1.60",)
+    """What score/all_dimensions.INFRA_XS_BASIS must match after a recalibration.
+
+    Sorted by USPS, so the tuple reads as a legible changelog of which jurisdictions
+    entered the reference distribution and at what strength.
+    """
+    assert active_basis() == ("AL:2.00", "MS:1.50", "TN:1.60")
 
 
 def test_coverage_is_honest_about_the_gap():
-    """50 of 51 jurisdictions are unresearched, and that is recorded rather than
-    implied by silence."""
-    assert len(unresearched_jurisdictions()) == 50
-    assert "TN" not in unresearched_jurisdictions()
+    """The unresearched majority is recorded rather than implied by silence.
+
+    Four of 51 researched after Phase 1 (East South Central). Kentucky counts as
+    researched despite applying no correction — that distinction is the whole point of
+    RULE_UNIFORM.
+    """
+    remaining = unresearched_jurisdictions()
+    assert len(remaining) == 47
+    for done in ("AL", "KY", "MS", "TN"):
+        assert done not in remaining
 
 
 # ── The CLI tenure contract ──────────────────────────────────────────────────────
@@ -238,6 +248,89 @@ def test_unknown_tenure_differs_from_explicit_owner_occupied_for_a_duplex():
     """The case that makes the tri-state load-bearing rather than cosmetic."""
     assert classified_assess_ratio("TN", 2) == TN_COMMERCIAL_ASSESS_RATIO      # unknown
     assert classified_assess_ratio("TN", 2, owner_occupied=True) is None       # stated
+
+
+# ── Phase 1: East South Central (KY, TN, MS, AL) ─────────────────────────────────
+#
+# Alabama and Mississippi are the first TENURE-based rules: their residential class
+# requires single-family AND owner-occupied, so the threshold is 1 rental unit rather
+# than Tennessee's 2, and a rented detached house is reclassified. The matrix below is
+# the whole behavioral contract for that rule shape.
+
+_TENURE_MATRIX = {
+    #                                  AL     MS     TN     KY
+    "single-family, owner-occupied": (1.0,   1.0,   1.0,   1.0),
+    "single-family, unknown tenure": (1.0,   1.0,   1.0,   1.0),
+    "single-family, stated rental":  (2.0,   1.5,   1.0,   1.0),
+    "duplex, owner-occupied":        (2.0,   1.5,   1.0,   1.0),
+    "duplex, fully rented":          (2.0,   1.5,   1.6,   1.0),
+    "8-unit rental":                 (2.0,   1.5,   1.6,   1.0),
+    "157-unit condo (parceled)":     (1.0,   1.0,   1.0,   1.0),
+}
+
+_CASES = {
+    "single-family, owner-occupied": dict(units=1, owner_occupied=True),
+    "single-family, unknown tenure": dict(units=1),
+    "single-family, stated rental":  dict(units=1, owner_occupied=False),
+    "duplex, owner-occupied":        dict(units=2, owner_occupied=True),
+    "duplex, fully rented":          dict(units=2, owner_occupied=False),
+    "8-unit rental":                 dict(units=8, owner_occupied=False),
+    "157-unit condo (parceled)":     dict(units=157, separately_parceled=True),
+}
+
+
+def test_east_south_central_tenure_matrix():
+    """One table covering every tenure/unit case in all four states of the division.
+
+    Two rows carry most of the weight. 'single-family, unknown tenure' must stay at 1.0
+    everywhere — that is the conservative default, and AL/MS reach a detached house only
+    when the caller explicitly says it is a rental. 'duplex, owner-occupied' diverges by
+    design: AL and MS test single-family AND owner-occupied, so a duplex fails on the
+    first prong whoever lives in it, while Tennessee counts rental units and an
+    owner-occupied duplex has only one.
+    """
+    for case, expected in _TENURE_MATRIX.items():
+        kwargs = _CASES[case]
+        for state, want in zip(("AL", "MS", "TN", "KY"), expected):
+            got = classification_multiplier(state, **kwargs)
+            assert got == want, f"{state} / {case}: expected {want}, got {got}"
+
+
+def test_alabama_and_mississippi_class_ratios():
+    """The encoded legs are the statutory percentages, not a pre-divided multiplier."""
+    al, ms = CLASSIFICATION_RULES["AL"], CLASSIFICATION_RULES["MS"]
+    assert (al.residential, al.commercial) == (0.10, 0.20)   # Class III vs Class II
+    assert (ms.residential, ms.commercial) == (0.10, 0.15)   # Class I  vs Class II
+    assert al.multiplier() == 2.0 and ms.multiplier() == 1.5
+    # Both are tenure rules: threshold 1, unlike Tennessee's 2.
+    assert al.rental_unit_threshold == ms.rental_unit_threshold == 1
+    assert CLASSIFICATION_RULES["TN"].rental_unit_threshold == 2
+
+
+def test_kentucky_is_researched_but_uniform():
+    """A RULE_UNIFORM record is how 'researched, no correction' is told apart from
+    'not researched' — silence would conflate them."""
+    ky = CLASSIFICATION_RULES["KY"]
+    assert ky.rule_type == RULE_UNIFORM
+    assert classified_assess_ratio("KY", 157, owner_occupied=False) is None
+    assert "KY" not in unresearched_jurisdictions()
+    # The homestead exemption was found and deliberately excluded; the note is the record.
+    assert "170" in ky.notes and "exclusion rule" in ky.notes
+
+
+def test_east_south_central_is_complete():
+    """Every jurisdiction in the division now has a record.
+
+    Turns 'we finished the region' into an assertion. Without it a forgotten state would
+    silently score as a no-op, which is indistinguishable from a researched uniform state
+    at the point of use.
+    """
+    from housing_label.data.states import CENSUS_DIVISION
+
+    division = {s for s, d in CENSUS_DIVISION.items() if d == "East South Central"}
+    assert division == {"AL", "KY", "MS", "TN"}
+    missing = division - set(CLASSIFICATION_RULES)
+    assert not missing, f"East South Central incomplete: {sorted(missing)}"
 
 
 def _run_all():
