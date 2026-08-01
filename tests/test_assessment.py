@@ -194,20 +194,22 @@ def test_active_basis_fingerprint():
     Sorted by USPS, so the tuple reads as a legible changelog of which jurisdictions
     entered the reference distribution and at what strength.
     """
-    assert active_basis() == ("AL:2.00", "MS:1.50", "TN:1.60")
+    assert active_basis() == ("AL:2.00", "MS:1.50", "SC:1.50", "TN:1.60", "WV:2.00")
 
 
 def test_coverage_is_honest_about_the_gap():
     """The unresearched majority is recorded rather than implied by silence.
 
-    Four of 51 researched after Phase 1 (East South Central). Kentucky counts as
-    researched despite applying no correction — that distinction is the whole point of
-    RULE_UNIFORM.
+    Twelve of 51 researched after Phase 2 (South Atlantic, less DC). The seven uniform
+    jurisdictions count as researched despite applying no correction — that distinction
+    is the whole point of RULE_UNIFORM.
     """
     remaining = unresearched_jurisdictions()
-    assert len(remaining) == 47
-    for done in ("AL", "KY", "MS", "TN"):
+    assert len(remaining) == 39
+    for done in ("AL", "KY", "MS", "TN", "SC", "WV", "FL", "GA", "MD", "NC", "VA", "DE"):
         assert done not in remaining
+    # DC is deferred, not done — see test_south_atlantic_coverage_and_the_deferred_jurisdiction.
+    assert "DC" in remaining
 
 
 # ── The CLI tenure contract ──────────────────────────────────────────────────────
@@ -331,6 +333,107 @@ def test_east_south_central_is_complete():
     assert division == {"AL", "KY", "MS", "TN"}
     missing = division - set(CLASSIFICATION_RULES)
     assert not missing, f"East South Central incomplete: {sorted(missing)}"
+
+
+# ── Phase 2: South Atlantic ──────────────────────────────────────────────────────
+#
+# Eight of nine encoded; DC deferred as unverified. South Carolina is a third
+# tenure-based assessment-ratio state. West Virginia is the FIRST rule that splits by
+# tax RATE rather than assessment ratio — same economic effect, different mechanism,
+# and it is what RULE_RATE exists for.
+
+SOUTH_ATLANTIC_UNIFORM = ("DE", "FL", "GA", "MD", "NC", "VA")
+
+
+def test_south_atlantic_correcting_states():
+    """SC and WV, across the same tenure matrix used for East South Central."""
+    expected = {  #                                   SC     WV
+        "single-family, owner-occupied": (1.0,   1.0),
+        "single-family, unknown tenure": (1.0,   1.0),
+        "single-family, stated rental":  (1.5,   2.0),
+        "duplex, owner-occupied":        (1.5,   2.0),
+        "duplex, fully rented":          (1.5,   2.0),
+        "8-unit rental":                 (1.5,   2.0),
+        "157-unit condo (parceled)":     (1.0,   1.0),
+    }
+    for case, (sc, wv) in expected.items():
+        kwargs = _CASES[case]
+        for state, want in (("SC", sc), ("WV", wv)):
+            got = classification_multiplier(state, **kwargs)
+            assert got == want, f"{state} / {case}: expected {want}, got {got}"
+
+
+def test_west_virginia_is_a_rate_rule_not_a_ratio_rule():
+    """WV assesses every class at 60% of value; only the levy RATE differs.
+
+    So the absolute accessor must stay silent at every unit count — there is no
+    different assessment ratio to hand back — while the multiplier still applies. This
+    is the first jurisdiction to exercise that distinction; before it,
+    test_rate_rules_never_yield_an_absolute_ratio looped over an empty set.
+    """
+    wv = CLASSIFICATION_RULES["WV"]
+    assert wv.rule_type == RULE_RATE
+    for units in (1, 2, 8, 157):
+        assert classified_assess_ratio("WV", units, owner_occupied=False) is None
+    assert classification_multiplier("WV", 8, owner_occupied=False) == 2.0
+    # The legs are the county maximum regular levy rates, 28.60 -> 57.20 cents.
+    assert abs(wv.commercial / wv.residential - 2.0) < 1e-9
+
+
+def test_south_carolina_class_ratios():
+    sc = CLASSIFICATION_RULES["SC"]
+    assert (sc.residential, sc.commercial) == (0.04, 0.06)   # legal residence vs other
+    assert sc.multiplier() == 1.5 and sc.rental_unit_threshold == 1
+
+
+def test_researched_uniform_states_never_correct():
+    """Six South Atlantic jurisdictions were researched and found to have no
+    classification of rental housing. Each must be a no-op at every unit count and
+    tenure — including the exemption/cap states, where a large owner/rental gap exists
+    but is not a class ratio and must not be encoded as one."""
+    for state in SOUTH_ATLANTIC_UNIFORM:
+        rule = CLASSIFICATION_RULES[state]
+        assert rule.rule_type == RULE_UNIFORM, state
+        for kwargs in _CASES.values():
+            assert classification_multiplier(state, **kwargs) == 1.0, f"{state} {kwargs}"
+        assert classified_assess_ratio(state, 157, owner_occupied=False) is None, state
+
+
+def test_cap_and_credit_states_record_what_was_rejected():
+    """FL, GA and MD each have a real owner/rental gap driven by an exemption, credit or
+    assessment cap. The notes are the only thing distinguishing 'researched, rejected'
+    from 'not researched', since both yield a 1.0 multiplier."""
+    for state, marker in (("FL", "196.031"), ("GA", "48-5-44"), ("MD", "9-105")):
+        notes = CLASSIFICATION_RULES[state].notes
+        assert "REJECTED" in notes, f"{state}: no rejection recorded"
+        assert marker in CLASSIFICATION_RULES[state].authority + notes, state
+
+
+def test_virginia_is_uniform_not_local_option():
+    """Virginia permits some locality-level classification, but the only one with rate
+    consequences expressly excludes rental housing — so it is uniform, and must NOT be
+    flagged local_option, which would imply an unresolvable sub-state rule."""
+    va = CLASSIFICATION_RULES["VA"]
+    assert va.rule_type == RULE_UNIFORM and va.local_option is False
+    assert "58.1-3221.3" in va.authority
+    assert "EXCLUDES" in va.notes
+
+
+def test_south_atlantic_coverage_and_the_deferred_jurisdiction():
+    """Eight of nine encoded, with DC named as the outstanding one.
+
+    Asserting the gap rather than implying it: an unencoded jurisdiction and a
+    researched-uniform one both score 1.0, so without this the deferral would be
+    indistinguishable from an oversight.
+    """
+    from housing_label.data.states import CENSUS_DIVISION
+
+    division = {s for s, d in CENSUS_DIVISION.items() if d == "South Atlantic"}
+    assert len(division) == 9
+    outstanding = division - set(CLASSIFICATION_RULES)
+    assert outstanding == {"DC"}, f"expected only DC outstanding, got {sorted(outstanding)}"
+    assert "DC" in unresearched_jurisdictions()
+    assert classification_multiplier("DC", 157, owner_occupied=False) == 1.0
 
 
 def _run_all():
