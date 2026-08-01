@@ -555,12 +555,140 @@ value for owner-occupied homes, not a class.
 
 ---
 
+## East North Central
+
+All five encoded, none carrying a correction. The value of the phase is in what was
+rejected: **two states whose real class splits key on use rather than tenure**, one whose
+large owner/rental gap lives entirely inside a levy this dimension already excludes, and one
+cap regime that is structurally unlike Florida's.
+
+### Illinois — `RULE_UNIFORM` (the second predicted correction to dissolve)
+
+| | |
+|---|---|
+| **Authority** | 35 ILCS 200/9-145; Cook County Assessor, *Definitions for the Classifications of Real Property* |
+| **Verified** | 2026-08-01 |
+
+The rollout memo typed Illinois as the second `local_option` case, expecting Cook County's
+classification ordinance to split houses from apartments. **It does not.** Cook's own
+class-code schedule groups its major classes under one heading:
+
+> **II. RESIDENTIAL ASSESSMENT CLASSES (10% level of assessment)** — Major Class 1 Vacant,
+> Major Class 2 Residential, Major Class 3 Multi-Family
+
+Class 2 is houses, condos, co-ops and buildings of six units or fewer; class 3 is rental
+apartment buildings of seven or more units (3-13, 3-91 "apartment building over three
+stories, seven or more units", 3-99 "rental condominium"). **Both are assessed at 10%.** The
+split that matters in Cook is residential against commercial — class 5A at 25% — and rental
+housing sits on the residential side of it.
+
+Class 3 *was* higher historically and was reduced by ordinance in stages, reaching 10% in
+2011, so an older secondary source shows a differential that no longer exists. This is
+exactly the trap the "index, then primary" rule exists to catch.
+
+The Assessor's three-year equalization study makes it stronger: the **realised** levels are
+9.15% for class 2 against 7.89% for class 3, so in practice Cook apartments are assessed
+*below* houses and even the observed gap runs the wrong way for a correction.
+
+Outside Cook, 35 ILCS 200/9-145 is a uniform 33⅓%. So Illinois is `RULE_UNIFORM` and
+explicitly **not** `local_option` — asserted by test, because a `local_option` record with an
+empty `sub_state` would also yield 1.0 and the two must not be confusable.
+
+### Ohio — `RULE_UNIFORM` (a real class split, keyed on use)
+
+| | |
+|---|---|
+| **Authority** | Ohio Const. art. XII, § 2a; Ohio Rev. Code § 5713.03, § 5713.041, § 319.301, § 323.152 |
+| **Verified** | 2026-08-01 |
+
+Ohio genuinely has two classes — art. XII, § 2a permits separate HB 920 tax-reduction
+factors for class I and class II. But § 5713.041 draws the line by **use**:
+
+> Lands and improvements thereon used for residential or agricultural purposes shall be
+> classified as residential/agricultural real property, and all other lands and improvements
+> thereon shall be classified as nonresidential/agricultural real property.
+
+An apartment building is used for residential purposes, so it is class I alongside a
+detached house. **Same shape as Louisiana** — and the second time a two-class state has
+turned out to owe no correction for the same reason, which is why the two are now asserted
+together.
+
+Assessment is a uniform 35% of true value. **Found and rejected:** the § 323.152 2.5%
+owner-occupancy credit and the homestead exemption.
+
+### Michigan — `RULE_UNIFORM` (a real gap, in a levy already excluded)
+
+| | |
+|---|---|
+| **Authority** | Mich. Const. art. IX, §§ 3, 31; MCL § 211.7cc, § 211.34d |
+| **Verified** | 2026-08-01 |
+
+Uniform assessment at 50% of true cash value, no tenure class.
+
+The rejection here is the most interesting in the table. The § 211.7cc **Principal Residence
+Exemption** relieves an owner-occupied principal residence of up to **18 mills**, and
+multi-family and rental property do not qualify. That is a large, genuinely tenure-based
+differential — bigger than several multipliers this table does encode.
+
+It still warrants no correction, for a sharper reason than the general exclusion rule: those
+18 mills are a **school operating** levy, and this dimension nets school taxes out of *both*
+sides — the cost model is non-school and the revenue side applies `school_tax_share`. The gap
+is real but sits outside what the fiscal ratio measures.
+
+**This bears on the open South Carolina question.** Phase 2 recorded SC's owner-occupied
+exemption from school operating millage as making ×1.50 *under*-correct, and asked whether
+`school_tax_share` double-nets it. Michigan is the clean case: a school-only exemption should
+produce no correction at all. If that reasoning holds, the SC note is wrong in its direction.
+**Deliberately not resolved here** — it needs its own change, since it would move a live
+multiplier.
+
+### Indiana — `RULE_UNIFORM` (the tractable cap case)
+
+| | |
+|---|---|
+| **Authority** | Ind. Const. art. 10, § 1(f); Ind. Code § 6-1.1-20.6 |
+| **Verified** | 2026-08-01 |
+
+**Found and rejected:** the constitutional circuit-breaker caps — 1% of gross assessed value
+for an owner-occupied homestead, 2% for other residential and agricultural, 3% for
+commercial. They bind hard; statewide credits exceeded **$1.2 billion in 2025**.
+
+This is the least comfortable uniform record in the table, and the notes say so. Indiana is
+**structurally different** from Florida and Texas: those cap the *growth* of assessed value,
+so their gap depends on holding period and appreciation. Indiana caps tax as a share of
+*current* assessed value, by class, with no time dependence at all — where the local gross
+rate exceeds 2% the owner/rental ratio is exactly 2.0, where it is under 1% it is exactly
+1.0, and in between it is the gross rate over 1%.
+
+That makes Indiana the **most tractable member of the cap roadmap item**, not a Save Our
+Homes lookalike. It is unencodable today only for want of county **gross** rates: the bundled
+ACS `effective_tax_rate` is the owner-occupied rate, already capped, so the gross rate cannot
+be recovered from it once the cap binds.
+
+### Wisconsin — `RULE_UNIFORM`
+
+| | |
+|---|---|
+| **Authority** | Wis. Const. art. VIII, § 1; Wis. Stat. § 70.32 |
+| **Verified** | 2026-08-01 |
+
+The uniformity clause forecloses classification of real property as firmly as Pennsylvania's
+does: for direct taxation under the rule of uniformity **there can be but one constitutional
+class**, and the burden must be borne as nearly as practicable by all property according to
+value. § 70.32 assesses real property at full value with no tenure distinction.
+
+**Found and rejected:** the lottery and gaming credit, available only for an owner-occupied
+primary residence.
+
+---
+
 ## Not yet researched
 
-The remaining 32 jurisdictions, DC among them. Each applies **no correction**, so rental
+The remaining 27 jurisdictions, DC among them. Each applies **no correction**, so rental
 housing in them is currently scored as though taxed like an owner-occupied home.
 
-East South Central (KY, TN, MS, AL), West South Central (AR, LA, OK, TX) and Middle Atlantic
-(NY, NJ, PA) are complete, and South Atlantic is complete but for DC — all asserted by
-`tests/test_assessment.py` rather than claimed. Two sub-state deferrals are outstanding
-inside otherwise complete divisions: DC, and Nassau County within New York.
+East South Central (KY, TN, MS, AL), West South Central (AR, LA, OK, TX), Middle Atlantic
+(NY, NJ, PA) and East North Central (OH, IN, IL, MI, WI) are complete, and South Atlantic is
+complete but for DC — all asserted by `tests/test_assessment.py` rather than claimed. Two
+sub-state deferrals are outstanding inside otherwise complete divisions: DC, and Nassau
+County within New York.

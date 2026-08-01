@@ -283,7 +283,7 @@ machinery deferred until the mechanism is proven. "Southeast" as asked for = Pha
 | **2** | South Atlantic | DE, MD, DC, VA, WV, NC, SC, GA, FL | The South's largest household weight. SC (Type B), DC (first `RULE_RATE`, and a single jurisdiction so no local-option complication), three known Type D, and FL — the exemption trap. |
 | **3** | West South Central | AR, LA, OK, TX | Completes the South. **Landed: all four uniform.** LA was predicted Type B on its 10%/15% split, but the split keys on *use*, not tenure, so an apartment sits in the residential class — the prediction did not survive the primary source. TX, OK and AR are all exemption/cap traps. |
 | **4** | Middle Atlantic | NY, NJ, PA | Only three, but NY is the hardest jurisdiction in the country. First real exercise of `sub_state` and `threshold_basis`. Kept small deliberately. **Landed: NYC ×1.81 in five counties, NJ and PA uniform.** NY also forced a new `RULE_EFFECTIVE` type and a fix to `active_basis`, which had been blind to sub-state rules. Nassau deferred. |
-| **5** | East North Central | OH, IN, IL, MI, WI | IL is the second sub-state case (Cook's ordinance vs uniform downstate), reusing Phase 4 machinery. |
+| **5** | East North Central | OH, IN, IL, MI, WI | IL predicted as the second sub-state case (Cook's ordinance vs uniform downstate). **Landed: all five uniform, and the prediction was wrong** — Cook assesses class 2 (houses) and class 3 (7+ unit rentals) at the same 10%, so no `sub_state` was needed. OH is a second use-based split like LA; MI's 18-mill gap is a school levy this dimension already nets out; IN's caps are rejected but flagged as the tractable cap case. |
 | **6** | New England | ME, NH, VT, MA, RI, CT | MA and RI are `RULE_RATE`; MA is the canonical local-option case. Most "researched, deliberately not applied" entries. |
 | **7** | West North Central | MN, IA, MO, ND, SD, NE, KS | Mostly uniform; fast. MN's class rates are explicit. |
 | **8** | Mountain | MT, ID, WY, CO, NM, AZ, UT, NV | AZ has a real legal-class system separating owner-occupied from rental residential. |
@@ -417,6 +417,16 @@ why, and must not promise anyone's score will go up.
 ---
 
 ## Future work: cap-driven owner/rental divergence
+
+**Indiana is the tractable one, and should be attempted first.** Ind. Const. art. 10, § 1(f)
+caps tax at 1% of gross assessed value for an owner-occupied homestead against 2% for other
+residential — a *rate ceiling by class*, not a growth cap, so unlike every other state below
+it carries no holding-period or appreciation dependence. Where the local gross rate exceeds
+2% the owner/rental ratio is exactly 2.0; under 1% it is exactly 1.0; between, it is the
+gross rate over 1%. All that is missing is county **gross** rates — the bundled ACS
+`effective_tax_rate` is the owner-occupied rate, already capped, so the gross rate cannot be
+recovered from it. One new county-level data source would make Indiana encodable outright,
+which is not true of any of the others.
 
 Florida, Texas, California, Arkansas and Oklahoma are together **30.2% of the US
 population**, and in all five the owner-occupied/rental tax gap is real and large — but it
