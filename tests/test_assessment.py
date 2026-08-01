@@ -15,7 +15,7 @@ from __future__ import annotations
 import pandas as pd
 
 from housing_label.data.assessment import (
-    CLASSIFICATION_MULT_CEIL, CLASSIFICATION_RULES, RULE_ASSESSMENT, RULE_RATE,
+    CLASSIFICATION_MULT_CEIL, CLASSIFICATION_RULES, LAW_AS_OF, RULE_ASSESSMENT, RULE_RATE,
     RULE_UNIFORM, TN_COMMERCIAL_ASSESS_RATIO, TN_RESIDENTIAL_ASSESS_RATIO,
     active_basis, classification_for, classification_multiplier,
     classified_assess_ratio, rental_unit_count, unresearched_jurisdictions,
@@ -434,6 +434,23 @@ def test_south_atlantic_coverage_and_the_deferred_jurisdiction():
     assert outstanding == {"DC"}, f"expected only DC outstanding, got {sorted(outstanding)}"
     assert "DC" in unresearched_jurisdictions()
     assert classification_multiplier("DC", 157, owner_occupied=False) == 1.0
+
+
+def test_law_as_of_is_at_least_the_newest_verified_date():
+    """The table-level vintage must not lag the records it describes.
+
+    LAW_AS_OF plays the DATA_VINTAGE role for this table, so a reader treats it as "the
+    law was checked as of this date". Adding a jurisdiction verified later than
+    LAW_AS_OF silently makes that claim false, and nothing else would catch it.
+    """
+    import datetime
+
+    as_of = datetime.date.fromisoformat(LAW_AS_OF)
+    newest = max(datetime.date.fromisoformat(r.verified)
+                 for r in CLASSIFICATION_RULES.values())
+    assert as_of >= newest, (
+        f"LAW_AS_OF is {LAW_AS_OF} but the newest record was verified {newest} — "
+        "bump LAW_AS_OF when adding jurisdictions")
 
 
 def _run_all():

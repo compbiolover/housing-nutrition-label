@@ -349,8 +349,8 @@ the cost of deferring is small.
 
 ## Not yet researched
 
-The remaining 39 jurisdictions, plus DC. Each applies **no correction**, so rental housing
-in them is currently scored as though taxed like an owner-occupied home.
+The remaining 39 jurisdictions, DC among them. Each applies **no correction**, so rental
+housing in them is currently scored as though taxed like an owner-occupied home.
 
 East South Central is complete (KY, TN, MS, AL) and South Atlantic is complete but for DC —
 both asserted by `tests/test_assessment.py` rather than claimed. Spot-checking during the

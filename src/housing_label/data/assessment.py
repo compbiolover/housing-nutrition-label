@@ -67,12 +67,22 @@ parcel containing at most one rental unit (see ``separately_parceled``).
 
 Coverage
 --------
-Only Tennessee is encoded. Every other jurisdiction returns "no correction", which is a
-real coverage gap and not a claim that other states lack split rolls — several do, with
-different thresholds and different ratios. The rollout plan is
-``research/property-tax-classification-rollout.md``; extending the table means reading each
-state's constitution or code, one at a time, and must not be guessed from a secondary
-source.
+Twelve of 51 scorable jurisdictions are encoded: all of East South Central, and all of
+South Atlantic except the District of Columbia, which is deferred as unverified.
+
+Five carry a correction — AL and WV at 2.0x, TN at 1.6x, MS and SC at 1.5x. The other
+seven were researched and found to have no classification of rental housing, and are
+recorded as ``RULE_UNIFORM`` rather than left absent: both produce a 1.0 multiplier at the
+point of use, so only the record distinguishes "researched, no correction" from "not
+researched".
+
+The remaining 39 jurisdictions return no correction. That is a real coverage gap, not a
+claim that they lack split rolls — several do, with different thresholds and ratios. The
+rollout plan is ``research/property-tax-classification-rollout.md`` and the per-jurisdiction
+authority record is ``research/property-tax-classification-research.md``; extending the
+table means reading each state's constitution or code, one at a time, and must not be
+guessed from a secondary source. ``scripts/report_classification_coverage.py`` prints live
+coverage by Census division.
 """
 
 from __future__ import annotations
@@ -84,7 +94,7 @@ from housing_label.data.states import SCORED_JURISDICTIONS
 # Date the encoded rules were last checked against their primary sources, in aggregate.
 # Per-record ``verified`` gives the per-state granularity; this is the table-level vintage,
 # playing the same role as ``DATA_VINTAGE`` in the crosswalk loaders.
-LAW_AS_OF = "2026-07-31"
+LAW_AS_OF = "2026-08-01"
 
 # ── Rule types ────────────────────────────────────────────────────────────────
 RULE_ASSESSMENT = "assessment_ratio"   # classes differ by fraction of value assessed
