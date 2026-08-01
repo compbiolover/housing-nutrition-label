@@ -15,7 +15,8 @@ from __future__ import annotations
 import pandas as pd
 
 from housing_label.data.assessment import (
-    BASIS_DWELLING_UNITS, CLASSIFICATION_MULT_CEIL, CLASSIFICATION_RULES, LAW_AS_OF,
+    BASIS_DWELLING_UNITS, BASIS_RENTAL_UNITS,
+    CLASSIFICATION_MULT_CEIL, CLASSIFICATION_RULES, LAW_AS_OF,
     RULE_ASSESSMENT, RULE_EFFECTIVE, RULE_RATE,
     RULE_UNIFORM, TN_COMMERCIAL_ASSESS_RATIO, TN_RESIDENTIAL_ASSESS_RATIO,
     active_basis, classification_for, classification_multiplier,
@@ -169,13 +170,19 @@ def test_local_option_states_route_only_through_sub_state():
 
 
 def test_multiplier_equals_the_ratio_of_its_legs():
-    """Catches a pre-divided number pasted where the two source values belong."""
+    """Catches a pre-divided number pasted where the two source values belong.
+
+    Compared against the quotient ROUNDED TO 6 PLACES, which is what ``multiplier()``
+    returns. A tighter tolerance worked only while every encoded ratio terminated inside
+    six digits; North Dakota's 0.10/0.09 repeats, so an exact comparison would fail on a
+    correctly encoded record.
+    """
     for label, rule in _every_rule():
         if rule.rule_type == RULE_UNIFORM or rule.effective_multiplier is not None:
             continue
         if _is_local_option_container(rule):
             continue
-        assert abs(rule.multiplier() - rule.commercial / rule.residential) < 1e-9, label
+        assert rule.multiplier() == round(rule.commercial / rule.residential, 6), label
 
 
 def test_multipliers_are_within_the_sanity_ceiling():
@@ -248,7 +255,8 @@ def test_active_basis_fingerprint():
     entered the reference distribution and at what strength.
     """
     assert active_basis() == (
-        "AL:2.00", "MS:1.50", "NY/36005:1.81", "NY/36047:1.81", "NY/36061:1.81",
+        "AL:2.00", "MN:1.25", "MS:1.50", "ND:1.11",
+        "NY/36005:1.81", "NY/36047:1.81", "NY/36061:1.81",
         "NY/36081:1.81", "NY/36085:1.81", "SC:1.50", "TN:1.60", "WV:2.00")
 
 
@@ -267,15 +275,16 @@ def test_active_basis_descends_into_sub_state_rules():
 def test_coverage_is_honest_about_the_gap():
     """The unresearched majority is recorded rather than implied by silence.
 
-    Twenty-four of 51 researched after Phase 5 (East North Central). The eighteen uniform
+    Thirty-seven of 51 researched after Phase 7 (West North Central). The uniform
     jurisdictions count as researched despite applying no correction — that distinction
     is the whole point of RULE_UNIFORM.
     """
     remaining = unresearched_jurisdictions()
-    assert len(remaining) == 21
+    assert len(remaining) == 14
     for done in ("AL", "KY", "MS", "TN", "SC", "WV", "FL", "GA", "MD", "NC", "VA", "DE",
                  "AR", "LA", "OK", "TX", "NY", "NJ", "PA", "IL", "IN", "MI", "OH", "WI",
-                 "ME", "NH", "VT", "MA", "RI", "CT"):
+                 "ME", "NH", "VT", "MA", "RI", "CT",
+                 "MN", "IA", "MO", "ND", "SD", "NE", "KS"):
         assert done not in remaining
     # DC is deferred, not done — see test_south_atlantic_coverage_and_the_deferred_jurisdiction.
     assert "DC" in remaining
@@ -973,6 +982,121 @@ def test_phase_6_moves_no_anchors():
     for state in NEW_ENGLAND_UNIFORM + UNRESOLVABLE_LOCAL_OPTION:
         assert not any(entry.startswith(f"{state}:") for entry in basis), state
         assert not any(entry.startswith(f"{state}/") for entry in basis), state
+
+
+# ── Phase 7: West North Central ──────────────────────────────────────────────────
+#
+# Two corrections, and they are the useful pair in the whole table: Minnesota and North
+# Dakota both reclassify at FOUR units, but Minnesota counts units held for RENT while
+# North Dakota counts family units the structure ACCOMMODATES. Same number, different
+# basis, opposite answers for an owner-occupied fourplex.
+
+WEST_NORTH_CENTRAL_UNIFORM = ("IA", "KS", "MO", "NE", "SD")
+SCHOOL_LEVY_REJECTIONS = ("MI", "SD", "VT")
+
+
+def test_west_north_central_uniform_states():
+    _assert_uniform_is_a_noop(WEST_NORTH_CENTRAL_UNIFORM)
+
+
+def test_minnesota_reclassifies_at_four_rental_units():
+    """Class 4a is 4+ units HELD FOR RENT; class 4bb (1-3 non-homestead) matches 1a.
+
+    So tenure alone never reclassifies in Minnesota — a rented house or triplex keeps the
+    homestead rates — which is why the threshold is 4 rather than the 1 used by Alabama,
+    Mississippi and South Carolina. Counting rental units rather than dwelling units means
+    an owner-occupied fourplex stays put, matching the fact that Minnesota assessors split
+    such a parcel between 1a and 4a and this model can only pick one.
+    """
+    mn = CLASSIFICATION_RULES["MN"]
+    assert mn.rule_type == RULE_ASSESSMENT
+    assert mn.threshold_basis == BASIS_RENTAL_UNITS and mn.rental_unit_threshold == 4
+    # The legs are the statutory class rates, not a pre-divided 1.25.
+    assert (mn.residential, mn.commercial) == (0.0100, 0.0125)
+    assert mn.multiplier() == 1.25
+    for units in (1, 2, 3):
+        assert classification_multiplier("MN", units, owner_occupied=False) == 1.0, units
+    for units in (4, 8, 157):
+        assert classification_multiplier("MN", units, owner_occupied=False) == 1.25, units
+    # Owner-occupied fourplex: 3 rental units, so it stays class 4bb.
+    assert classification_multiplier("MN", 4, owner_occupied=True) == 1.0
+
+
+def test_minnesota_multiplier_is_exact_because_no_county_reaches_the_tier():
+    """Class 1a is 1.00% only up to $500,000, then 1.25% — which would make the ratio
+    value-dependent and the multiplier a bound rather than a figure.
+
+    It does not, because no Minnesota county's median owner-occupied value reaches the
+    tier. That is what the multiplier is applied against (the ACS rate is computed at the
+    county median), so 1.25 holds everywhere in the state. Asserted from the bundled
+    crosswalk rather than trusted, since a future data refresh could break it — Carver
+    County is already at $453,600.
+    """
+    import csv
+    import pathlib
+
+    from housing_label.data.states import usps_for_fips
+
+    path = (pathlib.Path(__file__).resolve().parents[1]
+            / "src" / "housing_label" / "data" / "property_tax_county.csv")
+    highest = 0.0
+    for row in csv.DictReader(path.open()):
+        if usps_for_fips(str(row["geoid"]).zfill(5)) != "MN":
+            continue
+        try:
+            highest = max(highest, float(row["median_value"]))
+        except (TypeError, ValueError):
+            continue
+    assert 0 < highest < 500_000, (
+        f"a Minnesota county median reached ${highest:,.0f}: class 1a is tiered at "
+        "$500,000, so the 1.25 multiplier is no longer exact there")
+
+
+def test_north_dakota_counts_dwelling_units_not_rental_units():
+    """The counterpart to Minnesota, and the reason both are worth encoding together.
+
+    N.D.C.C. § 57-02-01(14) excludes from residential any 'structures which accommodate
+    four or more separate family units', and § 57-02-01(5) sweeps those into commercial —
+    a purely physical test with no tenure element. So an owner-occupied fourplex is
+    commercial in North Dakota and residential in Minnesota, from the same unit count.
+    """
+    nd = CLASSIFICATION_RULES["ND"]
+    assert nd.threshold_basis == BASIS_DWELLING_UNITS and nd.rental_unit_threshold == 4
+    assert (nd.residential, nd.commercial) == (0.09, 0.10)
+    assert nd.multiplier() == round(0.10 / 0.09, 6)
+    for units in (1, 2, 3):
+        assert classification_multiplier("ND", units, owner_occupied=False) == 1.0, units
+    # Tenure is irrelevant: owner-occupied or not, four units is commercial.
+    for owner in (True, False, None):
+        assert classification_multiplier("ND", 4, owner_occupied=owner) > 1.0, owner
+    # Minnesota disagrees on exactly that parcel — the pair is the point.
+    assert classification_multiplier("MN", 4, owner_occupied=True) == 1.0
+    # A separately parceled condominium still escapes: one family unit per parcel.
+    assert classification_multiplier("ND", 157, separately_parceled=True) == 1.0
+
+
+def test_school_levy_rejections_all_say_so():
+    """Michigan, Vermont and South Dakota reach 'no correction' by the same route.
+
+    Each has a large, genuinely tenure-based differential confined to a SCHOOL levy, which
+    this dimension nets out of both the cost and the revenue side. Three states is a
+    category rather than three coincidences, so assert each names the reason — a reader
+    meeting the fourth should find the pattern already written down, not re-derive it.
+    """
+    for usps in SCHOOL_LEVY_REJECTIONS:
+        rule = CLASSIFICATION_RULES[usps]
+        assert rule.rule_type == RULE_UNIFORM, usps
+        assert "SCHOOL" in rule.notes.upper(), f"{usps}: school levy not named as the reason"
+        assert classification_multiplier(usps, 157, owner_occupied=False) == 1.0, usps
+
+
+def test_west_north_central_is_complete_with_no_deferral():
+    from housing_label.data.states import CENSUS_DIVISION
+
+    division = {s for s, d in CENSUS_DIVISION.items() if d == "West North Central"}
+    assert division == {"IA", "KS", "MN", "MO", "ND", "NE", "SD"}
+    outstanding = division - set(CLASSIFICATION_RULES)
+    assert outstanding == set(), f"unencoded: {sorted(outstanding)}"
 
 
 def test_law_as_of_is_at_least_the_newest_verified_date():

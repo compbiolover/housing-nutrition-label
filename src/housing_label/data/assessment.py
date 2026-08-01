@@ -67,17 +67,22 @@ parcel containing at most one rental unit (see ``separately_parceled``).
 
 Coverage
 --------
-Thirty of 51 scorable jurisdictions are encoded: all of East South Central, West South
-Central, Middle Atlantic, East North Central and New England, and all of South Atlantic
-except the District of Columbia, which is deferred as unverified.
+Thirty-seven of 51 scorable jurisdictions are encoded: all of East South Central, West South
+Central, Middle Atlantic, East North Central, New England and West North Central, and all of
+South Atlantic except the District of Columbia, which is deferred as unverified.
 
-Six carry a correction — AL and WV at 2.0x, New York City at 1.81x, TN at 1.6x, MS and SC
-at 1.5x. Twenty-two were researched and found to have no classification of rental housing,
-and are recorded as ``RULE_UNIFORM`` rather than left absent: both produce a 1.0 multiplier
-at the point of use, so only the record distinguishes "researched, no correction" from "not
-researched". Louisiana and Ohio are the instructive ones — both have a real class split, but
-it keys on *use* rather than tenure, so an apartment building sits in the same class as a
-detached house.
+Eight carry a correction — AL and WV at 2.0x, New York City at 1.81x, TN at 1.6x, MS and SC
+at 1.5x, MN at 1.25x and ND at 1.11x. Twenty-seven were researched and found to have no
+classification of rental housing, and are recorded as ``RULE_UNIFORM`` rather than left
+absent: both produce a 1.0 multiplier at the point of use, so only the record distinguishes
+"researched, no correction" from "not researched". Louisiana, Ohio, Missouri and Kansas are
+the instructive ones — each has a real class split, but it keys on *use* rather than tenure,
+so an apartment building sits in the same class as a detached house.
+
+Minnesota and North Dakota make the other instructive pair: both reclassify at **four**
+units, but Minnesota counts units *held for rent* while North Dakota counts family units the
+structure *accommodates*. An owner-occupied fourplex is commercial in North Dakota and
+residential in Minnesota.
 
 Two more — Rhode Island and Connecticut — have a real classification that DOES reach rental
 housing but is set per municipality, and neither state's counties are governmental units, so
@@ -89,7 +94,7 @@ correction comes from a published effective-rate study rather than statutory leg
 ``RULE_EFFECTIVE`` and the NY notes, where the naive statutory reading over-corrects by
 2.6x.
 
-The remaining 21 jurisdictions return no correction. That is a real coverage gap, not a
+The remaining 14 jurisdictions return no correction. That is a real coverage gap, not a
 claim that they lack split rolls — several do, with different thresholds and ratios. The
 rollout plan is ``research/property-tax-classification-rollout.md`` and the per-jurisdiction
 authority record is ``research/property-tax-classification-research.md``; extending the
@@ -763,6 +768,127 @@ CLASSIFICATION_RULES: dict[str, ClassificationRule] = {
                "county government in 1960, so no county FIPS can express it. Recorded like "
                "Rhode Island: local_option with an EMPTY sub_state, no correction applied, "
                "but the classification recorded as real rather than absent."),
+    ),
+    # ── West North Central ────────────────────────────────────────────────────
+    #
+    # Two corrections, and they make a useful pair: both turn on FOUR units, but Minnesota
+    # counts units held for rent while North Dakota counts family units the structure
+    # accommodates. Same number, different basis, different answer for an owner-occupied
+    # fourplex.
+    "MN": ClassificationRule(
+        usps="MN",
+        rule_type=RULE_ASSESSMENT,
+        threshold_basis=BASIS_RENTAL_UNITS,
+        rental_unit_threshold=4,
+        # Minnesota "class rates" multiply market value to give tax capacity, which the
+        # local rate is then applied to — so a class rate does the job of an assessment
+        # ratio. Class 1a homestead vs class 4a apartment.
+        residential=0.0100,
+        commercial=0.0125,
+        authority="Minn. Stat. § 273.13 subd. 22, subd. 25",
+        verified="2026-08-01",
+        notes=("Class 1a (residential homestead) is 1.00% of the first $500,000 and 1.25% "
+               "above; class 4a (residential real estate containing FOUR OR MORE units and "
+               "held for rent for 30 days or more) is a flat 1.25%. TENURE ALONE DOES NOT "
+               "RECLASSIFY: a rented single-family home or triplex is class 4bb, which "
+               "carries class 1a's rates exactly, so the threshold is 4 rather than the 1 "
+               "used by Alabama, Mississippi and South Carolina. The threshold counts "
+               "RENTAL units because 4a requires the units be held for rent — Minnesota "
+               "assessors split an owner-occupied fourplex between 1a and 4a, which a "
+               "single-class model cannot express, so counting rental units leaves it "
+               "unreclassified, the under-correcting side of that edge. The 1a tiering "
+               "would make the multiplier value-dependent, but no Minnesota county has a "
+               "median owner-occupied value at or above $500,000 (highest is Carver at "
+               "$453,600, median of county medians $231,900), so the 1a rate at the ACS "
+               "baseline is a flat 1.00% statewide and 1.25 is exact rather than a bound."),
+    ),
+    "ND": ClassificationRule(
+        usps="ND",
+        rule_type=RULE_ASSESSMENT,
+        threshold_basis=BASIS_DWELLING_UNITS,
+        rental_unit_threshold=4,
+        residential=0.09,
+        commercial=0.10,
+        authority="N.D.C.C. § 57-02-01(5), (14), § 57-02-27",
+        verified="2026-08-01",
+        notes=("§ 57-02-27 values residential property at 9% of assessed value and "
+               "commercial at 10%, and § 57-02-01(14) draws the line by UNIT COUNT with no "
+               "tenure element at all: residential 'does not include structures which "
+               "accommodate four or more separate family units', and § 57-02-01(5) puts "
+               "'any tract of land with four or more separate family units' in commercial. "
+               "So the basis is DWELLING units, not rental units — an owner-occupied "
+               "fourplex is commercial in North Dakota, where the same building stays "
+               "residential in Minnesota. A separately parceled condominium still escapes, "
+               "each parcel accommodating one family unit. The statute itself does not "
+               "define the classes; the definitions are § 57-02-01, as set out in the Tax "
+               "Commissioner's assessment guidance."),
+    ),
+    "SD": ClassificationRule(
+        usps="SD",
+        rule_type=RULE_UNIFORM,
+        authority="S.D. Codified Laws § 10-13-39, § 10-13-40; S.D. Const. art. XI, § 2",
+        verified="2026-08-01",
+        notes=("FOUND AND REJECTED: the § 10-13-39 owner-occupied single-family "
+               "classification, which cuts the SCHOOL GENERAL FUND levy roughly in half "
+               "for a principal residence, with § 10-13-40 spreading the full levy against "
+               "all district property not so classified. A large, genuinely tenure-based "
+               "differential — and confined to a school levy, which this dimension nets "
+               "out of both the cost and the revenue side. THIRD INSTANCE of that pattern "
+               "after Michigan's Principal Residence Exemption and Vermont's "
+               "homestead/nonhomestead education rate; see those notes and the shared "
+               "test. Outside the school levy South Dakota has no tenure class."),
+    ),
+    "IA": ClassificationRule(
+        usps="IA",
+        rule_type=RULE_UNIFORM,
+        authority="Iowa Code § 441.21; 2013 Iowa Acts ch. 123; 2021 Iowa Acts ch. 177",
+        verified="2026-08-01",
+        notes=("Iowa DID have a separate multiresidential class covering apartments, "
+               "created in 2013 and phased down toward the residential rollback through "
+               "2022 — and it was ELIMINATED effective January 1, 2022, those properties "
+               "recategorized as residential. Apartments now take the same assessment "
+               "limitation (rollback) as houses, so there is nothing to correct. Same trap "
+               "as Cook County: a secondary source written before 2022 shows a "
+               "differential that no longer exists, which is why the sourcing standard "
+               "requires reading the current primary text."),
+    ),
+    "MO": ClassificationRule(
+        usps="MO",
+        rule_type=RULE_UNIFORM,
+        authority="Mo. Const. art. X, § 4(b); Mo. Rev. Stat. § 137.016, § 137.115",
+        verified="2026-08-01",
+        notes=("Art. X, § 4(b) does create subclasses — residential 19%, agricultural 12%, "
+               "commercial 32% — but § 137.016 defines residential by USE: 'all real "
+               "property improved by a structure which is used or intended to be used for "
+               "residential living by human occupants', with no tenure or unit-count "
+               "qualifier, and the State Tax Commission subclassifies condominiums and "
+               "apartments as residential. So an apartment building is 19% beside a "
+               "detached house. Third use-based split after Louisiana and Ohio."),
+    ),
+    "KS": ClassificationRule(
+        usps="KS",
+        rule_type=RULE_UNIFORM,
+        authority="Kan. Const. art. 11, § 1(a); Kan. Stat. Ann. § 79-1439",
+        verified="2026-08-01",
+        notes=("Kansas classifies real property — residential 11.5% against commercial and "
+               "industrial 25% — but the constitution names rental housing INTO the "
+               "residential class expressly: 'real property used for residential purposes "
+               "INCLUDING MULTI-FAMILY RESIDENTIAL REAL PROPERTY and real property "
+               "necessary to accommodate a residential community of mobile or manufactured "
+               "homes' is assessed at 11.5%. The clearest wording of the use-based pattern "
+               "found so far — no inference needed, apartments are named."),
+    ),
+    "NE": ClassificationRule(
+        usps="NE",
+        rule_type=RULE_UNIFORM,
+        authority="Neb. Const. art. VIII, § 1; Neb. Rev. Stat. § 77-201",
+        verified="2026-08-01",
+        notes=("Art. VIII, § 1 requires taxes levied 'by valuation uniformly and "
+               "proportionately upon all real property'. Its ONLY carve-out is "
+               "agricultural and horticultural land, which the Legislature may make a "
+               "separate class — a use exception, not a tenure one. § 77-201 assesses real "
+               "property at 100% of actual value, agricultural at 75%. No tenure class "
+               "exists or could."),
     ),
     # DC is deliberately NOT encoded. It restructured its classes for tax year 2025 (a
     # new Class 1A / 1B split), and sources conflict on where a multifamily rental
