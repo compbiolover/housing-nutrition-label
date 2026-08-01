@@ -219,7 +219,7 @@ national-average cost. Keep the explicit skip and test it.
 | large-lot suburb | 1.5 | 0.18 | 1 | 0.140 |
 | standard suburb | 4.0 | 0.35 | 1 | 0.140 |
 | compact suburb / townhome | 8.0 | 0.20 | 1 | 0.140 |
-| urban multifamily (5–19) | 20.0 | 0.069 | 10 | 0.892 |
+| urban multifamily (5-19) | 20.0 | 0.069 | 10 | 0.892 |
 | large multifamily (20+) | 50.0 | 0.081 | 50 | 0.868 |
 
 Renter shares from ACS 2024 5-yr B25032. Each archetype contributes **two** weighted points
