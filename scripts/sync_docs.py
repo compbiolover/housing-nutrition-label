@@ -70,6 +70,7 @@ from housing_label.simulate.house import (  # noqa: E402
     BONUS_ELEVATION_1FT, BONUS_ELEVATION_2FT, BONUS_ELEVATION_3FT,
     BONUS_FLOOD_VENTS, BONUS_BACKFLOW_VALVE,
 )
+from housing_label.score.all_dimensions import INFRA_XS  # noqa: E402
 from housing_label.score.resilience import (  # noqa: E402
     CODE_ERA_ANCHOR_YEARS, CODE_ERA_ANCHOR_FACTORS,
     FIRE_AGE_ANCHOR_YEARS, FIRE_AGE_ANCHOR_FACTORS,
@@ -77,6 +78,9 @@ from housing_label.score.resilience import (  # noqa: E402
 
 REFERENCE = _ROOT / "docs" / "reference.html"
 SETUP = _ROOT / "docs" / "setup.html"
+# Not a generated page — only the Infrastructure Burden score mapping is checked against
+# the code, see _check_infra_score_mapping.
+METHODOLOGY = _ROOT / "docs" / "methodology.html"
 
 # Written-out cardinals so the prose reads naturally for any plausible count.
 _CARDINALS = {
@@ -373,6 +377,36 @@ def _validate() -> None:
     if len(flat) != len(set(flat)):
         raise SystemExit("sync_docs: a flag is listed in two FEATURE_FLAG_GROUPS")
     _same("FEATURE_FLAG_GROUPS", {f: 1 for f in flat}, {f: 1 for f in BONUS_FLAGS})
+
+    _check_infra_score_mapping()
+
+
+# The prose restatement is too small to be worth a managed AUTOGEN region, but it is not
+# too small to go wrong: it sat stale for at least one recalibration (reading 1.45/0.92/0.32
+# against constants of 1.456/0.934/0.325) because nothing compared the two. Recalibrating
+# INFRA_XS is exactly when a human is least likely to think of a sentence in an HTML page,
+# so the check lives here rather than in a reviewer's head.
+_INFRA_MAPPING_RE = re.compile(
+    r"Score 100 at ratio &ge; ([\d.]+), 80 at ([\d.]+), 60 at ([\d.]+), "
+    r"40 at ([\d.]+), 20 at ([\d.]+), 0 at &le; ([\d.]+)")
+
+
+def _check_infra_score_mapping() -> None:
+    """methodology.html restates INFRA_XS in prose, rounded to 2dp. Keep them equal."""
+    m = _INFRA_MAPPING_RE.search(METHODOLOGY.read_text())
+    if m is None:
+        raise SystemExit(
+            "sync_docs: could not find the Infrastructure Burden score-mapping sentence "
+            "in docs/methodology.html. If its wording changed, update _INFRA_MAPPING_RE "
+            "— do not delete this check, it exists because that sentence went stale once.")
+    shown = [float(x) for x in m.groups()]            # reads high → low
+    want = [round(x, 2) for x in reversed(INFRA_XS)]  # INFRA_XS is ascending
+    if shown != want:
+        raise SystemExit(
+            "sync_docs: docs/methodology.html states Infrastructure Burden breakpoints "
+            "that disagree with score/all_dimensions.INFRA_XS.\n"
+            f"  page says: {shown}\n"
+            f"  code says: {want}   (INFRA_XS rounded to 2dp, high to low)")
 
 
 # ── Region generators (return the inner HTML, markers added by _block) ──────────

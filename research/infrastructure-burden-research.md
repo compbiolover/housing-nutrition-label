@@ -253,9 +253,15 @@ matter:
 ### Re-calibration
 
 With both sides covering the same services, the national median fiscal ratio moves
-**0.31 → 0.66** and `INFRA_XS` was re-anchored. Roughly **13%** of US homes now clear
-1.0 (p90 ≈ 1.15), versus essentially none before — a distribution that can actually
+**0.31 → 0.67** and `INFRA_XS` was re-anchored. Roughly **18%** of US homes now clear
+1.0 (p90 ≈ 1.23), versus essentially none before — a distribution that can actually
 distinguish "pays its way" from "doesn't."
+
+That 18% was 13% until the reference mix gained a large-multifamily archetype. The jump is
+not a loosening of the standard; it is the housing type most likely to pay its way finally
+being counted. Until then the densest point in the distribution was a 10-unit parcel, so
+mid-rises and high-rises — which spread infrastructure cost over many doors — were absent
+from the very population they were being ranked against.
 
 The 157-unit Memphis building lands at **1.17**: a net contributor. The two fixes
 contribute about equally (fees ≈ +$447/unit of revenue; classification ≈ +$638/unit).
