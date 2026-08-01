@@ -194,7 +194,16 @@ INFRA_YS = [0.0, 20.0, 40.0, 60.0, 80.0, 100.0]
 #
 # A sorted tuple rather than a hash, so the diff is legible: a reviewer sees exactly which
 # jurisdictions entered the distribution and at what strength.
-INFRA_XS_BASIS = ("AL:2.00", "MS:1.50", "SC:1.50", "TN:1.60", "WV:2.00")
+#
+# The NY/<fips> entries are New York City's five boroughs, reached through the rules
+# table's sub_state map. They are in the basis but did NOT move any anchor, which is not a
+# mistake: New York City's correction starts at 11 dwelling units (RPTL § 1805(2)), and the
+# densest archetype in scripts/calibrate_infra_breakpoints.py is a 10-unit building. So the
+# city's rule is live for a real label request and invisible to the reference distribution.
+# Closing that gap means adding a large-multifamily archetype, which would move every score
+# in the country and is tracked as its own roadmap item.
+INFRA_XS_BASIS = ("AL:2.00", "MS:1.50", "NY/36005:1.81", "NY/36047:1.81", "NY/36061:1.81",
+                  "NY/36081:1.81", "NY/36085:1.81", "SC:1.50", "TN:1.60", "WV:2.00")
 
 
 def score_energy(df: pd.DataFrame) -> pd.Series:

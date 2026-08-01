@@ -86,10 +86,20 @@ def main() -> int:
             covered_pop += pop.get(usps, 0.0)
             info = classification_for(usps, 8, owner_occupied=False)
             mult = info["multiplier"]
-            effect = "no correction" if rule.rule_type == RULE_UNIFORM else f"x{mult:.2f}"
+            if rule.rule_type == RULE_UNIFORM:
+                effect = "no correction"
+            elif rule.sub_state:
+                # A local-option container corrects only through its sub-rules, so its own
+                # multiplier is 1.0 and printing that would read as "researched, no
+                # effect" — the opposite of the truth for a New York City parcel.
+                subs = sorted({s.multiplier() for s in rule.sub_state.values()})
+                effect = "x" + "/".join(f"{m:.2f}" for m in subs)
+                effect += f" in {len(rule.sub_state)} cos"
+            else:
+                effect = f"x{mult:.2f}"
             age = (today - datetime.date.fromisoformat(rule.verified)).days
             flag = "  [local option]" if rule.local_option else ""
-            print(f"     {usps}   {rule.rule_type:16} {effect:14} "
+            print(f"     {usps}   {rule.rule_type:16} {effect:22} "
                   f"verified {rule.verified} ({age}d ago){flag}")
             print(f"          {rule.authority}")
         print()

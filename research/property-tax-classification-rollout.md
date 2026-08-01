@@ -280,7 +280,7 @@ machinery deferred until the mechanism is proven. "Southeast" as asked for = Pha
 | **1** | East South Central | KY, TN, MS, AL | Smallest division and it contains the pilot — TN is a *re-encode* under the new schema, so an unchanged-value assertion is a strong regression signal. Two known Type B (MS, AL), one Type D (KY). AL's 2.00× is the largest simple multiplier found. |
 | **2** | South Atlantic | DE, MD, DC, VA, WV, NC, SC, GA, FL | The South's largest household weight. SC (Type B), DC (first `RULE_RATE`, and a single jurisdiction so no local-option complication), three known Type D, and FL — the exemption trap. |
 | **3** | West South Central | AR, LA, OK, TX | Completes the South. **Landed: all four uniform.** LA was predicted Type B on its 10%/15% split, but the split keys on *use*, not tenure, so an apartment sits in the residential class — the prediction did not survive the primary source. TX, OK and AR are all exemption/cap traps. |
-| **4** | Middle Atlantic | NY, NJ, PA | Only three, but NY is the hardest jurisdiction in the country. First real exercise of `sub_state` and `threshold_basis`. Kept small deliberately. |
+| **4** | Middle Atlantic | NY, NJ, PA | Only three, but NY is the hardest jurisdiction in the country. First real exercise of `sub_state` and `threshold_basis`. Kept small deliberately. **Landed: NYC ×1.81 in five counties, NJ and PA uniform.** NY also forced a new `RULE_EFFECTIVE` type and a fix to `active_basis`, which had been blind to sub-state rules. Nassau deferred. |
 | **5** | East North Central | OH, IN, IL, MI, WI | IL is the second sub-state case (Cook's ordinance vs uniform downstate), reusing Phase 4 machinery. |
 | **6** | New England | ME, NH, VT, MA, RI, CT | MA and RI are `RULE_RATE`; MA is the canonical local-option case. Most "researched, deliberately not applied" entries. |
 | **7** | West North Central | MN, IA, MO, ND, SD, NE, KS | Mostly uniform; fast. MN's class rates are explicit. |
@@ -435,6 +435,29 @@ both directions.
 **And the caps do not all push the same way.** Texas's § 23.231 circuit breaker caps
 *non-homestead* appraisal growth, narrowing the gap that § 23.23's homestead cap widens.
 Any method here has to be signed, not just magnitude-aware.
+
+---
+
+## Future work: the reference distribution has no large apartment building
+
+`scripts/calibrate_infra_breakpoints.py` weights five density archetypes, and the densest —
+"urban multifamily" — is a **10-unit** parcel. Nothing in the national distribution
+represents a mid-rise or high-rise.
+
+Phase 4 made that concrete. New York City's correction begins at **11** dwelling units
+(RPTL § 1805(2)), one above the densest archetype, so the city's ×1.81 is live for a real
+label request and **invisible to the yardstick it is scored against**. `INFRA_XS` did not
+move when NYC landed, and that is the reason.
+
+The consequence is general, not a New York quirk: every large rental building in the country
+is ranked against a distribution containing no large rental buildings. Adding a
+large-multifamily archetype (say 50 units, carved out of the existing 15% urban share using
+ACS B25032's structure-size breakdown) would fix it — but it moves **every score in the
+country**, so it belongs in its own change with its own before/after, not folded into a
+regional phase.
+
+Until then, `INFRA_XS_BASIS` carries the NYC entries so the guard stays honest: the
+fingerprint records that the city entered the table even though no anchor moved.
 
 Florida is the cleanest first case, because both caps are explicit in the constitution —
 3% annual growth for homestead property (Fla. Const. art. VII, § 4(d)) against 10% for
