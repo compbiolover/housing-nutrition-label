@@ -176,7 +176,7 @@ researched and found to have no classification of rental housing.
 | | |
 |---|---|
 | **Threshold** | 1 rental unit (tenure-based) |
-| **Authority** | S.C. Code Ann. § 12-43-220(c), (e); S.C. Const. art. X, § 1 |
+| **Authority** | S.C. Code Ann. § 12-43-220(c), (e), § 12-37-220(B)(47); S.C. Const. art. X, § 1 |
 | **Verified** | 2026-08-01 |
 
 § 12-43-220(c) gives a 4% assessment ratio to an owner-occupied **legal residence**; all

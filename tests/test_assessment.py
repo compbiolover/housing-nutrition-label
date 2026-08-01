@@ -459,9 +459,26 @@ def test_south_carolina_multiplier_is_the_non_school_ratio():
     """
     sc = CLASSIFICATION_RULES["SC"]
     assert sc.multiplier() == 1.5
-    # The exemption is a level shift on a shared base, so it cannot change the ratio.
-    for m_n in (0.01, 0.02, 0.05):
-        assert abs((0.06 * m_n) / (0.04 * m_n) - sc.multiplier()) < 1e-12
+
+    # Exercised through enrich_row rather than by restating the arithmetic, because the
+    # claim is about the MODEL: whatever level the school exemption leaves the observed
+    # rate at, the rented and owner-occupied legs are built from that same rate, so the
+    # ratio between them stays 1.5. Sweeping the base rate is the whole point — a test
+    # that fixed one rate could not distinguish "cancels" from "happens to agree here".
+    def _sc_tax(*, owner_occupied, municipal_rate):
+        out = enrich_row(_row(1, 0.25, 200_000), units=1,
+                         assess_ratio=1.0, tax_rate=municipal_rate,
+                         classification_state=None, classification_rate_state="SC",
+                         owner_occupied=owner_occupied)
+        return float(out["est_property_tax"])
+
+    for municipal_rate in (0.004, 0.010, 0.025):
+        owner = _sc_tax(owner_occupied=True, municipal_rate=municipal_rate)
+        rented = _sc_tax(owner_occupied=False, municipal_rate=municipal_rate)
+        assert owner > 0
+        assert abs(rented / owner - 1.5) < 1e-9, (
+            f"at municipal_rate={municipal_rate} the ratio was {rented / owner}")
+
     assert "UNDER-CORRECTS" not in sc.notes, "the retracted claim is back"
     assert "1.50 IS THE RIGHT FIGURE" in sc.notes
     assert "school_tax_share" in sc.notes          # the real residual, named

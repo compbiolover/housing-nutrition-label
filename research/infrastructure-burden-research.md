@@ -324,7 +324,7 @@ school *debt* is 5–20% of what an owner actually pays in school tax, the corre
 factor is 0.95–0.80 against the model's 0.49 — a **39–49% understatement**.
 
 **How wide.** Not one state. Among jurisdictions already encoded in
-`data/assessment.py`:
+`src/housing_label/data/assessment.py`:
 
 | state | school-specific owner relief | share of US population |
 |---|---|---|
