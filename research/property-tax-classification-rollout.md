@@ -279,7 +279,7 @@ machinery deferred until the mechanism is proven. "Southeast" as asked for = Pha
 |---|---|---|---|
 | **1** | East South Central | KY, TN, MS, AL | Smallest division and it contains the pilot — TN is a *re-encode* under the new schema, so an unchanged-value assertion is a strong regression signal. Two known Type B (MS, AL), one Type D (KY). AL's 2.00× is the largest simple multiplier found. |
 | **2** | South Atlantic | DE, MD, DC, VA, WV, NC, SC, GA, FL | The South's largest household weight. SC (Type B), DC (first `RULE_RATE`, and a single jurisdiction so no local-option complication), three known Type D, and FL — the exemption trap. |
-| **3** | West South Central | AR, LA, OK, TX | Completes the South. LA is Type B; TX is a second exemption trap. |
+| **3** | West South Central | AR, LA, OK, TX | Completes the South. **Landed: all four uniform.** LA was predicted Type B on its 10%/15% split, but the split keys on *use*, not tenure, so an apartment sits in the residential class — the prediction did not survive the primary source. TX, OK and AR are all exemption/cap traps. |
 | **4** | Middle Atlantic | NY, NJ, PA | Only three, but NY is the hardest jurisdiction in the country. First real exercise of `sub_state` and `threshold_basis`. Kept small deliberately. |
 | **5** | East North Central | OH, IN, IL, MI, WI | IL is the second sub-state case (Cook's ordinance vs uniform downstate), reusing Phase 4 machinery. |
 | **6** | New England | ME, NH, VT, MA, RI, CT | MA and RI are `RULE_RATE`; MA is the canonical local-option case. Most "researched, deliberately not applied" entries. |
@@ -416,17 +416,25 @@ why, and must not promise anyone's score will go up.
 
 ## Future work: cap-driven owner/rental divergence
 
-Florida, Texas and California are together **28% of the US population**, and in all three
-the owner-occupied/rental tax gap is real and large — but it comes from assessment-increase
-caps and homestead exemptions rather than from a property class, so the exclusion rule
-above correctly keeps it out of the classification table.
+Florida, Texas, California, Arkansas and Oklahoma are together **30.2% of the US
+population**, and in all five the owner-occupied/rental tax gap is real and large — but it
+comes from assessment-increase caps and homestead exemptions rather than from a property
+class, so the exclusion rule above correctly keeps it out of the classification table.
 
-It is nonetheless the **single largest known unmodeled effect** in this dimension, and it
-deserves a tracked work item rather than a sentence in a `notes` field. It needs its own
-method, because the gap is not a fixed ratio: it grows with time in ownership and with the
-drift between assessed and market value, so two identical adjacent houses can carry very
-different effective rates purely by purchase date. A constant class multiplier would
-misstate it in both directions.
+Phase 3 made this the dominant finding of the rollout so far rather than a footnote: four of
+the five are now encoded as `RULE_UNIFORM`, so the table records them as *researched* while
+the effect itself stays unmodeled.
+
+It is the **single largest known unmodeled effect** in this dimension, and it deserves a
+tracked work item rather than a sentence in a `notes` field. It needs its own method,
+because the gap is not a fixed ratio: it grows with time in ownership and with the drift
+between assessed and market value, so two identical adjacent houses can carry very different
+effective rates purely by purchase date. A constant class multiplier would misstate it in
+both directions.
+
+**And the caps do not all push the same way.** Texas's § 23.231 circuit breaker caps
+*non-homestead* appraisal growth, narrowing the gap that § 23.23's homestead cap widens.
+Any method here has to be signed, not just magnitude-aware.
 
 Florida is the cleanest first case, because both caps are explicit in the constitution —
 3% annual growth for homestead property (Fla. Const. art. VII, § 4(d)) against 10% for

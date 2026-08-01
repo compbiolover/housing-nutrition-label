@@ -347,12 +347,109 @@ the cost of deferring is small.
 
 ---
 
+## West South Central
+
+All four jurisdictions encoded, and **none carries a correction** — the first division to
+finish that way. Every owner/rental gap in it runs through an exemption, credit or
+assessment cap, which the exclusion rule above keeps out of the table.
+
+### Louisiana — `RULE_UNIFORM` (a predicted correction that dissolved)
+
+| | |
+|---|---|
+| **Authority** | La. Const. art. VII, § 18(A), (B), § 20; La. Admin. Code tit. 61, § V-101 |
+| **Verified** | 2026-08-01 |
+
+The rollout memo typed Louisiana as a correcting state, on the strength of a real 10%/15%
+split noticed during design spot-checking. **Reading the primary source overturns that.**
+
+Art. VII, § 18(B) sets five classes:
+
+| classification | percentage |
+|---|---|
+| Land | 10% |
+| Improvements for residential purposes | 10% |
+| Electric cooperative properties, excluding land | 15% |
+| Public service properties, excluding land | 25% |
+| Other property | 15% |
+
+The split is genuine, but it turns on **use**, not tenure. There is no owner-occupancy or
+unit-count qualifier anywhere in the provision, and an apartment building is an improvement
+used for residential purposes — so it sits in the 10% class beside a detached house. The
+Tax Commission's own rule, LAC 61:V-101, reproduces the same five classes and adds no tenure
+test.
+
+**Found and rejected.** Where Louisiana *does* separate owner from renter is the art. VII,
+§ 20 homestead exemption — $7,500 of assessed value, $75,000 of market value, owner-occupied
+only. Those same Tax Commission rules apply it exactly as an exemption rather than a class:
+on an income-producing property the owner-occupied part is exempt and the rented part is
+not, and a rented half of a double house does not qualify at all. The special assessment level is
+age-, disability- and income-gated. Both fall squarely under the exclusion rule.
+
+**Residual uncertainty, recorded not hidden.** Louisiana assessors colloquially describe
+apartment buildings as "commercial", and no case or AG opinion squarely construing
+"improvements for residential purposes" as applied to apartments was found. The
+constitutional text offers no tenure hook for the contrary reading, and `RULE_UNIFORM` is
+the under-correcting choice, so the text and the governing principle point the same way.
+`tests/test_assessment.py::test_louisiana_split_roll_is_use_based_not_tenure_based` pins
+the finding so it cannot quietly regress to the remembered ×1.50.
+
+### Texas — `RULE_UNIFORM`
+
+| | |
+|---|---|
+| **Authority** | Tex. Const. art. VIII, § 1(a), (b); Tex. Tax Code § 11.13, § 23.23, § 23.231 |
+| **Verified** | 2026-08-01 |
+
+Art. VIII, § 1(a) is the flat command that "taxation shall be equal and uniform", and § 1(b)
+taxes all real property in proportion to its value. Texas has no property classes at all.
+
+**Found and rejected:** the § 11.13 residence-homestead exemption, the § 23.23 10% homestead
+appraisal cap, and the § 23.231 20% circuit-breaker limitation on non-homestead real
+property valued at $5M or less.
+
+That last one is the most instructive item in this division. It caps growth on
+**non-homestead** property, so it *narrows* the owner/rental gap where Florida's caps widen
+it. A regime whose caps do not all push the same direction cannot be represented by a fixed
+class multiplier at all — which is the case for the roadmap item rather than a `notes` line.
+
+### Oklahoma — `RULE_UNIFORM`
+
+| | |
+|---|---|
+| **Authority** | Okla. Const. art. X, § 8(A)(2), (B), § 8B, § 8C |
+| **Verified** | 2026-08-01 |
+
+§ 8(A)(2) assesses real property at between 11% and 13.5% of fair cash value. Critically,
+§ 8(B) fixes **one** such percentage per county for real property — so Oklahoma's use
+categories (agricultural, residential, commercial/industrial) drive *valuation*, not the
+ratio, and none of them turns on tenure.
+
+**Found and rejected:** the § 8B annual valuation caps — 3% for homestead and agricultural
+against 5% for everything else — and the § 8C senior valuation freeze, which is age- and
+income-gated.
+
+### Arkansas — `RULE_UNIFORM`
+
+| | |
+|---|---|
+| **Authority** | Ark. Const. art. 16, § 5, amend. 79; Ark. Code Ann. § 26-26-303 |
+| **Verified** | 2026-08-01 |
+
+Art. 16, § 5 requires taxation "equal and uniform throughout the State", and § 26-26-303
+assesses all real property at 20% of appraised value with no tenure class.
+
+**Found and rejected:** the amendment 79 homestead property tax credit ($500, rising to $600
+for 2026 bills) and its split assessed-value caps — 5% a year for a homestead against 10%
+for all other real property. Same shape as Florida.
+
+---
+
 ## Not yet researched
 
-The remaining 39 jurisdictions, DC among them. Each applies **no correction**, so rental
+The remaining 35 jurisdictions, DC among them. Each applies **no correction**, so rental
 housing in them is currently scored as though taxed like an owner-occupied home.
 
-East South Central is complete (KY, TN, MS, AL) and South Atlantic is complete but for DC —
-both asserted by `tests/test_assessment.py` rather than claimed. Spot-checking during the
-rollout design indicates Louisiana (10% vs 15%) has a real split roll; it lands in West
-South Central and is not encoded until its primary source has been read.
+East South Central (KY, TN, MS, AL) and West South Central (AR, LA, OK, TX) are complete,
+and South Atlantic is complete but for DC — all asserted by `tests/test_assessment.py`
+rather than claimed. The South is now closed.
