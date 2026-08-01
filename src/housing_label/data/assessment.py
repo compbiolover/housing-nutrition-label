@@ -259,15 +259,27 @@ CLASSIFICATION_RULES: dict[str, ClassificationRule] = {
         rental_unit_threshold=1,
         residential=0.04,
         commercial=0.06,
-        authority="S.C. Code Ann. § 12-43-220(c), (e); S.C. Const. art. X, § 1",
+        authority=("S.C. Code Ann. § 12-43-220(c), (e), § 12-37-220(B)(47); "
+                   "S.C. Const. art. X, § 1"),
         verified="2026-08-01",
         notes=("§ 12-43-220(c) gives a 4% ratio to an owner-occupied legal residence; all "
                "other real property is 6%. Tenure-based like Alabama and Mississippi, so "
-               "threshold 1. UNDER-CORRECTS: South Carolina additionally exempts "
-               "owner-occupied legal residences from school OPERATING millage, which "
-               "depresses the observed owner-occupied effective rate below what the 6/4 "
-               "ratio alone implies. See the research memo for a related question about "
-               "whether school_tax_share double-nets that levy for this state."),
+               "threshold 1. 1.50 IS THE RIGHT FIGURE, and an earlier note here claiming "
+               "it under-corrects was wrong — recorded because the wrong reading is the "
+               "tempting one. South Carolina also exempts owner-occupied legal residences "
+               "from school OPERATING millage, so on a TOTAL tax bill a rental really does "
+               "pay more than 1.5x an owner. But this dimension nets school taxes out of "
+               "both sides and applies the multiplier to the NON-SCHOOL rate, where the "
+               "ratio is 0.06/0.04 = 1.5 exactly: the observed owner rate is the base for "
+               "both legs, so the exemption changes that base's LEVEL and cancels out of "
+               "the RATIO. Michigan's Principal Residence Exemption is the same shape and "
+               "correctly yields no correction at all. THE REAL RESIDUAL IS ELSEWHERE: "
+               "region_context nets a county-wide school_tax_share off an owner-occupied "
+               "ACS rate that has already lost its school operating component, which "
+               "over-removes and understates non-school revenue for every South Carolina "
+               "parcel, owner and rental alike. That is a revenue-model issue, not a "
+               "classification one, and is logged in "
+               "research/infrastructure-burden-research.md."),
     ),
     "WV": ClassificationRule(
         usps="WV",
@@ -589,11 +601,16 @@ CLASSIFICATION_RULES: dict[str, ClassificationRule] = {
                "general exclusion rule: those 18 mills are a SCHOOL OPERATING levy, and "
                "this dimension nets school taxes out of BOTH sides (non-school cost model, "
                "school_tax_share on the revenue side). The gap is real but sits outside "
-               "what the fiscal ratio measures. Compare the South Carolina note, where an "
-               "owner-occupied exemption from school operating millage was recorded as "
-               "making 1.50x under-correct — Michigan is the clean case suggesting a "
-               "school-only exemption should produce no correction at all. That question "
-               "is logged in the research memo and deliberately not resolved here."),
+               "what the fiscal ratio measures. This case RESOLVED an open question against "
+               "South Carolina, whose note used to claim that an owner-occupied exemption "
+               "from school operating millage made its 1.50x under-correct. It does not: "
+               "the exemption moves the level of the observed owner rate, which is the "
+               "base for both legs, so it cancels out of the ratio. Michigan is the clean "
+               "case because it has no class split at all to confuse the issue. What both "
+               "states DO share is a genuine revenue-model problem — a county-wide "
+               "school_tax_share netted off an owner-occupied rate that has already lost "
+               "its school component — logged in "
+               "research/infrastructure-burden-research.md."),
     ),
     "IN": ClassificationRule(
         usps="IN",

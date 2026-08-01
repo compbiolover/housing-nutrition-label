@@ -439,6 +439,36 @@ def test_south_carolina_class_ratios():
     assert sc.multiplier() == 1.5 and sc.rental_unit_threshold == 1
 
 
+def test_south_carolina_multiplier_is_the_non_school_ratio():
+    """1.50 is right, and the tempting re-derivation says otherwise — so pin the reason.
+
+    South Carolina exempts an owner-occupied legal residence from school OPERATING
+    millage on top of giving it the 4% ratio. Work the TOTAL tax bill and a rental looks
+    like it pays more than 1.5x an owner, which is what an earlier version of this record
+    claimed. That reading is wrong for this model.
+
+    The multiplier is applied to the NON-SCHOOL rate: region_context builds
+    ``effective_tax_rate * (1 - school_tax_share)`` and enrich_row multiplies that by the
+    class multiplier. With m_n the non-school millage, a rental pays 0.06*m_n against an
+    owner's 0.04*m_n — exactly 1.5. The observed owner rate is the base for BOTH legs, so
+    the exemption shifts that base's level and cancels out of the ratio entirely.
+
+    Michigan is the same structure with no class split to confuse it, and correctly
+    carries no correction at all. Asserting the notes name the real residual too, so the
+    two findings cannot drift apart again.
+    """
+    sc = CLASSIFICATION_RULES["SC"]
+    assert sc.multiplier() == 1.5
+    # The exemption is a level shift on a shared base, so it cannot change the ratio.
+    for m_n in (0.01, 0.02, 0.05):
+        assert abs((0.06 * m_n) / (0.04 * m_n) - sc.multiplier()) < 1e-12
+    assert "UNDER-CORRECTS" not in sc.notes, "the retracted claim is back"
+    assert "1.50 IS THE RIGHT FIGURE" in sc.notes
+    assert "school_tax_share" in sc.notes          # the real residual, named
+    # Michigan reaches the same conclusion from the other direction.
+    assert "RESOLVED" in CLASSIFICATION_RULES["MI"].notes
+
+
 def _assert_uniform_is_a_noop(states):
     """A RULE_UNIFORM record must be inert on every path, at every unit count and tenure.
 

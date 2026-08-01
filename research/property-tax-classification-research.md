@@ -183,20 +183,45 @@ researched and found to have no classification of rental housing.
 other real property is 6%. Same shape as Alabama and Mississippi — owner-occupancy is the
 test, so the threshold is 1 and a rented detached house is reclassified.
 
-**Under-corrects, and worth a second look.** South Carolina additionally exempts
-owner-occupied legal residences from school **operating** millage. That depresses the
-observed owner-occupied effective rate below what the 6/4 ratio alone implies, so ×1.50
-understates the real gap.
+**×1.50 is correct. An earlier version of this section said it under-corrects; that was
+wrong, and the retraction is recorded because the wrong reading is the tempting one.**
 
-It may also expose a **pre-existing issue in the revenue side**, unrelated to
-classification. The national path computes
-`municipal_rate = ACS_effective_rate × (1 − school_tax_share)`, and South Carolina's
-`school_tax_share` resolves to **0.593** — the highest in the region. If the ACS
-owner-occupied rate already excludes school operating millage (because it is measured over
-exactly the homes that are exempt from it), then netting out a further 59.3% — a share
-derived from all property, including commercial, which *does* pay it — removes that levy
-twice and depresses South Carolina's fiscal ratio for every parcel regardless of tenure.
-Flagged here as a separate defect with a different blast radius; not fixed in this phase.
+South Carolina also exempts owner-occupied legal residences from school **operating**
+millage (§ 12-37-220(B)(47)) on top of giving them the 4% ratio. Writing `m_n` for
+non-school millage, `m_so` for school operating and `m_sd` for school debt:
+
+| | ratio | pays |
+|---|---|---|
+| owner-occupied legal residence | 4% | `0.04 (m_n + m_sd)` |
+| rental / other | 6% | `0.06 (m_n + m_so + m_sd)` |
+
+On a **total** tax bill the rental/owner ratio therefore exceeds 1.5, which is what the old
+note saw. But this model never uses the total bill. `region_context` builds
+`municipal_rate = ACS_effective_rate × (1 − school_tax_share)` and `enrich_row` applies the
+class multiplier to *that*, so the multiplier operates on the **non-school** rate:
+
+```
+rental non-school     0.06 · m_n
+------------------ = ------------ = 1.5   exactly
+owner  non-school     0.04 · m_n
+```
+
+The observed owner rate is the base for **both** legs. The exemption changes that base's
+*level*, and cancels out of the *ratio*. Michigan's Principal Residence Exemption (Phase 5)
+is the same structure with no class split to confuse it, and correctly carries no correction
+at all — that case is what settled this one.
+
+**The real residual is a revenue-side defect, not a classification one.** `school_tax_share`
+is the school share of property tax collected across *all* property in the county, but
+`ACS_effective_rate` is measured over **owner-occupied homes only** — exactly the homes the
+exemption applies to. So the netting removes a school component the rate has largely already
+lost, understating non-school revenue for every South Carolina parcel regardless of tenure.
+
+That defect is **not South Carolina-specific** — Texas and Michigan share it, together with
+South Carolina covering 13.2% of the US population among encoded states. It is written up
+properly, with quantification, in
+[infrastructure-burden-research.md](infrastructure-burden-research.md); it needs school
+operating-versus-debt millage data that is not bundled, and is not fixed here.
 
 ### West Virginia — `RULE_RATE`, ×2.00
 
@@ -635,12 +660,18 @@ It still warrants no correction, for a sharper reason than the general exclusion
 sides — the cost model is non-school and the revenue side applies `school_tax_share`. The gap
 is real but sits outside what the fiscal ratio measures.
 
-**This bears on the open South Carolina question.** Phase 2 recorded SC's owner-occupied
-exemption from school operating millage as making ×1.50 *under*-correct, and asked whether
-`school_tax_share` double-nets it. Michigan is the clean case: a school-only exemption should
-produce no correction at all. If that reasoning holds, the SC note is wrong in its direction.
-**Deliberately not resolved here** — it needs its own change, since it would move a live
-multiplier.
+**This settled the open South Carolina question.** Phase 2 recorded SC's owner-occupied
+exemption from school operating millage as making ×1.50 *under*-correct. Michigan is the
+same structure with no class split to confuse it, and the answer there is plainly no
+correction at all — which forced the South Carolina reading to be worked through properly. It
+does not survive: the exemption moves the *level* of the observed owner rate, which is the
+base for both legs of the ratio, so it cancels. **×1.50 was right all along**, and the
+section above now carries the algebra and the retraction.
+
+Both states do share a genuine defect, but on the revenue side rather than in
+classification: a county-wide `school_tax_share` netted off an owner-occupied rate that has
+already lost its school component. Texas has it too. See
+[infrastructure-burden-research.md](infrastructure-burden-research.md).
 
 ### Indiana — `RULE_UNIFORM` (the tractable cap case)
 
