@@ -67,24 +67,29 @@ parcel containing at most one rental unit (see ``separately_parceled``).
 
 Coverage
 --------
-Twenty-four of 51 scorable jurisdictions are encoded: all of East South Central, West South
-Central, Middle Atlantic and East North Central, and all of South Atlantic except the
-District of Columbia, which is deferred as unverified.
+Thirty of 51 scorable jurisdictions are encoded: all of East South Central, West South
+Central, Middle Atlantic, East North Central and New England, and all of South Atlantic
+except the District of Columbia, which is deferred as unverified.
 
 Six carry a correction — AL and WV at 2.0x, New York City at 1.81x, TN at 1.6x, MS and SC
-at 1.5x. The other eighteen were researched and found to have no classification of rental
-housing, and are recorded as ``RULE_UNIFORM`` rather than left absent: both produce a 1.0
-multiplier at the point of use, so only the record distinguishes "researched, no
-correction" from "not researched". Louisiana and Ohio are the instructive ones — both have
-a real class split, but it keys on *use* rather than tenure, so an apartment building sits
-in the same class as a detached house.
+at 1.5x. Twenty-two were researched and found to have no classification of rental housing,
+and are recorded as ``RULE_UNIFORM`` rather than left absent: both produce a 1.0 multiplier
+at the point of use, so only the record distinguishes "researched, no correction" from "not
+researched". Louisiana and Ohio are the instructive ones — both have a real class split, but
+it keys on *use* rather than tenure, so an apartment building sits in the same class as a
+detached house.
+
+Two more — Rhode Island and Connecticut — have a real classification that DOES reach rental
+housing but is set per municipality, and neither state's counties are governmental units, so
+no county FIPS can express it. They carry ``local_option`` with an empty ``sub_state``: no
+correction applies, but the record says a rule exists rather than claiming there is none.
 
 New York is the only ``local_option`` state resolved so far, and the only one whose
 correction comes from a published effective-rate study rather than statutory legs — see
 ``RULE_EFFECTIVE`` and the NY notes, where the naive statutory reading over-corrects by
 2.6x.
 
-The remaining 27 jurisdictions return no correction. That is a real coverage gap, not a
+The remaining 21 jurisdictions return no correction. That is a real coverage gap, not a
 claim that they lack split rolls — several do, with different thresholds and ratios. The
 rollout plan is ``research/property-tax-classification-rollout.md`` and the per-jurisdiction
 authority record is ``research/property-tax-classification-research.md``; extending the
@@ -644,6 +649,120 @@ CLASSIFICATION_RULES: dict[str, ClassificationRule] = {
                "§ 70.32 assesses real property at full value with no tenure distinction. "
                "FOUND AND REJECTED: the lottery and gaming credit, available only for an "
                "owner-occupied primary residence."),
+    ),
+    # ── New England ───────────────────────────────────────────────────────────
+    #
+    # The most legally varied division. Vermont is the sharpest test of the rule that a
+    # tenure split confined to a SCHOOL levy owes no correction; Rhode Island and
+    # Connecticut are the first states whose classification is real, reaches rental
+    # housing, and cannot be resolved at the county granularity this table keys on.
+    "VT": ClassificationRule(
+        usps="VT",
+        rule_type=RULE_UNIFORM,
+        authority="32 V.S.A. § 5401(7), (10), § 5402; Vt. Const. ch. II, § 66",
+        verified="2026-08-01",
+        notes=("On its face the cleanest RULE_RATE candidate in the country: § 5402 imposes "
+               "a statewide education property tax at DIFFERENT RATES on homestead and "
+               "nonhomestead property — roughly $1.00 spending-adjusted against $1.59, "
+               "about 1.6x — statutory, statewide, tenure-based, no local option. It still "
+               "owes no correction, for the same reason Michigan's Principal Residence "
+               "Exemption does not: the split lives entirely inside an EDUCATION levy, and "
+               "this dimension nets school taxes out of both the cost and the revenue side. "
+               "Contrast New Hampshire next door, whose statewide education tax was upheld "
+               "in 2025 precisely because it is uniform in rate. UNDER-CORRECTS, and the "
+               "reason is worth stating: since Act 60/68 the education tax IS most of the "
+               "Vermont property tax bill, and 96% of Vermont's population sits on the "
+               "NATIONAL-AVERAGE school share (0.4092) rather than a measured one, because "
+               "Vermont funds schools through town-dependent systems carrying no separate "
+               "Census of Governments levy. So the model nets away ~41% of a bill that is "
+               "far more than 41% education, and the remainder still carries the "
+               "differential. That is a revenue-side defect, not a class ratio: encoding "
+               "1.59 here would double-count against whatever the 41% netting does remove, "
+               "and would become an outright over-correction the moment the school share "
+               "is fixed. See research/infrastructure-burden-research.md."),
+    ),
+    "MA": ClassificationRule(
+        usps="MA",
+        rule_type=RULE_UNIFORM,
+        local_option=False,
+        authority="Mass. Gen. Laws ch. 40, § 56; ch. 59, § 2A, § 38; Mass. Const. pt. 2, ch. 1, § 1, art. 4",
+        verified="2026-08-01",
+        notes=("Massachusetts DOES permit a local classification shift — ch. 40, § 56 lets a "
+               "municipality adopt a residential factor moving tax burden toward "
+               "commercial, industrial and personal property — which made this look like "
+               "the canonical local-option case. It is not, because the shift cannot reach "
+               "rental housing: assessors classify real property into residential, open "
+               "space, commercial or industrial, and RESIDENTIAL INCLUDES ALL PROPERTY "
+               "CONTAINING ONE OR MORE UNITS FOR HUMAN HABITATION, large apartment "
+               "buildings among them. The shift moves burden between residential and "
+               "commercial; apartments sit on the residential side of it. Same shape as "
+               "Virginia, and local_option is set False deliberately so the record says "
+               "'the option does not reach rental housing' rather than 'not yet resolved'."),
+    ),
+    "ME": ClassificationRule(
+        usps="ME",
+        rule_type=RULE_UNIFORM,
+        authority="Me. Const. art. IX, § 8; 36 M.R.S. § 701-A, § 681",
+        verified="2026-08-01",
+        notes=("Art. IX, § 8 requires that all taxes on real estate be 'apportioned and "
+               "assessed equally according to the just value thereof'. Its only exceptions "
+               "are classified farm, open space, forest land and working waterfront, all "
+               "use-based and none turning on tenure. FOUND AND REJECTED: the § 681 "
+               "homestead exemption, available only for a permanent residence."),
+    ),
+    "NH": ClassificationRule(
+        usps="NH",
+        rule_type=RULE_UNIFORM,
+        authority="N.H. Const. pt. II, art. 5; RSA 75:1; RSA 76:3",
+        verified="2026-08-01",
+        notes=("Art. 5 permits only 'proportional and reasonable' assessments and rates, "
+               "and RSA 75:1 appraises all property at full and true value with no tenure "
+               "class. New Hampshire also levies a statewide education property tax (RSA "
+               "76:3), and it is the instructive contrast with Vermont: the New Hampshire "
+               "Supreme Court upheld it in 2025 precisely because it is administered 'equal "
+               "in valuation and uniform in rate throughout the state', where Vermont's "
+               "equivalent splits homestead from nonhomestead. Two neighbours, the same "
+               "instrument, opposite answers."),
+    ),
+    "RI": ClassificationRule(
+        usps="RI",
+        rule_type=RULE_RATE,
+        local_option=True,
+        # Deliberately no sub_state: the choice is municipal and Rhode Island's counties
+        # have no government at all, so no county FIPS can express it. _reclassified
+        # returns None on the empty lookup, so this yields no correction — the safe
+        # direction — while still recording that a real classification exists.
+        authority="R.I. Gen. Laws § 44-5-11.8, § 44-5-11.18",
+        verified="2026-08-01",
+        notes=("A REAL classification that reaches rental housing, which this table cannot "
+               "resolve. § 44-5-11.8 puts residential real estate of NO MORE THAN FIVE "
+               "dwelling units in class 1, so a six-unit building falls to class 2 "
+               "(commercial and industrial) unless the city provides otherwise; Providence "
+               "has its own regime under § 44-5-11.18 with class 1A (fewer than six units), "
+               "1B (six to ten) and 1C (more than ten), and rate caps relative to 1A. The "
+               "choice is made per municipality — 39 cities and towns — and Rhode Island's "
+               "five counties are not governmental units, so a county FIPS cannot express "
+               "it. Recorded as local_option with an EMPTY sub_state: no correction "
+               "applies, but the record says a classification exists rather than claiming "
+               "there is none. UNDER-CORRECTS in every city that taxes 6+ unit buildings "
+               "commercially."),
+    ),
+    "CT": ClassificationRule(
+        usps="CT",
+        rule_type=RULE_ASSESSMENT,
+        local_option=True,
+        # Same shape as Rhode Island; Connecticut abolished county government in 1960.
+        authority="Conn. Gen. Stat. § 12-62a, § 12-62n, § 12-62r",
+        verified="2026-08-01",
+        notes=("§ 12-62a fixes a uniform 70% assessment ratio statewide, which alone would "
+               "make Connecticut uniform. But § 12-62n is a MUNICIPAL OPTION to set "
+               "separate assessment rates, and it names 'apartment property' as a category "
+               "distinct from 'residential property' — so unlike the Massachusetts shift, "
+               "this one does reach rental housing (§ 12-62r governs annual adjustment of "
+               "those rates). The choice is per municipality and Connecticut abolished "
+               "county government in 1960, so no county FIPS can express it. Recorded like "
+               "Rhode Island: local_option with an EMPTY sub_state, no correction applied, "
+               "but the classification recorded as real rather than absent."),
     ),
     # DC is deliberately NOT encoded. It restructured its classes for tax year 2025 (a
     # new Class 1A / 1B split), and sources conflict on where a multifamily rental

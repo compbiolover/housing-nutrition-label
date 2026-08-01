@@ -74,6 +74,12 @@ def describe_effect(rule) -> str:
     """One line saying what this rule actually does, thresholds included."""
     if rule.rule_type == RULE_UNIFORM:
         return "no correction — researched, no classification of rental housing"
+    if rule.local_option and not rule.sub_state:
+        # A real classification that reaches rental housing but is set per municipality in
+        # a state whose counties are not governmental units (RI, CT). Falling through to
+        # the multiplier below would print "x1.00", which reads as "researched, no effect"
+        # — the opposite of the truth, and the reason this branch exists.
+        return "no correction — classification is municipal, not resolvable by county"
     if rule.sub_state:
         # A local-option container corrects only through its sub-rules; its own multiplier
         # is 1.0, and printing that would read as "researched, no effect" — the opposite of

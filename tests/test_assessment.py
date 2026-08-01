@@ -109,8 +109,14 @@ def _every_rule():
 
 
 def _is_local_option_container(rule):
-    """A state whose only job is to route to sub-state rules carries no legs itself."""
-    return bool(rule.local_option and rule.sub_state)
+    """A local-option record carries no legs itself.
+
+    True whether or not ``sub_state`` has entries. Rhode Island and Connecticut have a real
+    classification of rental housing that is set per municipality, in states whose counties
+    are not governmental units — so there is nothing for a county-keyed ``sub_state`` to
+    hold, and requiring one would force them to be mis-recorded as uniform.
+    """
+    return bool(rule.local_option)
 
 
 def test_every_rule_carries_provenance():
@@ -141,16 +147,25 @@ def test_rule_types_carry_the_fields_they_need():
 
 
 def test_local_option_states_route_only_through_sub_state():
-    """A local-option state must never correct on its own. Its container has no legs, so
-    a caller who omits the county under-corrects instead of applying one county's rule
-    statewide — the safe direction, asserted rather than assumed."""
+    """A local-option state must never correct on its own.
+
+    The container carries no legs, so a caller who omits the county under-corrects instead
+    of applying one county's rule statewide — the safe direction, asserted rather than
+    assumed. An EMPTY sub_state is allowed and meaningful: Rhode Island and Connecticut
+    have a real classification that reaches rental housing but is set per municipality, in
+    states whose counties are not governmental units. Recording that as local-option with
+    nothing to route to is more honest than RULE_UNIFORM, which would assert there is no
+    classification to find.
+    """
     for usps, rule in CLASSIFICATION_RULES.items():
         if not rule.local_option:
             continue
-        assert rule.sub_state, f"{usps}: local_option with no sub_state can never correct"
         assert rule.residential is None and rule.commercial is None, usps
         assert rule.effective_multiplier is None, usps
         assert classification_multiplier(usps, 157, owner_occupied=False) == 1.0, usps
+        # And with a county supplied but no entry for it, still nothing.
+        assert classification_multiplier(
+            usps, 157, owner_occupied=False, county_fips="99999") == 1.0, usps
 
 
 def test_multiplier_equals_the_ratio_of_its_legs():
@@ -257,9 +272,10 @@ def test_coverage_is_honest_about_the_gap():
     is the whole point of RULE_UNIFORM.
     """
     remaining = unresearched_jurisdictions()
-    assert len(remaining) == 27
+    assert len(remaining) == 21
     for done in ("AL", "KY", "MS", "TN", "SC", "WV", "FL", "GA", "MD", "NC", "VA", "DE",
-                 "AR", "LA", "OK", "TX", "NY", "NJ", "PA", "IL", "IN", "MI", "OH", "WI"):
+                 "AR", "LA", "OK", "TX", "NY", "NJ", "PA", "IL", "IN", "MI", "OH", "WI",
+                 "ME", "NH", "VT", "MA", "RI", "CT"):
         assert done not in remaining
     # DC is deferred, not done — see test_south_atlantic_coverage_and_the_deferred_jurisdiction.
     assert "DC" in remaining
@@ -856,6 +872,105 @@ def test_phase_5_moves_no_anchors():
     """Five uniform records cannot enter the reference distribution."""
     basis = active_basis()          # the literal itself lives in test_active_basis_fingerprint
     for state in EAST_NORTH_CENTRAL_UNIFORM:
+        assert not any(entry.startswith(f"{state}:") for entry in basis), state
+        assert not any(entry.startswith(f"{state}/") for entry in basis), state
+
+
+# ── Phase 6: New England ─────────────────────────────────────────────────────────
+#
+# The smallest division by population and the most legally varied. Vermont is the sharpest
+# test of the rule that a tenure split confined to a SCHOOL levy owes no correction.
+# Rhode Island and Connecticut are the first records for a third state of knowledge: a
+# classification that is real, reaches rental housing, and cannot be resolved by county.
+
+NEW_ENGLAND_UNIFORM = ("MA", "ME", "NH", "VT")
+UNRESOLVABLE_LOCAL_OPTION = ("CT", "RI")
+
+
+def test_new_england_uniform_states():
+    _assert_uniform_is_a_noop(NEW_ENGLAND_UNIFORM)
+
+
+def test_vermont_education_split_owes_no_correction():
+    """The hardest "no" in the table, and the one most likely to be undone by mistake.
+
+    32 V.S.A. § 5402 taxes homestead and nonhomestead property at different statewide
+    rates — about 1.6x — with no local option. On its face it is the cleanest RULE_RATE
+    candidate in the country, and anyone reading the statute alone would encode it.
+
+    It owes no correction because the split sits entirely inside an EDUCATION levy, which
+    this dimension nets out of both the cost and the revenue side. That is the rule
+    established when South Carolina's note was retracted and Michigan's was written; this
+    asserts Vermont applies it, and that the record says WHY rather than just yielding 1.0
+    like an unresearched state would.
+    """
+    vt = CLASSIFICATION_RULES["VT"]
+    assert vt.rule_type == RULE_UNIFORM
+    assert vt.residential is None and vt.commercial is None
+    assert "5402" in vt.authority
+    assert "EDUCATION" in vt.notes            # the reason, not just the verdict
+    assert "UNDER-CORRECTS" in vt.notes       # honest about the direction
+    for units in (1, 2, 11, 157):
+        assert classification_multiplier("VT", units, owner_occupied=False) == 1.0, units
+
+
+def test_massachusetts_shift_cannot_reach_apartments():
+    """Massachusetts permits a classification shift, so the record must say why it is
+    still uniform rather than leaving that to be re-derived.
+
+    ch. 40, § 56 lets a municipality move burden toward commercial and industrial
+    property, but Massachusetts counts every property with one or more units for human
+    habitation as residential — apartment buildings included — so the shift moves burden
+    between residential and commercial and rental housing is on the residential side.
+    Same shape as Virginia, and local_option must stay False so the record reads "the
+    option does not reach rental housing" rather than "not yet resolved".
+    """
+    ma = CLASSIFICATION_RULES["MA"]
+    assert ma.rule_type == RULE_UNIFORM and ma.local_option is False
+    assert "§ 56" in ma.authority
+    assert "RESIDENTIAL INCLUDES ALL PROPERTY" in ma.notes
+
+
+def test_unresolvable_local_option_is_recorded_not_flattened():
+    """Rhode Island and Connecticut classify rental housing, and we cannot resolve it.
+
+    RI § 44-5-11.8 leaves a six-unit building in the commercial class unless the city says
+    otherwise; CT § 12-62n names 'apartment property' as its own category. Both are set
+    per municipality, and neither state's counties are governmental units — RI's five
+    counties have no government, CT abolished county government in 1960 — so no county
+    FIPS can carry the rule.
+
+    Recording them as local_option with an EMPTY sub_state keeps the distinction from
+    RULE_UNIFORM, which would assert there is no classification to find. Both yield 1.0
+    either way, so only the record tells them apart — the same argument that makes
+    RULE_UNIFORM worth having at all.
+    """
+    for usps in UNRESOLVABLE_LOCAL_OPTION:
+        rule = CLASSIFICATION_RULES[usps]
+        assert rule.local_option is True, usps
+        assert rule.sub_state == {}, f"{usps}: expected no resolvable county"
+        assert rule.rule_type != RULE_UNIFORM, (
+            f"{usps}: RULE_UNIFORM would deny the classification exists")
+        assert "per municipality" in rule.notes or "municipality" in rule.notes, usps
+        for kwargs in _CASES.values():
+            assert classification_multiplier(usps, **kwargs) == 1.0, f"{usps} {kwargs}"
+        # The absolute path must stay silent too, even for the RULE_ASSESSMENT one.
+        assert classified_assess_ratio(usps, 157, owner_occupied=False) is None, usps
+
+
+def test_new_england_is_complete_with_no_deferral():
+    from housing_label.data.states import CENSUS_DIVISION
+
+    division = {s for s, d in CENSUS_DIVISION.items() if d == "New England"}
+    assert division == {"CT", "MA", "ME", "NH", "RI", "VT"}
+    outstanding = division - set(CLASSIFICATION_RULES)
+    assert outstanding == set(), f"unencoded: {sorted(outstanding)}"
+
+
+def test_phase_6_moves_no_anchors():
+    """No New England record carries a correction, resolvable or otherwise."""
+    basis = active_basis()          # the literal itself lives in test_active_basis_fingerprint
+    for state in NEW_ENGLAND_UNIFORM + UNRESOLVABLE_LOCAL_OPTION:
         assert not any(entry.startswith(f"{state}:") for entry in basis), state
         assert not any(entry.startswith(f"{state}/") for entry in basis), state
 
