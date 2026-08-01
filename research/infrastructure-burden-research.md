@@ -297,6 +297,54 @@ split-roll state, a rental building's property tax is still understated. Extendi
 table means reading each state's constitution or code individually; it should not be
 guessed from a secondary source.
 
+## Known defect — the school netting mixes two populations
+
+`enrich/region_context.py` builds the revenue side as
+
+```python
+municipal_rate = tax["effective_tax_rate"] * (1.0 - gov["school_tax_share"])
+```
+
+and the two factors are measured over **different populations**:
+
+| factor | source | population |
+|---|---|---|
+| `effective_tax_rate` | ACS B25103 ÷ B25077 | **owner-occupied homes only** |
+| `school_tax_share` | Census of Governments | **all property** in the county |
+
+That is fine where owner-occupied homes pay school taxes on the same footing as everything
+else. It breaks wherever a state gives owner-occupied homes **school-specific** relief: the
+ACS rate has already lost most of its school component, and netting the county-wide share
+removes it a second time. The result understates non-school revenue — and therefore the
+fiscal ratio and the score — for **every parcel in that state, owner and rental alike**.
+
+**How large.** South Carolina's median county-wide `school_tax_share` is **0.513**, applied
+to a rate measured over exactly the homes that are exempt from school operating millage. If
+school *debt* is 5–20% of what an owner actually pays in school tax, the correct netting
+factor is 0.95–0.80 against the model's 0.49 — a **39–49% understatement**.
+
+**How wide.** Not one state. Among jurisdictions already encoded in
+`src/housing_label/data/assessment.py`:
+
+| state | school-specific owner relief | share of US population |
+|---|---|---|
+| TX | Tex. Tax Code § 11.13(b) — $100,000 residence homestead exemption **for school district taxes** | 9.20% |
+| MI | MCL § 211.7cc — Principal Residence Exemption, 18 school operating mills | 3.07% |
+| SC | S.C. Code § 12-37-220(B)(47) — owner-occupied exemption from school operating millage | 0.93% |
+
+**13.2% of the US population among encoded states alone**, and the other 27 jurisdictions
+have not been checked for this pattern at all.
+
+**Why it is not fixed here.** The correction needs school **operating-versus-debt** millage
+per county, which is not bundled and is a 50-state acquisition project. Choosing a factor
+without that data would swap a known, one-directional understatement for an invented number
+— worse, because it would look authoritative. The honest move is to size the defect and
+leave it visible.
+
+Found while chasing a South Carolina classification note that turned out to be wrong in the
+opposite direction; see
+[property-tax-classification-research.md](property-tax-classification-research.md).
+
 ## Future phases (not in this change)
 
 - **Split-roll classification beyond Tennessee**: several states classify multi-unit

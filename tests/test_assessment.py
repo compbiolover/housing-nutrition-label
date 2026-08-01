@@ -439,6 +439,53 @@ def test_south_carolina_class_ratios():
     assert sc.multiplier() == 1.5 and sc.rental_unit_threshold == 1
 
 
+def test_south_carolina_multiplier_is_the_non_school_ratio():
+    """1.50 is right, and the tempting re-derivation says otherwise — so pin the reason.
+
+    South Carolina exempts an owner-occupied legal residence from school OPERATING
+    millage on top of giving it the 4% ratio. Work the TOTAL tax bill and a rental looks
+    like it pays more than 1.5x an owner, which is what an earlier version of this record
+    claimed. That reading is wrong for this model.
+
+    The multiplier is applied to the NON-SCHOOL rate: region_context builds
+    ``effective_tax_rate * (1 - school_tax_share)`` and enrich_row multiplies that by the
+    class multiplier. With m_n the non-school millage, a rental pays 0.06*m_n against an
+    owner's 0.04*m_n — exactly 1.5. The observed owner rate is the base for BOTH legs, so
+    the exemption shifts that base's level and cancels out of the ratio entirely.
+
+    Michigan is the same structure with no class split to confuse it, and correctly
+    carries no correction at all. Asserting the notes name the real residual too, so the
+    two findings cannot drift apart again.
+    """
+    sc = CLASSIFICATION_RULES["SC"]
+    assert sc.multiplier() == 1.5
+
+    # Exercised through enrich_row rather than by restating the arithmetic, because the
+    # claim is about the MODEL: whatever level the school exemption leaves the observed
+    # rate at, the rented and owner-occupied legs are built from that same rate, so the
+    # ratio between them stays 1.5. Sweeping the base rate is the whole point — a test
+    # that fixed one rate could not distinguish "cancels" from "happens to agree here".
+    def _sc_tax(*, owner_occupied, municipal_rate):
+        out = enrich_row(_row(1, 0.25, 200_000), units=1,
+                         assess_ratio=1.0, tax_rate=municipal_rate,
+                         classification_state=None, classification_rate_state="SC",
+                         owner_occupied=owner_occupied)
+        return float(out["est_property_tax"])
+
+    for municipal_rate in (0.004, 0.010, 0.025):
+        owner = _sc_tax(owner_occupied=True, municipal_rate=municipal_rate)
+        rented = _sc_tax(owner_occupied=False, municipal_rate=municipal_rate)
+        assert owner > 0
+        assert abs(rented / owner - 1.5) < 1e-9, (
+            f"at municipal_rate={municipal_rate} the ratio was {rented / owner}")
+
+    assert "UNDER-CORRECTS" not in sc.notes, "the retracted claim is back"
+    assert "1.50 IS THE RIGHT FIGURE" in sc.notes
+    assert "school_tax_share" in sc.notes          # the real residual, named
+    # Michigan reaches the same conclusion from the other direction.
+    assert "RESOLVED" in CLASSIFICATION_RULES["MI"].notes
+
+
 def _assert_uniform_is_a_noop(states):
     """A RULE_UNIFORM record must be inert on every path, at every unit count and tenure.
 
