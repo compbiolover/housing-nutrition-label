@@ -67,18 +67,24 @@ parcel containing at most one rental unit (see ``separately_parceled``).
 
 Coverage
 --------
-Sixteen of 51 scorable jurisdictions are encoded: all of East South Central and West South
-Central, and all of South Atlantic except the District of Columbia, which is deferred as
-unverified.
+Nineteen of 51 scorable jurisdictions are encoded: all of East South Central, West South
+Central and Middle Atlantic, and all of South Atlantic except the District of Columbia,
+which is deferred as unverified.
 
-Five carry a correction — AL and WV at 2.0x, TN at 1.6x, MS and SC at 1.5x. The other
-eleven were researched and found to have no classification of rental housing, and are
-recorded as ``RULE_UNIFORM`` rather than left absent: both produce a 1.0 multiplier at the
-point of use, so only the record distinguishes "researched, no correction" from "not
-researched". Louisiana is the instructive one — its 10%/15% split is real but keys on
-*use*, not tenure, so an apartment building sits in the same class as a detached house.
+Six carry a correction — AL and WV at 2.0x, New York City at 1.81x, TN at 1.6x, MS and SC
+at 1.5x. The other thirteen were researched and found to have no classification of rental
+housing, and are recorded as ``RULE_UNIFORM`` rather than left absent: both produce a 1.0
+multiplier at the point of use, so only the record distinguishes "researched, no
+correction" from "not researched". Louisiana is the instructive one — its 10%/15% split is
+real but keys on *use*, not tenure, so an apartment building sits in the same class as a
+detached house.
 
-The remaining 35 jurisdictions return no correction. That is a real coverage gap, not a
+New York is the only ``local_option`` state resolved so far, and the only one whose
+correction comes from a published effective-rate study rather than statutory legs — see
+``RULE_EFFECTIVE`` and the NY notes, where the naive statutory reading over-corrects by
+2.6x.
+
+The remaining 32 jurisdictions return no correction. That is a real coverage gap, not a
 claim that they lack split rolls — several do, with different thresholds and ratios. The
 rollout plan is ``research/property-tax-classification-rollout.md`` and the per-jurisdiction
 authority record is ``research/property-tax-classification-research.md``; extending the
@@ -101,6 +107,7 @@ LAW_AS_OF = "2026-08-01"
 # ── Rule types ────────────────────────────────────────────────────────────────
 RULE_ASSESSMENT = "assessment_ratio"   # classes differ by fraction of value assessed
 RULE_RATE = "tax_rate"                 # uniform assessment, classes differ by millage
+RULE_EFFECTIVE = "effective_rate"      # both differ; a published ETR study is the datum
 RULE_UNIFORM = "uniform"               # researched; no classification of rental housing
 
 # What the reclassification threshold counts. Tennessee counts RENTAL units; New York City's
@@ -433,6 +440,99 @@ CLASSIFICATION_RULES: dict[str, ClassificationRule] = {
                "real property. Same shape as Florida — a real owner/rental gap driven by "
                "a cap rather than a class ratio."),
     ),
+    # ── Middle Atlantic ───────────────────────────────────────────────────────
+    "NY": ClassificationRule(
+        usps="NY",
+        rule_type=RULE_EFFECTIVE,
+        local_option=True,
+        sub_state=dict.fromkeys(
+            # The five boroughs. New York City is the only assessing unit whose class
+            # system this table can resolve; see the notes for why the rest of the state
+            # cannot be resolved at county granularity.
+            ("36005", "36047", "36061", "36081", "36085"),
+            ClassificationRule(
+                usps="NY",
+                rule_type=RULE_EFFECTIVE,
+                threshold_basis=BASIS_DWELLING_UNITS,
+                # RPTL § 1805(2) shields class two parcels with FEWER THAN 11 residential
+                # units behind the same kind of growth cap class one gets (8%/yr, 30% over
+                # five years). The city's own ETR study shows that shield working: small
+                # rentals pay LESS than houses. So 11 is not a chosen breakpoint, it is
+                # the statutory line where the correction actually begins.
+                rental_unit_threshold=11,
+                effective_multiplier=1.54 / 0.85,
+                authority=("N.Y. Real Prop. Tax Law § 1802 (class definitions), § 1805 "
+                           "(assessment caps); NYC Advisory Commission on Property Tax "
+                           "Reform, Preliminary Report (2020), Figure 2 and Table 15"),
+                verified="2026-08-01",
+                notes=("Class one is 1-3 family residential; class two is all other "
+                       "residential, so a rental building of four or more units is class "
+                       "two. The NAIVE statutory multiplier is 4.70x — class one is "
+                       "assessed at 6% of value and taxed at 19.843%, class two at 45% "
+                       "and 12.439% (FY2026) — and encoding that would OVER-CORRECT by "
+                       "roughly 2.6x. The city's own commission explains why: DOF's "
+                       "published class two 'market value' is an income-capitalization "
+                       "figure well below sales-based value, so ETRs computed on DOF "
+                       "values 'considerably overstated the disparity'. Recomputed on a "
+                       "common sales-based denominator (FY2019 median ETR per $100): "
+                       "class one 1-3 family $0.85, class two small rentals $0.75, class "
+                       "two large rentals $1.54, condos $0.63, coops $0.88. This model's "
+                       "denominator is an ACS self-reported market value, which is the "
+                       "sales-based concept, so $1.54/$0.85 = 1.81x is the matching "
+                       "figure. The Lincoln Institute 50-state study puts the same ratio "
+                       "at 2.55x; 1.81 is the under-correcting choice of the two. "
+                       "UNDER-CORRECTS in Manhattan, where 1-3 family homes pay a $0.41 "
+                       "median ETR against $1.02 on Staten Island."),
+            ),
+        ),
+        authority=("N.Y. Real Prop. Tax Law § 1801 (special assessing units), § 1802; "
+                   "§ 1903 (homestead/non-homestead, other assessing units)"),
+        verified="2026-08-01",
+        notes=("New York classifies BELOW the state level, in two separate regimes, which "
+               "is why this is local_option with only New York City resolved. (1) RPTL "
+               "art. 18 gives special assessing units — assessing units of 1,000,000 or "
+               "more, meaning New York City and Nassau County — a four-class system. (2) "
+               "RPTL art. 19 § 1903 lets any other approved assessing unit split a "
+               "homestead from a non-homestead class, but only by local law, only after a "
+               "revaluation, and one assessing unit at a time. A county contains many "
+               "assessing units that may each choose differently, so art. 19 is NOT "
+               "resolvable at the county granularity this table keys on, and towns that "
+               "adopted it are under-corrected. NASSAU COUNTY (36059) IS DEFERRED: it is "
+               "a special assessing unit under the same class definitions, but its "
+               "assessment ratios and class rates differ from the city's and no "
+               "sales-based ETR study comparable to the NYC commission's was found, so "
+               "its multiplier would be a guess."),
+    ),
+    "NJ": ClassificationRule(
+        usps="NJ",
+        rule_type=RULE_UNIFORM,
+        authority="N.J. Const. art. VIII, § 1, ¶ 1(a); N.J.S.A. 54:4-2.25, 54:4-23",
+        verified="2026-08-01",
+        notes=("¶ 1(a) requires assessment 'by uniform rules' and that all real property "
+               "be assessed 'according to the same standard of value', which § 54:4-2.25 "
+               "fixes as true value. The sole constitutional exception is agricultural "
+               "and horticultural land, not tenure. Apartments are valued by income "
+               "capitalization, but that is an appraisal METHOD reaching the same "
+               "standard of value, not a separate class. FOUND AND REJECTED: the ANCHOR "
+               "benefit and the senior freeze, both rebates paid outside the assessment."),
+    ),
+    "PA": ClassificationRule(
+        usps="PA",
+        rule_type=RULE_UNIFORM,
+        authority=("Pa. Const. art. VIII, § 1; Valley Forge Towers Apartments N, LP v. "
+                   "Upper Merion Area Sch. Dist., 163 A.3d 962 (Pa. 2017); 53 Pa. Stat. "
+                   "§ 8583 (homestead exclusion)"),
+        verified="2026-08-01",
+        notes=("The Uniformity Clause forecloses classification of real property, and "
+               "Valley Forge Towers is squarely about rental housing: a school district "
+               "appealed only apartment-complex assessments and not single-family homes, "
+               "and the Supreme Court held that unconstitutional because 'all property in "
+               "a taxing district is a single class' and sub-classifications may not be "
+               "treated disparately. Pennsylvania therefore cannot enact the kind of rule "
+               "this table encodes. FOUND AND REJECTED: the Act 1 homestead/farmstead "
+               "exclusion, which is an exclusion from assessed value for owner-occupied "
+               "homes rather than a class."),
+    ),
     # DC is deliberately NOT encoded. It restructured its classes for tax year 2025 (a
     # new Class 1A / 1B split), and sources conflict on where a multifamily rental
     # building lands: one reading keeps residential improved property in Class 1A
@@ -582,9 +682,17 @@ def active_basis() -> tuple[str, ...]:
     a test asserts the two match — so adding a state without re-anchoring the national
     breakpoints fails CI instead of silently mis-scoring every parcel in the country.
     A sorted tuple rather than a hash, so the diff is legible as a changelog.
+
+    Sub-state rules are walked too, keyed ``USPS/county_fips``. A local-option state's
+    container carries no legs of its own, so counting only top-level rules would let New
+    York City enter the reference distribution while the fingerprint stayed unchanged —
+    exactly the silent mis-scoring this guard exists to prevent.
     """
-    return tuple(sorted(
-        f"{usps}:{rule.multiplier():.2f}"
-        for usps, rule in CLASSIFICATION_RULES.items()
-        if rule.rule_type != RULE_UNIFORM and rule.multiplier() > 1.0
-    ))
+    entries = []
+    for usps, rule in CLASSIFICATION_RULES.items():
+        if rule.rule_type != RULE_UNIFORM and rule.multiplier() > 1.0:
+            entries.append(f"{usps}:{rule.multiplier():.2f}")
+        for county_fips, sub in rule.sub_state.items():
+            if sub.rule_type != RULE_UNIFORM and sub.multiplier() > 1.0:
+                entries.append(f"{usps}/{county_fips}:{sub.multiplier():.2f}")
+    return tuple(sorted(entries))

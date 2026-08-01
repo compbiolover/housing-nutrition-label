@@ -15,7 +15,8 @@ from __future__ import annotations
 import pandas as pd
 
 from housing_label.data.assessment import (
-    CLASSIFICATION_MULT_CEIL, CLASSIFICATION_RULES, LAW_AS_OF, RULE_ASSESSMENT, RULE_RATE,
+    BASIS_DWELLING_UNITS, CLASSIFICATION_MULT_CEIL, CLASSIFICATION_RULES, LAW_AS_OF,
+    RULE_ASSESSMENT, RULE_EFFECTIVE, RULE_RATE,
     RULE_UNIFORM, TN_COMMERCIAL_ASSESS_RATIO, TN_RESIDENTIAL_ASSESS_RATIO,
     active_basis, classification_for, classification_multiplier,
     classified_assess_ratio, rental_unit_count, unresearched_jurisdictions,
@@ -54,7 +55,7 @@ def test_unknown_tenure_defaults_multiunit_to_rental():
 
 def test_unresearched_states_return_none():
     """An unresearched state leaves the caller's own ratio untouched."""
-    for state in ("CA", "NY", "tx", "", None):
+    for state in ("CA", "MT", "", None):
         assert classified_assess_ratio(state, 157) is None
     # Case-insensitive on the state that IS encoded.
     assert classified_assess_ratio("tn", 157) == TN_COMMERCIAL_ASSESS_RATIO
@@ -94,35 +95,72 @@ def test_classification_never_overrides_a_supplied_basis():
 
 # ── Schema integrity: the guard rail that makes the per-state rollout safe ────────
 
+def _every_rule():
+    """(label, rule) for every rule in the table, sub-state rules included.
+
+    Sub-state rules are real rules that score real parcels, so every integrity check
+    below has to reach them. Walking only the top level would let New York City's record
+    land with no citation and no threshold and still pass the whole schema suite.
+    """
+    for usps, rule in CLASSIFICATION_RULES.items():
+        yield usps, rule
+        for county_fips, sub in rule.sub_state.items():
+            yield f"{usps}/{county_fips}", sub
+
+
+def _is_local_option_container(rule):
+    """A state whose only job is to route to sub-state rules carries no legs itself."""
+    return bool(rule.local_option and rule.sub_state)
+
+
 def test_every_rule_carries_provenance():
     """No rule lands without a primary-source citation and a date it was read."""
     import datetime
     today = datetime.date.today()
-    for usps, rule in CLASSIFICATION_RULES.items():
-        assert rule.usps == usps, f"{usps}: record disagrees with its key"
-        assert rule.authority.strip(), f"{usps}: no authority cited"
+    for label, rule in _every_rule():
+        assert rule.usps == label.split("/")[0], f"{label}: record disagrees with its key"
+        assert rule.authority.strip(), f"{label}: no authority cited"
         verified = datetime.date.fromisoformat(rule.verified)
-        assert verified <= today, f"{usps}: verified in the future"
-        assert rule.rule_type in (RULE_ASSESSMENT, RULE_RATE, RULE_UNIFORM)
+        assert verified <= today, f"{label}: verified in the future"
+        assert rule.rule_type in (RULE_ASSESSMENT, RULE_RATE, RULE_EFFECTIVE, RULE_UNIFORM)
 
 
 def test_rule_types_carry_the_fields_they_need():
-    for usps, rule in CLASSIFICATION_RULES.items():
+    for label, rule in _every_rule():
         if rule.rule_type == RULE_UNIFORM:
-            assert rule.multiplier() == 1.0, f"{usps}: uniform must not correct"
+            assert rule.multiplier() == 1.0, f"{label}: uniform must not correct"
             continue
-        assert rule.rental_unit_threshold, f"{usps}: no threshold"
-        assert rule.threshold_basis, f"{usps}: no threshold basis"
+        if _is_local_option_container(rule):
+            # Routes to sub-rules; those are checked on their own pass through _every_rule.
+            assert rule.multiplier() == 1.0, f"{label}: a container must not correct"
+            continue
+        assert rule.rental_unit_threshold, f"{label}: no threshold"
+        assert rule.threshold_basis, f"{label}: no threshold basis"
         if rule.effective_multiplier is None:
-            assert rule.residential and rule.commercial, f"{usps}: missing a class leg"
+            assert rule.residential and rule.commercial, f"{label}: missing a class leg"
+
+
+def test_local_option_states_route_only_through_sub_state():
+    """A local-option state must never correct on its own. Its container has no legs, so
+    a caller who omits the county under-corrects instead of applying one county's rule
+    statewide — the safe direction, asserted rather than assumed."""
+    for usps, rule in CLASSIFICATION_RULES.items():
+        if not rule.local_option:
+            continue
+        assert rule.sub_state, f"{usps}: local_option with no sub_state can never correct"
+        assert rule.residential is None and rule.commercial is None, usps
+        assert rule.effective_multiplier is None, usps
+        assert classification_multiplier(usps, 157, owner_occupied=False) == 1.0, usps
 
 
 def test_multiplier_equals_the_ratio_of_its_legs():
     """Catches a pre-divided number pasted where the two source values belong."""
-    for usps, rule in CLASSIFICATION_RULES.items():
+    for label, rule in _every_rule():
         if rule.rule_type == RULE_UNIFORM or rule.effective_multiplier is not None:
             continue
-        assert abs(rule.multiplier() - rule.commercial / rule.residential) < 1e-9, usps
+        if _is_local_option_container(rule):
+            continue
+        assert abs(rule.multiplier() - rule.commercial / rule.residential) < 1e-9, label
 
 
 def test_multipliers_are_within_the_sanity_ceiling():
@@ -194,20 +232,34 @@ def test_active_basis_fingerprint():
     Sorted by USPS, so the tuple reads as a legible changelog of which jurisdictions
     entered the reference distribution and at what strength.
     """
-    assert active_basis() == ("AL:2.00", "MS:1.50", "SC:1.50", "TN:1.60", "WV:2.00")
+    assert active_basis() == (
+        "AL:2.00", "MS:1.50", "NY/36005:1.81", "NY/36047:1.81", "NY/36061:1.81",
+        "NY/36081:1.81", "NY/36085:1.81", "SC:1.50", "TN:1.60", "WV:2.00")
+
+
+def test_active_basis_descends_into_sub_state_rules():
+    """A local-option container has no legs of its own, so walking only the top level
+    would let New York City enter the reference distribution with the fingerprint
+    unchanged — the exact silent mis-scoring INFRA_XS_BASIS exists to catch."""
+    ny = CLASSIFICATION_RULES["NY"]
+    assert ny.multiplier() == 1.0 and ny.local_option and ny.sub_state
+    basis = active_basis()
+    assert "NY:1.81" not in basis, "the container must not appear as if statewide"
+    for fips in ny.sub_state:
+        assert f"NY/{fips}:1.81" in basis, fips
 
 
 def test_coverage_is_honest_about_the_gap():
     """The unresearched majority is recorded rather than implied by silence.
 
-    Sixteen of 51 researched after Phase 3 (West South Central). The eleven uniform
+    Nineteen of 51 researched after Phase 4 (Middle Atlantic). The thirteen uniform
     jurisdictions count as researched despite applying no correction — that distinction
     is the whole point of RULE_UNIFORM.
     """
     remaining = unresearched_jurisdictions()
-    assert len(remaining) == 35
+    assert len(remaining) == 32
     for done in ("AL", "KY", "MS", "TN", "SC", "WV", "FL", "GA", "MD", "NC", "VA", "DE",
-                 "AR", "LA", "OK", "TX"):
+                 "AR", "LA", "OK", "TX", "NY", "NJ", "PA"):
         assert done not in remaining
     # DC is deferred, not done — see test_south_atlantic_coverage_and_the_deferred_jurisdiction.
     assert "DC" in remaining
@@ -521,10 +573,144 @@ def test_phase_3_moves_no_anchors():
     score-neutral by construction: if any West South Central state ever appears in the
     fingerprint, INFRA_XS is stale and the golden snapshot is wrong.
     """
-    basis = active_basis()
-    assert basis == ("AL:2.00", "MS:1.50", "SC:1.50", "TN:1.60", "WV:2.00")
+    basis = active_basis()          # the literal itself lives in test_active_basis_fingerprint
     for state in WEST_SOUTH_CENTRAL_UNIFORM:
         assert not any(entry.startswith(f"{state}:") for entry in basis), state
+
+
+# ── Phase 4: Middle Atlantic ─────────────────────────────────────────────────────
+#
+# New York is the hardest jurisdiction in the country and the first to exercise
+# local_option + sub_state + BASIS_DWELLING_UNITS + RULE_EFFECTIVE — all four pieces of
+# schema that had never been used. New Jersey and Pennsylvania are constitutionally
+# uniform, Pennsylvania emphatically so.
+
+MIDDLE_ATLANTIC_UNIFORM = ("NJ", "PA")
+NYC_COUNTIES = ("36005", "36047", "36061", "36081", "36085")   # the five boroughs
+NASSAU_FIPS = "36059"
+UPSTATE_FIPS = "36001"                                         # Albany County
+# $1.54 (large rentals) over $0.85 (1-3 family), the two published median ETRs. Kept as
+# the quotient rather than a pasted 1.81 so both source figures stay visible.
+NYC_MULT = round(1.54 / 0.85, 6)
+
+
+def test_middle_atlantic_uniform_states():
+    _assert_uniform_is_a_noop(MIDDLE_ATLANTIC_UNIFORM)
+
+
+def test_new_york_corrects_only_inside_the_five_boroughs():
+    """local_option means the correction is keyed to the county, not the state.
+
+    Upstate New York and Nassau both resolve to no correction, for different documented
+    reasons — art. 19 is adopted one assessing unit at a time and cannot be resolved at
+    county granularity, and Nassau's multiplier would be a guess. Passing no county at all
+    must also be inert, so a caller who forgets to thread it through under-corrects rather
+    than applying a Manhattan rule to Buffalo.
+    """
+    for fips in NYC_COUNTIES:
+        assert classification_multiplier(
+            "NY", 157, owner_occupied=False, county_fips=fips) == NYC_MULT, fips
+    for fips in (UPSTATE_FIPS, NASSAU_FIPS):
+        assert classification_multiplier(
+            "NY", 157, owner_occupied=False, county_fips=fips) == 1.0, fips
+    assert classification_multiplier("NY", 157, owner_occupied=False) == 1.0
+
+
+def test_new_york_city_threshold_is_the_statutory_eleven_unit_line():
+    """11 dwelling units, not a tuned breakpoint.
+
+    RPTL § 1805(2) shields class two parcels with fewer than 11 residential units behind
+    the same growth cap class one gets, and the city's own ETR study shows that shield
+    working: small rentals pay $0.75 against $0.85 for 1-3 family homes — LESS than a
+    house. Correcting a 10-unit building would invent a penalty the data says is absent.
+
+    The basis is dwelling units, not rental units, so tenure does not enter: class one is
+    "one, two and three family residential", a physical test.
+    """
+    nyc = CLASSIFICATION_RULES["NY"].sub_state["36061"]
+    assert nyc.threshold_basis == BASIS_DWELLING_UNITS
+    assert nyc.rental_unit_threshold == 11
+    for units in (1, 3, 4, 8, 10):
+        assert classification_multiplier(
+            "NY", units, owner_occupied=False, county_fips="36061") == 1.0, units
+    for units in (11, 12, 157):
+        assert classification_multiplier(
+            "NY", units, owner_occupied=False, county_fips="36061") == NYC_MULT, units
+    # Dwelling-unit basis: an owner living in one of 20 units does not shrink the count.
+    assert classification_multiplier(
+        "NY", 20, owner_occupied=True, county_fips="36061") == NYC_MULT
+
+
+def test_new_york_city_multiplier_is_the_sales_based_etr_ratio_not_the_statutory_one():
+    """The naive statutory reading over-corrects by ~2.6x, and the city says why.
+
+    Class one is assessed at 6% of value and taxed at 19.843%; class two at 45% and
+    12.439% (FY2026). That is 4.70x. But DOF's published class two "market value" is an
+    income-capitalization figure well below sales-based value, so an ETR computed on DOF
+    values overstates the disparity — the Advisory Commission recomputed on a common
+    sales-based denominator and got $1.54 for large rentals against $0.85 for 1-3 family
+    homes. This model's denominator is an ACS self-reported market value, the same
+    sales-based concept, so 1.81x is the figure that matches.
+
+    Guarding the gap between the two, because 4.70 is what anyone re-deriving this from
+    the statute alone would land on.
+    """
+    nyc = CLASSIFICATION_RULES["NY"].sub_state["36061"]
+    assert nyc.effective_multiplier == 1.54 / 0.85
+    assert nyc.multiplier() == NYC_MULT
+    assert round(nyc.multiplier(), 2) == 1.81      # how the basis fingerprint prints it
+    statutory = (0.45 * 0.12439) / (0.06 * 0.19843)
+    assert 4.6 < statutory < 4.8                       # what NOT to encode
+    assert nyc.multiplier() < statutory / 2.5
+    assert "OVER-CORRECT" in nyc.notes
+
+
+def test_new_york_city_is_an_effective_rate_rule_with_no_absolute_ratio():
+    """RULE_EFFECTIVE exists because neither leg alone is the datum. The absolute
+    accessor must stay silent so the statutory path can never pick up the 45% ratio and
+    apply it against an ACS rate that already embeds class one."""
+    assert CLASSIFICATION_RULES["NY"].sub_state["36061"].rule_type == RULE_EFFECTIVE
+    for fips in NYC_COUNTIES:
+        assert classified_assess_ratio(
+            "NY", 157, owner_occupied=False, county_fips=fips) is None, fips
+
+
+def test_new_york_city_condominium_is_not_corrected():
+    """Right answer, and worth pinning because the usual reasoning does not apply.
+
+    Elsewhere a separately-parceled condo escapes because each parcel holds at most one
+    rental unit. In New York City the statute says the opposite — condos are class two
+    regardless of unit count. But the city's ETR study reports class two condos at $0.63
+    against $0.85 for 1-3 family homes, i.e. condo owners pay LESS than house owners, so
+    no correction is the correct outcome by a different route.
+    """
+    assert classification_multiplier(
+        "NY", 157, separately_parceled=True, county_fips="36061") == 1.0
+
+
+def test_pennsylvania_uniformity_forecloses_classification():
+    """Valley Forge Towers is squarely about apartment buildings: a district appealed
+    only apartment-complex assessments and the Supreme Court struck it down, holding all
+    property in a taxing district to be a single class. Pennsylvania could not enact the
+    kind of rule this table encodes even if it wanted to."""
+    pa = CLASSIFICATION_RULES["PA"]
+    assert pa.rule_type == RULE_UNIFORM
+    assert "Valley Forge Towers" in pa.authority
+    assert "single class" in pa.notes
+
+
+def test_middle_atlantic_is_complete_with_nassau_named_as_the_gap():
+    """Three of three encoded. Nassau is a sub-state deferral rather than a missing
+    jurisdiction, so it cannot be caught by the division check — assert it separately, the
+    way DC is asserted for South Atlantic."""
+    from housing_label.data.states import CENSUS_DIVISION
+
+    division = {s for s, d in CENSUS_DIVISION.items() if d == "Middle Atlantic"}
+    assert division == {"NJ", "NY", "PA"}
+    assert division - set(CLASSIFICATION_RULES) == set()
+    ny = CLASSIFICATION_RULES["NY"]
+    assert NASSAU_FIPS not in ny.sub_state, "Nassau is deferred, not encoded"
+    assert "NASSAU COUNTY (36059) IS DEFERRED" in ny.notes
 
 
 def test_law_as_of_is_at_least_the_newest_verified_date():

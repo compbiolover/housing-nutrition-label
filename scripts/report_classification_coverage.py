@@ -21,7 +21,7 @@ import pathlib
 from collections import defaultdict
 
 from housing_label.data.assessment import (
-    CLASSIFICATION_RULES, LAW_AS_OF, RULE_UNIFORM, classification_for,
+    BASIS_DWELLING_UNITS, CLASSIFICATION_RULES, LAW_AS_OF, RULE_UNIFORM,
 )
 from housing_label.data.states import (
     CENSUS_DIVISION, SCORED_JURISDICTIONS, usps_for_fips,
@@ -57,6 +57,39 @@ def population_by_state() -> dict[str, float]:
     return pop
 
 
+def _threshold_phrase(rule) -> str:
+    """e.g. "at 2+ rental units".
+
+    Always printed alongside a multiplier, because the threshold is half the rule: a bare
+    "x1.81" reads as a blanket surcharge on all housing in the jurisdiction, when New York
+    City's applies only from 11 dwelling units up and Tennessee's from 2 rental units up.
+    The basis matters too — dwelling units are a physical test, rental units a tenure one.
+    """
+    n = rule.rental_unit_threshold or 1
+    noun = "dwelling unit" if rule.threshold_basis == BASIS_DWELLING_UNITS else "rental unit"
+    return f"at {n}+ {noun}{'' if n == 1 else 's'}"
+
+
+def describe_effect(rule) -> str:
+    """One line saying what this rule actually does, thresholds included."""
+    if rule.rule_type == RULE_UNIFORM:
+        return "no correction — researched, no classification of rental housing"
+    if rule.sub_state:
+        # A local-option container corrects only through its sub-rules; its own multiplier
+        # is 1.0, and printing that would read as "researched, no effect" — the opposite of
+        # the truth for a New York City parcel.
+        subs = list(rule.sub_state.values())
+        mults = sorted({s.multiplier() for s in subs})
+        span = (f"x{mults[0]:.2f}" if len(mults) == 1
+                else f"x{mults[0]:.2f}-{mults[-1]:.2f}")
+        phrases = {_threshold_phrase(s) for s in subs}
+        where = f"in {len(rule.sub_state)} counties only"
+        if len(phrases) == 1:
+            return f"{span} {phrases.pop()}, {where}"
+        return f"{span} (thresholds vary by county), {where}"
+    return f"x{rule.multiplier():.2f} {_threshold_phrase(rule)}"
+
+
 def main() -> int:
     pop = population_by_state()
     today = datetime.date.today()
@@ -84,13 +117,11 @@ def main() -> int:
                 continue
             n_researched += 1
             covered_pop += pop.get(usps, 0.0)
-            info = classification_for(usps, 8, owner_occupied=False)
-            mult = info["multiplier"]
-            effect = "no correction" if rule.rule_type == RULE_UNIFORM else f"x{mult:.2f}"
             age = (today - datetime.date.fromisoformat(rule.verified)).days
             flag = "  [local option]" if rule.local_option else ""
-            print(f"     {usps}   {rule.rule_type:16} {effect:14} "
+            print(f"     {usps}   {rule.rule_type:16} "
                   f"verified {rule.verified} ({age}d ago){flag}")
+            print(f"          {describe_effect(rule)}")
             print(f"          {rule.authority}")
         print()
 

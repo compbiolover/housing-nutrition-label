@@ -445,11 +445,122 @@ for all other real property. Same shape as Florida.
 
 ---
 
+## Middle Atlantic
+
+Three of three encoded. New York is the hardest jurisdiction in the country and the first
+to use `local_option`, `sub_state`, `BASIS_DWELLING_UNITS` and `RULE_EFFECTIVE` — four
+pieces of schema that had existed unused since Phase 0. New Jersey and Pennsylvania are
+constitutionally uniform.
+
+### New York — `RULE_EFFECTIVE`, ×1.81, New York City only
+
+| | |
+|---|---|
+| **Threshold** | 11 dwelling units (not rental units, and not tenure) |
+| **Scope** | The five boroughs — 36005, 36047, 36061, 36081, 36085 |
+| **Authority** | N.Y. Real Prop. Tax Law § 1801, § 1802, § 1805, § 1903; NYC Advisory Commission on Property Tax Reform, *Preliminary Report* (2020), Figure 2 and Table 15 |
+| **Verified** | 2026-08-01 |
+
+**Two regimes, only one resolvable.** RPTL art. 18 gives *special assessing units* —
+assessing units of 1,000,000 or more, meaning New York City and Nassau County — a four-class
+system. § 1802 puts "all one, two and three family residential real property" in class one
+and "all other residential real property" in class two, so a rental building of four or more
+units is class two. Separately, RPTL art. 19 § 1903 lets any other *approved assessing unit*
+split a homestead from a non-homestead class, but only by local law, only after a
+revaluation, and one assessing unit at a time. A county contains many assessing units that
+may each choose differently, so art. 19 **cannot be resolved at the county granularity this
+table keys on**. Towns that adopted it are under-corrected, which is the safe direction.
+
+**The naive statutory multiplier is 4.70× and would be wrong by a factor of 2.6.** Class one
+is assessed at 6% of value and taxed at 19.843%; class two at 45% and 12.439% (FY2026).
+Multiply through and class two looks like it pays 4.70× what class one pays.
+
+The City's own commission explains why that is an artifact. DOF's published class two
+"market value" is an income-capitalization figure that runs well below sales-based value, so
+an effective tax rate computed on DOF values overstates the disparity — the report says
+prior studies using DOF values "considerably overstated" it, and notes the widely cited
+Furman Center estimate of "almost five times" shrinks "dramatically" once a common
+denominator is used. Recomputed on sales-based market values (FY2019 median ETR per $100):
+
+| property type | median ETR |
+|---|---|
+| Class 1 (1–3 family) | $0.85 |
+| Class 2 condos | $0.63 |
+| Class 2 co-ops | $0.88 |
+| Class 2 small rentals (≤10 units) | $0.75 |
+| **Class 2 large rentals (11+ units)** | **$1.54** |
+| Class 4 non-utilities | $1.29 |
+
+This model's denominator is an ACS self-reported market value — the sales-based concept, not
+DOF's — so **$1.54 / $0.85 = 1.81×** is the figure that matches. The Lincoln Institute
+50-state study puts the same rental-to-homestead ratio at 2.55×; 1.81 is the
+under-correcting choice of the two.
+
+**The 11-unit threshold is statutory, not tuned.** RPTL § 1805(2) shields class two parcels
+with fewer than 11 residential units behind the same kind of growth cap class one gets (8% a
+year, 30% over five). The ETR table shows that shield working: small rentals pay **$0.75**,
+*less* than the $0.85 a 1–3 family home pays. Correcting a 10-unit building would invent a
+penalty the City's own data says is absent.
+
+**Condominiums.** Elsewhere a separately-parceled condo escapes correction because each
+parcel holds at most one rental unit. In New York City the statute says the opposite — condos
+are class two regardless of unit count. The outcome is still correct, by a different route:
+class two condos pay $0.63 against $0.85 for houses, so no correction is right anyway.
+
+**Under-corrects in Manhattan.** Median ETR for 1–3 family homes ranges from $0.41 in
+Manhattan to $1.02 on Staten Island, and a single citywide multiplier cannot express that.
+Manhattan's owner-occupied ACS baseline is also mostly co-ops and condos, which are already
+class two — so the multiplier's denominator is less clean there than the borough-blind figure
+implies.
+
+**Nassau County (36059) is deferred.** It is a special assessing unit under the same class
+definitions, but its assessment ratios and class rates differ from the city's, and no
+sales-based ETR study comparable to the commission's was found. Its multiplier would be a
+guess. `tests/test_assessment.py` asserts Nassau is absent from `sub_state` and named in the
+notes, so the deferral cannot become an oversight.
+
+### New Jersey — `RULE_UNIFORM`
+
+| | |
+|---|---|
+| **Authority** | N.J. Const. art. VIII, § 1, ¶ 1(a); N.J.S.A. 54:4-2.25, 54:4-23 |
+| **Verified** | 2026-08-01 |
+
+¶ 1(a) requires assessment "by uniform rules" and that all real property be assessed
+"according to the same standard of value", which § 54:4-2.25 fixes as true value. The sole
+constitutional exception is agricultural and horticultural land, not tenure. Apartments are
+valued by income capitalization, but that is an appraisal *method* reaching the same standard
+of value, not a separate class.
+
+**Found and rejected:** the ANCHOR benefit and the senior freeze, both rebates paid outside
+the assessment entirely.
+
+### Pennsylvania — `RULE_UNIFORM`
+
+| | |
+|---|---|
+| **Authority** | Pa. Const. art. VIII, § 1; *Valley Forge Towers Apartments N, LP v. Upper Merion Area Sch. Dist.*, 163 A.3d 962 (Pa. 2017); 53 Pa. Stat. § 8583 |
+| **Verified** | 2026-08-01 |
+
+The Uniformity Clause forecloses classification of real property, and *Valley Forge Towers*
+is squarely about rental housing: a school district appealed only apartment-complex
+assessments while leaving single-family homes alone, and the Supreme Court held that
+unconstitutional because "all property in a taxing district is a single class, and, as a
+consequence, the Uniformity Clause does not permit the government, including taxing
+authorities, to treat different properties sub-classifications in a disparate manner."
+Pennsylvania could not enact the kind of rule this table encodes even if it wanted to.
+
+**Found and rejected:** the Act 1 homestead/farmstead exclusion — an exclusion from assessed
+value for owner-occupied homes, not a class.
+
+---
+
 ## Not yet researched
 
-The remaining 35 jurisdictions, DC among them. Each applies **no correction**, so rental
+The remaining 32 jurisdictions, DC among them. Each applies **no correction**, so rental
 housing in them is currently scored as though taxed like an owner-occupied home.
 
-East South Central (KY, TN, MS, AL) and West South Central (AR, LA, OK, TX) are complete,
-and South Atlantic is complete but for DC — all asserted by `tests/test_assessment.py`
-rather than claimed. The South is now closed.
+East South Central (KY, TN, MS, AL), West South Central (AR, LA, OK, TX) and Middle Atlantic
+(NY, NJ, PA) are complete, and South Atlantic is complete but for DC — all asserted by
+`tests/test_assessment.py` rather than claimed. Two sub-state deferrals are outstanding
+inside otherwise complete divisions: DC, and Nassau County within New York.
