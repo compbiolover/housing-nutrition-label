@@ -381,9 +381,9 @@ test.
 
 **Found and rejected.** Where Louisiana *does* separate owner from renter is the art. VII,
 § 20 homestead exemption — $7,500 of assessed value, $75,000 of market value, owner-occupied
-only. The LTC rules apply it exactly as an exemption rather than a class: on an
-income-producing property the owner-occupied part is exempt and the rented part is not, and
-a rented half of a double house does not qualify at all. The special assessment level is
+only. Those same Tax Commission rules apply it exactly as an exemption rather than a class:
+on an income-producing property the owner-occupied part is exempt and the rented part is
+not, and a rented half of a double house does not qualify at all. The special assessment level is
 age-, disability- and income-gated. Both fall squarely under the exclusion rule.
 
 **Residual uncertainty, recorded not hidden.** Louisiana assessors colloquially describe
