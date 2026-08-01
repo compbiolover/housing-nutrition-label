@@ -1040,13 +1040,14 @@ def test_minnesota_multiplier_is_exact_because_no_county_reaches_the_tier():
     path = (pathlib.Path(__file__).resolve().parents[1]
             / "src" / "housing_label" / "data" / "property_tax_county.csv")
     highest = 0.0
-    for row in csv.DictReader(path.open()):
-        if usps_for_fips(str(row["geoid"]).zfill(5)) != "MN":
-            continue
-        try:
-            highest = max(highest, float(row["median_value"]))
-        except (TypeError, ValueError):
-            continue
+    with path.open(newline="") as f:            # newline="" is the csv-module contract
+        for row in csv.DictReader(f):
+            if usps_for_fips(str(row["geoid"]).zfill(5)) != "MN":
+                continue
+            try:
+                highest = max(highest, float(row["median_value"]))
+            except (TypeError, ValueError):
+                continue
     assert 0 < highest < 500_000, (
         f"a Minnesota county median reached ${highest:,.0f}: class 1a is tiered at "
         "$500,000, so the 1.25 multiplier is no longer exact there")
