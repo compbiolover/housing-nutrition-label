@@ -67,16 +67,18 @@ parcel containing at most one rental unit (see ``separately_parceled``).
 
 Coverage
 --------
-Twelve of 51 scorable jurisdictions are encoded: all of East South Central, and all of
-South Atlantic except the District of Columbia, which is deferred as unverified.
+Sixteen of 51 scorable jurisdictions are encoded: all of East South Central and West South
+Central, and all of South Atlantic except the District of Columbia, which is deferred as
+unverified.
 
 Five carry a correction — AL and WV at 2.0x, TN at 1.6x, MS and SC at 1.5x. The other
-seven were researched and found to have no classification of rental housing, and are
+eleven were researched and found to have no classification of rental housing, and are
 recorded as ``RULE_UNIFORM`` rather than left absent: both produce a 1.0 multiplier at the
 point of use, so only the record distinguishes "researched, no correction" from "not
-researched".
+researched". Louisiana is the instructive one — its 10%/15% split is real but keys on
+*use*, not tenure, so an apartment building sits in the same class as a detached house.
 
-The remaining 39 jurisdictions return no correction. That is a real coverage gap, not a
+The remaining 35 jurisdictions return no correction. That is a real coverage gap, not a
 claim that they lack split rolls — several do, with different thresholds and ratios. The
 rollout plan is ``research/property-tax-classification-rollout.md`` and the per-jurisdiction
 authority record is ``research/property-tax-classification-research.md``; extending the
@@ -362,6 +364,73 @@ CLASSIFICATION_RULES: dict[str, ClassificationRule] = {
                "unimproved land and grants agricultural use-value, but has no tenure "
                "classification. The senior school property tax credit is age-gated, not a "
                "general owner-occupied preference."),
+    ),
+    # ── West South Central ────────────────────────────────────────────────────
+    #
+    # All four are uniform, including Louisiana — see its notes. This is the first
+    # division that adds no correction at all.
+    "LA": ClassificationRule(
+        usps="LA",
+        rule_type=RULE_UNIFORM,
+        authority="La. Const. art. VII, § 18(A), (B), § 20; La. Admin. Code tit. 61, § V-101",
+        verified="2026-08-01",
+        notes=("Art. VII, § 18(B) does split 10% from 15%, and the rollout memo predicted "
+               "that made Louisiana a correcting state. It does not. The five classes are "
+               "land 10%, IMPROVEMENTS FOR RESIDENTIAL PURPOSES 10%, electric cooperative "
+               "15%, public service 25%, other property 15% — a USE test carrying no "
+               "tenure or unit-count qualifier, so an apartment building is an improvement "
+               "used for residential purposes and sits in the 10% class beside a detached "
+               "house. LAC 61:V-101 reproduces the same five classes and adds no tenure "
+               "test. FOUND AND REJECTED: the art. VII, § 20 homestead exemption ($7,500 "
+               "of assessed value, $75,000 of market value, owner-occupied only) — which "
+               "is where the LTC rules DO separate owner from renter, exempting the "
+               "owner-occupied part of an income-producing property but not the rented "
+               "part — and the special assessment level, which is age-, disability- and "
+               "income-gated. CAVEAT: Louisiana assessors colloquially call apartment "
+               "buildings 'commercial', and no case or AG opinion squarely construing "
+               "'improvements for residential purposes' as to apartments was found. The "
+               "text has no tenure hook for the other reading, and uniform is the "
+               "under-correcting choice, so text and the governing principle agree."),
+    ),
+    "TX": ClassificationRule(
+        usps="TX",
+        rule_type=RULE_UNIFORM,
+        authority="Tex. Const. art. VIII, § 1(a), (b); Tex. Tax Code § 11.13, § 23.23, § 23.231",
+        verified="2026-08-01",
+        notes=("Art. VIII, § 1(a) is the flat command that 'taxation shall be equal and "
+               "uniform', and § 1(b) taxes all real property in proportion to its value. "
+               "Texas has no property classes at all. FOUND AND REJECTED: the § 11.13 "
+               "residence-homestead exemption, the § 23.23 10% homestead appraisal cap, "
+               "and the § 23.231 20% circuit-breaker limitation on non-homestead real "
+               "property valued at $5M or less. The last of those NARROWS the owner/rental "
+               "gap rather than widening it, which is exactly why a fixed class multiplier "
+               "cannot represent this regime. Logged as a roadmap item, not encoded."),
+    ),
+    "OK": ClassificationRule(
+        usps="OK",
+        rule_type=RULE_UNIFORM,
+        authority="Okla. Const. art. X, § 8(A)(2), (B), § 8B, § 8C",
+        verified="2026-08-01",
+        notes=("§ 8(A)(2) assesses real property at 11%-13.5% of fair cash value, and "
+               "§ 8(B) fixes ONE such percentage per county for real property, so the "
+               "art. X use categories (agricultural, residential, commercial/industrial) "
+               "drive valuation rather than the ratio, and none of them turns on tenure. "
+               "FOUND AND REJECTED: the § 8B annual valuation caps, 3% for homestead and "
+               "agricultural against 5% for everything else, and the § 8C senior "
+               "valuation freeze, which is age- and income-gated."),
+    ),
+    "AR": ClassificationRule(
+        usps="AR",
+        rule_type=RULE_UNIFORM,
+        authority="Ark. Const. art. 16, § 5, amend. 79; Ark. Code Ann. § 26-26-303",
+        verified="2026-08-01",
+        notes=("Art. 16, § 5 requires taxation 'equal and uniform throughout the State', "
+               "and § 26-26-303 assesses all real property at 20% of appraised value with "
+               "no tenure class. FOUND AND REJECTED: the amendment 79 homestead property "
+               "tax credit ($500, rising to $600 for 2026 bills) and its split "
+               "assessed-value caps, 5% a year for a homestead against 10% for all other "
+               "real property. Same shape as Florida — a real owner/rental gap driven by "
+               "a cap rather than a class ratio."),
     ),
     # DC is deliberately NOT encoded. It restructured its classes for tax year 2025 (a
     # new Class 1A / 1B split), and sources conflict on where a multifamily rental

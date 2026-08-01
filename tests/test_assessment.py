@@ -200,13 +200,14 @@ def test_active_basis_fingerprint():
 def test_coverage_is_honest_about_the_gap():
     """The unresearched majority is recorded rather than implied by silence.
 
-    Twelve of 51 researched after Phase 2 (South Atlantic, less DC). The seven uniform
+    Sixteen of 51 researched after Phase 3 (West South Central). The eleven uniform
     jurisdictions count as researched despite applying no correction — that distinction
     is the whole point of RULE_UNIFORM.
     """
     remaining = unresearched_jurisdictions()
-    assert len(remaining) == 39
-    for done in ("AL", "KY", "MS", "TN", "SC", "WV", "FL", "GA", "MD", "NC", "VA", "DE"):
+    assert len(remaining) == 35
+    for done in ("AL", "KY", "MS", "TN", "SC", "WV", "FL", "GA", "MD", "NC", "VA", "DE",
+                 "AR", "LA", "OK", "TX"):
         assert done not in remaining
     # DC is deferred, not done — see test_south_atlantic_coverage_and_the_deferred_jurisdiction.
     assert "DC" in remaining
@@ -386,17 +387,28 @@ def test_south_carolina_class_ratios():
     assert sc.multiplier() == 1.5 and sc.rental_unit_threshold == 1
 
 
-def test_researched_uniform_states_never_correct():
-    """Six South Atlantic jurisdictions were researched and found to have no
-    classification of rental housing. Each must be a no-op at every unit count and
-    tenure — including the exemption/cap states, where a large owner/rental gap exists
-    but is not a class ratio and must not be encoded as one."""
-    for state in SOUTH_ATLANTIC_UNIFORM:
+def _assert_uniform_is_a_noop(states):
+    """A RULE_UNIFORM record must be inert on every path, at every unit count and tenure.
+
+    Shared by every phase from Phase 2 on, because the uniform states are where a
+    mis-encoding is hardest to notice: a wrong ratio on a correcting state moves scores
+    and shows up in recalibration, but a uniform record that accidentally carries legs
+    would start correcting a state the research says to leave alone.
+    """
+    for state in states:
         rule = CLASSIFICATION_RULES[state]
         assert rule.rule_type == RULE_UNIFORM, state
         for kwargs in _CASES.values():
             assert classification_multiplier(state, **kwargs) == 1.0, f"{state} {kwargs}"
         assert classified_assess_ratio(state, 157, owner_occupied=False) is None, state
+
+
+def test_researched_uniform_states_never_correct():
+    """Six South Atlantic jurisdictions were researched and found to have no
+    classification of rental housing. Each must be a no-op at every unit count and
+    tenure — including the exemption/cap states, where a large owner/rental gap exists
+    but is not a class ratio and must not be encoded as one."""
+    _assert_uniform_is_a_noop(SOUTH_ATLANTIC_UNIFORM)
 
 
 def test_cap_and_credit_states_record_what_was_rejected():
@@ -434,6 +446,85 @@ def test_south_atlantic_coverage_and_the_deferred_jurisdiction():
     assert outstanding == {"DC"}, f"expected only DC outstanding, got {sorted(outstanding)}"
     assert "DC" in unresearched_jurisdictions()
     assert classification_multiplier("DC", 157, owner_occupied=False) == 1.0
+
+
+# ── Phase 3: West South Central ──────────────────────────────────────────────────
+#
+# The first division that adds NO correction: all four jurisdictions were researched and
+# found uniform. Every owner/rental gap here runs through an exemption, credit or
+# assessment cap, which the documented exclusion rule keeps out of the table.
+
+WEST_SOUTH_CENTRAL_UNIFORM = ("AR", "LA", "OK", "TX")
+
+
+def test_west_south_central_is_uniform_throughout():
+    _assert_uniform_is_a_noop(WEST_SOUTH_CENTRAL_UNIFORM)
+
+
+def test_louisiana_split_roll_is_use_based_not_tenure_based():
+    """Pins the reversal of an earlier prediction, so it cannot quietly regress.
+
+    The rollout memo typed Louisiana as a correcting state on the strength of its real
+    10%/15% split. Reading La. Const. art. VII, § 18(B) overturns that: the classes are
+    land, 'improvements for residential purposes', electric cooperative, public service
+    and 'other property' — a USE test with no tenure or unit-count qualifier anywhere.
+    An apartment building is an improvement used for residential purposes, so it sits in
+    the 10% class beside a detached house, and the owner/rental gap runs entirely through
+    the § 20 homestead exemption instead.
+
+    Without this test the finding is a comment. With it, anyone tempted to re-encode the
+    remembered 1.5x has to change an assertion that says why not.
+    """
+    la = CLASSIFICATION_RULES["LA"]
+    assert la.rule_type == RULE_UNIFORM
+    assert la.residential is None and la.commercial is None
+    assert la.effective_multiplier is None
+    assert "18(A), (B), § 20" in la.authority
+    assert "§ V-101" in la.authority              # the Tax Commission's own rule agrees
+    assert "FOUND AND REJECTED" in la.notes and "homestead" in la.notes
+    # A 157-unit rental building in Louisiana is taxed like a house, per the text.
+    assert classification_multiplier("LA", 157, owner_occupied=False) == 1.0
+
+
+def test_texas_records_the_circuit_breaker_that_narrows_the_gap():
+    """Texas is the largest jurisdiction encoded so far and it has no classes at all.
+
+    Its § 23.231 circuit breaker caps NON-homestead appraisal growth, so unlike Florida's
+    caps it narrows the owner/rental gap. Recording that is the point: it is the clearest
+    evidence that a fixed class multiplier cannot stand in for a cap regime, since the
+    caps do not even all push the same direction.
+    """
+    tx = CLASSIFICATION_RULES["TX"]
+    assert tx.rule_type == RULE_UNIFORM
+    assert "23.231" in tx.authority
+    assert "NARROWS" in tx.notes
+
+
+def test_west_south_central_is_complete_with_no_deferral():
+    """Four of four, and the first division to finish without an outstanding jurisdiction.
+
+    Asserted as an empty set rather than by counting, so a future edit that drops a
+    record fails here with the missing USPS named.
+    """
+    from housing_label.data.states import CENSUS_DIVISION
+
+    division = {s for s, d in CENSUS_DIVISION.items() if d == "West South Central"}
+    assert division == {"AR", "LA", "OK", "TX"}
+    outstanding = division - set(CLASSIFICATION_RULES)
+    assert outstanding == set(), f"unencoded: {sorted(outstanding)}"
+
+
+def test_phase_3_moves_no_anchors():
+    """Four uniform records cannot enter the reference distribution.
+
+    active_basis() is what INFRA_XS was calibrated against, so this asserts the phase is
+    score-neutral by construction: if any West South Central state ever appears in the
+    fingerprint, INFRA_XS is stale and the golden snapshot is wrong.
+    """
+    basis = active_basis()
+    assert basis == ("AL:2.00", "MS:1.50", "SC:1.50", "TN:1.60", "WV:2.00")
+    for state in WEST_SOUTH_CENTRAL_UNIFORM:
+        assert not any(entry.startswith(f"{state}:") for entry in basis), state
 
 
 def test_law_as_of_is_at_least_the_newest_verified_date():
