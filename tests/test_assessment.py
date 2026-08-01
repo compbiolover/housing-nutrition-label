@@ -252,14 +252,14 @@ def test_active_basis_descends_into_sub_state_rules():
 def test_coverage_is_honest_about_the_gap():
     """The unresearched majority is recorded rather than implied by silence.
 
-    Nineteen of 51 researched after Phase 4 (Middle Atlantic). The thirteen uniform
+    Twenty-four of 51 researched after Phase 5 (East North Central). The eighteen uniform
     jurisdictions count as researched despite applying no correction — that distinction
     is the whole point of RULE_UNIFORM.
     """
     remaining = unresearched_jurisdictions()
-    assert len(remaining) == 32
+    assert len(remaining) == 27
     for done in ("AL", "KY", "MS", "TN", "SC", "WV", "FL", "GA", "MD", "NC", "VA", "DE",
-                 "AR", "LA", "OK", "TX", "NY", "NJ", "PA"):
+                 "AR", "LA", "OK", "TX", "NY", "NJ", "PA", "IL", "IN", "MI", "OH", "WI"):
         assert done not in remaining
     # DC is deferred, not done — see test_south_atlantic_coverage_and_the_deferred_jurisdiction.
     assert "DC" in remaining
@@ -711,6 +711,106 @@ def test_middle_atlantic_is_complete_with_nassau_named_as_the_gap():
     ny = CLASSIFICATION_RULES["NY"]
     assert NASSAU_FIPS not in ny.sub_state, "Nassau is deferred, not encoded"
     assert "NASSAU COUNTY (36059) IS DEFERRED" in ny.notes
+
+
+# ── Phase 5: East North Central ──────────────────────────────────────────────────
+#
+# All five uniform, so no anchor moves. The value here is in what was rejected: two states
+# whose real class splits key on USE rather than tenure (IL, OH), one whose large
+# owner/rental gap lives entirely in a levy this dimension already excludes (MI), and one
+# cap regime that is structurally unlike Florida's (IN).
+
+EAST_NORTH_CENTRAL_UNIFORM = ("IL", "IN", "MI", "OH", "WI")
+
+
+def test_east_north_central_is_uniform_throughout():
+    _assert_uniform_is_a_noop(EAST_NORTH_CENTRAL_UNIFORM)
+
+
+def test_illinois_cook_ordinance_does_not_split_houses_from_apartments():
+    """Pins the second predicted correction to dissolve, after Louisiana.
+
+    The rollout memo typed Illinois as the second local_option case on the strength of
+    Cook County's classification ordinance. Cook's own class-code schedule groups major
+    classes 1, 2 and 3 under one heading — "RESIDENTIAL ASSESSMENT CLASSES (10% level of
+    assessment)" — so a seven-or-more-unit rental building (class 3) is assessed at the
+    same 10% as a house (class 2). The split that matters there is residential against
+    commercial, and rental housing is on the residential side of it.
+
+    Asserting local_option is False specifically: encoding Illinois as local_option with
+    an empty sub_state would ALSO yield 1.0, so the no-op test above cannot tell the two
+    apart. This is what says the memo's prediction was wrong rather than unimplemented.
+    """
+    il = CLASSIFICATION_RULES["IL"]
+    assert il.rule_type == RULE_UNIFORM
+    assert il.local_option is False and not il.sub_state
+    assert il.residential is None and il.commercial is None
+    assert "9-145" in il.authority                       # uniform 33-1/3% downstate
+    assert "IT IS NOT" in il.notes                       # the reversal, stated
+    for units in (1, 2, 6, 7, 157):
+        assert classification_multiplier(
+            "IL", units, owner_occupied=False) == 1.0, units
+
+
+def test_michigan_rejects_on_the_school_levy_not_the_generic_rule():
+    """Michigan's gap is real and large — 18 mills — and still correctly uncorrected.
+
+    Every other uniform record rejects an exemption because exemptions are value- and
+    tenure-length-dependent. Michigan's rejection is stronger and different: the
+    Principal Residence Exemption relieves 18 mills of SCHOOL OPERATING tax, and this
+    dimension already nets school taxes out of both the cost and the revenue side. So the
+    differential is outside what the fiscal ratio measures at all, rather than merely hard
+    to model. Asserting the reason, because the reason is the finding.
+    """
+    mi = CLASSIFICATION_RULES["MI"]
+    assert mi.rule_type == RULE_UNIFORM
+    assert "211.7cc" in mi.authority
+    assert "SCHOOL OPERATING" in mi.notes and "school_tax_share" in mi.notes
+
+
+def test_indiana_records_why_its_caps_are_not_floridas():
+    """Indiana is the least comfortable uniform record, so the distinction is asserted.
+
+    Florida and Texas cap the GROWTH of assessed value, so their owner/rental gap depends
+    on holding period and appreciation — genuinely not a class ratio. Indiana caps tax as
+    a share of CURRENT assessed value by class, which has no time dependence and is a rate
+    ceiling in all but name. It stays uniform because the multiplier needs county gross
+    rates the bundled data does not carry, not because the two regimes are alike.
+    """
+    ind = CLASSIFICATION_RULES["IN"]
+    assert ind.rule_type == RULE_UNIFORM
+    assert "art. 10, § 1(f)" in ind.authority
+    assert "STRUCTURALLY DIFFERENT" in ind.notes
+
+
+def test_use_based_splits_are_recorded_as_such():
+    """Louisiana and Ohio both have a real class split that keys on use, not tenure.
+
+    Grouping them in one assertion because it is now a recurring failure mode rather than
+    a one-off: a state can have two assessment classes and still owe no correction, and
+    the notes are the only thing that says why.
+    """
+    for usps in ("LA", "OH"):
+        rule = CLASSIFICATION_RULES[usps]
+        assert rule.rule_type == RULE_UNIFORM, usps
+        assert "USE" in rule.notes, f"{usps}: the use-vs-tenure finding is not recorded"
+
+
+def test_east_north_central_is_complete_with_no_deferral():
+    from housing_label.data.states import CENSUS_DIVISION
+
+    division = {s for s, d in CENSUS_DIVISION.items() if d == "East North Central"}
+    assert division == {"IL", "IN", "MI", "OH", "WI"}
+    outstanding = division - set(CLASSIFICATION_RULES)
+    assert outstanding == set(), f"unencoded: {sorted(outstanding)}"
+
+
+def test_phase_5_moves_no_anchors():
+    """Five uniform records cannot enter the reference distribution."""
+    basis = active_basis()          # the literal itself lives in test_active_basis_fingerprint
+    for state in EAST_NORTH_CENTRAL_UNIFORM:
+        assert not any(entry.startswith(f"{state}:") for entry in basis), state
+        assert not any(entry.startswith(f"{state}/") for entry in basis), state
 
 
 def test_law_as_of_is_at_least_the_newest_verified_date():
