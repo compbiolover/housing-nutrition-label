@@ -1079,12 +1079,18 @@ def test_north_dakota_counts_dwelling_units_not_rental_units():
 
 
 def test_school_levy_rejections_all_say_so():
-    """Michigan, Vermont and South Dakota reach 'no correction' by the same route.
+    """Arizona, Michigan, South Dakota and Vermont reach 'no correction' the same way.
 
     Each has a large, genuinely tenure-based differential confined to a SCHOOL levy, which
-    this dimension nets out of both the cost and the revenue side. Three states is a
-    category rather than three coincidences, so assert each names the reason — a reader
-    meeting the fourth should find the pattern already written down, not re-derive it.
+    this dimension nets out of both the cost and the revenue side — Michigan's 18-mill
+    Principal Residence Exemption, Vermont's homestead/nonhomestead education rate, South
+    Dakota's halved school general fund levy, Arizona's 40% rebate on the primary school
+    district tax.
+
+    Four states across four phases is a category rather than four coincidences, so assert
+    each names the reason. Whoever meets the fifth should find the pattern written down
+    rather than re-derive it — and this docstring is part of that, so extend it when the
+    tuple grows.
     """
     for usps in SCHOOL_LEVY_REJECTIONS:
         rule = CLASSIFICATION_RULES[usps]
