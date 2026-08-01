@@ -143,9 +143,28 @@ Two fiscal-ratio accuracy fixes, plus a breakpoint re-calibration.
   national distribution.
 
 **Limitation:** the school share is computed from independent school districts;
-dependent-school counties (TN, VA, parts of others) fall back to the national
-average, and CoG can't attribute a general government's property-tax revenue to its
-education function, so in-between cases are approximate.
+dependent-school counties fall back to the national average (`SCHOOL_SHARE_FLOOR` in
+`scripts/build_govfinance.py`), and CoG can't attribute a general government's
+property-tax revenue to its education function, so in-between cases are approximate.
+
+Sized during Phase 6, because the magnitude was never written down:
+
+| | |
+|---|---|
+| US population scored on the national-average share (0.4092) | **14.6%** |
+| of which in states already encoded in `data/assessment.py` | **10.0%** |
+| entirely affected | NC, VA, MD, MA, CT, HI, AK, DC |
+| mostly affected | VT 96%, TN 92%, RI 84% |
+
+Two of those deserve naming. **Tennessee** is the pilot county's own state, at 92%.
+**Vermont** is the worst case in substance rather than share: since Act 60/68 its statewide
+education property tax is most of the Vermont bill, so netting a national-average 41% leaves
+a large education component sitting in `municipal_rate` — and that component carries an
+explicit homestead/nonhomestead rate split (32 V.S.A. § 5402). Vermont is therefore
+under-corrected, and the fix is a better school share rather than a class multiplier.
+
+This is a distinct problem from the population mismatch documented below: there the share is
+measured but applied to the wrong population; here there is no local measurement at all.
 
 ## Phase 4 (implemented) — density-responsive cost curve + per-acre productivity
 

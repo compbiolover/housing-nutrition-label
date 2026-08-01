@@ -713,13 +713,129 @@ primary residence.
 
 ---
 
+## New England
+
+Six of six encoded, none carrying a correction. The smallest division by population and the
+most legally varied: it contains the sharpest test of the school-levy rule, a predicted
+local-option case that turned out unable to reach apartments, and the first two records for a
+state of knowledge the table had not needed before.
+
+### Vermont — `RULE_UNIFORM` (the hardest "no" in the table)
+
+| | |
+|---|---|
+| **Authority** | 32 V.S.A. § 5401(7), (10), § 5402; Vt. Const. ch. II, § 66 |
+| **Verified** | 2026-08-01 |
+
+§ 5402 imposes a **statewide education property tax at different rates on homestead and
+nonhomestead property** — roughly $1.00 spending-adjusted against $1.59, about **1.6×**.
+Statutory, statewide, tenure-based, no local option. On its face it is the cleanest
+`RULE_RATE` candidate in the country, and anyone reading the statute alone would encode it.
+
+It owes no correction, for exactly the reason Michigan's Principal Residence Exemption does
+not: the split sits entirely inside an **education** levy, and this dimension nets school
+taxes out of both the cost and the revenue side. That is the rule established when South
+Carolina's note was retracted; Vermont is where it is hardest to accept.
+
+**The instructive contrast is next door.** New Hampshire also levies a statewide education
+property tax, and its Supreme Court upheld it in 2025 precisely because it is administered
+"equal in valuation and **uniform in rate** throughout the state". Same instrument, opposite
+answers, and the difference is exactly the thing this table encodes.
+
+**Under-corrects, and the reason is worth stating.** Since Act 60/68 Vermont's education tax
+is not a supplement to the municipal property tax — it *is* most of the bill. And 96% of
+Vermont's population sits on the **national-average** school share (0.4092) rather than a
+measured one, because Vermont funds schools through town-dependent systems carrying no
+separate Census of Governments levy. So the model nets away ~41% of a bill that is far more
+than 41% education, and the remainder still carries the differential.
+
+Encoding ×1.59 would double-count against whatever the 41% netting *does* remove, and would
+become an outright over-correction the moment the school share is fixed. The defect is on the
+revenue side; see [infrastructure-burden-research.md](infrastructure-burden-research.md).
+
+### Massachusetts — `RULE_UNIFORM` (a shift that cannot reach apartments)
+
+| | |
+|---|---|
+| **Authority** | M.G.L. ch. 40, § 56; ch. 59, § 2A, § 38; Mass. Const. pt. 2, ch. 1, § 1, art. 4 |
+| **Verified** | 2026-08-01 |
+
+The rollout memo called Massachusetts "the canonical local-option case", and ch. 40, § 56
+does let a municipality adopt a residential factor shifting burden toward commercial,
+industrial and personal property. **But the shift cannot reach rental housing.** Massachusetts
+assessors classify all real property as residential, open space, commercial or industrial, and
+*residential includes all property containing one or more units for human habitation* — large
+apartment buildings among them. The shift moves burden between residential and commercial;
+apartments are on the residential side of it.
+
+Same shape as Virginia in Phase 2, and recorded the same way: `local_option` explicitly
+`False`, so the record says *the option does not reach rental housing* rather than *not yet
+resolved*.
+
+### Rhode Island and Connecticut — real, and not resolvable
+
+| | RI | CT |
+|---|---|---|
+| **Authority** | R.I. Gen. Laws § 44-5-11.8, § 44-5-11.18 | Conn. Gen. Stat. § 12-62a, § 12-62n, § 12-62r |
+| **Verified** | 2026-08-01 | 2026-08-01 |
+
+Both classify rental housing, and this table cannot resolve either.
+
+**Rhode Island** § 44-5-11.8 puts residential real estate of *no more than five dwelling
+units* in class 1 — so a six-unit building falls to class 2 (commercial and industrial)
+unless the city provides otherwise. Providence has its own regime under § 44-5-11.18, with
+class 1A (fewer than six units), 1B (six to ten) and 1C (more than ten) and rate caps
+relative to 1A.
+
+**Connecticut** § 12-62a fixes a uniform 70% assessment ratio statewide, which alone would
+make it uniform. But § 12-62n is a **municipal option** to set separate assessment rates, and
+it names **"apartment property"** as a category distinct from "residential property" — so
+unlike the Massachusetts shift, this one does reach rental housing.
+
+In both the choice is made **per municipality** — Rhode Island's 39 cities and towns,
+Connecticut's 169 — and neither state's counties are governmental units: Rhode Island's five
+counties have no government, and Connecticut abolished county government in 1960. No county
+FIPS can carry the rule, exactly as with New York's art. 19 assessing units.
+
+That is a third state of knowledge:
+
+| state of knowledge | recorded as |
+|---|---|
+| researched, no classification | `RULE_UNIFORM` |
+| researched, classification resolved | a typed rule, or `local_option` + `sub_state` (NYC) |
+| **researched, classification real but not resolvable by county** | **`local_option` + empty `sub_state`** |
+
+All three yield a 1.0 multiplier, so only the record tells them apart — the same argument
+that makes `RULE_UNIFORM` worth having at all. `RULE_UNIFORM` would be a false claim here: it
+asserts there is no classification to find.
+
+Both **under-correct** in every municipality that taxes larger rental buildings commercially.
+
+### Maine and New Hampshire — `RULE_UNIFORM`
+
+**Maine** (Me. Const. art. IX, § 8; 36 M.R.S. § 701-A, § 681): all taxes on real estate must
+be "apportioned and assessed equally according to the just value thereof", with exceptions
+only for classified farm, open space, forest land and working waterfront — all use-based, none
+turning on tenure. **Found and rejected:** the § 681 homestead exemption.
+
+**New Hampshire** (N.H. Const. pt. II, art. 5; RSA 75:1, RSA 76:3): art. 5 permits only
+"proportional and reasonable" assessments and rates, and RSA 75:1 appraises at full and true
+value with no tenure class. Its statewide education property tax is uniform in rate — see the
+Vermont contrast above.
+
+---
+
 ## Not yet researched
 
-The remaining 27 jurisdictions, DC among them. Each applies **no correction**, so rental
+The remaining 21 jurisdictions, DC among them. Each applies **no correction**, so rental
 housing in them is currently scored as though taxed like an owner-occupied home.
 
 East South Central (KY, TN, MS, AL), West South Central (AR, LA, OK, TX), Middle Atlantic
-(NY, NJ, PA) and East North Central (OH, IN, IL, MI, WI) are complete, and South Atlantic is
-complete but for DC — all asserted by `tests/test_assessment.py` rather than claimed. Two
-sub-state deferrals are outstanding inside otherwise complete divisions: DC, and Nassau
-County within New York.
+(NY, NJ, PA), East North Central (OH, IN, IL, MI, WI) and New England (ME, NH, VT, MA, RI,
+CT) are complete, and South Atlantic is complete but for DC — all asserted by
+`tests/test_assessment.py` rather than claimed. Three divisions remain: West North Central,
+Mountain and Pacific.
+
+Two sub-state deferrals are outstanding inside otherwise complete divisions: DC, and Nassau
+County within New York. Rhode Island and Connecticut are **not** deferrals — they are
+researched and recorded as unresolvable, which is a different thing.
