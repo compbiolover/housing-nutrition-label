@@ -27,6 +27,34 @@ Five questions per jurisdiction, in order:
 5. Does the differential attach to the **assessment ratio**, the **rate**, or an
    **exemption/credit**?
 
+**A sixth question, added in Phase 8: does the preference actually exclude renters?** Four
+Mountain states have an owner-occupied preference that a secondary source describes exactly
+as a tenure split, and none of them is one — each keys on how the home is *occupied* (primary
+residence against second home or short-term rental) rather than on who owns it. Ask it of
+every "homestead", "primary residence" or "owner-occupied" rule before believing it.
+
+### Worked example — Utah, and why one confident answer is not enough
+
+Utah's 45% primary residential exemption implies a **×1.82** multiplier, which would be among
+the largest in this table. A first pass against the Utah State Tax Commission's own page
+returned an unambiguous answer:
+
+> a landlord renting a home to a tenant would not qualify, since the exemption applies only
+> when the owner themselves uses the property as their primary residence
+
+That is wrong. The Utah County Assessor's explainer says the opposite, in terms:
+
+> Apartments, condos and mobile homes **also qualify**. … **Properties inhabited by tenants
+> also qualify**, if they reside in the property for 183 consecutive days or more in a
+> calendar year.
+
+The tell was that the first answer's decisive sentence was an *inference* ("meaning the owner
+must personally occupy it"), while its only actual quotation covered transient use and
+condominiums in rental pools — both consistent with long-term rentals qualifying. **Quotes
+are evidence; the summary around them is not.** Encoding the first answer would have applied
+a large correction to 1% of the population in the wrong direction, and nothing downstream
+would have caught it, because a wrong multiplier still scores.
+
 ## What is deliberately excluded
 
 **Exemptions, credits, and assessment caps are not classification**, even where they open a
@@ -941,16 +969,92 @@ land the only permitted class. A use exception, not a tenure one.
 
 ---
 
+## Mountain
+
+Eight of eight encoded, **none carrying a correction** — and for one division-wide reason
+rather than eight separate ones.
+
+### The division's finding: these reforms target second homes, not landlords
+
+Four Mountain states have a headline owner-occupied preference. **Not one excludes long-term
+rental housing.** Every split turns on how the home is *occupied* — primary residence against
+second home or short-term rental — rather than on who owns it. That is a coherent policy
+story: these are amenity and resort states whose political target is the non-resident owner,
+not the landlord.
+
+| state | looks like | actually |
+|---|---|---|
+| **UT** | 45% exemption for "primary residence" → ×1.82 | Covers tenants: "Properties inhabited by tenants also qualify, if they reside in the property for 183 consecutive days or more." Apartments and condos named. What loses it is transient use and rental pools. |
+| **MT** | 2025 HB 231 "homestead rate" | Covers principal residences **and long-term rentals**, the latter defined to include a unit of a multiple-unit dwelling. The higher rate hits second homes and short-term rentals. |
+| **CO** | 2025 owner-occupied primary residence subclass | HB24B-1001 sets one **6.25%** rate for *all* residential on local levies. The rate varies by **levy type** (6.25% local, 7.05% school), not occupancy; the subclass carries senior/veteran exemptions. |
+| **AZ** | Legal class 3 vs class 4 (leased/rented) | A genuine tenure split — but **both assessed at 10%**. The only difference is a 40% rebate on *school district* tax, capped at $600. |
+
+### Arizona — the fourth school-levy rejection
+
+| | |
+|---|---|
+| **Authority** | A.R.S. § 42-12003, § 42-12004, § 42-15003, § 42-15004; § 15-972 |
+| **Verified** | 2026-08-01 |
+
+The rollout memo predicted Arizona as this division's real correction, and its classes *do*
+split owner-occupied from rented. They simply carry the same assessment ratio. The money is
+in the homeowner rebate — the state pays 40% of the primary **school** district tax on class
+3, capped at $600 — and this dimension nets school taxes out of both the cost and the revenue
+side.
+
+That joins Michigan (Phase 5), Vermont (Phase 6) and South Dakota (Phase 7). Four states,
+four phases, one route to "no correction", asserted by a shared test.
+
+### Wyoming — the one that does narrow to ownership
+
+| | |
+|---|---|
+| **Authority** | Wyo. Const. art. 15, § 11 (amended 2024); Wyo. Stat. § 39-13-103; 2025 Wyo. Sess. Laws ch. 106 (SF 69) |
+| **Verified** | 2026-08-01 |
+
+Amendment A (2024) made residential real property a fourth constitutional class and
+**authorized** an owner-occupied primary residence subclass. What the 2025 legislature
+enacted is SF 69 — an **exemption**, not a class rate: 25% of the first $1,000,000 of fair
+market value. It applied to **all** residential structures for FY2026 and narrows to
+**owner-occupied only from FY2027**.
+
+**Found and rejected on two grounds.** It is an exemption, and it is value-capped — 25% relief
+on a $400,000 home, but proportionally less above $1M — so the gap is value-dependent in the
+Idaho and Florida shape rather than a fixed class ratio.
+
+**Flagged for re-examination**, uniquely in this division: it is the one Mountain preference
+that genuinely narrows to ownership, and if Wyoming ever restates it as a class rate it
+becomes encodable. A test asserts the record says so.
+
+### Nevada, Idaho, New Mexico — cap and exemption cases
+
+**Nevada** (NRS § 361.225, § 361.4723, § 361.4724) assesses everything at 35% of taxable
+value. Its partial abatement caps the annual tax increase at **3% for an owner's primary
+residence against up to 8%** for everything else — a growth cap, so the gap depends on
+holding period and appreciation. Florida's shape.
+
+**Idaho** (Idaho Code § 63-602G) grants the lesser of $125,000 or 50% of market value, and
+unlike Utah's it *is* genuinely owner-occupied only. But it is **value-capped**: 50% relief on
+a $250,000 home, 25% on a $500,000 one. Value-dependent, so excluded.
+
+**New Mexico** (N.M. Const. art. VIII, § 1; § 7-37-3, § 7-36-21.2) requires taxes "equal and
+uniform upon subjects of taxation of the same class" at no more than 33⅓%. § 7-36-21.2 limits
+annual increases in residential valuation and may apply the limit by owner-occupancy — a
+valuation growth cap, the Nevada shape.
+
+---
+
 ## Not yet researched
 
-The remaining 14 jurisdictions, DC among them. Each applies **no correction**, so rental
-housing in them is currently scored as though taxed like an owner-occupied home.
+The remaining **6** jurisdictions: the five Pacific states (WA, OR, CA, AK, HI) and DC. Each
+applies **no correction**, so rental housing in them is currently scored as though taxed like
+an owner-occupied home.
 
-East South Central (KY, TN, MS, AL), West South Central (AR, LA, OK, TX), Middle Atlantic
-(NY, NJ, PA), East North Central (OH, IN, IL, MI, WI), New England (ME, NH, VT, MA, RI, CT)
-and West North Central (MN, IA, MO, ND, SD, NE, KS) are complete, and South Atlantic is
-complete but for DC — all asserted by `tests/test_assessment.py` rather than claimed. **Two
-divisions remain: Mountain and Pacific.**
+Every other Census division is complete — East South Central, West South Central, Middle
+Atlantic, East North Central, New England, West North Central and Mountain — and South
+Atlantic is complete but for DC, all asserted by `tests/test_assessment.py` rather than
+claimed. **One division remains: Pacific**, at 16.3% of the US population, and it contains
+California, where both golden Los Angeles cases live.
 
 Two sub-state deferrals are outstanding inside otherwise complete divisions: DC, and Nassau
 County within New York. Rhode Island and Connecticut are **not** deferrals — they are

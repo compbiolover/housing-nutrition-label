@@ -67,12 +67,11 @@ parcel containing at most one rental unit (see ``separately_parceled``).
 
 Coverage
 --------
-Thirty-seven of 51 scorable jurisdictions are encoded: all of East South Central, West South
-Central, Middle Atlantic, East North Central, New England and West North Central, and all of
-South Atlantic except the District of Columbia, which is deferred as unverified.
+Forty-five of 51 scorable jurisdictions are encoded: every Census division except Pacific,
+and all of South Atlantic except the District of Columbia, which is deferred as unverified.
 
 Eight carry a correction — AL and WV at 2.0x, New York City at 1.81x, TN at 1.6x, MS and SC
-at 1.5x, MN at 1.25x and ND at 1.11x. Twenty-seven were researched and found to have no
+at 1.5x, MN at 1.25x and ND at 1.11x. Thirty-five were researched and found to have no
 classification of rental housing, and are recorded as ``RULE_UNIFORM`` rather than left
 absent: both produce a 1.0 multiplier at the point of use, so only the record distinguishes
 "researched, no correction" from "not researched". Louisiana, Ohio, Missouri and Kansas are
@@ -94,7 +93,7 @@ correction comes from a published effective-rate study rather than statutory leg
 ``RULE_EFFECTIVE`` and the NY notes, where the naive statutory reading over-corrects by
 2.6x.
 
-The remaining 14 jurisdictions return no correction. That is a real coverage gap, not a
+The remaining 6 jurisdictions return no correction. That is a real coverage gap, not a
 claim that they lack split rolls — several do, with different thresholds and ratios. The
 rollout plan is ``research/property-tax-classification-rollout.md`` and the per-jurisdiction
 authority record is ``research/property-tax-classification-research.md``; extending the
@@ -889,6 +888,130 @@ CLASSIFICATION_RULES: dict[str, ClassificationRule] = {
                "separate class — a use exception, not a tenure one. § 77-201 assesses real "
                "property at 100% of actual value, agricultural at 75%. No tenure class "
                "exists or could."),
+    ),
+    # ── Mountain ──────────────────────────────────────────────────────────────
+    #
+    # Every one uniform, and the reason is a division-wide pattern rather than eight
+    # coincidences: four of these states have a headline owner-occupied preference, and NOT
+    # ONE of them excludes long-term rental housing. Each splits on how the home is
+    # OCCUPIED — primary residence against second home or short-term rental — not on who
+    # owns it. These are amenity and resort states whose political target is the
+    # non-resident owner, not the landlord.
+    "UT": ClassificationRule(
+        usps="UT",
+        rule_type=RULE_UNIFORM,
+        authority="Utah Code § 59-2-102, § 59-2-103; Utah Const. art. XIII, § 3",
+        verified="2026-08-01",
+        notes=("The 45% primary residential exemption looks like a 1.82x tenure split and "
+               "is not one: it follows OCCUPANCY, not ownership. The Utah County Assessor's "
+               "explainer is explicit — 'Apartments, condos and mobile homes also qualify … "
+               "Properties inhabited by TENANTS ALSO QUALIFY, if they reside in the property "
+               "for 183 consecutive days or more in a calendar year.' What loses the "
+               "exemption is transient use, second homes and condominiums in rental pools, "
+               "not renting per se. A long-term apartment is taxed on the same 55% of fair "
+               "market value as an owner-occupied house. NEAR MISS: a first pass on the "
+               "state tax commission's own page returned the confident answer that a "
+               "landlord renting to a tenant would not qualify, which the assessor's "
+               "document contradicts; encoding it would have put one of the largest "
+               "multipliers in this table on 1% of the population in the wrong direction."),
+    ),
+    "MT": ClassificationRule(
+        usps="MT",
+        rule_type=RULE_UNIFORM,
+        authority="Mont. Code Ann. § 15-6-134; 2025 Mont. Laws ch. 674 (HB 231)",
+        verified="2026-08-01",
+        notes=("HB 231 (2025) created a reduced 'homestead rate', which reads as an "
+               "owner-occupied preference until you read the definition: the rate covers "
+               "principal residences AND LONG-TERM RENTALS, where long-term rental is "
+               "defined to include a unit of a multiple-unit dwelling. The higher rate "
+               "falls on second homes and short-term rentals. Same shape as Utah — "
+               "occupancy, not tenure — and the reason this division needed reading rather "
+               "than assuming."),
+    ),
+    "AZ": ClassificationRule(
+        usps="AZ",
+        rule_type=RULE_UNIFORM,
+        authority=("A.R.S. § 42-12003, § 42-12004, § 42-15003, § 42-15004; § 15-972; "
+                   "§ 42-11132"),
+        verified="2026-08-01",
+        notes=("The rollout memo predicted Arizona as the division's real tenure split — "
+               "legal class 3 is owner-occupied primary residence, class 4 is leased or "
+               "rented residential, which certainly looks like one. BOTH ARE ASSESSED AT "
+               "10%. The only difference is the homeowner rebate: the state pays 40% of the "
+               "primary SCHOOL district tax on class 3, capped at $600 a year. That is a "
+               "school levy, which this dimension nets out of both the cost and the revenue "
+               "side. FOURTH school-levy rejection after Michigan, Vermont and South "
+               "Dakota — see the shared test."),
+    ),
+    "CO": ClassificationRule(
+        usps="CO",
+        rule_type=RULE_UNIFORM,
+        authority=("Colo. Const. art. X, § 3(1)(b); Colo. Rev. Stat. § 39-1-104; "
+                   "2024 Colo. Sess. Laws (2nd Ex. Sess.) HB24B-1001"),
+        verified="2026-08-01",
+        notes=("HB24B-1001 sets a single assessment rate for ALL residential property on "
+               "local-government levies — 6.25% for 2025 forward — with multi-family "
+               "expressly inside the residential class. The rate does vary, but by LEVY "
+               "TYPE (6.25% local against 7.05% school), not by occupancy. The "
+               "owner-occupied primary residence subclass Colorado created for 2025 carries "
+               "the senior and veteran homestead exemptions, not a different ordinary rate. "
+               "The residential/non-residential split (6.25% against 27%) is use-based with "
+               "apartments on the residential side, like Louisiana, Ohio, Missouri and "
+               "Kansas."),
+    ),
+    "WY": ClassificationRule(
+        usps="WY",
+        rule_type=RULE_UNIFORM,
+        authority=("Wyo. Const. art. 15, § 11 (as amended 2024); Wyo. Stat. § 39-13-103; "
+                   "2025 Wyo. Sess. Laws ch. 106 (SF 69)"),
+        verified="2026-08-01",
+        notes=("Amendment A (2024) made residential real property a fourth constitutional "
+               "class and AUTHORIZED a subclass for owner-occupied primary residences. What "
+               "the 2025 legislature actually enacted is SF 69, an EXEMPTION rather than a "
+               "class rate: 25% of the first $1,000,000 of fair market value. It applied to "
+               "ALL residential structures for FY2026 and narrows to owner-occupied "
+               "dwellings from FY2027. FOUND AND REJECTED on two grounds — it is an "
+               "exemption, and it is value-capped, so the gap is value-dependent in the "
+               "Idaho and Florida shape rather than a fixed class ratio. RE-EXAMINE once "
+               "the FY2027 owner-occupied-only phase has been in effect for a full "
+               "assessment year: that is the one Mountain preference that does narrow to "
+               "ownership, and if it is ever restated as a class rate it becomes encodable."),
+    ),
+    "NV": ClassificationRule(
+        usps="NV",
+        rule_type=RULE_UNIFORM,
+        authority="Nev. Rev. Stat. § 361.225, § 361.4723, § 361.4724; Nev. Const. art. 10, § 1",
+        verified="2026-08-01",
+        notes=("All property is assessed at 35% of taxable value, uniformly. FOUND AND "
+               "REJECTED: the § 361.4723 partial abatement, which caps the annual increase "
+               "in the tax bill at 3% for an owner's primary residence against up to 8% for "
+               "everything else under § 361.4724. A growth cap, so the gap depends on "
+               "holding period and appreciation rather than being a fixed class ratio — the "
+               "Florida shape, and excluded for the same reason."),
+    ),
+    "ID": ClassificationRule(
+        usps="ID",
+        rule_type=RULE_UNIFORM,
+        authority="Idaho Code § 63-602G, § 63-205; Idaho Const. art. VII, § 5",
+        verified="2026-08-01",
+        notes=("FOUND AND REJECTED: the § 63-602G homeowner's exemption, the lesser of "
+               "$125,000 or 50% of market value, available only where the homestead is "
+               "owner-occupied and the owner's primary dwelling. Genuinely tenure-based, "
+               "unlike Utah's — but VALUE-CAPPED, so the relief is 50% on a $250,000 home "
+               "and 25% on a $500,000 one. The gap is value-dependent rather than a fixed "
+               "class ratio, which is exactly what the exclusion rule keeps out."),
+    ),
+    "NM": ClassificationRule(
+        usps="NM",
+        rule_type=RULE_UNIFORM,
+        authority="N.M. Const. art. VIII, § 1; N.M. Stat. Ann. § 7-37-3, § 7-36-21.2",
+        verified="2026-08-01",
+        notes=("Art. VIII, § 1 requires taxes 'equal and uniform upon subjects of taxation "
+               "of the same class' at no more than 33-1/3% of value, and § 7-37-3 sets that "
+               "one-third ratio for all property. FOUND AND REJECTED: § 7-36-21.2, which "
+               "limits annual increases in residential valuation and may apply the "
+               "limitation by owner-occupancy, age or income. A valuation growth cap, so "
+               "the Nevada and Florida shape rather than a class ratio."),
     ),
     # DC is deliberately NOT encoded. It restructured its classes for tax year 2025 (a
     # new Class 1A / 1B split), and sources conflict on where a multifamily rental

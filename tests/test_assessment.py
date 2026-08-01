@@ -275,16 +275,18 @@ def test_active_basis_descends_into_sub_state_rules():
 def test_coverage_is_honest_about_the_gap():
     """The unresearched majority is recorded rather than implied by silence.
 
-    Thirty-seven of 51 researched after Phase 7 (West North Central). The uniform
+    Forty-five of 51 researched after Phase 8 (Mountain). The uniform
     jurisdictions count as researched despite applying no correction — that distinction
     is the whole point of RULE_UNIFORM.
     """
     remaining = unresearched_jurisdictions()
-    assert len(remaining) == 14
+    assert len(remaining) == 6
+    assert set(remaining) == {"AK", "CA", "DC", "HI", "OR", "WA"}, sorted(remaining)
     for done in ("AL", "KY", "MS", "TN", "SC", "WV", "FL", "GA", "MD", "NC", "VA", "DE",
                  "AR", "LA", "OK", "TX", "NY", "NJ", "PA", "IL", "IN", "MI", "OH", "WI",
                  "ME", "NH", "VT", "MA", "RI", "CT",
-                 "MN", "IA", "MO", "ND", "SD", "NE", "KS"):
+                 "MN", "IA", "MO", "ND", "SD", "NE", "KS",
+                 "MT", "ID", "WY", "CO", "NM", "AZ", "UT", "NV"):
         assert done not in remaining
     # DC is deferred, not done — see test_south_atlantic_coverage_and_the_deferred_jurisdiction.
     assert "DC" in remaining
@@ -992,7 +994,7 @@ def test_phase_6_moves_no_anchors():
 # basis, opposite answers for an owner-occupied fourplex.
 
 WEST_NORTH_CENTRAL_UNIFORM = ("IA", "KS", "MO", "NE", "SD")
-SCHOOL_LEVY_REJECTIONS = ("MI", "SD", "VT")
+SCHOOL_LEVY_REJECTIONS = ("AZ", "MI", "SD", "VT")
 
 
 def test_west_north_central_uniform_states():
@@ -1098,6 +1100,109 @@ def test_west_north_central_is_complete_with_no_deferral():
     assert division == {"IA", "KS", "MN", "MO", "ND", "NE", "SD"}
     outstanding = division - set(CLASSIFICATION_RULES)
     assert outstanding == set(), f"unencoded: {sorted(outstanding)}"
+
+
+# ── Phase 8: Mountain ────────────────────────────────────────────────────────────
+#
+# All eight uniform, and for one division-wide reason: four of these states have a
+# headline owner-occupied preference and NOT ONE excludes long-term rental housing. Each
+# splits on how the home is OCCUPIED — primary residence against second home or
+# short-term rental — rather than on who owns it.
+
+MOUNTAIN_UNIFORM = ("AZ", "CO", "ID", "MT", "NM", "NV", "UT", "WY")
+# The three whose preference explicitly reaches renters. Arizona is separate: its classes
+# genuinely do split owner from renter, they just carry the same assessment ratio.
+OCCUPANCY_NOT_TENURE = ("CO", "MT", "UT")
+
+
+def test_mountain_uniform_states():
+    _assert_uniform_is_a_noop(MOUNTAIN_UNIFORM)
+
+
+def test_mountain_preferences_key_on_occupancy_not_tenure():
+    """The division's whole finding, and the one most likely to be "corrected" wrongly.
+
+    Utah's 45% residential exemption, Montana's HB 231 homestead rate and Colorado's
+    residential rate all look like owner-occupied preferences in a secondary source. None
+    of them excludes long-term rental housing: Utah's covers properties inhabited by
+    tenants for 183+ days, Montana's definition of the homestead rate names long-term
+    rentals outright, and Colorado applies one residential rate to all residential
+    property on local levies.
+
+    A future reader who finds "primary residence exemption, 45%" and encodes 1.82x would
+    be making the largest single error available in this table. Asserting each record
+    states why it does not correct, so that reader hits an explanation rather than a bare
+    RULE_UNIFORM.
+    """
+    for usps in OCCUPANCY_NOT_TENURE:
+        rule = CLASSIFICATION_RULES[usps]
+        assert rule.rule_type == RULE_UNIFORM, usps
+        notes = rule.notes.lower()
+        assert "tenant" in notes or "long-term rental" in notes or "all residential" in notes, (
+            f"{usps}: the record does not say the preference reaches renters")
+        for kwargs in _CASES.values():
+            assert classification_multiplier(usps, **kwargs) == 1.0, f"{usps} {kwargs}"
+
+
+def test_utah_records_the_near_miss():
+    """Utah is where a confident secondary answer was wrong, so the record says so.
+
+    A first pass returned "a landlord renting a home to a tenant would not qualify" — the
+    opposite of what the county assessor's own explainer states. That would have encoded
+    ~1.82x, among the largest multipliers in the table, on the wrong side.
+    """
+    ut = CLASSIFICATION_RULES["UT"]
+    assert ut.rule_type == RULE_UNIFORM
+    assert "TENANTS ALSO QUALIFY" in ut.notes
+    assert "NEAR MISS" in ut.notes
+
+
+def test_arizona_classes_split_tenure_but_share_a_ratio():
+    """Arizona is the memo's predicted correction, and the prediction was wrong.
+
+    Legal class 3 (owner-occupied primary residence) and class 4 (leased or rented
+    residential) really are a tenure split — but both are assessed at 10%. The only
+    difference is a 40% rebate on the primary SCHOOL district tax, which this dimension
+    nets from both sides. Distinct from Utah/Montana/Colorado, where the classes
+    themselves do not split by tenure.
+    """
+    az = CLASSIFICATION_RULES["AZ"]
+    assert az.rule_type == RULE_UNIFORM
+    assert "BOTH ARE ASSESSED AT" in az.notes
+    assert "SCHOOL" in az.notes.upper()
+    assert az.usps in SCHOOL_LEVY_REJECTIONS
+
+
+def test_wyoming_is_flagged_for_re_examination():
+    """The one Mountain preference that does narrow to ownership.
+
+    SF 69 (2025) exempts 25% of the first $1,000,000 of value — all residential
+    structures for FY2026, owner-occupied only from FY2027. Rejected because it is an
+    exemption and value-capped, so the gap is value-dependent rather than a class ratio.
+    But it is the division's one genuine tenure narrowing, so the record must say to look
+    again rather than reading as settled.
+    """
+    wy = CLASSIFICATION_RULES["WY"]
+    assert wy.rule_type == RULE_UNIFORM
+    assert "RE-EXAMINE" in wy.notes
+    assert "FY2027" in wy.notes
+
+
+def test_mountain_is_complete_with_no_deferral():
+    from housing_label.data.states import CENSUS_DIVISION
+
+    division = {s for s, d in CENSUS_DIVISION.items() if d == "Mountain"}
+    assert division == {"AZ", "CO", "ID", "MT", "NM", "NV", "UT", "WY"}
+    outstanding = division - set(CLASSIFICATION_RULES)
+    assert outstanding == set(), f"unencoded: {sorted(outstanding)}"
+
+
+def test_phase_8_moves_no_anchors():
+    """No Mountain record carries a correction."""
+    basis = active_basis()          # the literal itself lives in test_active_basis_fingerprint
+    for state in MOUNTAIN_UNIFORM:
+        assert not any(entry.startswith(f"{state}:") for entry in basis), state
+        assert not any(entry.startswith(f"{state}/") for entry in basis), state
 
 
 def test_law_as_of_is_at_least_the_newest_verified_date():
