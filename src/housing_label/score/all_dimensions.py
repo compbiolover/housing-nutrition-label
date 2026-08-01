@@ -176,12 +176,20 @@ ENERGY_YS = [100.0, 80.0, 60.0, 40.0, 20.0, 0.0]
 # dimension — it put the national median fiscal ratio at 0.31, implying almost no
 # American home comes close to paying its way.
 #
-# The national median is now ≈ 0.66 → score ≈ 50: the typical US home covers about
-# two-thirds of what it costs to serve, and ~13% of homes clear 1.0 (p90 ≈ 1.15).
+# The national median is now ≈ 0.67 → score ≈ 50: the typical US home covers about
+# two-thirds of what it costs to serve, and ~18% of homes clear 1.0 (p90 ≈ 1.23).
 # The remaining gap is real, not an artifact — fire and police have no user charge
 # anywhere in the Census data, so property tax is the only thing paying for them.
-#   ≥1.46→100, 0.93→80, 0.73→60, 0.60→40, 0.47→20, ≤0.33→0   (log-linear between).
-INFRA_XS = [0.325, 0.469, 0.602, 0.730, 0.934, 1.456]
+#
+# The reference mix now includes a large-multifamily archetype (20+ units). Before it,
+# the densest point in the distribution was a 10-unit parcel, so every mid-rise and
+# high-rise in the country was ranked against a population of houses, duplexes and small
+# walk-ups — and since big buildings spread infrastructure cost over many doors, leaving
+# them out held the top of the distribution low and inflated their own percentiles. Adding
+# them raised p95 by 6.7% (1.456 → 1.553) and everything below p60 by under 1%, so an A is
+# modestly harder to earn than it was, which is the correct direction.
+#   ≥1.55→100, 0.95→80, 0.74→60, 0.60→40, 0.47→20, ≤0.33→0   (log-linear between).
+INFRA_XS = [0.325, 0.469, 0.604, 0.736, 0.947, 1.553]
 INFRA_YS = [0.0, 20.0, 40.0, 60.0, 80.0, 100.0]
 
 # Which jurisdictions carried an active property-tax classification correction when the
@@ -196,12 +204,15 @@ INFRA_YS = [0.0, 20.0, 40.0, 60.0, 80.0, 100.0]
 # jurisdictions entered the distribution and at what strength.
 #
 # The NY/<fips> entries are New York City's five boroughs, reached through the rules
-# table's sub_state map. They are in the basis but did NOT move any anchor, which is not a
-# mistake: New York City's correction starts at 11 dwelling units (RPTL § 1805(2)), and the
-# densest archetype in scripts/calibrate_infra_breakpoints.py is a 10-unit building. So the
-# city's rule is live for a real label request and invisible to the reference distribution.
-# Closing that gap means adding a large-multifamily archetype, which would move every score
-# in the country and is tracked as its own roadmap item.
+# table's sub_state map. New York City's correction starts at 11 dwelling units (RPTL
+# § 1805(2)), so it reaches the reference distribution only through the large-multifamily
+# archetype; while the densest archetype was a 10-unit building the city's rule was live
+# for a real label request and invisible to the yardstick. That gap is now closed.
+#
+# It still contributes almost nothing to the anchors, and that is expected rather than
+# suspicious: five counties out of ~3,140 cannot move a population-weighted national
+# percentile. Dropping NY entirely and recalibrating leaves p95 at 1.553, unchanged to
+# three decimals. Encoding it matters for the parcels it scores, not for the yardstick.
 INFRA_XS_BASIS = ("AL:2.00", "MS:1.50", "NY/36005:1.81", "NY/36047:1.81", "NY/36061:1.81",
                   "NY/36081:1.81", "NY/36085:1.81", "SC:1.50", "TN:1.60", "WV:2.00")
 

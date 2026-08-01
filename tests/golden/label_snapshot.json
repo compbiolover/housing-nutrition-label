@@ -32,7 +32,7 @@
       {
         "key": "infrastructure",
         "national_grade": "D",
-        "score": 28.3
+        "score": 28.2
       },
       {
         "key": "health",
@@ -84,7 +84,7 @@
     "assess_ratio_applied": 0.25,
     "classification_multiplier_applied": 1.0,
     "composite_national_grade": "C",
-    "composite_score": 57.1,
+    "composite_score": 57.0,
     "cost": {
       "annualEnergyCost": 1948,
       "expectedAnnualLoss": 149
@@ -113,7 +113,7 @@
       {
         "key": "infrastructure",
         "national_grade": "D",
-        "score": 32.2
+        "score": 32.0
       },
       {
         "key": "health",
@@ -165,7 +165,7 @@
     "assess_ratio_applied": 0.25,
     "classification_multiplier_applied": 1.0,
     "composite_national_grade": "B",
-    "composite_score": 79.7,
+    "composite_score": 79.6,
     "cost": {
       "annualEnergyCost": 1558,
       "expectedAnnualLoss": 195
@@ -194,7 +194,7 @@
       {
         "key": "infrastructure",
         "national_grade": "B",
-        "score": 73.1
+        "score": 72.2
       },
       {
         "key": "health",
@@ -246,7 +246,7 @@
     "assess_ratio_applied": 0.25,
     "classification_multiplier_applied": 1.0,
     "composite_national_grade": "A",
-    "composite_score": 89.9,
+    "composite_score": 89.6,
     "cost": {
       "annualEnergyCost": 765,
       "expectedAnnualLoss": 152
@@ -275,7 +275,7 @@
       {
         "key": "infrastructure",
         "national_grade": "A",
-        "score": 85.4
+        "score": 84.3
       },
       {
         "key": "health",
@@ -327,7 +327,7 @@
     "assess_ratio_applied": 0.25,
     "classification_multiplier_applied": 1.0,
     "composite_national_grade": "A",
-    "composite_score": 90.3,
+    "composite_score": 90.0,
     "cost": {
       "annualEnergyCost": 765,
       "expectedAnnualLoss": 152
@@ -356,7 +356,7 @@
       {
         "key": "infrastructure",
         "national_grade": "A",
-        "score": 87.6
+        "score": 86.2
       },
       {
         "key": "health",
@@ -408,7 +408,7 @@
     "assess_ratio_applied": 0.4,
     "classification_multiplier_applied": 1.0,
     "composite_national_grade": "A",
-    "composite_score": 82.5,
+    "composite_score": 82.3,
     "cost": {
       "annualEnergyCost": 757,
       "expectedAnnualLoss": 84
@@ -437,7 +437,7 @@
       {
         "key": "infrastructure",
         "national_grade": "A",
-        "score": 86.7
+        "score": 85.5
       },
       {
         "key": "health",

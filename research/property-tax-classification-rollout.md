@@ -219,13 +219,15 @@ national-average cost. Keep the explicit skip and test it.
 | large-lot suburb | 1.5 | 0.18 | 1 | 0.140 |
 | standard suburb | 4.0 | 0.35 | 1 | 0.140 |
 | compact suburb / townhome | 8.0 | 0.20 | 1 | 0.140 |
-| urban multifamily | 20.0 | 0.15 | 10 | 0.902 |
+| urban multifamily (5–19) | 20.0 | 0.069 | 10 | 0.892 |
+| large multifamily (20+) | 50.0 | 0.081 | 50 | 0.868 |
 
 Renter shares from ACS 2024 5-yr B25032. Each archetype contributes **two** weighted points
 — an owner leg and a renter leg — with total weight unchanged, so the only delta to the
 distribution is reclassification of renter legs in states that have a rule. Fully
 attributable. Hold `du_acre` and `share` fixed here; refining the archetype roster is a
-separate, separately-reviewed change.
+separate, separately-reviewed change — which is what the large-multifamily row below was,
+landing after Phase 4.
 
 **(c) `INFRA_XS_BASIS` — the drift guard.** Next to `INFRA_XS` in
 `src/housing_label/score/all_dimensions.py`, record a sorted tuple of the jurisdictions
@@ -438,26 +440,52 @@ Any method here has to be signed, not just magnitude-aware.
 
 ---
 
-## Future work: the reference distribution has no large apartment building
+## Resolved: the reference distribution had no large apartment building
 
-`scripts/calibrate_infra_breakpoints.py` weights five density archetypes, and the densest —
-"urban multifamily" — is a **10-unit** parcel. Nothing in the national distribution
-represents a mid-rise or high-rise.
+**Status: fixed, in its own PR after Phase 4.**
 
-Phase 4 made that concrete. New York City's correction begins at **11** dwelling units
-(RPTL § 1805(2)), one above the densest archetype, so the city's ×1.81 is live for a real
-label request and **invisible to the yardstick it is scored against**. `INFRA_XS` did not
-move when NYC landed, and that is the reason.
+The problem. `scripts/calibrate_infra_breakpoints.py` weighted five density archetypes and
+the densest — "urban multifamily" — was a **10-unit** parcel. Nothing in the national
+distribution represented a mid-rise or a high-rise, so every large apartment building in the
+country was percentile-ranked against a population of houses, duplexes and small walk-ups.
+Because big buildings spread infrastructure cost over many doors, excluding them held the
+top of the distribution artificially low and inflated their own percentiles.
 
-The consequence is general, not a New York quirk: every large rental building in the country
-is ranked against a distribution containing no large rental buildings. Adding a
-large-multifamily archetype (say 50 units, carved out of the existing 15% urban share using
-ACS B25032's structure-size breakdown) would fix it — but it moves **every score in the
-country**, so it belongs in its own change with its own before/after, not folded into a
-regional phase.
+Phase 4 made it concrete: New York City's correction begins at **11** dwelling units (RPTL
+§ 1805(2)), one above the densest archetype, so the city's ×1.81 was live for a real label
+request and invisible to the yardstick.
 
-Until then, `INFRA_XS_BASIS` carries the NYC entries so the guard stays honest: the
-fingerprint records that the city entered the table even though no anchor moved.
+**How big the gap was.** ACS 2024 5-yr B25032 puts structures of 20+ units at **53.8% of all
+occupied units in 5+ unit buildings** — the majority of multifamily housing, not its tail —
+with the 50+ band alone (6.4% of all occupied units) larger than any other multifamily band.
+
+**The fix.** The 0.15 urban share was split 46.2/53.8 by those ACS proportions into
+`urban multifamily (5-19)` (20 DU/acre, units 10, renter 0.892) and
+`large multifamily (20+)` (50 DU/acre, units 50, renter 0.868). The other four archetypes
+were left untouched, so the change is attributable.
+
+| anchor | before | after | Δ |
+|---|---|---|---|
+| F (p5) | 0.325 | 0.325 | +0.00% |
+| D (p20) | 0.469 | 0.469 | +0.00% |
+| C (p40) | 0.602 | 0.604 | +0.33% |
+| B (p60) | 0.730 | 0.736 | +0.82% |
+| A (p80) | 0.934 | 0.947 | +1.39% |
+| A+ (p95) | 1.456 | 1.553 | **+6.66%** |
+
+An A is now modestly harder to earn, which is the correct direction. The share of US homes
+clearing a 1.0 fiscal ratio rose **13% → 18%** — not a loosened standard, but the housing
+type most likely to pay its way finally being counted.
+
+**It was not about New York.** Deleting the NY rule entirely and recalibrating leaves p95 at
+1.553, unchanged to three decimals: five counties out of ~3,140 cannot move a
+population-weighted national percentile. NYC's rule reaching the distribution is a
+correctness win; the anchor movement is the archetype alone.
+
+**Still coarse, deliberately.** B25032 puts 5+ unit structures at 18.5% of occupied units
+against the 0.15 assigned here. The other four shares are round numbers that do not map onto
+ACS structure categories at all — "compact suburb / townhome" is 8 DU/acre carrying
+`units=1` — so rebalancing the whole roster is a separate redesign, not a tweak.
 
 Florida is the cleanest first case, because both caps are explicit in the constitution —
 3% annual growth for homestead property (Fla. Const. art. VII, § 4(d)) against 10% for

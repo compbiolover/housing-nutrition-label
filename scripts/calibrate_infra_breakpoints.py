@@ -54,14 +54,54 @@ _DATA = pathlib.Path(__file__).resolve().parents[1] / "src" / "housing_label" / 
 # the total weight unchanged, so the only delta classification introduces is the
 # reclassification of renter legs in states that have a rule. That keeps any movement in
 # the breakpoints fully attributable.
+#
+# The multifamily split, and why there are two rows rather than one
+# -----------------------------------------------------------------
+# Until this was added the densest archetype was a 10-unit parcel, so the reference
+# distribution contained NO mid-rise or high-rise anywhere — and every large apartment
+# building in the country was percentile-ranked against a population of houses, duplexes
+# and small walk-ups. Because large buildings spread road, water and sewer cost over many
+# doors, they carry unusually high fiscal ratios, so excluding them held the top of the
+# distribution artificially low and inflated their own percentiles.
+#
+# That was not a tail case. ACS 2024 5-yr B25032, occupied units by structure size:
+#
+#     band     occupied     % of all occupied     renter %
+#     5-9      5,703,565          4.4%              88.3%
+#     10-19    5,368,125          4.2%              90.2%
+#     20-49    4,691,626          3.6%              87.1%
+#     50+      8,206,790          6.4%              86.6%
+#
+# Structures of 20+ units are 53.8% of the 5+ segment — the MAJORITY of multifamily
+# housing, not its tail — and the 50+ band alone is larger than any other multifamily
+# band. So the existing 0.15 urban share is split 46.2/53.8 into the two rows below.
+#
+# Three judgment calls, recorded so they can be argued with:
+#   • 50 DU/acre for the large row (a 50-unit building on ~1 acre). The top anchor lands
+#     at 1.488 / 1.553 / 1.568 for 35 / 50 / 65 DU/acre, so this choice is worth ~5% at
+#     p95 and almost nothing below p60. Its influence is bounded on purpose: the roads
+#     and water/sewer cost anchors in enrich/infrastructure.py top out at 48 DU/acre and
+#     interp_cost CLAMPS FLAT above the last anchor, so picking 50 rather than 65 or 200
+#     cannot buy the archetype unlimited density credit. That is why 35 (below the clamp,
+#     still interpolating) moves the anchor more than 65 (above it) does.
+#   • units=50 represents the 20+ band because 50+ (8.2M) outweighs 20-49 (4.7M).
+#   • the 5-19 row's renter share is 0.892, the combined 5-9/10-19 figure. It was 0.902,
+#     which is the 10-19 figure alone and was right only while the row meant "10 units".
+#
+# KNOWN COARSENESS, deliberately not fixed here: B25032 puts 5+ unit structures at 18.5%
+# of occupied units, against the 0.15 assigned here. The other four shares are round
+# numbers that do not map onto ACS structure categories at all — "compact suburb /
+# townhome" is 8 DU/acre carrying units=1 — so rebalancing the whole roster is a separate
+# redesign, not a tweak. Splitting within the existing 0.15 keeps this change attributable.
 DENSITY_ARCHETYPES = [
     # (label, dwelling_units_per_acre, national_household_share, is_urban,
     #  units_on_parcel, renter_share)
-    ("rural / exurban (~2 ac)",      0.5, 0.12, False,  1, 0.140),
-    ("large-lot suburb (~0.6 ac)",   1.5, 0.18, False,  1, 0.140),
-    ("standard suburb (~0.2 ac)",    4.0, 0.35, True,   1, 0.140),
-    ("compact suburb / townhome",    8.0, 0.20, True,   1, 0.140),
-    ("urban multifamily",           20.0, 0.15, True,  10, 0.902),
+    ("rural / exurban (~2 ac)",      0.5, 0.12,  False,  1, 0.140),
+    ("large-lot suburb (~0.6 ac)",   1.5, 0.18,  False,  1, 0.140),
+    ("standard suburb (~0.2 ac)",    4.0, 0.35,  True,   1, 0.140),
+    ("compact suburb / townhome",    8.0, 0.20,  True,   1, 0.140),
+    ("urban multifamily (5-19)",    20.0, 0.069, True,  10, 0.892),
+    ("large multifamily (20+)",     50.0, 0.081, True,  50, 0.868),
 ]
 
 # Map each score anchor to a percentile of the national fiscal-ratio distribution,
