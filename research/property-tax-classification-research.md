@@ -166,15 +166,193 @@ counts rental units instead, and an owner-occupied duplex holds only one, so it 
 residential there. Same parcel, opposite answers, both correct.
 
 
+## South Atlantic
+
+Eight of nine jurisdictions encoded; DC deferred (below). Two carry corrections; six were
+researched and found to have no classification of rental housing.
+
+### South Carolina — `RULE_ASSESSMENT`, 4% → 6%, ×1.50
+
+| | |
+|---|---|
+| **Threshold** | 1 rental unit (tenure-based) |
+| **Authority** | S.C. Code Ann. § 12-43-220(c), (e); S.C. Const. art. X, § 1 |
+| **Verified** | 2026-08-01 |
+
+§ 12-43-220(c) gives a 4% assessment ratio to an owner-occupied **legal residence**; all
+other real property is 6%. Same shape as Alabama and Mississippi — owner-occupancy is the
+test, so the threshold is 1 and a rented detached house is reclassified.
+
+**Under-corrects, and worth a second look.** South Carolina additionally exempts
+owner-occupied legal residences from school **operating** millage. That depresses the
+observed owner-occupied effective rate below what the 6/4 ratio alone implies, so ×1.50
+understates the real gap.
+
+It may also expose a **pre-existing issue in the revenue side**, unrelated to
+classification. The national path computes
+`municipal_rate = ACS_effective_rate × (1 − school_tax_share)`, and South Carolina's
+`school_tax_share` resolves to **0.593** — the highest in the region. If the ACS
+owner-occupied rate already excludes school operating millage (because it is measured over
+exactly the homes that are exempt from it), then netting out a further 59.3% — a share
+derived from all property, including commercial, which *does* pay it — removes that levy
+twice and depresses South Carolina's fiscal ratio for every parcel regardless of tenure.
+Flagged here as a separate defect with a different blast radius; not fixed in this phase.
+
+### West Virginia — `RULE_RATE`, ×2.00
+
+| | |
+|---|---|
+| **Threshold** | 1 rental unit (tenure-based) |
+| **Authority** | W. Va. Const. art. X, § 1b; W. Va. Code § 11-8-6 et seq.; West Virginia Tax Division, *Property Tax Rates* |
+| **Verified** | 2026-08-01 |
+
+The **first `RULE_RATE` jurisdiction** — the first where the split is by tax rate rather
+than assessment ratio. Every class is assessed at 60% of value; only the levy differs.
+
+Class II is *"owner-occupied residential property used exclusively for residential purposes
+and all farm land used for agricultural purposes by its owner or bona fide tenant"* (WV Tax
+Division). Class III is everything else outside a municipality; Class IV everything else
+inside. So rental housing is Class III or IV.
+
+**Two sources initially appeared to conflict, and the resolution matters.** W. Va. Code
+§ 11-8-6 gives aggregate caps of 50¢ / $1 / $1.50 / $2 for Classes I–IV, a 1:2:3:4 ratio
+that reads as Class III being only 1.5× Class II. But those are *aggregate ceilings across
+all levying bodies*. The per-body maximum regular levy rates the Tax Division publishes are:
+
+| levy | Class II | Class III | Class IV |
+|---|---|---|---|
+| County | 28.60 | 57.20 (2.0×) | 57.20 (2.0×) |
+| School | 45.90 | 91.80 (2.0×) | 91.80 (2.0×) |
+| Municipal | 25.00 | 50.00 (2.0×) | 100.00 (4.0×) |
+
+County and school are the bulk of any West Virginia bill and both are exactly 2.0×, so
+**2.00** is encoded. **Under-corrects inside municipalities**, where the Class IV municipal
+leg is 4×.
+
+### Florida — `RULE_UNIFORM`, no correction
+
+| | |
+|---|---|
+| **Authority** | Fla. Const. art. VII, § 4(d), (g), (h), § 6; Fla. Stat. §§ 193.155, 193.1554, 196.031 |
+| **Verified** | 2026-08-01 |
+
+Just valuation applies uniformly; there is no class for rental property.
+
+**Found and deliberately rejected:** the homestead exemption (§ 196.031) and — more
+significantly — the split assessment-increase caps. Homestead property is capped at 3%
+annual growth (art. VII, § 4(d)); non-homestead residential of nine units or fewer at 10%
+(§ 4(g)); all other non-homestead at 10% (§ 4(h)). Over a long holding period this opens a
+very large owner/rental gap.
+
+It is still not a classification. The gap depends on how long the owner has held the
+property and on how far assessed value has drifted from market value, so two identical
+adjacent houses can carry very different effective rates purely by purchase date. A constant
+class multiplier cannot represent that, and would misstate it in both directions. See the
+roadmap item on cap-driven divergence.
+
+### Georgia — `RULE_UNIFORM`, no correction
+
+| | |
+|---|---|
+| **Authority** | Ga. Code Ann. § 48-5-7(a), § 48-5-44, § 48-5-44.2; Ga. Const. art. VII, § I, ¶ III |
+| **Verified** | 2026-08-01 |
+
+§ 48-5-7(a) assesses all taxable tangible property at **40%** of fair market value. Every
+enumerated exception is use-based — agricultural, rehabilitated historic, conservation,
+timberland — and none distinguishes owner-occupied from rental. The constitution limits
+classes for property taxation to tangible and intangible personal property, leaving no room
+for a rental-real-property class.
+
+**Found and rejected:** the § 48-5-44 homestead exemption and the § 48-5-44.2 statewide
+floating homestead exemption (effective 2025), which caps a homestead's taxable base value
+to inflation. Rental property gets no equivalent.
+
+### Maryland — `RULE_UNIFORM`, no correction
+
+| | |
+|---|---|
+| **Authority** | Md. Code, Tax-Prop. §§ 8-101, 8-103(c), 6-302(b), 9-105 |
+| **Verified** | 2026-08-01 |
+
+§ 6-302(b)(1) requires *"a single county property tax rate for all real property subject to
+county property tax"*, and the § 8-101 real-property subdivisions are use-based (farm,
+woodland, planned development, railroad, utility, conservation) with no tenure subclass.
+The authorized special-rate subclasses cover operating property, vacant-and-unfit property,
+and certain commercial-industrial financing districts — none defined by tenure.
+
+**Found and rejected:** the § 9-105 Homestead Property Tax Credit, which caps assessment
+growth for a homeowner's principal residence only. A credit, not a class.
+
+### North Carolina — `RULE_UNIFORM`, no correction
+
+| | |
+|---|---|
+| **Authority** | N.C. Gen. Stat. § 105-283, § 105-277; N.C. Const. art. V, § 2(2) |
+| **Verified** | 2026-08-01 |
+
+§ 105-283 appraises all property at true value in money, with no tenure distinction, and the
+only § 105-277 classes are solar heating/cooling systems and private water company property.
+
+North Carolina also **forecloses the local-option question outright**, which no other state
+in this phase does: N.C. Const. art. V, § 2(2) provides that *"Only the General Assembly
+shall have the power to classify property for taxation, which power shall be exercised only
+on a State-wide basis and shall not be delegated."* A county could not adopt a rental class
+even if it wanted to.
+
+### Virginia — `RULE_UNIFORM`, no correction
+
+| | |
+|---|---|
+| **Authority** | Va. Const. art. X, § 1; Va. Code § 58.1-3201, § 58.1-3221.3 |
+| **Verified** | 2026-08-01 |
+
+Uniform assessment at 100% of fair market value.
+
+**This one looked like a local-option case and is not.** Virginia does permit locality-level
+real-property classification in several statutes, but the only one with real rate
+consequences — § 58.1-3221.3, the commercial and industrial class funding transportation in
+Northern Virginia and Hampton Roads — *expressly excludes* rental housing: *"all residential
+uses and all multifamily residential uses, including but not limited to single family
+residential units, cooperatives, condominiums, townhouses, apartments, or homes in a
+subdivision when leased on a unit by unit basis."* A locality levying that extra rate cannot
+reach an apartment building. Uniform, not local option.
+
+### Delaware — `RULE_UNIFORM`, no correction
+
+| | |
+|---|---|
+| **Authority** | Del. Code tit. 9, § 8306 (as amended by HB 62, 2023); tit. 9, ch. 83 |
+| **Verified** | 2026-08-01 |
+
+No state property tax; counties assess at fair market value as of the county base year, now
+on a five-year reassessment cycle following the 2020 school-funding litigation that forced a
+statewide reassessment (completed 2024–25). Title 9 ch. 83 differentiates improved from
+unimproved land and grants agricultural use-value, but has no tenure classification. The
+senior school property tax credit is age-gated, not a general owner-occupied preference.
+
+### District of Columbia — deferred, unverified
+
+DC restructured its property classes for tax year 2025, introducing a Class 1A / Class 1B
+split. Sources conflict on where a multifamily rental building lands: one reading keeps
+residential improved property in **Class 1A** regardless of unit count, another pushes
+anything above Class 1B's two-unit limit into the **Class 2** commercial catch-all. Those
+give very different multipliers.
+
+Under the sourcing standard an unresolved jurisdiction is **left unencoded rather than
+guessed**, so DC applies no correction and is recorded here as explicitly outstanding.
+`tests/test_assessment.py` asserts that DC is the *only* South Atlantic jurisdiction
+missing, so the deferral cannot quietly become an oversight. At 0.21% of the US population
+the cost of deferring is small.
+
+
 ---
 
 ## Not yet researched
 
-The remaining 47 jurisdictions. Each applies **no correction**, so rental housing in them
-is currently scored as though taxed like an owner-occupied home.
+The remaining 39 jurisdictions, DC among them. Each applies **no correction**, so rental
+housing in them is currently scored as though taxed like an owner-occupied home.
 
-East South Central is complete (KY, TN, MS, AL), which `tests/test_assessment.py` asserts
-rather than claims. Spot-checking during the rollout design indicates South Carolina (4% vs
-6%) and Louisiana (10% vs 15%) have real split rolls too — they land in South Atlantic and
-West South Central respectively, and neither is encoded until its primary source has been
-read.
+East South Central is complete (KY, TN, MS, AL) and South Atlantic is complete but for DC —
+both asserted by `tests/test_assessment.py` rather than claimed. Spot-checking during the
+rollout design indicates Louisiana (10% vs 15%) has a real split roll; it lands in West
+South Central and is not encoded until its primary source has been read.

@@ -181,7 +181,7 @@ ENERGY_YS = [100.0, 80.0, 60.0, 40.0, 20.0, 0.0]
 # The remaining gap is real, not an artifact — fire and police have no user charge
 # anywhere in the Census data, so property tax is the only thing paying for them.
 #   ≥1.46→100, 0.93→80, 0.73→60, 0.60→40, 0.47→20, ≤0.33→0   (log-linear between).
-INFRA_XS = [0.325, 0.469, 0.602, 0.730, 0.933, 1.456]
+INFRA_XS = [0.325, 0.469, 0.602, 0.730, 0.934, 1.456]
 INFRA_YS = [0.0, 20.0, 40.0, 60.0, 80.0, 100.0]
 
 # Which jurisdictions carried an active property-tax classification correction when the
@@ -194,7 +194,7 @@ INFRA_YS = [0.0, 20.0, 40.0, 60.0, 80.0, 100.0]
 #
 # A sorted tuple rather than a hash, so the diff is legible: a reviewer sees exactly which
 # jurisdictions entered the distribution and at what strength.
-INFRA_XS_BASIS = ("AL:2.00", "MS:1.50", "TN:1.60")
+INFRA_XS_BASIS = ("AL:2.00", "MS:1.50", "SC:1.50", "TN:1.60", "WV:2.00")
 
 
 def score_energy(df: pd.DataFrame) -> pd.Series:

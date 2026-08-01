@@ -414,6 +414,28 @@ why, and must not promise anyone's score will go up.
 
 ---
 
+## Future work: cap-driven owner/rental divergence
+
+Florida, Texas and California are together **28% of the US population**, and in all three
+the owner-occupied/rental tax gap is real and large — but it comes from assessment-increase
+caps and homestead exemptions rather than from a property class, so the exclusion rule
+above correctly keeps it out of the classification table.
+
+It is nonetheless the **single largest known unmodeled effect** in this dimension, and it
+deserves a tracked work item rather than a sentence in a `notes` field. It needs its own
+method, because the gap is not a fixed ratio: it grows with time in ownership and with the
+drift between assessed and market value, so two identical adjacent houses can carry very
+different effective rates purely by purchase date. A constant class multiplier would
+misstate it in both directions.
+
+Florida is the cleanest first case, because both caps are explicit in the constitution —
+3% annual growth for homestead property (Fla. Const. art. VII, § 4(d)) against 10% for
+non-homestead residential of nine units or fewer (§ 4(g)) and all other non-homestead
+(§ 4(h)). Modeling it would need a holding-period assumption the label does not currently
+have, which is the main open design question.
+
+---
+
 ## Verification
 
 Per phase:

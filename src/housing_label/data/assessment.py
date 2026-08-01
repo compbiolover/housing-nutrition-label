@@ -67,12 +67,22 @@ parcel containing at most one rental unit (see ``separately_parceled``).
 
 Coverage
 --------
-Only Tennessee is encoded. Every other jurisdiction returns "no correction", which is a
-real coverage gap and not a claim that other states lack split rolls — several do, with
-different thresholds and different ratios. The rollout plan is
-``research/property-tax-classification-rollout.md``; extending the table means reading each
-state's constitution or code, one at a time, and must not be guessed from a secondary
-source.
+Twelve of 51 scorable jurisdictions are encoded: all of East South Central, and all of
+South Atlantic except the District of Columbia, which is deferred as unverified.
+
+Five carry a correction — AL and WV at 2.0x, TN at 1.6x, MS and SC at 1.5x. The other
+seven were researched and found to have no classification of rental housing, and are
+recorded as ``RULE_UNIFORM`` rather than left absent: both produce a 1.0 multiplier at the
+point of use, so only the record distinguishes "researched, no correction" from "not
+researched".
+
+The remaining 39 jurisdictions return no correction. That is a real coverage gap, not a
+claim that they lack split rolls — several do, with different thresholds and ratios. The
+rollout plan is ``research/property-tax-classification-rollout.md`` and the per-jurisdiction
+authority record is ``research/property-tax-classification-research.md``; extending the
+table means reading each state's constitution or code, one at a time, and must not be
+guessed from a secondary source. ``scripts/report_classification_coverage.py`` prints live
+coverage by Census division.
 """
 
 from __future__ import annotations
@@ -84,7 +94,7 @@ from housing_label.data.states import SCORED_JURISDICTIONS
 # Date the encoded rules were last checked against their primary sources, in aggregate.
 # Per-record ``verified`` gives the per-state granularity; this is the table-level vintage,
 # playing the same role as ``DATA_VINTAGE`` in the crosswalk loaders.
-LAW_AS_OF = "2026-07-31"
+LAW_AS_OF = "2026-08-01"
 
 # ── Rule types ────────────────────────────────────────────────────────────────
 RULE_ASSESSMENT = "assessment_ratio"   # classes differ by fraction of value assessed
@@ -232,6 +242,134 @@ CLASSIFICATION_RULES: dict[str, ClassificationRule] = {
                "keyed to owner characteristics rather than a property class, so it falls "
                "under the documented exclusion rule."),
     ),
+    # ── South Atlantic ────────────────────────────────────────────────────────
+    "SC": ClassificationRule(
+        usps="SC",
+        rule_type=RULE_ASSESSMENT,
+        threshold_basis=BASIS_RENTAL_UNITS,
+        rental_unit_threshold=1,
+        residential=0.04,
+        commercial=0.06,
+        authority="S.C. Code Ann. § 12-43-220(c), (e); S.C. Const. art. X, § 1",
+        verified="2026-08-01",
+        notes=("§ 12-43-220(c) gives a 4% ratio to an owner-occupied legal residence; all "
+               "other real property is 6%. Tenure-based like Alabama and Mississippi, so "
+               "threshold 1. UNDER-CORRECTS: South Carolina additionally exempts "
+               "owner-occupied legal residences from school OPERATING millage, which "
+               "depresses the observed owner-occupied effective rate below what the 6/4 "
+               "ratio alone implies. See the research memo for a related question about "
+               "whether school_tax_share double-nets that levy for this state."),
+    ),
+    "WV": ClassificationRule(
+        usps="WV",
+        rule_type=RULE_RATE,
+        threshold_basis=BASIS_RENTAL_UNITS,
+        rental_unit_threshold=1,
+        # Class II vs Class III/IV maximum regular levy rates, county leg (cents per
+        # $100). The ratio is what matters, not the absolute cents — school is 45.90 vs
+        # 91.80, the same 2.0x. All classes are assessed at 60% of value, so the rate is
+        # the ONLY thing that differs. This is the first RULE_RATE jurisdiction.
+        residential=0.2860,
+        commercial=0.5720,
+        authority=("W. Va. Const. art. X, § 1b; W. Va. Code § 11-8-6 et seq.; West "
+                   "Virginia Tax Division, Property Tax Rates (maximum regular levy "
+                   "rates by class)"),
+        verified="2026-08-01",
+        notes=("Class II is 'owner-occupied residential property used exclusively for "
+               "residential purposes and all farm land used for agricultural purposes by "
+               "its owner or bona fide tenant'; Class III is everything else outside a "
+               "municipality and Class IV everything else inside. W. Va. Code § 11-8-6's "
+               "aggregate caps (50c/$1/$1.50/$2) look like 1.5x for Class III, but those "
+               "are ceilings across ALL levying bodies; the per-body maximum rates are "
+               "2.0x for both county (28.60 -> 57.20) and school (45.90 -> 91.80), which "
+               "are the bulk of any bill. UNDER-CORRECTS inside municipalities, where the "
+               "Class IV municipal leg is 4x rather than 2x."),
+    ),
+    "FL": ClassificationRule(
+        usps="FL",
+        rule_type=RULE_UNIFORM,
+        authority=("Fla. Const. art. VII, § 4(d), (g), (h), § 6; Fla. Stat. §§ 193.155, "
+                   "193.1554, 196.031"),
+        verified="2026-08-01",
+        notes=("Just valuation applies uniformly; there is no class for rental property. "
+               "FOUND AND REJECTED: the homestead exemption (§ 196.031) and the split "
+               "assessment-increase caps — 3% for homestead (art. VII, § 4(d)) versus 10% "
+               "for non-homestead (§ 4(g) for residential of nine units or fewer, § 4(h) "
+               "for everything else). Those produce a large and growing owner/rental gap, "
+               "but it is keyed to time in ownership and is value-dependent rather than a "
+               "fixed class ratio, so a constant multiplier would misstate it. Logged as "
+               "a roadmap item, not encoded here."),
+    ),
+    "GA": ClassificationRule(
+        usps="GA",
+        rule_type=RULE_UNIFORM,
+        authority="Ga. Code Ann. § 48-5-7(a), § 48-5-44, § 48-5-44.2; Ga. Const. art. VII, § I, ¶ III",
+        verified="2026-08-01",
+        notes=("§ 48-5-7(a) assesses all taxable tangible property at 40% of fair market "
+               "value. Every enumerated exception is use-based (agricultural, historic, "
+               "conservation, timberland); none distinguishes owner-occupied from rental, "
+               "and the constitution leaves no room for a rental-real-property class. "
+               "FOUND AND REJECTED: the § 48-5-44 homestead exemption and the § 48-5-44.2 "
+               "statewide floating homestead exemption."),
+    ),
+    "MD": ClassificationRule(
+        usps="MD",
+        rule_type=RULE_UNIFORM,
+        authority="Md. Code, Tax-Prop. §§ 8-101, 8-103(c), 6-302(b), 9-105",
+        verified="2026-08-01",
+        notes=("§ 6-302(b)(1) requires 'a single county property tax rate for all real "
+               "property subject to county property tax', and the § 8-101 subclasses are "
+               "use-based with no tenure subclass. FOUND AND REJECTED: the § 9-105 "
+               "Homestead Property Tax Credit, which caps assessment growth for a "
+               "homeowner's principal residence only — a credit, not a class."),
+    ),
+    "NC": ClassificationRule(
+        usps="NC",
+        rule_type=RULE_UNIFORM,
+        authority="N.C. Gen. Stat. § 105-283, § 105-277; N.C. Const. art. V, § 2(2)",
+        verified="2026-08-01",
+        notes=("§ 105-283 appraises all property at true value in money with no tenure "
+               "distinction, and the only § 105-277 classes are solar systems and private "
+               "water company property. N.C. Const. art. V, § 2(2) forecloses a local "
+               "option outright: 'Only the General Assembly shall have the power to "
+               "classify property for taxation, which power shall be exercised only on a "
+               "State-wide basis and shall not be delegated.' The elderly/disabled "
+               "exclusions are age- and income-gated, not a general owner-occupied "
+               "preference."),
+    ),
+    "VA": ClassificationRule(
+        usps="VA",
+        rule_type=RULE_UNIFORM,
+        authority="Va. Const. art. X, § 1; Va. Code § 58.1-3201, § 58.1-3221.3",
+        verified="2026-08-01",
+        notes=("Uniform assessment at 100% of fair market value. Virginia DOES permit "
+               "some locality-level real-property classification, which made this look "
+               "like a local-option case — but § 58.1-3221.3, the only one with rate "
+               "consequences, EXPRESSLY EXCLUDES rental housing: 'all residential uses "
+               "and all multifamily residential uses, including ... apartments, or homes "
+               "in a subdivision when leased on a unit by unit basis'. So a locality "
+               "levying the extra commercial/industrial transportation rate cannot apply "
+               "it to apartments. Uniform, not local option."),
+    ),
+    "DE": ClassificationRule(
+        usps="DE",
+        rule_type=RULE_UNIFORM,
+        authority="Del. Code tit. 9, § 8306 (as amended by HB 62, 2023); tit. 9, ch. 83",
+        verified="2026-08-01",
+        notes=("No state property tax; counties assess at fair market value as of the "
+               "county base year, now on a five-year reassessment cycle after the 2020 "
+               "school-funding litigation. Title 9 ch. 83 differentiates improved from "
+               "unimproved land and grants agricultural use-value, but has no tenure "
+               "classification. The senior school property tax credit is age-gated, not a "
+               "general owner-occupied preference."),
+    ),
+    # DC is deliberately NOT encoded. It restructured its classes for tax year 2025 (a
+    # new Class 1A / 1B split), and sources conflict on where a multifamily rental
+    # building lands: one reading keeps residential improved property in Class 1A
+    # regardless of unit count, another pushes anything above Class 1B's two-unit limit
+    # into the Class 2 commercial catch-all. Those give very different multipliers, so
+    # under the sourcing standard DC stays unencoded rather than guessed. See
+    # research/property-tax-classification-research.md.
 }
 
 
