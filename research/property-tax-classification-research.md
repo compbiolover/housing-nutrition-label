@@ -825,16 +825,132 @@ Vermont contrast above.
 
 ---
 
+## West North Central
+
+Seven of seven encoded, and **two carry corrections** — the first new ones since New York
+City in Phase 4. The rollout memo predicted one (Minnesota); North Dakota was missed, and
+turned up only because its classification lives in a definitions section the valuation
+statute never cites.
+
+### Minnesota — `RULE_ASSESSMENT`, ×1.25, four **rental** units
+
+| | |
+|---|---|
+| **Authority** | Minn. Stat. § 273.13 subd. 22, subd. 25 |
+| **Verified** | 2026-08-01 |
+
+Minnesota assigns a **class rate** to each class; market value × class rate gives tax
+capacity, which the local rate is applied to. A class rate therefore does exactly the job of
+an assessment ratio.
+
+| class | property | rate |
+|---|---|---|
+| 1a | residential **homestead** | 1.00% to $500,000, 1.25% above |
+| 4bb | non-homestead residential, **1–3 units** | same as 1a |
+| **4a** | residential, **4+ units, held for rent** (30+ days) | **1.25% flat** |
+
+**Tenure alone never reclassifies.** A rented single-family home or triplex is class 4bb,
+which carries 1a's rates exactly — so the threshold is 4, not the 1 used by Alabama,
+Mississippi and South Carolina. And it counts **rental** units, because 4a requires the units
+be held for rent: Minnesota assessors split an owner-occupied fourplex between 1a and 4a,
+which a single-class model cannot express, so counting rental units leaves it unreclassified.
+The under-correcting side of that edge.
+
+**The multiplier is exact, not a bound.** Class 1a's tiering above $500,000 would make the
+ratio value-dependent — except no Minnesota county has a median owner-occupied value that
+reaches the tier (highest is Carver at $453,600; the median of county medians is $231,900).
+The ACS rate is computed at the county median, so the 1a rate against which the multiplier
+applies is a flat 1.00% statewide. A test asserts this against the bundled crosswalk, since a
+future data refresh could break it.
+
+### North Dakota — `RULE_ASSESSMENT`, ×1.11, four **dwelling** units
+
+| | |
+|---|---|
+| **Authority** | N.D.C.C. § 57-02-01(5), (14), § 57-02-27 |
+| **Verified** | 2026-08-01 |
+
+§ 57-02-27 values residential property at 9% of assessed value and commercial at 10% — but
+it does **not define either class**, which is why a reader stopping at the valuation statute
+concludes North Dakota is uniform. The definitions are in § 57-02-01:
+
+> Residential property is all or any portion of property used by an individual or a group of
+> individuals as a dwelling … **It does not include structures which accommodate four or more
+> separate family units**
+
+and § 57-02-01(5) sweeps those into commercial: "any tract of land with four or more separate
+family units … is classified commercial."
+
+So the test is **purely physical** — four or more family units the structure accommodates,
+with no tenure element at all. The basis is dwelling units, not rental units.
+
+### The pair — same number, different basis
+
+Minnesota and North Dakota both reclassify at **four**, and disagree about the same building:
+
+| parcel | MN | ND |
+|---|---|---|
+| rented triplex | 1a rates (no correction) | residential (no correction) |
+| fully rented fourplex | **×1.25** | **×1.11** |
+| **owner-occupied fourplex** | no correction (3 rental units) | **×1.11** (4 family units) |
+| 157-unit condo, separately parceled | no correction | no correction |
+
+That divergence is the clearest illustration in the table of why `threshold_basis` exists as
+a schema field rather than an assumption.
+
+### South Dakota — the third school-levy rejection
+
+| | |
+|---|---|
+| **Authority** | SDCL § 10-13-39, § 10-13-40; S.D. Const. art. XI, § 2 |
+| **Verified** | 2026-08-01 |
+
+§ 10-13-39's owner-occupied single-family classification cuts the **school general fund**
+levy roughly in half for a principal residence, and § 10-13-40 spreads the full levy against
+all district property not so classified. A large, genuinely tenure-based differential —
+confined to a school levy, which this dimension nets out of both sides.
+
+**This is now a category, not a coincidence.** Michigan's Principal Residence Exemption
+(Phase 5), Vermont's homestead/nonhomestead education rate (Phase 6) and South Dakota all
+reach "no correction" by the same route, and `tests/test_assessment.py` asserts each names
+the school levy as its reason. A reader meeting the fourth should find the pattern written
+down rather than re-derive it.
+
+### Iowa, Missouri, Kansas, Nebraska
+
+**Iowa** (Iowa Code § 441.21; 2013 Iowa Acts ch. 123; 2021 Iowa Acts ch. 177) had a separate
+**multiresidential** class covering apartments, created in 2013, phased toward the
+residential rollback, and **eliminated effective January 1, 2022** with those properties
+recategorized as residential. Apartments now take the same rollback as houses. The Cook
+County trap again: a source written before 2022 shows a differential that no longer exists.
+
+**Missouri** (Mo. Const. art. X, § 4(b); § 137.016, § 137.115) subclasses residential at 19%,
+agricultural 12%, commercial 32% — but § 137.016 defines residential by **use**: "all real
+property improved by a structure which is used or intended to be used for residential living
+by human occupants", with no tenure or unit-count qualifier, and the State Tax Commission
+subclasses condominiums and apartments as residential.
+
+**Kansas** (Kan. Const. art. 11, § 1(a)) is the clearest wording of the use-based pattern
+found anywhere — the constitution names rental housing *into* the residential class: "real
+property used for residential purposes **including multi-family residential real property**"
+at 11.5%, against 25% commercial. No inference needed.
+
+**Nebraska** (Neb. Const. art. VIII, § 1; § 77-201) requires taxes "levied by valuation
+uniformly and proportionately upon all real property", with agricultural and horticultural
+land the only permitted class. A use exception, not a tenure one.
+
+---
+
 ## Not yet researched
 
-The remaining 21 jurisdictions, DC among them. Each applies **no correction**, so rental
+The remaining 14 jurisdictions, DC among them. Each applies **no correction**, so rental
 housing in them is currently scored as though taxed like an owner-occupied home.
 
 East South Central (KY, TN, MS, AL), West South Central (AR, LA, OK, TX), Middle Atlantic
-(NY, NJ, PA), East North Central (OH, IN, IL, MI, WI) and New England (ME, NH, VT, MA, RI,
-CT) are complete, and South Atlantic is complete but for DC — all asserted by
-`tests/test_assessment.py` rather than claimed. Three divisions remain: West North Central,
-Mountain and Pacific.
+(NY, NJ, PA), East North Central (OH, IN, IL, MI, WI), New England (ME, NH, VT, MA, RI, CT)
+and West North Central (MN, IA, MO, ND, SD, NE, KS) are complete, and South Atlantic is
+complete but for DC — all asserted by `tests/test_assessment.py` rather than claimed. **Two
+divisions remain: Mountain and Pacific.**
 
 Two sub-state deferrals are outstanding inside otherwise complete divisions: DC, and Nassau
 County within New York. Rhode Island and Connecticut are **not** deferrals — they are
