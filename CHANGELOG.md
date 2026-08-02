@@ -9,6 +9,28 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.73](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.72...v0.1.73) (2026-08-02)
+
+
+### Features
+
+* **assessment:** enable property-tax classification nationally ([#229](https://github.com/compbiolover/housing-nutrition-label/issues/229)) ([dff351c](https://github.com/compbiolover/housing-nutrition-label/commit/dff351ca37abc3a24fa0e725c8fdb28454e4beab))
+* **assessment:** encode East North Central classification rules ([#236](https://github.com/compbiolover/housing-nutrition-label/issues/236)) ([7266083](https://github.com/compbiolover/housing-nutrition-label/commit/72660833f5d8d427b4c04a4cf374f3167f2a037a))
+* **assessment:** encode East South Central classification rules ([#231](https://github.com/compbiolover/housing-nutrition-label/issues/231)) ([ab9f3d0](https://github.com/compbiolover/housing-nutrition-label/commit/ab9f3d067a781db57a563d9669504a39a25d7eec))
+* **assessment:** encode Middle Atlantic, including New York City ([#234](https://github.com/compbiolover/housing-nutrition-label/issues/234)) ([2466a20](https://github.com/compbiolover/housing-nutrition-label/commit/2466a203d39e70c398bae1c74e1e539d5365a884))
+* **assessment:** encode Mountain classification rules ([#240](https://github.com/compbiolover/housing-nutrition-label/issues/240)) ([e2402ee](https://github.com/compbiolover/housing-nutrition-label/commit/e2402ee711dfa1cd62de6d0afe67c260cf5503ce))
+* **assessment:** encode New England classification rules ([#238](https://github.com/compbiolover/housing-nutrition-label/issues/238)) ([3b248b8](https://github.com/compbiolover/housing-nutrition-label/commit/3b248b898ab1c09051bd7dd520a1a4c4f61866c7))
+* **assessment:** encode Pacific classification rules ([#241](https://github.com/compbiolover/housing-nutrition-label/issues/241)) ([5b4bfa2](https://github.com/compbiolover/housing-nutrition-label/commit/5b4bfa213698b9b3dbbc59892243985788bd6ae2))
+* **assessment:** encode South Atlantic classification rules ([#232](https://github.com/compbiolover/housing-nutrition-label/issues/232)) ([7bec0af](https://github.com/compbiolover/housing-nutrition-label/commit/7bec0af5db3cff158e9d77e4642fecf0a8353084))
+* **assessment:** encode West North Central classification rules ([#239](https://github.com/compbiolover/housing-nutrition-label/issues/239)) ([f8c73f5](https://github.com/compbiolover/housing-nutrition-label/commit/f8c73f5612eef945ff8ece52adcac8f79f28db08))
+* **assessment:** encode West South Central classification rules ([#233](https://github.com/compbiolover/housing-nutrition-label/issues/233)) ([a21567d](https://github.com/compbiolover/housing-nutrition-label/commit/a21567d0094bf5ac7be0733dfc8a66513bdf2fca))
+
+
+### Bug Fixes
+
+* **assessment:** retract a wrong South Carolina note, and size the real defect ([#237](https://github.com/compbiolover/housing-nutrition-label/issues/237)) ([c49adbf](https://github.com/compbiolover/housing-nutrition-label/commit/c49adbf404808e3d24bfb3b83243e199ae6baa0e))
+* **score:** add a large-multifamily archetype to the reference distribution ([#235](https://github.com/compbiolover/housing-nutrition-label/issues/235)) ([ab5e363](https://github.com/compbiolover/housing-nutrition-label/commit/ab5e363c51e516c15a88472127259f90109d684d))
+
 ## [0.1.72](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.71...v0.1.72) (2026-07-30)
 
 
