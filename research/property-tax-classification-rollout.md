@@ -287,7 +287,7 @@ machinery deferred until the mechanism is proven. "Southeast" as asked for = Pha
 | **6** | New England | ME, NH, VT, MA, RI, CT | Predicted MA as the canonical local-option case. **Landed: that was wrong** — Massachusetts counts every property with one or more habitable units as residential, so its ch. 40 § 56 shift cannot reach apartments at all. The real local-option states are **RI and CT**, and neither is resolvable: both set classification per municipality in states whose counties are not governmental units, so they are the first records to carry `local_option` with an **empty** `sub_state`. VT is the sharpest test of the school-levy rule — an explicit statewide homestead/nonhomestead education rate split that still owes no correction. |
 | **7** | West North Central | MN, IA, MO, ND, SD, NE, KS | Predicted "mostly uniform; fast. MN's class rates are explicit." **Landed: TWO corrections, not one.** MN ×1.25 as expected, but **ND ×1.11 was missed by the prediction** — its residential class excludes "structures which accommodate four or more separate family units", found only by reading the § 57-02-01 definitions the valuation statute does not carry. The two make the table's most useful pair: both reclassify at four units, MN counting units *held for rent*, ND counting units the structure *accommodates*. SD is the third school-levy rejection; IA's multiresidential class was abolished in 2022; MO and KS are use-based like LA and OH. |
 | **8** | Mountain | MT, ID, WY, CO, NM, AZ, UT, NV | Predicted AZ as a real legal-class system separating owner-occupied from rental residential. **Landed: all eight uniform, and the prediction was wrong division-wide.** AZ's classes 3 and 4 do split owner from renter but carry the *same* 10% ratio; the difference is a rebate on *school* taxes — the fourth school-levy rejection. And four Mountain states' headline owner-occupied preferences turn out to key on **occupancy, not tenure**: Utah's exemption covers tenants, Montana's homestead rate names long-term rentals, Colorado applies one residential rate. These are amenity states targeting second homes, not landlords. |
-| **9** | Pacific | WA, OR, CA, AK, HI | Last: mostly uniform, and CA is where both golden LA cases live, so the final recalibration's effect on them gets undivided attention. |
+| **9** | Pacific | WA, OR, CA, AK, HI | Predicted "mostly uniform". **Landed: four uniform and one deferral of a new kind.** WA is the table's most explicit uniform text — "all real estate shall constitute one class". CA is settled by art. XIII § 1(a)'s single percentage, with Prop 13 rejected as a holding-period cap; Prop 19 makes California the one cap state whose gap is **not** tenure-neutral, since an inherited rental is reassessed and an inherited family home is not. OR rejects three things at once, including Measure 5's categories — defined by the *purpose the tax funds*, the Vermont finding again — and the changed property ratio, which keys on *use* and equalises rather than prefers. **HI is deferred because its correction is too LARGE to trust**, not too ambiguous: its counties are the taxing units and the split is genuinely tenure-based, but the implied multipliers run ×1.97–×3.56, two of them above `CLASSIFICATION_MULT_CEIL`, and Honolulu's Residential A is a value-tiered bracket above $1M rather than a class ratio. |
 
 The nine phases partition all 51 jurisdictions exactly. Encode that as a **coverage test**:
 each jurisdiction belongs to exactly one phase, and once a phase lands every jurisdiction in
@@ -433,9 +433,17 @@ population**, and in all five the owner-occupied/rental tax gap is real and larg
 comes from assessment-increase caps and homestead exemptions rather than from a property
 class, so the exclusion rule above correctly keeps it out of the classification table.
 
-Phase 3 made this the dominant finding of the rollout so far rather than a footnote: four of
-the five are now encoded as `RULE_UNIFORM`, so the table records them as *researched* while
-the effect itself stays unmodeled.
+Phase 3 made this the dominant finding of the rollout rather than a footnote, and Phase 9
+closed the set: **all five are now encoded as `RULE_UNIFORM`**, so the table records them as
+*researched* while the effect itself stays unmodeled. California alone is **11.96%** of the
+population, the largest single member.
+
+**California is also the counter-example to "caps are tenure-neutral".** Proposition 19
+(Cal. Const. art. XIII A, § 2.1) narrowed the parent-child base-year-value exclusion to
+property that "continues as the family home of the transferee", so an inherited rental is
+reassessed and an inherited primary residence is not. That is a genuine tenure key operating
+*through* the cap. Any method for this item has to model it, and it is one more reason the
+answer is not a constant multiplier.
 
 It is the **single largest known unmodeled effect** in this dimension, and it deserves a
 tracked work item rather than a sentence in a `notes` field. It needs its own method,
@@ -502,6 +510,51 @@ Florida is the cleanest first case, because both caps are explicit in the consti
 non-homestead residential of nine units or fewer (§ 4(g)) and all other non-homestead
 (§ 4(h)). Modeling it would need a holding-period assumption the label does not currently
 have, which is the main open design question.
+
+---
+
+## Rollout complete — what it found, and what is left
+
+Nine phases, **49 of 51 jurisdictions, 99.4% of the population**. Coverage went 12/51 (26.5%)
+at Phase 0 to 49/51.
+
+**Eight corrections were found:** AL and WV ×2.00, New York City ×1.81 at 11+ dwelling units,
+TN ×1.60, MS and SC ×1.50, MN ×1.25 and ND ×1.11 at 4+ units.
+
+**The rollout's real output was the rejections.** Five predicted corrections dissolved on
+contact with a primary source — Louisiana, Illinois, Massachusetts, Arizona and, division-wide,
+the Mountain owner-occupied preferences. One correction was *missed* by prediction and found
+only by reading a definitions section the valuation statute never cites: North Dakota. That
+asymmetry is the whole argument for verifying before encoding, and for recording researched
+uniformity as a first-class answer rather than an absence.
+
+Four recurring shapes account for nearly every rejection:
+
+- **Caps and exemptions are not classification** — Florida, Texas, California, Indiana, Idaho,
+  Nevada, New Mexico, Wyoming. The gap is real and often large, but it runs on holding period
+  or property value, not on class.
+- **School-levy splits owe nothing** — Michigan, Vermont, South Dakota, Arizona. This dimension
+  nets school taxes from both sides, so a split confined to that levy cancels.
+- **Use-based splits are not tenure splits** — Louisiana, Ohio, Missouri, Kansas, Colorado,
+  and Oregon's changed-property-ratio classes. An apartment sits in the same class as a house.
+- **Occupancy is not tenure** — Utah, Montana, Colorado. The target is the second home, not the
+  landlord; Utah's exemption explicitly covers tenants resident 183+ days.
+
+### What remains
+
+| item | size | status |
+|---|---|---|
+| **Cap-driven owner/rental divergence** (FL, TX, CA, AR, OK) | 30.2% of population | The single largest unmodeled effect. Indiana is the tractable entry point; California is the largest member and the one whose cap is not tenure-neutral. See the section above. |
+| **School-netting population mismatch** | 13.2% | Documented in `research/infrastructure-burden-research.md`. Needs school operating-vs-debt millage per county. |
+| **Hawaii** | 0.44% | Deferred: two of four county multipliers breach `CLASSIFICATION_MULT_CEIL` and Honolulu's is a value-tiered bracket. Encodable once the brackets are modelled against building value. |
+| **District of Columbia** | 0.21% | Deferred: sources conflict on where a multifamily rental lands after the tax-year-2025 Class 1A/1B restructuring. |
+| **Nassau County, NY** | sub-state | Deferred within an otherwise complete state. |
+| **Wyoming** | — | Re-examine once SF 69's FY2027 owner-occupied-only phase has run a full assessment year; it is the one preference found that genuinely narrows to ownership. |
+
+Rhode Island and Connecticut are **not** on this list. They are researched and recorded as
+*unresolvable* — a real municipal classification in states whose counties are not governmental
+units. Three distinguishable states of knowledge now exist in the table: corrected, researched
+with no correction, and researched but not expressible.
 
 ---
 

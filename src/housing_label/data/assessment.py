@@ -67,11 +67,13 @@ parcel containing at most one rental unit (see ``separately_parceled``).
 
 Coverage
 --------
-Forty-five of 51 scorable jurisdictions are encoded: every Census division except Pacific,
-and all of South Atlantic except the District of Columbia, which is deferred as unverified.
+Forty-nine of 51 scorable jurisdictions are encoded — all nine Census divisions have been
+worked through. The two that are not, the District of Columbia and Hawaii, are *deferred*
+rather than unexamined: both were researched and both were left out deliberately, for
+reasons recorded at the end of ``CLASSIFICATION_RULES``.
 
 Eight carry a correction — AL and WV at 2.0x, New York City at 1.81x, TN at 1.6x, MS and SC
-at 1.5x, MN at 1.25x and ND at 1.11x. Thirty-five were researched and found to have no
+at 1.5x, MN at 1.25x and ND at 1.11x. Thirty-nine were researched and found to have no
 classification of rental housing, and are recorded as ``RULE_UNIFORM`` rather than left
 absent: both produce a 1.0 multiplier at the point of use, so only the record distinguishes
 "researched, no correction" from "not researched". Louisiana, Ohio, Missouri and Kansas are
@@ -93,13 +95,18 @@ correction comes from a published effective-rate study rather than statutory leg
 ``RULE_EFFECTIVE`` and the NY notes, where the naive statutory reading over-corrects by
 2.6x.
 
-The remaining 6 jurisdictions return no correction. That is a real coverage gap, not a
-claim that they lack split rolls — several do, with different thresholds and ratios. The
-rollout plan is ``research/property-tax-classification-rollout.md`` and the per-jurisdiction
-authority record is ``research/property-tax-classification-research.md``; extending the
-table means reading each state's constitution or code, one at a time, and must not be
-guessed from a secondary source. ``scripts/report_classification_coverage.py`` prints live
-coverage by Census division.
+The 2 deferred jurisdictions return no correction, which for Hawaii is known to be wrong:
+its counties do classify rental housing, and by a lot. It is left out because two of the
+four implied multipliers breach ``CLASSIFICATION_MULT_CEIL`` and Honolulu's is a
+value-tiered bracket rather than a class ratio — under-correcting a jurisdiction that is
+0.44% of the population beats encoding a 3.5x correction from a bracket schedule that has
+not been modelled. Between them the two hold 0.65% of the population.
+
+The rollout plan is ``research/property-tax-classification-rollout.md`` and the
+per-jurisdiction authority record is ``research/property-tax-classification-research.md``;
+extending the table means reading each state's constitution or code, one at a time, and
+must not be guessed from a secondary source. ``scripts/report_classification_coverage.py``
+prints live coverage by Census division.
 """
 
 from __future__ import annotations
@@ -1013,6 +1020,87 @@ CLASSIFICATION_RULES: dict[str, ClassificationRule] = {
                "limitation by owner-occupancy, age or income. A valuation growth cap, so "
                "the Nevada and Florida shape rather than a class ratio."),
     ),
+    # ── Pacific ───────────────────────────────────────────────────────────────
+    "WA": ClassificationRule(
+        usps="WA",
+        rule_type=RULE_UNIFORM,
+        authority="Wash. Const. art. VII, § 1, § 2; Wash. Rev. Code § 84.40.030",
+        verified="2026-08-01",
+        notes=("The most explicit uniform text in the table: art. VII, § 1 provides that "
+               "'ALL REAL ESTATE SHALL CONSTITUTE ONE CLASS' and that taxes 'shall be "
+               "uniform upon the same class of property', with § 84.40.030 valuing all "
+               "property at 100% of true and fair value. One class admits no split, so "
+               "there is nothing to reject."),
+    ),
+    "OR": ClassificationRule(
+        usps="OR",
+        rule_type=RULE_UNIFORM,
+        authority=("Or. Const. art. I, § 32; art. IX, § 1; art. XI, § 11, § 11b; "
+                   "Or. Rev. Stat. § 308.149, § 308.153, § 308.156; OAR 150-308-0170"),
+        verified="2026-08-01",
+        notes=("Taxation uniform on the same class of subjects. FOUND AND REJECTED on "
+               "three counts. (1) Measure 50's art. XI, § 11 maximum assessed value, "
+               "which may not grow more than 3% a year — a growth cap in the Florida "
+               "shape. (2) Measure 5's art. XI, § 11b limits, whose two categories are "
+               "defined by THE PURPOSE THE TAX FUNDS — the public school system against "
+               "government operations other than the public school system — and not by "
+               "property type, so like Vermont's split it cannot reach a class of "
+               "housing. (3) The changed property ratio of § 308.153 and § 308.156, "
+               "which places newly added value at the same assessed-to-market ratio as "
+               "similar existing property. It keys on the § 308.149 'property class', "
+               "which OAR 150-308-0170 takes from the Department of Revenue's USE "
+               "classification — and it equalises new value rather than preferring "
+               "anyone. Nothing in Oregon keys on tenure."),
+    ),
+    "CA": ClassificationRule(
+        usps="CA",
+        rule_type=RULE_UNIFORM,
+        authority="Cal. Const. art. XIII, § 1, § 3(k); art. XIII A, § 1, § 2, § 2.1",
+        verified="2026-08-01",
+        notes=("Art. XIII, § 1(a): 'All property is taxable and SHALL BE ASSESSED AT THE "
+               "SAME PERCENTAGE OF FAIR MARKET VALUE.' One ratio, and art. XIII A, § 1 "
+               "caps the ad valorem rate at 1% for everyone, so the legislature has no "
+               "classification power to exercise. FOUND AND REJECTED: the § 3(k) "
+               "homeowners' exemption, a flat $7,000 of full value for an owner-occupied "
+               "principal residence — a fixed dollar exemption in the Kentucky shape, and "
+               "trivial against a modern assessment; and PROPOSITION 13, art. XIII A, § 2, "
+               "whose base-year value plus 2% growth cap with reassessment on change of "
+               "ownership produces a large owner/rental gap that depends on holding "
+               "period rather than on class. California is the largest member of the "
+               "cap-driven divergence roadmap item, and the one where the cap is NOT "
+               "tenure-neutral: under Proposition 19, art. XIII A, § 2.1, an inherited "
+               "home keeps its base year value only if it 'continues as the family home "
+               "of the transferee', so an inherited rental is reassessed and an inherited "
+               "primary residence is not. Still a transfer-and-cap mechanism rather than "
+               "a class ratio, so it is documented, not encoded."),
+    ),
+    "AK": ClassificationRule(
+        usps="AK",
+        rule_type=RULE_UNIFORM,
+        authority="Alaska Stat. § 29.45.030, § 29.45.050, § 29.45.110",
+        verified="2026-08-01",
+        notes=("Section 29.45.110 assesses all property at full and true value, with no "
+               "class ratios. FOUND AND REJECTED: the § 29.45.050 optional exemptions, "
+               "which a municipality may adopt by ordinance or voter approval. They are "
+               "dollar-capped and gated on senior, disabled-veteran or residence status "
+               "rather than on tenure, so they are locally optional capped exemptions "
+               "rather than a classification — and unlike Rhode Island and Connecticut "
+               "there is no municipal rule that reaches rental housing as a class, so no "
+               "local_option record is warranted."),
+    ),
+    # HI is deliberately NOT encoded, and for a different reason than DC. Its four
+    # counties ARE the taxing units, so unlike Rhode Island and Connecticut a county
+    # FIPS resolves the rule cleanly, and the split is genuinely tenure-based: Honolulu's
+    # Residential A, Kaua'i's Non-Owner-Occupied and the Maui and Hawai'i County
+    # Apartment classes all separate an owner's principal residence from rented housing.
+    # What stops it is the SIZE. Modelled on the FY26 rate schedules at a large building,
+    # the implied multipliers are Kaua'i 3.56x, Honolulu 3.20x, Maui 2.12x and Hawai'i
+    # County 1.97x — two of the four breach CLASSIFICATION_MULT_CEIL, the research-error
+    # tripwire, and Honolulu's Residential A is a two-tier bracket above $1,000,000, so
+    # its effective rate is value-dependent in the Florida shape rather than a fixed
+    # class ratio. Under "when in doubt, under-correct" Hawaii stays out of the table
+    # until the brackets are modelled properly. See
+    # research/property-tax-classification-research.md.
     # DC is deliberately NOT encoded. It restructured its classes for tax year 2025 (a
     # new Class 1A / 1B split), and sources conflict on where a multifamily rental
     # building lands: one reading keeps residential improved property in Class 1A
