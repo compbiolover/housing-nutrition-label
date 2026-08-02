@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.74](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.73...v0.1.74) (2026-08-02)
+
+
+### Bug Fixes
+
+* **infrastructure:** measure the owner's school tax in Texas instead of estimating it ([#242](https://github.com/compbiolover/housing-nutrition-label/issues/242)) ([ec6c347](https://github.com/compbiolover/housing-nutrition-label/commit/ec6c34705a01021797cf2b41a75d846f898e5f09))
+
 ## [0.1.73](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.72...v0.1.73) (2026-08-02)
 
 
