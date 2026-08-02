@@ -545,7 +545,7 @@ Four recurring shapes account for nearly every rejection:
 | item | size | status |
 |---|---|---|
 | **Cap-driven owner/rental divergence** (FL, TX, CA, AR, OK) | 30.2% of population | The single largest unmodeled effect. Indiana is the tractable entry point; California is the largest member and the one whose cap is not tenure-neutral. See the section above. |
-| **School-netting population mismatch** | 13.2% | Documented in `research/infrastructure-burden-research.md`. Needs school operating-vs-debt millage per county. |
+| **School-netting population mismatch** | 7.4% remaining | **Texas fixed** (9.2%) — the revenue side there now measures the owner's school rate and subtracts it instead of netting a county-wide share. MI, AZ, SC, SD and VT remain; the affected set is almost exactly `SCHOOL_LEVY_REJECTIONS`, since what disqualified them as classification corrections is what makes them netting defects. See `research/infrastructure-burden-research.md`. |
 | **Hawaii** | 0.44% | Deferred: two of four county multipliers breach `CLASSIFICATION_MULT_CEIL` and Honolulu's is a value-tiered bracket. Encodable once the brackets are modelled against building value. |
 | **District of Columbia** | 0.21% | Deferred: sources conflict on where a multifamily rental lands after the tax-year-2025 Class 1A/1B restructuring. |
 | **Nassau County, NY** | sub-state | Deferred within an otherwise complete state. |

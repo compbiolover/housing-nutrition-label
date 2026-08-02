@@ -38,6 +38,61 @@ def normalize_fips(value) -> str | None:
     return s.zfill(5)
 
 
+# The two ways the revenue side can be brought to a non-school basis.
+BASIS_MEASURED = "school_millage"   # owner's school rate computed and subtracted
+BASIS_SHARE = "school_tax_share"    # county-wide school share netted multiplicatively
+
+
+def _municipal_rate(fips: str, tax: dict, gov: dict) -> tuple[float, str]:
+    """Non-school property-tax rate for a county, and which basis produced it.
+
+    Prefers the MEASURED path: where per-county school millage is bundled, the school tax
+    an owner-occupier actually pays is computed at the county median home value and
+    subtracted. Both terms are then measured over owner-occupied homes.
+
+    Falls back to the SHARE path — today's behaviour — everywhere else. That path multiplies
+    an owner-occupied-derived rate by an all-property school share, which over-nets in
+    states giving owners school-specific relief; see ``data/school_millage.py``. The
+    fallback is byte-identical to the pre-existing computation, so counties outside the
+    millage crosswalk are untouched.
+    """
+    from housing_label.data.propertytax import median_home_value_for_county
+    from housing_label.data.school_millage import owner_school_rate
+
+    eff = tax["effective_tax_rate"]
+    # B25077 — deliberately the same median value that is the DENOMINATOR of the ACS
+    # effective rate above. The subtraction is only coherent if both rates are expressed
+    # against the same home.
+    school_rate = owner_school_rate(fips, median_home_value_for_county(fips))
+    if school_rate is not None:
+        # Clamped at zero: a county whose measured school rate exceeds its ACS effective
+        # rate is telling us the median home's bill cannot cover the school levy alone,
+        # which is an ACS/millage vintage mismatch rather than negative municipal revenue.
+        return max(0.0, eff - school_rate), BASIS_MEASURED
+    return eff * (1.0 - gov["school_tax_share"]), BASIS_SHARE
+
+
+def municipal_tax_rate(county_fips: str | None) -> tuple[float | None, str | None]:
+    """A county's non-school property-tax rate and the basis that produced it.
+
+    Public because the basis matters and cannot be inferred from the rate: the same
+    number could come from either path. Kept OUT of ``infra_params_for_county``'s dict on
+    purpose — that dict is splatted into ``enrich_row``, whose signature is an explicit
+    keyword list, so a non-computational key there would be a TypeError waiting for the
+    next caller.
+
+    Returns ``(None, None)`` for Shelby and unresolvable counties, matching
+    ``infra_params_for_county``'s "keep the Memphis defaults" contract.
+    """
+    fips = normalize_fips(county_fips)
+    if not fips or fips == SHELBY_COUNTY_FIPS:
+        return None, None
+    from housing_label.data.govfinance import govfinance_for_county
+    from housing_label.data.propertytax import property_tax_for_county
+
+    return _municipal_rate(fips, property_tax_for_county(fips), govfinance_for_county(fips))
+
+
 def infra_params_for_county(
     county_fips: str | None, *, in_urban_area: bool | None = None
 ) -> dict | None:
@@ -68,7 +123,7 @@ def infra_params_for_county(
 
     gov = govfinance_for_county(fips)
     tax = property_tax_for_county(fips)
-    municipal_rate = tax["effective_tax_rate"] * (1.0 - gov["school_tax_share"])
+    municipal_rate, _basis = _municipal_rate(fips, tax, gov)
     params = {
         "assess_ratio": 1.0,
         "tax_rate": municipal_rate,
