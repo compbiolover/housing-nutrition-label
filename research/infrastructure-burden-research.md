@@ -316,9 +316,9 @@ split-roll state, a rental building's property tax is still understated. Extendi
 table means reading each state's constitution or code individually; it should not be
 guessed from a secondary source.
 
-## Known defect — the school netting mixes two populations
+## Fixed for Texas — the school netting mixed two populations
 
-`enrich/region_context.py` builds the revenue side as
+`enrich/region_context.py` used to build the revenue side as
 
 ```python
 municipal_rate = tax["effective_tax_rate"] * (1.0 - gov["school_tax_share"])
@@ -337,28 +337,92 @@ ACS rate has already lost most of its school component, and netting the county-w
 removes it a second time. The result understates non-school revenue — and therefore the
 fiscal ratio and the score — for **every parcel in that state, owner and rental alike**.
 
-**How large.** South Carolina's median county-wide `school_tax_share` is **0.513**, applied
-to a rate measured over exactly the homes that are exempt from school operating millage. If
-school *debt* is 5–20% of what an owner actually pays in school tax, the correct netting
-factor is 0.95–0.80 against the model's 0.49 — a **39–49% understatement**.
+### The fix: measure the owner's school rate instead of estimating it
 
-**How wide.** Not one state. Among jurisdictions already encoded in
-`src/housing_label/data/assessment.py`:
+Where per-county school millage is available, the school tax an owner-occupier actually pays
+is computed at the county median home value and **subtracted**:
 
-| state | school-specific owner relief | share of US population |
-|---|---|---|
-| TX | Tex. Tax Code § 11.13(b) — $100,000 residence homestead exemption **for school district taxes** | 9.20% |
-| MI | MCL § 211.7cc — Principal Residence Exemption, 18 school operating mills | 3.07% |
-| SC | S.C. Code § 12-37-220(B)(47) — owner-occupied exemption from school operating millage | 0.93% |
+```python
+municipal_rate = max(0.0, eff_rate - owner_school_rate(median_value))
+```
 
-**13.2% of the US population among encoded states alone**, and the other 27 jurisdictions
-have not been checked for this pattern at all.
+Both terms are now measured over owner-occupied homes, which eliminates the mismatch rather
+than adjusting around it. The median value is B25077 — deliberately the same denominator the
+ACS effective rate uses, since the subtraction is only coherent against the same home.
 
-**Why it is not fixed here.** The correction needs school **operating-versus-debt** millage
-per county, which is not bundled and is a 50-state acquisition project. Choosing a factor
-without that data would swap a known, one-directional understatement for an invented number
-— worse, because it would look authoritative. The honest move is to size the defect and
-leave it visible.
+`data/school_millage.py` returns **`None`**, never `0.0`, for a county it does not cover:
+zero would claim the owner pays no school tax at all and would inflate the score everywhere.
+Counties without millage keep the multiplicative estimate, byte-for-byte.
+
+### The Texas exemption reaches the debt levy — the data says so, secondary sources do not
+
+Tex. Tax Code § 11.13(b) exempts $100,000 of appraised value from school district taxes.
+Whether that covers the interest-and-sinking (debt) levy as well as maintenance-and-
+operations is worth **10–13 percentage points** of the correction, and search results answer
+confidently that it does not.
+
+The Comptroller's own file settles it the other way:
+
+| | |
+|---|---|
+| rows where the I&S base is **smaller** than the M&O base | **0** of 1,549 |
+| rows where the two bases are **equal** | 1,340 (87%) |
+| rows where the I&S base is larger | 209 |
+| statewide taxable value affected | 2.24% |
+
+If the exemption skipped the debt levy, the I&S base would exceed the M&O base in
+essentially every district, since every district has homesteads. Instead they match in seven
+rows out of eight. The 209 exceptions are districts that may still tax exempted homestead
+value for debt authorised before the exemption increases — the rule TEA describes SB 1453
+(eff. 2026) as narrowing. `is_exempt_weight` carries the measured per-county share, so the
+carve-out is derived rather than assumed.
+
+This is the second time in this project a confident secondary answer was contradicted by a
+primary source, after Utah's residential exemption. Both were caught by checking.
+
+### What it moved
+
+Texas is 254 counties, 9.2% of the US population. 250 move to the measured path; four have
+ACS-suppressed medians and stay on the estimate, correctly — they already fall back to the
+*national* effective rate, so subtracting a Texas school rate from it would mix geographies.
+
+| | |
+|---|---|
+| population-weighted municipal-rate change | **+34%** |
+| counties up / down | 225 / 25 |
+| Harris (Houston) | 0.76% → 0.97% (**×1.28**) |
+| Dallas | 0.78% → 0.90% (×1.15) |
+| Travis (Austin) | 0.80% → 0.68% (×0.85) |
+
+**Be precise about direction.** The *defect* is one-directional — the old path always
+over-nets. The *fix* replaces an estimate with a measurement, so an individual county can
+land either side, and 25 did. `INFRA_XS` re-anchored from
+`[0.325, 0.469, 0.604, 0.737, 0.947, 1.565]` to `[0.326, 0.47, 0.608, 0.747, 0.987, 1.623]`:
+the top moved (p95 +3.7%) and the bottom barely did (p5 +0.3%), because the correction
+concentrates in one large state. No golden case changed grade; all seven are in Los Angeles
+or Shelby, so their fiscal ratios are untouched and they move only by being ranked against a
+Texas that now measures higher.
+
+### Still outstanding — five states, 7.4% of the population
+
+The affected states are almost exactly the `SCHOOL_LEVY_REJECTIONS` set from the
+classification table. The very fact that made them *not* a classification correction — the
+owner/renter gap lives in the school levy, which this dimension nets from both sides — is
+what makes them a *netting* defect. The rollout found the right states for the wrong problem.
+
+| state | school-specific owner relief | pop | source needed |
+|---|---|---|---|
+| MI | MCL § 211.7cc — Principal Residence Exemption, 18 school **operating** mills | 3.07% | Treasury millage rate reports, per taxing unit |
+| AZ | A.R.S. § 15-972 — 40% rebate of primary **school district** tax, capped at $600 | 2.25% | Dept. of Revenue abstract; the $600 cap makes it value-dependent |
+| SC | S.C. Code § 12-37-220(B)(47) — owner-occupied exempt from school **operating** millage | 1.62% | Revenue and Fiscal Affairs millage by district |
+| SD | owner-occupied classification reaching the school general-fund levy | 0.28% | Dept. of Revenue levy tables |
+| VT | homestead vs non-homestead **education** rate | 0.20% | Dept. of Taxes annual rate letter |
+
+Michigan and South Carolina exempt an entire operating levy rather than a slice of value, so
+they need an **operating-versus-debt** millage split rather than the Texas shape — a
+different computation, not just a different file. South Carolina remains the sharpest case:
+its median county-wide `school_tax_share` is **0.513**, applied to a rate measured over
+exactly the homes exempt from school operating millage, a 39–49% understatement.
 
 Found while chasing a South Carolina classification note that turned out to be wrong in the
 opposite direction; see
