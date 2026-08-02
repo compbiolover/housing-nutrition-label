@@ -275,11 +275,13 @@ def test_active_basis_descends_into_sub_state_rules():
 
 
 def test_coverage_is_honest_about_the_gap():
-    """The unresearched majority is recorded rather than implied by silence.
+    """What is NOT covered is recorded rather than implied by silence.
 
-    Forty-nine of 51 researched after Phase 9 (Pacific), which closes the rollout. The
-    uniform jurisdictions count as researched despite applying no correction — that
-    distinction is the whole point of RULE_UNIFORM.
+    This began life guarding an unresearched majority. Phase 9 closed the rollout, so it
+    now guards the opposite end: 49 of 51 researched, and the two that are not are named
+    individually because they are deliberate deferrals. The uniform jurisdictions count
+    as researched despite applying no correction — that distinction is the whole point of
+    RULE_UNIFORM, and it is what makes 49 a meaningful number rather than 8.
     """
     remaining = unresearched_jurisdictions()
     assert len(remaining) == 2

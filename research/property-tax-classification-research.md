@@ -1174,7 +1174,7 @@ to encode it hits the reasoning first.
 
 ---
 
-## Not researched — the two deferrals
+## The two deferrals
 
 The rollout is **complete**: all nine Census divisions have been read, 49 of 51 jurisdictions
 are encoded, and the two that are not are **deferrals with stated reasons**, not gaps in the
