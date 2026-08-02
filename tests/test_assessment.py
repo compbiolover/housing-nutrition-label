@@ -243,7 +243,9 @@ def test_reporting_view_is_always_a_dict():
     assert applied["applied"] is True and applied["researched"] is True
     assert applied["multiplier"] == 1.6 and applied["assess_ratio"] == 0.40
     assert "67-5-501" in applied["authority"]
-    missing = classification_for("CA", 157)
+    # HI rather than CA since Phase 9: California is now researched-uniform, and the case
+    # under test is a jurisdiction with no record at all.
+    missing = classification_for("HI", 157)
     assert missing["applied"] is False and missing["researched"] is False
     assert missing["multiplier"] == 1.0 and missing["authority"] is None
 
@@ -275,21 +277,24 @@ def test_active_basis_descends_into_sub_state_rules():
 def test_coverage_is_honest_about_the_gap():
     """The unresearched majority is recorded rather than implied by silence.
 
-    Forty-five of 51 researched after Phase 8 (Mountain). The uniform
-    jurisdictions count as researched despite applying no correction — that distinction
-    is the whole point of RULE_UNIFORM.
+    Forty-nine of 51 researched after Phase 9 (Pacific), which closes the rollout. The
+    uniform jurisdictions count as researched despite applying no correction — that
+    distinction is the whole point of RULE_UNIFORM.
     """
     remaining = unresearched_jurisdictions()
-    assert len(remaining) == 6
-    assert set(remaining) == {"AK", "CA", "DC", "HI", "OR", "WA"}, sorted(remaining)
+    assert len(remaining) == 2
+    assert set(remaining) == {"DC", "HI"}, sorted(remaining)
     for done in ("AL", "KY", "MS", "TN", "SC", "WV", "FL", "GA", "MD", "NC", "VA", "DE",
                  "AR", "LA", "OK", "TX", "NY", "NJ", "PA", "IL", "IN", "MI", "OH", "WI",
                  "ME", "NH", "VT", "MA", "RI", "CT",
                  "MN", "IA", "MO", "ND", "SD", "NE", "KS",
-                 "MT", "ID", "WY", "CO", "NM", "AZ", "UT", "NV"):
+                 "MT", "ID", "WY", "CO", "NM", "AZ", "UT", "NV",
+                 "WA", "OR", "CA", "AK"):
         assert done not in remaining
-    # DC is deferred, not done — see test_south_atlantic_coverage_and_the_deferred_jurisdiction.
-    assert "DC" in remaining
+    # Both survivors are DEFERRALS, not oversights — each was researched and left out for
+    # a stated reason. See test_south_atlantic_coverage_and_the_deferred_jurisdiction and
+    # test_pacific_coverage_and_the_deferred_jurisdiction.
+    assert {"DC", "HI"} <= set(remaining)
 
 
 # ── The CLI tenure contract ──────────────────────────────────────────────────────
@@ -1209,6 +1214,137 @@ def test_phase_8_moves_no_anchors():
     for state in MOUNTAIN_UNIFORM:
         assert not any(entry.startswith(f"{state}:") for entry in basis), state
         assert not any(entry.startswith(f"{state}/") for entry in basis), state
+
+
+# ── Phase 9: Pacific ─────────────────────────────────────────────────────────────
+#
+# The last division, and the one that closes the rollout at 49 of 51. Four uniform, and
+# Hawaii deferred — the only jurisdiction left out because its correction is too LARGE to
+# trust rather than too ambiguous to resolve.
+
+PACIFIC_UNIFORM = ("AK", "CA", "OR", "WA")
+
+
+def test_pacific_uniform_states():
+    _assert_uniform_is_a_noop(PACIFIC_UNIFORM)
+
+
+def test_california_is_one_class_and_its_gap_is_a_cap():
+    """The largest state in the table, and the largest member of the cap roadmap item.
+
+    Article XIII § 1(a) settles the classification question outright — one percentage of
+    fair market value for all property — so the interesting part is what gets rejected.
+    Proposition 13 opens a large owner/rental gap, but it runs on holding period rather
+    than class, and Proposition 19 makes it the one cap in the table that is NOT
+    tenure-neutral: an inherited rental is reassessed, an inherited family home is not.
+    That is a good reason to document California in the roadmap item and a bad reason to
+    encode a multiplier, so the record must say both things.
+    """
+    ca = CLASSIFICATION_RULES["CA"]
+    assert ca.rule_type == RULE_UNIFORM
+    assert "SAME PERCENTAGE OF FAIR MARKET VALUE" in ca.notes
+    assert "PROPOSITION 13" in ca.notes and "$7,000" in ca.notes
+    assert "NOT" in ca.notes and "tenure-neutral" in ca.notes
+    assert "art. XIII A" in ca.authority
+
+
+def test_oregon_categories_are_a_tax_purpose_not_a_property_class():
+    """Measure 5's two categories look like a classification and are not one.
+
+    They partition taxes by what the revenue funds — the public school system against
+    everything else — which is the Vermont finding in a different constitution: a split
+    confined to the school levy cannot reach a class of housing, and this dimension nets
+    school taxes from both sides anyway.
+    """
+    orr = CLASSIFICATION_RULES["OR"]
+    assert orr.rule_type == RULE_UNIFORM
+    assert "PURPOSE" in orr.notes
+    assert "USE" in orr.notes, "the changed property ratio's class basis must be named"
+    assert "308.153" in orr.authority
+
+
+def test_washington_is_the_explicit_one_class_state():
+    wa = CLASSIFICATION_RULES["WA"]
+    assert wa.rule_type == RULE_UNIFORM
+    assert "ALL REAL ESTATE SHALL CONSTITUTE ONE CLASS" in wa.notes
+
+
+def test_pacific_coverage_and_the_deferred_jurisdiction():
+    """Four of five encoded, with Hawaii named as the outstanding one.
+
+    Same shape as the DC assertion in Phase 2, and for the same reason: a deferred
+    jurisdiction and a researched-uniform one both score 1.0, so without this the
+    deferral is indistinguishable from an oversight.
+    """
+    from housing_label.data.states import CENSUS_DIVISION
+
+    division = {s for s, d in CENSUS_DIVISION.items() if d == "Pacific"}
+    assert division == {"AK", "CA", "HI", "OR", "WA"}
+    outstanding = division - set(CLASSIFICATION_RULES)
+    assert outstanding == {"HI"}, f"expected only HI outstanding, got {sorted(outstanding)}"
+    assert "HI" in unresearched_jurisdictions()
+    assert classification_multiplier("HI", 157, owner_occupied=False) == 1.0
+
+
+def test_hawaii_deferral_records_why_it_is_not_encoded():
+    """Hawaii is the deferral most likely to be "fixed" by a future reader.
+
+    Unlike DC the sources are clear, and unlike RI and CT the counties ARE the taxing
+    units, so it looks encodable. It is left out because two of the four implied
+    multipliers breach CLASSIFICATION_MULT_CEIL and Honolulu's Residential A is a
+    value-tiered bracket. That reasoning lives in a comment, which no other test can
+    reach — so assert the comment, or the next reader deletes it and encodes 3.5x.
+    """
+    import pathlib
+
+    import housing_label.data.assessment as mod
+
+    source = pathlib.Path(mod.__file__).read_text()
+    marker = source.index("# HI is deliberately NOT encoded")
+    rationale = source[marker:source.index("# DC is deliberately NOT encoded")]
+    assert "CLASSIFICATION_MULT_CEIL" in rationale
+    assert "Residential A" in rationale
+    assert "3.56x" in rationale and "3.20x" in rationale
+    # And the ceiling really is below the two that breach it, so the reasoning holds.
+    assert CLASSIFICATION_MULT_CEIL < 3.20
+
+
+def test_pacific_is_complete_but_for_the_deferral():
+    from housing_label.data.states import CENSUS_DIVISION
+
+    division = {s for s, d in CENSUS_DIVISION.items() if d == "Pacific"}
+    assert division - set(CLASSIFICATION_RULES) == {"HI"}
+
+
+def test_phase_9_moves_no_anchors():
+    """No Pacific record carries a correction, so the reference distribution is untouched.
+
+    Load-bearing for California in particular: both golden label cases are in Los Angeles,
+    so a stray correction here would move the snapshot rather than fail loudly.
+    """
+    basis = active_basis()          # the literal itself lives in test_active_basis_fingerprint
+    for state in PACIFIC_UNIFORM:
+        assert not any(entry.startswith(f"{state}:") for entry in basis), state
+        assert not any(entry.startswith(f"{state}/") for entry in basis), state
+
+
+def test_every_census_division_has_been_worked_through():
+    """The rollout's closing assertion: no division is untouched.
+
+    The per-division completeness tests each cover one division. This one covers the
+    partition — if a future edit adds a jurisdiction to CENSUS_DIVISION, or a division
+    silently loses its last record, it fails here rather than quietly reducing coverage.
+    """
+    from housing_label.data.states import CENSUS_DIVISION, SCORED_JURISDICTIONS
+
+    divisions = {d for s, d in CENSUS_DIVISION.items() if s in SCORED_JURISDICTIONS}
+    assert len(divisions) == 9
+    for division in divisions:
+        members = {s for s, d in CENSUS_DIVISION.items() if d == division}
+        encoded = members & set(CLASSIFICATION_RULES)
+        assert encoded, f"{division} has no encoded jurisdiction"
+    # Exactly two deferrals remain, and both are named in a per-division test above.
+    assert set(unresearched_jurisdictions()) == {"DC", "HI"}
 
 
 def test_law_as_of_is_at_least_the_newest_verified_date():
