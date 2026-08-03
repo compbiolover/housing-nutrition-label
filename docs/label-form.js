@@ -76,7 +76,8 @@ window.LabelForm = (function () {
     ["solar", "Solar panels"], ["backup_generator", "Backup generator / battery"],
     ["fire_sprinklers", "Fire sprinklers"], ["hurricane_straps", "Hurricane straps"],
     ["fortified_roof", "FORTIFIED roof"], ["tornado_safe_room", "Tornado safe room"],
-    ["seismic_retrofit", "Seismic retrofit"], ["flood_vents", "Flood vents"]
+    ["seismic_retrofit", "Seismic retrofit"], ["flood_vents", "Flood vents"],
+    ["radon_mitigation", "Radon mitigation system"]
   ];
   // Toggle labels + a one-line explanation of what each view actually scores.
   // The old "Detected / Single / Compare" gave no hint of the difference; these

@@ -42,7 +42,7 @@ window.LabelCore = (function () {
     solar: "solar", backup_generator: "backup generator", fire_sprinklers: "fire sprinklers",
     hurricane_straps: "hurricane straps", fortified_roof: "FORTIFIED roof",
     tornado_safe_room: "tornado safe room", seismic_retrofit: "seismic retrofit",
-    flood_vents: "flood vents"
+    flood_vents: "flood vents", radon_mitigation: "radon mitigation"
   };
 
   function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML; }

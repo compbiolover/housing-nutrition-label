@@ -68,7 +68,7 @@ from housing_label.simulate.house import (  # noqa: E402
     BONUS_FORTIFIED_ROOF, BONUS_FORTIFIED_SILVER, BONUS_FORTIFIED_GOLD,
     BONUS_CRIPPLE_WALL, BONUS_SEISMIC_HOLD_DOWNS, BONUS_AUTO_GAS_SHUTOFF,
     BONUS_ELEVATION_1FT, BONUS_ELEVATION_2FT, BONUS_ELEVATION_3FT,
-    BONUS_FLOOD_VENTS, BONUS_BACKFLOW_VALVE,
+    BONUS_FLOOD_VENTS, BONUS_BACKFLOW_VALVE, BONUS_RADON_MITIGATION,
 )
 from housing_label.score.all_dimensions import INFRA_XS  # noqa: E402
 from housing_label.score.resilience import (  # noqa: E402
@@ -264,6 +264,7 @@ SHORT_UPGRADE = {
     "elevation_1ft": "+1&nbsp;ft elevation", "elevation_2ft": "+2&nbsp;ft elevation",
     "elevation_3ft": "+3&nbsp;ft elevation", "flood_vents": "flood vents",
     "backflow_valve": "backflow valve",
+    "radon_mitigation": "radon mitigation",
 }
 
 # Resilience-upgrade tables, grouped as they appear on the Reference page. Each
@@ -333,6 +334,12 @@ UPGRADE_GROUPS = [
          f"{BONUS_FIRE_SPRINKLERS:.2f} on the structural fire term (~55% loss reduction, "
          f"NFPA 2024); not applied to the wildfire term"),
     ]),
+    ("Air quality", [
+        ("Radon mitigation system", BONUS_RADON_MITIGATION, "radon_mitigation",
+         "no resilience credit &mdash; radon is a chronic indoor-air hazard, not one "
+         "of the four perils scored here. It acts on Air Quality instead, where EPA's "
+         "&ldquo;up to 99% reduction&rdquo; floors the radon sub-score at the Zone&nbsp;3 value"),
+    ]),
 ]
 
 # Above-code CLI feature flags, grouped for the Setup page. Every BONUS_FLAGS
@@ -348,6 +355,10 @@ FEATURE_FLAG_GROUPS = [
                "backflow_valve", "leak_detection", "sump_backup"]),
     ("General", ["solar", "backup_generator", "passive_house", "tornado_safe_room",
                  "fire_sprinklers"]),
+    # Not a resilience measure — it carries no EAL multiplier. Upgrades already
+    # span dimensions (solar moves Environmental, passive_house moves Energy); this
+    # one moves Air Quality's radon leg.
+    ("Air quality", ["radon_mitigation"]),
 ]
 
 

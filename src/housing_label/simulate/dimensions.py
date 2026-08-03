@@ -788,6 +788,12 @@ def simulate_all_dimensions(
         air_quality = air_quality_for_tract(tract)
     elif have_county:
         air_quality = air_quality_for_county(location.county_fips)
+    # Radon is the one air-quality component the BUILDING moves: it enters through
+    # the foundation, and a mitigation system pulls it back out. PM2.5 and ozone are
+    # outdoor pollutants at ~12 km model resolution and the house does not move them.
+    from housing_label.data.air_quality import radon_adjusted_reading
+    air_quality = radon_adjusted_reading(
+        air_quality, cfg.get("foundation"), bool(cfg.get("radon_mitigation")))
     air_quality_score = air_quality["score"] if air_quality else None
 
     # Noise: bundled tract transportation-noise exposure (BTS/UW). Resolved at the
@@ -877,6 +883,14 @@ def simulate_all_dimensions(
         metrics["aq_ozone_ppb"] = air_quality["ozone"]
         metrics["aq_radon_zone"] = air_quality["radon_zone"]
         metrics["aq_radon_label"] = air_quality["radon_label"]
+        adj = air_quality.get("radon_adjusted")
+        if adj:
+            metrics["aq_radon_score"] = air_quality["radon_score"]
+            metrics["aq_radon_adjusted_from"] = adj["from"]
+            if adj["foundation"]:
+                metrics["aq_radon_foundation"] = adj["foundation"]
+            if adj["mitigated"]:
+                metrics["aq_radon_mitigated"] = True
     if noise and noise_score is not None:
         metrics["noise_pct_ge60db"] = noise["pct_ge60db"]
     if solar and solar_score is not None:

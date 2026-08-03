@@ -294,6 +294,13 @@ BONUS_SAFE_ROOM   = 0.85  # FEMA P-361 tornado safe room: applied to property da
                             # NOTE: CDC 2011 Alabama tornado data shows ~99% fatality
                             # elimination for safe room occupants, but this property
                             # damage model does not capture life-safety directly.
+BONUS_RADON_MITIGATION = 1.00  # Radon sub-slab depressurization: NO resilience credit,
+                            # and the 1.00 is the point rather than an oversight. Radon is a
+                            # chronic indoor-air hazard, not one of the four perils this EAL
+                            # model scores, so crediting it here would be a category error.
+                            # Its real effect is on Air Quality's radon leg, where EPA's
+                            # "up to 99% reduction, successful below 2 pCi/L" floors the
+                            # sub-score at the Zone 3 value (data/air_quality.py).
 BONUS_LEAK_DETECT = 1.00  # Smart leak detection: NO flood-EAL credit — peril mismatch.
                             # LexisNexis/Flo (2020: -96% frequency, -72% severity) and
                             # Nationwide/Resideo (-$4k per claim) measure ESCAPE OF WATER, i.e.
@@ -566,6 +573,10 @@ BONUS_FLAGS = [
     # flood above-code
     "elevation_1ft", "elevation_2ft", "elevation_3ft",
     "flood_vents", "backflow_valve",
+    # air quality — not a resilience measure, so it carries no EAL multiplier.
+    # Upgrades already span dimensions (solar moves environmental, passive_house
+    # moves energy); this one moves Air Quality's radon leg.
+    "radon_mitigation",
 ]
 ELEVATION_FLAGS = ["elevation_1ft", "elevation_2ft", "elevation_3ft"]
 
