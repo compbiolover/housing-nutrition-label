@@ -849,8 +849,42 @@ def simulate_all_dimensions(
     # a county resolved; the drill-down turns the yield into a representative-system
     # production estimate, the dollars it offsets at the local electricity rate, and
     # the CO₂ it avoids at the marginal grid rate (eGRID average fallback).
-    from housing_label.data.solar import solar_for_county, TYPICAL_SYSTEM_KW
+    from housing_label.data.solar import (solar_for_county, reading_for_yield,
+                                          TYPICAL_SYSTEM_KW)
     solar = solar_for_county(location.county_fips) if have_county else None
+
+    # ── Point-level refinement ────────────────────────────────────────────────
+    # The county figure is not a county average. build_solar.py queries PVGIS ONCE
+    # per county, at that county's gazetteer internal point, and serves the answer
+    # to every parcel in it — so a coastal home under the marine layer and an inland
+    # home in the clear got whichever of the two the centroid happened to land near.
+    #
+    # PVGIS is natively a point API. Asking it about this address is not a new data
+    # source or a modelling assumption, it is the same query without the coarsening.
+    # So unlike the noise refinement there is no gate and no direction restriction:
+    # the point answer is strictly better evidence than the county one and replaces
+    # it, up or down.
+    #
+    # The county figure remains the fallback for off-network runs, for points
+    # outside PVGIS-NSRDB coverage, and for an outage — the last of which is said
+    # out loud rather than served silently under a parcel-level label.
+    solar_point_unavailable = False
+    if cfg.get("lat") is not None and cfg.get("lon") is not None:
+        from housing_label.enrich.solar_point import (
+            solar_yield_near, SolarDataUnavailable)
+        try:
+            # allow_network is passed through rather than checked here: the lookup
+            # returns None off-network, which is the same "no point answer" the
+            # caller already handles.
+            _pt = solar_yield_near(cfg["lat"], cfg["lon"],
+                                   allow_network=allow_network)
+        except SolarDataUnavailable:
+            _pt = None
+            # location_notes is assembled further down; record it and emit it there.
+            solar_point_unavailable = True
+        if _pt is not None:
+            solar = reading_for_yield(_pt["yield_kwh_kwp"], _pt["irradiation"],
+                                      "point")
     solar_score = solar["score"] if solar else None
 
     # Water Quality: bundled county drinking-water compliance (EPA SDWIS). Scored
@@ -1014,7 +1048,20 @@ def simulate_all_dimensions(
         else:
             location_notes["noise"] = f"BTS transportation-noise exposure ({_n_geo})"
     if solar and solar_score is not None:
-        location_notes["solar"] = f"PVGIS-NSRDB rooftop yield (county {location.county_fips})"
+        if solar.get("geo_level") == "point":
+            location_notes["solar"] = (
+                "PVGIS-NSRDB rooftop yield, queried at this parcel rather than at "
+                "the county's centroid. Scored against the national spread of "
+                "COUNTY yields, so the percentile still reads \"sunnier than N% of "
+                "US counties\"")
+        elif solar_point_unavailable:
+            location_notes["solar"] = (
+                f"PVGIS-NSRDB rooftop yield (county {location.county_fips}) — PVGIS "
+                f"unavailable, so this is the county centroid's yield, not this "
+                f"parcel's")
+        else:
+            location_notes["solar"] = (
+                f"PVGIS-NSRDB rooftop yield (county {location.county_fips})")
     if getattr(location, "incorporated", None) is False:
         location_notes["infrastructure"] = (
             "unincorporated county territory — no municipal government serves or "

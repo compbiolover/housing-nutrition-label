@@ -54,10 +54,21 @@ from concurrent.futures import ThreadPoolExecutor
 
 import requests
 
-_OUT = (pathlib.Path(__file__).resolve().parent.parent
-        / "src" / "housing_label" / "data" / "solar_yield_county.csv")
+_ROOT = pathlib.Path(__file__).resolve().parent.parent
+for _p in (_ROOT, _ROOT / "src"):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 
-PVGIS_URL = "https://re.jrc.ec.europa.eu/api/v5_2/PVcalc"
+# The query and the response parse live with the runtime lookup, and are imported
+# here rather than restated. The bundled county table and the parcel-level lookup
+# are scored on the SAME breakpoints, so if the two ever asked PVGIS different
+# questions — a different tilt, loss figure or radiation database — one of them
+# would be scored on a curve built for a quantity it is not.
+from housing_label.enrich.solar_point import (  # noqa: E402
+    PVGIS_PARAMS, PVGIS_URL, parse_pvgis)
+
+_OUT = (_ROOT / "src" / "housing_label" / "data" / "solar_yield_county.csv")
+
 GAZ_URL = ("https://www2.census.gov/geo/docs/maps-data/data/gazetteer/"
            "2023_Gazetteer/2023_Gaz_counties_national.zip")
 _HEADERS = {"User-Agent": "housing-nutrition-label/solar-build"}
@@ -89,20 +100,14 @@ def _pvgis_yield(lat: float, lon: float, retries: int = 4) -> tuple[float, float
 
     None means PVGIS has no data at this point (outside NSRDB coverage) or the
     request failed after retries."""
-    params = {
-        "lat": f"{lat:.4f}", "lon": f"{lon:.4f}",
-        "peakpower": "1", "loss": "14", "mountingplace": "building",
-        "raddatabase": "PVGIS-NSRDB", "optimalinclination": "1", "aspect": "0",
-        "outputformat": "json",
-    }
+    params = dict(PVGIS_PARAMS, lat=f"{lat:.4f}", lon=f"{lon:.4f}")
     for attempt in range(1, retries + 1):
         try:
             r = requests.get(PVGIS_URL, params=params, headers=_HEADERS, timeout=60)
             if r.status_code == 400:
                 return None                      # location outside coverage
             r.raise_for_status()
-            t = r.json()["outputs"]["totals"]["fixed"]
-            return round(float(t["E_y"]), 1), round(float(t["H(i)_y"]), 1)
+            return parse_pvgis(r.json())
         except Exception:                        # noqa: BLE001 — retry transient errors
             if attempt == retries:
                 return None
