@@ -56,7 +56,8 @@ def test_infra_params_national_county():
     assert p is not None
     assert set(p) == {"assess_ratio", "tax_rate", "in_urban_area", "cost_multipliers",
                       "fee_recovery", "classification_state",
-                      "classification_rate_state", "classification_county_fips"}
+                      "classification_rate_state", "classification_county_fips",
+                      "county_du_acre"}
     assert p["assess_ratio"] == 1.0 and p["in_urban_area"] is True
     # Fee recovery joins the revenue side; fire/police have no user charge anywhere.
     assert set(p["fee_recovery"]) == {"roads", "water_sewer", "fire", "police",

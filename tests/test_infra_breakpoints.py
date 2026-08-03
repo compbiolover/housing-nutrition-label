@@ -53,18 +53,28 @@ def test_break_even_is_well_above_median():
 
     Guards the copy as much as the model: the label used to say "above ~1 means it
     pays its own way" while grading a typical home a C at 0.31, which read as "no
-    home passes". Break-even should sit high in the distribution but below the
-    top anchor — around the 85th-90th percentile.
+    home passes". Break-even must sit high in the distribution but below the top
+    anchor.
+
+    The band is the top quartile rather than a specific grade. It was ">= 80, and an
+    A", which is a calibration-dependent knife-edge: removing the ruralness
+    double-count lifted ratios across the board, so break-even moved from ~p81 to
+    ~p77 and the grade flipped to a B without anything about break-even changing.
+    What the test is defending is that paying your own way is uncommon — top
+    quartile, comfortably above the median — not which side of 80 it lands on.
     """
     s = _score(1.0)
-    assert 80.0 <= s < 100.0, f"break-even scored {s}"
-    assert _score(1.0) > _score(0.66), "break-even must beat the median"
+    assert 70.0 <= s < 100.0, f"break-even scored {s}"
+    assert s > _score(0.66) + 15.0, "break-even must beat the median by a clear margin"
 
 
 def test_tails_clamp():
     assert _score(0.10) == 0.0           # well below the bottom breakpoint → F floor
     assert _score(5.0) == 100.0          # well above the top breakpoint → A ceiling
-    assert score_to_grade(_score(1.0)) == "A"
+    assert score_to_grade(_score(5.0)) == "A"
+    # (break-even's own placement is test_break_even_is_well_above_median's job —
+    # it was asserted here too, as a grade, which made a clamp test fail whenever
+    # the distribution was recalibrated.)
 
 
 def test_infra_xs_basis_matches_the_rules_table():

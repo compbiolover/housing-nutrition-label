@@ -87,6 +87,7 @@ def municipal_tax_rate(county_fips: str | None) -> tuple[float | None, str | Non
     fips = normalize_fips(county_fips)
     if not fips or fips == SHELBY_COUNTY_FIPS:
         return None, None
+    from housing_label.data.county_lot_density import county_lot_density_for_county
     from housing_label.data.govfinance import govfinance_for_county
     from housing_label.data.propertytax import property_tax_for_county
 
@@ -116,6 +117,7 @@ def infra_params_for_county(
     fips = normalize_fips(county_fips)
     if not fips or fips == SHELBY_COUNTY_FIPS:
         return None
+    from housing_label.data.county_lot_density import county_lot_density_for_county
     from housing_label.data.govfinance import govfinance_for_county
     from housing_label.data.propertytax import property_tax_for_county
 
@@ -148,6 +150,10 @@ def infra_params_for_county(
         # everywhere outside the encoded table. See ``data/assessment.py``.
         "classification_rate_state": usps_for_fips(fips),
         "classification_county_fips": fips,
+        # Typical lot density, so the cost curve's density shape is expressed
+        # relative to the density this county's spending multiplier was measured at
+        # rather than multiplied straight into it (which charged for ruralness twice).
+        "county_du_acre": county_lot_density_for_county(fips)["du_acre"],
     }
     if in_urban_area is not None:
         params["in_urban_area"] = bool(in_urban_area)

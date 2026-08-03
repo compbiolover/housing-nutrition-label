@@ -135,6 +135,60 @@ DENSITY_ARCHETYPES = [
     ("large multifamily (20+)",     50.0, 0.081, True,  50, 0.868),
 ]
 
+# ── Utility connections, by archetype ─────────────────────────────────────────
+# The roster above put every household on public water and public sewer. That is
+# not a small omission, and it is not neutral: a home on a well and a septic field
+# loses the water/sewer component from BOTH sides of the fiscal ratio, and because
+# that component is ~100% fee-recovered — it pays for itself — removing it drags a
+# below-break-even ratio DOWN. Measured on one rural parcel: 0.259 with public
+# utilities, 0.133 with a well and a septic field. Same house, same services from
+# the county, half the score.
+#
+# So a well/septic household was being ranked against a population that is entirely
+# on public utilities, and could not help but land at the bottom. That is a
+# measurement artifact, not a finding about the house. The reference distribution
+# has to contain the same mix of connections the housing stock has.
+#
+# National shares (mutually exclusive states):
+#   private well               14.1% of housing units   (US EPA)
+#   septic                    ~20%   of households      (US EPA, >60M people)
+#   BOTH well and septic        9.1% of households      (Hernandez et al. 2023,
+#                                                        JAWRA 59(5), 10.1111/1752-1688.13135)
+# giving public/public 75.0%, septic-only 10.9%, well-only 5.0%, both 9.1%.
+#
+# Allocated across the roster below, concentrated at the sparse end where these
+# connections actually are. The household-weighted totals come to well 13.6%,
+# septic 19.8%, both 9.3% — each within half a point of the national figure, which
+# is as close as a per-archetype split of three national aggregates gets without
+# inventing joint data nobody publishes.
+#
+# Keyed by archetype label so a new archetype raises KeyError here until its
+# connection mix is stated, rather than silently defaulting to all-public — the
+# same drift guard the rest of this file uses.
+UTILITY_MIX = {
+    # label: ((public_water, public_sewer, share_within_archetype), ...)
+    "rural / exurban (1-5 ac)":   ((True, True, 0.10), (True, False, 0.18),
+                                   (False, True, 0.10), (False, False, 0.62)),
+    "large rural (5-10 ac)":      ((True, True, 0.04), (True, False, 0.10),
+                                   (False, True, 0.08), (False, False, 0.78)),
+    "very large rural (10+ ac)":  ((True, True, 0.03), (True, False, 0.07),
+                                   (False, True, 0.07), (False, False, 0.83)),
+    "large-lot suburb (~0.6 ac)": ((True, True, 0.58), (True, False, 0.25),
+                                   (False, True, 0.11), (False, False, 0.06)),
+    "standard suburb (~0.2 ac)":  ((True, True, 0.865), (True, False, 0.10),
+                                   (False, True, 0.03), (False, False, 0.005)),
+    "compact suburb / townhome":  ((True, True, 0.965), (True, False, 0.03),
+                                   (False, True, 0.005), (False, False, 0.0)),
+    "urban multifamily (5-19)":   ((True, True, 1.0),),
+    "large multifamily (20+)":    ((True, True, 1.0),),
+}
+
+# KNOWN GAP, deliberately not modelled: incorporation. An unincorporated parcel
+# drops municipal curbside collection from both sides too, but its effect on the
+# ratio is a rounding error next to water/sewer (0.259 -> 0.262 on the same test
+# parcel, because sanitation is small and only ~97% fee-recovered), so adding a
+# third leg dimension would triple the point count to move nothing.
+
 # Map each score anchor to a percentile of the national fiscal-ratio distribution,
 # so the resulting score tracks national percentile rank (score ≈ percentile).
 SCORE_PERCENTILES = [(0, 5), (20, 20), (40, 40), (60, 60), (80, 80), (100, 95)]
@@ -193,18 +247,25 @@ def build_distribution() -> list[tuple[float, float]]:
             # like-for-like.
             continue
 
-        for _, du_acre, share, urban, units, renter_share in DENSITY_ARCHETYPES:
+        for label, du_acre, share, urban, units, renter_share in DENSITY_ARCHETYPES:
             row = pd.Series({"CALC_ACRE": 1.0 / du_acre, "latitude": None,
                              "longitude": None, "RTOTAPR": value})
-            for owner_occupied, leg_share in ((True, 1.0 - renter_share),
-                                              (False, renter_share)):
-                if leg_share <= 0:
+            utilities = UTILITY_MIX[label]     # KeyError = undocumented archetype
+            for owner_occupied, tenure_share in ((True, 1.0 - renter_share),
+                                                 (False, renter_share)):
+                if tenure_share <= 0:
                     continue
-                out = enrich_row(row, in_urban_area=urban,
-                                 units=units, owner_occupied=owner_occupied, **params)
-                fr = out.get("fiscal_ratio")
-                if fr is not None and not pd.isna(fr):
-                    points.append((float(fr), pop * share * leg_share))
+                for pub_water, pub_sewer, util_share in utilities:
+                    if util_share <= 0:
+                        continue
+                    out = enrich_row(row, in_urban_area=urban, units=units,
+                                     owner_occupied=owner_occupied,
+                                     public_water=pub_water, public_sewer=pub_sewer,
+                                     **params)
+                    fr = out.get("fiscal_ratio")
+                    if fr is not None and not pd.isna(fr):
+                        points.append((float(fr),
+                                       pop * share * tenure_share * util_share))
     return points
 
 
