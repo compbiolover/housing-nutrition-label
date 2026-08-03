@@ -9,6 +9,22 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.75](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.74...v0.1.75) (2026-08-03)
+
+
+### Features
+
+* **infrastructure:** detect incorporated municipalities, stop billing them to everyone ([#248](https://github.com/compbiolover/housing-nutrition-label/issues/248)) ([d6fae73](https://github.com/compbiolover/housing-nutrition-label/commit/d6fae7362da9056d8ac629b5f16ef9789fe48d91))
+* **infrastructure:** give the cost model a rural end, and the yardstick rural homes ([#247](https://github.com/compbiolover/housing-nutrition-label/issues/247)) ([75b6c15](https://github.com/compbiolover/housing-nutrition-label/commit/75b6c158c8f95ded67a3b06562b6886191d3ebca))
+* **scoring:** add steel walls and private well/septic as first-class inputs ([#246](https://github.com/compbiolover/housing-nutrition-label/issues/246)) ([36c0dae](https://github.com/compbiolover/housing-nutrition-label/commit/36c0dae5ab2334b758b70f70c91566de2e3c1ad7))
+* **water:** join a parcel to its water system, and stop calling a tract median a year built ([#249](https://github.com/compbiolover/housing-nutrition-label/issues/249)) ([c5b61be](https://github.com/compbiolover/housing-nutrition-label/commit/c5b61be5e72b8408497139ebd05a32986e540582))
+* **water:** score the system that serves the home, not the county around it ([#250](https://github.com/compbiolover/housing-nutrition-label/issues/250)) ([2eedfda](https://github.com/compbiolover/housing-nutrition-label/commit/2eedfda6aa6e0e8ceb6b8eaa696b62eecee37da7))
+
+
+### Bug Fixes
+
+* **screen:** let a Residential footprint outvote an NSI non-residential class ([#244](https://github.com/compbiolover/housing-nutrition-label/issues/244)) ([45a3f69](https://github.com/compbiolover/housing-nutrition-label/commit/45a3f69167e4c9d8b2efe299c9f3b7f2e6b29ca7))
+
 ## [0.1.74](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.73...v0.1.74) (2026-08-02)
 
 
