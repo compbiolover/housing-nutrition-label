@@ -9,6 +9,19 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.76](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.75...v0.1.76) (2026-08-03)
+
+
+### Features
+
+* **air-quality:** score radon for the building, not just the rock under it ([#252](https://github.com/compbiolover/housing-nutrition-label/issues/252)) ([5e2fa21](https://github.com/compbiolover/housing-nutrition-label/commit/5e2fa21df9c75546ed75cfd3c1421f670ff57298))
+* **noise:** refine tract noise exposure to the parcel using nearby noise sources ([#253](https://github.com/compbiolover/housing-nutrition-label/issues/253)) ([622f2ab](https://github.com/compbiolover/housing-nutrition-label/commit/622f2ab9b8360f23fd3bec2fb9b6479c65403539))
+
+
+### Bug Fixes
+
+* **infrastructure:** stop counting ruralness twice, and put off-network homes in the yardstick ([#251](https://github.com/compbiolover/housing-nutrition-label/issues/251)) ([5a1dc64](https://github.com/compbiolover/housing-nutrition-label/commit/5a1dc64987d5b1405a021878a6425e13eed28240))
+
 ## [0.1.75](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.74...v0.1.75) (2026-08-03)
 
 
