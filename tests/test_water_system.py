@@ -144,12 +144,15 @@ def test_the_note_says_detection_is_evidence_not_proof():
     assert "as entered" in stated       # stated reads differently from detected
 
 
-def test_a_served_parcel_names_its_system_and_admits_the_gap():
-    """Naming the system makes visible that the SCORE is still a county aggregate
-    rather than that system's own violation record."""
-    note = _label(_SERVED)["location_notes"]["water"]
+def test_a_served_parcel_is_scored_from_its_own_system_record():
+    """Superseded the county-aggregate fallback: once the parcel resolves to a
+    PWSID, that system's own SDWIS record is what is scored and reported. The
+    per-system scoring itself is covered in tests/test_water_pwsid.py."""
+    lbl = _label(_SERVED)
+    note = lbl["location_notes"]["water"]
     assert "TN0000450" in note
-    assert "county aggregate" in note
+    assert "county aggregate" not in note
+    assert lbl["metrics"]["water_pwsid"] == "TN0000450"
 
 
 def test_detection_is_reported_in_the_building_panel():

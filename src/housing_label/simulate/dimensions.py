@@ -51,6 +51,7 @@ from housing_label.enrich.infrastructure import enrich_row as infra_enrich_row
 from housing_label.data import health as health_data
 from housing_label.data import socioeconomic as socio_data
 from housing_label.data import walkability as walk_data
+from housing_label.data.water_system import RECENT_YEARS as WATER_RECENT_YEARS
 
 
 # Markers set on cfg["value_source"] when the home value is an auto-filled *per-unit*
@@ -835,11 +836,21 @@ def simulate_all_dimensions(
     ws = getattr(location, "water_system", None) or {}
     stated = cfg.get("water_source")
     on_private_well = resolve_water_source(cfg, location) == "well"
-    water = None
-    if have_county and not on_private_well:
-        from housing_label.data.water import water_for_county
-        water = water_for_county(location.county_fips)
-    water_score = water["score"] if water else None
+    #
+    # When the parcel resolved to a specific PWSID, that system's own SDWIS record
+    # is what describes this home's tap — the county aggregate was only ever a
+    # stand-in for not knowing which system it was. The county remains the fallback
+    # for a system SDWIS has no active record of (a recent merger, a data lag),
+    # since scoring an unknown system as clean would be a guess dressed as a fact.
+    water = water_sys = None
+    if not on_private_well:
+        if ws.get("pwsid"):
+            from housing_label.data.water_system import water_for_pwsid
+            water_sys = water_for_pwsid(ws["pwsid"])
+        if water_sys is None and have_county:
+            from housing_label.data.water import water_for_county
+            water = water_for_county(location.county_fips)
+    water_score = water_sys["score"] if water_sys else (water["score"] if water else None)
 
     scores = {
         "resilience": round(float(resilience_score), 1),
@@ -880,7 +891,12 @@ def simulate_all_dimensions(
         co2_factor = grid_marginal_factor if grid_marginal_factor is not None else grid_factor
         if co2_factor is not None:
             metrics["solar_co2_avoided_kg"] = round(prod * co2_factor)
-    if water and water_score is not None:
+    if water_sys:
+        metrics["water_pwsid"] = water_sys["pwsid"]
+        metrics["water_years_in_violation"] = water_sys["years_in_violation"]
+        if water_sys["pop_served"]:
+            metrics["water_pop_served"] = water_sys["pop_served"]
+    elif water and water_score is not None:
         metrics["water_pct_hb_violation"] = water["pct_pop_hb_violation"]
         if water["n_cws"] is not None:      # int count (or None on a blank CSV cell)
             metrics["water_n_cws"] = water["n_cws"]
@@ -944,16 +960,26 @@ def simulate_all_dimensions(
             f"not scored — {how}. EPA SDWIS covers community water systems only, so "
             "the county figure measures a population this household is not part of. "
             "Only a lab test of this well can describe its water.")
+    elif water_sys:
+        yrs = water_sys["years_in_violation"]
+        record = ("no health-based violation in the last "
+                  f"{WATER_RECENT_YEARS} years" if yrs == 0
+                  else f"health-based violations in {yrs} of the last "
+                       f"{WATER_RECENT_YEARS} years")
+        location_notes["water"] = (
+            f"EPA SDWIS record for {ws.get('name') or 'the serving system'} "
+            f"({water_sys['pwsid']}) — {record}. Matched to this point by EPA "
+            f"service-area boundaries")
     elif water and water_score is not None:
-        # Name the system when the point resolves to one. The score is still the
-        # county aggregate — per-PWSID violation history is a separate dataset —
-        # but saying WHICH system serves the home makes the gap between the two
-        # visible instead of hiding it behind a county FIPS.
+        # No SDWIS record for the system EPA maps here (a recent merger, a data
+        # lag), so the county aggregate stands in — and the note says which of the
+        # two the reader is looking at rather than leaving them the same shape.
         if ws.get("status") == "served" and ws.get("pwsid"):
             location_notes["water"] = (
-                f"EPA SDWIS drinking-water compliance (county {location.county_fips}); "
+                f"EPA SDWIS drinking-water compliance (county {location.county_fips}) — "
                 f"served by {ws.get('name') or 'PWS'} ({ws['pwsid']}) per EPA service "
-                f"areas — the score is the county aggregate, not this system's own record")
+                f"areas, but SDWIS has no active record for it, so the county "
+                f"aggregate stands in")
         else:
             location_notes["water"] = f"EPA SDWIS drinking-water compliance (county {location.county_fips})"
 
