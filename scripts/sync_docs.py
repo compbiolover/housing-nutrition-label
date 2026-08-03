@@ -164,7 +164,10 @@ DIM_META = {
         res='<span class="tag county">county</span>'),
     "water": dict(
         measures="Community-water-system health-based violation exposure: % of residents "
-                 "on a system with a recent violation (national percentile)",
+                 "on a system with a recent violation (national percentile). "
+                 "Left unscored for a home on a private well &mdash; SDWIS covers "
+                 "community systems only, so the county figure measures a population "
+                 "that household isn't part of",
         source="EPA SDWIS federal reporting",
         res='<span class="tag county">county</span>'),
 }
@@ -197,6 +200,10 @@ CONSTRUCTION_META = {
     "sip": dict(
         label="SIP (structural insulated panel)", short="SIP",
         notes="Engineered wood composite; excellent racking resistance, frame-like fire behavior"),
+    "steel": dict(
+        label="Steel frame / steel wall", short="steel frame",
+        notes="Cold-formed or red-iron steel; non-combustible and rot-proof, but the "
+              "studs bridge heat so the envelope costs more to condition"),
 }
 
 # Condition rows: label + optional annotation. Order follows CONDITION_FACTOR.

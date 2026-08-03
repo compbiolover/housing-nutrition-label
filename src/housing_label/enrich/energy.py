@@ -46,8 +46,8 @@ CAMA field decoding (Shelby County assessor codes)
   SFLA    Square feet living area (float; NaN when unknown)
   EXTWALL Construction/exterior-wall type:
             1 = Brick        3 = Block/Concrete   4 = Stone
-            5 = Alum/Vinyl   7 = Frame/Wood        8 = Stucco
-            9 = Brick veneer 10 = EIFS
+            5 = Alum/Vinyl   6 = Metal/Steel       7 = Frame/Wood
+            8 = Stucco       9 = Brick veneer     10 = EIFS
   HEAT    Heating system:
             2 = Electric resistance   3 = Gas furnace   4 = Heat pump
   FUEL    Primary fuel:
@@ -197,6 +197,12 @@ def _wall_factor(extwall) -> tuple[str, float]:
         3:  ("concrete_block",0.97),  # CMU — moderate thermal mass
         4:  ("stone",         0.93),  # stone — excellent thermal mass
         5:  ("vinyl_alum",    1.03),  # thin siding, minimal thermal mass
+        6:  ("steel_frame",   1.06),  # steel studs conduct ~400x wood, so the studs
+                                      # short-circuit the cavity insulation: ASHRAE
+                                      # 90.1 App. A gives a steel-framed wall roughly
+                                      # half the effective R of the same nominal
+                                      # wood-framed assembly. A penalty, not the
+                                      # neutral 1.00 the old frame proxy applied.
         7:  ("wood_frame",    1.00),  # baseline
         8:  ("stucco",        1.00),  # similar to frame
         9:  ("brick_veneer",  0.97),  # cavity + veneer — slightly better

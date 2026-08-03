@@ -102,6 +102,10 @@ _ENV_KG_PER_M2WALL = {
     9:  38.2,   # brick veneer on frame: framed ~8 + brick 0.85×31.8 + windows ~3.15
     8:  21.4,   # stucco (cement plaster) — estimate
     10: 18.0,   # EIFS (synthetic stucco) — estimate
+    6:  24.0,   # steel frame + metal cladding — anchored estimate. Cold-formed
+                # framing is light (a few kg/m2 of wall) but steel's per-kg intensity
+                # is high even at typical recycled content, and metal cladding adds
+                # more than vinyl. Above wood frame, well below brick veneer.
     1:  57.0,   # solid brick (structural, ~2 wythes) — anchored estimate
     3:  28.0,   # block / concrete / ICF — anchored estimate
     4:  54.0,   # stone — anchored estimate

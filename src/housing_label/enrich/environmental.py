@@ -130,6 +130,8 @@ SERVICE_LIFE_BY_WALL = {
     9:  70.0,   # brick veneer
     8:  70.0,   # stucco
     10: 70.0,   # EIFS
+    6:  75.0,   # steel frame — outlasts a wood shell (no rot/termite decay path),
+                # short of solid masonry; corrosion sets the ceiling
     1:  100.0,  # solid brick
     3:  100.0,  # block / concrete (incl. ICF, mapped to this code)
     4:  100.0,  # stone

@@ -76,9 +76,17 @@ _PER_UNIT_VALUE_SOURCES = frozenset({*HOME_VALUE_SOURCE.values(), VALUE_PER_DOOR
 # EXTWALL codes (energy / durability / environmental). ICF maps to block/concrete
 # (3) as the closest masonry-shell proxy; SIP to frame (7). The extra thermal
 # performance of ICF/SIP envelopes is credited separately via ENVELOPE_EUI_FACTOR.
+#
+# Steel carries its OWN code (6) rather than riding frame (7). The pilot's CAMA
+# vocabulary uses 1/3/4/5/7/8/9/10 and leaves 6 free, and steel differs from wood
+# frame in the direction each downstream model cares about: it conducts heat
+# (thermal bridging — an energy PENALTY, where the frame proxy gave it none), it
+# neither rots nor feeds termites (a durability bonus), it outlasts a wood shell,
+# and its embodied carbon per m² of wall is higher. Mapping it to 7 silently
+# scored all four wrong.
 EXTWALL_CODE = {
     "frame": 7, "vinyl": 5, "brick-frame": 9, "brick": 1,
-    "block": 3, "stone": 4, "icf": 3, "sip": 7,
+    "block": 3, "stone": 4, "icf": 3, "sip": 7, "steel": 6,
 }
 
 # BSMT codes (energy foundation factor): 1 = crawl/slab, 2 = partial, 3 = full.
@@ -96,7 +104,7 @@ COND_CODE = {
 # (which the COND field already captures).
 GRADE_BY_CONSTRUCTION = {
     "frame": 38, "vinyl": 35, "brick-frame": 42, "brick": 48,
-    "block": 46, "stone": 52, "icf": 50, "sip": 45,
+    "block": 46, "stone": 52, "icf": 50, "sip": 45, "steel": 44,
 }
 
 # ── High-performance feature adjustments (v1 estimates) ───────────────────────
@@ -448,8 +456,14 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
     # ``owner_occupied`` is unknown here, so it resolves to the ACS-backed default
     # (a multi-unit building is rental); callers can state it explicitly.
     parcel_units = max(cfg_units, int(mf_units or 0))
+    # A parcel on a private well and/or a septic field is not served by the public
+    # water/sewer network, so it is neither charged that cost nor credited the
+    # utility fees it never pays. Default True — most homes are connected, and an
+    # unstated water source must not quietly discount every parcel.
     infra_kwargs = {"units": parcel_units,
-                    "owner_occupied": cfg.get("owner_occupied")}
+                    "owner_occupied": cfg.get("owner_occupied"),
+                    "public_water": cfg.get("water_source") != "well",
+                    "public_sewer": cfg.get("sewer") != "septic"}
     infra = infra_enrich_row(infra_row, **{**(infra_params or {}), **infra_kwargs})
     fr = infra.get("fiscal_ratio")
     infrastructure_score = (
@@ -750,8 +764,25 @@ def simulate_all_dimensions(
     # Water Quality: bundled county drinking-water compliance (EPA SDWIS). Scored
     # whenever a county resolved; a county with no community water system in SDWIS
     # is left unscored.
-    from housing_label.data.water import water_for_county
-    water = water_for_county(location.county_fips) if have_county else None
+    #
+    # A home on a private well is left unscored too, and that is not a data gap we
+    # are conceding — it is the only honest reading. SDWIS regulates COMMUNITY WATER
+    # SYSTEMS; the EPA does not regulate private wells at all, and data/water.py
+    # measures the share of a county's CWS-SERVED population under a health-based
+    # violation. None of that population is this household. Reporting the county
+    # figure here would not be an approximation of their water, it would be a
+    # measurement of somebody else's, and the label showed it at full confidence.
+    # Well water quality is a function of the individual well — its depth, casing,
+    # aquifer and setback from the septic field — and only a lab test of that tap
+    # can score it.
+    # Not looked up at all on a well, rather than looked up and discarded: nothing
+    # downstream reads `water` unless `water_score` is set, so fetching it would only
+    # pay to parse the SDWIS table for an answer this home can't use.
+    on_private_well = cfg.get("water_source") == "well"
+    water = None
+    if have_county and not on_private_well:
+        from housing_label.data.water import water_for_county
+        water = water_for_county(location.county_fips)
     water_score = water["score"] if water else None
 
     scores = {
@@ -839,7 +870,12 @@ def simulate_all_dimensions(
         location_notes["noise"] = f"BTS transportation-noise exposure ({_n_geo})"
     if solar and solar_score is not None:
         location_notes["solar"] = f"PVGIS-NSRDB rooftop yield (county {location.county_fips})"
-    if water and water_score is not None:
+    if on_private_well:
+        location_notes["water"] = (
+            "not scored — private well; EPA SDWIS covers community water systems "
+            "only, so the county figure does not describe this home's water "
+            "(a lab test of the well is the only measure of it)")
+    elif water and water_score is not None:
         location_notes["water"] = f"EPA SDWIS drinking-water compliance (county {location.county_fips})"
 
     return {

@@ -87,6 +87,7 @@ BRM_FLOOR = {
     "icf":         0.15,  # 85% max EAL reduction — PCA racking test data: 5-10× wood frame;
                            # FEMA MAT Joplin/Moore reports; ICC-500 safe-room standard met
     "sip":         0.25,  # engineered composite; below ICF but large improvement over frame
+    "steel":       0.40,  # non-combustible, ductile bolted/screwed connections; masonry-like
 }
 
 # ── Construction type → BRM factor (tornado/seismic) ─────────────────────────
@@ -107,6 +108,14 @@ CONSTRUCTION_FACTOR = {
     "sip":         0.35,  # Structural Insulated Panels — engineered wood composite;
                            # superior racking resistance vs. wood frame, excellent air/
                            # moisture barrier. Below ICF but well above frame.
+    "steel":       0.90,  # Steel frame / steel wall — cold-formed steel studs or a
+                           # red-iron / post-frame shell. Screwed and bolted connections
+                           # develop far more uplift and racking capacity than nailed
+                           # wood, and the members do not split. Placed at reinforced
+                           # CMU rather than lower on purpose: this one option spans a
+                           # wide real spread — HAZUS treats light-gauge steel close to
+                           # wood frame (S3/W1), while an engineered red-iron frame
+                           # behaves far better — so it sits mid-band, not at either end.
 }
 
 # ── Construction type → BRM factor (flood only) ───────────────────────────────
@@ -143,6 +152,9 @@ FIRE_CONSTRUCTION_FACTOR = {
     "stone":       0.80,  # solid masonry; non-combustible structure
     "icf":         0.70,  # concrete core is fire-resistant (high fire rating)
     "sip":         1.05,  # OSB/foam composite; roughly frame-like fire behavior
+    "steel":       0.80,  # non-combustible structure — adds no fuel to a house fire
+                           # (steel loses strength when hot, but residential fire LOSS
+                           # is contents- and finish-driven, which is what this scales)
 }
 BONUS_FIRE_SPRINKLERS = 0.45   # Residential sprinklers. NFPA (McGree, "US Experience with
                                 # Sprinklers", Apr 2024, NFIRS 2017-21): average property loss
@@ -177,6 +189,16 @@ CONDITION_FACTOR = {
     "good":      0.9,  # Well-maintained; minor loss reduction
     "excellent": 0.8,  # Superior maintenance/upgrades; maximum loss reduction
 }
+
+# ── Utility connections ───────────────────────────────────────────────────────
+# Whether the home is on the public water / sewer network or served on site. Not a
+# scoring factor in itself: it decides which public services the Infrastructure
+# model may charge the parcel for, and whether county community-water-system
+# compliance describes this home's tap at all. "public" is the default on both —
+# most US homes are connected, and an unstated source must never quietly discount a
+# parcel's cost to serve.
+WATER_SOURCES = ("public", "well")
+SEWER_TYPES = ("public", "septic")
 
 # ── Detected multi-family building material → resilience factors ───────────────
 # For a building the NSI detects as multi-family, its actual construction material
@@ -908,6 +930,16 @@ def build_parser() -> argparse.ArgumentParser:
                              "as commercial, this raises the estimated property tax.")
     p.add_argument("--lot-acres",  type=float, default=None,
                    help="Lot size (acres). Default: 0.25.")
+    p.add_argument("--water-source", dest="water_source",
+                   choices=list(WATER_SOURCES), default=None,
+                   help="Drinking-water source. 'well' means the home is not on a "
+                        "community water system: it is not charged the public water "
+                        "cost, and Water Quality is left unscored (EPA SDWIS covers "
+                        "community systems only). Default: public.")
+    p.add_argument("--sewer", dest="sewer",
+                   choices=list(SEWER_TYPES), default=None,
+                   help="Wastewater disposal. 'septic' means an on-site field rather "
+                        "than a public sewer connection. Default: public.")
     p.add_argument("--building-material", dest="bldg_material",
                    choices=["wood", "masonry", "concrete", "steel"], default=None,
                    help="Structural shell material for a multi-unit building (drives "
@@ -1050,6 +1082,11 @@ def resolve_config(args: argparse.Namespace) -> dict:
         # data/assessment.rental_unit_count), True = owner-occupied, False = rental.
         # Drives property-tax classification in split-roll states.
         "owner_occupied": None,
+        # Utility connections. "public" = on the municipal network (the default —
+        # most US homes are, and an unstated source must not discount every parcel);
+        # "well" / "septic" = served on site. A private well also leaves Water
+        # Quality unscored: EPA SDWIS covers community water systems only.
+        "water_source": "public", "sewer": "public",
     }
     cfg = dict(PRESETS[args.preset]) if args.preset else {}
 
@@ -1067,6 +1104,8 @@ def resolve_config(args: argparse.Namespace) -> dict:
         "stories":      getattr(args, "stories", None),
         "basement_depth_ft": getattr(args, "basement_depth_ft", None),
         "owner_occupied": getattr(args, "owner_occupied", None),
+        "water_source": getattr(args, "water_source", None),
+        "sewer":        getattr(args, "sewer", None),
     }
     for key, cli_val in CLI_FIELDS.items():
         if cli_val is not None:
@@ -2131,7 +2170,8 @@ def emit_json(cfg: dict, r: dict, label: dict) -> None:
 # Editable construction-profile fields surfaced on the label's "Refine building
 # details" panel, each with provenance (confirmed / estimated / assumed).
 _EDITABLE_FIELDS = ["year_built", "construction", "foundation", "condition",
-                    "sqft", "units", "stories", "lot_acres", "value", "bldg_material"]
+                    "sqft", "units", "stories", "lot_acres", "value", "bldg_material",
+                    "water_source", "sewer"]
 
 
 # Multifamily building efficiency: the fraction of gross floor area that is a
@@ -2249,6 +2289,11 @@ def _building_block(cfg: dict, struct: dict, explicit: set, autofilled: dict,
         "sqft": cfg.get("sqft"), "units": units, "stories": stories,
         "lot_acres": cfg.get("lot_acres"), "value": cfg.get("value"),
         "bldg_material": material,
+        # Utility connections. Reported so the panel keeps showing the visitor's own
+        # choice across a re-score (the form clears any field the payload omits) and
+        # so the default reads honestly as "assumed", not as something we detected.
+        # Nothing infers these today — see the note in build_label_parts.
+        "water_source": cfg.get("water_source"), "sewer": cfg.get("sewer"),
     }
     # A supplied units of 1 is not a real override (1 is the default), so it must
     # not tag the field "confirmed" — especially when NSI detected a multi-unit
@@ -2384,6 +2429,7 @@ def build_label_parts(*, address: str | None = None,
         sqft=fields.get("sqft"), lot_acres=fields.get("lot_acres"),
         bldg_material=fields.get("bldg_material"), stories=fields.get("stories"),
         owner_occupied=fields.get("owner_occupied"),
+        water_source=fields.get("water_source"), sewer=fields.get("sewer"),
     )
     for flag in BONUS_FLAGS:            # resilience upgrades → Namespace booleans
         setattr(ns, flag, flag in (upgrades or []))
