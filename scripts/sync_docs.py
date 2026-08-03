@@ -163,16 +163,18 @@ DIM_META = {
         source="PVGIS v5.2 on NREL NSRDB",
         res='<span class="tag county">county</span>'),
     "water": dict(
-        measures="Community-water-system health-based violation exposure: % of residents "
-                 "on a system with a recent violation (national percentile). "
-                 "Left unscored for a home on a private well &mdash; SDWIS covers "
-                 "community systems only, so the county figure measures a population "
-                 "that household isn't part of. A parcel outside every mapped "
-                 "community service area is treated as a well unless the owner says "
-                 "otherwise",
+        measures="The serving water system's own health-based violation record "
+                 "&mdash; years out of compliance in the last five, ranked nationally. "
+                 "Falls back to county-wide exposure when SDWIS has no active record "
+                 "for the system. Left unscored for a home on a private well "
+                 "&mdash; SDWIS covers community systems only, so the county figure "
+                 "measures a population that household isn't part of. A parcel "
+                 "outside every mapped community service area is treated as a well "
+                 "unless the owner says otherwise",
         source="EPA SDWIS federal reporting; parcel &rarr; system via EPA ORD "
                "public water system service-area boundaries",
-        res='<span class="tag county">county</span>'),
+        res='<span class="tag point">water system</span> '
+            '<span class="tag county">+ county fallback</span>'),
 }
 
 # Per-wall label + notes for the "Wall / construction type" table. Order follows

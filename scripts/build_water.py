@@ -58,6 +58,7 @@ from housing_label.data.states import USPS_TO_STATE_FIPS
 
 _DATA = pathlib.Path(__file__).resolve().parent.parent / "src" / "housing_label" / "data"
 _COUNTY_OUT = _DATA / "water_county.csv"
+_SYSTEM_OUT = _DATA / "water_system.csv"
 
 SDWA_URL = "https://echo.epa.gov/files/echodownloads/SDWA_latest_downloads.zip"
 _HEADERS = {"User-Agent": "housing-nutrition-label/water-build"}
@@ -126,11 +127,27 @@ def _load_counties(z: zipfile.ZipFile, systems: set[str]) -> dict[str, set[str]]
     return out
 
 
-def _load_violating_systems(z: zipfile.ZipFile, systems: set[str]) -> set[str]:
-    """PWSIDs (from ``systems``) with a health-based violation whose non-compliance
-    period began within the trailing ``_RECENT_YEARS`` window (anchored to the newest
-    health-based violation year in the file). Streams the 4 GB violations table."""
-    hb_year: dict[str, int] = {}   # PWSID → newest health-based non-compliance year
+def _load_violation_years(z: zipfile.ZipFile, systems: set[str]) -> dict[str, set[int]]:
+    """{PWSID → set of YEARS in the trailing window with a health-based violation}.
+
+    The window is ``_RECENT_YEARS`` anchored to the newest health-based violation
+    year in the file, so the build is reproducible regardless of when it is run.
+    Streams the 4 GB violations table.
+
+    Distinct YEARS rather than a violation count: a system can log many violation
+    records for one contamination event, so counting records would rank a single
+    bad quarter above a system chronically out of compliance. Years-in-violation
+    answers the question a resident is actually asking — how often is this system
+    failing — and it is bounded (0..``_RECENT_YEARS``), which the per-system score
+    relies on.
+
+    SPARSE, in two different ways, so callers must not index it: a system with no
+    health-based violation on record at all is ABSENT (it never appears in the
+    violations table), and a system whose only violations predate the window maps
+    to an EMPTY SET. Both mean "clean in the window" — use ``.get(pwsid, ())``.
+    The county model's boolean is then just "is that non-empty".
+    """
+    hb_years: dict[str, set[int]] = {}   # PWSID → every health-based year seen
     max_year = 0
     for row in _open_member(z, _VIOL_MEMBER):
         if row.get("IS_HEALTH_BASED_IND") != "Y":
@@ -143,14 +160,13 @@ def _load_violating_systems(z: zipfile.ZipFile, systems: set[str]) -> set[str]:
             continue
         if yr > max_year:
             max_year = yr
-        if yr > hb_year.get(pwsid, 0):
-            hb_year[pwsid] = yr
+        hb_years.setdefault(pwsid, set()).add(yr)
     if not max_year:
-        return set()
+        return {}
     cutoff = max_year - (_RECENT_YEARS - 1)
     print(f"      newest health-based violation year {max_year}; "
           f"recent window {cutoff}–{max_year}")
-    return {p for p, y in hb_year.items() if y >= cutoff}
+    return {p: {y for y in yrs if y >= cutoff} for p, yrs in hb_years.items()}
 
 
 def _open_zip(local: str | None):
@@ -218,6 +234,7 @@ def main() -> int:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--local-zip", help="local SDWA_latest_downloads.zip (skip fetch)")
     ap.add_argument("--county-out", default=str(_COUNTY_OUT))
+    ap.add_argument("--system-out", default=str(_SYSTEM_OUT))
     args = ap.parse_args()
 
     with _open_zip(args.local_zip) as zf, zipfile.ZipFile(zf) as z:
@@ -229,7 +246,10 @@ def main() -> int:
         pws_counties = _load_counties(z, sysset)
         print(f"      {len(pws_counties)} systems mapped to a county")
         print("Scanning violations (streaming ~4 GB) …")
-        violating = _load_violating_systems(z, sysset)
+        viol_years = _load_violation_years(z, sysset)
+        # The county model's unit of exposure is unchanged: a system either had a
+        # recent health-based violation or it did not.
+        violating = {p for p, yrs in viol_years.items() if yrs}
         print(f"      {len(violating)} CWSs with a recent health-based violation")
 
     # Aggregate to counties: total CWS pop and violating-CWS pop.
@@ -290,6 +310,41 @@ def main() -> int:
     print("hurdle exposed-branch anchors (data/water.py):")
     print(f"    _EXPOSED_XS = {axs}")
     print(f"    _EXPOSED_YS = {ays}")
+    # ── Per-system table ──────────────────────────────────────────────────────
+    # The county table answers "how exposed is the CWS-served population around
+    # here"; this one answers "what is the record of the system that actually
+    # serves this address". The parcel→PWSID join (enrich/water_system.py) is what
+    # makes the second question answerable.
+    sys_rows = [(pwsid, pop, len(viol_years.get(pwsid, ())))
+                for pwsid, pop in sorted(systems.items())]
+    if not sys_rows:
+        print("no system rows produced — check the SDWIS input; not writing output",
+              file=sys.stderr)
+        return 1
+    with open(args.system_out, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["pwsid", "pop_served", "years_in_violation"])
+        w.writerows(sys_rows)
+    print(f"Wrote {len(sys_rows)} system rows → {args.system_out}")
+
+    # Population-weighted conditional percentile among the EXPOSED systems, the
+    # same hurdle shape data/water.py uses for counties: 0 years is the clean class
+    # (a real, reachable optimum), and everything above it is ranked only against
+    # other exposed systems. Paste into data/water_system.py when SDWIS is rebuilt.
+    exposed_pop = sum(p for _, p, y in sys_rows if y > 0)
+    clean_pop = sum(p for _, p, y in sys_rows if y == 0)
+    print(f"systems with 0 health-based years: "
+          f"{sum(1 for _, _, y in sys_rows if y == 0)} of {len(sys_rows)} "
+          f"({100 * clean_pop / max(clean_pop + exposed_pop, 1):.0f}% of served pop)")
+    print("per-system score by years_in_violation (data/water_system.py):")
+    print("    _SCORE_BY_YEARS = {")
+    print("        0: 100.0,   # clean class")
+    for yrs in range(1, _RECENT_YEARS + 1):
+        worse = sum(p for _, p, y in sys_rows if y > yrs)
+        score = round(100.0 * worse / exposed_pop, 1) if exposed_pop else 0.0
+        n = sum(1 for _, _, y in sys_rows if y == yrs)
+        print(f"        {yrs}: {score},   # {n} systems")
+    print("    }")
     return 0
 
 
