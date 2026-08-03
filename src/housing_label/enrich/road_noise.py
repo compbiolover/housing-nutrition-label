@@ -115,22 +115,44 @@ def _query(lat: float, lon: float, layer: int) -> list[dict]:
     return []   # unreachable
 
 
-def _nearest_m(lat: float, lon: float, features: list[dict]) -> float | None:
-    """Distance to the closest vertex of any returned line, or None if none.
+def _point_segment_m(lat: float, lon: float,
+                     lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Metres from a point to a line SEGMENT (not to its endpoints).
 
-    Vertex distance rather than true perpendicular distance to the segment. TIGER
-    line vertices are dense enough (tens of metres) that the difference is small
-    against thresholds of 100-300 m, and the error is in the safe direction: a
-    vertex is never closer than the line, so this can only ever OVERstate the
-    distance, which makes a parcel look nearer the threshold, not further from it.
+    Worked in a local planar frame — metres east/north of the query point — which
+    is exact enough at the hundreds-of-metres scale these thresholds live at.
+    """
+    k = _M_PER_DEG_LAT * math.cos(math.radians(lat))
+    px, py = 0.0, 0.0                                    # the query point, at origin
+    ax, ay = (lon1 - lon) * k, (lat1 - lat) * _M_PER_DEG_LAT
+    bx, by = (lon2 - lon) * k, (lat2 - lat) * _M_PER_DEG_LAT
+    dx, dy = bx - ax, by - ay
+    seg2 = dx * dx + dy * dy
+    if seg2 <= 0.0:                                      # degenerate segment
+        return math.hypot(ax - px, ay - py)
+    t = max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / seg2))
+    return math.hypot(ax + t * dx - px, ay + t * dy - py)
+
+
+def _nearest_m(lat: float, lon: float, features: list[dict]) -> float | None:
+    """Distance to the nearest point on any returned line, or None if none.
+
+    True point-to-SEGMENT distance, not point-to-vertex. The difference matters and
+    it matters in the dangerous direction: a vertex is never closer than the line
+    it belongs to, so vertex distance can only ever OVERstate how near a road is —
+    and overstating is exactly what grants the quiet-parcel credit. TIGER puts few
+    vertices on a long straight run, so a house beside the midpoint of a straight
+    interstate could have looked hundreds of metres clear of it.
     """
     best = None
     for f in features:
         for path in (f.get("geometry") or {}).get("paths") or []:
-            for point in path:
-                if len(point) < 2:
-                    continue
-                d = _haversine_ish_m(lat, lon, point[1], point[0])
+            for (lon1, lat1), (lon2, lat2) in zip(path, path[1:]):
+                d = _point_segment_m(lat, lon, lat1, lon1, lat2, lon2)
+                if best is None or d < best:
+                    best = d
+            if len(path) == 1 and len(path[0]) >= 2:     # single-vertex path
+                d = _haversine_ish_m(lat, lon, path[0][1], path[0][0])
                 if best is None or d < best:
                     best = d
     return best

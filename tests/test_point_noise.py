@@ -77,8 +77,10 @@ def test_off_network_returns_none():
 
 
 def test_an_outage_raises_rather_than_reporting_nothing_nearby():
-    """"Nothing nearby" is the condition that grants the credit, so an outage that
-    produced it would quietly upgrade every address in the country at once."""
+    """An outage must not look like an empty neighbourhood.
+
+    Finding nothing nearby is the condition that grants the credit, so a failed
+    lookup that produced it would quietly upgrade every address in the country."""
     with mock.patch.object(rn, "_query", side_effect=rn.RoadDataUnavailable("boom")):
         rn._sources_at.cache_clear()
         try:
@@ -88,11 +90,27 @@ def test_an_outage_raises_rather_than_reporting_nothing_nearby():
     raise AssertionError("expected RoadDataUnavailable")
 
 
-def test_distance_is_taken_from_the_nearest_vertex():
-    feats = [{"geometry": {"paths": [[[-84.4230, 35.5300], [-84.4230, 35.5400]]]}}]
-    d = rn._nearest_m(35.5282, -84.4230, feats)
-    assert 190 < d < 210, d              # ~0.0018 deg of latitude
+def test_distance_is_to_the_segment_not_its_vertices():
+    """A vertex is never closer than the line it belongs to, so vertex distance
+    OVERstates how near a road is — and overstating is what grants the credit.
+    TIGER puts few vertices on a long straight run, so a house beside the midpoint
+    of a straight interstate could have looked hundreds of metres clear of it."""
+    # A north-south line passing ~88 m east of the point, with its two vertices
+    # far to the north and south. Nearest vertex is ~1.1 km; the line is not.
+    feats = [{"geometry": {"paths": [[[-84.4220, 35.5182], [-84.4220, 35.5382]]]}}]
+    d = rn._nearest_m(35.5282, -84.4220 - 0.001, feats)
+    assert 85 < d < 95, d
+    vertex_only = min(
+        rn._haversine_ish_m(35.5282, -84.4230, 35.5182, -84.4220),
+        rn._haversine_ish_m(35.5282, -84.4230, 35.5382, -84.4220))
+    assert vertex_only > 1000, vertex_only    # what the old code would have returned
+
+
+def test_nearest_handles_degenerate_and_empty_geometry():
     assert rn._nearest_m(35.5282, -84.4230, []) is None
+    assert rn._nearest_m(35.5282, -84.4230, [{"geometry": {"paths": []}}]) is None
+    single = [{"geometry": {"paths": [[[-84.4230, 35.5300]]]}}]
+    assert rn._nearest_m(35.5282, -84.4230, single) is not None
 
 
 # ── The refinement ───────────────────────────────────────────────────────────
