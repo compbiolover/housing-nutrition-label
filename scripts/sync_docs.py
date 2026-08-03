@@ -161,9 +161,12 @@ DIM_META = {
         res='<span class="tag county">county</span>'),
     "solar": dict(
         measures="Rooftop specific yield (kWh/kW&middot;yr): production, $ saved &amp; "
-                 "CO&#8322; avoided (national percentile)",
+                 "CO&#8322; avoided (national percentile), queried at the parcel "
+                 "rather than at the county's centroid; falls back to the county "
+                 "figure off-network or outside PVGIS-NSRDB coverage",
         source="PVGIS v5.2 on NREL NSRDB",
-        res='<span class="tag county">county</span>'),
+        res='<span class="tag point">point</span> '
+            '<span class="tag county">+ county fallback</span>'),
     "water": dict(
         measures="The serving water system's own health-based violation record "
                  "&mdash; years out of compliance in the last five, ranked nationally. "

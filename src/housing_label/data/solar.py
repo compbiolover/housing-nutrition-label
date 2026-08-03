@@ -98,6 +98,31 @@ def _table() -> dict[str, dict]:
     return table
 
 
+def reading_for_yield(yield_kwh_kwp: float, irradiation: float | None,
+                      geo_level: str) -> dict:
+    """Score a specific yield, whoever measured it and wherever.
+
+    Shared by the bundled county lookup and the parcel-level PVGIS query
+    (``enrich/solar_point.py``) so the two cannot score the same number
+    differently. ``geo_level`` records which one answered.
+
+    A note on the curve: the breakpoints are quantiles of the national COUNTY
+    yield distribution, so the score reads as "sunnier than N% of US counties".
+    That framing survives a point reading — a yield is a yield, and the map from
+    yield to percentile does not care how the yield was obtained. What changes is
+    that a point CAN sit outside the county range (a high-desert parcel above the
+    sunniest county average, a shaded valley floor below the dimmest) and clamp at
+    100 or 0. That is a true statement about the parcel, not an artifact.
+    """
+    return {
+        "score": round(_interp(yield_kwh_kwp, _YIELD_XS, _YIELD_YS), 1),
+        "yield_kwh_kwp": yield_kwh_kwp,
+        "irradiation": irradiation,
+        "geo_level": geo_level,
+        "label": SOLAR_VINTAGE,
+    }
+
+
 def solar_for_county(county_fips: str | None) -> dict | None:
     """Solar Potential reading + 0-100 score for a 5-digit county FIPS.
 
@@ -111,10 +136,4 @@ def solar_for_county(county_fips: str | None) -> dict | None:
     rec = _table().get(str(county_fips).strip().zfill(5))
     if rec is None:
         return None
-    return {
-        "score": round(_interp(rec["yield_kwh_kwp"], _YIELD_XS, _YIELD_YS), 1),
-        "yield_kwh_kwp": rec["yield_kwh_kwp"],
-        "irradiation": rec["irradiation"],
-        "geo_level": "county",
-        "label": SOLAR_VINTAGE,
-    }
+    return reading_for_yield(rec["yield_kwh_kwp"], rec["irradiation"], "county")
