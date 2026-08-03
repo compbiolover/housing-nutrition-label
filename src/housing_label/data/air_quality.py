@@ -79,6 +79,35 @@ _RADON_SCORE = {1: 25.0, 2: 55.0, 3: 85.0}
 # Dimension weights (radon redistributed across PM2.5/ozone when a zone is absent).
 _W_PM25, _W_OZONE, _W_RADON = 0.45, 0.25, 0.30
 
+# ── Foundation → indoor radon entry ───────────────────────────────────────────
+# The EPA radon zone is a map of the GEOLOGY. What a household actually breathes
+# also depends on the building, because radon enters through the foundation — and
+# the foundation is the one thing about the house this dimension was ignoring while
+# scoring a lung-cancer risk factor.
+#
+# EPA: indoor radon "is usually highest in the basement or ground floor", and the
+# National Residential Radon Survey measured basement concentrations well above
+# first-floor living areas in the same homes. A below-grade room is both more
+# ground-contact area and more stack effect pulling soil gas in; a vented crawlspace
+# is the opposite, diluting soil gas before it reaches the living space.
+#
+# Applied to the RISK (100 - score), not the score, so the modifier is a statement
+# about exposure rather than about a percentile. Deliberately modest: the zone is
+# still the dominant term, because geology is still the dominant driver.
+_RADON_FOUNDATION_FACTOR = {
+    "full-basement":    1.25,   # most below-grade contact + strongest stack effect
+    "partial-basement": 1.12,
+    "slab":             1.00,   # baseline: ground contact, no below-grade room
+    "crawl":            0.85,   # a vented crawl dilutes soil gas below the floor
+}
+
+# EPA: a properly installed sub-slab depressurization system reduces indoor radon
+# by up to 99%, and mitigation is judged successful below 2 pCi/L — which is Zone 3
+# territory by definition. So a mitigated home is floored at the Zone 3 score
+# regardless of its geology, rather than given a multiplier: the point of mitigation
+# is that it decouples the house from the zone.
+_RADON_MITIGATED_FLOOR = 3      # zone whose score becomes the floor
+
 _RADON_LABEL = {
     1: "Zone 1 (high radon potential, ≥4 pCi/L predicted)",
     2: "Zone 2 (moderate radon potential, 2–4 pCi/L)",
@@ -97,6 +126,51 @@ def _interp(x: float, xs: list[float], ys: list[float]) -> float:
             x0, x1, y0, y1 = xs[i - 1], xs[i], ys[i - 1], ys[i]
             return y0 if x1 == x0 else y0 + (y1 - y0) * (x - x0) / (x1 - x0)
     return ys[-1]
+
+
+def radon_adjusted_reading(reading: dict | None, foundation: str | None = None,
+                           mitigated: bool = False) -> dict | None:
+    """Re-score an air-quality reading for the building's own radon exposure.
+
+    The zone says what is in the ground; ``foundation`` says how much of it gets
+    inside, and ``mitigated`` says whether a system is pulling it back out. Returns
+    a NEW reading (the input is not mutated) with ``radon_score`` adjusted and the
+    composite recomputed on the same weights, plus ``radon_adjusted`` describing
+    what was applied. PM2.5 and ozone are untouched — they are outdoor pollutants
+    and the building does not move them.
+
+    A reading with no radon zone (≈0.2% of counties) is returned unchanged: there is
+    no risk figure to modify, and the weights already redistribute without it.
+    """
+    if reading is None or reading.get("radon_score") is None:
+        return reading
+    factor = _RADON_FOUNDATION_FACTOR.get((foundation or "").strip().lower())
+    if factor is None and not mitigated:
+        return reading
+
+    base = float(reading["radon_score"])
+    risk = max(0.0, 100.0 - base) * (factor if factor is not None else 1.0)
+    adjusted = max(0.0, min(100.0, 100.0 - risk))
+    if mitigated:
+        adjusted = max(adjusted, _RADON_SCORE[_RADON_MITIGATED_FLOOR])
+
+    parts = []
+    for weight, key in ((_W_PM25, "pm25_score"), (_W_OZONE, "ozone_score")):
+        if reading.get(key) is not None:
+            parts.append((weight, float(reading[key])))
+    parts.append((_W_RADON, adjusted))
+    wsum = sum(w for w, _ in parts)
+
+    out = dict(reading)
+    out["radon_score"] = round(adjusted, 1)
+    out["radon_adjusted"] = {
+        "from": round(base, 1),
+        "foundation": (foundation or "").strip().lower() or None,
+        "foundation_factor": factor,
+        "mitigated": bool(mitigated),
+    }
+    out["score"] = round(sum(w * s for w, s in parts) / wsum, 1)
+    return out
 
 
 def _num(v):
