@@ -87,7 +87,6 @@ def municipal_tax_rate(county_fips: str | None) -> tuple[float | None, str | Non
     fips = normalize_fips(county_fips)
     if not fips or fips == SHELBY_COUNTY_FIPS:
         return None, None
-    from housing_label.data.county_lot_density import county_lot_density_for_county
     from housing_label.data.govfinance import govfinance_for_county
     from housing_label.data.propertytax import property_tax_for_county
 
