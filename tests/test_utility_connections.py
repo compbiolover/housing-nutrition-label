@@ -52,6 +52,31 @@ def _dim(lbl, key):
     return next(d for d in lbl["dimensions"] if d["key"] == key)
 
 
+def test_year_built_is_labelled_as_a_tract_median_not_a_measurement():
+    """NSI's med_yr_blt is, in its own documentation, "the median year built of
+    structures within the Census tract" — a property of the tract, never of this
+    building. It is kept as the best available prior, but it must render as a
+    stand-in ("assumed"), not as something derived about this home ("estimated")."""
+    loc = _loc()
+    loc.year_built = 1976        # as NSI supplies it
+    _cfg, _r, lbl = build_label_parts(location=loc, allow_network=False, sqft=1515,
+                                      lot_acres=10, value=237_300)
+    yb = lbl["building"]["year_built"]
+    assert yb["value"] == 1976
+    assert yb["status"] == "assumed", yb
+    assert "census-tract median" in yb["source"].lower()
+    assert "not this building" in yb["source"].lower()
+
+
+def test_an_entered_year_built_is_still_confirmed():
+    loc = _loc()
+    loc.year_built = 1976
+    _cfg, _r, lbl = build_label_parts(location=loc, allow_network=False,
+                                      year_built=2025, value=237_300)
+    yb = lbl["building"]["year_built"]
+    assert yb["value"] == 2025 and yb["status"] == "confirmed"
+
+
 def test_vocabularies():
     assert WATER_SOURCES == ("public", "well")
     assert SEWER_TYPES == ("public", "septic")

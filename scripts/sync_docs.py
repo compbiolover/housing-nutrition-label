@@ -167,8 +167,11 @@ DIM_META = {
                  "on a system with a recent violation (national percentile). "
                  "Left unscored for a home on a private well &mdash; SDWIS covers "
                  "community systems only, so the county figure measures a population "
-                 "that household isn't part of",
-        source="EPA SDWIS federal reporting",
+                 "that household isn't part of. A parcel outside every mapped "
+                 "community service area is treated as a well unless the owner says "
+                 "otherwise",
+        source="EPA SDWIS federal reporting; parcel &rarr; system via EPA ORD "
+               "public water system service-area boundaries",
         res='<span class="tag county">county</span>'),
 }
 

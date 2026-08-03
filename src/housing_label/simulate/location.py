@@ -88,6 +88,11 @@ class Location:
     # is NOT the same as False and must not be read as one.
     incorporated: bool | None = None
     place_geoid: str | None = None        # 7-digit Census PLACE GEOID when incorporated
+    # Community water system serving this point (EPA ORD service-area boundaries):
+    # {status: served|outside, pwsid, name, population_served, provenance}. None
+    # when the lookup was skipped or the service was unreachable — which is NOT
+    # "outside", and must not be read as evidence of a private well.
+    water_system: dict | None = None
     notes: dict = field(default_factory=dict)
 
     @property
@@ -327,6 +332,25 @@ def resolve_location(
             notes["structure"] = "NSI temporarily unavailable; building details are defaults"
         else:
             notes["structure"] = "building type unknown (no NSI match)"
+        # Which public water system serves this point, if any (EPA ORD service-area
+        # boundaries). This is the parcel->utility join the Water Quality dimension
+        # was missing: without it, county community-water-system compliance was
+        # broadcast onto homes that are on a private well and no system at all.
+        # Best effort — an unreachable service leaves water_system None (unknown),
+        # deliberately distinct from a mapped "outside".
+        from housing_label.enrich.water_system import (
+            water_system_for_point, ServiceAreaUnavailable)
+        try:
+            loc.water_system = water_system_for_point(loc.lat, loc.lon,
+                                                      allow_network=allow_network)
+        except ServiceAreaUnavailable:
+            notes["water_system"] = ("EPA service-area layer unavailable; water "
+                                     "source not detected")
+        else:
+            if loc.water_system and loc.water_system.get("status") == "outside":
+                notes["water_system"] = ("no mapped community water system at this "
+                                         "point (EPA service areas)")
+
         # Real footprint geometry (area + perimeter) for the embodied-carbon model,
         # independent of NSI — best effort, None when the point isn't a mapped building.
         from housing_label.enrich.footprint import footprint_for_point
