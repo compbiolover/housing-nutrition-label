@@ -121,7 +121,11 @@ def test_a_rural_county_costs_less_to_serve_than_before_the_correction():
 def test_omitting_the_density_reproduces_the_old_model_exactly():
     """The parameter is optional and its absence must be a true no-op, so a caller
     that never learned about it (the batch path, a library user) is unaffected."""
-    assert _cost(None) == _cost(SHELBY_LOT_DU_ACRE * 0 or None)
+    baseline = _cost(None)
+    # 0 and negative are unusable densities, not small ones — they must take the
+    # same no-op path as None rather than being fed to the curve.
+    for unusable in (0, 0.0, -1.0, -0.0001):
+        assert _cost(unusable) == baseline, unusable
     row = pd.Series({"CALC_ACRE": 0.25, "latitude": None, "longitude": None,
                      "RTOTAPR": 250_000.0})
     a = enrich_row(row, assess_ratio=1.0, tax_rate=0.008, in_urban_area=True)

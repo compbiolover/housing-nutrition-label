@@ -212,12 +212,19 @@ ENERGY_YS = [100.0, 80.0, 60.0, 40.0, 20.0, 0.0]
 # that county's own spending was observed at (see SHELBY_LOT_DU_ACRE in
 # enrich/infrastructure.py).
 #
-# The correction lowers modeled cost for counties sparser than the Shelby pilot,
-# which is most of them, so the whole distribution shifts up: p5 0.321 -> 0.296,
-# p50 0.671 -> 0.689, p95 1.622 -> 1.738. Percentile RANK is what the score tracks,
-# so a typical home barely moves; what changes is that a parcel's rank reflects its
-# own density relative to its county rather than an artifact of how rural the
-# county is.
+# The two changes move the distribution in OPPOSITE directions, and the result is a
+# widening rather than a shift:
+#
+#   * the normalization lowers modeled cost for counties sparser than the Shelby
+#     pilot — most of them — lifting the middle and the top:
+#     p50 0.671 -> 0.689, p95 1.622 -> 1.738.
+#   * the utility mix introduces well/septic households, whose ratios are genuinely
+#     low, deepening the bottom: p5 0.321 -> 0.296, p1 0.212 -> 0.171.
+#
+# Percentile RANK is what the score tracks, so a typical home barely moves. What
+# changes is that a parcel's rank reflects its own density relative to its county
+# rather than how rural the county is, and that an off-network home is ranked
+# against a population that contains off-network homes.
 INFRA_XS = [0.296, 0.463, 0.619, 0.77, 1.044, 1.738]
 INFRA_YS = [0.0, 20.0, 40.0, 60.0, 80.0, 100.0]
 
