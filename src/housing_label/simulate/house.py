@@ -2327,6 +2327,11 @@ _NON_RES_OCC_CLS = frozenset({
     "COMMERCIAL", "INDUSTRIAL", "EDUCATION", "GOVERNMENT", "ASSEMBLY", "AGRICULTURE",
 })
 
+# The one OCC_CLS that is a positive *residential* verdict on the addressed
+# footprint — it vetoes an NSI non-residential call (see the screen in
+# build_label_parts). "Unclassified" / "Utility and Misc" / None are not verdicts.
+_RES_OCC_CLS = "RESIDENTIAL"
+
 
 def build_label_parts(*, address: str | None = None,
                       lat: float | None = None, lon: float | None = None,
@@ -2344,7 +2349,9 @@ def build_label_parts(*, address: str | None = None,
 
     Raises ``NonResidentialProperty`` when a real address (no ``preset``) resolves
     to a building NSI positively classifies as non-residential — unless
-    ``allow_non_residential`` is set. A ``preset`` is a hypothetical "what if you
+    ``allow_non_residential`` is set, or the USA Structures footprint at the point
+    positively reads "Residential" (the two datasets disagree about one building,
+    and NSI's occupancy is modeled). A ``preset`` is a hypothetical "what if you
     built this here" scenario, so it always bypasses the screen; so does an
     entered unit count > 1 (the caller is asserting it's a residence).
     """
@@ -2419,20 +2426,36 @@ def build_label_parts(*, address: str | None = None,
     # building (NSI unavailable / no match) leaves the type None and is never
     # blocked, so a transient outage can't refuse a real home.
     #
-    # Second, independent signal — but only a TIE-BREAKER for an unknown structure:
-    # the USA Structures footprint occupancy class at the point. When NSI has no
-    # match (structure_type None), a positively non-residential OCC_CLS
-    # (Commercial/Industrial/…) on the addressed footprint screens the address out.
-    # It deliberately does NOT override a positive NSI residential detection — a
-    # mixed-use "Commercial" footprint sitting over real apartments (NSI-detected
-    # multifamily) must not refuse the residents. (The caller's `nonresidential`
-    # flag from the geocoder, handled at the API layer, is what catches a stadium
+    # Second, independent signal: the USA Structures (FEMA/ORNL) occupancy class of
+    # the footprint at the point. It cuts both ways, and in neither direction does it
+    # override a *positive residential* reading from the other source:
+    #
+    #   * As a TIE-BREAKER for an unknown structure — when NSI has no match
+    #     (structure_type None), a positively non-residential OCC_CLS
+    #     (Commercial/Industrial/…) screens the address out. It deliberately does NOT
+    #     override a positive NSI residential detection: a mixed-use "Commercial"
+    #     footprint sitting over real apartments (NSI-detected multifamily) must not
+    #     refuse the residents.
+    #   * As a VETO over an NSI non-residential call — an OCC_CLS of "Residential" on
+    #     the footprint the address actually lands on means the two national datasets
+    #     disagree about one building, and refusing is the costlier error. NSI's
+    #     occupancy is modeled, not observed, wherever `attr_source` isn't "P", and it
+    #     systematically types rural farmhouses as AGR1 (verified: 1614
+    #     Jenkinsville-Jamestown Rd, Dyersburg TN — a 3,483 sqft home whose NSI record
+    #     is a modeled AGR1, while the USA Structures footprint containing the rooftop
+    #     geocode 2.9 m away is "Residential"). The veto needs that positive
+    #     "Residential"; a genuine barn or grain store classes as "Agriculture" and is
+    #     still refused, as is a footprint that is unmapped or "Unclassified".
+    #
+    # (The caller's `nonresidential` flag from the geocoder, handled at the API layer,
+    # is a third signal and is unaffected by this veto — it is what catches a stadium
     # NSI misreads as the residential towers around it.)
     occ_cls = (getattr(location, "occ_cls", None) or "").strip().upper()
     occ_nonres = (occ_cls in _NON_RES_OCC_CLS
                   and struct["structure_type"] in (None, "non_residential"))
-    if (preset is None and not allow_non_residential
-            and (struct["structure_type"] == "non_residential" or occ_nonres)):
+    nsi_nonres = (struct["structure_type"] == "non_residential"
+                  and occ_cls != _RES_OCC_CLS)
+    if preset is None and not allow_non_residential and (nsi_nonres or occ_nonres):
         raise NonResidentialProperty(
             _NON_RESIDENTIAL_MESSAGE,
             structure_type=("non_residential" if occ_nonres else struct["structure_type"]))
