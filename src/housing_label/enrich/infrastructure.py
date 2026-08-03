@@ -235,49 +235,6 @@ WATER_SEWER_COST_BY_DENSITY = [
 WATER_LEG_SHARE = 0.5     # water supply / distribution
 SEWER_LEG_SHARE = 0.5     # sewerage collection / treatment
 
-# ── Density-shape vs. spending-level normalization ────────────────────────────
-# The cost of a parcel is built from two layers that were, until this constant
-# existed, multiplied together raw:
-#
-#     cost = shape(parcel_density) x county_multiplier
-#
-# ``shape`` is the Halifax/Memphis density curve; ``county_multiplier`` is the
-# county's per-capita spending on that function relative to Shelby's (Census of
-# Governments). Multiplying them DOUBLE-COUNTS ruralness. A rural county's
-# per-capita spending is already high partly *because* its households are spread
-# out — that is most of what the multiplier is measuring — and the rural end of
-# the density curve then applies the same penalty a second time. Measured effect:
-# the model asserted a rural Monroe County, TN household costs the public
-# $9,137/yr in non-school services, which implies ~$178M/yr of local spending for
-# a county of 47,694 people.
-#
-# So the shape is now expressed RELATIVE to the density the county's own spending
-# was observed at:
-#
-#     cost = shape(parcel_density) x county_multiplier x shape(D_SHELBY)/shape(d_county)
-#
-# A parcel at its county's typical density costs exactly what that county's
-# multiplier says; only its DEVIATION from typical moves it along the curve. Both
-# densities go through the same curve, so what enters the model is a relative
-# position on a shared axis, not an absolute lot size (they are different
-# quantities — see scripts/build_county_density.py).
-#
-# Shelby is the pilot: its multiplier is 1.0 by construction and its own gross
-# density divides out to exactly 1.0 here, so the Memphis calibration is untouched.
-# The value below is Shelby's gross density from the bundled crosswalk. It lands at
-# 0.753 DU/acre — essentially exactly the 0.7 anchor where Halifax places
-# "rural/estate" — which is a coincidence worth noting rather than relying on: it
-# means the pilot county sits on the curve at the density the pilot calibration
-# assumed, without that having been arranged.
-SHELBY_GROSS_DU_ACRE = 0.752936
-
-# How far the correction is allowed to move a parcel's cost, in either direction.
-# Gross county density spans four orders of magnitude (Manhattan ~54 DU/acre,
-# Roosevelt County MT ~0.002), and an unbounded ratio would let a single coarse
-# county-level number swamp every other term. Clamped, it stays a correction.
-DENSITY_NORM_MIN = 0.35
-DENSITY_NORM_MAX = 2.0
-
 # ── Fire/EMS base cost ($/household/yr) ───────────────────────────────────────
 # Source: Memphis FY2026 budget; Fire/EMS = ~$119M total, ~253,000 HH → $470/HH.
 # Rounded up to $800 to include capital (apparatus, stations) and mutual-aid costs

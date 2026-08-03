@@ -1130,6 +1130,20 @@ def resolve_config(args: argparse.Namespace) -> dict:
         elif key not in cfg:
             cfg[key] = GLOBAL_DEFAULTS[key]
 
+    # Validate the closed vocabularies here rather than only at the CLI/API edges.
+    # Every one of these is consumed by an equality test downstream
+    # (``water_source == "well"``, ``LOT_CONTEXT_URBAN.get(lot_context)``), so a
+    # typo from a library caller — ``build_label_parts(water_source="Well")`` —
+    # would not raise. It would silently mean "public", scoring a well household's
+    # tap water from a community system it isn't on. Failing loudly here makes the
+    # library path behave like the CLI and API paths, which already reject these.
+    for key, allowed in (("water_source", WATER_SOURCES), ("sewer", SEWER_TYPES),
+                         ("lot_context", LOT_CONTEXTS)):
+        val = cfg.get(key)
+        if val is not None and val not in allowed:
+            raise ValueError(
+                f"invalid {key}={val!r}; choose one of: {', '.join(sorted(allowed))}")
+
     # Flood zone: CLI > preset. If absent it is auto-derived from the location
     # later (main), so it's no longer required up front.
     if args.flood_zone is not None:

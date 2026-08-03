@@ -79,6 +79,29 @@ def test_acreage_and_context_are_independent_inputs():
     assert _cost(False, "urban", lot_acres=2.0) != _cost(False, "rural", lot_acres=2.0)
 
 
+def test_invalid_vocabulary_values_raise():
+    """These vocabularies are consumed by equality tests downstream, so a typo from a
+    library caller would not raise — it would silently mean the default, scoring a
+    well household's tap water from a community system it isn't on. resolve_config
+    must reject them the way the CLI and API already do."""
+    for kw in ({"lot_context": "farmland"}, {"water_source": "Well"},
+               {"sewer": "lagoon"}):
+        try:
+            build_label_parts(location=_loc(False), allow_network=False, **kw)
+        except ValueError as exc:
+            assert "choose one of" in str(exc), exc
+            continue
+        raise AssertionError(f"no ValueError for {kw}")
+
+
+def test_valid_vocabulary_values_are_accepted():
+    for kw in ({"lot_context": "rural"}, {"water_source": "well"},
+               {"sewer": "septic"}, {}):
+        _cfg, _r, lbl = build_label_parts(location=_loc(False), allow_network=False,
+                                          value=250_000, **kw)
+        assert lbl["composite_score"] is not None, kw
+
+
 # ── Reference-distribution roster ─────────────────────────────────────────────
 def test_archetype_shares_still_sum_to_one():
     from calibrate_infra_breakpoints import DENSITY_ARCHETYPES
