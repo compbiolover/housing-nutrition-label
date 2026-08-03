@@ -201,22 +201,31 @@ ENERGY_YS = [100.0, 80.0, 60.0, 40.0, 20.0, 0.0]
 # bottom barely did (p5 0.325 → 0.326). Texas homes score better; everyone else moves only
 # by being ranked against them.
 #
-# Re-anchored again when the reference distribution gained the rural housing it
-# never contained, and the cost curves gained a rural end for it to sit on.
+# Re-anchored again when the cost model stopped double-counting ruralness.
 #
-# The roster's sparsest archetype was a two-acre lot, so every large-lot home in the
-# country was percentile-ranked against a population whose biggest lot was two
-# acres — while 4.6% of US housing sits on five acres or more (Census, "Imputing Lot
-# Size with Property Tax Data", exhibit 4.1). Separately, the cost curves clamped
-# flat below 0.7 DU/acre, so those homes all computed an identical cost anyway.
-# Fixing only one of the two would have been inert: the archetypes need a curve that
-# distinguishes them, and the curve needs archetypes that reach it.
+# ``enrich_row`` multiplied the Halifax density shape straight into the county's
+# Census-of-Governments per-capita spending multiplier. That charges a rural county
+# twice for the same sparseness — its measured per-capita spending is already
+# elevated because its households are spread out — and it produced figures like
+# $9,137/yr to serve one rural household, implying ~$178M/yr of local spending for
+# a county of 47,694 people. The shape is now expressed relative to the density
+# that county's own spending was observed at (see SHELBY_LOT_DU_ACRE in
+# enrich/infrastructure.py).
 #
-# The movement is small and it is meant to be — this adds resolution at the bottom
-# of the distribution rather than shifting it. p5 0.326 -> 0.321, p50 0.675 -> 0.671,
-# p95 1.623 -> 1.622. What changes is that a 40-acre parcel is no longer scored as
-# though it were on 1.4 acres.
-INFRA_XS = [0.321, 0.468, 0.603, 0.744, 0.986, 1.622]
+# The two changes move the distribution in OPPOSITE directions, and the result is a
+# widening rather than a shift:
+#
+#   * the normalization lowers modeled cost for counties sparser than the Shelby
+#     pilot — most of them — lifting the middle and the top:
+#     p50 0.671 -> 0.689, p95 1.622 -> 1.738.
+#   * the utility mix introduces well/septic households, whose ratios are genuinely
+#     low, deepening the bottom: p5 0.321 -> 0.296, p1 0.212 -> 0.171.
+#
+# Percentile RANK is what the score tracks, so a typical home barely moves. What
+# changes is that a parcel's rank reflects its own density relative to its county
+# rather than how rural the county is, and that an off-network home is ranked
+# against a population that contains off-network homes.
+INFRA_XS = [0.296, 0.463, 0.619, 0.77, 1.044, 1.738]
 INFRA_YS = [0.0, 20.0, 40.0, 60.0, 80.0, 100.0]
 
 # Which jurisdictions carried an active property-tax classification correction when the

@@ -235,6 +235,49 @@ WATER_SEWER_COST_BY_DENSITY = [
 WATER_LEG_SHARE = 0.5     # water supply / distribution
 SEWER_LEG_SHARE = 0.5     # sewerage collection / treatment
 
+# ── Density shape vs. spending level ──────────────────────────────────────────
+# A parcel's cost is built from two layers that used to be multiplied together raw:
+#
+#     cost = shape(parcel_lot_density) x county_multiplier
+#
+# ``shape`` is the Halifax/Memphis density curve; ``county_multiplier`` is the
+# county's per-capita spending on that function relative to Shelby's (Census of
+# Governments). Multiplying them DOUBLE-COUNTS ruralness: a rural county's
+# per-capita spending is high partly *because* its households are spread out —
+# that is much of what the multiplier measures — and the rural end of the curve
+# then charges for the same sparseness again. It asserted a rural Monroe County,
+# TN household costs the public $9,137/yr in non-school services, implying
+# ~$178M/yr of local spending for a county of 47,694 people.
+#
+# So the shape is expressed RELATIVE to the density that county's own spending was
+# observed at:
+#
+#     cost = shape(parcel) x county_multiplier x shape(D_SHELBY) / shape(d_county)
+#
+# A parcel at its county's typical density then costs exactly what that county's
+# multiplier says, and only its DEVIATION from typical moves it along the curve.
+# Shelby is the pilot — multiplier 1.0 by construction, and its own density divides
+# out to 1.0 here — so the Memphis calibration is untouched.
+#
+# Both densities are LOT densities (housing units per acre of the land class they
+# occupy, data/county_lot_density.py). That correspondence is the whole point, and
+# it is what an earlier attempt got wrong: gross county density — households over
+# every acre of dry land — is dominated by how much forest a county contains, so it
+# is not the same quantity as a parcel's lot size and cannot share this curve.
+#
+# The corroboration that this axis is right: Shelby measures 1.41 DU/acre, and the
+# Memphis calibration notes at the top of this file independently put the city at
+# "roughly 1.0-1.5 DU/acre at the city average". Derived separately, they agree.
+SHELBY_LOT_DU_ACRE = 1.411511
+
+# Bounds on the correction. County lot density spans Manhattan (63 DU/acre) to
+# frontier counties (0.003), and the curve itself clamps at both ends, so the raw
+# ratio is already bounded — but not tightly enough to stop one coarse county-level
+# number from dominating every other term. Clamped, it stays a correction rather
+# than becoming the model.
+DENSITY_NORM_MIN = 0.4
+DENSITY_NORM_MAX = 2.5
+
 # ── Fire/EMS base cost ($/household/yr) ───────────────────────────────────────
 # Source: Memphis FY2026 budget; Fire/EMS = ~$119M total, ~253,000 HH → $470/HH.
 # Rounded up to $800 to include capital (apparatus, stations) and mutual-aid costs
@@ -384,6 +427,26 @@ def police_cost(base: float, density: float) -> float:
     return base * density_multiplier(density, POLICE_DENSITY_MULTIPLIERS)
 
 
+def density_normalizer(county_du_acre: float | None) -> float:
+    """``shape(D_SHELBY) / shape(county_du_acre)``, clamped.
+
+    Returns 1.0 for an unknown county — no correction, the pre-existing behaviour —
+    so a missing crosswalk row degrades to the old model rather than a wrong one.
+
+    The ROAD curve is the reference shape for every component. Using each
+    component's own curve would make the correction depend on which service is
+    being priced, but what is being corrected — how spread out this county's
+    households are — is one property of the county, not six.
+    """
+    if county_du_acre is None or county_du_acre <= 0:
+        return 1.0
+    county_shape = interp_cost(county_du_acre, ROAD_COST_BY_DENSITY)
+    if county_shape <= 0:
+        return 1.0
+    ratio = interp_cost(SHELBY_LOT_DU_ACRE, ROAD_COST_BY_DENSITY) / county_shape
+    return min(max(ratio, DENSITY_NORM_MIN), DENSITY_NORM_MAX)
+
+
 
 def fiscal_rating(ratio: float) -> str:
     """Map fiscal_ratio to human-readable burden rating."""
@@ -415,6 +478,7 @@ def enrich_row(row: pd.Series, *,
                cost_multipliers: dict | None = None,
                fee_recovery: dict | None = None,
                units: int = 1,
+               county_du_acre: float | None = None,
                incorporated: bool = True,
                public_water: bool = True,
                public_sewer: bool = True,
@@ -443,6 +507,12 @@ def enrich_row(row: pd.Series, *,
     into modeled fee revenue, which joins property tax in the fiscal-ratio numerator
     so both sides of the ratio cover the same services. Defaults to the Shelby
     pilot's own recovery rates.
+
+    ``county_du_acre`` is the county's typical LOT density (data/county_lot_density),
+    used to express the density shape relative to the density the county's spending
+    multiplier was measured at, so ruralness is not counted twice — see
+    ``density_normalizer`` and the ``SHELBY_LOT_DU_ACRE`` block comment. Left None
+    the correction is 1.0 and the model behaves exactly as it did before.
 
     ``incorporated`` says whether the parcel sits inside an incorporated
     municipality (Census TIGER PLACE; see ``simulate/location.py``). Outside one,
@@ -515,24 +585,27 @@ def enrich_row(row: pd.Series, *,
 
     # ── Cost components ────────────────────────────────────────────────────────
     # Each density/urban-shape cost is scaled by the county's local-spending
-    # multiplier (default 1.0 = Shelby pilot calibration).
-    cost_roads       = interp_cost(lot_density, ROAD_COST_BY_DENSITY) * mult.get("roads", 1.0)
+    # multiplier (default 1.0 = Shelby pilot calibration), then by the density
+    # normalizer so that multiplier is not applied on top of a shape already
+    # charging for the same ruralness.
+    dnorm = density_normalizer(county_du_acre)
+    cost_roads       = interp_cost(lot_density, ROAD_COST_BY_DENSITY) * mult.get("roads", 1.0) * dnorm
     # Only the legs the parcel is actually connected to are a public cost to serve.
     public_share = ((WATER_LEG_SHARE if public_water else 0.0)
                     + (SEWER_LEG_SHARE if public_sewer else 0.0))
     cost_water_sewer = (interp_cost(lot_density, WATER_SEWER_COST_BY_DENSITY)
-                        * mult.get("water_sewer", 1.0) * public_share)
+                        * mult.get("water_sewer", 1.0) * public_share * dnorm)
     cost_fire        = (FIRE_BASE_COST * fire_mult
                         * density_multiplier(lot_density, FIRE_DENSITY_MULTIPLIERS)
-                        * mult.get("fire", 1.0))
-    cost_police      = police_cost(POLICE_BASE_COST, lot_density) * mult.get("police", 1.0)
+                        * mult.get("fire", 1.0) * dnorm)
+    cost_police      = police_cost(POLICE_BASE_COST, lot_density) * mult.get("police", 1.0) * dnorm
     # Curbside collection is a municipal service; outside a city there is none to
     # allocate. Zeroing the cost also zeroes its fee revenue below (est_fees is
     # computed from the components), which is the point — an unincorporated
     # household pays no city trash fee either.
     cost_sanitation  = (float(SANITATION_COST)
                         * density_multiplier(lot_density, SANITATION_DENSITY_MULTIPLIERS)
-                        * mult.get("sanitation", 1.0)) if incorporated else 0.0
+                        * mult.get("sanitation", 1.0) * dnorm) if incorporated else 0.0
     cost_parks       = float(PARKS_OTHER_COST) * mult.get("parks", 1.0)
 
     components = {

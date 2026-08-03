@@ -3,7 +3,7 @@
     "assess_ratio_applied": 0.25,
     "classification_multiplier_applied": 1.0,
     "composite_national_grade": "C",
-    "composite_score": 56.3,
+    "composite_score": 56.2,
     "cost": {
       "annualEnergyCost": 1948,
       "expectedAnnualLoss": 149
@@ -32,7 +32,7 @@
       {
         "key": "infrastructure",
         "national_grade": "D",
-        "score": 28.4
+        "score": 28.0
       },
       {
         "key": "health",
@@ -84,7 +84,7 @@
     "assess_ratio_applied": 0.25,
     "classification_multiplier_applied": 1.0,
     "composite_national_grade": "C",
-    "composite_score": 57.1,
+    "composite_score": 56.9,
     "cost": {
       "annualEnergyCost": 1948,
       "expectedAnnualLoss": 149
@@ -113,7 +113,7 @@
       {
         "key": "infrastructure",
         "national_grade": "D",
-        "score": 32.2
+        "score": 31.4
       },
       {
         "key": "health",
@@ -165,7 +165,7 @@
     "assess_ratio_applied": 0.25,
     "classification_multiplier_applied": 1.0,
     "composite_national_grade": "B",
-    "composite_score": 79.2,
+    "composite_score": 78.5,
     "cost": {
       "annualEnergyCost": 1558,
       "expectedAnnualLoss": 195
@@ -194,7 +194,7 @@
       {
         "key": "infrastructure",
         "national_grade": "B",
-        "score": 70.2
+        "score": 67.1
       },
       {
         "key": "health",
@@ -246,7 +246,7 @@
     "assess_ratio_applied": 0.25,
     "classification_multiplier_applied": 1.0,
     "composite_national_grade": "A",
-    "composite_score": 89.3,
+    "composite_score": 88.8,
     "cost": {
       "annualEnergyCost": 765,
       "expectedAnnualLoss": 152
@@ -275,7 +275,7 @@
       {
         "key": "infrastructure",
         "national_grade": "A",
-        "score": 82.6
+        "score": 80.3
       },
       {
         "key": "health",
@@ -327,7 +327,7 @@
     "assess_ratio_applied": 0.25,
     "classification_multiplier_applied": 1.0,
     "composite_national_grade": "A",
-    "composite_score": 89.7,
+    "composite_score": 89.2,
     "cost": {
       "annualEnergyCost": 765,
       "expectedAnnualLoss": 152
@@ -356,7 +356,7 @@
       {
         "key": "infrastructure",
         "national_grade": "A",
-        "score": 84.6
+        "score": 82.2
       },
       {
         "key": "health",
@@ -408,7 +408,7 @@
     "assess_ratio_applied": 0.4,
     "classification_multiplier_applied": 1.0,
     "composite_national_grade": "A",
-    "composite_score": 82.0,
+    "composite_score": 81.5,
     "cost": {
       "annualEnergyCost": 757,
       "expectedAnnualLoss": 84
@@ -437,7 +437,7 @@
       {
         "key": "infrastructure",
         "national_grade": "A",
-        "score": 83.8
+        "score": 81.5
       },
       {
         "key": "health",
@@ -489,7 +489,7 @@
     "assess_ratio_applied": 0.25,
     "classification_multiplier_applied": 1.0,
     "composite_national_grade": "D",
-    "composite_score": 26.2,
+    "composite_score": 26.5,
     "cost": {
       "annualEnergyCost": 3776,
       "expectedAnnualLoss": 900
@@ -518,7 +518,7 @@
       {
         "key": "infrastructure",
         "national_grade": "F",
-        "score": 13.6
+        "score": 15.1
       },
       {
         "key": "health",
