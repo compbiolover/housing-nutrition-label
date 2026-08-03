@@ -1096,11 +1096,16 @@ def resolve_config(args: argparse.Namespace) -> dict:
         # data/assessment.rental_unit_count), True = owner-occupied, False = rental.
         # Drives property-tax classification in split-roll states.
         "owner_occupied": None,
-        # Utility connections. "public" = on the municipal network (the default —
-        # most US homes are, and an unstated source must not discount every parcel);
-        # "well" / "septic" = served on site. A private well also leaves Water
-        # Quality unscored: EPA SDWIS covers community water systems only.
-        "water_source": "public", "sewer": "public",
+        # Utility connections. "public" = on the municipal network, "well" /
+        # "septic" = served on site. A private well also leaves Water Quality
+        # unscored: EPA SDWIS covers community water systems only.
+        #
+        # water_source defaults to None = "detect it", now that the EPA service-area
+        # boundaries can answer it (see enrich/water_system.py); an explicit value
+        # still wins, and a point with no detection available resolves to public, so
+        # an unstated source never discounts a parcel. sewer stays "public": nothing
+        # detects it yet, and assuming septic would be a guess.
+        "water_source": None, "sewer": "public",
         # Lot context: None = use the Census urban-area detection for the point.
         "lot_context": None,
     }
@@ -2260,8 +2265,9 @@ def _autofill_construction_from_nsi(cfg: dict, explicit: set, location,
     Location when the user left them unset. Returns ``{field: (source, confidence)}``
     for the fields that were auto-filled, so the label can tag them as estimates.
 
-    year_built is a census-area MEDIAN and construction is a coarse 5-class guess,
-    so both are always low-confidence estimates; sqft/foundation ride NSI's
+    year_built is a CENSUS-TRACT MEDIAN — a fact about the tract, not the building —
+    so it is tagged ``assumed`` rather than ``estimated``; construction is a coarse
+    5-class guess, so it is low confidence too. sqft/foundation ride NSI's
     per-structure provenance (parcel-observed → higher confidence than modeled).
     For a detected multi-unit building the sqft is stored per dwelling unit, split by
     the effective ``units`` count (see ``_nsi_per_unit_sqft``)."""
@@ -2279,7 +2285,14 @@ def _autofill_construction_from_nsi(cfg: dict, explicit: set, location,
     else:
         sqft_src, sqft_conf = "NSI · structure record", "high" if observed else "moderate"
     plan = [
-        ("year_built",   getattr(location, "year_built", None), "NSI · neighborhood median (estimated)", "low"),
+        # NSI's med_yr_blt is, in its own documentation, "the median year built of
+        # structures within the Census tract" — a property of the tract, never of
+        # this building. It is still the best prior available (dropping it would
+        # fall back to a flat national default, which is worse), so it is kept and
+        # relabelled rather than removed: "assumed", naming the tract, so the panel
+        # renders it as a stand-in rather than as something measured here.
+        ("year_built",   getattr(location, "year_built", None),
+         "census-tract median year built (NSI) — not this building's", "low", "assumed"),
         ("sqft",         sqft_val, sqft_src, sqft_conf),
         ("construction", getattr(location, "construction", None), "NSI · material class (coarse estimate)", "low"),
         ("foundation",   getattr(location, "foundation", None), "NSI · structure record", "moderate" if observed else "low"),
@@ -2287,10 +2300,11 @@ def _autofill_construction_from_nsi(cfg: dict, explicit: set, location,
         # embodied model, so real addresses were scored as 1-story. Now wired through.
         ("stories",      getattr(location, "stories", None), "NSI · structure record", "moderate" if observed else "low"),
     ]
-    for field, val, source, conf in plan:
+    for entry in plan:
+        field, val, source, conf = entry[:4]
         if field not in explicit and val is not None:
             cfg[field] = val
-            filled[field] = (source, conf)
+            filled[field] = (source, conf) if len(entry) < 5 else (source, conf, entry[4])
     # Real building footprint (USA Structures) — internal geometry for the embodied
     # model, not a user-editable construction field, so set directly (not via plan).
     # Only a single-dwelling footprint maps cleanly onto the (per-unit) SFLA the model
@@ -2303,6 +2317,12 @@ def _autofill_construction_from_nsi(cfg: dict, explicit: set, location,
             if v is not None and cfg.get(k) is None:   # don't stomp a caller value
                 cfg[k] = v
     return filled
+
+
+def _resolved_water_source(cfg: dict, location):
+    """The water source the model will actually use, for the panel to display."""
+    from housing_label.simulate.dimensions import resolve_water_source
+    return resolve_water_source(cfg, location)
 
 
 def _building_block(cfg: dict, struct: dict, explicit: set, autofilled: dict,
@@ -2328,7 +2348,9 @@ def _building_block(cfg: dict, struct: dict, explicit: set, autofilled: dict,
         # choice across a re-score (the form clears any field the payload omits) and
         # so the default reads honestly as "assumed", not as something we detected.
         # Nothing infers these today — see the note in build_label_parts.
-        "water_source": cfg.get("water_source"), "sewer": cfg.get("sewer"),
+        # Resolved for DISPLAY only (stated > EPA detection > public). cfg keeps the
+        # unstated None so the scorer can still tell a detection from a statement.
+        "water_source": _resolved_water_source(cfg, location), "sewer": cfg.get("sewer"),
         "lot_context": cfg.get("lot_context"),
     }
     # A supplied units of 1 is not a real override (1 is the default), so it must
@@ -2361,8 +2383,16 @@ def _building_block(cfg: dict, struct: dict, explicit: set, autofilled: dict,
             out[field] = {"value": value, "status": "confirmed",
                           "source": "you entered", "confidence": "high"}
         elif field in autofilled or field in detected:
-            source, conf = autofilled.get(field) or detected[field]
-            out[field] = {"value": value, "status": "estimated",
+            # An entry may carry its own status as a third element. Almost all
+            # auto-fills are "estimated" — derived from public data ABOUT THIS HOME —
+            # but a few are an area typical standing in for a home we know nothing
+            # about, which is what "assumed" means. NSI's year_built is the case
+            # that forced the distinction: it is a census-tract median, so calling
+            # it an estimate of this building implies a measurement nobody took.
+            entry = autofilled.get(field) or detected[field]
+            source, conf = entry[0], entry[1]
+            status = entry[2] if len(entry) > 2 else "estimated"
+            out[field] = {"value": value, "status": status,
                           "source": source, "confidence": conf}
         else:
             out[field] = {"value": value, "status": "assumed",
@@ -2574,6 +2604,32 @@ def build_label_parts(*, address: str | None = None,
     if preset is None:
         autofilled.update(_autofill_construction_from_nsi(
             cfg, explicit, location, struct.get("num_units")))
+        # Provenance for the detected drinking-water source (EPA service-area
+        # boundaries) — only the tag, deliberately not the value.
+        #
+        # cfg["water_source"] is NOT written here. This block runs before
+        # simulate_all_dimensions, so stamping the detected value into cfg would
+        # make it indistinguishable from one the visitor entered — the distinction
+        # the water note has to keep ("as entered" vs "evidence, not proof").
+        # _building_block resolves the value for DISPLAY instead, so the panel still
+        # shows the detection rather than an empty box: the one field a well owner
+        # most needs to confirm must not be the one field with nothing in it.
+        if "water_source" not in explicit:
+            ws = getattr(location, "water_system", None) or {}
+            if ws.get("status") == "served":
+                autofilled["water_source"] = (
+                    f"EPA service areas · served by {ws.get('name') or ws.get('pwsid')}",
+                    "moderate")
+            elif ws.get("status") == "outside":
+                autofilled["water_source"] = (
+                    "EPA service areas · no mapped community system at this point",
+                    "moderate")
+            else:
+                # No detection (off-network, or the layer was unreachable). The model
+                # still proceeds as public, so the panel says so — an assumption the
+                # scoring acts on must be visible, not silent.
+                autofilled["water_source"] = (
+                    "typical default — water source not detected", "low", "assumed")
     building = _building_block(cfg, struct, explicit, autofilled, location)
 
     structure = {

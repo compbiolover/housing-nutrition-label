@@ -123,6 +123,27 @@ ENVELOPE_EUI_FACTOR = {"icf": 0.92, "sip": 0.95}
 # the geocoded point — which is a coarse call at the fringe, where the owner knows
 # better than the boundary does. Unset (None) keeps the detection.
 LOT_CONTEXT_URBAN = {"rural": False, "suburban": True, "urban": True}
+
+
+def resolve_water_source(cfg: dict, location=None) -> str:
+    """The parcel's drinking-water source: what the owner stated, else what the EPA
+    service-area boundaries detected, else "public".
+
+    Stated always wins — the owner knows, and the EPA layer is explicit that it
+    cannot confirm service by address. Unstated, a point inside no mapped COMMUNITY
+    system reads as a well: evidence rather than proof (~40% of the layer is
+    EPA-modeled, and a small system may be unmapped), but the failure is in the safe
+    direction — a dimension left blank with a note, rather than another population's
+    water reported as this home's.
+
+    An unreachable service leaves ``water_system`` None, which is NOT "outside" and
+    resolves to "public" — the pre-detection behaviour, so an outage cannot unscore
+    Water Quality for every address at once."""
+    stated = cfg.get("water_source")
+    if stated is not None:
+        return stated
+    ws = getattr(location, "water_system", None) or {}
+    return "well" if ws.get("status") == "outside" else "public"
 PASSIVE_HOUSE_EUI_FACTOR = 0.55
 
 # Multi-family / mobile-home energy is now scored off the real ResStock benchmark
@@ -389,6 +410,7 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
                                     gas_rate: float | None = None,
                                     mf_units: int | None = None,
                                     incorporated: bool | None = None,
+                                    water_source: str | None = None,
                                     mf_material: str | None = None,
                                     building_type: str = "sf_detached") -> dict:
     """Compute energy / durability / environmental / infrastructure scores
@@ -476,7 +498,7 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
     infra_kwargs = {"units": parcel_units,
                     "owner_occupied": cfg.get("owner_occupied"),
                     "incorporated": incorporated is not False,
-                    "public_water": cfg.get("water_source") != "well",
+                    "public_water": (water_source or cfg.get("water_source")) != "well",
                     "public_sewer": cfg.get("sewer") != "septic"}
     infra = infra_enrich_row(infra_row, **{**(infra_params or {}), **infra_kwargs})
     fr = infra.get("fiscal_ratio")
@@ -739,7 +761,8 @@ def simulate_all_dimensions(
         grid_marginal_factor=grid_marginal_factor,
         infra_params=infra_params, elec_rate=elec_rate, gas_rate=gas_rate,
         mf_units=mf_units, mf_material=mf_material, building_type=building_type,
-        incorporated=getattr(location, "incorporated", None))
+        incorporated=getattr(location, "incorporated", None),
+        water_source=resolve_water_source(cfg, location))
     location_dims = fetch_location_dimensions(
         cfg["lat"], cfg["lon"], tract,
         allow_network=allow_network, overrides=overrides,
@@ -801,7 +824,17 @@ def simulate_all_dimensions(
     # Not looked up at all on a well, rather than looked up and discarded: nothing
     # downstream reads `water` unless `water_score` is set, so fetching it would only
     # pay to parse the SDWIS table for an answer this home can't use.
-    on_private_well = cfg.get("water_source") == "well"
+    #
+    # The owner's own statement wins; otherwise the EPA service-area boundaries
+    # answer it. A point inside no mapped COMMUNITY system is evidence of a well —
+    # not proof, since ~40% of the layer is EPA-modeled and a small system may be
+    # unmapped — but unscoring on that evidence fails in the safe direction: the
+    # cost of being wrong is a dimension left blank with a note, against the cost
+    # of confidently reporting another population's water. An unreachable service
+    # leaves water_system None, which is NOT "outside" and changes nothing.
+    ws = getattr(location, "water_system", None) or {}
+    stated = cfg.get("water_source")
+    on_private_well = resolve_water_source(cfg, location) == "well"
     water = None
     if have_county and not on_private_well:
         from housing_label.data.water import water_for_county
@@ -899,12 +932,30 @@ def simulate_all_dimensions(
             "taxes this parcel, so municipal curbside collection is not charged to "
             "it (Census TIGER incorporated places)")
     if on_private_well:
+        if stated == "well":
+            how = "private well, as entered"
+        else:
+            how = ("no mapped community water system at this point, per EPA service "
+                   "areas — evidence of a private well, not proof, since EPA cannot "
+                   "confirm service by address")
+        # Ends on the county-figure clause rather than an elliptical "…only a lab
+        # test of the well can", which reads as though the sentence were truncated.
         location_notes["water"] = (
-            "not scored — private well; EPA SDWIS covers community water systems "
-            "only, so the county figure does not describe this home's water "
-            "(a lab test of the well is the only measure of it)")
+            f"not scored — {how}. EPA SDWIS covers community water systems only, so "
+            "the county figure measures a population this household is not part of. "
+            "Only a lab test of this well can describe its water.")
     elif water and water_score is not None:
-        location_notes["water"] = f"EPA SDWIS drinking-water compliance (county {location.county_fips})"
+        # Name the system when the point resolves to one. The score is still the
+        # county aggregate — per-PWSID violation history is a separate dataset —
+        # but saying WHICH system serves the home makes the gap between the two
+        # visible instead of hiding it behind a county FIPS.
+        if ws.get("status") == "served" and ws.get("pwsid"):
+            location_notes["water"] = (
+                f"EPA SDWIS drinking-water compliance (county {location.county_fips}); "
+                f"served by {ws.get('name') or 'PWS'} ({ws['pwsid']}) per EPA service "
+                f"areas — the score is the county aggregate, not this system's own record")
+        else:
+            location_notes["water"] = f"EPA SDWIS drinking-water compliance (county {location.county_fips})"
 
     return {
         "dimensions": dims,
