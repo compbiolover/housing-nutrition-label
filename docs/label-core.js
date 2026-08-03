@@ -35,7 +35,8 @@ window.LabelCore = (function () {
 
   var WALL_LABELS = {
     frame: "wood frame", brick: "brick", "brick-frame": "brick veneer", block: "concrete block",
-    icf: "ICF", sip: "SIP", stone: "stone", vinyl: "vinyl-sided frame"
+    icf: "ICF", sip: "SIP", steel: "steel frame", stone: "stone",
+    vinyl: "vinyl-sided frame"
   };
   var UPGRADE_LABELS = {
     solar: "solar", backup_generator: "backup generator", fire_sprinklers: "fire sprinklers",

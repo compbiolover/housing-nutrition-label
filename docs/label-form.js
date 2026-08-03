@@ -42,6 +42,7 @@ window.LabelForm = (function () {
       ["", "(unknown)"], ["frame", "Wood frame"], ["brick", "Brick (masonry)"],
       ["brick-frame", "Brick veneer / frame"], ["block", "Concrete block (CMU)"],
       ["icf", "Insulated concrete form (ICF)"], ["sip", "Structural insulated panel (SIP)"],
+      ["steel", "Steel frame / steel wall"],
       ["stone", "Stone"], ["vinyl", "Vinyl-sided frame"]] },
     { key: "foundation", label: "Foundation", type: "select", options: [
       ["", "(unknown)"], ["slab", "Slab on grade"], ["crawl", "Crawlspace"],
@@ -61,7 +62,12 @@ window.LabelForm = (function () {
       ["", "(if a multi-unit building)"], ["wood", "Wood frame"], ["masonry", "Load-bearing masonry"],
       ["concrete", "Reinforced concrete"], ["steel", "Steel frame"]] },
     { key: "stories", label: "Stories", type: "number",
-      attrs: 'min="1" max="150" step="1" placeholder="floors"' }
+      attrs: 'min="1" max="150" step="1" placeholder="floors"' },
+    { key: "water_source", label: "Drinking water", type: "select", options: [
+      ["", "(public water)"], ["public", "Public / community system"],
+      ["well", "Private well"]] },
+    { key: "sewer", label: "Wastewater", type: "select", options: [
+      ["", "(public sewer)"], ["public", "Public sewer"], ["septic", "Septic system"]] }
   ];
   var UPGRADES = [
     ["solar", "Solar panels"], ["backup_generator", "Backup generator / battery"],

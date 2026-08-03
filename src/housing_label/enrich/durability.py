@@ -72,8 +72,8 @@ CAMA field decoding (Shelby County assessor codes)
             FR fair       PR poor       VP very poor  UN unsound
   EXTWALL Construction/exterior-wall type:
             1 = Brick        3 = Block/Concrete   4 = Stone
-            5 = Alum/Vinyl   7 = Frame/Wood        8 = Stucco
-            9 = Brick veneer 10 = EIFS
+            5 = Alum/Vinyl   6 = Metal/Steel       7 = Frame/Wood
+            8 = Stucco       9 = Brick veneer     10 = EIFS
 
 Columns added
 -------------
@@ -158,6 +158,10 @@ WALL_FACTOR = {
     3:  ("masonry",      1.05),  # block / concrete
     4:  ("masonry",      1.08),  # stone
     5:  ("light_siding", 0.97),  # aluminum / vinyl
+    6:  ("steel",        1.04),  # steel frame — immune to rot, termites and splitting;
+                                 # corrosion is the wear path, and it is slower than
+                                 # the decay path a wood shell faces. Below solid
+                                 # masonry, above wood frame.
     7:  ("frame",        1.00),  # wood frame (baseline)
     8:  ("stucco",       1.00),  # stucco
     9:  ("veneer",       1.04),  # brick veneer

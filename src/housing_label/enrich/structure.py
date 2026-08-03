@@ -64,7 +64,10 @@ _MATERIAL = {"W": "wood", "M": "masonry", "C": "concrete", "S": "steel",
 # exterior-wall value from our vocabulary. This is a coarse mapping — NSI cannot
 # distinguish brick vs. block vs. stone, or ICF/SIP — so an auto-filled
 # construction is always surfaced as an *estimate*, editable by the user.
-_CONSTRUCTION = {"W": "frame", "M": "brick", "C": "block", "S": "frame",
+# "S" is Hazus's steel class and now maps to our own steel option; it used to fall
+# back to "frame", which scored a steel home as wood on energy, durability and
+# embodied carbon.
+_CONSTRUCTION = {"W": "frame", "M": "brick", "C": "block", "S": "steel",
                  "H": "frame", "MH": "frame"}
 
 # NSI ``found_type`` code → our foundation vocabulary. S=slab, C=crawl,

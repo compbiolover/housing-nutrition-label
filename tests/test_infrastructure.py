@@ -10,6 +10,7 @@ import pandas as pd
 from housing_label.enrich.infrastructure import (
     interp_cost, enrich_row,
     ROAD_COST_BY_DENSITY, WATER_SEWER_COST_BY_DENSITY,
+    WATER_LEG_SHARE, SEWER_LEG_SHARE,
 )
 
 
@@ -78,6 +79,58 @@ def test_fire_and_sanitation_amortize_with_density():
     assert _total(157)["infra_cost_fire"] < _total(1)["infra_cost_fire"]
     assert _total(157)["infra_cost_sanitation"] < _total(1)["infra_cost_sanitation"]
     assert _total(157)["infra_cost_parks"] == _total(1)["infra_cost_parks"]
+
+
+# ── On-site water / sewer (private well, septic field) ────────────────────────
+def _connections(**kw):
+    """One rural parcel scored with the given public_water/public_sewer flags."""
+    row = pd.Series({"CALC_ACRE": 10.0, "latitude": None, "longitude": None,
+                     "RTOTAPR": 250_000.0})
+    return enrich_row(row, assess_ratio=1.0, tax_rate=0.008, in_urban_area=False, **kw)
+
+
+def test_leg_shares_sum_to_one():
+    """The two legs partition the water/sewer component — a fully connected parcel
+    must be charged exactly what it was before the split existed."""
+    assert abs((WATER_LEG_SHARE + SEWER_LEG_SHARE) - 1.0) < 1e-9
+
+
+def test_public_connections_are_the_default():
+    """Omitting the flags must score identically to stating both are public, so an
+    unknown water source never quietly discounts a parcel's cost to serve."""
+    a, b = _connections(), _connections(public_water=True, public_sewer=True)
+    assert a["est_annual_infra_cost"] == b["est_annual_infra_cost"]
+    assert a["infra_cost_water_sewer"] > 0
+
+
+def test_well_and_septic_drop_the_whole_public_leg():
+    """A parcel on a private well and a septic field receives no public water or
+    sewer service, so it is charged none of that cost."""
+    off = _connections(public_water=False, public_sewer=False)
+    assert off["infra_cost_water_sewer"] == 0.0
+    on = _connections()
+    assert off["est_annual_infra_cost"] < on["est_annual_infra_cost"]
+
+
+def test_one_leg_off_charges_the_other():
+    """The legs are independent: a private well with a public sewer connection is
+    still charged the sewer half (and vice versa)."""
+    full = _connections()["infra_cost_water_sewer"]
+    well_only = _connections(public_water=False)["infra_cost_water_sewer"]
+    septic_only = _connections(public_sewer=False)["infra_cost_water_sewer"]
+    assert abs(well_only - full * SEWER_LEG_SHARE) < 0.01
+    assert abs(septic_only - full * WATER_LEG_SHARE) < 0.01
+
+
+def test_dropping_a_leg_drops_its_fee_revenue_too():
+    """Water/sewer is ~100% fee-recovered, so a leg the parcel isn't connected to
+    must leave the REVENUE side as well. Crediting a rural home with utility fees it
+    never pays would inflate its fiscal ratio on the strength of a service it does
+    not receive — so the ratio is expected to FALL, not rise."""
+    on, off = _connections(), _connections(public_water=False, public_sewer=False)
+    assert off["est_fee_revenue"] < on["est_fee_revenue"]
+    assert off["est_property_tax"] == on["est_property_tax"]   # tax side untouched
+    assert off["fiscal_ratio"] < on["fiscal_ratio"]
 
 
 def _run_all():

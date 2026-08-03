@@ -188,6 +188,22 @@ WATER_SEWER_COST_BY_DENSITY = [
     (200.0,   90),
 ]
 
+# ── Split of the water/sewer component into its two legs ──────────────────────
+# A parcel can be off the public network on one leg and on it for the other (a
+# private well with a public sewer connection, or — far more commonly — public
+# water with a septic field), so the combined cost above has to be splittable.
+#
+# 0.5 is a deliberately coarse split, and it is coarse for a data reason worth
+# stating rather than hiding: the bundled Census of Governments crosswalk merges
+# function 80 (sewerage) and function 91 (water utilities) into one `water_sewer`
+# column, so the county-specific ratio between them is not recoverable at runtime.
+# Splitting it properly means rebuilding govfinance_county.csv with the two
+# functions kept apart — a separate change. Until then an even split is the
+# neutral assumption, and it is applied to BOTH the cost and the fee-revenue side
+# so neither is silently favoured.
+WATER_LEG_SHARE = 0.5     # water supply / distribution
+SEWER_LEG_SHARE = 0.5     # sewerage collection / treatment
+
 # ── Fire/EMS base cost ($/household/yr) ───────────────────────────────────────
 # Source: Memphis FY2026 budget; Fire/EMS = ~$119M total, ~253,000 HH → $470/HH.
 # Rounded up to $800 to include capital (apparatus, stations) and mutual-aid costs
@@ -367,6 +383,8 @@ def enrich_row(row: pd.Series, *,
                cost_multipliers: dict | None = None,
                fee_recovery: dict | None = None,
                units: int = 1,
+               public_water: bool = True,
+               public_sewer: bool = True,
                owner_occupied: bool | None = None,
                separately_parceled: bool | None = None,
                classification_state: str | None = CLASSIFICATION_STATE,
@@ -392,6 +410,16 @@ def enrich_row(row: pd.Series, *,
     into modeled fee revenue, which joins property tax in the fiscal-ratio numerator
     so both sides of the ratio cover the same services. Defaults to the Shelby
     pilot's own recovery rates.
+
+    ``public_water`` / ``public_sewer`` say whether the parcel is actually connected
+    to the public network. A home on a private well and a septic field receives no
+    public water or sewer service, so charging it the modeled water/sewer cost bills
+    it for infrastructure that was never built to it. Each leg that is off the
+    network drops its share (``WATER_LEG_SHARE`` / ``SEWER_LEG_SHARE``) from the
+    cost — and, because that leg is ~100% fee-recovered, from the modeled fee
+    revenue too. Dropping only the cost would hand a rural parcel a utility bill it
+    doesn't pay as revenue; dropping both keeps the ratio honest, and it usually
+    moves the ratio DOWN, since the fee leg was carrying its own cost.
 
     ``units`` / ``owner_occupied`` / ``classification_state`` drive the property-tax
     *classification*: in Tennessee a parcel with two or more rental units is
@@ -436,7 +464,11 @@ def enrich_row(row: pd.Series, *,
     # Each density/urban-shape cost is scaled by the county's local-spending
     # multiplier (default 1.0 = Shelby pilot calibration).
     cost_roads       = interp_cost(lot_density, ROAD_COST_BY_DENSITY) * mult.get("roads", 1.0)
-    cost_water_sewer = interp_cost(lot_density, WATER_SEWER_COST_BY_DENSITY) * mult.get("water_sewer", 1.0)
+    # Only the legs the parcel is actually connected to are a public cost to serve.
+    public_share = ((WATER_LEG_SHARE if public_water else 0.0)
+                    + (SEWER_LEG_SHARE if public_sewer else 0.0))
+    cost_water_sewer = (interp_cost(lot_density, WATER_SEWER_COST_BY_DENSITY)
+                        * mult.get("water_sewer", 1.0) * public_share)
     cost_fire        = (FIRE_BASE_COST * fire_mult
                         * density_multiplier(lot_density, FIRE_DENSITY_MULTIPLIERS) * mult.get("fire", 1.0))
     cost_police      = police_cost(POLICE_BASE_COST, lot_density) * mult.get("police", 1.0)
