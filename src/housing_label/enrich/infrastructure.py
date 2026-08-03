@@ -415,6 +415,7 @@ def enrich_row(row: pd.Series, *,
                cost_multipliers: dict | None = None,
                fee_recovery: dict | None = None,
                units: int = 1,
+               incorporated: bool = True,
                public_water: bool = True,
                public_sewer: bool = True,
                owner_occupied: bool | None = None,
@@ -442,6 +443,26 @@ def enrich_row(row: pd.Series, *,
     into modeled fee revenue, which joins property tax in the fiscal-ratio numerator
     so both sides of the ratio cover the same services. Defaults to the Shelby
     pilot's own recovery rates.
+
+    ``incorporated`` says whether the parcel sits inside an incorporated
+    municipality (Census TIGER PLACE; see ``simulate/location.py``). Outside one,
+    the county is the parcel's general-purpose government and no city serves it.
+    Today this gates exactly one component — **sanitation** — and deliberately no
+    others:
+
+      * Municipal curbside collection stops at the city limit. Unincorporated
+        county residents haul to a convenience centre or contract a private hauler
+        privately; either way it is not a public cost allocated to that parcel, and
+        the trash fee that recovers it is not paid to a city. So the cost and its
+        fee revenue both leave, the same treatment a well and a septic field get.
+      * Roads, fire, police and parks are NOT gated, because the county genuinely
+        provides all four outside the city limit — a sheriff patrols, a volunteer
+        or county department answers fires, the county maintains the road. What is
+        wrong for those is the *level* (a county's share is thinner than a city's),
+        not the existence, and correcting a level needs the county government's
+        share of local direct expenditure — a field the bundled Census of
+        Governments crosswalk does not carry. Gating them on/off would trade an
+        overstatement for a bigger understatement.
 
     ``public_water`` / ``public_sewer`` say whether the parcel is actually connected
     to the public network. A home on a private well and a septic field receives no
@@ -505,9 +526,13 @@ def enrich_row(row: pd.Series, *,
                         * density_multiplier(lot_density, FIRE_DENSITY_MULTIPLIERS)
                         * mult.get("fire", 1.0))
     cost_police      = police_cost(POLICE_BASE_COST, lot_density) * mult.get("police", 1.0)
+    # Curbside collection is a municipal service; outside a city there is none to
+    # allocate. Zeroing the cost also zeroes its fee revenue below (est_fees is
+    # computed from the components), which is the point — an unincorporated
+    # household pays no city trash fee either.
     cost_sanitation  = (float(SANITATION_COST)
                         * density_multiplier(lot_density, SANITATION_DENSITY_MULTIPLIERS)
-                        * mult.get("sanitation", 1.0))
+                        * mult.get("sanitation", 1.0)) if incorporated else 0.0
     cost_parks       = float(PARKS_OTHER_COST) * mult.get("parks", 1.0)
 
     components = {

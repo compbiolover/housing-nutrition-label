@@ -388,6 +388,7 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
                                     elec_rate: float | None = None,
                                     gas_rate: float | None = None,
                                     mf_units: int | None = None,
+                                    incorporated: bool | None = None,
                                     mf_material: str | None = None,
                                     building_type: str = "sf_detached") -> dict:
     """Compute energy / durability / environmental / infrastructure scores
@@ -469,8 +470,12 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
     # water/sewer network, so it is neither charged that cost nor credited the
     # utility fees it never pays. Default True — most homes are connected, and an
     # unstated water source must not quietly discount every parcel.
+    # Unincorporated county territory receives no municipal curbside collection.
+    # None (no geocode resolved) is NOT False — it means unknown, and an unknown
+    # location must keep the full service bundle rather than be handed a discount.
     infra_kwargs = {"units": parcel_units,
                     "owner_occupied": cfg.get("owner_occupied"),
+                    "incorporated": incorporated is not False,
                     "public_water": cfg.get("water_source") != "well",
                     "public_sewer": cfg.get("sewer") != "septic"}
     infra = infra_enrich_row(infra_row, **{**(infra_params or {}), **infra_kwargs})
@@ -733,7 +738,8 @@ def simulate_all_dimensions(
         cfg, climate_zone=climate_zone, grid_factor=grid_factor,
         grid_marginal_factor=grid_marginal_factor,
         infra_params=infra_params, elec_rate=elec_rate, gas_rate=gas_rate,
-        mf_units=mf_units, mf_material=mf_material, building_type=building_type)
+        mf_units=mf_units, mf_material=mf_material, building_type=building_type,
+        incorporated=getattr(location, "incorporated", None))
     location_dims = fetch_location_dimensions(
         cfg["lat"], cfg["lon"], tract,
         allow_network=allow_network, overrides=overrides,
@@ -887,6 +893,11 @@ def simulate_all_dimensions(
         location_notes["noise"] = f"BTS transportation-noise exposure ({_n_geo})"
     if solar and solar_score is not None:
         location_notes["solar"] = f"PVGIS-NSRDB rooftop yield (county {location.county_fips})"
+    if getattr(location, "incorporated", None) is False:
+        location_notes["infrastructure"] = (
+            "unincorporated county territory — no municipal government serves or "
+            "taxes this parcel, so municipal curbside collection is not charged to "
+            "it (Census TIGER incorporated places)")
     if on_private_well:
         location_notes["water"] = (
             "not scored — private well; EPA SDWIS covers community water systems "

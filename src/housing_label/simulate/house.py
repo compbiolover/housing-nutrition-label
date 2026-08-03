@@ -2145,6 +2145,10 @@ def label_payload(cfg: dict, r: dict, label: dict, include_building: bool = True
             "cambium_region": loc.cambium_region,
             "cambium_factor": loc.cambium_factor,
             "in_urban_area": loc.in_urban_area,
+            # Inside an incorporated municipality, or unincorporated county
+            # territory? None = no geocode resolved (unknown, not "no").
+            "incorporated": loc.incorporated,
+            "place_geoid": loc.place_geoid,
             "notes": loc.notes,
         }
         # Detected building context (USACE NSI): what kind of building is here.

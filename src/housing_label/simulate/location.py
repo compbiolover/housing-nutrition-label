@@ -82,6 +82,12 @@ class Location:
     footprint_area_m2: float | None = None
     footprint_perimeter_m: float | None = None
     occ_cls: str | None = None            # USA Structures occupancy class (Residential/Commercial/…)
+    # Is the point inside an incorporated municipality (Census TIGER PLACE,
+    # MTFCC G4110 + FUNCSTAT A)? False means unincorporated county territory —
+    # no city government serves or taxes it. None when no geocode resolved, which
+    # is NOT the same as False and must not be read as one.
+    incorporated: bool | None = None
+    place_geoid: str | None = None        # 7-digit Census PLACE GEOID when incorporated
     notes: dict = field(default_factory=dict)
 
     @property
@@ -120,9 +126,41 @@ def _parse_geographies(geo: dict) -> dict:
     tracts = geo.get("Census Tracts") or []
     if tracts:
         out["tract"] = str(tracts[0].get("GEOID") or "").zfill(11) or None
+    # Incorporated municipality, and the CDP trap.
+    #
+    # "Has a place name" is NOT the test. A Census Designated Place is a statistical
+    # convenience with no government at all — Silver Spring, MD is a CDP of 80,000
+    # people that has never been incorporated — so treating a named place as a
+    # municipality gets it exactly backwards. The discriminator is MTFCC G4110
+    # (Incorporated Place) with FUNCSTAT "A" (active general-purpose government);
+    # G4210/FUNCSTAT "S" is a CDP. The geocoder's "Incorporated Places" layer
+    # already excludes CDPs, so the check is belt-and-braces against a layer or
+    # vintage change quietly folding them back in.
+    #
+    # An ABSENT layer means the point is in unincorporated county territory: the
+    # geocoder omits "Incorporated Places" entirely rather than returning it empty
+    # (verified against a rural point, which still returns Counties, Census Tracts,
+    # States and more). So absence is the signal — but only when the rest of the
+    # response is there to vouch for it.
+    #
+    # Every successful geocode returns the county layer, so its presence is the
+    # evidence that this response is well-formed. Without it, "no places key"
+    # cannot be distinguished from "the layer was not returned at all" (a failed
+    # lookup, or a future API/layer change), and guessing False would hand an
+    # unknown parcel the unincorporated discount. Unknown stays None, which the
+    # cost model reads as "keep the full service bundle".
+    resolved = bool(counties)
     places = geo.get("Incorporated Places") or []
-    if places:
-        out["place_label"] = places[0].get("NAME")
+    municipal = next((p for p in places
+                      if str(p.get("MTFCC") or "").upper() == "G4110"
+                      and str(p.get("FUNCSTAT") or "").upper() == "A"), None)
+    if municipal is not None:
+        out["place_label"] = municipal.get("NAME")
+        # 7 digits (2-digit state + 5-digit place), zero-padded like the county and
+        # tract GEOIDs above — a place in Alabama or Alaska leads with a zero.
+        geoid = str(municipal.get("GEOID") or "").strip()
+        out["place_geoid"] = geoid.zfill(7) if geoid else None
+    out["incorporated"] = (municipal is not None) if resolved else None
     out["in_urban_area"] = bool(geo.get("Urban Areas"))
     return out
 
@@ -318,4 +356,6 @@ def _apply_geo(loc: Location, geo: dict) -> None:
     loc.county_name = geo.get("county_name")
     loc.tract = geo.get("tract")
     loc.place_label = geo.get("place_label")
+    loc.place_geoid = geo.get("place_geoid")
+    loc.incorporated = geo.get("incorporated")
     loc.in_urban_area = geo.get("in_urban_area")
