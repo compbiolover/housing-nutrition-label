@@ -141,7 +141,9 @@ DIM_META = {
         res='<span class="tag tract">tract</span> <span class="tag county">+ county radon</span>'),
     "noise": dict(
         measures="Transportation-noise exposure: % of residents at &ge;60&nbsp;dB "
-                 "(national percentile)",
+                 "(national percentile), refined to the parcel when no highway, "
+                 "arterial or railroad is near enough for &ge;60&nbsp;dB to carry "
+                 "(Census TIGERweb). Aviation noise is not visible to that check",
         source="US DOT BTS National Transportation Noise Map",
         res='<span class="tag tract">tract</span>'),
     "socioeconomic": dict(

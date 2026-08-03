@@ -792,6 +792,7 @@ def simulate_all_dimensions(
 
     # Noise: bundled tract transportation-noise exposure (BTS/UW). Resolved at the
     # tract (county-mean fallback); a location absent from the map is left unscored.
+    from housing_label.data import noise as noise_data
     from housing_label.data.noise import noise_for_tract, noise_for_county
     noise = None
     if tract:
@@ -799,6 +800,44 @@ def simulate_all_dimensions(
     elif have_county:
         noise = noise_for_county(location.county_fips)
     noise_score = noise["score"] if noise else None
+
+    # ── Point-level refinement ────────────────────────────────────────────────
+    # The tract figure is the share of the TRACT's residents exposed to >=60 dB —
+    # a population statistic. In a rural tract containing one highway corridor it
+    # belongs to the homes beside the corridor, and every other parcel inherits it.
+    #
+    # TIGERweb gives a real point-level fact: how far to the nearest primary road,
+    # secondary road or railroad. >=60 dB is a loud bar that transportation noise
+    # only clears close to its source, so a parcel outside every class's
+    # attenuation distance is very unlikely to be in the exposed fraction.
+    #
+    # The refinement only ever IMPROVES a score, and only on positive evidence:
+    #   * sources resolved (an outage refines nothing — otherwise one TIGERweb
+    #     failure would hand every address in the country a quiet-parcel credit)
+    #   * nothing within its threshold
+    #   * the tract itself is below the national median, since above it the driver
+    #     may be aviation, which is in the BTS map and not in TIGERweb
+    # and it floors at the p10 score rather than reaching 100, because the evidence
+    # supports "as quiet as the quietest tenth of tracts" and not "exactly zero".
+    noise_sources = None
+    noise_refined = False
+    noise_sources_unavailable = False
+    if noise_score is not None and noise.get("pct_ge60db") is not None:
+        from housing_label.enrich.road_noise import (
+            noise_sources_near, RoadDataUnavailable)
+        try:
+            noise_sources = noise_sources_near(cfg["lat"], cfg["lon"],
+                                               allow_network=allow_network)
+        except RoadDataUnavailable:
+            # location_notes is assembled further down; record the fact and emit
+            # it there rather than reaching forward into a name that does not exist
+            # yet.
+            noise_sources_unavailable = True
+        if (noise_sources is not None
+                and not noise_sources["any_within_threshold"]
+                and noise["pct_ge60db"] < noise_data.MEDIAN_TRACT_PCT):
+            noise_refined = True
+            noise_score = max(noise_score, noise_data.QUIET_FLOOR_SCORE)
 
     # Solar Potential: bundled county rooftop specific yield (PVGIS). Scored whenever
     # a county resolved; the drill-down turns the yield into a representative-system
@@ -879,6 +918,10 @@ def simulate_all_dimensions(
         metrics["aq_radon_label"] = air_quality["radon_label"]
     if noise and noise_score is not None:
         metrics["noise_pct_ge60db"] = noise["pct_ge60db"]
+        if noise_sources is not None:
+            for _k, _v in noise_sources["distances_m"].items():
+                if _v is not None:
+                    metrics[f"noise_{_k}_road_m" if _k != "rail" else "noise_rail_m"] = _v
     if solar and solar_score is not None:
         prod = solar["yield_kwh_kwp"] * TYPICAL_SYSTEM_KW
         metrics["solar_system_kw"] = TYPICAL_SYSTEM_KW
@@ -939,7 +982,23 @@ def simulate_all_dimensions(
     if noise and noise_score is not None:
         _n_geo = (f"tract {location.tract}" if noise.get("geo_level") == "tract" and location.tract
                   else f"county {location.county_fips}")
-        location_notes["noise"] = f"BTS transportation-noise exposure ({_n_geo})"
+        if noise_refined:
+            _d = noise_sources["distances_m"]
+            _near = min((v for v in _d.values() if v is not None), default=None)
+            _how = (f"nearest highway, arterial or railroad is {_near:.0f} m away"
+                    if _near is not None else
+                    "no highway, arterial or railroad within 1.2 km")
+            location_notes["noise"] = (
+                f"BTS transportation-noise exposure ({_n_geo}), refined to this "
+                f"parcel: {_how} — beyond the distance >=60 dB carries, so this "
+                f"parcel is very unlikely to be in the tract's exposed share. "
+                f"Aviation noise is not visible to this check")
+        elif noise_sources_unavailable:
+            location_notes["noise"] = (
+                f"BTS transportation-noise exposure ({_n_geo}) — TIGERweb "
+                f"unavailable, so this is the tract figure, not refined to the parcel")
+        else:
+            location_notes["noise"] = f"BTS transportation-noise exposure ({_n_geo})"
     if solar and solar_score is not None:
         location_notes["solar"] = f"PVGIS-NSRDB rooftop yield (county {location.county_fips})"
     if getattr(location, "incorporated", None) is False:
