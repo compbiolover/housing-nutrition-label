@@ -200,7 +200,23 @@ ENERGY_YS = [100.0, 80.0, 60.0, 40.0, 20.0, 0.0]
 # reference distribution — so the top of the curve moved (p95 1.565 → 1.623) while the
 # bottom barely did (p5 0.325 → 0.326). Texas homes score better; everyone else moves only
 # by being ranked against them.
-INFRA_XS = [0.326, 0.47, 0.608, 0.747, 0.987, 1.623]
+#
+# Re-anchored again when the reference distribution gained the rural housing it
+# never contained, and the cost curves gained a rural end for it to sit on.
+#
+# The roster's sparsest archetype was a two-acre lot, so every large-lot home in the
+# country was percentile-ranked against a population whose biggest lot was two
+# acres — while 4.6% of US housing sits on five acres or more (Census, "Imputing Lot
+# Size with Property Tax Data", exhibit 4.1). Separately, the cost curves clamped
+# flat below 0.7 DU/acre, so those homes all computed an identical cost anyway.
+# Fixing only one of the two would have been inert: the archetypes need a curve that
+# distinguishes them, and the curve needs archetypes that reach it.
+#
+# The movement is small and it is meant to be — this adds resolution at the bottom
+# of the distribution rather than shifting it. p5 0.326 -> 0.321, p50 0.675 -> 0.671,
+# p95 1.623 -> 1.622. What changes is that a 40-acre parcel is no longer scored as
+# though it were on 1.4 acres.
+INFRA_XS = [0.321, 0.468, 0.603, 0.744, 0.986, 1.622]
 INFRA_YS = [0.0, 20.0, 40.0, 60.0, 80.0, 100.0]
 
 # Which jurisdictions carried an active property-tax classification correction when the

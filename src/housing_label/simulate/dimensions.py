@@ -114,6 +114,15 @@ GRADE_BY_CONSTRUCTION = {
 #     continuous insulation.
 #   • Passive-house certification targets ~40–60% below code (PHIUS / RMI).
 ENVELOPE_EUI_FACTOR = {"icf": 0.92, "sip": 0.95}
+
+# ── Lot context → is this parcel in an urban service area? ────────────────────
+# The other half of "what kind of place is this", alongside lot acreage. Acreage
+# alone can't say it: a two-acre lot is exurban outside a city and a large in-town
+# lot inside one, and the two are served very differently. Drives the fire-service
+# multiplier in the infrastructure model, overriding the Census urban-area test on
+# the geocoded point — which is a coarse call at the fringe, where the owner knows
+# better than the boundary does. Unset (None) keeps the detection.
+LOT_CONTEXT_URBAN = {"rural": False, "suburban": True, "urban": True}
 PASSIVE_HOUSE_EUI_FACTOR = 0.55
 
 # Multi-family / mobile-home energy is now scored off the real ResStock benchmark
@@ -690,9 +699,17 @@ def simulate_all_dimensions(
     # Pass in_urban_area through as-is (bool | None): None means "unknown" and is
     # omitted so enrich_row falls back to its distance model, rather than being
     # forced to "rural" by bool(None).
+    #
+    # An explicit lot_context wins over the Census urban-area detection. The
+    # detection asks whether the POINT falls inside a Census-delineated urban area,
+    # which is a coarse call at the fringe — a subdivision just outside the boundary
+    # reads rural, a farmhouse just inside reads urban — and the owner knows which
+    # they are. Left unset (the default) nothing changes.
+    stated = LOT_CONTEXT_URBAN.get(cfg.get("lot_context"))
     infra_params = infra_params_for_county(
         location.county_fips if location else None,
-        in_urban_area=location.in_urban_area if location else None,
+        in_urban_area=(stated if stated is not None
+                       else (location.in_urban_area if location else None)),
     )
 
     # Building context for a representative unit — use the caller's explicit unit

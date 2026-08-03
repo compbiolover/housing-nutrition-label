@@ -72,7 +72,7 @@ from housing_label.simulate.house import (
     build_label_parts, label_payload, density_comparison, cost_flows,
     NonResidentialProperty, _NON_RESIDENTIAL_MESSAGE,
     PRESETS, CONSTRUCTION_FACTOR, FOUNDATION_FACTOR, CONDITION_FACTOR,
-    BONUS_FLAGS, ELEVATION_FLAGS, WATER_SOURCES, SEWER_TYPES,
+    BONUS_FLAGS, ELEVATION_FLAGS, WATER_SOURCES, SEWER_TYPES, LOT_CONTEXTS,
 )
 
 log = logging.getLogger("housing_label.api")
@@ -86,6 +86,7 @@ _CHOICES = {
     "flood_zone": {"X", "X500", "AE"},
     "water_source": set(WATER_SOURCES),
     "sewer": set(SEWER_TYPES),
+    "lot_context": set(LOT_CONTEXTS),
 }
 
 
@@ -98,7 +99,7 @@ def _validate(name: str, value: str | None) -> None:
 
 def _validate_request(*, address, lat, lon, preset, construction, foundation,
                       condition, flood_zone, bldg_material, stories, upgrades,
-                      water_source=None, sewer=None):
+                      water_source=None, sewer=None, lot_context=None):
     """Shared input validation for /label and /density (identical rules).
 
     Returns ``(bldg_material, upgrade_list)`` — the normalized material and the
@@ -109,7 +110,7 @@ def _validate_request(*, address, lat, lon, preset, construction, foundation,
     for name, val in (("preset", preset), ("construction", construction),
                       ("foundation", foundation), ("condition", condition),
                       ("flood_zone", flood_zone), ("water_source", water_source),
-                      ("sewer", sewer)):
+                      ("sewer", sewer), ("lot_context", lot_context)):
         _validate(name, val)
     if bldg_material is not None:
         bldg_material = bldg_material.strip().lower()   # normalize once, then validate + forward
@@ -704,6 +705,7 @@ def label(
     upgrades: str | None = None,
     water_source: str | None = None,
     sewer: str | None = None,
+    lot_context: str | None = None,
     allow_non_residential: bool = False,
     nonresidential: bool = False,
 ) -> dict:
@@ -726,7 +728,7 @@ def label(
         address=address, lat=lat, lon=lon, preset=preset, construction=construction,
         foundation=foundation, condition=condition, flood_zone=flood_zone,
         bldg_material=bldg_material, stories=stories, upgrades=upgrades,
-        water_source=water_source, sewer=sewer)
+        water_source=water_source, sewer=sewer, lot_context=lot_context)
 
     # Geocoder-sourced non-residential screen: the picked suggestion was a
     # positively non-residential POI (stadium, office, store — classified from OSM
@@ -740,7 +742,7 @@ def label(
                  foundation, condition, value, units, sqft, lot_acres, flood_zone,
                  bldg_material, stories, owner_occupied,
                  tuple(upgrade_list),   # already sorted + unique
-                 water_source, sewer, allow_non_residential)
+                 water_source, sewer, lot_context, allow_non_residential)
     cached = _result_cache.get(cache_key)
     if cached is not None:
         return cached
@@ -754,7 +756,7 @@ def label(
             condition=condition, value=value, units=units, sqft=sqft, lot_acres=lot_acres,
             bldg_material=bldg_material, stories=stories,
             owner_occupied=owner_occupied,
-            water_source=water_source, sewer=sewer,
+            water_source=water_source, sewer=sewer, lot_context=lot_context,
         )
     except NonResidentialProperty as exc:
         # Not bad input — a deliberate residential-only screen. 422 (Unprocessable
@@ -1035,6 +1037,7 @@ def density(
     upgrades: str | None = None,
     water_source: str | None = None,
     sewer: str | None = None,
+    lot_context: str | None = None,
 ) -> dict:
     """Compare this parcel at several densities (fixed lot, vary dwelling units).
 
@@ -1048,7 +1051,7 @@ def density(
         address=address, lat=lat, lon=lon, preset=preset, construction=construction,
         foundation=foundation, condition=condition, flood_zone=flood_zone,
         bldg_material=bldg_material, stories=stories, upgrades=upgrades,
-        water_source=water_source, sewer=sewer)
+        water_source=water_source, sewer=sewer, lot_context=lot_context)
 
     unit_counts = None
     if units:
@@ -1066,7 +1069,7 @@ def density(
     cache_key = ("density", address, lat, lon, preset, construction, year_built,
                  foundation, condition, value, per_unit_value, sqft, lot_acres,
                  flood_zone, bldg_material, stories, tuple(upgrade_list),   # sorted + unique
-                 water_source, sewer,
+                 water_source, sewer, lot_context,
                  tuple(unit_counts) if unit_counts is not None else None)
     cached = _result_cache.get(cache_key)
     if cached is not None:
@@ -1080,7 +1083,7 @@ def density(
             year_built=year_built, construction=construction, foundation=foundation,
             condition=condition, value=value, sqft=sqft, lot_acres=lot_acres,
             bldg_material=bldg_material, stories=stories,
-            water_source=water_source, sewer=sewer,
+            water_source=water_source, sewer=sewer, lot_context=lot_context,
         )
     except ValueError as exc:
         raise HTTPException(400, str(exc))

@@ -93,10 +93,41 @@ _DATA = pathlib.Path(__file__).resolve().parents[1] / "src" / "housing_label" / 
 # numbers that do not map onto ACS structure categories at all — "compact suburb /
 # townhome" is 8 DU/acre carrying units=1 — so rebalancing the whole roster is a separate
 # redesign, not a tweak. Splitting within the existing 0.15 keeps this change attributable.
+#
+# The rural split, and why one row was not enough
+# -----------------------------------------------
+# A single "rural / exurban (~2 ac)" row at 0.5 DU/acre was the sparsest thing in
+# the reference distribution, so every genuinely large-lot home in the country was
+# percentile-ranked against a population whose biggest lot was two acres. Those
+# homes are not a rounding error. Census/CoreLogic property-tax records matched to
+# the 2015 AHS (Census Bureau, "Imputing Lot Size with Property Tax Data",
+# exhibit 4.1, all tenures) put the national lot-size distribution at:
+#
+#     1 up to 5 acres    11.6%      (respondent-reported: 17.7%)
+#     5 up to 10 acres    2.5%      (respondent-reported:  2.7%)
+#     10 acres or more    2.1%      (respondent-reported:  2.3%)
+#
+# The property-tax column is used rather than the respondent column because it is
+# measured rather than recalled, and the same paper documents that owners
+# systematically report their lots as larger than the tax record shows.
+#
+# So 4.6% of US housing sits on five acres or more — comparable to the entire 5-19
+# unit multifamily band (4.4%), which already has its own row. The existing 0.12
+# rural share is split across the three bands in their observed proportions
+# (11.6 : 2.5 : 2.1 of 16.2), keeping the rural total unchanged at 0.12 so the
+# change stays attributable — the same reasoning as the multifamily split above.
+#
+# Representative densities are the harmonic-ish middle of each band rather than its
+# edge: 1-5 ac -> 0.5 DU/acre (2 ac), 5-10 ac -> 0.135 (7.4 ac), 10+ ac -> 0.05
+# (20 ac). The last is a judgment call, since the band is open-ended; the road and
+# water/sewer curves clamp flat at 0.025 DU/acre (40 ac), so picking 0.05 rather
+# than 0.03 is worth little and cannot buy the archetype unlimited sprawl penalty.
 DENSITY_ARCHETYPES = [
     # (label, dwelling_units_per_acre, national_household_share, is_urban,
     #  units_on_parcel, renter_share)
-    ("rural / exurban (~2 ac)",      0.5, 0.12,  False,  1, 0.140),
+    ("rural / exurban (1-5 ac)",     0.5,   0.086, False,  1, 0.140),
+    ("large rural (5-10 ac)",        0.135, 0.019, False,  1, 0.140),
+    ("very large rural (10+ ac)",    0.05,  0.015, False,  1, 0.140),
     ("large-lot suburb (~0.6 ac)",   1.5, 0.18,  False,  1, 0.140),
     ("standard suburb (~0.2 ac)",    4.0, 0.35,  True,   1, 0.140),
     ("compact suburb / townhome",    8.0, 0.20,  True,   1, 0.140),
