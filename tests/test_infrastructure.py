@@ -133,6 +133,46 @@ def test_dropping_a_leg_drops_its_fee_revenue_too():
     assert off["fiscal_ratio"] < on["fiscal_ratio"]
 
 
+# ── Rural end of the cost curve ───────────────────────────────────────────────
+def test_acreage_still_moves_cost_past_the_old_clamp():
+    """The curves used to clamp flat below 0.7 DU/acre (~1.4 acres), so every rural
+    parcel from 2 acres to 200 computed an identical cost and entering a real
+    acreage did nothing. Regression guard for the whole rural extension."""
+    for anchors in (ROAD_COST_BY_DENSITY, WATER_SEWER_COST_BY_DENSITY):
+        c_1_4 = interp_cost(0.7, anchors)      # the old floor anchor
+        c_5 = interp_cost(0.2, anchors)        # 5 acres
+        c_10 = interp_cost(0.1, anchors)       # 10 acres
+        c_40 = interp_cost(0.025, anchors)     # 40 acres
+        assert c_1_4 < c_5 < c_10 < c_40, f"rural end is flat: {c_1_4, c_5, c_10, c_40}"
+
+
+def test_rural_extension_flattens_rather_than_running_away():
+    """Past ~5 acres the household is on a shared county through-road, so the curve
+    flattens instead of continuing to charge by frontage. The 5->40 acre stretch must
+    rise more gently than the 1.4->5 acre stretch (per decade of density)."""
+    import math
+    for anchors in (ROAD_COST_BY_DENSITY, WATER_SEWER_COST_BY_DENSITY):
+        def slope(d_hi, d_lo):
+            return (math.log(interp_cost(d_lo, anchors) / interp_cost(d_hi, anchors))
+                    / math.log(d_hi / d_lo))
+        near = slope(0.7, 0.2)     # 1.4 -> 5 acres
+        far = slope(0.2, 0.025)    # 5 -> 40 acres
+        assert 0 < far < near, f"far slope {far:.3f} should be gentler than near {near:.3f}"
+
+
+def test_cost_is_bounded_for_an_enormous_parcel():
+    """A 400-acre parcel must not be charged ten times a 40-acre one: past the last
+    anchor the road burden stops being a per-household quantity at all."""
+    assert interp_cost(0.0025, ROAD_COST_BY_DENSITY) == interp_cost(0.025, ROAD_COST_BY_DENSITY)
+    assert _total(1, lot=400.0)["est_annual_infra_cost"] == _total(1, lot=40.0)["est_annual_infra_cost"]
+
+
+def test_rural_parcel_costs_more_to_serve_than_a_suburban_one():
+    """The direction the sprawl literature actually claims, now expressed instead of
+    flattened away by the clamp."""
+    assert _total(1, lot=10.0)["est_annual_infra_cost"] > _total(1, lot=0.25)["est_annual_infra_cost"]
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

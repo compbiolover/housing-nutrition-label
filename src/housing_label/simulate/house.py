@@ -200,6 +200,14 @@ CONDITION_FACTOR = {
 WATER_SOURCES = ("public", "well")
 SEWER_TYPES = ("public", "septic")
 
+# ── Lot context ───────────────────────────────────────────────────────────────
+# What kind of place the parcel sits in, as a companion to its acreage: acreage
+# alone cannot distinguish two exurban acres from a large in-town lot, and the two
+# are served very differently. Overrides the Census urban-area test on the geocoded
+# point for the infrastructure model (see LOT_CONTEXT_URBAN in simulate/dimensions).
+# Default None — unstated keeps the detection rather than asserting anything.
+LOT_CONTEXTS = ("rural", "suburban", "urban")
+
 # ── Detected multi-family building material → resilience factors ───────────────
 # For a building the NSI detects as multi-family, its actual construction material
 # is ground truth and drives resilience better than the (often defaulted) single-
@@ -936,6 +944,12 @@ def build_parser() -> argparse.ArgumentParser:
                         "community water system: it is not charged the public water "
                         "cost, and Water Quality is left unscored (EPA SDWIS covers "
                         "community systems only). Default: public.")
+    p.add_argument("--lot-context", dest="lot_context",
+                   choices=list(LOT_CONTEXTS), default=None,
+                   help="What kind of place the lot sits in (rural | suburban | "
+                        "urban). Overrides the Census urban-area test on the "
+                        "geocoded point, which is coarse at a city's fringe. "
+                        "Default: detected.")
     p.add_argument("--sewer", dest="sewer",
                    choices=list(SEWER_TYPES), default=None,
                    help="Wastewater disposal. 'septic' means an on-site field rather "
@@ -1087,6 +1101,8 @@ def resolve_config(args: argparse.Namespace) -> dict:
         # "well" / "septic" = served on site. A private well also leaves Water
         # Quality unscored: EPA SDWIS covers community water systems only.
         "water_source": "public", "sewer": "public",
+        # Lot context: None = use the Census urban-area detection for the point.
+        "lot_context": None,
     }
     cfg = dict(PRESETS[args.preset]) if args.preset else {}
 
@@ -1106,12 +1122,27 @@ def resolve_config(args: argparse.Namespace) -> dict:
         "owner_occupied": getattr(args, "owner_occupied", None),
         "water_source": getattr(args, "water_source", None),
         "sewer":        getattr(args, "sewer", None),
+        "lot_context":  getattr(args, "lot_context", None),
     }
     for key, cli_val in CLI_FIELDS.items():
         if cli_val is not None:
             cfg[key] = cli_val
         elif key not in cfg:
             cfg[key] = GLOBAL_DEFAULTS[key]
+
+    # Validate the closed vocabularies here rather than only at the CLI/API edges.
+    # Every one of these is consumed by an equality test downstream
+    # (``water_source == "well"``, ``LOT_CONTEXT_URBAN.get(lot_context)``), so a
+    # typo from a library caller — ``build_label_parts(water_source="Well")`` —
+    # would not raise. It would silently mean "public", scoring a well household's
+    # tap water from a community system it isn't on. Failing loudly here makes the
+    # library path behave like the CLI and API paths, which already reject these.
+    for key, allowed in (("water_source", WATER_SOURCES), ("sewer", SEWER_TYPES),
+                         ("lot_context", LOT_CONTEXTS)):
+        val = cfg.get(key)
+        if val is not None and val not in allowed:
+            raise ValueError(
+                f"invalid {key}={val!r}; choose one of: {', '.join(sorted(allowed))}")
 
     # Flood zone: CLI > preset. If absent it is auto-derived from the location
     # later (main), so it's no longer required up front.
@@ -2171,7 +2202,7 @@ def emit_json(cfg: dict, r: dict, label: dict) -> None:
 # details" panel, each with provenance (confirmed / estimated / assumed).
 _EDITABLE_FIELDS = ["year_built", "construction", "foundation", "condition",
                     "sqft", "units", "stories", "lot_acres", "value", "bldg_material",
-                    "water_source", "sewer"]
+                    "water_source", "sewer", "lot_context"]
 
 
 # Multifamily building efficiency: the fraction of gross floor area that is a
@@ -2294,6 +2325,7 @@ def _building_block(cfg: dict, struct: dict, explicit: set, autofilled: dict,
         # so the default reads honestly as "assumed", not as something we detected.
         # Nothing infers these today — see the note in build_label_parts.
         "water_source": cfg.get("water_source"), "sewer": cfg.get("sewer"),
+        "lot_context": cfg.get("lot_context"),
     }
     # A supplied units of 1 is not a real override (1 is the default), so it must
     # not tag the field "confirmed" — especially when NSI detected a multi-unit
@@ -2430,6 +2462,7 @@ def build_label_parts(*, address: str | None = None,
         bldg_material=fields.get("bldg_material"), stories=fields.get("stories"),
         owner_occupied=fields.get("owner_occupied"),
         water_source=fields.get("water_source"), sewer=fields.get("sewer"),
+        lot_context=fields.get("lot_context"),
     )
     for flag in BONUS_FLAGS:            # resilience upgrades → Namespace booleans
         setattr(ns, flag, flag in (upgrades or []))

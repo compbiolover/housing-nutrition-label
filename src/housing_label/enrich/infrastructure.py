@@ -145,6 +145,28 @@ SHELBY_FEE_RECOVERY = {
 # is squarely in the responsive range, not pinned at the old floor.
 ROAD_COST_BY_DENSITY = [
     # (du_acre, $/HH/yr)
+    # ── Rural extension, below Halifax's published "rural/estate" anchor ──────
+    # Without these the curve CLAMPED FLAT below 0.7 DU/acre, so a 1.5-acre lot
+    # and a 40-acre lot were billed identically and entering a real rural acreage
+    # changed nothing. Two different slopes, because two different things happen:
+    #
+    #   0.7 -> 0.2 DU/acre (1.4 -> 5 acres): continue the curve's OWN local slope
+    #     (~density^-0.32, measured between the 0.7 and 1.73 anchors). A 3.5x
+    #     extrapolation past the published anchor, in the direction the published
+    #     curve is already heading — frontage per household keeps growing.
+    #   0.2 -> 0.025 DU/acre (5 -> 40 acres): flatten hard (~density^-0.15). Past
+    #     roughly five acres the household is on a county through-road that exists
+    #     to connect places, not to serve that parcel, and it carries no curb,
+    #     gutter, storm sewer, sidewalk or lighting. Marginal attributable cost
+    #     stops scaling with frontage.
+    #
+    # Clamped flat below 0.025 (40 acres): beyond that the parcel is farm or
+    # timber land whose road burden is not a per-household quantity at all.
+    (0.025, 4_900),  # ~40-acre parcel (floor anchor)
+    (0.05,  4_430),  # ~20-acre
+    (0.1,   4_000),  # ~10-acre
+    (0.2,   3_600),  # ~5-acre
+    (0.35,  3_000),  # ~3-acre
     (0.7,   2_400),  # rural/estate
     (1.73,  1_800),  # suburban sprawl
     (4.24,  1_200),  # suburban
@@ -173,6 +195,15 @@ ROAD_COST_BY_DENSITY = [
 # extended past 12 DU/acre); the distribution/collection mains are shared linear
 # infrastructure, so per-household cost keeps amortizing with density.
 WATER_SEWER_COST_BY_DENSITY = [
+    # Rural extension on the same two-slope basis as roads (mains are linear
+    # infrastructure sharing the frontage argument). Only reached by a rural parcel
+    # that is actually ON the public network — one on a well and a septic field
+    # drops these legs entirely (see public_water / public_sewer in enrich_row).
+    (0.025, 3_050),  # ~40-acre parcel (floor anchor)
+    (0.05,  2_760),  # ~20-acre
+    (0.1,   2_500),  # ~10-acre
+    (0.2,   2_250),  # ~5-acre
+    (0.35,  1_875),  # ~3-acre
     (0.7,  1_500),
     (1.73, 1_100),
     (4.24,   800),
@@ -353,6 +384,7 @@ def police_cost(base: float, density: float) -> float:
     return base * density_multiplier(density, POLICE_DENSITY_MULTIPLIERS)
 
 
+
 def fiscal_rating(ratio: float) -> str:
     """Map fiscal_ratio to human-readable burden rating."""
     for threshold, label in RATING_THRESHOLDS:
@@ -470,10 +502,12 @@ def enrich_row(row: pd.Series, *,
     cost_water_sewer = (interp_cost(lot_density, WATER_SEWER_COST_BY_DENSITY)
                         * mult.get("water_sewer", 1.0) * public_share)
     cost_fire        = (FIRE_BASE_COST * fire_mult
-                        * density_multiplier(lot_density, FIRE_DENSITY_MULTIPLIERS) * mult.get("fire", 1.0))
+                        * density_multiplier(lot_density, FIRE_DENSITY_MULTIPLIERS)
+                        * mult.get("fire", 1.0))
     cost_police      = police_cost(POLICE_BASE_COST, lot_density) * mult.get("police", 1.0)
     cost_sanitation  = (float(SANITATION_COST)
-                        * density_multiplier(lot_density, SANITATION_DENSITY_MULTIPLIERS) * mult.get("sanitation", 1.0))
+                        * density_multiplier(lot_density, SANITATION_DENSITY_MULTIPLIERS)
+                        * mult.get("sanitation", 1.0))
     cost_parks       = float(PARKS_OTHER_COST) * mult.get("parks", 1.0)
 
     components = {

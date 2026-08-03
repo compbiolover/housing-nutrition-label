@@ -55,7 +55,10 @@ window.LabelForm = (function () {
     { key: "value", label: "Home value ($)", type: "number",
       attrs: 'min="1000" max="100000000" step="1000" placeholder="market value"' },
     { key: "lot_acres", label: "Lot size (acres)", type: "number",
-      attrs: 'min="0.01" max="1000" step="0.01" placeholder="e.g. 0.18"' },
+      attrs: 'min="0.01" max="10000" step="0.01" placeholder="e.g. 0.18 — or 40 for a farm"' },
+    { key: "lot_context", label: "Lot context", type: "select", options: [
+      ["", "(detected)"], ["rural", "Rural / unincorporated"],
+      ["suburban", "Suburban"], ["urban", "Urban"]] },
     { key: "units", label: "Dwelling units", type: "number",
       attrs: 'min="1" max="500" step="1" placeholder="1 (house), 4 (quadplex)"' },
     { key: "bldg_material", label: "Building material", type: "select", options: [
