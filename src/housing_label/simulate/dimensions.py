@@ -962,9 +962,13 @@ def simulate_all_dimensions(
             "Only a lab test of this well can describe its water.")
     elif water_sys:
         yrs = water_sys["years_in_violation"]
+        # Phrased around YEARS, not violations. "violations in 1 of the last 5
+        # years" is both awkward and misleading — the metric counts years out of
+        # compliance, and a single such year can contain several violations, so any
+        # wording that fronts the violation count claims something not measured.
         record = ("no health-based violation in the last "
                   f"{WATER_RECENT_YEARS} years" if yrs == 0
-                  else f"health-based violations in {yrs} of the last "
+                  else f"out of health-based compliance in {yrs} of the last "
                        f"{WATER_RECENT_YEARS} years")
         location_notes["water"] = (
             f"EPA SDWIS record for {ws.get('name') or 'the serving system'} "

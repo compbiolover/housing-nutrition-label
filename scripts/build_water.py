@@ -139,8 +139,13 @@ def _load_violation_years(z: zipfile.ZipFile, systems: set[str]) -> dict[str, se
     bad quarter above a system chronically out of compliance. Years-in-violation
     answers the question a resident is actually asking — how often is this system
     failing — and it is bounded (0..``_RECENT_YEARS``), which the per-system score
-    relies on. Systems with none map to an empty set, and the county model's
-    boolean is just "is this set non-empty".
+    relies on.
+
+    SPARSE, in two different ways, so callers must not index it: a system with no
+    health-based violation on record at all is ABSENT (it never appears in the
+    violations table), and a system whose only violations predate the window maps
+    to an EMPTY SET. Both mean "clean in the window" — use ``.get(pwsid, ())``.
+    The county model's boolean is then just "is that non-empty".
     """
     hb_years: dict[str, set[int]] = {}   # PWSID → every health-based year seen
     max_year = 0

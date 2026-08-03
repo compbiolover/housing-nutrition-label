@@ -136,9 +136,14 @@ def test_the_note_states_the_system_and_its_record():
     assert clean["pwsid"].upper() in note
     assert "no health-based violation" in note.lower()
 
-    dirty = next(r for r in rows if int(r["years_in_violation"]) == 2)
-    dnote = _label(_served(dirty["pwsid"]))["location_notes"]["water"].lower()
-    assert "2 of the last 5 years" in dnote
+    # Phrased around years out of compliance, not a violation count — one such
+    # year can contain several violations, so "violations in 1 of the last 5 years"
+    # would claim something the metric does not measure (and read as a count of 1).
+    for yrs in (1, 2):
+        row = next(r for r in rows if int(r["years_in_violation"]) == yrs)
+        n = _label(_served(row["pwsid"]))["location_notes"]["water"].lower()
+        assert f"out of health-based compliance in {yrs} of the last 5 years" in n, n
+        assert "violations in" not in n
 
 
 def test_a_private_well_still_wins_over_a_resolved_system():
