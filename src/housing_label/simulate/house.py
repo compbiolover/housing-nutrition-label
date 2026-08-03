@@ -2604,16 +2604,16 @@ def build_label_parts(*, address: str | None = None,
     if preset is None:
         autofilled.update(_autofill_construction_from_nsi(
             cfg, explicit, location, struct.get("num_units")))
-        # Detected drinking-water source (EPA service-area boundaries). Written
-        # into cfg so the panel shows the detection rather than an empty box —
-        # otherwise the one field the visitor most needs to confirm is the one
-        # field with nothing in it — and tagged so it reads as a detection they can
-        # correct, never as something they entered.
-        # NOTE: cfg["water_source"] is deliberately NOT written here. This block
-        # runs before simulate_all_dimensions, and stamping the detected value into
-        # cfg would make it indistinguishable from a value the visitor entered —
-        # which the water note has to tell apart ("as entered" vs "evidence, not
-        # proof"). The panel resolves it for display in _building_block instead.
+        # Provenance for the detected drinking-water source (EPA service-area
+        # boundaries) — only the tag, deliberately not the value.
+        #
+        # cfg["water_source"] is NOT written here. This block runs before
+        # simulate_all_dimensions, so stamping the detected value into cfg would
+        # make it indistinguishable from one the visitor entered — the distinction
+        # the water note has to keep ("as entered" vs "evidence, not proof").
+        # _building_block resolves the value for DISPLAY instead, so the panel still
+        # shows the detection rather than an empty box: the one field a well owner
+        # most needs to confirm must not be the one field with nothing in it.
         if "water_source" not in explicit:
             ws = getattr(location, "water_system", None) or {}
             if ws.get("status") == "served":

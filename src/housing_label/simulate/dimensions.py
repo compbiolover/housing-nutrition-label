@@ -938,10 +938,12 @@ def simulate_all_dimensions(
             how = ("no mapped community water system at this point, per EPA service "
                    "areas — evidence of a private well, not proof, since EPA cannot "
                    "confirm service by address")
+        # Ends on the county-figure clause rather than an elliptical "…only a lab
+        # test of the well can", which reads as though the sentence were truncated.
         location_notes["water"] = (
             f"not scored — {how}. EPA SDWIS covers community water systems only, so "
-            "the county figure does not describe this home's water; only a lab test "
-            "of the well can")
+            "the county figure measures a population this household is not part of. "
+            "Only a lab test of this well can describe its water.")
     elif water and water_score is not None:
         # Name the system when the point resolves to one. The score is still the
         # county aggregate — per-PWSID violation history is a separate dataset —

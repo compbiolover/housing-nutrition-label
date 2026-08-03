@@ -14,20 +14,23 @@ FeatureServer) — 44,000+ community water systems covering ~99% of the US
 population served by one, plus non-community systems. A point-in-polygon query
 returns the PWSID serving that point, or nothing.
 
-Three states, not a boolean
----------------------------
+Three answers, not a boolean
+----------------------------
 EPA is explicit that the layer "cannot definitively determine if a specific
-address is served" and should be used as a first step, so this returns:
+address is served" and should be used as a first step, so a caller has to be able
+to tell three cases apart. Two are ``status`` values on a returned dict; the third
+is deliberately not a value at all:
 
-  * ``served``   — inside a community system's mapped area; carries its PWSID.
-  * ``outside``  — inside no mapped community area. Evidence of a private well,
-    not proof of one: ~40% of the boundaries are EPA-modeled rather than
-    authoritative, and a small system may not be mapped at all.
-  * ``unknown``  — the service could not be reached, or the lookup was off-network.
-    Distinct from ``outside`` on purpose: an outage must never read as "this house
-    is on a well", which would silently unscore a dimension for every address
-    during it. Signalled by ``ServiceAreaUnavailable`` so the caller falls back
-    *without caching* the degraded answer.
+  * ``{"status": "served", ...}``  — inside a community system's mapped area;
+    carries its PWSID.
+  * ``{"status": "outside", ...}`` — inside no mapped community area. Evidence of a
+    private well, not proof of one: ~40% of the boundaries are EPA-modeled rather
+    than authoritative, and a small system may not be mapped at all.
+  * **unknown** — never a ``status``. Either ``None`` (off-network, or the caller
+    skipped the lookup) or a raised ``ServiceAreaUnavailable`` (the service was
+    unreachable). Kept out of the status vocabulary on purpose: an outage that
+    could be read as ``outside`` would unscore a dimension for every address while
+    it lasted, and an exception cannot be mistaken for an answer or cached as one.
 
 Non-community systems (a campground, a school, a factory) are filtered out: they
 are not what SDWIS's community-water-system compliance measures, and a home inside
