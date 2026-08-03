@@ -31,17 +31,30 @@ from housing_label.simulate.house import build_label_parts                  # no
 
 # Real geocoder response shapes, captured 2026-08-03 from
 # geocoding.geo.census.gov/geocoder/geographies/coordinates.
-_MEMPHIS = {"Incorporated Places": [
+# Every successful geocode returns the county layer, incorporated or not — it is
+# what makes a missing "Incorporated Places" key mean "no municipality here"
+# rather than "this response is unusable".
+_COUNTY = {"Counties": [{"GEOID": "47157", "NAME": "Shelby", "STATE": "47"}]}
+_MEMPHIS = {**_COUNTY, "Incorporated Places": [
     {"NAME": "Memphis city", "GEOID": "4748000", "MTFCC": "G4110", "FUNCSTAT": "A"}]}
-_SILVER_SPRING = {"Census Designated Places": [
+_SILVER_SPRING = {**_COUNTY, "Census Designated Places": [
     {"NAME": "Silver Spring CDP", "GEOID": "2472450", "MTFCC": "G4210", "FUNCSTAT": "S"}]}
-_RURAL = {}
+# A real unincorporated point: the geocoder omits the places layer entirely while
+# still returning counties/tracts (verified live against a rural parcel).
+_RURAL = dict(_COUNTY)
+# A response that resolved nothing — a failed lookup, or a future layer change.
+# Indistinguishable from _RURAL on the places key alone, which is the whole point.
+_UNUSABLE = {}
+# Leading-zero GEOID: Alabama places start "01", so an unpadded int-ish value
+# would lose the zero.
+_ALABAMA = {**_COUNTY, "Incorporated Places": [
+    {"NAME": "Akron town", "GEOID": "100124", "MTFCC": "G4110", "FUNCSTAT": "A"}]}
 # Defensive: a layer or vintage change folding CDPs back into the incorporated
 # layer must not flip an unincorporated parcel to incorporated.
-_CDP_IN_WRONG_LAYER = {"Incorporated Places": [
+_CDP_IN_WRONG_LAYER = {**_COUNTY, "Incorporated Places": [
     {"NAME": "Silver Spring CDP", "GEOID": "2472450", "MTFCC": "G4210", "FUNCSTAT": "S"}]}
 # An inactive/nonfunctioning place is not an active general-purpose government.
-_INACTIVE_PLACE = {"Incorporated Places": [
+_INACTIVE_PLACE = {**_COUNTY, "Incorporated Places": [
     {"NAME": "Defunct town", "GEOID": "4700000", "MTFCC": "G4110", "FUNCSTAT": "N"}]}
 
 
@@ -60,9 +73,26 @@ def test_a_cdp_is_not_a_municipality():
 
 
 def test_unincorporated_territory_reads_as_such():
+    """The geocoder omits the places layer rather than returning it empty, so its
+    absence — in an otherwise well-formed response — is the unincorporated signal."""
     out = _parse_geographies(_RURAL)
     assert out["incorporated"] is False
     assert out.get("place_label") is None
+
+
+def test_an_unusable_response_is_unknown_not_unincorporated():
+    """A missing places layer means "no municipality here" only when the rest of the
+    response vouches for it. With no county either, the layer may simply not have
+    been returned — a failed lookup or an API change — and guessing False would hand
+    an unknown parcel the unincorporated discount. Unknown must stay None."""
+    assert _parse_geographies(_UNUSABLE)["incorporated"] is None
+
+
+def test_place_geoid_keeps_its_leading_zero():
+    """PLACE GEOIDs are 7 digits (2-digit state + 5-digit place); Alabama and Alaska
+    lead with a zero. Padded like the county and tract GEOIDs alongside it."""
+    assert _parse_geographies(_ALABAMA)["place_geoid"] == "0100124"
+    assert _parse_geographies(_MEMPHIS)["place_geoid"] == "4748000"
 
 
 def test_mtfcc_and_funcstat_are_both_required():

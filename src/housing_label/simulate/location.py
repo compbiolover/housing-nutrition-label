@@ -137,16 +137,30 @@ def _parse_geographies(geo: dict) -> dict:
     # already excludes CDPs, so the check is belt-and-braces against a layer or
     # vintage change quietly folding them back in.
     #
-    # An empty layer means the point is in unincorporated county territory: the
-    # county is its general-purpose government, and no city serves or taxes it.
+    # An ABSENT layer means the point is in unincorporated county territory: the
+    # geocoder omits "Incorporated Places" entirely rather than returning it empty
+    # (verified against a rural point, which still returns Counties, Census Tracts,
+    # States and more). So absence is the signal — but only when the rest of the
+    # response is there to vouch for it.
+    #
+    # Every successful geocode returns the county layer, so its presence is the
+    # evidence that this response is well-formed. Without it, "no places key"
+    # cannot be distinguished from "the layer was not returned at all" (a failed
+    # lookup, or a future API/layer change), and guessing False would hand an
+    # unknown parcel the unincorporated discount. Unknown stays None, which the
+    # cost model reads as "keep the full service bundle".
+    resolved = bool(counties)
     places = geo.get("Incorporated Places") or []
     municipal = next((p for p in places
                       if str(p.get("MTFCC") or "").upper() == "G4110"
                       and str(p.get("FUNCSTAT") or "").upper() == "A"), None)
     if municipal is not None:
         out["place_label"] = municipal.get("NAME")
-        out["place_geoid"] = str(municipal.get("GEOID") or "") or None
-    out["incorporated"] = municipal is not None
+        # 7 digits (2-digit state + 5-digit place), zero-padded like the county and
+        # tract GEOIDs above — a place in Alabama or Alaska leads with a zero.
+        geoid = str(municipal.get("GEOID") or "").strip()
+        out["place_geoid"] = geoid.zfill(7) if geoid else None
+    out["incorporated"] = (municipal is not None) if resolved else None
     out["in_urban_area"] = bool(geo.get("Urban Areas"))
     return out
 
