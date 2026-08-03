@@ -78,6 +78,23 @@ def test_private_well_leaves_water_quality_unscored():
     assert "community water system" in note.lower()
 
 
+def test_private_well_skips_the_sdwis_lookup_entirely():
+    """Not just discarded — never fetched. Nothing downstream reads the county row
+    unless a score was set, so looking it up would only pay to parse the SDWIS table
+    for an answer this home cannot use."""
+    from unittest import mock
+    import housing_label.data.water as water_data
+
+    with mock.patch.object(water_data, "water_for_county",
+                           wraps=water_data.water_for_county) as spy:
+        _label(water_source="well")
+    assert spy.call_count == 0
+    with mock.patch.object(water_data, "water_for_county",
+                           wraps=water_data.water_for_county) as spy:
+        _label()
+    assert spy.call_count == 1
+
+
 def test_septic_alone_does_not_touch_water_quality():
     """The wastewater connection says nothing about where the drinking water comes
     from — a home on public water with a septic field still has scoreable tap water."""

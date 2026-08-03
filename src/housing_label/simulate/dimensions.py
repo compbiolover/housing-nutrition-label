@@ -775,10 +775,15 @@ def simulate_all_dimensions(
     # Well water quality is a function of the individual well — its depth, casing,
     # aquifer and setback from the septic field — and only a lab test of that tap
     # can score it.
-    from housing_label.data.water import water_for_county
+    # Not looked up at all on a well, rather than looked up and discarded: nothing
+    # downstream reads `water` unless `water_score` is set, so fetching it would only
+    # pay to parse the SDWIS table for an answer this home can't use.
     on_private_well = cfg.get("water_source") == "well"
-    water = water_for_county(location.county_fips) if have_county else None
-    water_score = None if on_private_well else (water["score"] if water else None)
+    water = None
+    if have_county and not on_private_well:
+        from housing_label.data.water import water_for_county
+        water = water_for_county(location.county_fips)
+    water_score = water["score"] if water else None
 
     scores = {
         "resilience": round(float(resilience_score), 1),
