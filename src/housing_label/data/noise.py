@@ -56,6 +56,24 @@ _TRACT_CSV_GZ = _DIR / "noise_tracts.csv.gz"         # bundled (gzipped) tract t
 _PCT_XS = [0.0, 0.08, 0.5, 1.85, 4.75, 9.28, 13.47, 26.54, 100.0]
 _PCT_YS = [100.0, 90.0, 75.0, 50.0, 25.0, 10.0, 5.0, 1.0, 0.0]
 
+# ── Anchors used by the point-level refinement (simulate/dimensions.py) ───────
+# Both are read off the curve above rather than chosen, so they cannot drift from
+# the distribution they describe when the noise data is rebuilt.
+#
+# MEDIAN_TRACT_PCT is the p50 anchor. It gates the refinement: above it a tract has
+# real, widespread exposure, and the cause may be something the road layers cannot
+# see — aviation above all, which is in the BTS map but not in TIGERweb. Declining
+# to refine there is the fail-safe direction.
+MEDIAN_TRACT_PCT = _PCT_XS[3]        # 1.85% of residents at >=60 dB
+#
+# QUIET_FLOOR_SCORE is the p10 anchor — the quietest the curve goes short of
+# absolute zero. A refined parcel is floored here rather than scored 100 on
+# purpose: the evidence is "no modelled source within its attenuation distance",
+# which supports "as quiet as the quietest tenth of US tracts". It does not support
+# a claim of exactly zero exposure, because aviation is invisible to this test and
+# TIGER carries no traffic volumes.
+QUIET_FLOOR_SCORE = _PCT_YS[1]       # 90.0
+
 
 def _interp(x: float, xs: list[float], ys: list[float]) -> float:
     """Piecewise-linear interpolation, flat outside the anchor range."""
