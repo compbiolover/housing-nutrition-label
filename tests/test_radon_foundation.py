@@ -50,6 +50,25 @@ def test_foundations_order_by_how_much_soil_gas_gets_in():
     assert scores["slab"] == _radon(_Z1), "slab is the unmodified baseline"
 
 
+def test_slab_is_an_actual_no_op_not_just_a_mathematical_one():
+    """Factor 1.0 must return the reading untouched. Rebuilding the composite from
+    the rounded sub-scores instead moved it by 0.1 in 120 of 900 sampled readings —
+    a baseline that quietly changes the answer is not a baseline."""
+    assert radon_adjusted_reading(_Z1, "slab") is _Z1
+    assert radon_adjusted_reading(_Z1, "SLAB") is _Z1          # normalized first
+    for pm, oz in ((4.037, 33.3), (4.074, 41.9), (9.15, 38.92)):
+        r = _reading(pm, oz, 1, "tract")
+        assert radon_adjusted_reading(r, "slab")["score"] == r["score"], (pm, oz)
+
+
+def test_an_adjusted_composite_is_free_of_rounding_round_trips():
+    """The pollutant legs are re-derived from the raw values, not from the reading's
+    1-dp sub-scores, so the only thing moving the composite is radon."""
+    r = _reading(4.037, 33.3, 1, "tract")
+    unchanged_radon = radon_adjusted_reading(r, "slab", mitigated=False)
+    assert unchanged_radon["score"] == r["score"]
+
+
 def test_the_factor_table_is_anchored_on_slab():
     assert _RADON_FOUNDATION_FACTOR["slab"] == 1.00
     assert _RADON_FOUNDATION_FACTOR["crawl"] < 1.0
