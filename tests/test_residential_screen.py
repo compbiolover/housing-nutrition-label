@@ -3,8 +3,10 @@
 
 A workplace / store / warehouse must not receive a "home" nutrition label. The
 guard lives in ``build_label_parts`` (shared by the CLI and the HTTP API) and
-fires only when NSI *positively* classified the building as non-residential; an
-unknown building (NSI unavailable / no match) is never blocked.
+fires only when a source *positively* classified the building as non-residential
+and nothing positively contradicts it; an unknown building (NSI unavailable / no
+match) is never blocked, and a "Residential" USA Structures footprint at the point
+vetoes an NSI non-residential call.
 
 Runs without network — a pre-resolved ``Location`` is injected and the location
 dimensions are left unscored (``allow_network=False``). Execute directly
@@ -115,6 +117,28 @@ def test_residential_footprint_class_never_blocks():
     assert _scores(location=_loc(None, occ_cls="Unclassified")) is not None
 
 
+def test_residential_footprint_vetoes_nsi_non_residential():
+    """A positive 'Residential' OCC_CLS on the addressed footprint outvotes an NSI
+    non-residential classification: the two national datasets disagree about one
+    building, and NSI's occupancy is modeled, not observed. Regression guard for
+    1614 Jenkinsville-Jamestown Rd, Dyersburg TN — a rural home NSI types AGR1
+    while the USA Structures footprint at the rooftop geocode is Residential."""
+    assert _scores(location=_loc("non_residential", occ_cls="Residential")) is not None
+
+
+def test_veto_needs_a_positive_residential_footprint():
+    """The veto fires only on a positive 'Residential' reading — an NSI-flagged
+    non-residential building is still refused when the footprint is agriculture
+    (a real barn), is unmapped, or carries no verdict."""
+    for occ_cls in (None, "Agriculture", "Commercial", "Unclassified", "Utility and Misc"):
+        try:
+            build_label_parts(location=_loc("non_residential", occ_cls=occ_cls),
+                              allow_network=False)
+        except NonResidentialProperty:
+            continue
+        raise AssertionError(f"expected refusal for non_residential + occ_cls={occ_cls!r}")
+
+
 def test_api_maps_refusal_to_422():
     """The HTTP API returns 422 (not 400/502) with the guidance in `detail`."""
     try:
@@ -154,5 +178,7 @@ if __name__ == "__main__":
     test_commercial_footprint_screens_unknown_structure()
     test_commercial_footprint_does_not_override_detected_residence()
     test_residential_footprint_class_never_blocks()
+    test_residential_footprint_vetoes_nsi_non_residential()
+    test_veto_needs_a_positive_residential_footprint()
     test_api_maps_refusal_to_422()
     print("residential-screen tests passed")
