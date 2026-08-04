@@ -36,6 +36,28 @@ Outputs (bundled, committed — like nri_wildfire_tracts.csv.gz)
   src/housing_label/data/health_county.csv       geoid(5)  + 7 measure %s + health_index + pop
                                                  (plus a national row, geoid 00000)
 
+Coverage — two states come out EMPTY, and that is upstream
+----------------------------------------------------------
+**Kentucky and Pennsylvania produce no rows**, and it is not a paging bug in this
+script. Both appear in the PLACES tract dataset only for the **2022** vintage and
+only for five PREVENTION measures — COLON_SCREEN, DENTAL, MAMMOUSE, SLEEP,
+TEETHLOST — none of which are the seven BRFSS-derived outcome measures above. They
+are absent from the 2023 release entirely. Verified against the live API:
+
+    $ curl ".../cwsq-ngmh.json?$select=measureid&$where=stateabbr='PA' \
+            AND datavaluetypeid='CrdPrv'&$group=measureid"
+    COLON_SCREEN, DENTAL, MAMMOUSE, SLEEP, TEETHLOST     # KY returns the same five
+    # TN, by contrast, returns all 33 measures across 2022 and 2023.
+
+Puerto Rico returns zero rows for any measure; PLACES has never covered it.
+
+Do NOT paper over this by scoring those states on the five measures they do have —
+the index would then mean something different in PA than everywhere else, which is
+the exact "not comparable across locations" defect this script exists to fix.
+``data/health.py:states_without_data()`` derives the affected set from the bundled
+output so the label can say *why* Health Impact is missing there, and
+``tests/test_health_gap.py`` pins it so a release that restores them is noticed.
+
 Run:  python scripts/build_health_ref.py
       python scripts/build_health_ref.py --limit-states 2   # quick smoke build
 """

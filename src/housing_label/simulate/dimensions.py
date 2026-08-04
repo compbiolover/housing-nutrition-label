@@ -627,7 +627,24 @@ def fetch_location_dimensions(
                 out["health"] = round(float(res["health_index"]), 1)
                 notes["health"] = res["label"]
             else:
-                notes["health"] = f"no health data for tract {tract}"
+                # Name the real scope. CDC PLACES omits some states wholesale, and
+                # telling a Philadelphian "no health data for tract 42101000100"
+                # points at their neighbourhood for a gap that is statewide and
+                # upstream — it reads as a bad tract id rather than as the survey
+                # having no outcome data for Pennsylvania at all.
+                gap = health_data.states_without_data()
+                st = str(tract)[:2]
+                if st in gap:
+                    from housing_label.data.states import usps_for_fips
+                    notes["health"] = (
+                        f"CDC PLACES publishes no health-outcome measures for "
+                        f"{usps_for_fips(st) or st}, so Health Impact is unscored "
+                        f"across the whole state — not a gap in this tract. Left "
+                        f"unscored rather than filled with the national average, "
+                        f"which would read as an average neighbourhood instead of "
+                        f"an unmeasured one")
+                else:
+                    notes["health"] = f"no health data for tract {tract}"
         elif not allow_network:
             notes.setdefault("health", "skipped (--no-fetch)")
         else:
