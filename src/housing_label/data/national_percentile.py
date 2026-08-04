@@ -21,17 +21,20 @@ routes each to the right reference:
   How well that stands in for "vs US homes" depends on the geography the quantiles
   were taken over, and it is not uniform:
 
-  * **Solar** is household-weighted (``scripts/calibrate_solar_percentiles.py``),
-    so its rank is over homes directly.
-  * **Air quality, noise** are anchored to TRACT quantiles. Census tracts target
-    ~4,000 residents, so an unweighted tract distribution is already close to a
-    household-weighted one, and the approximation is mild.
-  * **Water, climate, infrastructure** are anchored to UNWEIGHTED COUNTY
-    quantiles. Counties span five orders of magnitude in population, so their rank
-    is "vs US counties" and is only loosely "vs US homes". Solar carried the same
-    defect until it was weighted; these have not been done yet, and the gap is
-    real rather than cosmetic — weighting moved solar's p75 by 36 kWh/kWp and
-    changed scores near the A/B boundary by up to ~7 points.
+  * **Solar** is household-weighted (``scripts/calibrate_solar_percentiles.py``).
+  * **Climate** is household-weighted at the TRACT, which is also the geography it
+    resolves at (``scripts/calibrate_climate_breakpoints.py``).
+  * **Water** is population-weighted by each county's community-water-system
+    population, inside a hurdle model that scores the spotless class separately
+    (see ``data/water.py``).
+  * **Infrastructure** is population-weighted over the (county × archetype)
+    roster, by ``pop × archetype share × tenure share × utility share``
+    (``scripts/calibrate_infra_breakpoints.py``).
+  * **Air quality, noise** are the remaining approximations: anchored to
+    UNWEIGHTED TRACT quantiles. Census tracts target ~4,000 residents, so an
+    unweighted tract distribution is already close to a household-weighted one,
+    and the gap is mild — unlike a county distribution, where populations span
+    five orders of magnitude.
 
 All dimensions here are "higher is better", so a higher percentile means a better
 home than a larger share of US homes. The construction/walkability references are
@@ -52,13 +55,25 @@ _DIR = pathlib.Path(__file__).resolve().parent
 _CURVE_CSV = _DIR / "construction_percentiles.csv"
 
 CONSTRUCTION_DIMS = frozenset({"energy", "durability", "environmental", "resilience"})
-# Scores that already express national standing (no remapping needed). Air Quality,
-# Noise, Solar, and Water are included: their breakpoints are anchored to national
-# tract / county quantiles, so the score already tracks a national percentile rank
-# (see data/air_quality.py + data/noise.py — tract-level — and data/solar.py —
-# household-weighted county-level — and data/water.py — unweighted county-level).
-# The module docstring explains how closely each of those stands in for "vs US
-# homes"; they are not equally good.
+# Scores that already express national standing (no remapping needed), by two
+# different routes:
+#
+#   • Health and Socioeconomic ARE national percentiles as published (Tier 1).
+#   • Air Quality, Noise, Solar, Climate, Water and Infrastructure have breakpoints
+#     anchored to national quantiles, so the score tracks a percentile rank:
+#       - unweighted tract          data/air_quality.py, data/noise.py
+#       - household-weighted county data/solar.py
+#       - household-weighted tract  data/climate_projections.py
+#       - CWS-pop-weighted county   data/water.py
+#       - pop-weighted roster       scripts/calibrate_infra_breakpoints.py
+#
+# Walkability takes a third route (its own remapping curve), so it is in neither
+# set. The module docstring explains how closely each stands in for "vs US homes";
+# they are not equally good.
+#
+# tests/test_national_percentile.py asserts these two sets plus walkability cover
+# the dimension roster exactly — a dimension in none of them falls off the end of
+# national_percentile() and returns None, losing its percentile silently.
 IDENTITY_DIMS = frozenset({"health", "air_quality", "noise", "socioeconomic", "climate", "infrastructure", "solar", "water"})
 
 DATA_VINTAGE = "national percentile vs US homes (modeled reference)"

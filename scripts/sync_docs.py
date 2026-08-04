@@ -155,10 +155,11 @@ DIM_META = {
         source="EPA National Walkability Index",
         res='<span class="tag tract">tract</span>'),
     "climate": dict(
-        measures="Projected extreme heat, heavy precip/flood &amp; drought "
-                 "(RCP4.5&ndash;8.5, mid-century)",
-        source="NOAA/DOI CMRA (LOCA/NCA4)",
-        res='<span class="tag county">county</span>'),
+        measures="Projected extreme heat, heavy precip/flood, drought &amp; fire "
+                 "weather (SSP2-4.5&ndash;SSP5-8.5, mid-century)",
+        source="USGS CMIP6-LOCA2 (~6&nbsp;km) + Argonne ClimRR fire weather",
+        res='<span class="tag tract">tract</span> '
+            '<span class="tag county">+ county fallback</span>'),
     "solar": dict(
         measures="Rooftop specific yield (kWh/kW&middot;yr): production, $ saved &amp; "
                  "CO&#8322; avoided (national percentile), queried at the parcel "

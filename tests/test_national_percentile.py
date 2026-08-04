@@ -76,6 +76,25 @@ def test_surfaced_on_label_payload():
             assert 0 <= d["national_percentile"] <= 100
 
 
+def test_every_dimension_has_a_percentile_route():
+    """A dimension in neither set, and not walkability, falls off the end of
+    national_percentile() and returns None — so its "vs US homes" figure would
+    vanish from the label silently, with no error anywhere. Adding a 14th
+    dimension should fail here rather than quietly ship without a percentile.
+
+    This also pins the enumeration in the comment above IDENTITY_DIMS, which drifted
+    once already when Climate was added to the frozenset but not to the prose.
+    """
+    from housing_label.simulate.dimensions import DIMENSIONS
+    from housing_label.data.national_percentile import (
+        CONSTRUCTION_DIMS, IDENTITY_DIMS)
+
+    roster = {key for key, _label in DIMENSIONS}
+    routed = set(CONSTRUCTION_DIMS) | set(IDENTITY_DIMS) | {"walkability"}
+    assert roster - routed == set(), f"no percentile route: {sorted(roster - routed)}"
+    assert routed - roster == set(), f"routed but not a dimension: {sorted(routed - roster)}"
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items())
              if k.startswith("test_") and callable(v)]
