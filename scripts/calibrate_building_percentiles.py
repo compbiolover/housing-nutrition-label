@@ -29,8 +29,14 @@ per-dimension curves — the honest reference is the same one, one level up:
     seismic hazard.
 
 Each (county, archetype) is one simulated home carrying the household weight of
-that combination. The distribution of ``construction_score`` over that panel is
+that combination. The distribution of ``construction_raw_mean`` over that panel is
 what the grade is then ranked against.
+
+``construction_raw_mean``, NOT ``construction_score`` — the latter is already the
+percentile this script produces the curve for, so sampling it would rank the
+ranking. That failure is silent apart from one tell: the quantiles come back as an
+almost perfect 1, 5, 10 ... 99 straight line. The site calibration hit exactly this
+and its docstring records the same warning.
 
 What it is not
 --------------
@@ -40,8 +46,8 @@ by this build, exactly as ``construction_percentiles.csv`` already is. What it
 does capture is the two things that actually move these scores: the national
 vintage/material mix, and the geography those homes sit in.
 
-Run:  python scripts/calibrate_building_percentiles.py
-      python scripts/calibrate_building_percentiles.py --counties 600
+Run:  python scripts/calibrate_building_percentiles.py            # full panel (~55s)
+      python scripts/calibrate_building_percentiles.py --counties 600   # quick check
 """
 
 from __future__ import annotations
@@ -119,8 +125,14 @@ def build_panel(n_counties: int | None = None, progress=None):
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--counties", type=int, default=600,
-                    help="score the N most-populous counties (default 600).")
+    # Defaults to the WHOLE panel, so a no-arg run reproduces the constants the
+    # label ships with. A smaller default would have made every casual re-run
+    # produce a quietly different reference distribution — and at ~55s for all
+    # 3,200 counties there is nothing to save by sampling.
+    ap.add_argument("--counties", type=int, default=None,
+                    help="(quick check) score only the N most-populous counties. "
+                         "Omit for the full national panel, which is what the "
+                         "shipped anchors are built from.")
     args = ap.parse_args()
 
     t0 = time.time()
