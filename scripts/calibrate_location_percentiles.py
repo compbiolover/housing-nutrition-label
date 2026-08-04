@@ -97,9 +97,20 @@ def score_tract(tract: str):
     from housing_label.simulate.house import build_label_parts, label_payload
     geo = {"county_fips": tract[:5], "county_name": None, "state_fips": tract[:2],
            "tract": tract, "place_label": None, "place_geoid": None,
-           # Unknown rather than False: the cost model reads None as "keep the full
-           # service bundle", which is the neutral assumption for a yardstick.
-           "incorporated": None, "in_urban_area": False}
+           # Both unknown rather than False, so the yardstick asserts nothing about
+           # the thing it is measuring. `incorporated=None` keeps the full service
+           # bundle.
+           #
+           # `in_urban_area=None` is currently a NO-OP versus False, and it is worth
+           # saying so rather than implying a fix that did not happen: enrich_row
+           # falls back to a distance model when the flag is None, that model
+           # defaults to 5 miles with no coordinates on the row, and 5 miles maps to
+           # the same FIRE_DIST_MULTIPLIER_OUTER that False selects directly. The
+           # calibration anchors came back byte-identical across the change, which
+           # is the proof. None is kept because it states the right intent — the
+           # reference does not claim every sampled tract is rural — and because it
+           # is what stays correct if that distance default is ever revisited.
+           "incorporated": None, "in_urban_area": None}
     try:
         loc = resolve_location(lat=35.0, lon=-90.0, allow_network=False,
                                geography=geo)
