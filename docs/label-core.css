@@ -26,6 +26,47 @@
 .label-card .card-metrics { margin: 1rem 0 0; }
 .label-card .card-caveat { margin: 0.75rem 0; font-size: 0.85rem; padding: 0.7rem 1rem; }
 
+
+/* ── The two headline axes ───────────────────────────────────────────────────*/
+/* A buyer asks two questions, not one: is it a good house, and is it a good
+   place? The composite averages them into a number that answers neither — a
+   well-built home on a hard site and a poor one on an easy site land within a
+   point of each other. These sit above the thirteen rows because they are the
+   summary those rows roll up into; the composite stays in the header, smaller,
+   for anything that still reads it.
+
+   Both are national percentiles, so the two letters mean the same thing and can
+   be compared directly. Grid rather than flex so the two cells stay equal width
+   and the eye reads them as a pair, not a ranking. */
+.label-card .axis-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;
+  margin: 0.9rem 0 0.25rem; }
+.label-card .axis-cell { border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 0.7rem 0.85rem; background: var(--bg); }
+.label-card .axis-cap { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--muted); font-weight: 700; }
+.label-card .axis-num { font-size: 1.6rem; font-weight: 800; color: var(--navy);
+  line-height: 1.1; }
+/* "80" alone reads as a percent or a price. The unit says which. */
+.label-card .axis-pct { font-size: 0.75rem; font-weight: 600; color: var(--muted);
+  letter-spacing: 0; margin-left: 0.15rem; }
+.label-card .grade-md { display: inline-block; width: 32px; height: 32px; line-height: 32px;
+  text-align: center; border-radius: var(--radius); font-weight: 800; font-size: 1.05rem;
+  margin-top: 0.3rem; }
+.label-card .axis-blurb { color: var(--muted); font-size: 0.78rem; margin-top: 0.35rem;
+  line-height: 1.35; }
+/* Two grades that disagree are the point of splitting them, but an unexplained
+   "A" beside a "D" reads as a bug. Only rendered when they differ by a band or
+   more. */
+.label-card .axis-note { font-size: 0.82rem; color: var(--muted); margin: 0 0 0.5rem;
+  padding-left: 0.1rem; }
+/* On a phone the pair stacks; equal width stops mattering and the blurbs need
+   the full measure. */
+@media (max-width: 520px) { .label-card .axis-pair { grid-template-columns: 1fr; } }
+@media (prefers-color-scheme: dark) {
+  .label-card .axis-cell { background: #0f172a; }
+  .label-card .axis-num { color: #e2e8f0; }
+}
+
 /* ── Confidence (data-quality) channel — neutral, separate from the grade ────*/
 /* ●/◐/○ differ by a few pixels of ink at this size, so the tier is carried by
    its word (rendered beside the glyph) plus weight/value here — never by the
