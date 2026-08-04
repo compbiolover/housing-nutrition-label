@@ -18,6 +18,21 @@ routes each to the right reference:
   anchored to national quantiles, so the score already tracks national percentile
   rank — returned as-is.
 
+  How well that stands in for "vs US homes" depends on the geography the quantiles
+  were taken over, and it is not uniform:
+
+  * **Solar** is household-weighted (``scripts/calibrate_solar_percentiles.py``),
+    so its rank is over homes directly.
+  * **Air quality, noise** are anchored to TRACT quantiles. Census tracts target
+    ~4,000 residents, so an unweighted tract distribution is already close to a
+    household-weighted one, and the approximation is mild.
+  * **Water, climate, infrastructure** are anchored to UNWEIGHTED COUNTY
+    quantiles. Counties span five orders of magnitude in population, so their rank
+    is "vs US counties" and is only loosely "vs US homes". Solar carried the same
+    defect until it was weighted; these have not been done yet, and the gap is
+    real rather than cosmetic — weighting moved solar's p75 by 36 kWh/kWp and
+    changed scores near the A/B boundary by up to ~7 points.
+
 All dimensions here are "higher is better", so a higher percentile means a better
 home than a larger share of US homes. The construction/walkability references are
 *modeled* distributions (documented archetypes / block-group index), so a surfaced
@@ -40,8 +55,10 @@ CONSTRUCTION_DIMS = frozenset({"energy", "durability", "environmental", "resilie
 # Scores that already express national standing (no remapping needed). Air Quality,
 # Noise, Solar, and Water are included: their breakpoints are anchored to national
 # tract / county quantiles, so the score already tracks a national percentile rank
-# (see data/air_quality.py + data/noise.py — tract-level — and data/solar.py +
-# data/water.py — county-level).
+# (see data/air_quality.py + data/noise.py — tract-level — and data/solar.py —
+# household-weighted county-level — and data/water.py — unweighted county-level).
+# The module docstring explains how closely each of those stands in for "vs US
+# homes"; they are not equally good.
 IDENTITY_DIMS = frozenset({"health", "air_quality", "noise", "socioeconomic", "climate", "infrastructure", "solar", "water"})
 
 DATA_VINTAGE = "national percentile vs US homes (modeled reference)"
