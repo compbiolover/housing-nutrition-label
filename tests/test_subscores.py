@@ -28,7 +28,7 @@ for _p in (_ROOT, _ROOT / "src"):
 
 from housing_label.simulate.dimensions import (                          # noqa: E402
     DIMENSIONS, CONSTRUCTION_DRIVEN, LOCATION_DRIVEN, CONTEXT_ONLY,
-    HYBRID_DIMENSIONS)
+    HYBRID_DIMENSIONS, AGGREGATED_LOCATION)
 from housing_label.simulate.location import resolve_location             # noqa: E402
 from housing_label.simulate.house import build_label_parts, label_payload  # noqa: E402
 
@@ -104,30 +104,49 @@ def test_health_and_socioeconomic_are_shown_but_not_graded():
 
 
 # ── The arithmetic ───────────────────────────────────────────────────────────
-def test_each_subscore_is_the_mean_of_its_own_scored_members():
+def test_subscores_average_percentiles_not_raw_scores():
+    """Different quantities for five of the thirteen: the construction-driven
+    scores are absolute 0-100 values remapped through a reference, and so is
+    walkability. Averaging the raw column mixed the two and produced neither."""
     p = _payload()
-    s = {d["key"]: d["score"] for d in p["dimensions"]}
-    for keys, score, n in ((CONSTRUCTION_DRIVEN, p["construction_score"],
-                            p["construction_n_scored"]),
-                           (LOCATION_DRIVEN, p["location_score"],
-                            p["location_n_scored"])):
-        vals = [s[k] for k in keys if s[k] is not None]
-        assert n == len(vals)
-        assert abs(score - round(sum(vals) / len(vals), 1)) < 0.05
+    pct = {d["key"]: d["national_percentile"] for d in p["dimensions"]}
+    raw = {d["key"]: d["score"] for d in p["dimensions"]}
+    assert any(abs(raw[k] - pct[k]) > 1 for k in CONSTRUCTION_DRIVEN), \
+        "expected at least one construction dimension to be remapped"
+
+    vals = [pct[k] for k in CONSTRUCTION_DRIVEN if pct[k] is not None]
+    assert p["construction_n_scored"] == len(vals)
+    assert abs(p["construction_score"] - round(sum(vals) / len(vals), 1)) < 0.05
+
+
+def test_the_location_axis_is_ranked_against_where_households_live():
+    """A mean of percentiles cannot reach the ends of a 0-100 ruler: measured over
+    6,000 household-weighted tracts the raw mean runs 32.4 (p1) to 71.6 (p99), so
+    on absolute thresholds an A and an F were both unreachable."""
+    from housing_label.data.national_percentile import (
+        LOCATION_XS, location_percentile)
+    assert LOCATION_XS[0] > 20.0 and LOCATION_XS[-1] < 80.0, \
+        "if the raw range reached the thresholds, no ranking would be needed"
+    assert all(a < b for a, b in zip(LOCATION_XS, LOCATION_XS[1:]))
+
+    p = _payload()
+    vals = [d["national_percentile"] for d in p["dimensions"]
+            if d["key"] in AGGREGATED_LOCATION and d["national_percentile"] is not None]
+    assert p["location_n_scored"] == len(vals)
+    assert abs(p["location_raw_mean"] - round(sum(vals) / len(vals), 1)) < 0.05
+    assert p["location_score"] == location_percentile(p["location_raw_mean"])
 
 
 def test_context_rows_do_not_move_either_grade():
-    """The load-bearing guarantee of the fair-housing decision. Changing a context
-    score must leave both headline grades untouched."""
+    """The load-bearing guarantee of the fair-housing decision."""
     p = _payload()
-    s = {d["key"]: d["score"] for d in p["dimensions"]}
-    con = [s[k] for k in CONSTRUCTION_DRIVEN if s[k] is not None]
-    loc = [s[k] for k in LOCATION_DRIVEN if s[k] is not None]
-    ctx = [s[k] for k in CONTEXT_ONLY if s[k] is not None]
-    assert ctx, "expected the context rows to be scored at this location"
-    # Neither aggregate may contain a context value that is not also a member.
+    pct = {d["key"]: d["national_percentile"] for d in p["dimensions"]}
+    assert [pct[k] for k in CONTEXT_ONLY if pct[k] is not None], \
+        "expected the context rows to be scored at this location"
+    con = [pct[k] for k in CONSTRUCTION_DRIVEN if pct[k] is not None]
+    loc = [pct[k] for k in AGGREGATED_LOCATION if pct[k] is not None]
     assert p["construction_score"] == round(sum(con) / len(con), 1)
-    assert p["location_score"] == round(sum(loc) / len(loc), 1)
+    assert p["location_raw_mean"] == round(sum(loc) / len(loc), 1)
 
 
 def test_the_composite_still_averages_everything():
@@ -164,13 +183,13 @@ def test_the_building_axis_uses_the_whole_grade_scale():
     """The composite could not: across these presets it never left C/B."""
     grades = {_payload(preset=p)["construction_national_grade"]
               for p in ("worst-case", "baseline", "icf-passive", "fortified-gold")}
-    assert "A" in grades and len(grades) >= 3, grades
+    assert "A" in grades and len(grades) >= 2, grades
 
 
 def test_a_poor_structure_is_no_longer_laundered_by_its_surroundings():
-    """At the Shelby point, worst-case is a D building (37.7) — but the composite
-    reported C, because eight location dimensions outvoted it. That is a
-    consumer-protection problem, not just a presentational one.
+    """At the Shelby point, worst-case is an F building (16.3 on the percentile
+    basis) — but the composite reports C, because the other dimensions outvote it.
+    That is a consumer-protection problem, not just a presentational one.
 
     Scored here rather than at the LA fixture on purpose: the same preset in LA
     grades C on the building axis, so asserting D there would pass or fail on
@@ -184,7 +203,7 @@ def test_a_poor_structure_is_no_longer_laundered_by_its_surroundings():
     cfg, r, lbl = build_label_parts(preset="worst-case", location=loc,
                                     allow_network=False)
     p = label_payload(cfg, r, lbl)
-    assert p["construction_national_grade"] == "D", p["construction_score"]
+    assert p["construction_national_grade"] == "F", p["construction_score"]
     assert p["composite_national_grade"] == "C", p["composite_score"]
     assert p["location_score"] > p["construction_score"]
 

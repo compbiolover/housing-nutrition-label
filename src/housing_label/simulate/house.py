@@ -2141,6 +2141,7 @@ def label_payload(cfg: dict, r: dict, label: dict, include_building: bool = True
         "location_score": label["location_score"],
         "location_national_grade": label["location_national_grade"],
         "location_n_scored": label["location_n_scored"],
+        "location_raw_mean": label["location_raw_mean"],
         "metrics": label["metrics"],
         "census_tract": label["census_tract"],
         "location_notes": label["location_notes"],

@@ -11,7 +11,7 @@ from argparse import Namespace
 from housing_label.simulate.house import resolve_config, simulate
 from housing_label.simulate.dimensions import (
     build_parcel_row, compute_construction_dimensions, simulate_all_dimensions,
-    EXTWALL_CODE, COND_CODE, CONSTRUCTION_DRIVEN, LOCATION_DRIVEN,
+    EXTWALL_CODE, COND_CODE,
 )
 
 _FIELDS = ["flood_zone", "year_built", "construction", "foundation",
@@ -273,14 +273,15 @@ def test_offline_subscores_cover_only_what_resolved():
                                     allow_network=False)
     by_key = {d["key"]: d["score"] for d in label["dimensions"]}
 
-    con = [by_key[k] for k in CONSTRUCTION_DRIVEN if by_key[k] is not None]
-    assert label["construction_n_scored"] == len(con) == 3
-    assert abs(label["construction_score"] - round(sum(con) / len(con), 1)) < 0.05
+    assert label["construction_n_scored"] == 3
 
-    # Offline, only resilience and infrastructure of the location set resolve.
-    loc = [by_key[k] for k in LOCATION_DRIVEN if by_key[k] is not None]
-    assert label["location_n_scored"] == len(loc) == 2
-    assert abs(label["location_score"] - round(sum(loc) / len(loc), 1)) < 0.05
+    # Offline, of the AGGREGATED location set (hybrids excluded) only
+    # infrastructure resolves — resilience is a hybrid and sits outside the
+    # aggregate, so it does not count here even though it scores.
+    from housing_label.simulate.dimensions import AGGREGATED_LOCATION
+    assert label["location_n_scored"] == 1
+    assert by_key["resilience"] is not None, "the hybrid still scores as a row"
+    assert "resilience" not in AGGREGATED_LOCATION
 
 
 def test_override_includes_location_dim():
