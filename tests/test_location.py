@@ -199,10 +199,15 @@ def test_get_pga_offline_no_grid_is_none():
 
 
 def test_supplied_geography_resolves_offline_without_geocoding():
-    """Only the geocode step needs network. A caller who already knows the FIPS —
-    a batch job with pre-joined geography, or a fixture pinning a known place —
-    should get the full bundled enrichment without a network call, rather than
-    choosing between a live geocode and no location signal at all.
+    """The Census geocode is the only network call needed to learn a point's county
+    and tract, and every crosswalk keyed off them is bundled. So a caller who
+    already knows the FIPS — a batch job with pre-joined geography, or a fixture
+    pinning a known place — should get all of that enrichment without a network
+    call, rather than choosing between a live geocode and no location signal.
+
+    Narrower than "the resolver is network-free": structure_for_point and
+    footprint_for_point still go out when allow_network is set. Those degrade to
+    None on their own; the geography does not.
     """
     from unittest import mock
     geo = {"county_fips": "47157", "county_name": "Shelby County",
@@ -222,6 +227,20 @@ def test_supplied_geography_resolves_offline_without_geocoding():
     assert loc.climate_projection and loc.climate_projection.get("resolved")
     assert loc.wildfire and loc.wildfire.get("resolved")
     assert "not geocoded" in (loc.notes or {}).get("geocoder", "")
+
+
+def test_geography_and_address_together_are_rejected():
+    """They are contradictory instructions — geography says the county/tract are
+    already known, address says to geocode for them. Honouring either silently
+    would drop the other, which this resolver explicitly promises not to do."""
+    try:
+        resolve_location(address="1600 Pennsylvania Ave NW, Washington DC",
+                         lat=35.13, lon=-89.99,
+                         geography={"county_fips": "47157"})
+    except ValueError as exc:
+        assert "not both" in str(exc)
+        return
+    raise AssertionError("expected ValueError")
 
 
 def test_supplied_geography_still_needs_a_point():

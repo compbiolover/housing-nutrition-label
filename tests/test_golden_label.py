@@ -10,11 +10,20 @@ through while silently moving every published grade.
 This test locks the numeric core of ``label_payload`` for a fixed matrix of
 ``(preset × location)`` cases scored **offline** (``allow_network=False``), so the
 output is fully deterministic. Every one of the thirteen dimensions is scored,
-because each case supplies its Census geography rather than geocoding for it —
-only that one step needs network, and without it the county and tract are unknown
-and the six location dimensions silently score ``null``. See ``SHELBY_GEO`` below
-for what that cost. Any intended recalibration must regenerate the snapshot,
-turning a would-be silent drift into a reviewable diff:
+because each case supplies its Census geography rather than geocoding for it: the
+geocode is the only network call needed to learn a point's county and tract, and
+every crosswalk keyed off them is bundled. Offline without it, the county and tract
+are unknown and the location dimensions silently score ``null`` — see ``SHELBY_GEO``
+below for what that cost.
+
+``allow_network=False`` still matters on top of that, and for a different reason.
+It suppresses the enrichers that go out per parcel — NSI structure, building
+footprint, EPA water system, TIGERweb road noise, PVGIS solar — each of which
+degrades to a bundled or unscored value on its own. Supplying the geography does
+not make those live; it only removes the one dependency that had no fallback.
+
+Any intended recalibration must regenerate the snapshot, turning a would-be silent
+drift into a reviewable diff:
 
     UPDATE_GOLDEN=1 python -m pytest tests/test_golden_label.py     # rewrite
     python -m pytest tests/test_golden_label.py                      # verify

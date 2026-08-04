@@ -220,20 +220,32 @@ def resolve_location(
     shape ``_parse_geographies`` returns (``county_fips``, ``tract``,
     ``state_fips``, ``county_name``, ``in_urban_area``, ``incorporated``,
     ``place_label``, ``place_geoid``). When given, the geocoder is not called and
-    everything downstream — climate zone, eGRID, Cambium, climate projections,
-    wildfire, tornado — resolves from the bundled crosswalks as usual.
+    everything keyed off county/tract — climate zone, eGRID, Cambium, climate
+    projections, wildfire, tornado — resolves from the bundled crosswalks as usual.
+    It is rejected alongside ``address``: one says "I already know where this is",
+    the other says "go look it up", and silently honouring one would drop the other.
 
-    That matters because ONLY the geocode step needs network. Without this, an
-    offline caller gets a Location with no county and no tract, which silently
-    unscores every location dimension: the golden snapshot ran that way for a long
-    time and covered none of Health, Air Quality, Noise, Climate, Solar or Water.
-    A caller who already knows the FIPS — a batch job with pre-joined geography, or
-    a fixture pinning a known place — should not have to choose between a network
-    call and no location signal at all.
+    The narrow claim this rests on: the Census geocode is the ONLY network call
+    needed to learn a point's county and tract, and every crosswalk keyed off them
+    is bundled. It does NOT make the resolver network-free — ``structure_for_point``
+    and ``footprint_for_point`` below still go out when ``allow_network`` is set,
+    as do the parcel-level enrichers in the label build (water system, road noise,
+    PVGIS). Those degrade to None on their own; the geography does not, and without
+    it a Location carries no county and no tract, which silently unscores every
+    location dimension. The golden snapshot ran that way for a long time and covered
+    none of Health, Air Quality, Noise, Climate, Solar or Water. A caller who
+    already knows the FIPS — a batch job with pre-joined geography, or a fixture
+    pinning a known place — should not have to choose between a network call and no
+    location signal at all.
     """
     notes: dict = {}
 
     if geography is not None:
+        if address:
+            raise ValueError(
+                "Pass either address= or geography=, not both: geography says the "
+                "point's county/tract are already known, address says to geocode "
+                "for them.")
         if lat is None or lon is None:
             raise ValueError("geography= requires both lat and lon.")
         loc = Location(lat=float(lat), lon=float(lon), notes=notes)
