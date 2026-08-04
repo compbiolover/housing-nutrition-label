@@ -290,6 +290,95 @@ def test_a_poor_structure_is_no_longer_laundered_by_its_surroundings():
     assert p["location_score"] > p["construction_score"]
 
 
+# ── What the reader actually sees ────────────────────────────────────────────
+# The split is only real if the card renders it. It did not: the payload carried
+# both axes and the renderer read `composite_score` alone, so three PRs of
+# taxonomy, decomposition and calibration shipped behind a UI that still showed
+# one number. Nothing in the Python suite could notice — the renderer is JS.
+_LABEL_JS = _ROOT / "docs" / "label-core.js"
+
+_AXIS_FIELDS = ("construction_score", "construction_national_grade",
+                "location_score", "location_national_grade")
+
+
+def test_the_renderer_reads_both_axes():
+    """A pure-text guard that needs no JS engine, so it runs everywhere. Renaming
+    an axis field in the payload without touching the card fails here."""
+    js = _LABEL_JS.read_text()
+    for field in _AXIS_FIELDS:
+        assert f"data.{field}" in js, f"{field} is emitted but never rendered"
+
+
+def _render(payload):
+    """Run the real renderer under node and return its HTML.
+
+    `esc` reaches for `document`, so the shim below is the minimum DOM the card
+    touches — enough to exercise the actual shipped code rather than a copy of
+    its logic re-implemented in the test.
+    """
+    import json
+    import shutil
+    import subprocess
+
+    node = shutil.which("node")
+    if not node:                                        # pragma: no cover
+        import pytest
+        pytest.skip("node not available")
+    script = """
+      global.document = { createElement: () => ({
+        set textContent(v) { this._t = String(v); },
+        get innerHTML() { return this._t.replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); } }) };
+      global.window = {};
+      eval(require("fs").readFileSync(process.argv[1], "utf8"));
+      process.stdout.write(window.LabelCore.renderCard(
+        JSON.parse(process.argv[2]), {heading: "x"}));
+    """
+    out = subprocess.run([node, "-e", script, str(_LABEL_JS), json.dumps(payload)],
+                         capture_output=True, text=True, check=True)
+    return out.stdout
+
+
+def test_the_card_shows_both_grades():
+    """End to end through the shipped renderer: the two letters and both
+    percentiles reach the markup."""
+    p = _payload(year_built=2025, condition="excellent")
+    html = _render(p)
+    assert "axis-pair" in html
+    assert f'>{round(p["construction_score"])}<' in html
+    assert f'>{round(p["location_score"])}<' in html
+    # Two distinct grades, each in its own cell — not the composite twice.
+    cells = html.split('class="axis-cell"')[1:]
+    assert len(cells) == 2
+    assert f'>{p["construction_national_grade"]}<' in cells[0]
+    assert f'>{p["location_national_grade"]}<' in cells[1]
+
+
+def test_the_percentile_suffix_agrees_with_its_number():
+    """"51th pct" — the suffix was a fixed string in the markup while the number
+    beside it is data. Every ordinal the axes can produce is exercised, including
+    the 11/12/13 exception that a naive last-digit rule gets wrong."""
+    import re
+    expected = {1: "st", 2: "nd", 3: "rd", 11: "th", 12: "th", 13: "th",
+                21: "st", 42: "nd", 53: "rd", 80: "th", 99: "th", 0: "th"}
+    for n, suffix in expected.items():
+        html = _render({"dimensions": [], "construction_score": float(n),
+                        "construction_national_grade": "C",
+                        "location_score": float(n),
+                        "location_national_grade": "C"})
+        got = re.findall(r'axis-num">(\d+)<span class="axis-pct">(\w+) pct', html)
+        assert got and all(g == (str(n), suffix) for g in got), (n, got)
+
+
+def test_an_unscorable_axis_does_not_invent_a_percentile():
+    """With no axis to show the block is omitted outright, rather than rendering
+    "N/A th pct" or a grey chip that reads as a real grade."""
+    html = _render({"dimensions": [], "construction_score": None,
+                    "construction_national_grade": None,
+                    "location_score": None, "location_national_grade": None})
+    assert "axis-pair" not in html
+
+
 if __name__ == "__main__":
     for _name, _fn in sorted(list(globals().items())):
         if _name.startswith("test_"):

@@ -323,6 +323,61 @@ window.LabelCore = (function () {
       + 'the dot shows how solid the data is (not how good the score is); the whisker shows the climate range</div>';
   }
 
+
+  // The two headline axes, side by side. The composite alone answers neither
+  // question a buyer has — a well-built house on a hard site and a poor one on an
+  // easy site average to the same middling number, and the reader cannot tell
+  // which they are looking at. Both letters are national percentiles ("beats N%
+  // of US homes"), so they are directly comparable to each other.
+  // "51th pct". Both axes are percentiles, so the suffix is data-dependent and
+  // cannot be a fixed string in the markup.
+  function ordSuffix(n) {
+    if (n % 100 >= 11 && n % 100 <= 13) return "th";
+    return { 1: "st", 2: "nd", 3: "rd" }[n % 10] || "th";
+  }
+
+  function axisPair(data) {
+    var axes = [
+      { cap: "The building", score: data.construction_score,
+        grade: data.construction_national_grade,
+        blurb: "how it is built \u2014 envelope, materials, how it stands up to hazard" },
+      { cap: "The site", score: data.location_score,
+        grade: data.location_national_grade,
+        blurb: "what surrounds it \u2014 air, noise, water, hazard, services" }
+    ];
+    if (axes.every(function (a) { return a.score == null; })) return "";
+
+    var cells = axes.map(function (a) {
+      var g = a.grade || "\u2014";
+      var bg = GRADE_COLORS[g] || "#64748b", ink = GRADE_INK[g] || "#ffffff";
+      var pct = a.score == null ? null : Math.round(a.score);
+      return '<div class="axis-cell">'
+        + '<div class="axis-cap">' + a.cap + '</div>'
+        + '<div class="axis-num">' + (pct == null ? "N/A" : pct)
+        + (pct == null ? "" : '<span class="axis-pct">' + ordSuffix(pct) + ' pct</span>') + '</div>'
+        + '<span class="grade-md" style="background:' + bg + ';color:' + ink + '">'
+        + esc(g) + '</span>'
+        + '<div class="axis-blurb">' + a.blurb + '</div>'
+        + '</div>';
+    }).join("");
+
+    // Two grades that disagree are the whole point of splitting them, but a
+    // reader shown "A" and "D" with no gloss will assume one of them is wrong.
+    var note = "";
+    var b = axes[0].score, l = axes[1].score;
+    if (b != null && l != null) {
+      var gap = Math.round(b - l);
+      if (Math.abs(gap) >= 20) {
+        note = gap > 0
+          ? "A well-built home in a demanding place: the structure beats most US homes, its surroundings do not."
+          : "A modest structure in a strong place: the surroundings beat most US homes, the building does not.";
+        note += " Both are national percentiles, so they are read the same way.";
+      }
+    }
+    return '<div class="axis-pair">' + cells + '</div>'
+      + (note ? '<div class="axis-note">' + note + '</div>' : "");
+  }
+
   // Full label card. `opts` may carry {heading, subline} to override the header
   // (label.html supplies a preset name + description; the address pages supply
   // the resolved location + a build summary). Returns an HTML string.
@@ -396,6 +451,7 @@ window.LabelCore = (function () {
       html += '<div class="insight warn card-caveat">' + esc(c) + '</div>';
     });
     html += strip;
+    html += axisPair(data);
     html += tapHint();
     html += dimRows(data.dimensions || [], data);
     if (metricBits.length) html += '<p class="meta card-metrics">' + esc(metricBits.join("  ·  ")) + '</p>';
