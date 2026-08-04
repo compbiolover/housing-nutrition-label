@@ -55,13 +55,25 @@ _DIR = pathlib.Path(__file__).resolve().parent
 _CURVE_CSV = _DIR / "construction_percentiles.csv"
 
 CONSTRUCTION_DIMS = frozenset({"energy", "durability", "environmental", "resilience"})
-# Scores that already express national standing (no remapping needed). Air Quality,
-# Noise, Solar, and Water are included: their breakpoints are anchored to national
-# tract / county quantiles, so the score already tracks a national percentile rank
-# (see data/air_quality.py + data/noise.py — unweighted tract — data/solar.py —
-# household-weighted county — data/climate_projections.py — household-weighted
-# tract — and data/water.py — CWS-population-weighted county). The module docstring
-# explains how closely each stands in for "vs US homes"; they are not equally good.
+# Scores that already express national standing (no remapping needed), by two
+# different routes:
+#
+#   • Health and Socioeconomic ARE national percentiles as published (Tier 1).
+#   • Air Quality, Noise, Solar, Climate, Water and Infrastructure have breakpoints
+#     anchored to national quantiles, so the score tracks a percentile rank:
+#       - unweighted tract          data/air_quality.py, data/noise.py
+#       - household-weighted county data/solar.py
+#       - household-weighted tract  data/climate_projections.py
+#       - CWS-pop-weighted county   data/water.py
+#       - pop-weighted roster       scripts/calibrate_infra_breakpoints.py
+#
+# Walkability takes a third route (its own remapping curve), so it is in neither
+# set. The module docstring explains how closely each stands in for "vs US homes";
+# they are not equally good.
+#
+# tests/test_national_percentile.py asserts these two sets plus walkability cover
+# the dimension roster exactly — a dimension in none of them falls off the end of
+# national_percentile() and returns None, losing its percentile silently.
 IDENTITY_DIMS = frozenset({"health", "air_quality", "noise", "socioeconomic", "climate", "infrastructure", "solar", "water"})
 
 DATA_VINTAGE = "national percentile vs US homes (modeled reference)"
