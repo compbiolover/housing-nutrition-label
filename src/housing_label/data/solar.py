@@ -134,11 +134,20 @@ def reading_for_yield(yield_kwh_kwp: float, irradiation: float | None,
     dimmest) and clamp at 100 or 0. That is a true statement about the parcel, not
     an artifact.
 
-    The reference is still built from county yields, so it understates how spread
-    out PARCEL yields are: points are strictly more dispersed than county means
-    (Var(point) = Var(county mean) + E[within-county variance]), which pushes a
-    little more mass into the tails than the percentile labels imply. Correcting
-    that needs a household-weighted POINT sample, not a reweighting of this table.
+    The reference's remaining limit is a SAMPLING one. Each county contributes
+    exactly one PVGIS reading — taken at its gazetteer internal point, not averaged
+    over the county — and that single value then carries the weight of every
+    household in the county. So the reference cannot represent how a county's
+    households are spread across its own internal range: Los Angeles County's
+    millions sit at one spot on the yield axis here, when in life they run from the
+    marine layer to the high desert.
+
+    Note this is NOT a claim that the reference is variance-compressed relative to
+    parcels. One draw per county carries roughly the spread of the points it was
+    drawn from, so which way this bends the tails is not determined in advance — it
+    depends on where each county's internal point happens to fall within that
+    county's household distribution. Resolving it needs a household-weighted sample
+    of POINTS, which is a sampling design rather than a reweighting of this table.
     """
     return {
         "score": round(_interp(yield_kwh_kwp, _YIELD_XS, _YIELD_YS), 1),
