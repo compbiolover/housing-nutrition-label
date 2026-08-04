@@ -73,6 +73,44 @@ def _county_table() -> dict[str, dict]:
     return _load_rows(_CSV, 5) if _CSV.exists() else {}
 
 
+@lru_cache(maxsize=1)
+def states_without_data() -> frozenset[str]:
+    """State FIPS codes with NO county in the bundled PLACES crosswalk.
+
+    Not every missing tract is a missing tract. CDC PLACES omits some states
+    wholesale, and when it does, "no health data for tract 42101000100" is a
+    misleading thing to tell a Philadelphian — it reads as a bad tract id or a
+    coverage hole in their neighbourhood, when the truth is that the survey has no
+    outcome data for **Pennsylvania at all**.
+
+    As of the bundled release that is Kentucky (21), Pennsylvania (42) and Puerto
+    Rico (72). The two mainland states appear in the PLACES tract dataset only for
+    the 2022 vintage and only for five prevention measures (colon screening, dental
+    visits, mammography, sleep, teeth lost) — none of the seven BRFSS-derived
+    outcome measures this dimension is built from — and they are absent from the
+    2023 release entirely. PLACES has never covered Puerto Rico at all.
+
+    SCOPE: the answer is drawn from ``STATE_FIPS_TO_USPS``, so it spans the 50
+    states, DC and PR, and can never name American Samoa (60), Guam (66), the
+    Northern Marianas (69) or the US Virgin Islands (78) — that crosswalk omits
+    them deliberately, because they carry no rows in any of this repo's fiscal,
+    socioeconomic or home-value tables either. An address there gets the generic
+    per-tract note rather than this statewide one, which is the honest outcome:
+    Health Impact is not specifically the thing missing, most of the label is.
+
+    DERIVED from the bundled table rather than hardcoded, so if a later PLACES
+    release restores them this set empties itself and the caveat stops being
+    emitted. ``tests/test_health_gap.py`` pins today's membership, so the change
+    surfaces at the next rebuild instead of going unnoticed.
+    """
+    table = _county_table()
+    present = {geoid[:2] for geoid in table if geoid != _NATIONAL_GEOID}
+    if not present:                       # no bundle at all — claim nothing
+        return frozenset()
+    from housing_label.data.states import STATE_FIPS_TO_USPS
+    return frozenset(fips for fips in STATE_FIPS_TO_USPS if fips not in present)
+
+
 def _measures(row: dict) -> dict:
     return {c: _num(row.get(c)) for c in MEASURE_COLS}
 
