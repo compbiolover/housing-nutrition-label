@@ -9,6 +9,19 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.78](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.77...v0.1.78) (2026-08-04)
+
+
+### Features
+
+* **label:** grade the building and the site separately ([#261](https://github.com/compbiolover/housing-nutrition-label/issues/261)) ([b0a9e72](https://github.com/compbiolover/housing-nutrition-label/commit/b0a9e72cf29c5d597331005a45cd50407f1d0439))
+* **resilience:** split it into a site leg and a building leg ([#264](https://github.com/compbiolover/housing-nutrition-label/issues/264)) ([460bd7e](https://github.com/compbiolover/housing-nutrition-label/commit/460bd7ea6a695a8ba9db4f53b18b001d31ddc4cd))
+
+
+### Bug Fixes
+
+* **label:** calibrate the site grade, and average the right column ([#263](https://github.com/compbiolover/housing-nutrition-label/issues/263)) ([02d3598](https://github.com/compbiolover/housing-nutrition-label/commit/02d3598a9472b7fc4b22f816ce7bfc5155ed52eb))
+
 ## [0.1.77](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.76...v0.1.77) (2026-08-04)
 
 
