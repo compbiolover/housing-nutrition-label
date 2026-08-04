@@ -1138,7 +1138,13 @@ def simulate_all_dimensions(
                 vals.append(pct)
         return (round(sum(vals) / len(vals), 1) if vals else None), len(vals)
 
-    construction_score, construction_n = _sub(CONSTRUCTION_DRIVEN, _legs["building"])
+    construction_raw, construction_n = _sub(CONSTRUCTION_DRIVEN, _legs["building"])
+    # Ranked against the homes US households live in, for the same reason the site
+    # axis is ranked against the places they live: a mean of percentiles is not
+    # itself a percentile, and two headline grades that answer different questions
+    # are worse than one that answers none.
+    from housing_label.data.national_percentile import building_percentile
+    construction_score = building_percentile(construction_raw)
     location_raw, location_n = _sub(AGGREGATED_LOCATION, _legs["site"])
     # Ranked against the places US households actually live, because a mean of
     # percentiles cannot reach the ends of a 0-100 ruler on its own — see
@@ -1276,6 +1282,7 @@ def simulate_all_dimensions(
         "construction_national_grade": (score_to_grade(construction_score)
                                         if construction_score is not None else "—"),
         "construction_n_scored": construction_n,
+        "construction_raw_mean": construction_raw,
         "location_score": location_score,
         "location_national_grade": (score_to_grade(location_score)
                                     if location_score is not None else "—"),

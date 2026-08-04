@@ -116,6 +116,7 @@ def _core(preset: str, lat: float, lon: float, geography: dict) -> dict:
         "construction_score": _round(p["construction_score"]),
         "construction_national_grade": p["construction_national_grade"],
         "construction_n_scored": p["construction_n_scored"],
+        "construction_raw_mean": _round(p["construction_raw_mean"]),
         "location_score": _round(p["location_score"]),
         "location_national_grade": p["location_national_grade"],
         "location_n_scored": p["location_n_scored"],

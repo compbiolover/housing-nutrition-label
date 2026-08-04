@@ -163,7 +163,40 @@ def test_subscores_average_percentiles_not_raw_scores():
     # into a mean of percentiles.
     vals.append(national_percentile("resilience", p["resilience_building_score"]))
     assert p["construction_n_scored"] == len(vals)
-    assert abs(p["construction_score"] - round(sum(vals) / len(vals), 1)) < 0.05
+    assert abs(p["construction_raw_mean"] - round(sum(vals) / len(vals), 1)) < 0.05
+
+
+def test_both_axes_are_ranked_the_same_way():
+    """The symmetry that makes the two headline letters comparable. Before this,
+    only the site axis was a rank against US homes — so "Building B / Site C" put
+    two different kinds of claim side by side and gave a reader no way to tell.
+
+    Measured over the calibration panels: unranked, the site axis put 0% of
+    households in A, 0% in F and 70.7% in C, while the building axis spread but
+    skewed (A 14.4% / B 31.4%). Ranked, both sit within a point or two of 20% per
+    band — the letters are quintiles on both."""
+    from housing_label.data.national_percentile import (
+        BUILDING_XS, BUILDING_YS, LOCATION_XS, LOCATION_YS,
+        building_percentile, location_percentile)
+    for xs, ys in ((BUILDING_XS, BUILDING_YS), (LOCATION_XS, LOCATION_YS)):
+        assert xs and ys and len(xs) == len(ys)
+        assert all(a < b for a, b in zip(xs, xs[1:])), xs
+        assert ys[0] == 1.0 and ys[-1] == 99.0
+
+    p = _payload()
+    assert p["construction_score"] == building_percentile(p["construction_raw_mean"])
+    assert p["location_score"] == location_percentile(p["location_raw_mean"])
+
+
+def test_the_building_axis_spread_did_not_make_it_a_percentile():
+    """Why this was easy to miss: unlike the site axis, the raw building mean
+    already used the whole 0-100 range, so nothing looked broken. It still was not
+    a rank — a raw 53.8 is the MEDIAN US home while grading C."""
+    from housing_label.data.national_percentile import BUILDING_XS, building_percentile
+    assert BUILDING_XS[0] < 20.0 and BUILDING_XS[-1] > 80.0, \
+        "the raw building range reaches both thresholds — that is the trap"
+    median_home = BUILDING_XS[4]
+    assert building_percentile(median_home) == 50.0, median_home
 
 
 def test_the_location_axis_is_ranked_against_where_households_live():
