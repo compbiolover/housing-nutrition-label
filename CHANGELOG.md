@@ -9,6 +9,18 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.79](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.78...v0.1.79) (2026-08-04)
+
+
+### Features
+
+* **label:** show the two headline grades on the card ([#266](https://github.com/compbiolover/housing-nutrition-label/issues/266)) ([216757c](https://github.com/compbiolover/housing-nutrition-label/commit/216757c2959f096b12b7901fe3b8e66c46806047))
+
+
+### Bug Fixes
+
+* **label:** rank the building axis too, so the two grades match ([#265](https://github.com/compbiolover/housing-nutrition-label/issues/265)) ([3e550b8](https://github.com/compbiolover/housing-nutrition-label/commit/3e550b82fb43c068bc7373b36e87caae3e9be24f))
+
 ## [0.1.78](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.77...v0.1.78) (2026-08-04)
 
 
