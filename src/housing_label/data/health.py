@@ -83,13 +83,20 @@ def states_without_data() -> frozenset[str]:
     coverage hole in their neighbourhood, when the truth is that the survey has no
     outcome data for **Pennsylvania at all**.
 
-    As of the bundled release that is Kentucky (21) and Pennsylvania (42) on the
-    mainland, plus the territories PLACES has never covered (60, 66, 69, 72, 78).
-    Both mainland states appear in the PLACES tract dataset only for the 2022
-    vintage and only for five prevention measures (colon screening, dental visits,
-    mammography, sleep, teeth lost) — none of the seven BRFSS-derived outcome
-    measures this dimension is built from — and they are absent from the 2023
-    release entirely.
+    As of the bundled release that is Kentucky (21), Pennsylvania (42) and Puerto
+    Rico (72). The two mainland states appear in the PLACES tract dataset only for
+    the 2022 vintage and only for five prevention measures (colon screening, dental
+    visits, mammography, sleep, teeth lost) — none of the seven BRFSS-derived
+    outcome measures this dimension is built from — and they are absent from the
+    2023 release entirely. PLACES has never covered Puerto Rico at all.
+
+    SCOPE: the answer is drawn from ``STATE_FIPS_TO_USPS``, so it spans the 50
+    states, DC and PR, and can never name American Samoa (60), Guam (66), the
+    Northern Marianas (69) or the US Virgin Islands (78) — that crosswalk omits
+    them deliberately, because they carry no rows in any of this repo's fiscal,
+    socioeconomic or home-value tables either. An address there gets the generic
+    per-tract note rather than this statewide one, which is the honest outcome:
+    Health Impact is not specifically the thing missing, most of the label is.
 
     DERIVED from the bundled table rather than hardcoded, so if a later PLACES
     release restores them this set empties itself and the caveat stops being

@@ -75,6 +75,16 @@ def test_puerto_rico_is_missing_too_and_that_is_upstream():
     assert "72" in health_data.states_without_data()
 
 
+def test_the_set_is_exactly_what_the_docstring_claims():
+    """The answer comes from STATE_FIPS_TO_USPS, so it spans the 50 states, DC and
+    PR and can never name AS/GU/MP/VI. Pinned because the docstring said otherwise
+    once, and a scope claim nothing enforces is how that happened."""
+    gap = health_data.states_without_data()
+    assert gap == {KY, PA, "72"}, sorted(gap)
+    assert not (gap & {"60", "66", "69", "78"}), \
+        "the crosswalk omits these, so they cannot appear here"
+
+
 # ── What the label says ──────────────────────────────────────────────────────
 def test_an_uncovered_state_is_unscored_not_averaged():
     """The national row exists and would resolve; using it would present a home in
