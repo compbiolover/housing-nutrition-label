@@ -9,8 +9,8 @@ stale, while the qualitative roadmap columns stay human-curated.
 
 Single source of truth: ``housing_label.simulate.dimensions.DIMENSIONS`` — the
 exact list the scoring engine iterates — plus the ``CONSTRUCTION_DRIVEN`` /
-``LOCATION_DRIVEN`` sets. Add a dimension there and this block updates in
-lockstep (and CI fails until the committed README matches).
+``LOCATION_DRIVEN`` / ``CONTEXT_ONLY`` sets. Add a dimension there and this block
+updates in lockstep (and CI fails until the committed README matches).
 
 Managed region (everything between the markers is overwritten)::
 
@@ -39,7 +39,8 @@ for _p in (_ROOT, _ROOT / "src"):
         sys.path.insert(0, str(_p))
 
 from housing_label.simulate.dimensions import (  # noqa: E402
-    DIMENSIONS, CONSTRUCTION_DRIVEN, LOCATION_DRIVEN)
+    DIMENSIONS, CONSTRUCTION_DRIVEN, LOCATION_DRIVEN, CONTEXT_ONLY,
+    HYBRID_DIMENSIONS)
 
 README = _ROOT / "README.md"
 
@@ -64,14 +65,23 @@ _CARDINALS = {
 
 
 def _driver(key: str) -> str:
-    """How a dimension is driven — the same construction/location split the label
-    and the House Simulator docs describe. Resilience is in neither set: it blends
-    the build (EAL modifiers) with the location's hazard exposure."""
+    """How a dimension is driven — the same three-way split the label renders.
+
+    Every branch is explicit and an unclassified key RAISES. The previous version
+    ended in a bare ``return "Construction + location"`` written for resilience,
+    so when Health and Socioeconomic moved out of both sets they silently
+    inherited resilience's description instead of failing.
+    """
+    if key in CONTEXT_ONLY:
+        return "Neighborhood context"
     if key in CONSTRUCTION_DRIVEN:
         return "Construction"
     if key in LOCATION_DRIVEN:
-        return "Location"
-    return "Construction + location"
+        return ("Location + construction" if key in HYBRID_DIMENSIONS
+                else "Location")
+    raise KeyError(
+        f"dimension {key!r} is in no grading group — classify it in "
+        f"simulate/dimensions.py rather than letting it take a default")
 
 
 def _cardinal(n: int) -> str:

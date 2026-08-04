@@ -257,15 +257,30 @@ window.LabelCore = (function () {
   }
 
   // The 13 rows split the way a buyer's question does: is the problem the house,
-  // or the block? The payload already tags each dimension `construction` or
-  // `location` — this only draws the line it already knows about.
-  var GROUP_LABEL = { construction: "The building itself", location: "The neighborhood &amp; location" };
+  // or the block? The payload tags each dimension `construction`, `location` or
+  // `context` — this only draws the line it already knows about.
+  //
+  // `context` is Health and Socioeconomic. They are shown in full, with their
+  // sources and drill-downs, but they do NOT feed the Site & environment grade,
+  // because both measure the PEOPLE nearby (ACS income and education, CDC PLACES
+  // disease prevalence) rather than the place, and both are constant across a
+  // census tract. A per-address letter grade built on them is a map of
+  // neighbourhoods graded by their residents — see simulate/dimensions.py.
+  var GROUP_LABEL = {
+    construction: "The building itself",
+    location: "The site &amp; environment",
+    context: "Neighborhood context (not graded)"
+  };
+  var GROUP_ORDER = ["construction", "location", "context"];
   function dimRows(dims, data) {
     var groups = [], byKind = {};
     dims.forEach(function (d) {
-      var k = d.kind === "location" || d.kind === "construction" ? d.kind : "";
+      var k = GROUP_LABEL[d.kind] ? d.kind : "";
       if (!byKind[k]) { byKind[k] = []; groups.push(k); }
       byKind[k].push(d);
+    });
+    groups.sort(function (a, b) {
+      return GROUP_ORDER.indexOf(a) - GROUP_ORDER.indexOf(b);
     });
     var grouped = groups.length > 1 && groups.every(function (k) { return !!GROUP_LABEL[k]; });
     return groups.map(function (k) {

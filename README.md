@@ -66,15 +66,15 @@ The engine scores **thirteen dimensions** (0–100, higher is better) plus a rol
 
 | # | Dimension | Driven by |
 |---|---|---|
-| 1 | Disaster Resilience | Construction + location |
+| 1 | Disaster Resilience | Location + construction |
 | 2 | Energy Efficiency | Construction |
 | 3 | Durability | Construction |
 | 4 | Environmental Footprint | Construction |
-| 5 | Infrastructure Burden | Construction |
-| 6 | Health Impact | Location |
+| 5 | Infrastructure Burden | Location |
+| 6 | Health Impact | Neighborhood context |
 | 7 | Air Quality | Location |
 | 8 | Noise | Location |
-| 9 | Socioeconomic | Location |
+| 9 | Socioeconomic | Neighborhood context |
 | 10 | Walkability | Location |
 | 11 | Climate Projections | Location |
 | 12 | Solar Potential | Location |

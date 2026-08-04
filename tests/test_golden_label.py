@@ -109,6 +109,16 @@ def _core(preset: str, lat: float, lon: float, geography: dict) -> dict:
         "composite_score": _round(p["composite_score"]),
         "composite_national_grade": p["composite_national_grade"],
         "n_scored": p["n_scored"],
+        # The two headline axes. Pinned separately from the composite because that
+        # is the whole point of splitting them: a change that moves the building
+        # grade and the location grade in opposite directions can leave the
+        # composite untouched, and would otherwise sail through this file.
+        "construction_score": _round(p["construction_score"]),
+        "construction_national_grade": p["construction_national_grade"],
+        "construction_n_scored": p["construction_n_scored"],
+        "location_score": _round(p["location_score"]),
+        "location_national_grade": p["location_national_grade"],
+        "location_n_scored": p["location_n_scored"],
         "cost": {k: _round(v) for k, v in (p.get("cost") or {}).items()},
         "total_loss": _round(p["total_loss"]),
         "fire_loss": _round(p["fire_loss"]),

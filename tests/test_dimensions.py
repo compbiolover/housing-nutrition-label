@@ -234,24 +234,53 @@ def test_better_build_scores_higher():
         assert icf[key] > worst[key], f"icf should beat worst-case on {key}"
 
 
-def test_location_dims_excluded_offline():
-    """With network off, location dimensions are None and the composite is the
-    mean of only the scored (construction + resilience) dimensions."""
+# What still scores with no geocode. NOT the same question as the CONSTRUCTION /
+# LOCATION taxonomy, and this test used to conflate the two: those sets say what a
+# score is ABOUT, this set says what it NEEDS. Resilience and Infrastructure
+# describe the location but resolve from bundled county data (or a national
+# fallback), so they survive offline while the tract-keyed dimensions do not.
+OFFLINE_SCORABLE = {"energy", "durability", "environmental",
+                    "infrastructure", "resilience"}
+
+
+def test_dims_needing_a_geocode_are_excluded_offline():
+    """With network off there is no county and no tract, so every dimension that
+    keys off one is None — and the composite is the mean of what remains."""
     cfg = _cfg("icf-passive")
     r = simulate(cfg)
     label = simulate_all_dimensions(cfg, r["total_score"], allow_network=False)
 
     by_key = {d["key"]: d for d in label["dimensions"]}
-    for key in LOCATION_DRIVEN:
-        assert by_key[key]["score"] is None
-        assert by_key[key]["national_grade"] == "—"
-    for key in CONSTRUCTION_DRIVEN | {"resilience"}:
-        assert by_key[key]["score"] is not None
+    for key in by_key:
+        if key in OFFLINE_SCORABLE:
+            assert by_key[key]["score"] is not None, key
+        else:
+            assert by_key[key]["score"] is None, key
+            assert by_key[key]["national_grade"] == "—", key
 
-    assert label["n_scored"] == 5
-    scored = [by_key[k]["score"] for k in CONSTRUCTION_DRIVEN | {"resilience"}]
+    assert label["n_scored"] == len(OFFLINE_SCORABLE)
+    scored = [by_key[k]["score"] for k in OFFLINE_SCORABLE]
     expected = round(sum(scored) / len(scored), 1)
     assert abs(label["composite_score"] - expected) < 0.05
+
+
+def test_offline_subscores_cover_only_what_resolved():
+    """Each sub-score averages its OWN scored members, so a partially-resolved
+    label reports a real building grade rather than being dragged toward the
+    dimensions that happen to be missing."""
+    cfg = _cfg("icf-passive")
+    label = simulate_all_dimensions(cfg, simulate(cfg)["total_score"],
+                                    allow_network=False)
+    by_key = {d["key"]: d["score"] for d in label["dimensions"]}
+
+    con = [by_key[k] for k in CONSTRUCTION_DRIVEN if by_key[k] is not None]
+    assert label["construction_n_scored"] == len(con) == 3
+    assert abs(label["construction_score"] - round(sum(con) / len(con), 1)) < 0.05
+
+    # Offline, only resilience and infrastructure of the location set resolve.
+    loc = [by_key[k] for k in LOCATION_DRIVEN if by_key[k] is not None]
+    assert label["location_n_scored"] == len(loc) == 2
+    assert abs(label["location_score"] - round(sum(loc) / len(loc), 1)) < 0.05
 
 
 def test_override_includes_location_dim():

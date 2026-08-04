@@ -34,6 +34,12 @@ def _parts():
             {"key": "climate", "label": "Climate Projections", "score": 49.6, "national_grade": "C"},
         ],
         "composite_score": 63.6, "composite_national_grade": "B", "n_scored": 3,
+        # label_payload reads the two headline axes as strictly as it reads the
+        # composite, so a hand-rolled label has to carry them too.
+        "construction_score": 77.0, "construction_national_grade": "B",
+        "construction_n_scored": 1,
+        "location_score": 56.9, "location_national_grade": "C",
+        "location_n_scored": 2,
         "metrics": {"est_monthly_energy_cost": 133.0,
                     "Climate band (SSP2-4.5–5-8.5, mid-century)": "49.6–47.0"},
         "census_tract": "47157003100",
