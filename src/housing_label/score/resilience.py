@@ -1148,7 +1148,8 @@ def resilience_legs(r: dict) -> dict:
         # No modelled hazard at all: the site leg is the top of the scale, and the
         # building's multiplier is undefined rather than 1.0 — dividing by zero
         # hazard would report every building as neutral, which is not a measurement.
-        return {"site": eal_rate_to_score(0.0), "building": None, "multiplier": None}
+        return {"site": round(eal_rate_to_score(0.0), 1),
+                "building": None, "multiplier": None}
     mult = adj / raw
     return {
         "site": round(eal_rate_to_score(raw), 1),

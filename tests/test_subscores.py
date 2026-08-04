@@ -155,10 +155,15 @@ def test_subscores_average_percentiles_not_raw_scores():
     assert any(abs(raw[k] - pct[k]) > 1 for k in CONSTRUCTION_DRIVEN), \
         "expected at least one construction dimension to be remapped"
 
+    from housing_label.data.national_percentile import national_percentile
     vals = [pct[k] for k in CONSTRUCTION_DRIVEN if pct[k] is not None]
     # Plus resilience's BUILDING leg, which is a construction fact living inside a
-    # dimension that reports as one number.
-    assert p["construction_n_scored"] == len(vals) + 1
+    # dimension that reports as one number. It joins as a PERCENTILE, like every
+    # other member — appending the raw 0-100 leg would put an absolute score back
+    # into a mean of percentiles.
+    vals.append(national_percentile("resilience", p["resilience_building_score"]))
+    assert p["construction_n_scored"] == len(vals)
+    assert abs(p["construction_score"] - round(sum(vals) / len(vals), 1)) < 0.05
 
 
 def test_the_location_axis_is_ranked_against_where_households_live():
@@ -171,11 +176,15 @@ def test_the_location_axis_is_ranked_against_where_households_live():
         "if the raw range reached the thresholds, no ranking would be needed"
     assert all(a < b for a, b in zip(LOCATION_XS, LOCATION_XS[1:]))
 
+    from housing_label.data.national_percentile import national_percentile
     p = _payload()
     vals = [d["national_percentile"] for d in p["dimensions"]
             if d["key"] in AGGREGATED_LOCATION and d["national_percentile"] is not None]
-    # Plus resilience's SITE leg — the hazard with a neutral building.
-    assert p["location_n_scored"] == len(vals) + 1
+    # Plus resilience's SITE leg — the hazard with a neutral building, likewise
+    # converted to a percentile before it joins the mean.
+    vals.append(national_percentile("resilience", p["resilience_site_score"]))
+    assert p["location_n_scored"] == len(vals)
+    assert abs(p["location_raw_mean"] - round(sum(vals) / len(vals), 1)) < 0.05
     assert p["location_score"] == location_percentile(p["location_raw_mean"])
 
 
