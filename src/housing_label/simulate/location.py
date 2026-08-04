@@ -207,6 +207,7 @@ def resolve_location(
     lon: float | None = None,
     *,
     allow_network: bool = True,
+    geography: dict | None = None,
 ) -> Location:
     """Resolve an address or lat/lon into a fully-populated Location.
 
@@ -214,10 +215,31 @@ def resolve_location(
     supplied the address takes precedence — it is geocoded and the lat/lon are
     ignored — so the chosen input is never silently dropped. Failures are
     recorded in ``loc.notes`` and leave the corresponding fields None.
+
+    ``geography`` supplies the Census geography for the point directly, in the
+    shape ``_parse_geographies`` returns (``county_fips``, ``tract``,
+    ``state_fips``, ``county_name``, ``in_urban_area``, ``incorporated``,
+    ``place_label``, ``place_geoid``). When given, the geocoder is not called and
+    everything downstream — climate zone, eGRID, Cambium, climate projections,
+    wildfire, tornado — resolves from the bundled crosswalks as usual.
+
+    That matters because ONLY the geocode step needs network. Without this, an
+    offline caller gets a Location with no county and no tract, which silently
+    unscores every location dimension: the golden snapshot ran that way for a long
+    time and covered none of Health, Air Quality, Noise, Climate, Solar or Water.
+    A caller who already knows the FIPS — a batch job with pre-joined geography, or
+    a fixture pinning a known place — should not have to choose between a network
+    call and no location signal at all.
     """
     notes: dict = {}
 
-    if address:
+    if geography is not None:
+        if lat is None or lon is None:
+            raise ValueError("geography= requires both lat and lon.")
+        loc = Location(lat=float(lat), lon=float(lon), notes=notes)
+        _apply_geo(loc, geography)
+        notes["geocoder"] = "supplied by caller (not geocoded)"
+    elif address:
         if not allow_network:
             raise ValueError("Geocoding an address requires network access.")
         geo = geocode_address(address)
