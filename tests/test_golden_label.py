@@ -120,6 +120,8 @@ def _core(preset: str, lat: float, lon: float, geography: dict) -> dict:
         "location_national_grade": p["location_national_grade"],
         "location_n_scored": p["location_n_scored"],
         "location_raw_mean": _round(p["location_raw_mean"]),
+        "resilience_site_score": _round(p["resilience_site_score"]),
+        "resilience_building_score": _round(p["resilience_building_score"]),
         "cost": {k: _round(v) for k, v in (p.get("cost") or {}).items()},
         "total_loss": _round(p["total_loss"]),
         "fire_loss": _round(p["fire_loss"]),

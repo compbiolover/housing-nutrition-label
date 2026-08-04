@@ -2142,6 +2142,9 @@ def label_payload(cfg: dict, r: dict, label: dict, include_building: bool = True
         "location_national_grade": label["location_national_grade"],
         "location_n_scored": label["location_n_scored"],
         "location_raw_mean": label["location_raw_mean"],
+        "resilience_site_score": label["resilience_site_score"],
+        "resilience_building_score": label["resilience_building_score"],
+        "resilience_building_multiplier": label["resilience_building_multiplier"],
         "metrics": label["metrics"],
         "census_tract": label["census_tract"],
         "location_notes": label["location_notes"],
@@ -2665,6 +2668,7 @@ def build_label_parts(*, address: str | None = None,
     label = simulate_all_dimensions(
         cfg, r["total_score"], location=location,
         allow_network=allow_network, overrides=overrides,
+        resilience_result=r,
     )
     label["building"] = building     # per-field provenance for the "Refine details" panel
     return cfg, r, label

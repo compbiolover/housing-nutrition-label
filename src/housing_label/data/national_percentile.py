@@ -85,7 +85,7 @@ DATA_VINTAGE = "national percentile vs US homes (modeled reference)"
 #
 # Measured over 6,000 household-weighted census tracts scored with a fixed
 # reference building (scripts/calibrate_location_percentiles.py), the raw mean runs
-# 32.4 at the 1st percentile to 71.6 at the 99th. Against the absolute grade
+# 36.6 at the 1st percentile to 73.9 at the 99th. Against the absolute grade
 # thresholds that is not merely compressed — it makes two grades UNREACHABLE. No
 # US household could score an A (>= 80) on its location, and none could score an F
 # (< 20). The letter could only ever be D, C or B, which is not a grading scale so
@@ -95,7 +95,7 @@ DATA_VINTAGE = "national percentile vs US homes (modeled reference)"
 # and Climate (#258) were. A location score of 80 now means "this site beats 80% of
 # US homes' locations" — the claim this module's first line already makes for
 # everything else.
-LOCATION_XS = [32.4, 38.1, 41.3, 46.6, 52.1, 58.3, 63.4, 66.6, 71.6]
+LOCATION_XS = [36.6, 41.0, 43.4, 48.6, 54.2, 60.1, 65.1, 68.6, 73.9]
 LOCATION_YS = [1.0, 5.0, 10.0, 25.0, 50.0, 75.0, 90.0, 95.0, 99.0]
 
 

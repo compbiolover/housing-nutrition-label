@@ -1093,3 +1093,65 @@ if __name__ == "__main__":
     except Exception:
         log.error("Unhandled error during scoring", exc_info=True)
         sys.exit(1)
+
+
+# ── Decomposing resilience into its site and building legs ───────────────────
+# Resilience is the one dimension that is genuinely BOTH axes at once: expected
+# annual loss is the site's hazard rate multiplied by how the building responds to
+# it. Reported as a single number it cannot be assigned to either headline grade
+# honestly — measured at a fixed Los Angeles tract, varying only the preset, it
+# swung from the 1st national percentile to the 99th, so putting it in the Site &
+# environment aggregate made that grade move 98 points on facts about the house.
+# It was excluded there as an interim (#263); this is the real fix.
+#
+# The seam is already in simulate(): it records `*_raw` — the peril hazard rates
+# before any construction adjustment — alongside the `*_adj` rates after. So:
+#
+#   SITE leg      eal_rate_to_score(sum of the raw rates). What this location does
+#                 to a neutral building. Constant across buildings at a fixed
+#                 parcel, which is the property the site grade needs and the
+#                 combined score does not have.
+#
+#   BUILDING leg  the same construction multiplier applied to a REFERENCE site,
+#                 so the answer is "how would this house score at a typical US
+#                 location" rather than a number entangled with this one. Reusing
+#                 eal_rate_to_score keeps it on the familiar 0-100 scale and
+#                 inherits its calibration rather than inventing a second one.
+#
+# The row the user sees is unchanged: it still reports the actual expected loss for
+# this building at this site, which is the question an owner is asking. The legs
+# exist so the two aggregates can each take the half that belongs to them.
+
+# Household-weighted median site hazard over 3,000 sampled census tracts (raw EAL
+# rate, no construction adjustment). Scoring the building's multiplier against this
+# answers "at a typical US site", so two houses are comparable on build quality
+# even when one of them sits on a floodplain.
+REFERENCE_SITE_EAL_RATE = 4.676422e-04
+
+
+def resilience_legs(r: dict) -> dict:
+    """Split a simulate() result into its site-hazard and building-response legs.
+
+    Returns ``{"site": float|None, "building": float|None, "multiplier": float|None}``
+    — both legs on the same 0-100 scale as the combined score, higher = better.
+
+    ``multiplier`` is the building's effect on expected loss (adjusted ÷ raw): below
+    1 the construction reduces the site's expected loss, above 1 it worsens it.
+    Returned so callers can show the mechanism rather than only its scored result.
+    """
+    try:
+        raw = sum(float(r[f"{p}_raw"]) for p in ("flood", "tornado", "seismic", "fire"))
+        adj = float(r["total_eal"])
+    except (KeyError, TypeError, ValueError):
+        return {"site": None, "building": None, "multiplier": None}
+    if not (raw > 0.0):
+        # No modelled hazard at all: the site leg is the top of the scale, and the
+        # building's multiplier is undefined rather than 1.0 — dividing by zero
+        # hazard would report every building as neutral, which is not a measurement.
+        return {"site": eal_rate_to_score(0.0), "building": None, "multiplier": None}
+    mult = adj / raw
+    return {
+        "site": round(eal_rate_to_score(raw), 1),
+        "building": round(eal_rate_to_score(REFERENCE_SITE_EAL_RATE * mult), 1),
+        "multiplier": round(mult, 4),
+    }
