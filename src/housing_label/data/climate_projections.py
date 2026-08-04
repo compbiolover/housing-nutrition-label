@@ -91,25 +91,44 @@ _TRACT_CSV = _DIR / "climate_projections_tracts.csv"
 _TRACT_CSV_GZ = _DIR / "climate_projections_tracts.csv.gz"
 
 # Per-hazard scoring breakpoints: (increasing-hazard x values, matching 0–100 y
-# values). Anchored to the national quantiles of the SSP2-4.5 (low) mid-century
-# distribution (printed by build_climate_projections.py), so a place scores by
-# where its projected hazard sits nationally. Higher hazard → lower score.
+# values). Anchored to the HOUSEHOLD-WEIGHTED national quantiles of the TRACT
+# distribution, SSP2-4.5 (low) mid-century, from
+# scripts/calibrate_climate_breakpoints.py. Higher hazard → lower score.
 # xs strictly increasing; values clamp to the end scores outside the range.
+#
+# Both halves of that description are corrections. The anchors used to be
+# UNWEIGHTED quantiles over one value per COUNTY, which was wrong twice over:
+#
+#   * unweighted — Loving County TX (64 people) counted as much as Los Angeles
+#     County (10 million), so the curve described a population of counties while
+#     national_percentile.py called it "vs US homes";
+#   * county-level — this dimension RESOLVES at the tract, so a tract was ranked
+#     against a population it is not a member of, and counties average away
+#     exactly the sub-county variation the tract file exists to capture.
+#
+# The second error is what made the old drought anchors saturate. Consecutive dry
+# days are extreme and dense in California and the Southwest, and county-averaging
+# them across thousands of sparse rural counties put p95 at 56.8 days — so
+# **15.1% of US households scored a flat 0** on the drought leg with no way to tell
+# them apart, against the 5% an accurate p95 implies. On tract values weighted by
+# the homes that actually experience them, p95 is 148.2 days and 5.0% sit at 0.
+# (Imperial County CA reaches 216 days; ~9.9% of US households, 12.2M of them
+# Californian, face ≥120.)
 _BREAKPOINTS: dict[str, tuple[list[float], list[float]]] = {
-    # days/yr > 95 °F           p5 p25 p50 p75 p90 p95 (SSP2-4.5 mid, national)
-    "heat_days95":      ([2.4, 13.1, 28.9, 52.1, 74.4, 91.9], [100, 80, 60, 40, 20, 0]),
+    # days/yr > 95 °F           p5 p25 p50 p75 p90 p95 (SSP2-4.5 mid, hh-weighted)
+    "heat_days95":      ([2.2, 10.7, 21.6, 47.4, 83.8, 100.7], [100, 80, 60, 40, 20, 0]),
     # days/yr > 100 °F
-    "heat_days100":     ([0.2, 2.3, 6.4, 14.9, 35.0, 46.0],   [100, 80, 60, 40, 20, 0]),
+    "heat_days100":     ([0.2, 1.6, 3.8, 11.8, 39.1, 52.8],   [100, 80, 60, 40, 20, 0]),
     # days/yr > 1" precip
-    "precip_days1in":   ([0.9, 4.8, 8.3, 11.9, 14.9, 16.5],   [100, 80, 60, 40, 20, 0]),
+    "precip_days1in":   ([0.7, 4.6, 8.6, 12.0, 13.8, 15.2],   [100, 80, 60, 40, 20, 0]),
     # annual max 5-day precip [in]
-    "precip_max5day":   ([2.0, 3.4, 4.3, 5.2, 5.9, 6.4],      [100, 80, 60, 40, 20, 0]),
-    # max consecutive dry days
-    "drought_consecdd": ([16.1, 19.8, 24.3, 34.4, 46.0, 56.8], [100, 80, 60, 40, 20, 0]),
-    # 95th-percentile Fire Weather Index (ClimRR, RCP8.5 mid-century). Anchored to
-    # the national county quantiles of the mid-century FWI (printed by
-    # build_climate_projections.py --source fwi). Higher FWI → more fire danger.
-    "fire_fwi":         ([6.3, 10.2, 17.1, 27.3, 34.7, 37.7],   [100, 80, 60, 40, 20, 0]),
+    "precip_max5day":   ([1.9, 3.5, 4.5, 5.1, 6.0, 6.6],      [100, 80, 60, 40, 20, 0]),
+    # max consecutive dry days — see the saturation note above
+    "drought_consecdd": ([15.9, 19.1, 22.8, 35.1, 119.8, 148.2], [100, 80, 60, 40, 20, 0]),
+    # 95th-percentile Fire Weather Index (ClimRR, RCP8.5 mid-century). A single
+    # pathway, so its low and high columns are identical — the calibration script
+    # asserts that rather than assuming it. Higher FWI → more fire danger.
+    "fire_fwi":         ([6.5, 10.5, 15.5, 25.8, 35.9, 43.8],   [100, 80, 60, 40, 20, 0]),
 }
 
 # Four hazard legs → the driver metrics averaged into each leg. The fire leg
