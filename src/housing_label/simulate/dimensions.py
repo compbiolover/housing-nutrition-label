@@ -250,6 +250,24 @@ CONTEXT_ONLY = {"health", "socioeconomic"}
 # inherited resilience's description the moment they left both sets.
 HYBRID_DIMENSIONS = {"resilience"}
 
+# Hybrids are GROUPED under Site & environment but kept OUT of its aggregate, on
+# the same principle as CONTEXT_ONLY: a row can be worth showing without being
+# worth averaging into a grade that claims to measure something else.
+#
+# Measured at one fixed Los Angeles tract, varying only the preset: resilience runs
+# from the 1st percentile (worst-case) to the 99th (ICF passive) — a 98-point swing
+# on a 100-point scale — while every other member of the axis moves 4 points or
+# less and five of them do not move at all. Including it made the site grade there
+# read F for a badly-built house and C for an ordinary one on the SAME parcel,
+# which is not a fact about the site.
+#
+# This is interim. The fix is to decompose resilience into its site-hazard and
+# building-response legs and aggregate only the first — the seam already exists in
+# score/resilience.py, which computes the EAL from a hazard rate and a set of
+# construction multipliers. Until then, excluding it is the honest option: an axis
+# dominated by a member that is 98% building is not a site grade.
+AGGREGATED_LOCATION = LOCATION_DRIVEN - HYBRID_DIMENSIONS
+
 
 def _loglin(x: float, xs: list[float], ys: list[float]) -> float:
     """Scalar piecewise-linear interpolation in log10(x) space (clamped)."""
@@ -1086,12 +1104,27 @@ def simulate_all_dimensions(
     composite = round(sum(scored_vals) / len(scored_vals), 1) if scored_vals else None
 
     def _sub(keys: set[str]) -> tuple[float | None, int]:
-        vals = [d["score"] for d in dims
-                if d["key"] in keys and d["score"] is not None]
+        """Mean of members' NATIONAL PERCENTILES, not of their raw scores.
+
+        Those are different quantities for five of the thirteen dimensions. The
+        construction-driven scores are absolute 0-100 values with no percentile
+        meaning of their own — they are remapped through a household-weighted
+        reference in national_percentile.py — and walkability likewise. At one LA
+        point: energy 84.0 -> 95th, environmental 79.4 -> 96th, resilience
+        70.3 -> 81st, walkability 66.4 -> 80th. Averaging the raw column mixed
+        absolute scores with percentiles and produced a number that was neither.
+        """
+        vals = [d["national_percentile"] for d in dims
+                if d["key"] in keys and d["national_percentile"] is not None]
         return (round(sum(vals) / len(vals), 1) if vals else None), len(vals)
 
     construction_score, construction_n = _sub(CONSTRUCTION_DRIVEN)
-    location_score, location_n = _sub(LOCATION_DRIVEN)
+    location_raw, location_n = _sub(AGGREGATED_LOCATION)
+    # Ranked against the places US households actually live, because a mean of
+    # percentiles cannot reach the ends of a 0-100 ruler on its own — see
+    # data/national_percentile.py.
+    from housing_label.data.national_percentile import location_percentile
+    location_score = location_percentile(location_raw)
 
     location_notes = dict(location_dims["_notes"])
     if climate_score is not None and climate_proj is not None:
@@ -1227,6 +1260,10 @@ def simulate_all_dimensions(
         "location_national_grade": (score_to_grade(location_score)
                                     if location_score is not None else "—"),
         "location_n_scored": location_n,
+        # The un-ranked mean the percentile was derived from. Kept because the
+        # ranking is a real transformation, not a formatting step, and a reader
+        # comparing two labels should be able to see the quantity underneath it.
+        "location_raw_mean": location_raw,
         "metrics": metrics,
         "location_notes": location_notes,
         "census_tract": location_dims.get("_tract"),

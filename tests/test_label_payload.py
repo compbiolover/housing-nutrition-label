@@ -39,7 +39,7 @@ def _parts():
         "construction_score": 77.0, "construction_national_grade": "B",
         "construction_n_scored": 1,
         "location_score": 56.9, "location_national_grade": "C",
-        "location_n_scored": 2,
+        "location_n_scored": 2, "location_raw_mean": 56.9,
         "metrics": {"est_monthly_energy_cost": 133.0,
                     "Climate band (SSP2-4.5–5-8.5, mid-century)": "49.6–47.0"},
         "census_tract": "47157003100",

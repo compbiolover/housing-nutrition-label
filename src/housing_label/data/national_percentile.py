@@ -78,6 +78,39 @@ IDENTITY_DIMS = frozenset({"health", "air_quality", "noise", "socioeconomic", "c
 
 DATA_VINTAGE = "national percentile vs US homes (modeled reference)"
 
+# ── Site & environment sub-score → national percentile ───────────────────────
+# The Location axis is the mean of up to eight dimension percentiles, and a mean of
+# percentiles will not span 0-100 however good or bad the place is: the SD of a
+# mean of k of them is roughly 29/sqrt(k), about 10 at k=8, so it piles up near 50.
+#
+# Measured over 6,000 household-weighted census tracts scored with a fixed
+# reference building (scripts/calibrate_location_percentiles.py), the raw mean runs
+# 32.4 at the 1st percentile to 71.6 at the 99th. Against the absolute grade
+# thresholds that is not merely compressed — it makes two grades UNREACHABLE. No
+# US household could score an A (>= 80) on its location, and none could score an F
+# (< 20). The letter could only ever be D, C or B, which is not a grading scale so
+# much as a three-position switch.
+#
+# So the axis is ranked against that distribution instead, exactly as Solar (#257)
+# and Climate (#258) were. A location score of 80 now means "this site beats 80% of
+# US homes' locations" — the claim this module's first line already makes for
+# everything else.
+LOCATION_XS = [32.4, 38.1, 41.3, 46.6, 52.1, 58.3, 63.4, 66.6, 71.6]
+LOCATION_YS = [1.0, 5.0, 10.0, 25.0, 50.0, 75.0, 90.0, 95.0, 99.0]
+
+
+def location_percentile(raw_mean: float | None) -> float | None:
+    """Rank a raw Location sub-score against US households' locations.
+
+    ``raw_mean`` is the mean of the member dimensions' national percentiles; the
+    return is where that sits nationally. Flat outside the anchors, so a site
+    beyond the sampled range clamps to 1 or 99 rather than extrapolating a claim
+    the sample cannot support.
+    """
+    if raw_mean is None:
+        return None
+    return round(_interp(_clamp(float(raw_mean)), LOCATION_XS, LOCATION_YS), 1)
+
 
 def _clamp(x: float) -> float:
     return 0.0 if x < 0 else 100.0 if x > 100 else x
