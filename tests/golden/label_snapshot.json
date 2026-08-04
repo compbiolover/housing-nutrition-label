@@ -4,6 +4,9 @@
     "classification_multiplier_applied": 1.0,
     "composite_national_grade": "C",
     "composite_score": 51.4,
+    "construction_n_scored": 3,
+    "construction_national_grade": "B",
+    "construction_score": 69.8,
     "cost": {
       "annualEnergyCost": 2619,
       "expectedAnnualLoss": 312
@@ -77,6 +80,9 @@
     ],
     "fire_loss": 159.76,
     "fiscal_ratio": 0.62,
+    "location_n_scored": 8,
+    "location_national_grade": "C",
+    "location_score": 49.9,
     "n_scored": 13,
     "total_loss": 312.38
   },
@@ -85,6 +91,9 @@
     "classification_multiplier_applied": 1.0,
     "composite_national_grade": "C",
     "composite_score": 59.9,
+    "construction_n_scored": 3,
+    "construction_national_grade": "B",
+    "construction_score": 63.1,
     "cost": {
       "annualEnergyCost": 1602,
       "expectedAnnualLoss": 193
@@ -158,6 +167,9 @@
     ],
     "fire_loss": 65.41,
     "fiscal_ratio": 0.76,
+    "location_n_scored": 8,
+    "location_national_grade": "C",
+    "location_score": 58.4,
     "n_scored": 13,
     "total_loss": 193.4
   },
@@ -166,6 +178,9 @@
     "classification_multiplier_applied": 1.0,
     "composite_national_grade": "B",
     "composite_score": 65.2,
+    "construction_n_scored": 3,
+    "construction_national_grade": "A",
+    "construction_score": 83.0,
     "cost": {
       "annualEnergyCost": 1429,
       "expectedAnnualLoss": 92
@@ -239,6 +254,9 @@
     ],
     "fire_loss": 43.83,
     "fiscal_ratio": 0.76,
+    "location_n_scored": 8,
+    "location_national_grade": "C",
+    "location_score": 59.6,
     "n_scored": 13,
     "total_loss": 92.45
   },
@@ -247,6 +265,9 @@
     "classification_multiplier_applied": 1.0,
     "composite_national_grade": "C",
     "composite_score": 58.5,
+    "construction_n_scored": 3,
+    "construction_national_grade": "A",
+    "construction_score": 96.4,
     "cost": {
       "annualEnergyCost": 1179,
       "expectedAnnualLoss": 89
@@ -320,6 +341,9 @@
     ],
     "fire_loss": 71.56,
     "fiscal_ratio": 0.62,
+    "location_n_scored": 8,
+    "location_national_grade": "C",
+    "location_score": 51.5,
     "n_scored": 13,
     "total_loss": 89.41
   },
@@ -328,6 +352,9 @@
     "classification_multiplier_applied": 1.0,
     "composite_national_grade": "B",
     "composite_score": 68.5,
+    "construction_n_scored": 3,
+    "construction_national_grade": "A",
+    "construction_score": 94.5,
     "cost": {
       "annualEnergyCost": 701,
       "expectedAnnualLoss": 41
@@ -401,6 +428,9 @@
     ],
     "fire_loss": 29.3,
     "fiscal_ratio": 0.76,
+    "location_n_scored": 8,
+    "location_national_grade": "B",
+    "location_score": 60.6,
     "n_scored": 13,
     "total_loss": 40.5
   },
@@ -409,6 +439,9 @@
     "classification_multiplier_applied": 1.0,
     "composite_national_grade": "B",
     "composite_score": 65.4,
+    "construction_n_scored": 3,
+    "construction_national_grade": "B",
+    "construction_score": 78.7,
     "cost": {
       "annualEnergyCost": 829,
       "expectedAnnualLoss": 52
@@ -482,6 +515,9 @@
     ],
     "fire_loss": 17.43,
     "fiscal_ratio": 0.98,
+    "location_n_scored": 8,
+    "location_national_grade": "B",
+    "location_score": 61.5,
     "n_scored": 13,
     "total_loss": 52.08
   },
@@ -490,6 +526,9 @@
     "classification_multiplier_applied": 1.0,
     "composite_national_grade": "C",
     "composite_score": 50.3,
+    "construction_n_scored": 3,
+    "construction_national_grade": "D",
+    "construction_score": 37.7,
     "cost": {
       "annualEnergyCost": 2571,
       "expectedAnnualLoss": 3131
@@ -563,6 +602,9 @@
     ],
     "fire_loss": 125.68,
     "fiscal_ratio": 0.76,
+    "location_n_scored": 8,
+    "location_national_grade": "C",
+    "location_score": 52.4,
     "n_scored": 13,
     "total_loss": 3130.9
   }

@@ -195,8 +195,60 @@ DIMENSIONS = [
     ("solar",          "Solar Potential"),
     ("water",          "Water Quality"),
 ]
-CONSTRUCTION_DRIVEN = {"energy", "durability", "environmental", "infrastructure"}
-LOCATION_DRIVEN = {"health", "air_quality", "noise", "socioeconomic", "walkability", "climate", "solar", "water"}
+# ── The two headline axes, and the rows that sit outside them ────────────────
+# A single composite answers neither question a buyer actually has. A 2025 build
+# beside a freeway and a 1955 bungalow in a quiet walkable district can land within
+# a point of each other, because the mean of thirteen percentiles has a standard
+# deviation of about 29/sqrt(13) ~= 8 — so an A (>= 80) is a four-sigma event and
+# every real house crowds the middle. Splitting the roster is most of the fix.
+#
+# CONSTRUCTION is what the structure IS: its envelope, its materials, how long it
+# will last. Nothing here changes if you pick the house up and put it elsewhere.
+CONSTRUCTION_DRIVEN = {"energy", "durability", "environmental"}
+
+# LOCATION is what surrounds it. Two of these used to sit in the construction
+# bucket and both were wrong in ways users could see:
+#
+#   * infrastructure is a COUNTY fiscal cost-to-serve ratio. It was pulling a
+#     new build's construction score down by a dozen points for the shape of the
+#     county's budget — which is the single thing that most broke the split's
+#     motivating case.
+#   * resilience was never in either set, so `else "construction"` below claimed
+#     it by default rather than by decision, and docs/methodology.html filed it
+#     under "Construction-driven (how the home is built)". It is FEMA flood zone,
+#     NRI wildfire and tornado, and USGS seismic hazard, multiplied by
+#     construction factors. Measured at a fixed point the location leg spans ~29
+#     score points (flood zone X -> AE) against ~19-27 for the building leg
+#     (1975 frame -> 2025 ICF), so neither side dominates. It belongs here as a
+#     holding position, not a final answer: the honest fix is to decompose it into
+#     its site-hazard and building-response parts, and the seam for that already
+#     exists in score/resilience.py.
+LOCATION_DRIVEN = {"resilience", "infrastructure", "air_quality", "noise",
+                   "walkability", "climate", "solar", "water"}
+
+# CONTEXT rows are shown in full — score, sources, drill-down — but deliberately
+# do NOT feed the Location grade.
+#
+# Both measure the PEOPLE nearby rather than the place: Census ACS income,
+# poverty and education; CDC PLACES chronic-disease prevalence. Both are constant
+# across a census tract, so publishing a per-address letter grade built on them is
+# publishing a map of neighbourhoods graded by their residents' income and health
+# — which is what a residential security map was. Redfin, Realtor.com and Trulia
+# all withdrew neighbourhood crime data in December 2021 over the same concern.
+#
+# Keeping the rows visible preserves the information for someone who wants it;
+# keeping them out of the aggregate means the headline grade measures the site and
+# its environment, not the residents. LEED v4 drew the same line when it split
+# Location & Transportation out of Sustainable Sites.
+CONTEXT_ONLY = {"health", "socioeconomic"}
+
+# Graded under Location, but genuinely driven by both sides — so anything
+# describing the roster to a reader should say so rather than implying the bucket
+# is the whole story. Kept as data, not as a special case inside whichever script
+# happens to render the table: sync_readme.py used to carry "resilience is in
+# neither set" as a bare `else`, which is how Health and Socioeconomic silently
+# inherited resilience's description the moment they left both sets.
+HYBRID_DIMENSIONS = {"resilience"}
 
 
 def _loglin(x: float, xs: list[float], ys: list[float]) -> float:
@@ -1020,11 +1072,26 @@ def simulate_all_dimensions(
             "national_grade": score_to_grade(score) if score is not None else "—",
             # National percentile ("vs US homes", higher = better than more homes).
             "national_percentile": national_percentile(key, score),
-            "kind": "location" if key in LOCATION_DRIVEN else "construction",
+            # Explicit lookup, not `else`: a dimension added to the roster and to
+            # no set should be visibly unclassified rather than silently claimed
+            # by whichever branch happens to be last. That default is exactly how
+            # Disaster Resilience came to be displayed under "The building itself".
+            "kind": ("location" if key in LOCATION_DRIVEN
+                     else "construction" if key in CONSTRUCTION_DRIVEN
+                     else "context" if key in CONTEXT_ONLY
+                     else "unclassified"),
         })
 
     scored_vals = [d["score"] for d in dims if d["score"] is not None]
     composite = round(sum(scored_vals) / len(scored_vals), 1) if scored_vals else None
+
+    def _sub(keys: set[str]) -> tuple[float | None, int]:
+        vals = [d["score"] for d in dims
+                if d["key"] in keys and d["score"] is not None]
+        return (round(sum(vals) / len(vals), 1) if vals else None), len(vals)
+
+    construction_score, construction_n = _sub(CONSTRUCTION_DRIVEN)
+    location_score, location_n = _sub(LOCATION_DRIVEN)
 
     location_notes = dict(location_dims["_notes"])
     if climate_score is not None and climate_proj is not None:
@@ -1129,6 +1196,37 @@ def simulate_all_dimensions(
         "composite_score": composite,
         "composite_national_grade": score_to_grade(composite) if composite is not None else "—",
         "n_scored": len(scored_vals),
+        # The two headline axes, graded on the same absolute thresholds as the
+        # composite (A >= 80 ... F < 20) — the existing convention, not a new one.
+        #
+        # MEASURED, because "it should spread better" is a prediction and this is
+        # the check. Across the four presets at two fixed points, CONSTRUCTION runs
+        # 37.7 (D, worst-case) to 96.4 (A, ICF passive) — a 58.7-point range using
+        # the whole scale, which is the split doing its job. Against the old
+        # thirteen-dimension composite those same eight houses spanned 43.0-68.5
+        # and never left C/B, laundering a D-grade structure into a C.
+        #
+        # LOCATION does NOT yet grade honestly, and the number should not be read
+        # as if it does. Over 40 randomly sampled US tracts it runs 35.5-73.1 with
+        # a standard deviation of 8.0, and lands 29/40 in C with no A and no F: an
+        # A is over three sigma out, so the letter is close to decorative at the
+        # top of the range. That is the same arithmetic compression as before —
+        # averaging eight percentiles only widens the spread so far — and the fix
+        # is the one solar and climate already had: its own household-weighted
+        # reference distribution, which is not in this change.
+        #
+        # Shipping the raw mean under the existing thresholds is consistent with
+        # what the composite already does rather than a fresh overclaim, and the
+        # grade is honest at the bottom (a genuinely bad site does score D). The
+        # calibration is the next piece of work, not a nice-to-have.
+        "construction_score": construction_score,
+        "construction_national_grade": (score_to_grade(construction_score)
+                                        if construction_score is not None else "—"),
+        "construction_n_scored": construction_n,
+        "location_score": location_score,
+        "location_national_grade": (score_to_grade(location_score)
+                                    if location_score is not None else "—"),
+        "location_n_scored": location_n,
         "metrics": metrics,
         "location_notes": location_notes,
         "census_tract": location_dims.get("_tract"),

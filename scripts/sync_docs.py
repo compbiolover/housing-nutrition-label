@@ -54,7 +54,7 @@ for _p in (_ROOT, _ROOT / "src"):
         sys.path.insert(0, str(_p))
 
 from housing_label.simulate.dimensions import (  # noqa: E402
-    DIMENSIONS, CONSTRUCTION_DRIVEN, LOCATION_DRIVEN, GRADE_BY_CONSTRUCTION,
+    DIMENSIONS, CONSTRUCTION_DRIVEN, LOCATION_DRIVEN, CONTEXT_ONLY, GRADE_BY_CONSTRUCTION,
 )
 from housing_label.simulate.house import (  # noqa: E402
     CONSTRUCTION_FACTOR, FLOOD_CONSTRUCTION_FACTOR, FIRE_CONSTRUCTION_FACTOR,
@@ -655,20 +655,31 @@ def gen_setup_dimension_counts() -> str:
     construction/location split (names and counts all derived from the code). The
     detailed data-source prose that follows stays curated in the page."""
     n = len(DIMENSIONS)
-    # "construction-driven" as the pages count it = the construction dimensions plus
-    # resilience, which blends the build (EAL modifiers) with location hazard exposure.
-    constr_names = [k for k, _ in DIMENSIONS if k == "resilience" or k in CONSTRUCTION_DRIVEN]
-    n_constr = len(constr_names)
-    n_loc = len(LOCATION_DRIVEN)
-    names = ", ".join(constr_names)
+    # Derived from the three grading sets, with no special case. This used to read
+    # `k == "resilience" or k in CONSTRUCTION_DRIVEN` — a hardcoded exception that
+    # both put resilience on the wrong side of the split the label renders, and
+    # left the counts unable to add up once the sets changed underneath it.
+    ordered = [k for k, _ in DIMENSIONS]
+    constr = [k for k in ordered if k in CONSTRUCTION_DRIVEN]
+    loc = [k for k in ordered if k in LOCATION_DRIVEN]
+    ctx = [k for k in ordered if k in CONTEXT_ONLY]
+    if len(constr) + len(loc) + len(ctx) != n:
+        raise SystemExit(
+            f"sync_docs: the grading sets cover {len(constr) + len(loc) + len(ctx)} "
+            f"of {n} dimensions — classify the rest in simulate/dimensions.py")
     return (
         f'  <p>The CLI simulator lets you define a hypothetical house and see its full '
         f'nutrition label (all {_cardinal(n)} dimensions) instantly.</p>\n'
-        f'  <p>{_cardinal(n_constr).capitalize()} dimensions are '
-        f'<strong>construction-driven</strong> ({names}), modeled offline from the '
-        f'house configuration. The other {_cardinal(n_loc)} are '
-        f'<strong>location-driven</strong>, resolved by the house\'s census tract or county '
-        f'(no API key needed).</p>')
+        f'  <p>{_cardinal(len(constr)).capitalize()} dimensions are '
+        f'<strong>construction-driven</strong> ({", ".join(constr)}), modeled offline '
+        f'from the house configuration &mdash; they are what the structure is, and do '
+        f'not change if you move it. {_cardinal(len(loc)).capitalize()} are '
+        f'<strong>location-driven</strong> ({", ".join(loc)}), resolved by the house\'s '
+        f'census tract or county (no API key needed). The remaining '
+        f'{_cardinal(len(ctx))} &mdash; {", ".join(ctx)} &mdash; are shown as '
+        f'<strong>neighborhood context</strong>: full rows with their own scores and '
+        f'sources, but deliberately not folded into either grade, because both measure '
+        f'the people nearby rather than the place.</p>')
 
 
 # ── Region wiring ───────────────────────────────────────────────────────────────

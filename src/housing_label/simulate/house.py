@@ -2130,6 +2130,17 @@ def label_payload(cfg: dict, r: dict, label: dict, include_building: bool = True
         "composite_score": label["composite_score"],
         "composite_national_grade": label["composite_national_grade"],
         "n_scored": label["n_scored"],
+        # The two headline axes (simulate/dimensions.py). The composite is kept
+        # alongside them rather than replaced — it is what every earlier label and
+        # every downstream consumer already reads — but it is no longer the only
+        # number, because it averages away the difference between a well-built
+        # house in a hard place and a poor one in an easy place.
+        "construction_score": label["construction_score"],
+        "construction_national_grade": label["construction_national_grade"],
+        "construction_n_scored": label["construction_n_scored"],
+        "location_score": label["location_score"],
+        "location_national_grade": label["location_national_grade"],
+        "location_n_scored": label["location_n_scored"],
         "metrics": label["metrics"],
         "census_tract": label["census_tract"],
         "location_notes": label["location_notes"],

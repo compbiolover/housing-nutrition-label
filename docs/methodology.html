@@ -99,24 +99,29 @@
       <div>
         <span class="toc-label">Construction-driven</span>
         <ul>
-          <li><a href="#resilience"><span class="i" aria-hidden="true">&#x1F3D7;</span>1. Disaster Resilience</a></li>
-          <li><a href="#energy"><span class="i" aria-hidden="true">&#x26A1;</span>2. Energy Efficiency</a></li>
-          <li><a href="#durability"><span class="i" aria-hidden="true">&#x1F6E0;</span>3. Durability</a></li>
-          <li><a href="#environmental"><span class="i" aria-hidden="true">&#x1F33F;</span>4. Environmental Footprint</a></li>
-          <li><a href="#infrastructure"><span class="i" aria-hidden="true">&#x1F3D8;</span>5. Infrastructure Burden</a></li>
+          <li><a href="#energy"><span class="i" aria-hidden="true">&#x26A1;</span>1. Energy Efficiency</a></li>
+          <li><a href="#durability"><span class="i" aria-hidden="true">&#x1F6E0;</span>2. Durability</a></li>
+          <li><a href="#environmental"><span class="i" aria-hidden="true">&#x1F33F;</span>3. Environmental Footprint</a></li>
         </ul>
       </div>
       <div>
-        <span class="toc-label">Location-driven</span>
+        <span class="toc-label">Site &amp; environment</span>
         <ul>
-          <li><a href="#health"><span class="i" aria-hidden="true">&#x2764;</span>6. Health Impact</a></li>
-          <li><a href="#air-quality"><span class="i" aria-hidden="true">&#x1F32B;</span>7. Air Quality</a></li>
-          <li><a href="#noise"><span class="i" aria-hidden="true">&#x1F507;</span>8. Noise</a></li>
-          <li><a href="#socioeconomic"><span class="i" aria-hidden="true">&#x1F4CA;</span>9. Socioeconomic</a></li>
-          <li><a href="#walkability"><span class="i" aria-hidden="true">&#x1F6B6;</span>10. Walkability</a></li>
-          <li><a href="#climate"><span class="i" aria-hidden="true">&#x1F321;</span>11. Climate Projections</a></li>
-          <li><a href="#solar"><span class="i" aria-hidden="true">&#x2600;</span>12. Solar Potential</a></li>
-          <li><a href="#water"><span class="i" aria-hidden="true">&#x1F6B0;</span>13. Water Quality</a></li>
+          <li><a href="#resilience"><span class="i" aria-hidden="true">&#x1F3D7;</span>4. Disaster Resilience</a></li>
+          <li><a href="#infrastructure"><span class="i" aria-hidden="true">&#x1F3D8;</span>5. Infrastructure Burden</a></li>
+          <li><a href="#air-quality"><span class="i" aria-hidden="true">&#x1F32B;</span>6. Air Quality</a></li>
+          <li><a href="#noise"><span class="i" aria-hidden="true">&#x1F507;</span>7. Noise</a></li>
+          <li><a href="#walkability"><span class="i" aria-hidden="true">&#x1F6B6;</span>8. Walkability</a></li>
+          <li><a href="#climate"><span class="i" aria-hidden="true">&#x1F321;</span>9. Climate Projections</a></li>
+          <li><a href="#solar"><span class="i" aria-hidden="true">&#x2600;</span>10. Solar Potential</a></li>
+          <li><a href="#water"><span class="i" aria-hidden="true">&#x1F6B0;</span>11. Water Quality</a></li>
+        </ul>
+      </div>
+      <div>
+        <span class="toc-label">Neighborhood context</span>
+        <ul>
+          <li><a href="#health"><span class="i" aria-hidden="true">&#x2764;</span>12. Health Impact</a></li>
+          <li><a href="#socioeconomic"><span class="i" aria-hidden="true">&#x1F4CA;</span>13. Socioeconomic</a></li>
         </ul>
       </div>
     </div>
@@ -124,9 +129,67 @@
 </section>
 
 <section>
-  <h2 class="dim-group">Construction-driven <span>(how the home is built)</span></h2>
+  <h2 class="dim-group">Construction-driven <span>(what the structure is)</span></h2>
+  <div class="method-section" id="energy">
+    <h3><span class="dim-icon" aria-hidden="true">&#x26A1;</span>1. Energy Efficiency</h3>
+    <p class="plain"><strong>What this tells you:</strong> roughly how much energy the home uses and what that costs each month at local utility rates, driven by its age, size, construction, and heating/cooling system. A higher score means it uses less energy.</p>
+
+    <details class="tech"><summary>How it&rsquo;s calculated</summary>
+    <p>Score based on <strong>Energy Use Intensity (EUI)</strong> in kBTU/sqft/yr. The base EUI comes from <strong>NREL ResStock 2024</strong> simulation medians (a real modeled distribution over ~550,000 homes), looked up by the property's <strong>building type, climate zone, and vintage</strong> (the 2021 IECC map, by county; e.g. 4A mixed-humid, 5B cool-dry). Keying on building type gives <strong>multi-family (2&ndash;4 and 5+ units)</strong> and <strong>mobile / manufactured</strong> homes their own curves instead of scoring every dwelling off the single-family-detached one, and the per-zone-per-vintage medians capture the large difference between, say, humid <em>3A</em> and dry <em>3B</em> that a leading-digit scalar missed. (Zones ResStock doesn't cover, e.g. interior Alaska, fall back to detached, then to the prior curve.)</p>
+
+    <h4>Within-cell adjustments</h4>
+    <p>Building type, climate zone, and vintage pick the ResStock cell; off that base the estimate is nudged for the specific home. The <strong>foundation</strong> and <strong>heating/cooling (HVAC)</strong> nudges are themselves ResStock-derived: each is the within-cell, climate-controlled median-EUI ratio for that feature (e.g. a heat-pump home uses ~22% less than its cell median; a heated basement lowers per-sqft EUI). Square footage (size bin) and construction/exterior-wall type remain engineering factors.</p>
+    <p>Construction modifiers applied to the energy-use estimate: ICF = 0.92&times; and SIP = 0.95&times; (tighter, higher-mass envelopes), and Passive House = 0.55&times;. A home in a <strong>multi-unit building</strong> is scored off the <strong>measured multi-family EUI</strong> for its unit-count band, which captures the shared-wall / smaller-unit reality directly, so there is no separate modeled shared-wall credit. (In ResStock, large 5+ unit stock runs lower per-sqft EUI than detached, but small 2&ndash;4 unit stock can run higher, an intensity picture a flat credit couldn't represent.) The building type and unit count come from the detected structure (or what you enter). Rooftop solar is credited to the Environmental footprint's operational-carbon leg, not to the energy-use score.</p>
+
+    <h4>Cost Estimation</h4>
+    <p>Monthly cost uses the property's <strong>state residential utility rates</strong> (EIA averages for electricity and natural gas), so the estimate reflects local prices, roughly $0.10/kWh in the lowest-cost states to $0.20&ndash;$0.30/kWh in the highest. The electricity/gas split follows the home's heating-system type.</p>
+
+    <h4>Score Mapping</h4>
+    <div class="formula">Score 100 at EUI &le; 15 (passive house), 80 at 25, 60 at 40, 40 at 55, 20 at 70, 0 at &ge; 90</div>
+    </details>
+  </div>
+  <div class="method-section" id="durability">
+    <h3><span class="dim-icon" aria-hidden="true">&#x1F6E0;</span>2. Durability</h3>
+    <p class="plain"><strong>What this tells you:</strong> how much useful life the home's major systems (structure, roof, HVAC, plumbing, and so on) have left, adjusted for the home's observed condition. A higher score means more life left before big repairs.</p>
+
+    <details class="tech"><summary>How it&rsquo;s calculated</summary>
+    <p>A <strong>component-lifespan / effective-age</strong> model: how much usable service life the building has left, tempered by the assessor's observed condition. (Distinct from Disaster Resilience, which measures hazard loss rather than wear-out.)</p>
+
+    <h4>Component Service-Life Basket</h4>
+    <p>Eight major systems each carry a typical service life and a replacement-cost weight; the long-lived shell dominates and short-cycle systems contribute less:</p>
+    <p><strong>Structural shell</strong> 100&nbsp;yr (0.30) &middot; <strong>plumbing</strong> 55&nbsp;yr (0.10) &middot; <strong>electrical</strong> 35&nbsp;yr (0.10) &middot; <strong>roof covering</strong> 25&nbsp;yr (0.15) &middot; <strong>windows</strong> 25&nbsp;yr (0.08) &middot; <strong>interior finishes</strong> 20&nbsp;yr (0.10) &middot; <strong>HVAC</strong> 18&nbsp;yr (0.12) &middot; <strong>water heater</strong> 12&nbsp;yr (0.05).</p>
+    <p>Each system's remaining-life fraction is <code>clamp((service_life &minus; effective_age) / service_life, 0..1)</code>, using the assessor's <strong>effective year built</strong> (which folds in major renovations) rather than the original year. The age score is the weighted mean &times; 100.</p>
+
+    <h4>Condition &amp; Adjustments</h4>
+    <div class="formula">base = 0.55 &times; condition_score + 0.45 &times; age_score</div>
+    <p>Condition comes from the assessor's condition rating (Excellent = 100, Average = 60, Unsound = 0) and is weighted slightly above pure age because an inspector's observation captures real-world maintenance. The base is then scaled by exterior-wall material and by construction grade (clamped to 0.90&ndash;1.12&times;).</p>
+    <p>Homes with neither a build year nor a condition rating (vacant / non-residential land) are left <em>unscored</em> and excluded from the composite rather than guessed.</p>
+
+    <h4>Multi-Unit Buildings</h4>
+    <p>For a <strong>multi-unit building</strong> (detected by the National Structure Inventory, or entered with its material), the structural shell is a <strong>shared, building-level</strong> element rather than one house's wood frame. A reinforced-concrete or steel mid-rise frame, or a load-bearing masonry shell, is a fundamentally longer-lived building element, so the representative unit's shell decays more slowly: its service life is lengthened to 110&ndash;120&nbsp;yr (concrete/steel 120, masonry 110) from the 100&nbsp;yr wood-frame baseline. Only the shared shell changes; the shorter-cycle unit-level systems (roof covering, interior finishes, in-unit HVAC and water heater) keep their per-unit schedules, and a wood-framed multi-family keeps the baseline. <span class="source-tag">ISO 15686 / CIRIA design service lives</span> <span class="source-tag">InterNACHI / Fannie Mae structural schedules</span></p>
+    </details>
+  </div>
+  <div class="method-section" id="environmental">
+    <h3><span class="dim-icon" aria-hidden="true">&#x1F33F;</span>3. Environmental Footprint</h3>
+    <p class="plain"><strong>What this tells you:</strong> the home's yearly climate impact: from the energy it uses day to day, the carbon built into its materials, and its water use. A higher score means a smaller footprint.</p>
+
+    <details class="tech"><summary>How it&rsquo;s calculated</summary>
+    <p>A life-cycle CO&#8322;e score blends three components (<strong>0.50 operational + 0.30 embodied + 0.20 water</strong>), each normalized 0&ndash;100 against published good-vs-poor benchmarks (log-linear; higher score = lower footprint).</p>
+
+    <h4>Operational</h4>
+    <div class="formula">operational = consumed_kWh &times; grid&nbsp;<strong>average</strong> + avoided_kWh &times; (average &minus; <strong>marginal</strong>) + annual_therms &times; 5.3 kg&nbsp;CO&#8322;e/therm</div>
+    <p>The energy a home <em>consumes</em> is valued at the grid <strong>average</strong>, the property's <strong>EPA eGRID2023 Rev 2</strong> subregion emission rate (looked up nationally by county, US-average fallback), so a home on a coal-heavy grid carries more operational carbon than one on a clean grid. But the energy it <em>avoids</em> (rooftop solar + a high-performance envelope / passive-house efficiency, measured against the same home with a standard envelope and no solar) is credited at the long-run <strong>marginal</strong> rate: a kWh you no longer draw turns off the generation on the margin, not the average mix. That marginal rate is the county's <strong>NREL Cambium 2023 LRMER</strong> (Long-Run Marginal Emission Rate, mid-case, levelized over 20 years, Combustion CO&#8322;e so it shares eGRID's stack-emissions basis), looked up via a bundled county&rarr;GEA-region crosswalk. Cambium's GEA regions are CONUS-only; outside them (Alaska, Hawai&#8216;i, Puerto Rico) the marginal rate falls back to the average, so the credit term vanishes and the formula reduces to <span class="formula" style="display:inline">consumed_kWh &times; average</span>, today's number. Energy use is the same model the Energy dimension produces; the gas factor is from the EPA GHG Emission Factors Hub.</p>
+
+    <h4>Embodied &amp; Water</h4>
+    <p><strong>Embodied:</strong> a material/size estimator keyed on exterior wall and construction grade, calibrated to the verified US single-family band of <strong>~39&ndash;121 kg&nbsp;CO&#8322;e/m&sup2;</strong>, then amortized over the shell's expected service life (EN&nbsp;15978 / RICS 60-year reference study period), so more durable construction spreads its upfront carbon over more years.</p>
+    <p><strong>Water:</strong> EPA WaterSense usage benchmarks, with a national-average estimate for the energy embedded in water supply and wastewater treatment. Indoor use scales with occupancy and fixtures; outdoor use is modeled from the irrigable lot area (lot minus building footprint).</p>
+    <p><strong>Multi-unit buildings:</strong> a unit in a stacked or attached multi-unit building (detected from the National Structure Inventory, or from a unit count you enter) carries <strong>no private-yard irrigation</strong> (any shared landscaping is common area, not the unit's own load), so its water footprint is indoor-only, which is why an apartment or condo unit scores greener on water than a detached home of the same size.</p>
+    <p>Homes with no living area (vacant / non-residential) are left <em>unscored</em>.</p>
+    </details>
+  </div>
+  <h2 class="dim-group">Site &amp; environment <span>(where the home sits)</span></h2>
   <div class="method-section" id="resilience">
-    <h3><span class="dim-icon" aria-hidden="true">&#x1F3D7;</span>1. Disaster Resilience</h3>
+    <h3><span class="dim-icon" aria-hidden="true">&#x1F3D7;</span>4. Disaster Resilience</h3>
     <p class="plain"><strong>What this tells you:</strong> how much damage the home is likely to suffer from floods, tornadoes, earthquakes, and fire in a typical year, and how much its construction (age, materials, and upgrades like a reinforced roof) lowers or raises that risk. A higher score means less expected damage.</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
@@ -167,67 +230,6 @@
     <p>Total EAL rate maps to 0&ndash;100 via log-linear interpolation: score 100 at EAL &le; 0.001%, score 80 at 0.02%, score 60 at 0.1%, score 40 at 0.3%, score 20 at 1%, score 0 at &ge; 2%.</p>
     </details>
   </div>
-
-  <div class="method-section" id="energy">
-    <h3><span class="dim-icon" aria-hidden="true">&#x26A1;</span>2. Energy Efficiency</h3>
-    <p class="plain"><strong>What this tells you:</strong> roughly how much energy the home uses and what that costs each month at local utility rates, driven by its age, size, construction, and heating/cooling system. A higher score means it uses less energy.</p>
-
-    <details class="tech"><summary>How it&rsquo;s calculated</summary>
-    <p>Score based on <strong>Energy Use Intensity (EUI)</strong> in kBTU/sqft/yr. The base EUI comes from <strong>NREL ResStock 2024</strong> simulation medians (a real modeled distribution over ~550,000 homes), looked up by the property's <strong>building type, climate zone, and vintage</strong> (the 2021 IECC map, by county; e.g. 4A mixed-humid, 5B cool-dry). Keying on building type gives <strong>multi-family (2&ndash;4 and 5+ units)</strong> and <strong>mobile / manufactured</strong> homes their own curves instead of scoring every dwelling off the single-family-detached one, and the per-zone-per-vintage medians capture the large difference between, say, humid <em>3A</em> and dry <em>3B</em> that a leading-digit scalar missed. (Zones ResStock doesn't cover, e.g. interior Alaska, fall back to detached, then to the prior curve.)</p>
-
-    <h4>Within-cell adjustments</h4>
-    <p>Building type, climate zone, and vintage pick the ResStock cell; off that base the estimate is nudged for the specific home. The <strong>foundation</strong> and <strong>heating/cooling (HVAC)</strong> nudges are themselves ResStock-derived: each is the within-cell, climate-controlled median-EUI ratio for that feature (e.g. a heat-pump home uses ~22% less than its cell median; a heated basement lowers per-sqft EUI). Square footage (size bin) and construction/exterior-wall type remain engineering factors.</p>
-    <p>Construction modifiers applied to the energy-use estimate: ICF = 0.92&times; and SIP = 0.95&times; (tighter, higher-mass envelopes), and Passive House = 0.55&times;. A home in a <strong>multi-unit building</strong> is scored off the <strong>measured multi-family EUI</strong> for its unit-count band, which captures the shared-wall / smaller-unit reality directly, so there is no separate modeled shared-wall credit. (In ResStock, large 5+ unit stock runs lower per-sqft EUI than detached, but small 2&ndash;4 unit stock can run higher, an intensity picture a flat credit couldn't represent.) The building type and unit count come from the detected structure (or what you enter). Rooftop solar is credited to the Environmental footprint's operational-carbon leg, not to the energy-use score.</p>
-
-    <h4>Cost Estimation</h4>
-    <p>Monthly cost uses the property's <strong>state residential utility rates</strong> (EIA averages for electricity and natural gas), so the estimate reflects local prices, roughly $0.10/kWh in the lowest-cost states to $0.20&ndash;$0.30/kWh in the highest. The electricity/gas split follows the home's heating-system type.</p>
-
-    <h4>Score Mapping</h4>
-    <div class="formula">Score 100 at EUI &le; 15 (passive house), 80 at 25, 60 at 40, 40 at 55, 20 at 70, 0 at &ge; 90</div>
-    </details>
-  </div>
-
-  <div class="method-section" id="durability">
-    <h3><span class="dim-icon" aria-hidden="true">&#x1F6E0;</span>3. Durability</h3>
-    <p class="plain"><strong>What this tells you:</strong> how much useful life the home's major systems (structure, roof, HVAC, plumbing, and so on) have left, adjusted for the home's observed condition. A higher score means more life left before big repairs.</p>
-
-    <details class="tech"><summary>How it&rsquo;s calculated</summary>
-    <p>A <strong>component-lifespan / effective-age</strong> model: how much usable service life the building has left, tempered by the assessor's observed condition. (Distinct from Disaster Resilience, which measures hazard loss rather than wear-out.)</p>
-
-    <h4>Component Service-Life Basket</h4>
-    <p>Eight major systems each carry a typical service life and a replacement-cost weight; the long-lived shell dominates and short-cycle systems contribute less:</p>
-    <p><strong>Structural shell</strong> 100&nbsp;yr (0.30) &middot; <strong>plumbing</strong> 55&nbsp;yr (0.10) &middot; <strong>electrical</strong> 35&nbsp;yr (0.10) &middot; <strong>roof covering</strong> 25&nbsp;yr (0.15) &middot; <strong>windows</strong> 25&nbsp;yr (0.08) &middot; <strong>interior finishes</strong> 20&nbsp;yr (0.10) &middot; <strong>HVAC</strong> 18&nbsp;yr (0.12) &middot; <strong>water heater</strong> 12&nbsp;yr (0.05).</p>
-    <p>Each system's remaining-life fraction is <code>clamp((service_life &minus; effective_age) / service_life, 0..1)</code>, using the assessor's <strong>effective year built</strong> (which folds in major renovations) rather than the original year. The age score is the weighted mean &times; 100.</p>
-
-    <h4>Condition &amp; Adjustments</h4>
-    <div class="formula">base = 0.55 &times; condition_score + 0.45 &times; age_score</div>
-    <p>Condition comes from the assessor's condition rating (Excellent = 100, Average = 60, Unsound = 0) and is weighted slightly above pure age because an inspector's observation captures real-world maintenance. The base is then scaled by exterior-wall material and by construction grade (clamped to 0.90&ndash;1.12&times;).</p>
-    <p>Homes with neither a build year nor a condition rating (vacant / non-residential land) are left <em>unscored</em> and excluded from the composite rather than guessed.</p>
-
-    <h4>Multi-Unit Buildings</h4>
-    <p>For a <strong>multi-unit building</strong> (detected by the National Structure Inventory, or entered with its material), the structural shell is a <strong>shared, building-level</strong> element rather than one house's wood frame. A reinforced-concrete or steel mid-rise frame, or a load-bearing masonry shell, is a fundamentally longer-lived building element, so the representative unit's shell decays more slowly: its service life is lengthened to 110&ndash;120&nbsp;yr (concrete/steel 120, masonry 110) from the 100&nbsp;yr wood-frame baseline. Only the shared shell changes; the shorter-cycle unit-level systems (roof covering, interior finishes, in-unit HVAC and water heater) keep their per-unit schedules, and a wood-framed multi-family keeps the baseline. <span class="source-tag">ISO 15686 / CIRIA design service lives</span> <span class="source-tag">InterNACHI / Fannie Mae structural schedules</span></p>
-    </details>
-  </div>
-
-  <div class="method-section" id="environmental">
-    <h3><span class="dim-icon" aria-hidden="true">&#x1F33F;</span>4. Environmental Footprint</h3>
-    <p class="plain"><strong>What this tells you:</strong> the home's yearly climate impact: from the energy it uses day to day, the carbon built into its materials, and its water use. A higher score means a smaller footprint.</p>
-
-    <details class="tech"><summary>How it&rsquo;s calculated</summary>
-    <p>A life-cycle CO&#8322;e score blends three components (<strong>0.50 operational + 0.30 embodied + 0.20 water</strong>), each normalized 0&ndash;100 against published good-vs-poor benchmarks (log-linear; higher score = lower footprint).</p>
-
-    <h4>Operational</h4>
-    <div class="formula">operational = consumed_kWh &times; grid&nbsp;<strong>average</strong> + avoided_kWh &times; (average &minus; <strong>marginal</strong>) + annual_therms &times; 5.3 kg&nbsp;CO&#8322;e/therm</div>
-    <p>The energy a home <em>consumes</em> is valued at the grid <strong>average</strong>, the property's <strong>EPA eGRID2023 Rev 2</strong> subregion emission rate (looked up nationally by county, US-average fallback), so a home on a coal-heavy grid carries more operational carbon than one on a clean grid. But the energy it <em>avoids</em> (rooftop solar + a high-performance envelope / passive-house efficiency, measured against the same home with a standard envelope and no solar) is credited at the long-run <strong>marginal</strong> rate: a kWh you no longer draw turns off the generation on the margin, not the average mix. That marginal rate is the county's <strong>NREL Cambium 2023 LRMER</strong> (Long-Run Marginal Emission Rate, mid-case, levelized over 20 years, Combustion CO&#8322;e so it shares eGRID's stack-emissions basis), looked up via a bundled county&rarr;GEA-region crosswalk. Cambium's GEA regions are CONUS-only; outside them (Alaska, Hawai&#8216;i, Puerto Rico) the marginal rate falls back to the average, so the credit term vanishes and the formula reduces to <span class="formula" style="display:inline">consumed_kWh &times; average</span>, today's number. Energy use is the same model the Energy dimension produces; the gas factor is from the EPA GHG Emission Factors Hub.</p>
-
-    <h4>Embodied &amp; Water</h4>
-    <p><strong>Embodied:</strong> a material/size estimator keyed on exterior wall and construction grade, calibrated to the verified US single-family band of <strong>~39&ndash;121 kg&nbsp;CO&#8322;e/m&sup2;</strong>, then amortized over the shell's expected service life (EN&nbsp;15978 / RICS 60-year reference study period), so more durable construction spreads its upfront carbon over more years.</p>
-    <p><strong>Water:</strong> EPA WaterSense usage benchmarks, with a national-average estimate for the energy embedded in water supply and wastewater treatment. Indoor use scales with occupancy and fixtures; outdoor use is modeled from the irrigable lot area (lot minus building footprint).</p>
-    <p><strong>Multi-unit buildings:</strong> a unit in a stacked or attached multi-unit building (detected from the National Structure Inventory, or from a unit count you enter) carries <strong>no private-yard irrigation</strong> (any shared landscaping is common area, not the unit's own load), so its water footprint is indoor-only, which is why an apartment or condo unit scores greener on water than a detached home of the same size.</p>
-    <p>Homes with no living area (vacant / non-residential) are left <em>unscored</em>.</p>
-    </details>
-  </div>
-
   <div class="method-section" id="infrastructure">
     <h3><span class="dim-icon" aria-hidden="true">&#x1F3D8;</span>5. Infrastructure Burden</h3>
     <p class="plain"><strong>What this tells you:</strong> how much of the cost of serving this home &mdash; roads, water, sewer, fire, police &mdash; is covered by the revenue it generates. Denser housing shares those costs across more homes, so it scores better. The score is a <strong>national percentile, not a pass/fail</strong>: the typical US home covers about <strong>two-thirds</strong> of what it costs to serve, so a ratio near 0.67 is an average score and only about 18% of homes clear 1.0. The gap is real rather than an accounting artifact &mdash; fire and police have no user charge anywhere in the Census data, so property tax alone has to pay for them.</p>
@@ -278,22 +280,8 @@
     <p><strong>Coverage:</strong> 49 of 51 scorable jurisdictions (50 states + DC), 99.4% of the US population &mdash; all nine Census divisions have been worked through, and the two jurisdictions left out, the District of Columbia and Hawaii, are deferred rather than unexamined. Eight carry a correction: Alabama and West Virginia at 2.0&times;, New York City at 1.81&times;, Tennessee at 1.6&times;, Mississippi and South Carolina at 1.5&times;, Minnesota at 1.25&times; and North Dakota at 1.11&times;. Minnesota and North Dakota both reclassify at four units but count differently &mdash; Minnesota counts units held for rent, North Dakota counts units the structure accommodates &mdash; so an owner-occupied fourplex is commercial in one and residential in the other. Most classify by <em>tenure</em> rather than unit count, so in those states even a rented single-family home is taxed as commercial. West Virginia splits by tax <em>rate</em> rather than assessment ratio &mdash; the same economic effect by a different mechanism. New York is different again: the rule is set by the city rather than the state, applies only above 11 dwelling units, and its size comes from the city's own published effective-tax-rate study rather than from the statute &mdash; reading the statute alone gives 4.70&times;, which would over-correct by a factor of 2.6, because assessors value large rentals well below sales-based market value. The other forty-one are recorded as researched-with-no-correction, which is deliberately distinct from not yet researched &mdash; and two of those, Rhode Island and Connecticut, do classify rental housing, but per municipality in states whose counties are not governmental units, so the rule cannot be applied at the county granularity this model uses. Louisiana and Ohio are the instructive cases: both have a real two-class split, but it keys on <em>use</em> rather than tenure, so an apartment building sits in the same class as a detached house and no correction applies. Michigan is a third kind again &mdash; its owner-occupied exemption is large (18 mills) but falls entirely on the school levy this dimension already excludes from both sides. Four Mountain states are a fourth: Utah's 45% residential exemption, Montana's homestead rate and Colorado's residential rate all read as owner-occupied preferences in a secondary source, but each keys on how the home is <em>occupied</em> rather than on who owns it, and long-term rentals share the preferential treatment. The two deferrals are deliberate and differ in kind. The District of Columbia restructured its classes for tax year 2025 and sources conflict on where a multifamily rental lands, so the multiplier is genuinely ambiguous. Hawaii is the opposite problem: its four counties are the taxing units and their classes really do split an owner's principal residence from rented housing, but the implied corrections run from 1.97&times; to 3.56&times; &mdash; two of the four above the ceiling this table applies as a research-error tripwire, and Honolulu's is a value-tiered bracket above $1,000,000 rather than a fixed class ratio. Rental housing in those two jurisdictions is therefore still scored as though taxed like an owner-occupied home, which for Hawaii is known to understate it. Puerto Rico and the four smaller territories are out of scope entirely: they carry no Census of Governments data, so this dimension cannot score them at all.</p>
     </details>
   </div>
-
-  <h2 class="dim-group">Location-driven <span>(where the home sits)</span></h2>
-  <div class="method-section" id="health">
-    <h3><span class="dim-icon" aria-hidden="true">&#x2764;</span>6. Health Impact</h3>
-    <p class="plain"><strong>What this tells you:</strong> how healthy the surrounding neighborhood is, based on local rates of conditions like obesity, diabetes, high blood pressure, and asthma. A higher score means a healthier area. (This describes the neighborhood, not the building.)</p>
-
-    <details class="tech"><summary>How it&rsquo;s calculated</summary>
-    <p>Uses <strong>CDC PLACES</strong> census-tract-level health estimates. Seven measures: obesity, diabetes, high blood pressure, asthma, coronary heart disease, mental distress, and physical inactivity.</p>
-    <p>Each address is assigned to its census tract, and the health index is the average of the seven measures' inverted percentile ranks against the <strong>full national distribution of US census tracts</strong> (population-weighted). Lower prevalence = higher score. Because it is a national percentile rather than a within-county rank, a score means the same thing in every metro, so neighborhoods are comparable across cities. The reference distribution is bundled and versioned (CDC PLACES 2023).</p>
-    <p><strong>Not available in Kentucky or Pennsylvania.</strong> CDC PLACES publishes none of these seven measures for either state &mdash; both appear only in the 2022 vintage and only for five unrelated prevention measures, and are absent from the 2023 release entirely. Puerto Rico has never been covered. In those places Health Impact is <em>left unscored</em> and the composite is the mean of the remaining dimensions, rather than filled with the national average &mdash; which would present an unmeasured neighborhood as an average one. Scoring those states on the five measures they do have would make the index mean something different there than everywhere else, defeating the national comparability above.</p>
-    <div class="insight"><strong>Why it matters:</strong> within a single county, obesity can range from under 30% to nearly 60%, and diabetes from under 10% to over 30%, between the healthiest and least healthy neighborhoods, a 2&times; to 5&times; gap over a few miles.</div>
-    </details>
-  </div>
-
   <div class="method-section" id="air-quality">
-    <h3><span class="dim-icon" aria-hidden="true">&#x1F32B;</span>7. Air Quality</h3>
+    <h3><span class="dim-icon" aria-hidden="true">&#x1F32B;</span>6. Air Quality</h3>
     <p class="plain"><strong>What this tells you:</strong> how clean the local air is: fine-particle and ozone pollution outdoors, plus the natural radon potential indoors. A higher score means cleaner, safer air. (Like Health, this describes the location, not the building.)</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
@@ -307,9 +295,8 @@
     <div class="insight"><strong>Caveat:</strong> PM2.5 and ozone resolve at the census tract (a real neighborhood value, but a modeled estimate, not a per-home measurement), while radon is a coarse county-level three-zone predictor of <em>potential</em>. An actual home test is the only way to know a specific building&rsquo;s radon level.</div>
     </details>
   </div>
-
   <div class="method-section" id="noise">
-    <h3><span class="dim-icon" aria-hidden="true">&#x1F507;</span>8. Noise</h3>
+    <h3><span class="dim-icon" aria-hidden="true">&#x1F507;</span>7. Noise</h3>
     <p class="plain"><strong>What this tells you:</strong> how quiet the location is: how much aircraft, highway, and railroad noise reaches the neighborhood. A higher score means quieter. (Like Health and Air Quality, this describes the location, not the building.)</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
@@ -317,18 +304,8 @@
     <div class="insight"><strong>Caveat:</strong> this is <em>transportation</em> noise only (planes, highways, trains) at census-tract resolution, so it doesn&rsquo;t capture very local sources (a neighbor&rsquo;s AC unit, nightlife, construction) or indoor attenuation from the building itself.</div>
     </details>
   </div>
-
-  <div class="method-section" id="socioeconomic">
-    <h3><span class="dim-icon" aria-hidden="true">&#x1F4CA;</span>9. Socioeconomic</h3>
-    <p class="plain"><strong>What this tells you:</strong> the economic profile of the neighborhood: income, poverty, education, and jobs. A higher score means stronger local economic opportunity. (Like Health, this describes the area, not the building.)</p>
-
-    <details class="tech"><summary>How it&rsquo;s calculated</summary>
-    <p>Census ACS 5-year estimates at the census tract level, blending five measures: poverty rate (B17001), median household income (B19013), housing-cost burden (B25106), educational attainment (B15003, the share of adults 25+ with a bachelor's degree or higher), and unemployment (B23025). Each measure is turned into a <strong>household-weighted national percentile</strong> and oriented so higher is better (income and education direct; poverty, cost burden, and unemployment inverted), then averaged, so a score is comparable across locations rather than ranked within the address's own county. Sourced from the keyless ACS 5-year Summary File (2020&ndash;2024), so the live scoring path needs no Census API key.</p>
-    </details>
-  </div>
-
   <div class="method-section" id="walkability">
-    <h3><span class="dim-icon" aria-hidden="true">&#x1F6B6;</span>10. Walkability</h3>
+    <h3><span class="dim-icon" aria-hidden="true">&#x1F6B6;</span>8. Walkability</h3>
     <p class="plain"><strong>What this tells you:</strong> how easy it is to get around from this address on foot, by transit, or by bike. A higher score means more of daily life is reachable without a car.</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
@@ -338,9 +315,8 @@
     <div class="insight"><strong>Context:</strong> much of the country is car-dependent suburban and exurban development, so most addresses score low on the national absolute scale. The genuinely walkable pockets are older street-grid neighborhoods near a downtown or town center. A finer in-house OpenStreetMap amenity-access score is a documented future upgrade.</div>
     </details>
   </div>
-
   <div class="method-section" id="climate">
-    <h3><span class="dim-icon" aria-hidden="true">&#x1F321;</span>11. Climate Projections</h3>
+    <h3><span class="dim-icon" aria-hidden="true">&#x1F321;</span>9. Climate Projections</h3>
     <p class="plain"><strong>What this tells you:</strong> how the local climate is projected to change by mid-century: more extreme heat, heavier rain and flooding, and drought. A higher score means less projected climate hazard. The label shows a range, because how much it changes depends on future emissions.</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
@@ -349,9 +325,8 @@
     <div class="insight"><strong>Sub-county detail:</strong> because these tract values come from sampling the ~6&nbsp;km grid, tracts within a large, diverse county genuinely differ (San&nbsp;Bernardino spans coast to desert), unlike layers that broadcast a single county value onto every tract.</div>
     </details>
   </div>
-
   <div class="method-section" id="solar">
-    <h3><span class="dim-icon" aria-hidden="true">&#x2600;</span>12. Solar Potential</h3>
+    <h3><span class="dim-icon" aria-hidden="true">&#x2600;</span>10. Solar Potential</h3>
     <p class="plain"><strong>What this tells you:</strong> how productive rooftop solar is at this location: how much electricity a panel makes here versus the rest of the country. A higher score means sunnier, so a system pays off faster. The details estimate what a typical system would produce, save on your power bill, and offset in CO&#8322;.</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
@@ -360,14 +335,33 @@
     <div class="insight"><strong>Caveat:</strong> this is the <em>location&rsquo;s</em> resource at optimal orientation, a whole-roof best case. A specific roof&rsquo;s real output depends on its pitch, azimuth, and especially shading, which this doesn&rsquo;t model; treat it as "how good is the sun here," not a quote for a particular house.</div>
     </details>
   </div>
-
   <div class="method-section" id="water">
-    <h3><span class="dim-icon" aria-hidden="true">&#x1F6B0;</span>13. Water Quality</h3>
+    <h3><span class="dim-icon" aria-hidden="true">&#x1F6B0;</span>11. Water Quality</h3>
     <p class="plain"><strong>What this tells you:</strong> how safe the tap water is: whether the community water systems serving the area have had recent health-based drinking-water violations. A higher score means cleaner water. (Like Health and Air Quality, this describes the location, not the building.)</p>
 
     <details class="tech"><summary>How it&rsquo;s calculated</summary>
     <p>Uses the EPA <strong>Safe Drinking Water Information System (SDWIS)</strong> federal-reporting data. For each <strong>county</strong> it looks at every active <strong>community water system</strong> (the systems that serve year-round residents) and the share of the county&rsquo;s served population on a system that had a <strong>health-based violation</strong> whose non-compliance period began within the trailing <strong>5-year</strong> window. A health-based violation is a contaminant exceedance (lead, nitrate, arsenic, disinfection by-products, coliform&hellip;) or treatment-technique failure that can affect health, as opposed to a paperwork/monitoring lapse. That exposure share is mapped to a 0&ndash;100 score against the <strong>population-weighted national distribution</strong> (less exposure &rarr; higher score), so it reads directly as a national percentile of drinking-water safety.</p>
     <div class="insight"><strong>Caveat:</strong> this is <em>reported compliance</em> for community water systems at county resolution: it reflects whether systems met federal standards, not a direct test of your tap. It doesn&rsquo;t cover private wells (which aren&rsquo;t regulated under SDWA), in-home plumbing (e.g. a home&rsquo;s own lead service line), or contaminants without a federal limit.</div>
+    </details>
+  </div>
+  <h2 class="dim-group">Neighborhood context <span>(shown in full, not folded into either grade)</span></h2>
+  <div class="method-section" id="health">
+    <h3><span class="dim-icon" aria-hidden="true">&#x2764;</span>12. Health Impact</h3>
+    <p class="plain"><strong>What this tells you:</strong> how healthy the surrounding neighborhood is, based on local rates of conditions like obesity, diabetes, high blood pressure, and asthma. A higher score means a healthier area. (This describes the neighborhood, not the building.)</p>
+
+    <details class="tech"><summary>How it&rsquo;s calculated</summary>
+    <p>Uses <strong>CDC PLACES</strong> census-tract-level health estimates. Seven measures: obesity, diabetes, high blood pressure, asthma, coronary heart disease, mental distress, and physical inactivity.</p>
+    <p>Each address is assigned to its census tract, and the health index is the average of the seven measures' inverted percentile ranks against the <strong>full national distribution of US census tracts</strong> (population-weighted). Lower prevalence = higher score. Because it is a national percentile rather than a within-county rank, a score means the same thing in every metro, so neighborhoods are comparable across cities. The reference distribution is bundled and versioned (CDC PLACES 2023).</p>
+    <p><strong>Not available in Kentucky or Pennsylvania.</strong> CDC PLACES publishes none of these seven measures for either state &mdash; both appear only in the 2022 vintage and only for five unrelated prevention measures, and are absent from the 2023 release entirely. Puerto Rico has never been covered. In those places Health Impact is <em>left unscored</em> and the composite is the mean of the remaining dimensions, rather than filled with the national average &mdash; which would present an unmeasured neighborhood as an average one. Scoring those states on the five measures they do have would make the index mean something different there than everywhere else, defeating the national comparability above.</p>
+    <div class="insight"><strong>Why it matters:</strong> within a single county, obesity can range from under 30% to nearly 60%, and diabetes from under 10% to over 30%, between the healthiest and least healthy neighborhoods, a 2&times; to 5&times; gap over a few miles.</div>
+    </details>
+  </div>
+  <div class="method-section" id="socioeconomic">
+    <h3><span class="dim-icon" aria-hidden="true">&#x1F4CA;</span>13. Socioeconomic</h3>
+    <p class="plain"><strong>What this tells you:</strong> the economic profile of the neighborhood: income, poverty, education, and jobs. A higher score means stronger local economic opportunity. (Like Health, this describes the area, not the building.)</p>
+
+    <details class="tech"><summary>How it&rsquo;s calculated</summary>
+    <p>Census ACS 5-year estimates at the census tract level, blending five measures: poverty rate (B17001), median household income (B19013), housing-cost burden (B25106), educational attainment (B15003, the share of adults 25+ with a bachelor's degree or higher), and unemployment (B23025). Each measure is turned into a <strong>household-weighted national percentile</strong> and oriented so higher is better (income and education direct; poverty, cost burden, and unemployment inverted), then averaged, so a score is comparable across locations rather than ranked within the address's own county. Sourced from the keyless ACS 5-year Summary File (2020&ndash;2024), so the live scoring path needs no Census API key.</p>
     </details>
   </div>
 </section>
