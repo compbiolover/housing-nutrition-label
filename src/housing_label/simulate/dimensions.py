@@ -250,22 +250,22 @@ CONTEXT_ONLY = {"health", "socioeconomic"}
 # inherited resilience's description the moment they left both sets.
 HYBRID_DIMENSIONS = {"resilience"}
 
-# Hybrids are GROUPED under Site & environment but kept OUT of its aggregate, on
-# the same principle as CONTEXT_ONLY: a row can be worth showing without being
-# worth averaging into a grade that claims to measure something else.
+# Hybrids are GROUPED under Site & environment but the COMBINED dimension is kept
+# out of its aggregate — because it is split instead, and each half joins the axis
+# it belongs to (score/resilience.py:resilience_legs).
 #
-# Measured at one fixed Los Angeles tract, varying only the preset: resilience runs
-# from the 1st percentile (worst-case) to the 99th (ICF passive) — a 98-point swing
-# on a 100-point scale — while every other member of the axis moves 4 points or
-# less and five of them do not move at all. Including it made the site grade there
-# read F for a badly-built house and C for an ordinary one on the SAME parcel,
-# which is not a fact about the site.
+# Why splitting rather than assigning: measured at one fixed Los Angeles tract,
+# varying only the preset, resilience ran from the 1st national percentile to the
+# 99th — 98 points of a 100-point scale — while every other member of the axis
+# moved 4 points or less and five did not move at all. Whichever side it was put
+# on, that side inherited a number that was mostly about the other one. On the site
+# axis it made the grade read F for a badly-built house and C for an ordinary one
+# on the SAME parcel.
 #
-# This is interim. The fix is to decompose resilience into its site-hazard and
-# building-response legs and aggregate only the first — the seam already exists in
-# score/resilience.py, which computes the EAL from a hazard rate and a set of
-# construction multipliers. Until then, excluding it is the honest option: an axis
-# dominated by a member that is 98% building is not a site grade.
+# Now the site leg (hazard with a neutral building) joins this aggregate and the
+# building leg (the construction multiplier scored at a reference site) joins the
+# construction one. The site leg is constant across buildings at a fixed parcel,
+# which is the property a site grade needs and the combined score never had.
 AGGREGATED_LOCATION = LOCATION_DRIVEN - HYBRID_DIMENSIONS
 
 
@@ -768,6 +768,7 @@ def simulate_all_dimensions(
     location=None,
     allow_network: bool = True,
     overrides: dict | None = None,
+    resilience_result: dict | None = None,
 ) -> dict:
     """Produce the complete nutrition label for a house config.
 
@@ -1103,7 +1104,18 @@ def simulate_all_dimensions(
     scored_vals = [d["score"] for d in dims if d["score"] is not None]
     composite = round(sum(scored_vals) / len(scored_vals), 1) if scored_vals else None
 
-    def _sub(keys: set[str]) -> tuple[float | None, int]:
+    # Resilience contributes to BOTH axes, as its own two legs rather than as one
+    # number on one side. See score/resilience.py:resilience_legs.
+    # Needs the full simulate() result, not just the combined score: the split
+    # lives in the per-peril `*_raw` rates it records. Callers that pass only a
+    # score (older tests, the utility-rate fixture) get no legs, and each axis
+    # simply averages its remaining members — the same graceful path an unscored
+    # dimension already takes.
+    from housing_label.score.resilience import resilience_legs
+    _legs = (resilience_legs(resilience_result) if resilience_result
+             else {"site": None, "building": None, "multiplier": None})
+
+    def _sub(keys: set[str], extra: float | None = None) -> tuple[float | None, int]:
         """Mean of members' NATIONAL PERCENTILES, not of their raw scores.
 
         Those are different quantities for five of the thirteen dimensions. The
@@ -1116,10 +1128,18 @@ def simulate_all_dimensions(
         """
         vals = [d["national_percentile"] for d in dims
                 if d["key"] in keys and d["national_percentile"] is not None]
+        if extra is not None:
+            # A resilience leg, already a 0-100 score on the same curve the
+            # combined dimension uses, so it goes through the same remapping to
+            # reach a percentile — not appended raw, which would put an absolute
+            # score into a mean of percentiles.
+            pct = national_percentile("resilience", extra)
+            if pct is not None:
+                vals.append(pct)
         return (round(sum(vals) / len(vals), 1) if vals else None), len(vals)
 
-    construction_score, construction_n = _sub(CONSTRUCTION_DRIVEN)
-    location_raw, location_n = _sub(AGGREGATED_LOCATION)
+    construction_score, construction_n = _sub(CONSTRUCTION_DRIVEN, _legs["building"])
+    location_raw, location_n = _sub(AGGREGATED_LOCATION, _legs["site"])
     # Ranked against the places US households actually live, because a mean of
     # percentiles cannot reach the ends of a 0-100 ruler on its own — see
     # data/national_percentile.py.
@@ -1264,6 +1284,11 @@ def simulate_all_dimensions(
         # ranking is a real transformation, not a formatting step, and a reader
         # comparing two labels should be able to see the quantity underneath it.
         "location_raw_mean": location_raw,
+        # The two halves resilience was split into, surfaced so the label can
+        # explain why one dimension appears on both sides of the split.
+        "resilience_site_score": _legs["site"],
+        "resilience_building_score": _legs["building"],
+        "resilience_building_multiplier": _legs["multiplier"],
         "metrics": metrics,
         "location_notes": location_notes,
         "census_tract": location_dims.get("_tract"),

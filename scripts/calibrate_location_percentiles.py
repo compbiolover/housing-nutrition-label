@@ -19,8 +19,9 @@ Method
 ------
 1. Sample census tracts and score each one with a FIXED reference building, so the
    only thing varying is the place.
-   Hybrid members (resilience) are excluded from the aggregate by
-   AGGREGATED_LOCATION, so the sample and the curve share one basis.
+   The aggregate now carries resilience's SITE leg (its hazard with a neutral
+   building) rather than the combined dimension, so the sample and the curve
+   share one basis and neither moves when the building does.
 2. Take household-weighted quantiles of the resulting Location sub-scores, using
    the same ``socio_tracts.csv.gz`` household counts that #258 used for Climate.
 3. Emit anchors mapping raw sub-score -> national percentile. The label then reads
