@@ -15,9 +15,12 @@ FIPS with no network call:
 Scoring
 -------
 The specific yield is mapped to a 0-100 score by piecewise-linear interpolation
-over the **national county quantiles** (higher yield → higher score), so the score
-reads directly as "sunnier than N% of US counties" — an identity national
-percentile in ``data/national_percentile.py``, comparable across locations.
+over the **household-weighted national quantiles** (higher yield → higher score),
+so the score reads directly as "sunnier than N% of US homes" — an identity national
+percentile in ``data/national_percentile.py``, comparable across locations. The
+weighting is what makes that sentence true: counties span five orders of magnitude
+in population, so their unweighted distribution is not the distribution US
+households live in. See ``scripts/calibrate_solar_percentiles.py``.
 
 The dimension's drill-down turns the yield into an actionable estimate for a
 representative ``TYPICAL_SYSTEM_KW`` array — annual production, the dollars it
@@ -56,11 +59,27 @@ _CSV = pathlib.Path(__file__).resolve().parent / "solar_yield_county.csv"
 
 # ── Score breakpoints: (specific yield kWh/kWp → score) — a piecewise-linear
 # approximation to the national CDF, so the score reads directly as a national
-# percentile. HIGHER yield = HIGHER score. Anchors are the county-yield quantiles
+# percentile. HIGHER yield = HIGHER score. Anchors are the quantiles
 # [p0/min, p1, p5, p10, p25, p50, p75, p90, p95, p99, p100/max] from
-# scripts/build_solar.py. The extra low-tail anchors (p1, p5) keep a few very-low
-# Alaska outliers at the p0 min from stretching cloudy northern counties upward.
-_YIELD_XS = [485.2, 1041.3, 1172.4, 1215.0, 1287.0, 1368.0, 1433.4, 1559.0, 1654.1, 1765.3, 1850.9]
+# scripts/calibrate_solar_percentiles.py. The extra low-tail anchors (p1, p5) keep
+# a few very-low Alaska outliers at the p0 min from stretching cloudy northern
+# counties upward.
+#
+# HOUSEHOLD-WEIGHTED, which is the reference population national_percentile.py
+# claims ("vs US homes") and the one walkability and the construction dimensions
+# already use. The previous curve was the UNWEIGHTED distribution of ~3,200 county
+# yields, in which Loving County TX (64 people) counted as much as Los Angeles
+# County (10 million). US households sit in sunnier places than US counties do — it
+# takes more yield to beat 75% of homes than to beat 75% of counties — so the
+# unweighted curve sat too low across its upper half:
+#
+#     p75  1433.4 -> 1469.7   (+36.3)      p95  1654.1 -> 1712.8   (+58.7)
+#     p90  1559.0 -> 1584.8   (+25.8)      p50  1367.9 -> 1368.2   ( +0.3)
+#
+# which over-credited a sunny-but-not-extreme parcel by up to ~7 points, right
+# where the A/B grade boundary is. The median barely moves; this is a correction to
+# the upper half, not a shift of the whole distribution.
+_YIELD_XS = [485.2, 958.3, 1161.4, 1210.0, 1281.2, 1368.2, 1469.7, 1584.8, 1712.8, 1774.9, 1850.9]
 _YIELD_YS = [0.0, 1.0, 5.0, 10.0, 25.0, 50.0, 75.0, 90.0, 95.0, 99.0, 100.0]
 
 
@@ -106,13 +125,20 @@ def reading_for_yield(yield_kwh_kwp: float, irradiation: float | None,
     (``enrich/solar_point.py``) so the two cannot score the same number
     differently. ``geo_level`` records which one answered.
 
-    A note on the curve: the breakpoints are quantiles of the national COUNTY
-    yield distribution, so the score reads as "sunnier than N% of US counties".
-    That framing survives a point reading — a yield is a yield, and the map from
-    yield to percentile does not care how the yield was obtained. What changes is
-    that a point CAN sit outside the county range (a high-desert parcel above the
-    sunniest county average, a shaded valley floor below the dimmest) and clamp at
-    100 or 0. That is a true statement about the parcel, not an artifact.
+    A note on the curve: the breakpoints are HOUSEHOLD-WEIGHTED quantiles of the
+    national county-yield distribution, so the score reads as "sunnier than N% of
+    US homes". That framing survives a point reading — a yield is a yield, and the
+    map from yield to percentile does not care how the yield was obtained. What
+    changes is that a point CAN sit outside the range of county values (a
+    high-desert parcel above the sunniest county, a shaded valley floor below the
+    dimmest) and clamp at 100 or 0. That is a true statement about the parcel, not
+    an artifact.
+
+    The reference is still built from county yields, so it understates how spread
+    out PARCEL yields are: points are strictly more dispersed than county means
+    (Var(point) = Var(county mean) + E[within-county variance]), which pushes a
+    little more mass into the tails than the percentile labels imply. Correcting
+    that needs a household-weighted POINT sample, not a reweighting of this table.
     """
     return {
         "score": round(_interp(yield_kwh_kwp, _YIELD_XS, _YIELD_YS), 1),
