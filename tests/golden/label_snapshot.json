@@ -5,8 +5,9 @@
     "composite_national_grade": "C",
     "composite_score": 51.4,
     "construction_n_scored": 4,
-    "construction_national_grade": "B",
-    "construction_score": 75.8,
+    "construction_national_grade": "A",
+    "construction_raw_mean": 75.8,
+    "construction_score": 80.1,
     "cost": {
       "annualEnergyCost": 2619,
       "expectedAnnualLoss": 312
@@ -96,7 +97,8 @@
     "composite_score": 59.9,
     "construction_n_scored": 4,
     "construction_national_grade": "B",
-    "construction_score": 63.8,
+    "construction_raw_mean": 63.8,
+    "construction_score": 63.9,
     "cost": {
       "annualEnergyCost": 1602,
       "expectedAnnualLoss": 193
@@ -186,7 +188,8 @@
     "composite_score": 65.2,
     "construction_n_scored": 4,
     "construction_national_grade": "A",
-    "construction_score": 89.0,
+    "construction_raw_mean": 89.0,
+    "construction_score": 94.4,
     "cost": {
       "annualEnergyCost": 1429,
       "expectedAnnualLoss": 92
@@ -276,6 +279,7 @@
     "composite_score": 58.5,
     "construction_n_scored": 4,
     "construction_national_grade": "A",
+    "construction_raw_mean": 99.0,
     "construction_score": 99.0,
     "cost": {
       "annualEnergyCost": 1179,
@@ -366,6 +370,7 @@
     "composite_score": 68.5,
     "construction_n_scored": 4,
     "construction_national_grade": "A",
+    "construction_raw_mean": 99.0,
     "construction_score": 99.0,
     "cost": {
       "annualEnergyCost": 701,
@@ -456,7 +461,8 @@
     "composite_score": 65.4,
     "construction_n_scored": 4,
     "construction_national_grade": "A",
-    "construction_score": 81.0,
+    "construction_raw_mean": 81.0,
+    "construction_score": 86.8,
     "cost": {
       "annualEnergyCost": 829,
       "expectedAnnualLoss": 52
@@ -546,7 +552,8 @@
     "composite_score": 50.3,
     "construction_n_scored": 4,
     "construction_national_grade": "F",
-    "construction_score": 16.5,
+    "construction_raw_mean": 16.5,
+    "construction_score": 9.5,
     "cost": {
       "annualEnergyCost": 2571,
       "expectedAnnualLoss": 3131

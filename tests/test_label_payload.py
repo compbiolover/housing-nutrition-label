@@ -37,7 +37,7 @@ def _parts():
         # label_payload reads the two headline axes as strictly as it reads the
         # composite, so a hand-rolled label has to carry them too.
         "construction_score": 77.0, "construction_national_grade": "B",
-        "construction_n_scored": 1,
+        "construction_n_scored": 1, "construction_raw_mean": 77.0,
         "location_score": 56.9, "location_national_grade": "C",
         "location_n_scored": 2, "location_raw_mean": 56.9,
         "resilience_site_score": None, "resilience_building_score": None,

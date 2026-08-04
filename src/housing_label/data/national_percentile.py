@@ -99,6 +99,43 @@ LOCATION_XS = [36.6, 41.0, 43.4, 48.6, 54.2, 60.1, 65.1, 68.6, 73.9]
 LOCATION_YS = [1.0, 5.0, 10.0, 25.0, 50.0, 75.0, 90.0, 95.0, 99.0]
 
 
+# ── Building sub-score → national percentile ─────────────────────────────────
+# Symmetric with LOCATION_XS above, and calibrated the same way — over the
+# household-weighted (county x archetype) panel in
+# scripts/calibrate_building_percentiles.py, which is the same stock the
+# per-dimension construction curves are built from.
+#
+# The building axis was NOT obviously broken before this: unlike the site axis it
+# already spread across the whole A-F range, so nothing looked wrong. But
+# "spreads well" is not the claim the label makes. Two headline grades that look
+# alike and answer different questions is the defect being fixed — a reader
+# comparing "Building B / Site C" has no way to know only one of them was a rank
+# against US homes.
+# 32,000 simulated homes (every US county x the ACS-weighted archetype grid),
+# covering 130.5M households. The raw mean runs 8.2 at p1 to 94.2 at p99 — it
+# genuinely uses the scale, which is why nothing looked wrong. What it is not is a
+# percentile: a raw 53.8 is the MEDIAN US home and graded C, while a raw 34.5 is
+# the 25th and graded D. Ranking keeps the letters honest rather than moving them
+# far.
+BUILDING_XS = [8.2, 11.8, 17.0, 34.5, 53.8, 71.8, 83.5, 89.8, 94.2]
+BUILDING_YS = [1.0, 5.0, 10.0, 25.0, 50.0, 75.0, 90.0, 95.0, 99.0]
+
+
+def building_percentile(raw_mean: float | None) -> float | None:
+    """Rank a raw Building sub-score against US homes' construction.
+
+    Flat outside the anchors, so a home beyond the sampled range clamps to 1 or 99
+    rather than extrapolating a claim the panel cannot support. Falls back to the
+    raw mean if the curve is ever empty, so the axis degrades to its previous
+    behaviour rather than to None.
+    """
+    if raw_mean is None:
+        return None
+    if not BUILDING_XS:
+        return round(float(raw_mean), 1)
+    return round(_interp(_clamp(float(raw_mean)), BUILDING_XS, BUILDING_YS), 1)
+
+
 def location_percentile(raw_mean: float | None) -> float | None:
     """Rank a raw Location sub-score against US households' locations.
 
