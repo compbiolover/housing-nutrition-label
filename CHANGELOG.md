@@ -9,6 +9,20 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.77](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.76...v0.1.77) (2026-08-04)
+
+
+### Features
+
+* **solar:** query PVGIS at the parcel instead of the county's centroid ([#255](https://github.com/compbiolover/housing-nutrition-label/issues/255)) ([fe5913d](https://github.com/compbiolover/housing-nutrition-label/commit/fe5913d326137fa455517ecc69c58b8bad6e7350))
+
+
+### Bug Fixes
+
+* **climate:** weight the breakpoints by households, and take them at the tract ([#258](https://github.com/compbiolover/housing-nutrition-label/issues/258)) ([1d63a67](https://github.com/compbiolover/housing-nutrition-label/commit/1d63a6788935a46902de4f53019a4301575d12ea))
+* **health:** say why Health Impact is missing in KY and PA ([#259](https://github.com/compbiolover/housing-nutrition-label/issues/259)) ([19fabbc](https://github.com/compbiolover/housing-nutrition-label/commit/19fabbc8ab6a60db7257e582e65b7b14bf8e0332))
+* **solar:** weight the percentile curve by households, not by counties ([#257](https://github.com/compbiolover/housing-nutrition-label/issues/257)) ([9697ae3](https://github.com/compbiolover/housing-nutrition-label/commit/9697ae3c08b463497c2c06f2606a74ca60080d1e))
+
 ## [0.1.76](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.75...v0.1.76) (2026-08-03)
 
 
