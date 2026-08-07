@@ -672,13 +672,14 @@ window.LabelForm = (function () {
     // two-step ritual, so selecting it should produce the answer. The detected
     // sweep is cached per location (a refine edit clears it — see loadDetected);
     // the build sweep is cached per construction profile.
-    // Cache key: the preset slug, falling back to the profile name so two
-    // profiles can never share one cache entry if a payload omits the slug.
-    function sweepKey(p) { return p ? String(p.preset || p.name) : ""; }
+    // The slug is what identifies a build to /density, so it's also the cache
+    // key. A profile without one can't be swept at all (see loadDensity): the
+    // request would drop the profile and quietly sweep a generic home instead.
+    function sweepSlug(p) { return p && p.preset ? String(p.preset) : ""; }
     function densityCache() {
       if (state.mode !== "buildDensity") return state.density;
-      var p = sweepPreset();
-      return p ? (state.densityBuilds[sweepKey(p)] || null) : null;
+      var slug = sweepSlug(sweepPreset());
+      return slug ? (state.densityBuilds[slug] || null) : null;
     }
     // What the sweep runs on: the real (optionally refined) home, or — for the
     // combined view — this same lot with a hypothetical profile built on it. The
@@ -688,8 +689,8 @@ window.LabelForm = (function () {
       if (state.mode !== "buildDensity") return buildDetectedParams().query;
       var qs = descQuery(state.desc).replace(/^\?/, "");
       if (!qs) qs = "lat=" + DEFAULT_LAT + "&lon=" + DEFAULT_LON;   // same fallback as /label
-      var p = sweepPreset();
-      return qs + (p ? "&preset=" + encodeURIComponent(p.preset) : "");
+      var slug = sweepSlug(sweepPreset());
+      return qs + (slug ? "&preset=" + encodeURIComponent(slug) : "");
     }
     function loadDensity(force) {
       if (!API_BASE || !wantDensity) return;
@@ -708,6 +709,15 @@ window.LabelForm = (function () {
       var build = state.mode === "buildDensity" ? sweepPreset() : null;
       render();
       densResult.innerHTML = "";
+      // Without a slug there's no way to ask for this build, and a request with
+      // the profile dropped would sweep a generic home under the profile's name
+      // — a wrong answer wearing the right label. Say so instead of scoring it.
+      if (build && !sweepSlug(build)) {
+        densStatus.error("Could not compare densities",
+          "The " + build.name + " profile came back without an identifier, so it "
+          + "can’t be built at other densities here.");
+        return;
+      }
       densStatus.busy(build ? "Comparing densities for the " + build.name + " build…"
                             : "Comparing densities on this lot…",
         "Re-scoring " + placeText() + " at several unit counts"
@@ -716,7 +726,7 @@ window.LabelForm = (function () {
         .then(okJson)
         .then(function (data) {
           if (seq !== reqSeq) return;
-          if (build) state.densityBuilds[sweepKey(build)] = data;
+          if (build) state.densityBuilds[sweepSlug(build)] = data;
           else state.density = data;
           var n = ((data && data.scenarios) || []).length;
           renderDensity(data);
