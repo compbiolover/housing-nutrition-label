@@ -5,10 +5,11 @@
  * It owns the WHOLE interactive scoring UI: API-endpoint resolution + privacy
  * disclosure, the address input + autocomplete, the Detected / Single / Compare
  * view modes, the "Refine building details" auto-fill panel, the optional
- * density-on-this-parcel comparison, deep-linking, shareable-URL sync,
- * remembered last location, "use my location", and the busy/confirmation states
- * that bracket every request. Rendering of the label card itself stays in
- * label-core.js (LabelCore); autocomplete stays in AddrSuggest.
+ * density-on-this-parcel comparison (on the real home, or on a hypothetical
+ * construction profile), deep-linking, shareable-URL sync, remembered last
+ * location, "use my location", and the busy/confirmation states that bracket
+ * every request. Rendering of the label card itself stays in label-core.js
+ * (LabelCore); autocomplete stays in AddrSuggest.
  *
  * No build step, no framework: exposes a single global `window.LabelForm` whose
  * `mount(opts)` generates the widget markup into a container and wires it up.
@@ -21,6 +22,11 @@
  *     persist: true,                              // sync URL + remember last loc
  *     defaultLat: 35.13, defaultLon: -89.99,      // used when no address entered
  *   });
+ *
+ * "buildDensity" — the density sweep run on a hypothetical construction profile
+ * rather than the real home — is the two what-ifs combined, so it needs both
+ * halves: it appears automatically when a widget offers "single" AND density,
+ * and can also be named in `modes` outright.
  *
  * Everything is feature-flagged so a page shows exactly what it needs — e.g. the
  * examples page mounts detected-only, the home page adds density, the label page
@@ -86,11 +92,15 @@ window.LabelForm = (function () {
   // button: it is another view of the same address, so it belongs in this group
   // with the rest rather than orphaned below the card, and it inherits the
   // group's plain-language caption instead of having to explain itself.
+  // "What-if build + denser" is the two hypotheticals at once — a construction
+  // profile (from What-if build) re-scored at several unit counts (from What-if
+  // denser). It sits last because it composes the two views before it.
   var MODE_LABELS = {
     detected: "This home",
     single: "What-if build",
     compare: "Compare builds",
-    density: "What-if denser"
+    density: "What-if denser",
+    buildDensity: "What-if build + denser"
   };
   var MODE_HELP = {
     detected: "Scores the real home at this address, using building details "
@@ -104,9 +114,14 @@ window.LabelForm = (function () {
     density: "Re-scores this same lot with more homes on it — one house, a duplex, "
       + "a fourplex — so you can see how sharing the same streets, pipes, and "
       + "services across more homes moves the cost per home and the Infrastructure "
-      + "Burden grade. The building itself stays as it is."
+      + "Burden grade. The building itself stays as it is.",
+    buildDensity: "Both what-ifs at once: pick a construction profile, then "
+      + "re-score this lot with more homes of that build on it — one house, a "
+      + "duplex, a fourplex. Shows how the build type and the number of homes "
+      + "move the cost per home and the Infrastructure Burden grade together. "
+      + "The home’s real details are ignored here."
   };
-  var SUPPORTED_MODES = ["detected", "single", "compare", "density"];
+  var SUPPORTED_MODES = ["detected", "single", "compare", "density", "buildDensity"];
   var _mountSeq = 0;   // per-page counter → unique element IDs when >1 widget mounts
 
   function esc(s) { return LC.esc(s); }
@@ -238,8 +253,17 @@ window.LabelForm = (function () {
     // sitting as a lone button under the card. Last in the row keeps the two
     // "what-if" views next to each other. `density: true` stays the page-facing
     // switch; naming it in `modes` works too.
-    var wantDensity = !!opts.density || modes.indexOf("density") >= 0;
-    if (wantDensity && modes.indexOf("density") < 0) modes.push("density");
+    var wantSweep = !!opts.density || modes.indexOf("density") >= 0;
+    if (wantSweep && modes.indexOf("density") < 0) modes.push("density");
+    // The combined view is the density sweep applied to a construction profile,
+    // so it needs both halves present: a page that already offers "What-if
+    // build" and the sweep gets it for free, and naming it in `modes` works too.
+    var wantBuildDensity = modes.indexOf("buildDensity") >= 0
+      || (wantSweep && modes.indexOf("single") >= 0);
+    if (wantBuildDensity && modes.indexOf("buildDensity") < 0) modes.push("buildDensity");
+    // Either sweep view paints into the density panel, so the panel (and its
+    // status banner) exists whenever one of them is on the toggle.
+    var wantDensity = wantSweep || wantBuildDensity;
     var wantGeo = !!opts.geolocate;
     var persist = !!opts.persist;
     var DEFAULT_LAT = opts.defaultLat != null ? opts.defaultLat : 35.13;
@@ -313,9 +337,13 @@ window.LabelForm = (function () {
     // user to enter an address (or use their location) instead of auto-scoring a
     // default — auto-scoring a place nobody asked for read as confusing. A shared
     // deep link (?address / ?lat,lon) clears it and scores immediately.
+    // `density` caches the sweep on the real home; `densityBuilds` caches one
+    // sweep per construction profile (keyed by preset slug), so flipping between
+    // profiles — or back to a profile already seen — repaints without refetching.
     var state = { mode: modes[0], idx: 0, idxA: 0, idxB: 0,
                   presets: null, detected: null, building: null, detectedCtx: null,
-                  density: null, desc: null, error: null, initialized: false, idle: true };
+                  density: null, densityBuilds: {},
+                  desc: null, error: null, initialized: false, idle: true };
     var touched = {};                 // field key -> true once the user edits it
     var reqSeq = 0;                   // drop out-of-order responses from rapid submits
 
@@ -431,8 +459,14 @@ window.LabelForm = (function () {
       var st = (state.detected || {}).structure;
       var alreadyMulti = !!(st && (st.structure_type === "multifamily"
         || (st.num_units && st.num_units > 1)));
-      return modes.filter(function (m) { return !(m === "density" && alreadyMulti); });
+      return modes.filter(function (m) {
+        return !(alreadyMulti && (m === "density" || m === "buildDensity"));
+      });
     }
+    function isSweep(m) { return m === "density" || m === "buildDensity"; }
+    // The construction profile the combined view sweeps. Shares `state.idx` with
+    // "What-if build", so a profile picked in one view carries into the other.
+    function sweepPreset() { return (state.presets || [])[state.idx] || null; }
     function toggleBar() {
       var ms = availableModes();
       if (ms.length < 2) return "";     // single-mode widget → no toggle
@@ -508,21 +542,23 @@ window.LabelForm = (function () {
         return;
       }
       // Density paints into its own persistent panel below, so it never waits on
-      // the card skeleton here.
+      // the card skeleton here. The combined view still waits on the preset list
+      // — that's what its profile picker is built from — but not on a card.
       var loadingData = state.mode === "density" ? false
+        : state.mode === "buildDensity" ? !state.presets
         : state.mode === "detected" ? !state.detected : !state.presets;
       if (loadingData) {
         app.innerHTML = loadingHtml();
         if (densWrap) densWrap.hidden = true;
         return;
       }
-      var loc0 = state.mode === "single" || state.mode === "compare"
-        ? (((state.presets || [])[0] || {}).location || {})
-        : ((state.detected || {}).location || {});
+      var loc0 = state.mode === "detected" || state.mode === "density"
+        ? ((state.detected || {}).location || {})
+        : (((state.presets || [])[0] || {}).location || {});
       // Say the address back, not the city the API resolved it to.
       var locName = enteredAddress() || loc0.label || loc0.county_name || "";
       var scoredWhat = state.mode === "detected" ? "This home scored at"
-        : state.mode === "density" ? "This lot scored at"
+        : isSweep(state.mode) ? "This lot scored at"
         : "Profiles scored at";
       // The tick is the finished-state marker that outlives the confirmation
       // banner: the caption itself says the score on screen is a completed one.
@@ -532,6 +568,11 @@ window.LabelForm = (function () {
       if (state.mode === "density") {
         // Nothing more here: the density panel is the next node in the DOM, so
         // the table lands directly under the button that asked for it.
+      } else if (state.mode === "buildDensity") {
+        // Only the profile picker: the sweep for the picked build paints into
+        // the density panel right below, same as the detected sweep does.
+        html += '<div class="picker"><label for="' + uid + 'd-sel">Construction profile: </label>'
+          + pickerSel("lf-d-sel", uid + "d-sel", state.idx) + '</div>';
       } else if (state.mode === "detected") {
         html += detectedCard() + gradeLegend();
       } else if (state.mode === "single") {
@@ -555,10 +596,12 @@ window.LabelForm = (function () {
         html += gradeLegend();
       }
       app.innerHTML = html;
-      if (densWrap) densWrap.hidden = state.mode !== "density";
+      if (densWrap) densWrap.hidden = !isSweep(state.mode);
     }
 
-    // ── density comparison (fixed lot, vary units — Detected mode) ──────────────
+    // ── density comparison (fixed lot, vary units) ──────────────────────────────
+    // Two views share this panel: the sweep on the real home ("What-if denser")
+    // and the sweep on a hypothetical build ("What-if build + denser").
     function renderDensity(data) {
       var scn = (data && data.scenarios) || [];
       if (!scn.length) { densResult.innerHTML = ""; return; }
@@ -611,29 +654,85 @@ window.LabelForm = (function () {
       (data.caveats || []).forEach(function (c) {
         html += '<div class="insight warn" style="margin-top:0.6rem;font-size:0.82rem;">' + esc(c) + '</div>';
       });
+      // In the combined view every row is a hypothetical build, not the home
+      // that's standing there — say so above the table so the numbers aren't
+      // read as the real house at four densities.
+      if (state.mode === "buildDensity") {
+        var bp = sweepPreset();
+        if (bp) {
+          html = '<p class="meta" style="text-align:center;margin:0 auto 0.6rem;">'
+            + 'Every scenario below is built as <strong>' + esc(bp.name) + '</strong>'
+            + (bp.description ? ' &mdash; ' + esc(bp.description) : "")
+            + '. The home that’s there now is ignored.</p>' + html;
+        }
+      }
       densResult.innerHTML = html;
     }
-    // Picking "What-if denser" runs the comparison straight away — it's a view,
-    // not a two-step ritual, so selecting it should produce the answer. The
-    // result is cached per location; a refine edit clears it (see loadDetected).
+    // Picking either sweep runs the comparison straight away — it's a view, not a
+    // two-step ritual, so selecting it should produce the answer. The detected
+    // sweep is cached per location (a refine edit clears it — see loadDetected);
+    // the build sweep is cached per construction profile.
+    // The slug is what identifies a build to /density, so it's also the cache
+    // key. A profile without one can't be swept at all (see loadDensity): the
+    // request would drop the profile and quietly sweep a generic home instead.
+    function sweepSlug(p) { return p && p.preset ? String(p.preset) : ""; }
+    function densityCache() {
+      if (state.mode !== "buildDensity") return state.density;
+      var slug = sweepSlug(sweepPreset());
+      return slug ? (state.densityBuilds[slug] || null) : null;
+    }
+    // What the sweep runs on: the real (optionally refined) home, or — for the
+    // combined view — this same lot with a hypothetical profile built on it. The
+    // refine-panel edits describe the existing home, so they don't travel with a
+    // build that isn't there; only the location and the profile do.
+    function densityQuery() {
+      if (state.mode !== "buildDensity") return buildDetectedParams().query;
+      var qs = descQuery(state.desc).replace(/^\?/, "");
+      if (!qs) qs = "lat=" + DEFAULT_LAT + "&lon=" + DEFAULT_LON;   // same fallback as /label
+      var slug = sweepSlug(sweepPreset());
+      return qs + (slug ? "&preset=" + encodeURIComponent(slug) : "");
+    }
     function loadDensity(force) {
       if (!API_BASE || !wantDensity) return;
-      if (state.density && !force) { render(); return; }
-      var seq = ++reqSeq;
       state.error = null;
+      var cached = densityCache();
+      if (cached && !force) {
+        // The two sweeps share one panel, so a cached result still has to be
+        // repainted — the table on screen may belong to the other view. Bumping
+        // the sequence drops any request still in flight for the view we left,
+        // which would otherwise paint over this panel when it lands.
+        reqSeq++;
+        densStatus.hide(); render(); renderDensity(cached);
+        return;
+      }
+      var seq = ++reqSeq;
+      var build = state.mode === "buildDensity" ? sweepPreset() : null;
       render();
       densResult.innerHTML = "";
-      densStatus.busy("Comparing densities on this lot…",
-        "Re-scoring " + placeText() + " at several unit counts.");
-      fetch(API_BASE + "/density?" + buildDetectedParams().query)
+      // Without a slug there's no way to ask for this build, and a request with
+      // the profile dropped would sweep a generic home under the profile's name
+      // — a wrong answer wearing the right label. Say so instead of scoring it.
+      if (build && !sweepSlug(build)) {
+        densStatus.error("Could not compare densities",
+          "The " + build.name + " profile came back without an identifier, so it "
+          + "can’t be built at other densities here.");
+        return;
+      }
+      densStatus.busy(build ? "Comparing densities for the " + build.name + " build…"
+                            : "Comparing densities on this lot…",
+        "Re-scoring " + placeText() + " at several unit counts"
+        + (build ? " as " + build.name + "." : "."));
+      fetch(API_BASE + "/density?" + densityQuery())
         .then(okJson)
         .then(function (data) {
           if (seq !== reqSeq) return;
-          state.density = data;
+          if (build) state.densityBuilds[sweepSlug(build)] = data;
+          else state.density = data;
           var n = ((data && data.scenarios) || []).length;
           renderDensity(data);
           densStatus.done("Density comparison ready",
-            n ? n + " scenario" + (n === 1 ? "" : "s") + " scored on this lot — see the table below." : "");
+            n ? n + " scenario" + (n === 1 ? "" : "s") + " scored on this lot"
+                + (build ? " as " + build.name : "") + " — see the table below." : "");
         })
         .catch(function (err) {
           if (seq !== reqSeq) return;
@@ -728,6 +827,9 @@ window.LabelForm = (function () {
           persistLocation(); setFormBusy(false); render();
           mainStatus.done("Profiles scored", ps.length + " construction profiles scored at "
             + scoredAt(ps[0]) + ".");
+          // The profiles were only the first half of the combined view — run the
+          // sweep for the picked one now that there is a profile to sweep.
+          if (state.mode === "buildDensity") loadDensity(false);
         })
         .catch(fail(seq));
     }
@@ -767,13 +869,17 @@ window.LabelForm = (function () {
     function ensureData() {
       if (state.mode === "density") loadDensity(false);
       else if (state.mode === "detected") loadDetected(false);
+      // The combined view needs the profile list before it can sweep one:
+      // loadPresets() re-enters here once they land.
+      else if (state.mode === "buildDensity" && !state.presets) loadPresets();
+      else if (state.mode === "buildDensity") loadDensity(false);
       else loadPresets();
     }
     function load(desc) {
       state.idle = false;               // a location was requested — leave the prompt state
       state.desc = desc || null;
       state.presets = null; state.detected = null; state.building = null;
-      state.detectedCtx = null; state.density = null;
+      state.detectedCtx = null; state.density = null; state.densityBuilds = {};
       touched = {}; applyBuilding(null);
       qa(".addr-upgrades input").forEach(function (cb) { cb.checked = false; });
       if (densResult) densResult.innerHTML = "";
@@ -787,7 +893,7 @@ window.LabelForm = (function () {
       reqSeq++;                         // invalidate any in-flight response
       state.idle = true; state.error = null; state.desc = null;
       state.presets = null; state.detected = null; state.building = null;
-      state.detectedCtx = null; state.density = null;
+      state.detectedCtx = null; state.density = null; state.densityBuilds = {};
       touched = {}; applyBuilding(null);
       qa(".addr-upgrades input").forEach(function (cb) { cb.checked = false; });
       if (densResult) densResult.innerHTML = "";
@@ -858,6 +964,9 @@ window.LabelForm = (function () {
     });
     app.addEventListener("change", function (e) {
       var t = e.target;
+      // The combined view's picker changes what gets swept, not just what's
+      // drawn, so it goes through the loader (cached profiles repaint instantly).
+      if (t.classList.contains("lf-d-sel")) { state.idx = +t.value; loadDensity(false); return; }
       if (t.classList.contains("lf-p-sel")) state.idx = +t.value;
       else if (t.classList.contains("lf-a-sel")) state.idxA = +t.value;
       else if (t.classList.contains("lf-b-sel")) state.idxB = +t.value;

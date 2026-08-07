@@ -106,7 +106,7 @@
     <div id="score-widget"></div>
   </div>
 
-  <p style="margin-top:0.75rem;font-size:0.9rem;">Enter an address or place name to see its live label. Nothing is scored until you do. Switch to a hypothetical build to see how construction choices move the scores, or to a denser version of the same lot to see what sharing streets, pipes, and services across more homes would change. You can also <a href="https://github.com/compbiolover/housing-nutrition-label">view the project on GitHub</a>.</p>
+  <p style="margin-top:0.75rem;font-size:0.9rem;">Enter an address or place name to see its live label. Nothing is scored until you do. Switch to a hypothetical build to see how construction choices move the scores, to a denser version of the same lot to see what sharing streets, pipes, and services across more homes would change, or to both at once &mdash; a chosen build type at several densities on this lot. You can also <a href="https://github.com/compbiolover/housing-nutrition-label">view the project on GitHub</a>.</p>
 </div>
 
 <section>
@@ -251,8 +251,10 @@
 <script src="label-form.js"></script>
 <script>
   // Home hero: detect-from-address by default, with hypothetical construction
-  // profiles (Single) and the density comparison. Compare mode lives on the
-  // Label page. Default location is Cooper-Young, Memphis.
+  // profiles (Single) and the density comparison. Having both means the widget
+  // also offers the combined view ("What-if build + denser" — a chosen profile
+  // swept across unit counts). Compare mode lives on the Label page. Default
+  // location is Cooper-Young, Memphis.
   LabelForm.mount({
     container: document.getElementById("score-widget"),
     modes: ["detected", "single"],
