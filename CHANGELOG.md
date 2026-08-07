@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.80](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.79...v0.1.80) (2026-08-07)
+
+
+### Features
+
+* **widget:** add a "What-if build + denser" view that sweeps a chosen build ([#268](https://github.com/compbiolover/housing-nutrition-label/issues/268)) ([2221458](https://github.com/compbiolover/housing-nutrition-label/commit/22214582baf2cb58d94598ea136e0e35c504dfae))
+
 ## [0.1.79](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.78...v0.1.79) (2026-08-04)
 
 
