@@ -162,11 +162,31 @@ ALLOWED_ORIGINS = [
 # path touches every crosswalk the scorer actually uses, and can't drift as tables
 # are added or moved. `allow_network=False` keeps it strictly local, so a slow or
 # unreachable upstream can never delay or fail a deploy.
+#
+# The geography has to be supplied, and that is the whole trick. Offline,
+# `resolve_location` skips the Census geocode, so the Location comes back with no
+# county and no tract — and every tract-keyed loader (health, socio, walkability,
+# wildfire, tornado, air quality, noise, climate projections: the eight biggest
+# tables here) short-circuits before touching its file. A warm-up without this
+# logs "complete" having decoded none of the tables the first real request needs.
+# Handing it a real Census geography is the same door the golden tests use
+# (tests/test_golden_label.py) to score offline against real tracts. Which tract
+# does not matter — the scored result is thrown away — only that there IS one, so
+# the tract path is walked and the tables land in their caches.
+_WARMUP_GEOGRAPHY = {
+    "county_fips": "47157", "county_name": "Shelby County", "state_fips": "47",
+    "tract": "47157003100", "place_label": "Memphis city", "place_geoid": "4748000",
+    "incorporated": True, "in_urban_area": True,
+}
+
+
 def _warmup() -> None:
     started = time.monotonic()
     try:
-        build_label_parts(lat=_PRESETS_DEFAULT_LAT, lon=_PRESETS_DEFAULT_LON,
-                          allow_network=False)
+        from housing_label.simulate.location import resolve_location
+        loc = resolve_location(lat=_PRESETS_DEFAULT_LAT, lon=_PRESETS_DEFAULT_LON,
+                               allow_network=False, geography=_WARMUP_GEOGRAPHY)
+        build_label_parts(location=loc, allow_network=False)
     except Exception:  # noqa: BLE001 — a warm-up must never take the API down
         log.exception("warm-up failed (serving anyway; the first request will "
                       "load the datasets instead)")

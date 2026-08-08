@@ -349,6 +349,31 @@ def test_warmup_is_gated_by_env_and_starts_at_boot():
             _os.environ["WARMUP"] = prior
 
 
+def test_warmup_actually_decodes_the_tract_tables():
+    """The warm-up's entire job, asserted directly.
+
+    Offline, `resolve_location` skips the Census geocode, so a Location built
+    from bare lat/lon carries no county and no tract — and every tract-keyed
+    loader short-circuits before touching its file. A warm-up in that shape logs
+    "complete" having decoded none of the eight biggest tables, and the first
+    real request still pays for all of them. Only supplying a Census geography
+    makes the warm-up real, so assert the tables are genuinely resident
+    afterwards rather than trusting that a pass through the scorer touched them.
+    """
+    from housing_label import api
+    from housing_label.data import health, socioeconomic, walkability, noise
+
+    loaders = [health._tract_table, socioeconomic._tract_table,
+               walkability._tract_table, noise._tract_table]
+    for f in loaders:
+        f.cache_clear()
+    assert all(f.cache_info().currsize == 0 for f in loaders)
+    api._warmup()
+    for f in loaders:
+        assert f.cache_info().currsize == 1, (
+            f"{f.__module__}.{f.__name__} not decoded — the warm-up isn't warming")
+
+
 def test_warmup_failure_never_reaches_the_app():
     """A warm-up that blows up must not take the API down with it — it is an
     optimization, and the datasets still load lazily on first use."""
