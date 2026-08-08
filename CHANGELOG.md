@@ -9,6 +9,18 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.82](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.81...v0.1.82) (2026-08-08)
+
+
+### Features
+
+* **timeline:** score how an address moves through time, on a fixed scale ([#274](https://github.com/compbiolover/housing-nutrition-label/issues/274)) ([5f25569](https://github.com/compbiolover/housing-nutrition-label/commit/5f255697447cae9e9ffa1a3727ad6ee2af641164))
+
+
+### Performance Improvements
+
+* **api:** decode the datasets at boot, and declare the plan we're actually on ([#272](https://github.com/compbiolover/housing-nutrition-label/issues/272)) ([5fa3a4a](https://github.com/compbiolover/housing-nutrition-label/commit/5fa3a4afc69bab6d571302c7704ee05abf8a4106))
+
 ## [0.1.81](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.80...v0.1.81) (2026-08-08)
 
 
