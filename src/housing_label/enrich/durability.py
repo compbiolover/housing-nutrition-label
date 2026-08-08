@@ -196,6 +196,16 @@ DATA_SOURCE = (
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 def _valid_year(yr) -> bool:
+    """Is this a plausible construction year at all?
+
+    Deliberately bounded by ``REFERENCE_YEAR`` — the dataset's own "now" — and NOT
+    by any caller-supplied as-of year. The two mean different things: a 2024-built
+    home is a perfectly valid record when scored as of 2020, it simply did not exist
+    yet. Conflating them would make ``effective_year`` return None for that home,
+    which silently downgrades it to condition-only scoring and reports a durability
+    number for a building that hadn't been built. ``model_parcel_durability`` handles
+    the as-of case explicitly instead, by declining to score it.
+    """
     return not pd.isna(yr) and 1800 <= int(yr) <= REFERENCE_YEAR
 
 
@@ -256,7 +266,8 @@ def grade_factor(grade) -> float:
 
 
 # ── Per-parcel durability model ───────────────────────────────────────────────
-def model_parcel_durability(row: pd.Series, mf_material: str | None = None) -> dict:
+def model_parcel_durability(row: pd.Series, mf_material: str | None = None,
+                            *, reference_year: int | float = REFERENCE_YEAR) -> dict:
     """Compute durability metrics for a single parcel.
 
     ``mf_material`` is the detected building material (NSI ``bldg_material``) when
@@ -265,14 +276,31 @@ def model_parcel_durability(row: pd.Series, mf_material: str | None = None) -> d
     representative unit. None (single-family, or wood/unknown multi-family) keeps
     the wood-frame baseline.
 
+    ``reference_year`` is the as-of year the effective age is measured against.
+    It defaults to the module constant, so every existing caller is unaffected;
+    the trajectory channel (``data/vintages.py``, basis ``aging``) sweeps it to
+    show how the score moves as the building gets older.
+
+    Two things that as-of sweep does NOT do, both deliberate. It does not age the
+    assessor's condition rating — that is an observation from one inspection, and
+    extrapolating it would be inventing data — so a swept score isolates the
+    component basket. And it does not re-derive the material or grade modifiers,
+    which describe how the house was built and do not change with the calendar.
+
     Returns all-None (unscored) when the parcel has neither a build year nor a
     condition rating — i.e. it carries no CAMA building data (vacant land / non-
-    residential)."""
+    residential) — or when ``reference_year`` predates construction."""
     eff_yr = effective_year(row.get("YRBLT"), row.get("EFFYR"))
     cond_s, cond_label = condition_score(row.get("CDU"), row.get("COND"))
 
     # No build year and no condition → not a scoreable structure.
     if eff_yr is None and cond_s is None:
+        return {c: None for c in DURABILITY_COLS}
+
+    # As-of predates construction: the building did not exist yet, which is a
+    # different answer from "we don't know". Scoring it on condition alone would
+    # publish a durability figure for a house that hadn't been built.
+    if eff_yr is not None and reference_year < eff_yr:
         return {c: None for c in DURABILITY_COLS}
 
     # A detected multi-family building's shared shell (concrete/steel/masonry) is
@@ -281,7 +309,7 @@ def model_parcel_durability(row: pd.Series, mf_material: str | None = None) -> d
 
     # --- Age-based component basket (only if we have a build year) ---
     if eff_yr is not None:
-        eff_age = max(0.0, REFERENCE_YEAR - eff_yr)
+        eff_age = max(0.0, reference_year - eff_yr)
         age_s, past = age_basket(eff_age, shell_life=shell_life)
     else:
         eff_age, age_s, past = None, None, None

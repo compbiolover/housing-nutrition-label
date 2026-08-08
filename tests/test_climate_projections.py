@@ -86,7 +86,7 @@ def test_fire_is_optional_enrichment_not_a_required_leg():
 
 
 def test_unmapped_and_none_fall_back_to_national_average():
-    nat_low, nat_high = cp._national_average()
+    _, nat_low, nat_high = cp._national_average()
     for fips in ("99999", None):
         d = cp.climate_projection_for_county(fips)
         assert d["resolved"] is False
@@ -117,7 +117,7 @@ def test_tract_resolves_at_tract():
 
 
 def test_tract_in_unmapped_county_and_none_fall_back_to_us():
-    nat_low, _ = cp._national_average()
+    _, nat_low, _ = cp._national_average()
     for tract in ("99999000100", None):
         d = cp.climate_projection_for_tract(tract)
         assert d["resolved"] is False

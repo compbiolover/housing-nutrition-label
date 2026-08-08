@@ -363,8 +363,8 @@ The board below is the at-a-glance view; expand the sections under it for detail
 | ✅ Shipped | 🚧 Next up | 🔭 Exploring |
 |---|---|---|
 | 13-dimension nationwide scoring pipeline + dual national / local grades | Methodology "show-your-math" drill-down | Rust scoring engine |
-| Nationwide coverage (generalized past the Shelby County pilot) | Parcel-level (sub-tract) resolution | Historical / time-series labels |
-| Air Quality, Noise, Solar Potential & Water Quality dimensions | | Automatic roadmap-column sync from commit history |
+| Nationwide coverage (generalized past the Shelby County pilot) | Parcel-level (sub-tract) resolution | Automatic roadmap-column sync from commit history |
+| Air Quality, Noise, Solar Potential & Water Quality dimensions | | |
 | Live scoring API + unified label renderer | | |
 | Address search + autocomplete on every page | | |
 | Residential-only screening (non-residential addresses refused) | | |
@@ -373,6 +373,7 @@ The board below is the at-a-glance view; expand the sections under it for detail
 | Sub-county climate + Fire Weather Index | | |
 | Locally-calibrated Infrastructure Burden | | |
 | Wildfire hazard in Disaster Resilience | | |
+| Historical / time-series labels (`/timeline`) | | |
 
 <details>
 <summary><strong>🚧 Next up & 🔭 Exploring</strong>: what each planned card means</summary>
@@ -385,13 +386,31 @@ The board below is the at-a-glance view; expand the sections under it for detail
 **Exploring**
 
 - **Rust scoring engine**: port the hot scoring path for performance at scale.
-- **Historical / time-series labels**: score how a location's profile has shifted over time (e.g. air quality or climate trend), not just its current snapshot.
 - **Automatic roadmap-column sync from commit history**: extend [`scripts/sync_readme.py`](scripts/sync_readme.py) to propose Shipped/Next-up moves from merged `feat:` commits, so the qualitative columns self-update too (today it keeps the code-derived dimension roster in sync).
 
 </details>
 
 <details>
 <summary><strong>✅ Shipped</strong>: completed roadmap items with methodology notes</summary>
+
+<details>
+<summary>Historical / time-series labels (<code>/timeline</code>)</summary>
+
+"Over time" turned out to be three different questions wearing one roadmap line, and the main risk in shipping it was letting a reader mistake one for another. They are now separated structurally — every series carries a `basis`, and the word appears on screen:
+
+- **`projection`** — where the place is heading. The bundled CMIP6-LOCA2 tables already carried a `<metric>_hist` column (the 1991–2020 climatology) alongside the mid-century bands, and [`_band_score`](src/housing_label/data/climate_projections.py) was already generic over the band suffix, so this needed no new data at all. Across the 83,739 tracts that score in both, the mean climate score runs **64.8 → 58.7**, and 81,334 of them worsen.
+- **`aging`** — how *this house's* grade moves as it gets older. `REFERENCE_YEAR` in [`enrich/durability.py`](src/housing_label/enrich/durability.py) was the only thing pinning the building to now; it is now a parameter, so the component-lifespan basket can be re-evaluated at any as-of year. Nothing was measured or forecast here, which is why the series says so in its own caveat.
+- **`observed`** — how the place has actually changed. None yet: this is the one that needs genuinely new multi-vintage tables, and every dimension awaiting it says so in `point_in_time` rather than rendering as silence.
+
+Two decisions carry the feature:
+
+**The yardstick is fixed.** Every point is scored through *today's* breakpoints and percentile curves; [`data/national_percentile.py`](src/housing_label/data/national_percentile.py) is not recalibrated per vintage. Re-deriving the national distribution at each point answers "how did this place *rank* back then", and that erases the largest true signal in the data — a nationwide improvement shows as a flat line at every address in the country, because everyone moved together. It is also the defect this codebase has already fixed twice ([`_sub()`](src/housing_label/simulate/dimensions.py), [`BUILDING_XS`](src/housing_label/data/national_percentile.py)): two numbers that look alike and answer different questions.
+
+**Percentiles do not travel.** Climate's breakpoints are household-weighted tract quantiles taken under SSP2-4.5 *mid-century*, so running the recent-past band through `national_percentile()` would yield "this place's 1991–2020 climate beats N% of US homes' *projected* climate" — well-defined and useless. A rank is surfaced only at the point its reference distribution was calibrated for; elsewhere the point carries a score and no rank.
+
+Supporting pieces: [`data/vintages.py`](src/housing_label/data/vintages.py) is the registry and holds the reader-facing sentence for every dimension with no series — a test pins `TRAJECTORY ∪ POINT_IN_TIME` against the dimension roster, so a new dimension is unmergeable until someone writes that sentence. `band_trajectory` scores both endpoints over the *intersection* of their populated legs, so a future rebuild can't make the delta partly a change in what was averaged. And `/timeline` runs exactly one scoring pass however many years it is asked for — every point is read from data already resident — which is what a test asserts, and why there is no whole-label `as_of` parameter.
+
+</details>
 
 <details>
 <summary>Reconcile the fiscal ratio's revenue scope (user fees + rental tax classification)</summary>

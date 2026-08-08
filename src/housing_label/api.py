@@ -78,8 +78,9 @@ from housing_label.config import (
     GOOGLE_PLACES_AUTOCOMPLETE_URL, GOOGLE_PLACES_DETAILS_URL, GOOGLE_PLACES_API_KEY,
 )
 from housing_label.simulate.house import (
-    build_label_parts, label_payload, density_comparison, cost_flows,
-    NonResidentialProperty, _NON_RESIDENTIAL_MESSAGE,
+    build_label_parts, label_payload, density_comparison, timeline_comparison,
+    TIMELINE_MAX_POINTS, cost_flows, NonResidentialProperty,
+    _NON_RESIDENTIAL_MESSAGE,
     PRESETS, CONSTRUCTION_FACTOR, FOUNDATION_FACTOR, CONDITION_FACTOR,
     BONUS_FLAGS, ELEVATION_FLAGS, WATER_SOURCES, SEWER_TYPES, LOT_CONTEXTS,
 )
@@ -1237,6 +1238,102 @@ def density(
         raise HTTPException(502, "density comparison failed")
     # Same rule as /label and /presets: don't pin a sweep built on generic
     # defaults (NSI unreachable) onto this parcel for the whole TTL.
+    if not result.get("structure_unavailable"):
+        _result_cache.put(cache_key, result)
+    return result
+
+
+# Re-exported, not redefined: the cap lives with timeline_comparison() so every
+# caller (HTTP, CLI, library) is bound by the same number. The check below is a
+# courtesy — it turns the shared helper's ValueError into a 400 before any work
+# starts — but the helper enforces it regardless of who calls.
+_TIMELINE_MAX_POINTS = TIMELINE_MAX_POINTS
+
+
+@app.get("/timeline")
+def timeline(
+    address: str | None = None,
+    lat: float | None = None,
+    lon: float | None = None,
+    years: str | None = None,
+    preset: str | None = None,
+    construction: str | None = None,
+    year_built: int | None = None,
+    foundation: str | None = None,
+    condition: str | None = None,
+    value: float | None = None,
+    sqft: float | None = None,
+    lot_acres: float | None = None,
+    flood_zone: str | None = None,
+    units: int | None = None,
+    bldg_material: str | None = None,
+    stories: int | None = None,
+    upgrades: str | None = None,
+    water_source: str | None = None,
+    sewer: str | None = None,
+    lot_context: str | None = None,
+) -> dict:
+    """How this address's label moves through time (fixed address, vary time).
+
+    Same inputs as ``/label``, plus:
+      • ``years``  comma-separated as-of years for the building-aging sweep
+                   (default: a quarter-century back, now, and fifteen years on)
+
+    Returns the per-dimension ``series``, a sentence for every dimension that has
+    none (``point_in_time``), and the Building-axis ``as_of`` sweep. Every point is
+    scored on today's breakpoints — see ``housing_label.data.vintages``.
+    """
+    bldg_material, upgrade_list = _validate_request(
+        address=address, lat=lat, lon=lon, preset=preset, construction=construction,
+        foundation=foundation, condition=condition, flood_zone=flood_zone,
+        bldg_material=bldg_material, stories=stories, upgrades=upgrades,
+        water_source=water_source, sewer=sewer, lot_context=lot_context)
+
+    year_list = None
+    if years:
+        try:
+            year_list = [int(x) for x in years.split(",") if x.strip()]
+        except ValueError:
+            raise HTTPException(400, "years must be comma-separated whole years, "
+                                     "e.g. 2000,2026,2040")
+        year_list = sorted(set(year_list))
+        if not year_list:
+            raise HTTPException(400, "years must contain at least one year")
+        if len(year_list) > _TIMELINE_MAX_POINTS:
+            raise HTTPException(400, f"at most {_TIMELINE_MAX_POINTS} years may be "
+                                     "compared at once")
+
+    cache_key = ("timeline", _key_addr(address), _key_coord(lat), _key_coord(lon),
+                 preset, construction, year_built, foundation, condition, value,
+                 sqft, lot_acres, flood_zone, units, bldg_material, stories,
+                 tuple(upgrade_list), water_source, sewer, lot_context,
+                 tuple(year_list) if year_list is not None else None)
+    cached = _result_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    fields = {k: v for k, v in (
+        ("year_built", year_built), ("construction", construction),
+        ("foundation", foundation), ("condition", condition), ("value", value),
+        ("sqft", sqft), ("lot_acres", lot_acres), ("units", units),
+        ("bldg_material", bldg_material), ("stories", stories),
+        ("water_source", water_source), ("sewer", sewer),
+        ("lot_context", lot_context),
+    ) if v is not None}
+
+    try:
+        result = timeline_comparison(
+            address=address, lat=lat, lon=lon, preset=preset, flood_zone=flood_zone,
+            upgrades=upgrade_list, allow_network=True, years=year_list, **fields)
+    except NonResidentialProperty as exc:
+        raise HTTPException(422, str(exc))
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    except Exception:  # noqa: BLE001 — don't leak internals; log server-side
+        log.exception("timeline failed (address=%r lat=%r lon=%r)", address, lat, lon)
+        raise HTTPException(502, "timeline failed")
+    # Same rule as /label and /density: don't pin a sweep built on generic defaults
+    # (NSI unreachable) onto this parcel for the whole TTL.
     if not result.get("structure_unavailable"):
         _result_cache.put(cache_key, result)
     return result

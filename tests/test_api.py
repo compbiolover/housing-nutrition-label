@@ -308,6 +308,38 @@ def test_density_endpoint_validation():
                                           "upgrades": "teleporter"}).status_code == 400
 
 
+def test_timeline_endpoint_validation():
+    """The /timeline endpoint validates inputs before any network call.
+
+    The scored payload shape is covered offline in tests/test_trajectory.py; like
+    /label and /density, /timeline is always-online in production, so the API
+    test stays on the no-network validation paths.
+    """
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_timeline_endpoint_validation (fastapi not installed)")
+        return
+    from housing_label.api import app, _TIMELINE_MAX_POINTS
+    client = TestClient(app)
+    loc = {"lat": 35.15, "lon": -89.85}
+    # Missing both address and lat/lon → 400, no network.
+    assert client.get("/timeline").status_code == 400
+    # Bad year list → 400, no network.
+    assert client.get("/timeline", params={**loc, "years": "abc"}).status_code == 400
+    assert client.get("/timeline", params={**loc, "years": ","}).status_code == 400
+    # More points than the cap → 400 rather than a silent truncation, so a
+    # caller asking for ten years is told it got three rather than assuming it
+    # got ten.
+    too_many = ",".join(str(2000 + i) for i in range(_TIMELINE_MAX_POINTS + 1))
+    assert client.get("/timeline", params={**loc, "years": too_many}).status_code == 400
+    # Shares /label's field validation (one _validate_request, one rule set).
+    assert client.get("/timeline", params={**loc,
+                                           "construction": "adobe"}).status_code == 400
+    assert client.get("/timeline", params={**loc,
+                                           "upgrades": "teleporter"}).status_code == 400
+
+
 def test_warmup_is_gated_by_env_and_starts_at_boot():
     """The dataset decode happens at boot, unless WARMUP says otherwise.
 
