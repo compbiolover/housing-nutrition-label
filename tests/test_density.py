@@ -134,6 +134,65 @@ def test_unit_counts_deduped_and_sorted():
     assert [s["units"] for s in comp["scenarios"]] == [1, 2, 4]
 
 
+def test_parcel_is_resolved_once_for_the_whole_sweep():
+    """The lot doesn't move between scenarios, so it is resolved once.
+
+    Every scenario used to call build_label_parts with the raw address/lat/lon, so
+    the parcel was re-resolved once per unit count — four Census geocodes and four
+    FEMA flood-zone queries for one comparison, the two upstream calls with no
+    memoization behind them. Now the first pass establishes both and the rest
+    reuse them (the same trick /presets uses across its profiles).
+    """
+    from housing_label.simulate import house as H
+    from housing_label.simulate import location as L
+
+    counts = {"resolve": 0, "flood": 0}
+    real_resolve, real_flood = L.resolve_location, H._auto_flood_zone
+
+    def counting_resolve(*a, **kw):
+        counts["resolve"] += 1
+        return real_resolve(*a, **kw)
+
+    def counting_flood(*a, **kw):
+        counts["flood"] += 1
+        return real_flood(*a, **kw)
+
+    # build_label_parts imports resolve_location at call time, so patching the
+    # module attribute is enough; _auto_flood_zone is looked up on the module.
+    L.resolve_location, H._auto_flood_zone = counting_resolve, counting_flood
+    try:
+        comp = density_comparison(unit_counts=[1, 2, 3, 4], **_COMMON)
+    finally:
+        L.resolve_location, H._auto_flood_zone = real_resolve, real_flood
+
+    assert len(comp["scenarios"]) == 4          # four scenarios...
+    assert counts["resolve"] == 1               # ...one location resolution
+    assert counts["flood"] == 1                 # ...one flood-zone lookup
+
+
+def test_caller_supplied_flood_zone_is_not_overridden():
+    """Pinning the first pass's zone must not override an explicit one."""
+    from housing_label.simulate import house as H
+
+    calls = []
+    real_flood = H._auto_flood_zone
+    H._auto_flood_zone = lambda *a, **kw: (calls.append(a), real_flood(*a, **kw))[1]
+    try:
+        comp = density_comparison(flood_zone="AE", unit_counts=[1, 2], **_COMMON)
+    finally:
+        H._auto_flood_zone = real_flood
+    # An explicit zone means the auto-lookup never runs, for any scenario.
+    assert calls == []
+    assert len(comp["scenarios"]) == 2
+
+
+def test_sweep_reports_whether_structure_detection_degraded():
+    """The sweep says whether it was built on detected structure data — the API
+    uses this to refuse to cache a degraded result (as /label already does)."""
+    comp = density_comparison(unit_counts=[1, 2], **_COMMON)
+    assert comp["structure_unavailable"] is False   # offline run never called NSI
+
+
 def test_empty_unit_counts_raises():
     """No valid unit counts is a clean validation error."""
     try:

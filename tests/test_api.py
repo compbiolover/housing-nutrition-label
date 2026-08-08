@@ -308,6 +308,65 @@ def test_density_endpoint_validation():
                                           "upgrades": "teleporter"}).status_code == 400
 
 
+def test_preset_profiles_is_the_roster_without_scoring():
+    """/preset-profiles names the construction profiles and scores nothing.
+
+    The website's profile picker only needs the names; asking /presets for them
+    costs five full scoring passes. This must stay a constant-time echo of
+    _WEBSITE_PRESETS, in the same order, so an index into one is an index into
+    the other — and cacheable for a day.
+    """
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_preset_profiles_is_the_roster_without_scoring (fastapi not installed)")
+        return
+    from housing_label.api import app, _WEBSITE_PRESETS
+    client = TestClient(app)
+    r = client.get("/preset-profiles")
+    assert r.status_code == 200
+    assert r.json()["profiles"] == [
+        {"name": n, "preset": p, "description": d} for n, p, d in _WEBSITE_PRESETS]
+    # Long-lived cache header: the roster is a constant, not a scored result.
+    assert "max-age=86400" in (r.headers.get("cache-control") or "")
+
+
+def test_scoring_responses_are_cacheable():
+    """Deterministic scored endpoints carry Cache-Control so a repeat view is free.
+
+    Checked on a 400 path too: only 200s may be cached — an error or a rate-limit
+    refusal must stay re-askable. (A scored 200 needs network, so it isn't
+    exercised here; the middleware keys off the path, not the payload.)"""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_scoring_responses_are_cacheable (fastapi not installed)")
+        return
+    from housing_label.api import app, _SCORE_CACHE_CONTROL, _CACHE_CONTROL_BY_PATH
+    client = TestClient(app)
+    assert client.get("/healthz").headers.get("cache-control") is None
+    r = client.get("/density")          # 400: missing address/coords
+    assert r.status_code == 400
+    assert r.headers.get("cache-control") is None
+    # A scored URL carries the address someone typed — usually their own home —
+    # so it is cacheable by that reader's browser and by nothing in between.
+    assert _SCORE_CACHE_CONTROL.startswith("private")
+    assert "s-maxage" not in _SCORE_CACHE_CONTROL
+    for path in ("/label", "/presets", "/density"):
+        assert _CACHE_CONTROL_BY_PATH[path] == _SCORE_CACHE_CONTROL
+    # The roster is a constant with nothing personal in the URL.
+    assert _CACHE_CONTROL_BY_PATH["/preset-profiles"].startswith("public")
+
+
+def test_cache_keys_ignore_address_case_and_spacing():
+    """'123 Main St' and '123  main st ' are one house, so they're one cache entry."""
+    from housing_label.api import _key_addr, _key_coord
+    assert _key_addr("123 Main St") == _key_addr("123  main st ") == "123 main st"
+    assert _key_addr(None) is None and _key_addr("   ") is None
+    assert _key_coord(35.130000004) == _key_coord(35.13) == 35.13
+    assert _key_coord(None) is None
+
+
 def test_presets_coord_validation():
     """/presets defaults to the Label-page location when no coords are given,
     but must reject a single coordinate (both required) — before any scoring."""

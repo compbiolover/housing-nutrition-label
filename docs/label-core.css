@@ -422,6 +422,11 @@
    just its result and sits directly beneath those buttons. */
 .lf-density-wrap { max-width: 640px; margin: 0 auto; }
 .lf-density-wrap .lf-status { margin: 0 0 0.6rem; }
+/* Switching construction profiles re-scores the whole sweep. The table that's
+   already up is the last real answer, so it stays and dims — same treatment a
+   re-scoring card gets — instead of the panel emptying for the round trip. */
+.lf-density-result { transition: opacity 0.2s ease; }
+.lf-density-result.is-busy { opacity: 0.45; pointer-events: none; }
 .density-table { width: 100%; }
 .density-table small { color: var(--muted); font-weight: 400; }
 

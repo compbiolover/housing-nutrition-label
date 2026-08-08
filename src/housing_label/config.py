@@ -19,9 +19,27 @@ PROJECT_ROOT: pathlib.Path = pathlib.Path(__file__).resolve().parents[2]
 DATA_DIR: pathlib.Path = PROJECT_ROOT
 
 # ── HTTP defaults ───────────────────────────────────────────────────────────────
-TIMEOUT: int = 60          # seconds per HTTP call
-RETRIES: int = 3           # attempts before giving up
-BACKOFF: int = 2           # exponential back-off multiplier (BACKOFF ** attempt)
+# Tuned for batch enrichment, where a slow upstream is worth waiting out: one
+# logical call can spend TIMEOUT × RETRIES plus back-off (~3 min) before giving up.
+# That is the wrong trade for a live request — a visitor watching a spinner would
+# rather have the dimension fall back to its estimate than wait minutes for it — so
+# the three knobs read the environment, and the API deployment sets a tighter
+# budget (see render.yaml). Unset, they keep the patient defaults for the CLI and
+# for batch jobs. A malformed value falls back to the default rather than crashing.
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        val = int(raw)
+    except (TypeError, ValueError):
+        return default
+    return val if val > 0 else default
+
+
+TIMEOUT: int = _env_int("HTTP_TIMEOUT", 60)    # seconds per HTTP call
+RETRIES: int = _env_int("HTTP_RETRIES", 3)     # attempts before giving up
+BACKOFF: int = _env_int("HTTP_BACKOFF", 2)     # back-off multiplier (BACKOFF ** attempt)
 
 # Several upstream GIS WAFs return 403 for the default requests User-Agent, so we
 # present a browser UA on every call.

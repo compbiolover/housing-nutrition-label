@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
+from functools import lru_cache
 
 import requests
 
@@ -170,8 +171,38 @@ def _parse_geographies(geo: dict) -> dict:
     return out
 
 
+# The two Census geocoder calls were the only upstream lookups in the pipeline
+# with no memoization, so anything that scores one place several times in a
+# process — the density sweep, the /presets grid, a /label followed by either —
+# paid a fresh round trip every pass. Both are pure lookups of static reference
+# geography, so the sibling enrichers' pattern applies unchanged: the public
+# function normalizes its inputs, then calls a cached inner. Failures (a None
+# return) are cached too, which is deliberate — a geocoder that just refused this
+# address will refuse it again inside the same request, and re-asking costs the
+# full retry ladder. Sizes match the enrichers (4096 points ≈ a few MB of small
+# dicts); the process is long-lived but the caches are bounded and LRU.
+def _copy(d: dict | None) -> dict | None:
+    return dict(d) if d is not None else None
+
+
+@lru_cache(maxsize=4096)
+def _geocode_address_cached(address: str) -> dict | None:
+    return _geocode_address_uncached(address)
+
+
 def geocode_address(address: str) -> dict | None:
     """Address → {lat, lon, **geographies}. Returns None if no match."""
+    # Case and surrounding/inner whitespace don't change the answer, so they must
+    # not split the cache: "123 Main St", "123  main st " are one lookup.
+    key = " ".join(str(address or "").split()).casefold()
+    if not key:
+        return None
+    # Hand out a copy: the cached dict is shared by every caller for the life of
+    # the process, so one caller mutating it would poison the rest.
+    return _copy(_geocode_address_cached(key))
+
+
+def _geocode_address_uncached(address: str) -> dict | None:
     data = _get(GEOCODER_ONELINE, {
         "address": address, "benchmark": BENCHMARK, "vintage": VINTAGE, "format": "json",
     })
@@ -191,6 +222,13 @@ def geocode_address(address: str) -> dict | None:
 
 def geographies_for_coords(lat: float, lon: float) -> dict | None:
     """Lat/lon → geographies dict (county/state FIPS, tract, place, urban)."""
+    # 6 dp ≈ 0.1 m — the same rounding the point enrichers use, and far finer than
+    # the tract/county/place geography this returns.
+    return _copy(_geographies_cached(round(float(lat), 6), round(float(lon), 6)))
+
+
+@lru_cache(maxsize=4096)
+def _geographies_cached(lat: float, lon: float) -> dict | None:
     data = _get(GEOCODER_COORDS, {
         "x": lon, "y": lat, "benchmark": BENCHMARK, "vintage": VINTAGE, "format": "json",
     })

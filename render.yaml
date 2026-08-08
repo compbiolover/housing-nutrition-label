@@ -30,6 +30,16 @@ services:
       # upstreams they proxy). "" or "0" disables it; /healthz is always exempt.
       - key: RATE_LIMIT
         value: "30/minute"
+      # Interactive HTTP budget for the upstream datasets. The library defaults
+      # (60 s × 3 attempts, ~3 min for one stuck upstream) are tuned for batch
+      # enrichment; a visitor watching a spinner would rather have one dimension
+      # fall back to its estimate than wait that out. 12 s × 2 caps a single
+      # upstream's contribution at ~26 s instead of ~186 s. The CLI and batch jobs
+      # don't set these, so they keep the patient defaults.
+      - key: HTTP_TIMEOUT
+        value: "12"
+      - key: HTTP_RETRIES
+        value: "2"
       # Optional address-autocomplete upgrades (else the keyless Photon geocoder).
       # Priority when set: Google Places → Geoapify → Photon. Enable "Places API
       # (New)" on the Google key. Both proxied server-side; visitors never see them.
