@@ -308,6 +308,68 @@ def test_density_endpoint_validation():
                                           "upgrades": "teleporter"}).status_code == 400
 
 
+def test_warmup_is_gated_by_env_and_starts_at_boot():
+    """The dataset decode happens at boot, unless WARMUP says otherwise.
+
+    Without this the first request after every deploy pays it inside the
+    visitor's own request. It has to stay switchable from the dashboard, so the
+    env gate is part of the contract, not a convenience.
+    """
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_warmup_is_gated_by_env_and_starts_at_boot (fastapi not installed)")
+        return
+    import os as _os, time as _time
+    from housing_label import api
+
+    calls = []
+    real, prior = api._warmup, _os.environ.get("WARMUP")
+    api._warmup = lambda: calls.append(1)
+    try:
+        _os.environ["WARMUP"] = "0"
+        with TestClient(api.app):          # entering the context runs the lifespan
+            pass
+        _time.sleep(0.05)                  # a thread started in error would land by now
+        assert calls == [], "WARMUP=0 must not warm"
+
+        _os.environ.pop("WARMUP")          # default is on
+        with TestClient(api.app):
+            pass
+        for _ in range(200):               # it runs off-thread, so wait for it
+            if calls:
+                break
+            _time.sleep(0.01)
+        assert calls == [1], "default must warm exactly once"
+    finally:
+        api._warmup = real
+        if prior is None:
+            _os.environ.pop("WARMUP", None)
+        else:
+            _os.environ["WARMUP"] = prior
+
+
+def test_warmup_failure_never_reaches_the_app():
+    """A warm-up that blows up must not take the API down with it — it is an
+    optimization, and the datasets still load lazily on first use."""
+    import logging as _logging
+    from housing_label import api
+
+    def boom(**_kwargs):
+        raise RuntimeError("simulated dataset failure")
+
+    real = api.build_label_parts
+    logger = _logging.getLogger("housing_label.api")
+    prior_level = logger.level
+    api.build_label_parts = boom
+    logger.setLevel(_logging.CRITICAL)     # the failure is logged; don't spam the run
+    try:
+        api._warmup()                      # must return, not raise
+    finally:
+        api.build_label_parts = real
+        logger.setLevel(prior_level)
+
+
 def test_preset_profiles_is_the_roster_without_scoring():
     """/preset-profiles names the construction profiles and scores nothing.
 

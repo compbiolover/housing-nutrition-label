@@ -9,7 +9,10 @@ services:
   - type: web
     name: housing-label-api
     runtime: python
-    plan: free
+    # The running service is on Starter, and this file is the declared spec — left
+    # saying "free" it invites a blueprint re-sync to reconcile the live service
+    # back down to a tier that sleeps when idle.
+    plan: starter
     buildCommand: pip install -e ".[api]"
     startCommand: housing-api          # reads $PORT, injected by Render
     healthCheckPath: /healthz
@@ -22,6 +25,8 @@ services:
       # them in per-thread arenas and rarely returns them to the OS, so RSS ratchets
       # upward for days until the instance OOMs. Capping arenas and lowering the
       # trim threshold makes freed memory actually go back — flattening the climb.
+      # Still needed on Starter: the tier buys a bigger box and no spin-down, not
+      # an allocator that returns memory on its own.
       - key: MALLOC_ARENA_MAX
         value: "2"
       - key: MALLOC_TRIM_THRESHOLD_
@@ -40,6 +45,11 @@ services:
         value: "12"
       - key: HTTP_RETRIES
         value: "2"
+      # Decode the bundled tract crosswalks at boot instead of inside the first
+      # request after a deploy. Set to "0"/"off" from the dashboard to disable
+      # without a code change if it ever costs more memory than it's worth.
+      - key: WARMUP
+        value: "1"
       # Optional address-autocomplete upgrades (else the keyless Photon geocoder).
       # Priority when set: Google Places → Geoapify → Photon. Enable "Places API
       # (New)" on the Google key. Both proxied server-side; visitors never see them.
