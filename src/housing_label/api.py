@@ -50,10 +50,14 @@ Operational env vars::
     LABEL_CACHE_TTL    cache entry lifetime in seconds (default 21600 = 6 h)
     HTTP_TIMEOUT       seconds per upstream call (default 60; render.yaml sets 12)
     HTTP_RETRIES       attempts per upstream call (default 3; render.yaml sets 2)
+    WARMUP             decode the bundled datasets at boot rather than in the first
+                       request (default on; "0"/"off" disables)
+    LOG_LEVEL          log level for the `housing-api` entry point (default INFO)
 """
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import threading
@@ -146,7 +150,63 @@ ALLOWED_ORIGINS = [
     if o.strip()
 ]
 
-app = FastAPI(title="Housing Nutrition Label API", version="0.1.0")
+# ── Startup warm-up ──────────────────────────────────────────────────────────────
+# The bundled tract crosswalks are loaded lazily, behind `lru_cache(maxsize=1)`
+# loaders that decode ~10 MB of gzipped CSV (~85k rows each, with a Python-level
+# intern pass) the first time anything asks for them. Nothing asks until a request
+# does — so the first visitor after every deploy pays the whole decode inside their
+# own request, on top of the upstream fan-out for a location nobody has scored yet.
+# That was the bulk of a 13 s first response.
+#
+# Warm by scoring, not by listing tables: one offline pass through the real code
+# path touches every crosswalk the scorer actually uses, and can't drift as tables
+# are added or moved. `allow_network=False` keeps it strictly local, so a slow or
+# unreachable upstream can never delay or fail a deploy.
+#
+# The geography has to be supplied, and that is the whole trick. Offline,
+# `resolve_location` skips the Census geocode, so the Location comes back with no
+# county and no tract — and every tract-keyed loader (health, socio, walkability,
+# wildfire, tornado, air quality, noise, climate projections: the eight biggest
+# tables here) short-circuits before touching its file. A warm-up without this
+# logs "complete" having decoded none of the tables the first real request needs.
+# Handing it a real Census geography is the same door the golden tests use
+# (tests/test_golden_label.py) to score offline against real tracts. Which tract
+# does not matter — the scored result is thrown away — only that there IS one, so
+# the tract path is walked and the tables land in their caches.
+_WARMUP_GEOGRAPHY = {
+    "county_fips": "47157", "county_name": "Shelby County", "state_fips": "47",
+    "tract": "47157003100", "place_label": "Memphis city", "place_geoid": "4748000",
+    "incorporated": True, "in_urban_area": True,
+}
+
+
+def _warmup() -> None:
+    started = time.monotonic()
+    try:
+        from housing_label.simulate.location import resolve_location
+        loc = resolve_location(lat=_PRESETS_DEFAULT_LAT, lon=_PRESETS_DEFAULT_LON,
+                               allow_network=False, geography=_WARMUP_GEOGRAPHY)
+        build_label_parts(location=loc, allow_network=False)
+    except Exception:  # noqa: BLE001 — a warm-up must never take the API down
+        log.exception("warm-up failed (serving anyway; the first request will "
+                      "load the datasets instead)")
+        return
+    log.info("warm-up complete in %.1fs", time.monotonic() - started)
+
+
+@contextlib.asynccontextmanager
+async def _lifespan(_app):
+    # On a daemon thread, not inline: uvicorn binds the port only once startup
+    # finishes, so warming here directly would delay readiness and could push the
+    # boot past Render's health-check timeout. Off-thread, the port opens
+    # immediately, and a request that arrives mid-warm-up simply waits on the same
+    # lru_cache it would have populated itself.
+    if os.environ.get("WARMUP", "1").strip().lower() not in ("0", "off", "false", "no"):
+        threading.Thread(target=_warmup, name="warmup", daemon=True).start()
+    yield
+
+
+app = FastAPI(title="Housing Nutrition Label API", version="0.1.0", lifespan=_lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -1185,6 +1245,17 @@ def density(
 def serve() -> None:
     """Console entry point: run the API with uvicorn (PORT env var, default 8000)."""
     import uvicorn
+    # Configure logging HERE and nowhere else: the library modules deliberately
+    # never touch the root logger (they're imported by other applications), and
+    # uvicorn only configures its own `uvicorn.*` loggers — so without this our
+    # own INFO lines, including how long the warm-up took, are dropped on the
+    # floor and never reach the deploy log. This function is the application
+    # boundary Render actually runs (`startCommand: housing-api`), so it is the
+    # right place to decide that.
+    logging.basicConfig(
+        level=os.environ.get("LOG_LEVEL", "INFO").upper(),
+        format="%(levelname)s:     %(name)s - %(message)s",   # matches uvicorn's shape
+    )
     uvicorn.run("housing_label.api:app", host="0.0.0.0",
                 port=int(os.environ.get("PORT", "8000")))
 
