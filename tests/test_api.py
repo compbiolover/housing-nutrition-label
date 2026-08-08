@@ -342,12 +342,20 @@ def test_scoring_responses_are_cacheable():
     except ImportError:
         print("  skip test_scoring_responses_are_cacheable (fastapi not installed)")
         return
-    from housing_label.api import app
+    from housing_label.api import app, _SCORE_CACHE_CONTROL, _CACHE_CONTROL_BY_PATH
     client = TestClient(app)
     assert client.get("/healthz").headers.get("cache-control") is None
     r = client.get("/density")          # 400: missing address/coords
     assert r.status_code == 400
     assert r.headers.get("cache-control") is None
+    # A scored URL carries the address someone typed — usually their own home —
+    # so it is cacheable by that reader's browser and by nothing in between.
+    assert _SCORE_CACHE_CONTROL.startswith("private")
+    assert "s-maxage" not in _SCORE_CACHE_CONTROL
+    for path in ("/label", "/presets", "/density"):
+        assert _CACHE_CONTROL_BY_PATH[path] == _SCORE_CACHE_CONTROL
+    # The roster is a constant with nothing personal in the URL.
+    assert _CACHE_CONTROL_BY_PATH["/preset-profiles"].startswith("public")
 
 
 def test_cache_keys_ignore_address_case_and_spacing():

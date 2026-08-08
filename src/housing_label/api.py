@@ -163,11 +163,17 @@ app.add_middleware(GZipMiddleware, minimum_size=500)
 # Every one of these endpoints is a pure function of its query string, and the
 # server already holds the answer for six hours (see _TTLCache below) — but with
 # no Cache-Control the browser re-asks on every page load, every back-navigation,
-# and every repeat of a view the reader has already seen. A scored label may as
-# well be cached client-side for a few minutes; the profile roster is a constant
-# and can be cached for a day. `s-maxage` matches the server-side TTL so a shared
-# cache, if one is ever put in front, keeps it exactly as long as we do.
-_SCORE_CACHE_CONTROL = "public, max-age=600, s-maxage=21600"
+# and every repeat of a view the reader has already seen.
+#
+# `private`, deliberately: a scored URL carries the address someone typed, which
+# is very often their own home. The scores themselves are public record, but
+# where a visitor lives is not something to hand to every proxy on the path —
+# and the site's own disclosure promises the address goes to this API, not into
+# an intermediary's cache keyed by it. The win being bought here is the reader's
+# own browser not re-asking for a view it already has, and `private` delivers
+# that in full. The roster is the one exception: a constant with nothing
+# personal in the URL, so it can be shared and kept for a day.
+_SCORE_CACHE_CONTROL = "private, max-age=600"
 _CACHE_CONTROL_BY_PATH = {
     "/label": _SCORE_CACHE_CONTROL,
     "/presets": _SCORE_CACHE_CONTROL,

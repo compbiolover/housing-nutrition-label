@@ -617,9 +617,16 @@ window.LabelForm = (function () {
         if (densWrap) densWrap.hidden = true;
         return;
       }
+      // Where the place name comes from, in the order it becomes available. A
+      // sweep view can be reached without ever scoring a /label — pick "Use my
+      // location" while already in one and only /density runs — and geolocation
+      // carries no re-typable address either, so neither the entered text nor
+      // `detected` has a name to show. The sweep's own payload does.
       var loc0 = state.mode === "single" || state.mode === "compare"
         ? (((state.presets || [])[0] || {}).location || {})
-        : ((state.detected || {}).location || {});
+        : ((state.detected || {}).location
+           || (isSweep(state.mode) ? (densityCache() || {}).location : null)
+           || {});
       // Say the address back, not the city the API resolved it to.
       var locName = enteredAddress() || loc0.label || loc0.county_name || "";
       var scoredWhat = state.mode === "detected" ? "This home scored at"
@@ -805,9 +812,14 @@ window.LabelForm = (function () {
         .then(okJson)
         .then(function (data) {
           if (seq !== reqSeq) return;
+          // Was the header missing a place name? Only then is a repaint worth it:
+          // rendering replaces the profile picker, and pulling it out from under
+          // a reader who is mid-selection to change nothing else would be rude.
+          var headerless = !app.querySelector(".label-loc");
           if (build) state.densityBuilds[sweepSlug(build)] = data;
           else state.density = data;
           var n = ((data && data.scenarios) || []).length;
+          if (headerless) render();     // the payload's location can name it now
           renderDensity(data);
           densStatus.done("Density comparison ready",
             n ? n + " scenario" + (n === 1 ? "" : "s") + " scored on this lot"
