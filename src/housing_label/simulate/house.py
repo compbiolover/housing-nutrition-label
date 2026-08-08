@@ -2958,6 +2958,11 @@ def print_density(comp: dict) -> None:
 # the slowest endpoint and the third-party quota it burns — to produce a label
 # whose composite and axes are computed on a yardstick that doesn't apply to them.
 
+# Cap on points per sweep. Enforced in timeline_comparison() — the shared helper —
+# rather than at the HTTP layer, so the CLI and any library caller get the same
+# bound: a limit only the API knows about is not a guardrail, it is a coincidence.
+# Unlike /density's cap this is about payload size and chart legibility rather than
+# compute, since every point reads a table already resident.
 TIMELINE_MAX_POINTS = 6
 
 
@@ -3122,6 +3127,11 @@ def timeline_comparison(*, address: str | None = None,
     yrs = tuple(sorted({_coerce_year(y) for y in (years or default_timeline_years())}))
     if not yrs:
         raise ValueError("years must contain at least one year")
+    if len(yrs) > TIMELINE_MAX_POINTS:
+        # Refuse rather than truncate: silently dropping years would let a caller
+        # asking for ten points read a three-point answer as the whole picture.
+        raise ValueError(f"at most {TIMELINE_MAX_POINTS} years may be compared at "
+                         f"once, got {len(yrs)}")
 
     cfg, r, label = build_label_parts(
         address=address, lat=lat, lon=lon, preset=preset, flood_zone=flood_zone,
@@ -3146,7 +3156,7 @@ def timeline_comparison(*, address: str | None = None,
         if key not in series:
             point_in_time.setdefault(
                 key, "No series at this address — the underlying data didn't "
-                     "resolve here, so only the current value is shown.")
+                     "resolve here, so there is no trend to show.")
 
     as_of = []
     for point in (durability or {}).get("points", []):

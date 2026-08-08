@@ -260,6 +260,42 @@ def test_years_are_validated():
         raise AssertionError(f"{bad!r} should have been rejected")
 
 
+def test_the_point_cap_is_enforced_in_the_shared_helper():
+    """Not just at the HTTP layer.
+
+    A cap only the API knows about is not a guardrail — the CLI and any library
+    caller would sail past it. And it must REFUSE rather than truncate: silently
+    dropping years lets a caller asking for ten points read a three-point answer
+    as the whole picture.
+    """
+    over = list(range(2000, 2000 + H.TIMELINE_MAX_POINTS + 1))
+    try:
+        H.timeline_comparison(lat=35.15, lon=-89.85, preset="baseline",
+                              allow_network=False, years=over)
+    except ValueError as exc:
+        assert str(H.TIMELINE_MAX_POINTS) in str(exc)
+    else:
+        raise AssertionError(f"{len(over)} years should have been rejected")
+    # Exactly at the cap is fine.
+    at = over[:H.TIMELINE_MAX_POINTS]
+    assert H.timeline_comparison(lat=35.15, lon=-89.85, preset="baseline",
+                                 allow_network=False, years=at)["years"] == at
+
+
+def test_no_point_in_time_reason_promises_a_value_this_view_lacks():
+    """The reasons are rendered inside /timeline, which shows no snapshot scores.
+
+    A sentence saying "only the current value is shown" would be describing the
+    main label, not this view — and a reader who arrived here directly would go
+    looking for a number that isn't on the page.
+    """
+    out = H.timeline_comparison(lat=35.15, lon=-89.85, preset="baseline",
+                                allow_network=False)
+    for key, why in out["point_in_time"].items():
+        assert "current value is shown" not in why, key
+        assert "shown below" not in why, key
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

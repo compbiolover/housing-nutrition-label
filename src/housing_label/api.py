@@ -79,7 +79,8 @@ from housing_label.config import (
 )
 from housing_label.simulate.house import (
     build_label_parts, label_payload, density_comparison, timeline_comparison,
-    cost_flows, NonResidentialProperty, _NON_RESIDENTIAL_MESSAGE,
+    TIMELINE_MAX_POINTS, cost_flows, NonResidentialProperty,
+    _NON_RESIDENTIAL_MESSAGE,
     PRESETS, CONSTRUCTION_FACTOR, FOUNDATION_FACTOR, CONDITION_FACTOR,
     BONUS_FLAGS, ELEVATION_FLAGS, WATER_SOURCES, SEWER_TYPES, LOT_CONTEXTS,
 )
@@ -1242,10 +1243,11 @@ def density(
     return result
 
 
-# Cap how many timeline points one request can ask for. Unlike /density these are
-# cheap — every point reads a table already resident for the single scoring pass, so
-# the cap is about payload size and chart legibility rather than compute.
-_TIMELINE_MAX_POINTS = 6
+# Re-exported, not redefined: the cap lives with timeline_comparison() so every
+# caller (HTTP, CLI, library) is bound by the same number. The check below is a
+# courtesy — it turns the shared helper's ValueError into a 400 before any work
+# starts — but the helper enforces it regardless of who calls.
+_TIMELINE_MAX_POINTS = TIMELINE_MAX_POINTS
 
 
 @app.get("/timeline")
