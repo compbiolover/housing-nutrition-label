@@ -484,11 +484,102 @@ window.LabelCore = (function () {
       + '<tbody>' + rows + '</tbody></table>';
   }
 
+  // Plain-language name for what kind of "over time" a series is. The distinction
+  // is the whole point of the view — a reader who can't tell a measurement from a
+  // forecast from an arithmetic aging curve has been misled, not informed — so it
+  // is stated in words on every row rather than implied by styling.
+  var BASIS_LABELS = {
+    observed: "measured",
+    projection: "projected",
+    aging: "modeled aging"
+  };
+
+  // How a trajectory moves. Deliberately NOT the up/down colouring deltaTable
+  // uses: there, green means "the option you're considering wins". Here a rising
+  // score is simply the place or the building getting better, which is a claim
+  // about the world rather than about a choice, so the word carries it and the
+  // glyph is decorative.
+  function trajDir(delta) {
+    if (typeof delta !== "number" || Math.abs(delta) < 0.05) {
+      return { cls: "flat", word: "about the same", glyph: "→" };
+    }
+    return delta > 0
+      ? { cls: "up", word: "improving", glyph: "↗" }
+      : { cls: "down", word: "declining", glyph: "↘" };
+  }
+
+  // Per-dimension time series. Reuses .delta-table's CSS (and its up/down/flat
+  // classes) but not deltaTable() itself, which takes two whole payloads and
+  // carries A/B-choice semantics that would be a false caption here.
+  function trajTable(data) {
+    var series = (data && data.series) || {};
+    var keys = Object.keys(series);
+    if (!keys.length) {
+      return '<p class="conf-legend">No dimension at this address carries a '
+        + 'time series yet.</p>';
+    }
+    // Every series may have its own point count and its own point labels, so each
+    // gets its own small table rather than one grid with ragged columns.
+    var labels = data.labels || {};
+    var html = "";
+    keys.forEach(function (key) {
+      var s = series[key], pts = s.points || [];
+      var dir = trajDir(s.delta);
+      var conf = (data.confidence || {})[key];
+      html += '<table class="delta-table traj-table"><thead><tr>'
+        + '<th>' + esc(labels[key] || key.replace(/_/g, " ")) + '<br><small>'
+        + esc(BASIS_LABELS[s.basis] || s.basis) + '</small></th>'
+        + '<th>Score</th><th>vs US homes</th></tr></thead><tbody>';
+      pts.forEach(function (p) {
+        // A percentile is only shown at the point its reference distribution was
+        // calibrated for — the API decides that, and omits the key elsewhere.
+        // "—" here means "not comparable", not "unknown".
+        var pct = typeof p.national_percentile === "number"
+          ? "Beats " + p.national_percentile + "%" : "—";
+        html += '<tr><td>' + esc(p.label || p.t) + '</td><td>'
+          + (typeof p.score === "number" ? p.score.toFixed(1) : "N/A")
+          + '</td><td>' + pct + '</td></tr>';
+      });
+      html += '<tr><td><strong>Change</strong></td><td class="' + dir.cls + '"><strong>'
+        + (typeof s.delta === "number" ? (s.delta > 0 ? "+" : "") + s.delta.toFixed(1) : "—")
+        + '</strong></td><td class="' + dir.cls + '">'
+        + '<span aria-hidden="true">' + dir.glyph + '</span> ' + dir.word
+        + '</td></tr></tbody></table>';
+      if (s.caveat) {
+        html += '<p class="conf-legend traj-caveat">' + esc(s.caveat) + '</p>';
+      }
+      if (s.source || conf) {
+        html += '<p class="conf-legend traj-src">'
+          + (conf ? esc(confInfo(conf).label) + " confidence · " : "")
+          + esc(s.source || "") + '</p>';
+      }
+    });
+    return html;
+  }
+
+  // The dimensions that have no series, each with the sentence explaining why.
+  // Rendered in the shared renderer so "we have no history for this" can never
+  // become a per-page convention that one page forgets.
+  function trajPointInTime(data) {
+    var pit = (data && data.point_in_time) || {};
+    var labels = (data && data.labels) || {};
+    var keys = Object.keys(pit);
+    if (!keys.length) return "";
+    var rows = keys.map(function (k) {
+      return '<tr><td>' + esc(labels[k] || k.replace(/_/g, " "))
+        + '</td><td>' + esc(pit[k]) + '</td></tr>';
+    }).join("");
+    return '<table class="delta-table traj-pit"><thead><tr><th>Dimension</th>'
+      + '<th>Why there is no trend</th></tr></thead><tbody>' + rows
+      + '</tbody></table>';
+  }
+
   return {
     GRADE_COLORS: GRADE_COLORS, gradeFor: gradeFor, gradeOf: gradeOf, esc: esc,
     WALL_LABELS: WALL_LABELS, UPGRADE_LABELS: UPGRADE_LABELS,
     CONFIDENCE: CONFIDENCE, confInfo: confInfo, compositeConfidence: compositeConfidence,
     confDot: confDot, dimRow: dimRow, dimRows: dimRows, costStrip: costStrip,
-    renderCard: renderCard, deltaTable: deltaTable, legendHtml: legendHtml, tapHint: tapHint
+    renderCard: renderCard, deltaTable: deltaTable, legendHtml: legendHtml, tapHint: tapHint,
+    trajTable: trajTable, trajPointInTime: trajPointInTime, trajDir: trajDir
   };
 })();

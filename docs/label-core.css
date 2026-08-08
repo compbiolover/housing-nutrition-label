@@ -256,6 +256,28 @@
 .delta-table .down { color: #dc2626; font-weight: 700; }
 .delta-table .flat { color: var(--muted); }
 
+/* ── Trajectory tables (the "Over time" view) ───────────────────────────────*/
+/* Same table skeleton as .delta-table, which is why they share the class —
+   the up/down/flat colours mean "the world moved this way" here rather than
+   "this option wins", and that difference is carried by the words beside them
+   (LabelCore.trajDir), not by the palette. */
+.traj-table { margin-top: 1.5rem; }
+.traj-table thead th small { display: block; font-weight: 400; text-transform: none;
+  letter-spacing: 0; color: var(--muted); }
+.traj-table tbody tr:last-child td { border-bottom: none; }
+.traj-caveat, .traj-src { max-width: 640px; margin: 0.4rem auto 0; text-align: left;
+  font-size: 0.78rem; }
+/* The fixed-yardstick sentence. It leads the view because every number under it
+   depends on the claim, so it reads as a statement rather than a footnote. */
+.traj-legend { max-width: 640px; margin: 1rem auto 0; text-align: left; }
+.traj-src { color: var(--muted); }
+/* The "why there is no trend" table is prose, so it reads left-aligned and full
+   width rather than as a column of right-aligned figures. */
+.traj-pit { margin-top: 2rem; }
+.traj-pit td, .traj-pit th { text-align: left; }
+.traj-pit td:last-child { font-size: 0.78rem; color: var(--muted); }
+.traj-pit td:first-child { white-space: nowrap; vertical-align: top; }
+
 /* ── Address autocomplete (shared: addr-suggest.js) ─────────────────────────*/
 .addr-ac { position: relative; flex: 1 1 320px; }
 .addr-ac input[type=text] { width: 100%; box-sizing: border-box; }

@@ -65,10 +65,13 @@
 <script src="addr-suggest.js"></script>
 <script src="label-form.js"></script>
 <script>
-  // The Label page shows all three view modes and remembers/shares the location.
+  // The Label page shows every view mode and remembers/shares the location.
+  // "Over time" belongs here rather than on the home page: it is the one view
+  // that answers a question about change rather than about a choice, and it
+  // reads as a drill-down on a label the reader has already seen.
   LabelForm.mount({
     container: document.getElementById("score-widget"),
-    modes: ["detected", "single", "compare"],
+    modes: ["detected", "single", "compare", "timeline"],
     density: false,
     geolocate: true,
     persist: true,

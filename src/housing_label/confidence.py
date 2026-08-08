@@ -45,6 +45,13 @@ CONFIDENCE_LEGEND = (
 )
 
 
+# Bases whose points are not measurements of the world at each point in time, and
+# so can never carry the top tier however good the underlying data is. A projection
+# is a model of a future that has not happened; an aging curve is arithmetic on a
+# component basket that nobody looked at. Both are legitimate and both are capped.
+_UNMEASURED_BASES = frozenset({"projection", "aging"})
+
+
 def _is_unavailable(note: str) -> bool:
     """True when a location note signals a missing-key / unavailable fetch
     (e.g. 'no CENSUS_API_KEY')."""
@@ -72,6 +79,37 @@ def confidence_for_label(label: dict) -> dict:
         else:
             tiers[key] = "high"
     return tiers
+
+
+def confidence_for_trajectory(label: dict, series: dict) -> dict:
+    """Map each dimension WITH a series to a confidence tier for that series.
+
+    Kept here rather than in ``data/vintages.py`` so there is still exactly one
+    rubric in the codebase — the reason this module exists.
+
+    A trajectory is never MORE trustworthy than the snapshot it is drawn from, so
+    this starts at the dimension's snapshot tier and only ever caps it downward, on
+    two grounds:
+
+    * the basis is not a measurement at each point (projection / aging), or
+    * the series spans a geography revision, so part of any movement is the boundary
+      moving rather than the place changing (``SeriesSpec.boundary_basis`` records
+      how the join was made).
+
+    Both are pedigree judgements about fitness for use, exactly like the snapshot
+    tiers — not statistical statements, and never drawn as an interval.
+    """
+    order = ("low", "moderate", "high")
+    snapshot = confidence_for_label(label)
+    out = {}
+    for key, spec in series.items():
+        tier = snapshot.get(key, "low")
+        if getattr(spec, "basis", None) in _UNMEASURED_BASES:
+            tier = "moderate" if tier == "high" else tier
+        if getattr(spec, "boundary_basis", None):
+            tier = order[max(0, order.index(tier) - 1)]
+        out[key] = tier
+    return out
 
 
 def bands_for_label(label: dict) -> dict:

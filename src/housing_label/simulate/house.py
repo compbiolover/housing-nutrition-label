@@ -34,11 +34,18 @@ import sys
 
 
 from housing_label.simulate.dimensions import (
-    simulate_all_dimensions, per_unit_home_value, effective_structure,
+    simulate_all_dimensions, per_unit_home_value, effective_structure, DIMENSIONS,
     AUTOFILL_VALUE_SOURCE, VALUE_PER_DOOR_SOURCE, HOME_VALUE_SOURCE,
 )
 from housing_label.confidence import (
     confidence_for_label, bands_for_label, CONFIDENCE_NOTES, CONFIDENCE_LEGEND,
+    confidence_for_trajectory,
+)
+from housing_label.data.national_percentile import national_percentile
+# Which dimensions carry a time series, what kind of time each one is, and the
+# reader-facing sentence for every dimension that carries none.
+from housing_label.data.vintages import (
+    TRAJECTORY, POINT_IN_TIME, TRAJECTORY_LEGEND,
 )
 # Year-built vulnerability curves live in the batch scorer so the offline
 # pipeline and this live simulator apply one identical (continuous) model.
@@ -1077,6 +1084,16 @@ def build_parser() -> argparse.ArgumentParser:
     label_grp.add_argument("--density-units", type=str, default=None,
                            help="Comma-separated unit counts for --density "
                                 "(default 1,2,3,4), e.g. --density-units 1,2,4.")
+    label_grp.add_argument("--timeline", action="store_true",
+                           help="Show how this address moves through time: the "
+                                "projected climate shift and the building's own "
+                                "grade as it ages. Every point is scored on today's "
+                                "scale. Combine with --json for machine-readable "
+                                "output.")
+    label_grp.add_argument("--timeline-years", type=str, default=None,
+                           help="Comma-separated as-of years for --timeline "
+                                "(default: 25 years back, now, and 15 years on), "
+                                "e.g. --timeline-years 2000,2026,2040.")
     label_grp.add_argument("--no-fetch", action="store_true",
                            help="Skip live API calls for the location dimensions (health, "
                                 "socioeconomic, walkability); leave them unscored.")
@@ -2930,6 +2947,291 @@ def print_density(comp: dict) -> None:
     print()
 
 
+# ── Timeline (how this address moves through time) ────────────────────────────
+# Same sweep shape as density_comparison above — resolve once, vary one axis — but
+# the axis is time rather than unit count, and it is CHEAPER: every point is read
+# from a table already resident for the snapshot pass, so a timeline adds zero
+# upstream calls to the one location resolve. tests/test_trajectory.py pins that.
+#
+# That guardrail is why there is no whole-label as-of parameter. Re-running
+# build_label_parts per year would re-hit PVGIS and TIGERweb — doubling the p95 of
+# the slowest endpoint and the third-party quota it burns — to produce a label
+# whose composite and axes are computed on a yardstick that doesn't apply to them.
+
+TIMELINE_MAX_POINTS = 6
+
+
+def default_timeline_years() -> tuple[int, ...]:
+    """A quarter-century back, now, and fifteen years on.
+
+    Derived from the durability model's own reference year rather than hard-coded,
+    so refreshing the dataset vintage moves the window with it instead of silently
+    leaving "now" in the past.
+    """
+    from housing_label.enrich.durability import REFERENCE_YEAR
+    return (REFERENCE_YEAR - 25, REFERENCE_YEAR, REFERENCE_YEAR + 15)
+
+
+def _climate_series(location) -> dict | None:
+    """The climate dimension's recent-past → mid-century pair, if it resolved.
+
+    Reads what the snapshot pass already fetched — no second lookup.
+    """
+    proj = getattr(location, "climate_projection", None) or {}
+    traj = proj.get("trajectory")
+    if not traj or traj.get("from") is None or traj.get("to") is None:
+        return None
+    spec = TRAJECTORY["climate"]
+    pts = []
+    for point, score in zip(spec.points, (traj["from"], traj["to"])):
+        entry = {"t": point.t, "label": point.label, "kind": point.kind,
+                 "score": score}
+        # A percentile only travels to the vintage its reference distribution was
+        # calibrated on — see data/vintages.py. Elsewhere the point carries a score
+        # and no rank, because "beats N% of US homes" has no qualifier in the
+        # renderer and would be a false claim on the recent-past point.
+        if point.percentile_ok:
+            entry["national_percentile"] = national_percentile("climate", score)
+        pts.append(entry)
+    return {
+        "basis": spec.basis,
+        "points": pts,
+        "delta": round(traj["to"] - traj["from"], 1),
+        "legs_compared": list(traj.get("legs") or ()),
+        "source": spec.source,
+        "percentile_basis": spec.percentile_basis,
+        "caveat": spec.caveat,
+        "geo_level": proj.get("geo_level"),
+        "resolved": bool(proj.get("resolved")),
+    }
+
+
+def _durability_series(cfg: dict, location, years: tuple[int, ...]) -> dict | None:
+    """Re-run the component-lifespan basket at each as-of year.
+
+    Uses the same parcel row and the same detected multi-family shell material the
+    snapshot pass used, so the only thing that varies across points is the
+    building's age.
+    """
+    from housing_label.enrich.durability import model_parcel_durability
+    from housing_label.simulate.dimensions import build_parcel_row, effective_structure
+
+    row = build_parcel_row(cfg)
+    mf_material = effective_structure(cfg, location)["mf_material"]
+    spec = TRAJECTORY["durability"]
+
+    pts = []
+    for year in years:
+        out = model_parcel_durability(row, mf_material=mf_material,
+                                      reference_year=year)
+        score = out.get("durability_score")
+        if score is None:
+            continue          # as-of predates construction, or nothing to score
+        pts.append({
+            "t": str(year),
+            "label": f"As of {year}",
+            "kind": "modeled",
+            "score": score,
+            "national_percentile": national_percentile("durability", score),
+            "effective_age": out.get("durability_effective_age"),
+            "remaining_life_pct": out.get("durability_remaining_life_pct"),
+            "components_past_life": out.get("durability_components_past_life"),
+        })
+    if len(pts) < 2:
+        return None           # a single point is a snapshot, not a trajectory
+    return {
+        "basis": spec.basis,
+        "points": pts,
+        "delta": round(pts[-1]["score"] - pts[0]["score"], 1),
+        "source": spec.source,
+        "caveat": spec.caveat,
+        # Every point is a rank against the same construction curve, so the
+        # percentile IS comparable across points here — unlike climate, where the
+        # reference distribution is pinned to one horizon.
+        "percentile_basis": "construction percentile curve (fixed across points)",
+    }
+
+
+def _building_axis_at(label: dict, durability_score: float | None) -> dict:
+    """Recompute the Building headline axis with durability swapped out.
+
+    Exact rather than approximate: the axis is the mean of its members' national
+    percentiles remapped through ``building_percentile`` (simulate/dimensions.py),
+    and durability is the only member that moves with the calendar — energy is keyed
+    to the construction era, environmental's embodied leg is fixed at build, and the
+    resilience building leg is a construction multiplier. So substituting one
+    percentile into the mean reproduces the real axis rather than estimating it.
+    """
+    from housing_label.data.national_percentile import building_percentile
+    from housing_label.simulate.dimensions import CONSTRUCTION_DRIVEN
+
+    vals = []
+    for d in label.get("dimensions", []):
+        if d.get("key") not in CONSTRUCTION_DRIVEN:
+            continue
+        pct = (national_percentile("durability", durability_score)
+               if d.get("key") == "durability" else d.get("national_percentile"))
+        if pct is not None:
+            vals.append(pct)
+    # The resilience building leg rides the same axis and does not move with time;
+    # recover it from the snapshot rather than recomputing the whole peril model.
+    leg = label.get("resilience_building_score")
+    if leg is not None:
+        pct = national_percentile("resilience", leg)
+        if pct is not None:
+            vals.append(pct)
+    if not vals:
+        return {"building_score": None, "building_national_grade": None}
+    raw = round(sum(vals) / len(vals), 1)
+    score = building_percentile(raw)
+    return {
+        "building_score": score,
+        "building_national_grade": (score_to_national_grade(score)
+                                    if score is not None else None),
+    }
+
+
+def timeline_comparison(*, address: str | None = None,
+                        lat: float | None = None, lon: float | None = None,
+                        preset: str | None = None, flood_zone: str | None = None,
+                        allow_network: bool = True, overrides: dict | None = None,
+                        upgrades: list[str] | None = None,
+                        years=None, **fields) -> dict:
+    """How this address's label moves through time.
+
+    One location resolve, then every point is read or recomputed from data already
+    in memory. Returns the per-dimension ``series``, the reader-facing sentence for
+    every dimension that has none (``point_in_time``), and the Building-axis
+    ``as_of`` sweep.
+
+    ``series`` and ``point_in_time`` are disjoint and together cover the dimension
+    roster exactly, so a dimension can never go missing without someone noticing —
+    tests/test_trajectory.py enforces it against DIMENSIONS.
+    """
+    def _coerce_year(y):
+        try:
+            iv = int(y)
+        except (TypeError, ValueError):
+            raise ValueError(f"years must contain whole numbers, got {y!r}") from None
+        if isinstance(y, float) and iv != y:
+            raise ValueError(f"years must contain whole numbers, got {y!r}")
+        if not 1800 <= iv <= 2200:
+            raise ValueError(f"years must be between 1800 and 2200, got {iv}")
+        return iv
+
+    yrs = tuple(sorted({_coerce_year(y) for y in (years or default_timeline_years())}))
+    if not yrs:
+        raise ValueError("years must contain at least one year")
+
+    cfg, r, label = build_label_parts(
+        address=address, lat=lat, lon=lon, preset=preset, flood_zone=flood_zone,
+        allow_network=allow_network, overrides=overrides, upgrades=upgrades,
+        **fields)
+    full = label_payload(cfg, r, label)
+    location = label.get("location")
+
+    series = {}
+    climate = _climate_series(location)
+    if climate is not None:
+        series["climate"] = climate
+    durability = _durability_series(cfg, location, yrs)
+    if durability is not None:
+        series["durability"] = durability
+
+    # A dimension registered as having a series but unresolvable at THIS address
+    # (no climate row, a building with no year) still owes the reader an
+    # explanation — it just isn't the registry's generic one.
+    point_in_time = dict(POINT_IN_TIME)
+    for key in TRAJECTORY:
+        if key not in series:
+            point_in_time.setdefault(
+                key, "No series at this address — the underlying data didn't "
+                     "resolve here, so only the current value is shown.")
+
+    as_of = []
+    for point in (durability or {}).get("points", []):
+        axis = _building_axis_at(label, point["score"])
+        as_of.append({"year": int(point["t"]), "durability": point["score"], **axis})
+
+    return {
+        "model": "fixed-address-vary-time",
+        "yardstick": "fixed",
+        "legend": TRAJECTORY_LEGEND,
+        "years": list(yrs),
+        # The display name for every dimension mentioned below. Carried on the
+        # payload because this view is reachable without ever scoring a /label —
+        # the renderer would otherwise have no roster to look a name up in, and
+        # would fall back to printing raw keys.
+        "labels": dict(DIMENSIONS),
+        "house": full.get("house"),
+        "location": full.get("location"),
+        "caveats": full.get("caveats"),
+        "series": series,
+        "point_in_time": point_in_time,
+        "confidence": confidence_for_trajectory(
+            full, {k: TRAJECTORY[k] for k in series if k in TRAJECTORY}),
+        "as_of": as_of,
+        # Same rule as /density: a sweep built on generic defaults (NSI unreachable)
+        # must not be pinned onto this parcel for the whole cache TTL.
+        "structure_unavailable": bool(
+            getattr(location, "structure_unavailable", False)),
+    }
+
+
+def print_timeline(comp: dict) -> None:
+    """Print a fixed-width timeline (dimension vs. its points)."""
+    TOP, SEP, BOT, row = _box()
+
+    loc = comp.get("location")
+    place = (loc.get("label") if isinstance(loc, dict) else None) or "this address"
+
+    print()
+    print(TOP)
+    print(row("  OVER TIME"))
+    print(row(f"  {place[:60]}"))
+    print(SEP)
+    for line in _wrap(comp["legend"], 60):
+        print(row(f"  {line}"))
+    print(row(f"  {'─'*60}"))
+
+    if not comp["series"]:
+        print(row("  No dimension at this address carries a time series."))
+    for key, s in comp["series"].items():
+        label = dict(DIMENSIONS).get(key, key)
+        arrow = "worse" if s["delta"] < 0 else "better" if s["delta"] > 0 else "flat"
+        print(row(f"  {label} ({s['basis']}) — {s['delta']:+.1f}, {arrow}"))
+        for p in s["points"]:
+            pct = p.get("national_percentile")
+            tail = f"   p{pct}" if pct is not None else ""
+            print(row(f"    {p['label']:<30}{p['score']:>6.1f}{tail}"))
+        if s.get("caveat"):
+            for line in _wrap(s["caveat"], 56):
+                print(row(f"    {line}"))
+        print(row(""))
+
+    if comp["as_of"]:
+        print(row("  Building grade as it ages"))
+        for a in comp["as_of"]:
+            g = a["building_national_grade"] or "—"
+            sc = "—" if a["building_score"] is None else f"{a['building_score']:.0f}"
+            print(row(f"    {a['year']:<30}{sc:>6} {g}"))
+        print(row(""))
+
+    pit = comp.get("point_in_time") or {}
+    if pit:
+        print(row(f"  {'─'*60}"))
+        print(row("  Point-in-time only"))
+        # Name on its own line rather than a hanging indent: "Environmental
+        # Footprint" is 23 characters and any label column wide enough for it
+        # leaves too little for the sentence, which is the part worth reading.
+        for key, why in pit.items():
+            print(row(f"    {dict(DIMENSIONS).get(key, key)}"))
+            for line in _wrap(why, 54):
+                print(row(f"      {line}"))
+    print(BOT)
+    print()
+
+
 # ── Entry point ────────────────────────────────────────────────────────────────
 
 _RISK_TO_ZONE = {"high": "AE", "moderate": "X500", "minimal": "X"}
@@ -2986,6 +3288,32 @@ def main() -> None:
             print(json.dumps(comp, indent=2))
         else:
             print_density(comp)
+        return
+
+    if args.timeline:
+        years = None
+        if args.timeline_years:
+            try:
+                years = [int(x) for x in args.timeline_years.split(",") if x.strip()]
+            except ValueError:
+                parser.error("--timeline-years must be comma-separated whole years, "
+                             "e.g. 2000,2026,2040")
+        try:
+            comp = timeline_comparison(
+                address=args.address, lat=args.lat, lon=args.lon,
+                preset=args.preset, flood_zone=args.flood_zone,
+                allow_network=allow_network, overrides=overrides, upgrades=upgrades,
+                years=years,
+                year_built=args.year_built, construction=args.construction,
+                foundation=args.foundation, condition=args.condition,
+                value=args.value, sqft=args.sqft, lot_acres=args.lot_acres,
+            )
+        except ValueError as exc:
+            parser.error(str(exc))
+        if args.json:
+            print(json.dumps(comp, indent=2))
+        else:
+            print_timeline(comp)
         return
 
     try:
