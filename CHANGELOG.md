@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.1.81](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.80...v0.1.81) (2026-08-08)
+
+
+### Performance Improvements
+
+* **density:** stop re-resolving the parcel, and take /presets off the click ([#270](https://github.com/compbiolover/housing-nutrition-label/issues/270)) ([639a443](https://github.com/compbiolover/housing-nutrition-label/commit/639a4430e8feff8930475ca1967f7cefcf915186))
+
 ## [0.1.80](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.79...v0.1.80) (2026-08-07)
 
 
