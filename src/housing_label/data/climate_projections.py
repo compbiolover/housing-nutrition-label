@@ -193,6 +193,53 @@ def _band_score(row: dict, band: str) -> float | None:
     return round(sum(leg_scores) / len(leg_scores), 1)
 
 
+def _band_legs(row: dict, band: str) -> dict[str, float]:
+    """leg → composite for one band, over the legs this row actually populates.
+
+    Same rule as ``_band_score`` but it keeps the legs apart instead of collapsing
+    them, so a caller comparing two bands can see WHICH legs each one was built
+    from. Empty dict when a core leg is missing (the fall-back-to-coarser signal).
+    """
+    out: dict[str, float] = {}
+    for leg, metrics in _LEGS.items():
+        parts = [_metric_score(m, _num(row.get(f"{m}_{band}"))) for m in metrics]
+        parts = [p for p in parts if p is not None]
+        if not parts:
+            if leg in _CORE_LEGS:
+                return {}
+            continue
+        out[leg] = sum(parts) / len(parts)
+    return out
+
+
+def band_trajectory(row: dict, from_band: str, to_band: str) -> tuple | None:
+    """Two commensurable band composites plus the legs they were built from.
+
+    Returns ``(score_from, score_to, legs)`` or None when either band can't be
+    scored.
+
+    The reason this exists rather than two ``_band_score`` calls: ``_band_score``
+    averages whichever legs a row happens to populate for that band, so if the
+    bands populated different leg sets the difference between them would be partly
+    a change in WHICH legs were averaged rather than a change in the climate. A
+    delta that quietly reports its own methodology as signal is the worst failure
+    available to this feature, because slope is the entire claim.
+
+    Both bands are therefore scored over the INTERSECTION of their present legs.
+    Today the bundled data is symmetric (verified across every county and tract row
+    by tests/test_climate_projections.py), so the intersection is a no-op — this
+    keeps it that way through future rebuilds instead of trusting that it stays so.
+    """
+    a, b = _band_legs(row, from_band), _band_legs(row, to_band)
+    if not a or not b:
+        return None
+    common = [leg for leg in _LEGS if leg in a and leg in b]
+    if not any(leg in _CORE_LEGS for leg in common):
+        return None
+    mean = lambda d: round(sum(d[leg] for leg in common) / len(common), 1)  # noqa: E731
+    return mean(a), mean(b), tuple(common)
+
+
 from housing_label.data._util import num as _num  # shared CSV-cell float coercion
 
 
@@ -218,27 +265,39 @@ def _tract_table() -> dict[str, dict]:
 
 
 @lru_cache(maxsize=1)
-def _national_average() -> tuple[float | None, float | None]:
-    """National mean of the low/high composite scores (the unmapped fallback)."""
-    lows, highs = [], []
+def _national_average() -> tuple[float | None, float | None, float | None]:
+    """National mean of the hist/low/high composite scores (the unmapped fallback).
+
+    The hist mean is taken over the counties that score in BOTH hist and low (via
+    ``band_trajectory``) rather than over every county that scores in hist, so the
+    national fallback's own delta is a like-for-like comparison and not a
+    difference between two differently-populated samples.
+    """
+    hists, lows, highs = [], [], []
     for row in _table().values():
-        lo, hi = _band_score(row, "low"), _band_score(row, "high")
-        if lo is not None:
-            lows.append(lo)
+        pair = band_trajectory(row, "hist", "low")
+        if pair is not None:
+            hists.append(pair[0])
+            lows.append(pair[1])
+        hi = _band_score(row, "high")
         if hi is not None:
             highs.append(hi)
     avg = lambda xs: round(sum(xs) / len(xs), 1) if xs else None  # noqa: E731
-    return avg(lows), avg(highs)
+    return avg(hists), avg(lows), avg(highs)
 
 
 def _us_result() -> dict:
     """National-average fallback (used when no county/tract row resolves)."""
-    low, high = _national_average()
+    hist, low, high = _national_average()
     return {
         "label": US_AVG_LABEL,
         "score": low,
         "score_low": low,
         "score_high": high,
+        # The national fallback gets a trajectory too — a place we couldn't resolve
+        # still moves, and reporting "no trend" there would read as "no change".
+        "trajectory": ({"from": hist, "to": low, "legs": ()}
+                       if hist is not None and low is not None else None),
         "hazards": {},
         "drivers": {},
         "resolved": False,
@@ -271,11 +330,30 @@ def _resolved_result(row: dict, geo_level: str, geoid: str) -> dict | None:
     place = f"{name}, {state}".strip(", ") or geoid
     if geo_level == "tract":
         place = f"Census Tract {geoid} ({place})"
+    # The recent-past composite, scored on the SAME breakpoints as the projected
+    # one — the fixed yardstick (see data/vintages.py). Both come from
+    # band_trajectory so they are built from the same legs and their difference is
+    # a change in the climate rather than a change in what was averaged.
+    #
+    # score_hist is None (rather than absent) when the row can't support a
+    # like-for-like pair, so a caller can tell "no trajectory here" from "this key
+    # doesn't exist in this build".
+    #
+    # Kept as ONE dict rather than a loose score_hist alongside score_low: both
+    # endpoints must come from the same call to stay commensurable, and two keys
+    # that are only accidentally comparable is exactly the drift this is guarding
+    # against. ``legs`` records what the pair was taken over — the fire leg is a
+    # single RCP8.5 pathway, so it adds no SCENARIO spread (low == high in every
+    # bundled row) but does move through TIME, which is why it earns a place on
+    # this axis and not on the band whisker.
+    pair = band_trajectory(row, "hist", "low")
     return {
         "label": f"{place} ({DATA_VINTAGE})",
         "score": score_low,
         "score_low": score_low,
         "score_high": _band_score(row, "high"),
+        "trajectory": ({"from": pair[0], "to": pair[1], "legs": pair[2]}
+                       if pair else None),
         "hazards": hazards,
         "drivers": drivers,
         "resolved": True,

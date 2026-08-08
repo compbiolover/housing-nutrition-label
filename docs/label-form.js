@@ -95,12 +95,16 @@ window.LabelForm = (function () {
   // "What-if build + denser" is the two hypotheticals at once — a construction
   // profile (from What-if build) re-scored at several unit counts (from What-if
   // denser). It sits last because it composes the two views before it.
+  // "Over time" sits last because it is the only view that answers a question
+  // about change rather than about a choice: everything above it re-scores a
+  // hypothetical, this one holds the address fixed and moves the clock.
   var MODE_LABELS = {
     detected: "This home",
     single: "What-if build",
     compare: "Compare builds",
     density: "What-if denser",
-    buildDensity: "What-if build + denser"
+    buildDensity: "What-if build + denser",
+    timeline: "Over time"
   };
   var MODE_HELP = {
     detected: "Scores the real home at this address, using building details "
@@ -119,9 +123,18 @@ window.LabelForm = (function () {
       + "re-score this lot with more homes of that build on it — one house, a "
       + "duplex, a fourplex. Shows how the build type and the number of homes "
       + "move the cost per home and the Infrastructure Burden grade together. "
-      + "The home’s real details are ignored here."
+      + "The home’s real details are ignored here.",
+    // Says what the view IS. The claim every number in it rests on — that the
+    // scale is held fixed — is stated once by the panel's own legend, which
+    // comes from the API, so repeating it here would put the same sentence on
+    // screen twice.
+    timeline: "Holds this address fixed and moves the clock instead: how the "
+      + "climate here is projected to shift, and how the building’s own grade "
+      + "changes as it ages. Dimensions with no time series are listed at the "
+      + "bottom with the reason why."
   };
-  var SUPPORTED_MODES = ["detected", "single", "compare", "density", "buildDensity"];
+  var SUPPORTED_MODES = ["detected", "single", "compare", "density", "buildDensity",
+                         "timeline"];
   var _mountSeq = 0;   // per-page counter → unique element IDs when >1 widget mounts
 
   function esc(s) { return LC.esc(s); }
@@ -358,7 +371,7 @@ window.LabelForm = (function () {
     var state = { mode: modes[0], idx: 0, idxA: 0, idxB: 0,
                   presets: null, profiles: null, buildSlug: null,
                   detected: null, building: null, detectedCtx: null,
-                  density: null, densityBuilds: {},
+                  density: null, densityBuilds: {}, timeline: null,
                   desc: null, error: null, initialized: false, idle: true };
     var touched = {};                 // field key -> true once the user edits it
     var reqSeq = 0;                   // drop out-of-order responses from rapid submits
@@ -583,6 +596,34 @@ window.LabelForm = (function () {
       return LC.renderCard(data, cardOpts);
     }
 
+    // The "Over time" view. The legend leads because it is the claim every number
+    // below it depends on: without "scored on today's scale" a reader can't tell
+    // a place that improved from a national average that moved underneath it.
+    function timelinePanel() {
+      var data = state.timeline;
+      if (!data) return "";
+      var html = '<p class="conf-legend traj-legend">' + esc(data.legend || "") + '</p>';
+      html += LC.trajTable(data);
+      var rows = (data.as_of || []).map(function (a) {
+        return '<tr><td>' + esc(String(a.year)) + '</td><td>'
+          + (a.durability == null ? "—" : a.durability.toFixed(1)) + '</td><td>'
+          + (a.building_score == null ? "—"
+             : a.building_score.toFixed(0) + " " + gradeSpan(a.building_national_grade))
+          + '</td></tr>';
+      }).join("");
+      if (rows) {
+        html += '<table class="delta-table traj-table"><thead><tr>'
+          + '<th>Building grade as it ages</th><th>Durability</th><th>Building</th>'
+          + '</tr></thead><tbody>' + rows + '</tbody></table>'
+          + '<p class="conf-legend traj-caveat">Only Durability moves with the '
+          + 'calendar here — Energy Efficiency is keyed to the construction era and '
+          + 'the Environmental Footprint’s embodied carbon was fixed when the home '
+          + 'was built — so this is what ageing alone does to the Building grade.</p>';
+      }
+      html += LC.trajPointInTime(data);
+      return html;
+    }
+
     function render() {
       if (!API_BASE) { app.innerHTML = ""; return; }
       if (state.idle) {
@@ -611,6 +652,7 @@ window.LabelForm = (function () {
       // a scored result, so this is a blink rather than five scoring passes.
       var loadingData = state.mode === "density" ? false
         : state.mode === "buildDensity" ? !profileList().length
+        : state.mode === "timeline" ? !state.timeline
         : state.mode === "detected" ? !state.detected : !state.presets;
       if (loadingData) {
         app.innerHTML = loadingHtml();
@@ -626,10 +668,15 @@ window.LabelForm = (function () {
         ? (((state.presets || [])[0] || {}).location || {})
         : ((state.detected || {}).location
            || (isSweep(state.mode) ? (densityCache() || {}).location : null)
+           // Same reason the sweeps carry their own: "Over time" can be reached
+           // without ever scoring a /label, and its payload is then the only
+           // place a place name exists.
+           || (state.mode === "timeline" ? (state.timeline || {}).location : null)
            || {});
       // Say the address back, not the city the API resolved it to.
       var locName = enteredAddress() || loc0.label || loc0.county_name || "";
       var scoredWhat = state.mode === "detected" ? "This home scored at"
+        : state.mode === "timeline" ? "This home scored over time at"
         : isSweep(state.mode) ? "This lot scored at"
         : "Profiles scored at";
       // The tick is the finished-state marker that outlives the confirmation
@@ -647,6 +694,8 @@ window.LabelForm = (function () {
           + sweepPickerSel("lf-d-sel", uid + "d-sel") + '</div>';
       } else if (state.mode === "detected") {
         html += detectedCard() + gradeLegend();
+      } else if (state.mode === "timeline") {
+        html += timelinePanel();
       } else if (state.mode === "single") {
         html += '<div class="picker"><label for="' + uid + 'p-sel">Construction profile: </label>'
           + pickerSel("lf-p-sel", uid + "p-sel", state.idx) + '</div>';
@@ -977,7 +1026,11 @@ window.LabelForm = (function () {
           if (seq !== reqSeq) return;
           state.detected = data; state.building = data.building || null;
           state.detectedCtx = built.ctx;
-          state.density = null;   // refine edits change the parcel the sweep runs on
+          // Refine edits change the parcel both sweeps run on. The timeline is
+          // hit hardest: its aging series keys off the build year, so a corrected
+          // year_built invalidates every point, not just the level.
+          state.density = null;
+          state.timeline = null;
           // Detection can retire a view: the density sweep is meaningless once
           // this turns out to be a multi-unit building.
           if (availableModes().indexOf(state.mode) < 0) state.mode = availableModes()[0];
@@ -991,10 +1044,36 @@ window.LabelForm = (function () {
         })
         .catch(fail(seq));
     }
+    // ── timeline (fixed address, vary time) ────────────────────────────────────
+    // Scored on the real (optionally refined) home, exactly like the detected
+    // card — so it takes the same query and is invalidated by the same edits.
+    function loadTimeline(force) {
+      if (!API_BASE) return;
+      if (state.timeline && !force) { render(); return; }
+      var seq = ++reqSeq; state.error = null;
+      render();
+      mainStatus.busy("Scoring this address over time…",
+        "Reading the climate record and aging the building for " + placeText() + ".");
+      fetch(API_BASE + "/timeline?" + buildDetectedParams().query)
+        .then(okJson)
+        .then(function (data) {
+          if (seq !== reqSeq) return;
+          state.timeline = data;
+          render();
+          var n = Object.keys((data && data.series) || {}).length;
+          mainStatus.done("Timeline ready",
+            n ? "Scored " + scoredAt(data) + " — " + n
+                + (n === 1 ? " dimension" : " dimensions") + " with a time series."
+              : "No dimension at this address carries a time series.");
+        })
+        .catch(fail(seq));
+    }
+
     function ensureData() {
       if (state.mode === "density") loadDensity(false);
       else if (state.mode === "detected") loadDetected(false);
       else if (state.mode === "buildDensity") ensureBuildDensity();
+      else if (state.mode === "timeline") loadTimeline(false);
       else loadPresets();
     }
     // The combined view needs a profile list before it can sweep one — but only
