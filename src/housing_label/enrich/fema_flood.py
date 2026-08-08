@@ -28,6 +28,8 @@ Flood risk classification
 from __future__ import annotations
 
 import json, logging, time
+from functools import lru_cache
+
 import requests, pandas as pd
 
 # Module logger only — no logging.basicConfig() at import time: this is library
@@ -77,7 +79,18 @@ def fetch_flood_zone(lat: float, lon: float) -> dict:
     """Query FEMA NFHL layer 28 for the flood zone at (lat, lon).
 
     Returns dict with keys 'flood_zone' and 'flood_risk'.
+
+    Memoized per rounded point, like the other point enrichers: a parcel scored
+    several times in one process (the density sweep, a /label followed by a
+    sweep) asks the same question of FEMA each time, and the answer is a static
+    polygon layer. 6 dp ≈ 0.1 m, far finer than the zone polygons. The dict is
+    copied out so a caller can't mutate the shared entry.
     """
+    return dict(_flood_zone_at(round(float(lat), 6), round(float(lon), 6)))
+
+
+@lru_cache(maxsize=4096)
+def _flood_zone_at(lat: float, lon: float) -> dict:
     geometry_json = json.dumps({"x": lon, "y": lat})
     params = {
         "geometry":     geometry_json,

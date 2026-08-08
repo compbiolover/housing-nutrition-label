@@ -36,6 +36,8 @@ Endpoints::
           units>1, or allow_non_residential=true.
     GET /density?address=<addr>      compare 1–4 dwelling units on the same parcel
         optional: units=1,2,4 (counts), per_unit_value, + all /label house params
+    GET /preset-profiles             the construction-profile roster (names, slugs,
+                                     descriptions) — a constant, scores nothing
 
 CORS is restricted to https://housinglabel.dev by default; set the
 ALLOWED_ORIGINS env var (comma-separated) to allow other origins or local dev.
@@ -46,6 +48,8 @@ Operational env vars::
                        (default "30/minute"; "" or "0" disables it)
     LABEL_CACHE_SIZE   max cached label results (default 512; 0 disables)
     LABEL_CACHE_TTL    cache entry lifetime in seconds (default 21600 = 6 h)
+    HTTP_TIMEOUT       seconds per upstream call (default 60; render.yaml sets 12)
+    HTTP_RETRIES       attempts per upstream call (default 3; render.yaml sets 2)
 """
 
 from __future__ import annotations
@@ -59,6 +63,7 @@ from collections import OrderedDict
 import requests
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -148,6 +153,42 @@ app.add_middleware(
     allow_methods=["GET"],
     allow_headers=["*"],
 )
+# Scored payloads are JSON in the tens of kilobytes (/presets is five whole labels
+# in one body) and compress ~5-10×. The edge in front of production compresses
+# too, but that only helps the last hop — this shrinks the origin's own response,
+# and covers anyone calling the API directly.
+app.add_middleware(GZipMiddleware, minimum_size=500)
+
+# ── Response cache headers ───────────────────────────────────────────────────────
+# Every one of these endpoints is a pure function of its query string, and the
+# server already holds the answer for six hours (see _TTLCache below) — but with
+# no Cache-Control the browser re-asks on every page load, every back-navigation,
+# and every repeat of a view the reader has already seen. A scored label may as
+# well be cached client-side for a few minutes; the profile roster is a constant
+# and can be cached for a day. `s-maxage` matches the server-side TTL so a shared
+# cache, if one is ever put in front, keeps it exactly as long as we do.
+_SCORE_CACHE_CONTROL = "public, max-age=600, s-maxage=21600"
+_CACHE_CONTROL_BY_PATH = {
+    "/label": _SCORE_CACHE_CONTROL,
+    "/presets": _SCORE_CACHE_CONTROL,
+    "/density": _SCORE_CACHE_CONTROL,
+    "/preset-profiles": "public, max-age=86400",
+}
+
+
+@app.middleware("http")
+async def _cache_headers(request, call_next):
+    """Stamp Cache-Control on successful GETs of the deterministic endpoints.
+
+    Only 200s: an error or a 422 residential refusal must stay re-askable, and a
+    cached 429 would outlive the rate-limit window that produced it.
+    """
+    response = await call_next(request)
+    if request.method == "GET" and response.status_code == 200:
+        cc = _CACHE_CONTROL_BY_PATH.get(request.url.path)
+        if cc and "cache-control" not in response.headers:
+            response.headers["Cache-Control"] = cc
+    return response
 
 # ── Rate limiting ────────────────────────────────────────────────────────────────
 # Every scoring request fans out to several live upstreams — the optional keyed
@@ -234,6 +275,21 @@ class _TTLCache:
 
 
 _result_cache = _TTLCache(_CACHE_MAXSIZE, _CACHE_TTL)
+
+
+# Cache keys are built from raw query params, so "123 Main St", "123 main st" and
+# "123  Main  St " used to be three entries and three full fan-outs for one house.
+# Normalize the two inputs that carry incidental variation before they reach a key:
+# case and whitespace mean nothing to the geocoder, and coordinates past ~0.1 m are
+# noise from a device or a link. Shared and bookmarked URLs land on one entry.
+def _key_addr(address: str | None) -> str | None:
+    if address is None:
+        return None
+    return " ".join(str(address).split()).casefold() or None
+
+
+def _key_coord(v: float | None) -> float | None:
+    return None if v is None else round(float(v), 6)
 
 
 @app.get("/healthz")
@@ -738,7 +794,8 @@ def label(
     if nonresidential and not allow_non_residential and preset is None:
         raise HTTPException(422, _NON_RESIDENTIAL_MESSAGE)
 
-    cache_key = ("label", address, lat, lon, preset, construction, year_built,
+    cache_key = ("label", _key_addr(address), _key_coord(lat), _key_coord(lon),
+                 preset, construction, year_built,
                  foundation, condition, value, units, sqft, lot_acres, flood_zone,
                  bldg_material, stories, owner_occupied,
                  tuple(upgrade_list),   # already sorted + unique
@@ -952,6 +1009,23 @@ _WEBSITE_PRESETS = [
 _PRESETS_DEFAULT_LAT, _PRESETS_DEFAULT_LON = 35.13, -89.99
 
 
+@app.get("/preset-profiles")
+def preset_profiles() -> dict:
+    """The construction-profile roster — names, slugs, descriptions. No scoring.
+
+    /presets answers "how do these five profiles score HERE", which costs five
+    full scoring passes. A caller that only needs to *name* the profiles — the
+    website's profile picker, which then asks for one of them by slug — was
+    paying that price for a dropdown. This is the roster alone: a constant, no
+    location, no upstream calls, cacheable for a day.
+
+    Same order as /presets, from the same constant, so an index into one is an
+    index into the other.
+    """
+    return {"profiles": [{"name": n, "preset": p, "description": d}
+                         for n, p, d in _WEBSITE_PRESETS]}
+
+
 @app.get("/presets")
 def presets(
     address: str | None = None,
@@ -973,7 +1047,7 @@ def presets(
         elif lat is None or lon is None:
             raise HTTPException(400, "Provide both ?lat= and ?lon= (or ?address=, or neither)")
 
-    cache_key = ("presets", address, lat, lon)
+    cache_key = ("presets", _key_addr(address), _key_coord(lat), _key_coord(lon))
     cached = _result_cache.get(cache_key)
     if cached is not None:
         return cached
@@ -1007,7 +1081,11 @@ def presets(
         entry["description"] = desc
         out.append(entry)
     result = {"location": out[0].get("location") if out else None, "presets": out}
-    _result_cache.put(cache_key, result)
+    # Same rule as /label: a grid scored while NSI was unreachable is built on
+    # generic defaults, and caching it would pin that degraded answer to this
+    # location for the whole TTL.
+    if not getattr(resolved, "structure_unavailable", False):
+        _result_cache.put(cache_key, result)
     return result
 
 
@@ -1066,7 +1144,8 @@ def density(
             raise HTTPException(400, f"at most {_DENSITY_MAX_SCENARIOS} unit counts "
                                      "may be compared at once")
 
-    cache_key = ("density", address, lat, lon, preset, construction, year_built,
+    cache_key = ("density", _key_addr(address), _key_coord(lat), _key_coord(lon),
+                 preset, construction, year_built,
                  foundation, condition, value, per_unit_value, sqft, lot_acres,
                  flood_zone, bldg_material, stories, tuple(upgrade_list),   # sorted + unique
                  water_source, sewer, lot_context,
@@ -1090,7 +1169,10 @@ def density(
     except Exception:  # noqa: BLE001 — don't leak internals; log server-side
         log.exception("density failed (address=%r lat=%r lon=%r)", address, lat, lon)
         raise HTTPException(502, "density comparison failed")
-    _result_cache.put(cache_key, result)
+    # Same rule as /label and /presets: don't pin a sweep built on generic
+    # defaults (NSI unreachable) onto this parcel for the whole TTL.
+    if not result.get("structure_unavailable"):
+        _result_cache.put(cache_key, result)
     return result
 
 

@@ -2781,6 +2781,18 @@ def density_comparison(*, address: str | None = None,
 
     base_value = per_unit_value if per_unit_value is not None else fields.get("value")
     cache: dict[int, tuple] = {}
+    # Every scenario is the SAME parcel — only the unit count moves — so the
+    # location and the flood zone are established by the first pass and reused,
+    # the way the /presets grid already reuses one resolved location across its
+    # profiles. Without this the sweep re-geocodes the address once per scenario
+    # (the Census geocoder and the FEMA flood-zone query are the only two upstream
+    # calls with no memoization), turning one lookup into four.
+    #
+    # Pinning the flood zone is also a correctness fix: it used to be re-queried
+    # per scenario, so a single FEMA hiccup mid-sweep could hand one scenario zone
+    # AE and the next zone X — and the "density dividend" would then report a
+    # resilience swing caused by an outage rather than by unit count.
+    shared = {"location": None, "flood_zone": flood_zone}
 
     def _run(n: int, val: float | None) -> tuple:
         f = dict(fields)
@@ -2789,14 +2801,25 @@ def density_comparison(*, address: str | None = None,
             f["value"] = round(float(val) * n, 2)
         else:
             f.pop("value", None)            # let build_label_parts auto-fill
-        return build_label_parts(
-            address=address, lat=lat, lon=lon, preset=preset, flood_zone=flood_zone,
+        # A resolved location supersedes address/lat/lon in build_label_parts, so
+        # pass it alone once we have one (the coordinates it carries are the ones
+        # the first pass resolved).
+        loc = shared["location"]
+        cfg, r, label = build_label_parts(
+            address=None if loc is not None else address,
+            lat=lat, lon=lon, location=loc,
+            preset=preset, flood_zone=shared["flood_zone"],
             allow_network=allow_network, overrides=overrides, upgrades=upgrades,
             # Density is an explicit "what could be built on this parcel" tool, and
             # its units=1 baseline run would otherwise trip the residential screen
             # on a non-residential lot — so it opts out of the screen.
             allow_non_residential=True, **f,
         )
+        if shared["location"] is None:
+            shared["location"] = label.get("location")
+        if shared["flood_zone"] is None:
+            shared["flood_zone"] = cfg.get("flood_zone")
+        return cfg, r, label
 
     # Establish the per-unit value from a single-unit baseline when none was given,
     # so every scenario scales from the same baseline (the auto-fill returns a
@@ -2845,6 +2868,12 @@ def density_comparison(*, address: str | None = None,
         "location": loc_payload,
         "wildfire": wildfire,
         "caveats": caveats,
+        # NSI structure detection was unreachable, so every scenario was built on
+        # generic defaults rather than the real parcel's building. The serialized
+        # location dict doesn't carry the flag, and a caller that caches this
+        # result needs to know not to (see /density in api.py).
+        "structure_unavailable": bool(
+            getattr(shared["location"], "structure_unavailable", False)),
     }
 
 

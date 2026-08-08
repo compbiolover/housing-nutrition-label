@@ -228,6 +228,18 @@ window.LabelForm = (function () {
       + rows + '</div></div>';
   }
 
+  // The density panel's own waiting state: a ghost of the table that's coming,
+  // shown only when there's no previous table to keep on screen. Same shimmer
+  // pieces as the card skeleton, arranged as rows of a comparison table.
+  function densitySkeleton() {
+    var rows = [92, 84, 88, 80, 86, 78].map(function (w) {
+      return '<span class="lf-skel-row" style="width:' + w + '%"></span>';
+    }).join("");
+    return '<div class="lf-loading" aria-hidden="true"><div class="lf-skel">'
+      + '<div class="lf-skel-head"><span class="lf-skel-num"></span>'
+      + '<span class="lf-skel-grade"></span></div>' + rows + '</div></div>';
+  }
+
   // ── Controller ──────────────────────────────────────────────────────────────
   function mount(opts) {
     opts = opts || {};
@@ -340,8 +352,12 @@ window.LabelForm = (function () {
     // `density` caches the sweep on the real home; `densityBuilds` caches one
     // sweep per construction profile (keyed by preset slug), so flipping between
     // profiles — or back to a profile already seen — repaints without refetching.
+    // `profiles` is the construction-profile roster: names and slugs only, the
+    // same for every address, so unlike everything else here it survives a change
+    // of location and is fetched at most once per page.
     var state = { mode: modes[0], idx: 0, idxA: 0, idxB: 0,
-                  presets: null, detected: null, building: null, detectedCtx: null,
+                  presets: null, profiles: null, buildSlug: null,
+                  detected: null, building: null, detectedCtx: null,
                   density: null, densityBuilds: {},
                   desc: null, error: null, initialized: false, idle: true };
     var touched = {};                 // field key -> true once the user edits it
@@ -464,9 +480,48 @@ window.LabelForm = (function () {
       });
     }
     function isSweep(m) { return m === "density" || m === "buildDensity"; }
-    // The construction profile the combined view sweeps. Shares `state.idx` with
-    // "What-if build", so a profile picked in one view carries into the other.
-    function sweepPreset() { return (state.presets || [])[state.idx] || null; }
+    // The profile list the combined view's picker is built from. Scored presets
+    // when we happen to have them (the reader visited "What-if build"), else the
+    // roster — same profiles, same order, from the same server constant, but
+    // without paying for five scored labels to fill a dropdown.
+    function profileList() { return state.presets || state.profiles || []; }
+    // The construction profile the combined view sweeps, tracked by SLUG rather
+    // than by list position: the list can arrive from either source, and an index
+    // into the wrong one silently sweeps the wrong build.
+    function sweepPreset() {
+      var list = profileList();
+      if (!list.length) return null;
+      if (state.buildSlug) {
+        for (var i = 0; i < list.length; i++) {
+          if (list[i] && list[i].preset === state.buildSlug) return list[i];
+        }
+      }
+      // No slug, or one that names nothing in this list: the picker shows the
+      // first entry (no <option> carries `selected`), so the sweep must mean the
+      // same one. A list whose entries have no slugs at all lands here too, and
+      // loadDensity's guard refuses it rather than sweeping a generic home.
+      return list[0];
+    }
+    // Default profile for the combined view: whatever "What-if build" would show
+    // (ICF Passive when present — see applyDefaults), else the first entry.
+    function defaultSlug(list) {
+      for (var i = 0; i < list.length; i++) {
+        if (list[i] && /icf|passive/i.test(list[i].name || "") && list[i].preset) return list[i].preset;
+      }
+      return (list[0] || {}).preset || null;   // never undefined: an absent slug is null
+    }
+    // Keep the two profile-picking views agreed: entering the combined view adopts
+    // the profile "What-if build" is showing, and vice versa. Slugs, not indices.
+    function syncSlugFromIdx() {
+      var p = (state.presets || [])[state.idx];
+      if (p && p.preset) state.buildSlug = p.preset;
+    }
+    function syncIdxFromSlug() {
+      var ps = state.presets || [];
+      for (var i = 0; i < ps.length; i++) {
+        if (ps[i] && ps[i].preset === state.buildSlug) { state.idx = i; return; }
+      }
+    }
     function toggleBar() {
       var ms = availableModes();
       if (ms.length < 2) return "";     // single-mode widget → no toggle
@@ -487,6 +542,15 @@ window.LabelForm = (function () {
     function pickerSel(cls, id, val) {
       return '<select class="' + cls + '" id="' + id + '">' + state.presets.map(function (p, i) {
         return '<option value="' + i + '"' + (i === val ? ' selected' : '') + '>' + esc(p.name) + '</option>';
+      }).join("") + '</select>';
+    }
+    // The combined view's picker carries slugs, not positions — its list may come
+    // from the roster or from scored presets, and only the slug means the same
+    // thing in both.
+    function sweepPickerSel(cls, id) {
+      return '<select class="' + cls + '" id="' + id + '">' + profileList().map(function (p) {
+        return '<option value="' + esc(p.preset) + '"' + (p.preset === state.buildSlug ? ' selected' : '')
+          + '>' + esc(p.name) + '</option>';
       }).join("") + '</select>';
     }
     // The "typical comparable" for a Single profile is the Baseline preset here.
@@ -542,19 +606,20 @@ window.LabelForm = (function () {
         return;
       }
       // Density paints into its own persistent panel below, so it never waits on
-      // the card skeleton here. The combined view still waits on the preset list
-      // — that's what its profile picker is built from — but not on a card.
+      // the card skeleton here. The combined view waits only on the profile list
+      // — that's what its picker is built from — and that list is a constant, not
+      // a scored result, so this is a blink rather than five scoring passes.
       var loadingData = state.mode === "density" ? false
-        : state.mode === "buildDensity" ? !state.presets
+        : state.mode === "buildDensity" ? !profileList().length
         : state.mode === "detected" ? !state.detected : !state.presets;
       if (loadingData) {
         app.innerHTML = loadingHtml();
         if (densWrap) densWrap.hidden = true;
         return;
       }
-      var loc0 = state.mode === "detected" || state.mode === "density"
-        ? ((state.detected || {}).location || {})
-        : (((state.presets || [])[0] || {}).location || {});
+      var loc0 = state.mode === "single" || state.mode === "compare"
+        ? (((state.presets || [])[0] || {}).location || {})
+        : ((state.detected || {}).location || {});
       // Say the address back, not the city the API resolved it to.
       var locName = enteredAddress() || loc0.label || loc0.county_name || "";
       var scoredWhat = state.mode === "detected" ? "This home scored at"
@@ -572,7 +637,7 @@ window.LabelForm = (function () {
         // Only the profile picker: the sweep for the picked build paints into
         // the density panel right below, same as the detected sweep does.
         html += '<div class="picker"><label for="' + uid + 'd-sel">Construction profile: </label>'
-          + pickerSel("lf-d-sel", uid + "d-sel", state.idx) + '</div>';
+          + sweepPickerSel("lf-d-sel", uid + "d-sel") + '</div>';
       } else if (state.mode === "detected") {
         html += detectedCard() + gradeLegend();
       } else if (state.mode === "single") {
@@ -666,6 +731,7 @@ window.LabelForm = (function () {
             + '. The home that’s there now is ignored.</p>' + html;
         }
       }
+      densResult.classList.remove("is-busy");   // fresh numbers — undim
       densResult.innerHTML = html;
     }
     // Picking either sweep runs the comparison straight away — it's a view, not a
@@ -708,15 +774,28 @@ window.LabelForm = (function () {
       var seq = ++reqSeq;
       var build = state.mode === "buildDensity" ? sweepPreset() : null;
       render();
-      densResult.innerHTML = "";
       // Without a slug there's no way to ask for this build, and a request with
       // the profile dropped would sweep a generic home under the profile's name
       // — a wrong answer wearing the right label. Say so instead of scoring it.
       if (build && !sweepSlug(build)) {
+        densResult.innerHTML = "";
+        densResult.classList.remove("is-busy");
         densStatus.error("Could not compare densities",
           "The " + build.name + " profile came back without an identifier, so it "
           + "can’t be built at other densities here.");
         return;
+      }
+      // Don't empty the panel. Switching profiles used to blank the table for the
+      // whole round trip, which reads as "broken" rather than "working" — the
+      // numbers vanish and nothing takes their place. A table left up but dimmed
+      // (the same treatment a re-scoring card gets) reads as superseded, and the
+      // busy banner right above it says what's happening. Only the first sweep,
+      // with nothing to keep, gets a skeleton.
+      if (densResult.querySelector("table")) {
+        densResult.classList.add("is-busy");
+      } else {
+        densResult.classList.remove("is-busy");
+        densResult.innerHTML = densitySkeleton();
       }
       densStatus.busy(build ? "Comparing densities for the " + build.name + " build…"
                             : "Comparing densities on this lot…",
@@ -736,6 +815,9 @@ window.LabelForm = (function () {
         })
         .catch(function (err) {
           if (seq !== reqSeq) return;
+          // The stale table stays, but undimmed: it is the last real answer, and
+          // leaving it greyed out under an error would imply it's still updating.
+          densResult.classList.remove("is-busy");
           densStatus.error("Could not compare densities", err.message);
         });
     }
@@ -803,6 +885,34 @@ window.LabelForm = (function () {
       };
     }
     function persistLocation() { if (persist) { syncUrl(state.desc || null); saveLast(state.desc || null); } }
+
+    // The construction-profile roster: names and slugs, no scores. The combined
+    // view only needs the profiles NAMED to offer them and to ask for one by
+    // slug, but the only list available used to be /presets — five complete
+    // scored labels, several seconds of work, to populate a dropdown, all of it
+    // ahead of the sweep the reader actually asked for. This is the roster alone.
+    // It is the same for every address, so it is fetched at most once per page
+    // and survives a change of location.
+    var profilesPending = null;         // in-flight promise → never fetched twice
+    function loadProfiles() {
+      if (!API_BASE || state.profiles || profilesPending) return profilesPending;
+      profilesPending = fetch(API_BASE + "/preset-profiles")
+        .then(okJson)
+        .then(function (data) {
+          var ps = (data && data.profiles) || [];
+          if (!ps.length) throw new Error("no profiles returned");
+          state.profiles = ps;
+          if (!state.buildSlug) state.buildSlug = defaultSlug(ps);
+          return ps;
+        })
+        .catch(function () {
+          // Not fatal and not worth a banner: the scored /presets list is the
+          // fallback, and ensureData falls back to it on the next pass.
+          profilesPending = null;
+          return null;
+        });
+      return profilesPending;
+    }
     // Name the place in the confirmation — the entered address first, the
     // payload's city/county label only when there isn't one.
     function scoredAt(data) {
@@ -824,11 +934,14 @@ window.LabelForm = (function () {
           if (!ps.length) throw new Error("no presets returned");
           state.presets = ps; applyDefaults();
           state.idx = clampIdx(state.idx); state.idxA = clampIdx(state.idxA); state.idxB = clampIdx(state.idxB);
+          // Scored presets are a superset of the roster, so they also serve the
+          // combined view's picker — and keep the two views on the same profile.
+          if (!state.buildSlug) syncSlugFromIdx(); else syncIdxFromSlug();
           persistLocation(); setFormBusy(false); render();
           mainStatus.done("Profiles scored", ps.length + " construction profiles scored at "
             + scoredAt(ps[0]) + ".");
-          // The profiles were only the first half of the combined view — run the
-          // sweep for the picked one now that there is a profile to sweep.
+          // Only relevant if the roster never arrived and this was the fallback
+          // route into the combined view — otherwise the sweep is already running.
           if (state.mode === "buildDensity") loadDensity(false);
         })
         .catch(fail(seq));
@@ -869,11 +982,22 @@ window.LabelForm = (function () {
     function ensureData() {
       if (state.mode === "density") loadDensity(false);
       else if (state.mode === "detected") loadDetected(false);
-      // The combined view needs the profile list before it can sweep one:
-      // loadPresets() re-enters here once they land.
-      else if (state.mode === "buildDensity" && !state.presets) loadPresets();
-      else if (state.mode === "buildDensity") loadDensity(false);
+      else if (state.mode === "buildDensity") ensureBuildDensity();
       else loadPresets();
+    }
+    // The combined view needs a profile list before it can sweep one — but only
+    // the NAMES, so it waits on the roster (a constant) rather than on five
+    // scored labels. If the roster can't be had, the scored list is the fallback.
+    function ensureBuildDensity() {
+      if (profileList().length) { loadDensity(false); return; }
+      var pending = loadProfiles();
+      if (!pending) { loadPresets(); return; }
+      render();                        // skeleton while the roster is in flight
+      pending.then(function (ps) {
+        if (state.mode !== "buildDensity") return;   // reader moved on
+        if (ps && ps.length) { render(); loadDensity(false); }
+        else loadPresets();                          // roster failed → scored list
+      });
     }
     function load(desc) {
       state.idle = false;               // a location was requested — leave the prompt state
@@ -962,11 +1086,30 @@ window.LabelForm = (function () {
       var b = e.target.closest ? e.target.closest("button[data-mode]") : null;
       if (b) setMode(b.getAttribute("data-mode"));
     });
+    // Prefetch on intent: a pointer resting on the combined view's button, a
+    // finger landing on it, or a keyboard tab onto it all mean the click is
+    // probably coming, and the roster is the one thing that gates the picker.
+    // Fetching it now takes it off the click's critical path entirely. Only the
+    // roster — a constant, cached for a day — never the sweep, which is a real
+    // scoring request that shares the reader's rate-limit budget.
+    if (wantBuildDensity) {
+      ["mouseover", "focusin", "touchstart"].forEach(function (ev) {
+        app.addEventListener(ev, function (e) {
+          var t = e.target;
+          if (t && t.closest && t.closest('button[data-mode="buildDensity"]')) loadProfiles();
+        }, { passive: true });
+      });
+    }
     app.addEventListener("change", function (e) {
       var t = e.target;
       // The combined view's picker changes what gets swept, not just what's
       // drawn, so it goes through the loader (cached profiles repaint instantly).
-      if (t.classList.contains("lf-d-sel")) { state.idx = +t.value; loadDensity(false); return; }
+      if (t.classList.contains("lf-d-sel")) {
+        state.buildSlug = t.value;     // slug, not position
+        syncIdxFromSlug();             // carry the choice into "What-if build"
+        loadDensity(false);
+        return;
+      }
       if (t.classList.contains("lf-p-sel")) state.idx = +t.value;
       else if (t.classList.contains("lf-a-sel")) state.idxA = +t.value;
       else if (t.classList.contains("lf-b-sel")) state.idxB = +t.value;
@@ -976,6 +1119,14 @@ window.LabelForm = (function () {
     function setMode(m) {
       if (m === state.mode || modes.indexOf(m) < 0) return;
       state.mode = m; state.error = null;
+      // The two profile-picking views stay on the same build as the reader moves
+      // between them — by slug, since their lists can come from different places.
+      if (m === "buildDensity") {
+        if (!state.buildSlug) syncSlugFromIdx();
+        if (!state.buildSlug) state.buildSlug = defaultSlug(profileList());
+      } else if (m === "single" || m === "compare") {
+        syncIdxFromSlug();
+      }
       syncRefineVisibility(); ensureData();
     }
 

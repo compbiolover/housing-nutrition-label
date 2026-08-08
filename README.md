@@ -290,6 +290,7 @@ The static site can score **any US address** via a small HTTP wrapper around the
 ```bash
 pip install -e ".[api]"               # FastAPI + uvicorn
 housing-api                            # no API keys required; GET /label?address=... (or ?lat=&lon=), GET /suggest?q=..., GET /healthz
+                                       # also: /presets (all profiles scored here), /preset-profiles (their names only), /density (same lot, 1-4 homes)
 ```
 
 <details>
