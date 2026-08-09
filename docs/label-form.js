@@ -627,11 +627,17 @@ window.LabelForm = (function () {
     function render() {
       if (!API_BASE) { app.innerHTML = ""; return; }
       if (state.idle) {
-        // Nothing scored yet — prompt for input rather than auto-scoring a default.
-        var locateHint = wantGeo ? " or use <strong>your location</strong>" : "";
-        app.innerHTML = '<div class="insight label-prompt">Enter a U.S. address or place name above'
-          + locateHint + ' to generate its nutrition label. You can search by street address '
-          + '(<em>111 S Grand Ave, Los Angeles</em>) or by the name of a place or business.</div>';
+        // Nothing scored yet — say so rather than auto-scoring a default.
+        //
+        // Kept to one line, because this panel sits immediately below the address
+        // field and the buttons, and the long version restated all three: it
+        // opened with the field's own placeholder ("Enter a U.S. address or place
+        // name…") almost verbatim, repeated that placeholder's example address,
+        // re-described the "Use my location" button, and re-described what "Score
+        // this address" does. What survives is what the controls don't say — that
+        // the result lands here, and that a business name resolves too.
+        app.innerHTML = '<div class="insight label-prompt">Your label will appear here. '
+          + 'You can search by street address, or by the name of a place or business.</div>';
         if (densWrap) densWrap.hidden = true;
         return;
       }
