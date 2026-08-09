@@ -444,6 +444,33 @@ deployed URL with `?api=https://your-api-host` or `window.HOUSING_LABEL_API`. Se
 
 </details>
 
+<details>
+<summary><strong>API keys &amp; usage limits</strong></summary>
+
+**No key is needed, and on your own instance none exists.** Every caller is anonymous
+unless the operator has issued keys, and an anonymous caller is unmetered — which is what
+callers have always had, and what keeps `pip install` → `housing-api` the same program the
+licence invites you to self-host.
+
+Where the operator *has* issued keys, sending one (`X-API-Key: …`, or `?key=…`) buys two
+things: a rate-limit bucket of your own instead of one shared with everybody behind the
+same address, and your plan's daily allowance of scoring passes. It does not buy different
+numbers — a scored address returns the same label on every plan, and it always will.
+
+Metering counts **scoring passes, not requests**: `/label` is one, `/presets` is five,
+a four-scenario `/density` is four. `GET /usage` reports the calling key's plan, what it
+has spent today and when that resets; metered replies also carry `X-Quota-Limit`,
+`X-Quota-Remaining` and `X-Quota-Used`. Exhausting the day returns **429**, and a request
+rejected as invalid is never charged.
+
+Operators: `HOUSING_LABEL_KEYS` issues keys as comma-separated `plan:key` entries (keys are
+SHA-256 hashed at parse, and only the digest is kept), and `ANON_DAILY_SCORES` sets the
+ceiling for callers without one — unset, meaning unmetered. Counters live in the serving
+process and reset on deploy: enough to enforce a daily ceiling, not an invoice. See
+[`src/housing_label/entitlements.py`](src/housing_label/entitlements.py).
+
+</details>
+
 ## Project Structure
 
 <details>
@@ -696,6 +723,29 @@ Two things worth being explicit about:
   The Census, FEMA, EPA, NREL, USGS, NOAA and CDC inputs are US federal works in the
   public domain. This license covers the scoring engine, the models, and the derived
   crosswalks — not the public facts they are built from.
+
+### Commercial use
+
+Most commercial use needs nothing from anyone. Scoring your own portfolio, running the
+engine inside your own product, publishing what you find — all of that is ordinary
+permitted use under the license above, paid or not. The line the license draws is
+narrow: you may not use this to offer a *competing* housing-label product or service.
+Commercial licenses for exactly that are available — open an issue or get in touch.
+
+Two things the license does **not** decide, and which are worth asking about before
+building on this commercially:
+
+- **Displaying the label off-site is a trademark question, not a code question.** The
+  mark is what a right-to-display would be granted under, and it is licensed separately
+  ([TRADEMARKS.md](TRADEMARKS.md)). There is no badge or embed endpoint yet; when there
+  is, referential use will stay free and syndication at scale will be the thing that
+  needs a license.
+- **Certification is not on offer.** TRADEMARKS.md reserves "offering a certification
+  bearing the marks", and that reservation is deliberate: a label paid for by the party
+  being rated has an incentive problem that no disclaimer fixes. The scoring path holds
+  Health and Socioeconomic out of both headline axes for a related reason — see
+  [`research/monetization-research.md`](research/monetization-research.md) for the
+  evidence behind both calls.
 
 ## Trademarks
 
