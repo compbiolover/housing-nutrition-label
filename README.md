@@ -306,6 +306,7 @@ else can join it from a Census bulk file) skips it entirely.
 | `id` | passed through untouched — your key for joining results back |
 | `lat`, `lon` | required (or `address`, which needs `--fetch`) |
 | `tract` / `county_fips` | pre-joined geography; `tract` alone implies county and state |
+| `street`, `city`, `state`, `zip` | used by `--geocode` (or a single `address`) |
 | `year_built`, `sqft`, `construction`, … | any house field the simulator accepts |
 | `upgrades`, `preset`, `flood_zone` | optional |
 
@@ -321,9 +322,25 @@ a book you're reconciling.
 a portfolio grade answers "which tenth of my book is worst". Both are reported, never
 merged.
 
-Omit the geography columns and the run still works, but it carries no tract and the eight
-location dimensions come back unscored — visible in `n_scored`, never filled with a
-placeholder.
+### Only have addresses?
+
+`--geocode` runs a pre-pass through the **Census batch geocoder**, which takes 10,000
+addresses per request and returns coordinates *and* the census tract — about two requests
+per 10,000 parcels, against one per parcel for the per-address geocoder. That turns a book
+of addresses into one that scores offline:
+
+```bash
+housing-batch --input addresses.csv --output scored.csv --geocode
+```
+
+Rows that already carry a tract are left alone rather than re-looked-up. An address the
+Census can't place is reported with the reason it gave (`geocode: No_Match`) instead of
+being guessed at — a fabricated coordinate would score a real parcel against the wrong
+neighborhood.
+
+Omit the geography columns and skip `--geocode`, and the run still works, but it carries no
+tract and the eight location dimensions come back unscored — visible in `n_scored`, never
+filled with a placeholder.
 
 ## Address-search API
 
