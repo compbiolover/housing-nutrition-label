@@ -338,6 +338,24 @@ Census can't place is reported with the reason it gave (`geocode: No_Match`) ins
 being guessed at — a fabricated coordinate would score a real parcel against the wrong
 neighborhood.
 
+Add `--geocode-cache geo.sqlite` and a re-run asks the Census only about addresses it
+hasn't seen before:
+
+```bash
+housing-batch -i addresses.csv -o scored.csv --geocode --geocode-cache geo.sqlite
+```
+
+Results are committed per chunk, so a run that dies at row 380,000 keeps everything it had
+already resolved — which is what makes a multi-hour geocode restartable. Non-matches are
+cached too (otherwise a book with 5% bad addresses re-requests that 5% every run);
+`--retry-misses-after DAYS` re-looks-up stale ones, since the Census does add addresses.
+Matches never expire — an address doesn't move.
+
+The cache key includes the Census **benchmark and vintage**, not just the address. Those
+pins move and TIGER redraws tracts, so a cache keyed on the address alone would keep
+serving the old tract after a benchmark change, with every downstream score computed
+against the wrong geography and nothing reporting a problem.
+
 Omit the geography columns and skip `--geocode`, and the run still works, but it carries no
 tract and the eight location dimensions come back unscored — visible in `n_scored`, never
 filled with a placeholder.

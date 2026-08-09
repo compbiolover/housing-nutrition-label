@@ -182,28 +182,56 @@ def geocode_chunk(addresses: list[tuple[str, str, str, str, str]],
 
 
 def geocode_rows(rows: Iterable[dict], *, chunk_size: int = MAX_BATCH,
-                 session=None) -> Iterator[GeocodeResult]:
-    """Geocode input rows, yielding a result per row.
+                 session=None, cache=None,
+                 max_miss_age_days: float | None = None) -> Iterator[GeocodeResult]:
+    """Geocode input rows, yielding one result per row **in input order**.
 
     Each row needs an ``id`` plus either ``street``/``city``/``state``/``zip`` or
     a single ``address``. A whole chunk that fails in transport yields per-row
     failures rather than raising: one bad chunk out of forty should cost forty
     rows' worth of geography, not the entire run.
+
+    ``cache`` is an optional ``geocode_cache.GeocodeCache``. Rows it can answer
+    never reach the endpoint. Order is preserved even when only some rows hit:
+    yielding hits the moment they are found would reorder the stream against the
+    input, and a caller zipping the two lists would mismatch every parcel after
+    the first hit — silently, and only when caching happened to be on.
     """
+    from dataclasses import replace
+
     chunk_size = max(1, min(int(chunk_size), MAX_BATCH))
+
+    def cache_key(rec):
+        from housing_label.geocode_cache import address_key
+        return address_key(rec[1], rec[2], rec[3], rec[4])
+
+    # Input order, each entry either a resolved result or a record still to send.
+    pending: list[tuple[str, object]] = []
     batch: list[tuple[str, str, str, str, str]] = []
 
     def flush():
-        if not batch:
-            return []
-        try:
-            found = geocode_chunk(batch, session=session)
-        except Exception as exc:  # noqa: BLE001
-            log.warning("geocode chunk of %d failed: %s", len(batch), exc)
-            found = {rid: GeocodeResult(id=rid, matched=False,
-                                        status=f"geocoder error: {exc}")
-                     for rid, *_ in batch}
-        return [found[rid] for rid, *_ in batch]
+        nonlocal pending, batch
+        found = {}
+        if batch:
+            try:
+                found = geocode_chunk(batch, session=session)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("geocode chunk of %d failed: %s", len(batch), exc)
+                found = {rid: GeocodeResult(id=rid, matched=False,
+                                            status=f"geocoder error: {exc}")
+                         for rid, *_ in batch}
+            if cache is not None:
+                # Per chunk, not at the end, so a run that dies keeps what it had
+                # already resolved. Transport failures are deliberately NOT
+                # cached: they say nothing about the address, and persisting one
+                # would poison that entry until the file was cleared by hand.
+                cache.put_many([(cache_key(rec), found[rec[0]]) for rec in batch
+                                if not found[rec[0]].status.startswith(
+                                    "geocoder error")])
+        out = [payload if kind == "hit" else found[payload[0]]
+               for kind, payload in pending]
+        pending, batch = [], []
+        return out
 
     for i, row in enumerate(rows):
         rid = str(row.get("id") or i)
@@ -213,8 +241,21 @@ def geocode_rows(rows: Iterable[dict], *, chunk_size: int = MAX_BATCH,
                    (row.get("state") or "").strip(), (row.get("zip") or "").strip())
         else:
             rec = (rid, *split_address(row.get("address") or ""))
-        batch.append(rec)
-        if len(batch) >= chunk_size:
+
+        hit = None
+        if cache is not None:
+            hit = cache.get(cache_key(rec), max_age_days=max_miss_age_days)
+        if hit is not None:
+            # A cached row is keyed on the address, so it carries no id of its
+            # own — reattach this row's or the caller cannot join it back.
+            pending.append(("hit", replace(hit, id=rid)))
+        else:
+            pending.append(("todo", rec))
+            batch.append(rec)
+
+        # Bound memory on both axes: a book that is entirely cache hits would
+        # otherwise grow `pending` without ever filling `batch`.
+        if len(batch) >= chunk_size or len(pending) >= chunk_size:
             yield from flush()
-            batch = []
+
     yield from flush()
