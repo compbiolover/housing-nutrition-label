@@ -229,7 +229,9 @@ def test_run_batch_csv_round_trip():
         f"B,35.15,-89.85,{SHELBY_TRACT},2020\n")
     out = io.StringIO()
     summary = B.run_batch(inp, out, allow_network=False, portfolio=True)
-    assert summary == {"rows": 2, "scored": 2, "failed": 0}
+    # Subset rather than equality: the summary grows keys over time, and a test
+    # that breaks on every addition teaches people to update it without reading.
+    assert summary["rows"] == 2 and summary["scored"] == 2 and summary["failed"] == 0
 
     import csv as _csv
     rows = list(_csv.DictReader(io.StringIO(out.getvalue())))
@@ -242,7 +244,7 @@ def test_run_batch_csv_round_trip():
 def test_header_only_input_is_an_empty_run_not_a_crash():
     out = io.StringIO()
     summary = B.run_batch(io.StringIO("id,lat,lon\n"), out, allow_network=False)
-    assert summary == {"rows": 0, "scored": 0, "failed": 0}
+    assert summary["rows"] == 0 and summary["scored"] == 0 and summary["failed"] == 0
     assert out.getvalue().strip().startswith("id,lat,lon,tract")
 
 
@@ -253,6 +255,196 @@ def test_missing_header_is_rejected():
         assert "header" in str(exc)
     else:
         raise AssertionError("a headerless CSV should be rejected")
+
+
+# ── Concurrency ──────────────────────────────────────────────────────────────
+def test_jobs_does_not_change_the_output():
+    """--jobs must be invisible in the result — same rows, same order, same values.
+
+    Order is the trap: yielding each row as its future completes would reorder the
+    stream against the input, so a customer joining the output back to their book
+    by position would attach every score to the wrong parcel. Nothing would look
+    wrong; every row is a real score of a real parcel.
+    """
+    rows = [dict(_rows()[0], id=f"P{i}", year_built=str(1900 + i * 3))
+            for i in range(50)]
+    serial = list(B.score_rows(rows, allow_network=False, jobs=1))
+    threaded = list(B.score_rows(rows, allow_network=False, jobs=4))
+    assert [r["id"] for r in threaded] == [r["id"] for r in serial]
+    assert threaded == serial
+
+
+def test_jobs_window_boundary_keeps_order():
+    """The pool submits in windows of jobs*8, so a run that does not divide evenly
+    into windows exercises the trailing partial batch — the place an off-by-one
+    would drop or duplicate rows."""
+    for n in (1, 8, 16, 17, 33):
+        rows = [dict(_rows()[0], id=f"P{i}") for i in range(n)]
+        recs = list(B.score_rows(rows, allow_network=False, jobs=2))
+        assert [r["id"] for r in recs] == [f"P{i}" for i in range(n)], n
+
+
+# ── Resume ───────────────────────────────────────────────────────────────────
+def _resume_input(n=20):
+    lines = ["id,lat,lon,tract,year_built"]
+    for i in range(n):
+        lines.append(f"P{i},35.15,-89.85,{SHELBY_TRACT},{1900 + i * 5}")
+    return "\n".join(lines) + "\n"
+
+
+def test_resume_produces_the_same_file_as_an_uninterrupted_run():
+    """The property that makes --resume safe to reach for: byte-for-byte identical.
+
+    Anything less and a resumed 400,000-row job is a different artifact from the
+    one it was meant to complete, which is unusable for the reconciliation that is
+    the whole point of running it.
+    """
+    import tempfile
+    from pathlib import Path
+
+    src = _resume_input()
+    whole = io.StringIO()
+    B.run_batch(io.StringIO(src), whole, allow_network=False)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "out.csv"
+        # A run that died after 7 rows.
+        head = io.StringIO()
+        B.run_batch(io.StringIO("\n".join(src.split("\n")[:8]) + "\n"), head,
+                    allow_network=False)
+        path.write_text(head.getvalue(), newline="")
+
+        offset = B.resume_offset(path)
+        assert offset == 7
+        with path.open("a", newline="") as f:
+            summary = B.run_batch(io.StringIO(src), f, allow_network=False,
+                                  resume_from=offset)
+        assert summary["rows"] == 13 and summary["resumed_from"] == 7
+        # newline="" on both sides: csv writes \r\n, and letting the reader
+        # translate it would compare something neither run produced.
+        with path.open(newline="") as f:
+            assert f.read() == whole.getvalue()
+
+
+def test_resume_on_a_first_run_is_a_no_op():
+    """A resumable job should be launched the same way every time, including the
+    first — so a missing output file is 0 rows, not an error."""
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory() as tmp:
+        assert B.resume_offset(Path(tmp) / "nope.csv") == 0
+        empty = Path(tmp) / "empty.csv"
+        empty.write_text("")
+        assert B.resume_offset(empty) == 0
+
+
+def test_resume_refuses_an_output_written_with_different_columns():
+    """The silent corruption this guards: --portfolio-grades flipped between runs
+    adds 28 columns, and appending anyway would line the CSV up while making every
+    appended cell mean something different from the ones above it."""
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "out.csv"
+        out = io.StringIO()
+        B.run_batch(io.StringIO(_resume_input(3)), out, allow_network=False,
+                    portfolio=True)
+        path.write_text(out.getvalue(), newline="")
+
+        assert B.resume_offset(path, portfolio=True) == 3
+        try:
+            B.resume_offset(path, portfolio=False)
+        except ValueError as exc:
+            assert "different columns" in str(exc)
+        else:
+            raise AssertionError("a mismatched header should be refused")
+
+
+def test_resume_skips_by_position_not_by_id():
+    """Real exports repeat ids — the same property on two loans is routine — so a
+    skip keyed on them would drop the wrong rows."""
+    src = ("id,lat,lon,tract\n"
+           + "".join(f"DUP,35.15,-89.85,{SHELBY_TRACT}\n" for _ in range(5)))
+    out = io.StringIO()
+    summary = B.run_batch(io.StringIO(src), out, allow_network=False, resume_from=3)
+    assert summary["rows"] == 2
+    # And no header, because the file being appended to already has one.
+    assert not out.getvalue().startswith("id,lat")
+
+
+# ── Defaulted-input provenance ───────────────────────────────────────────────
+def test_a_row_with_no_building_attributes_says_so():
+    """The finding this whole column exists for: an attribute-free row is scored as
+    a 2024 wood-frame slab 2,000 sqft house in flood zone X, which grades ~A on the
+    Building axis — and n_scored still reads 13/13. Nothing in the output
+    distinguished that from a measured A."""
+    rec = next(B.score_rows([{"lat": "35.15", "lon": "-89.85", "tract": SHELBY_TRACT}],
+                            allow_network=False))
+    assert rec["error"] is None and rec["n_scored"] == 13
+    assert rec["building_source"] == "defaulted"
+    defaulted = rec["defaulted_inputs"].split(",")
+    assert "year_built" in defaulted
+    # Offline every parcel in the country defaults to zone X (minimal) — the best
+    # of the three — so a book of coastal AE properties would otherwise read as
+    # though none of them were in a floodplain.
+    assert "flood_zone" in defaulted
+    assert rec["building_score"] > 70, "the default house grades optimistically"
+
+
+def test_a_fully_specified_row_reads_supplied():
+    rec = next(B.score_rows(_rows({"construction": "frame", "foundation": "crawl",
+                                   "condition": "fair", "flood_zone": "AE"}),
+                            allow_network=False))
+    assert rec["error"] is None
+    assert rec["building_source"] == "supplied"
+    assert rec["defaulted_inputs"] == ""
+
+
+def test_a_partly_specified_row_names_the_missing_fields():
+    """Three states, not two: 'partial' is the common case in real books, and
+    lumping it with either extreme would misdescribe most of a run."""
+    rec = next(B.score_rows(_rows(), allow_network=False))     # year_built + sqft
+    assert rec["building_source"] == "partial"
+    missing = set(rec["defaulted_inputs"].split(","))
+    assert "year_built" not in missing and "sqft" not in missing
+    assert {"construction", "foundation", "condition", "flood_zone"} <= missing
+
+
+def test_defaults_move_the_building_grade_by_most_of_the_scale():
+    """States the size of the error, so the warning is not taken as pedantry: the
+    same tract scores A or F on the Building axis depending only on whether the
+    attributes were supplied."""
+    # Same tract, same flood zone, so the ONLY difference is whether the building
+    # attributes were supplied.
+    blank = next(B.score_rows([{"lat": "35.15", "lon": "-89.85",
+                                "tract": SHELBY_TRACT, "flood_zone": "AE"}],
+                              allow_network=False))
+    real = next(B.score_rows(_rows({"year_built": "1948", "condition": "poor",
+                                    "construction": "frame", "foundation": "crawl",
+                                    "flood_zone": "AE"}),
+                             allow_network=False))
+    assert blank["building_source"] == "defaulted"
+    assert real["building_source"] == "supplied"
+    assert blank["building_score"] - real["building_score"] > 40
+    # The Site half barely moves — 0.4 of a point here, and only because Air
+    # Quality reads the foundation for radon exposure. That asymmetry is why the
+    # provenance is reported for the building half specifically instead of the
+    # whole row being discarded: Site-only scoring is a legitimate product for a
+    # customer who holds no building data.
+    assert abs(blank["site_score"] - real["site_score"]) < 1.0
+
+
+def test_the_run_summary_counts_rows_scored_on_defaults():
+    out = io.StringIO()
+    src = ("id,lat,lon,tract,year_built,construction,foundation,condition,sqft,"
+           "flood_zone\n"
+           f"bare,35.15,-89.85,{SHELBY_TRACT},,,,,,\n"
+           f"full,35.15,-89.85,{SHELBY_TRACT},1948,frame,crawl,poor,1400,AE\n")
+    summary = B.run_batch(io.StringIO(src), out, allow_network=False)
+    assert summary["defaulted_building"] == 1
+    assert summary["scored"] == 2
 
 
 def _run_all():

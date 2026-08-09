@@ -169,11 +169,60 @@ def output_fieldnames(portfolio: bool = False) -> list[str]:
     cols += ["composite_score", "composite_national_grade",
              "building_score", "building_national_grade",
              "site_score", "site_national_grade",
-             "n_scored", "error"]
+             # Provenance for the building half. Without these a defaulted
+             # building grade is indistinguishable from a measured one, and the
+             # default is optimistic — see _building_provenance.
+             "n_scored", "building_source", "defaulted_inputs", "error"]
     if portfolio:
         for key in DIM_KEYS + ["composite"]:
             cols += [f"{key}_portfolio_pct", f"{key}_portfolio_grade"]
     return cols
+
+
+# The building inputs that actually move the construction-driven dimensions. A row
+# missing all of these is scored as a 2024 wood-frame slab-on-grade 2,000 sqft
+# house (simulate/house.py GLOBAL_DEFAULTS), which grades ~A on the Building axis.
+_SCORING_INPUTS = ("year_built", "construction", "foundation", "condition", "sqft")
+
+
+def _building_provenance(parsed: dict, payload: dict) -> tuple[str, str]:
+    """(building_source, defaulted_inputs) for one scored row.
+
+    Reads the per-field ``status`` the engine already records in
+    ``payload["building"]`` (``confirmed`` = supplied, ``estimated`` = derived from
+    public data, ``assumed`` = a typical default). That provenance existed all
+    along and batch simply dropped it, so a bulk consumer saw an Energy or
+    Durability score with no signal that it came from a fabricated house.
+
+    This matters more in bulk than it does for one address. Durability has no
+    geographic input at all, so across an attribute-free book it is *constant*;
+    Energy and Environmental move only with the county. The defaults are also not
+    neutral — a 2024 build and flood zone X are both near the optimistic end — so
+    the error is a systematic portfolio-wide bias, not noise that averages out.
+    """
+    building = payload.get("building") or {}
+    defaulted = [f for f in _SCORING_INPUTS
+                 if (building.get(f) or {}).get("status") == "assumed"]
+
+    # Flood zone is not part of the building block but defaults the same way, and
+    # offline it defaults for EVERY row in the country to X (minimal) — the best
+    # of the three. A book of coastal AE properties would otherwise score as
+    # though none of them were in a floodplain.
+    if not parsed.get("flood_zone"):
+        defaulted.append("flood_zone")
+
+    if not defaulted:
+        source = "supplied"
+    elif all(f in defaulted for f in _SCORING_INPUTS):
+        # Every building input assumed, so the Building grade describes the
+        # default house and nothing about this parcel. Keyed on the building
+        # fields alone rather than on the whole list: a row that supplied only a
+        # flood zone would otherwise read "partial" while its Building axis was
+        # entirely fabricated, which is the reading this column exists to prevent.
+        source = "defaulted"
+    else:
+        source = "partial"
+    return source, ",".join(defaulted)
 
 
 def _record(parsed: dict, payload: dict | None, error: str | None) -> dict:
@@ -215,57 +264,98 @@ def _record(parsed: dict, payload: dict | None, error: str | None) -> dict:
     rec["site_score"] = payload.get("location_score")
     rec["site_national_grade"] = payload.get("location_national_grade")
     rec["n_scored"] = payload.get("n_scored")
+    rec["building_source"], rec["defaulted_inputs"] = _building_provenance(parsed, payload)
     return rec
 
 
-def score_rows(rows: Iterable[dict], *, allow_network: bool = False) -> Iterator[dict]:
-    """Score an iterable of input rows, yielding one flat record each.
+def score_one(row: dict, index: int = 0, *, allow_network: bool = False) -> dict:
+    """Score a single input row into a flat record. Never raises.
+
+    Split out of ``score_rows`` so the concurrent path can map it, and so both
+    paths produce byte-identical records — a row must not score differently
+    depending on whether --jobs was passed.
+    """
+    # Identity is captured from the RAW row before anything can fail, so a row
+    # that dies in parsing still comes back joinable. Recovering it from `parsed`
+    # would lose exactly the rows that need it most: parse_row raises before it
+    # returns, so the id would be gone for every malformed row.
+    ident = {"id": _clean(row.get("id")),
+             "lat": _clean(row.get("lat")), "lon": _clean(row.get("lon"))}
+    # A row the batch geocoder could not place is reported with the reason it
+    # gave, and not retried. Left to fall through it would fail later on a generic
+    # "could not geocode" — blaming the scorer for something the geocoder already
+    # answered, and spending a per-address lookup to learn it a second time.
+    geo_status = _clean(row.get("_geocode_status"))
+    if geo_status:
+        return _record(ident, None, f"geocode: {geo_status}")
+
+    parsed = None
+    try:
+        parsed = parse_row(row)
+        cfg, r, label = build_label_parts(
+            address=parsed["address"],
+            lat=parsed["lat"], lon=parsed["lon"],
+            preset=parsed["preset"], flood_zone=parsed["flood_zone"],
+            upgrades=parsed["upgrades"], geography=parsed["geography"],
+            allow_network=allow_network,
+            # Bulk input is an assertion that these are the parcels to score;
+            # screening them out one at a time would drop rows from a book the
+            # customer says is residential. Non-residential parcels still score
+            # honestly — they simply aren't refused.
+            allow_non_residential=True,
+            **parsed["fields"])
+        return _record(parsed, label_payload(cfg, r, label), None)
+    except NonResidentialProperty as exc:
+        return _record(parsed or ident, None, f"non-residential: {exc}")
+    except (ValueError, TypeError) as exc:
+        return _record(parsed or ident, None, str(exc))
+    except Exception as exc:  # noqa: BLE001 — one bad parcel must not end the run
+        log.warning("row %d failed: %s", index, exc, exc_info=True)
+        return _record(parsed or ident, None, f"{type(exc).__name__}: {exc}")
+
+
+def score_rows(rows: Iterable[dict], *, allow_network: bool = False,
+               jobs: int = 1) -> Iterator[dict]:
+    """Score an iterable of input rows, yielding one record each, in input order.
 
     A row that cannot be scored yields a record carrying its identity columns and
     an ``error`` string rather than raising. That is the difference between a
     400,000-row job that reports 12 bad addresses and one that dies on row 39,000
     — and the bad rows are exactly what the customer needs handed back.
-    """
-    for i, row in enumerate(rows):
-        # Identity is captured from the RAW row before anything can fail, so a row
-        # that dies in parsing still comes back joinable. Recovering it from
-        # `parsed` would lose exactly the rows that need it most: parse_row raises
-        # before it returns, so the id would be gone for every malformed row.
-        ident = {"id": _clean(row.get("id")),
-                 "lat": _clean(row.get("lat")), "lon": _clean(row.get("lon"))}
-        # A row the batch geocoder could not place is reported with the reason it
-        # gave, and not retried. Left to fall through it would fail later on a
-        # generic "could not geocode" — blaming the scorer for something the
-        # geocoder already answered, and spending a per-address lookup to learn it
-        # a second time.
-        geo_status = _clean(row.get("_geocode_status"))
-        if geo_status:
-            yield _record(ident, None, f"geocode: {geo_status}")
-            continue
 
-        parsed = None
-        try:
-            parsed = parse_row(row)
-            cfg, r, label = build_label_parts(
-                address=parsed["address"],
-                lat=parsed["lat"], lon=parsed["lon"],
-                preset=parsed["preset"], flood_zone=parsed["flood_zone"],
-                upgrades=parsed["upgrades"], geography=parsed["geography"],
-                allow_network=allow_network,
-                # Bulk input is an assertion that these are the parcels to score;
-                # screening them out one at a time would drop rows from a book the
-                # customer says is residential. Non-residential parcels still score
-                # honestly — they simply aren't refused.
-                allow_non_residential=True,
-                **parsed["fields"])
-            yield _record(parsed, label_payload(cfg, r, label), None)
-        except NonResidentialProperty as exc:
-            yield _record(parsed or ident, None, f"non-residential: {exc}")
-        except (ValueError, TypeError) as exc:
-            yield _record(parsed or ident, None, str(exc))
-        except Exception as exc:  # noqa: BLE001 — one bad parcel must not end the run
-            log.warning("row %d failed: %s", i, exc, exc_info=True)
-            yield _record(parsed or ident, None, f"{type(exc).__name__}: {exc}")
+    ``jobs`` > 1 runs the scoring on a thread pool. That is worth doing ONLY when
+    the pass is making upstream calls: measured on offline scoring, four threads
+    ran at 0.89x of serial — pure GIL contention, since nothing releases it. With
+    ``allow_network`` the socket waits do release it and the pool is the whole
+    win. The CLI refuses --jobs without --fetch for that reason.
+    """
+    if jobs <= 1:
+        for i, row in enumerate(rows):
+            yield score_one(row, i, allow_network=allow_network)
+        return
+
+    from concurrent.futures import ThreadPoolExecutor
+
+    # Submit in windows rather than handing the whole iterable to
+    # ThreadPoolExecutor.map, which would materialise 400,000 rows and their
+    # futures at once. The window is what bounds memory; the pool bounds
+    # politeness to the upstreams.
+    window = max(jobs * 8, jobs)
+    with ThreadPoolExecutor(max_workers=jobs) as pool:
+        batch: list[tuple[int, dict]] = []
+        for i, row in enumerate(rows):
+            batch.append((i, row))
+            if len(batch) >= window:
+                # map preserves input order, which is the property that lets
+                # --jobs be invisible in the output.
+                yield from pool.map(
+                    lambda ir: score_one(ir[1], ir[0], allow_network=allow_network),
+                    batch)
+                batch = []
+        if batch:
+            yield from pool.map(
+                lambda ir: score_one(ir[1], ir[0], allow_network=allow_network),
+                batch)
 
 
 # ── Portfolio-relative grades ────────────────────────────────────────────────
@@ -389,10 +479,45 @@ def geocode_pass(rows: list[dict], *, chunk_size: int | None = None,
     return summary
 
 
+def resume_offset(path, portfolio: bool = False) -> int:
+    """How many input rows an existing output file already covers.
+
+    Returns 0 when the file doesn't exist, so ``--resume`` on a first run is a
+    no-op rather than an error — a resumable job should be launched the same way
+    every time, including the first.
+
+    Raises when the existing header is not the one this run would write. That
+    catches the case that would otherwise corrupt the file silently: appending
+    rows with a different column set (a ``--portfolio-grades`` flag flipped
+    between runs, or an output written by an older version). The columns would
+    line up in the CSV and mean different things.
+    """
+    from pathlib import Path
+
+    p = Path(path)
+    if not p.exists() or p.stat().st_size == 0:
+        return 0
+    expected = output_fieldnames(portfolio)
+    with p.open(newline="") as f:
+        reader = csv.reader(f)
+        header = next(reader, None)
+        if header is None:
+            return 0
+        if header != expected:
+            raise ValueError(
+                f"{p} was written with different columns, so --resume would append "
+                f"rows that don't line up with it. Its header has "
+                f"{len(header)} columns and this run writes {len(expected)}"
+                + (" (--portfolio-grades differs between the two runs)"
+                   if abs(len(header) - len(expected)) > 2 else "")
+                + ". Start a fresh output file, or re-run without --resume.")
+        return sum(1 for _ in reader)
+
+
 def run_batch(inp, out, *, allow_network: bool = False, portfolio: bool = False,
               geocode: bool = False, geocode_cache=None,
-              max_miss_age_days: float | None = None,
-              progress_every: int = 0) -> dict:
+              max_miss_age_days: float | None = None, jobs: int = 1,
+              resume_from: int = 0, progress_every: int = 0) -> dict:
     """Score ``inp`` (an open CSV reader source) into ``out``. Returns a summary.
 
     Streams when ``portfolio`` is off, so memory stays flat regardless of row
@@ -423,14 +548,29 @@ def run_batch(inp, out, *, allow_network: bool = False, portfolio: bool = False,
 
     writer = csv.DictWriter(out, fieldnames=output_fieldnames(portfolio),
                             extrasaction="ignore")
-    writer.writeheader()
+    if not resume_from:
+        writer.writeheader()
 
-    total = failed = 0
+    if resume_from:
+        # Skipping by POSITION, not by id: ids repeat in real exports, so keying
+        # the skip on them would drop the wrong rows. It does assume the same
+        # input file in the same order, which is why resume_offset() pins the
+        # existing header before this runs.
+        skipped = 0
+        for _ in source:
+            skipped += 1
+            if skipped >= resume_from:
+                break
+        log.info("resuming: skipped %d rows already present in the output", skipped)
+
+    total = failed = defaulted = 0
     held: list[dict] = []
-    for rec in score_rows(source, allow_network=allow_network):
+    for rec in score_rows(source, allow_network=allow_network, jobs=jobs):
         total += 1
         if rec.get("error"):
             failed += 1
+        elif rec.get("building_source") in ("defaulted", "partial"):
+            defaulted += 1
         if portfolio:
             held.append(rec)
         else:
@@ -442,7 +582,18 @@ def run_batch(inp, out, *, allow_network: bool = False, portfolio: bool = False,
         for rec in portfolio_grades(held):
             writer.writerow(rec)
 
-    summary = {"rows": total, "failed": failed, "scored": total - failed}
+    if defaulted:
+        # WARNING, not INFO. A 400,000-row book scored on default building
+        # attributes looks entirely normal — every row carries thirteen scores and
+        # a grade — and the defaults skew optimistic (a 2024 build, flood zone X),
+        # so nothing downstream looks wrong enough to prompt the question.
+        log.warning(
+            "%d of %d scored rows used default building attributes; their Building "
+            "grade describes a typical house, not this one. See the "
+            "building_source / defaulted_inputs columns.", defaulted, total - failed)
+
+    summary = {"rows": total, "failed": failed, "scored": total - failed,
+               "defaulted_building": defaulted, "resumed_from": resume_from}
     if geo_summary is not None:
         summary["geocode"] = geo_summary
     return summary
@@ -485,6 +636,16 @@ def main() -> None:
                    help="Re-look-up cached NON-matches older than this many days. "
                         "Matches never expire — an address does not move — but the "
                         "Census does add addresses over time.")
+    p.add_argument("--jobs", "-j", type=int, default=1, metavar="N",
+                   help="Score N rows concurrently. Only meaningful with --fetch: "
+                        "measured on offline scoring, four threads ran at 0.89x of "
+                        "serial (nothing releases the GIL), so it is refused "
+                        "without it. Keep it modest — the constraint on a --fetch "
+                        "run is politeness to free government endpoints, not cores.")
+    p.add_argument("--resume", action="store_true",
+                   help="Continue an interrupted run: skip the rows the output "
+                        "file already covers and append. Refuses if that file was "
+                        "written with different columns.")
     p.add_argument("--progress", type=int, default=1000, metavar="N",
                    help="Log progress every N rows (0 to disable).")
     args = p.parse_args()
@@ -499,15 +660,34 @@ def main() -> None:
     if args.retry_misses_after is not None and not args.geocode_cache:
         p.error("--retry-misses-after re-looks-up CACHED non-matches, so it needs "
                 "--geocode-cache; without a cache nothing is remembered to retry.")
+    # A flag that silently does nothing is worse than one that is rejected.
+    if args.jobs > 1 and not args.fetch:
+        p.error("--jobs only helps when the run is making upstream calls; offline "
+                "it measured 0.89x of serial (GIL contention). Add --fetch, or "
+                "drop --jobs.")
+    if args.jobs < 1:
+        p.error("--jobs must be at least 1")
+    if args.resume and args.portfolio_grades:
+        p.error("--resume cannot be combined with --portfolio-grades: ranking needs "
+                "every score before it can write any, so that mode writes nothing "
+                "until the end and leaves nothing partial to resume from.")
+    if args.resume and args.output == "-":
+        p.error("--resume needs a real output file to count; it cannot resume stdout.")
+
+    resume_from = resume_offset(args.output, args.portfolio_grades) if args.resume else 0
+    if resume_from:
+        log.info("found %d rows already scored in %s", resume_from, args.output)
 
     fin = sys.stdin if args.input == "-" else open(args.input, newline="")
-    fout = sys.stdout if args.output == "-" else open(args.output, "w", newline="")
+    mode = "a" if resume_from else "w"
+    fout = sys.stdout if args.output == "-" else open(args.output, mode, newline="")
     try:
         summary = run_batch(fin, fout, allow_network=args.fetch,
                             portfolio=args.portfolio_grades,
                             geocode=args.geocode,
                             geocode_cache=args.geocode_cache,
                             max_miss_age_days=args.retry_misses_after,
+                            jobs=args.jobs, resume_from=resume_from,
                             progress_every=args.progress)
     finally:
         if fin is not sys.stdin:
