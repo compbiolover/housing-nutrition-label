@@ -20,6 +20,7 @@ The goal: give homebuyers, renters, insurers, and policymakers an at-a-glance un
 - [Scoring System](#scoring-system)
 - [Data Sources](#data-sources)
 - [House Simulator](#house-simulator)
+- [Bulk scoring](#bulk-scoring)
 - [Address-search API](#address-search-api)
 - [Project Structure](#project-structure)
 - [Tech Stack](#tech-stack)
@@ -55,7 +56,7 @@ address / lat-lon  →  location resolve   →  per-dimension models   →  nutr
  tract lookups)
 ```
 
-The thirteen dimensions are scored per address on demand using the shared `enrich/` model libraries: the five construction-driven ones from the house configuration, and the eight location-driven ones from the resolved location. There is no offline batch step; the same models back both the CLI simulator and the address-search API.
+The thirteen dimensions are scored per address on demand using the shared `enrich/` model libraries: the five construction-driven ones from the house configuration, and the eight location-driven ones from the resolved location. There is no separate offline scoring engine: the CLI simulator, the address-search API, and [bulk scoring](#bulk-scoring) all run the same models over the same code path, so a parcel scored three ways returns one answer.
 
 ## Scored Dimensions
 
@@ -281,6 +282,48 @@ to credit solar/efficiency-avoided kWh at the marginal rate (CONUS only, with th
 </details>
 
 The website nutrition label at [housinglabel.dev/label.html](https://housinglabel.dev/label.html) is scored live by the HTTP API (this simulator behind `/label` and `/presets`) and rendered by the shared [`docs/label-core.js`](docs/label-core.js), the same renderer the home-page address search uses, so there is no static snapshot to regenerate.
+
+## Bulk scoring
+
+Score a whole portfolio in one pass — a lender's book, an assessor's roll, a city's
+parcels — with `housing-batch`. CSV in, CSV out, one row per parcel:
+
+```bash
+housing-batch --input book.csv --output scored.csv --portfolio-grades
+```
+
+**Supply a census tract per row and the entire run needs no network at all**, scoring
+all thirteen dimensions at roughly 580 parcels/sec on one core — about 11 minutes for
+400,000. (Add a one-off ~1.5 s at startup while the bundled reference tables decode, so a
+50-row test measures far slower than a real run; the rate above is steady state.)
+That works because only one upstream call is ever load-bearing — the Census geocode that
+turns a point into a county and tract — and every crosswalk keyed off them is bundled. A
+caller who already holds the tract (lenders, insurers and assessors generally do; anyone
+else can join it from a Census bulk file) skips it entirely.
+
+| Input column | What it does |
+|---|---|
+| `id` | passed through untouched — your key for joining results back |
+| `lat`, `lon` | required (or `address`, which needs `--fetch`) |
+| `tract` / `county_fips` | pre-joined geography; `tract` alone implies county and state |
+| `year_built`, `sqft`, `construction`, … | any house field the simulator accepts |
+| `upgrades`, `preset`, `flood_zone` | optional |
+
+Unknown columns are ignored, so a customer export can be fed in unmodified.
+
+Output carries every dimension's score, national grade and national percentile, the
+composite, both headline axes, and `n_scored`. Rows that can't be scored keep their `id`
+and carry an `error` — a bad parcel never ends the run, and never silently vanishes from
+a book you're reconciling.
+
+`--portfolio-grades` adds a second, clearly separate ranking: where each parcel falls
+**within this batch**. A national grade answers "how does this compare to US housing";
+a portfolio grade answers "which tenth of my book is worst". Both are reported, never
+merged.
+
+Omit the geography columns and the run still works, but it carries no tract and the eight
+location dimensions come back unscored — visible in `n_scored`, never filled with a
+placeholder.
 
 ## Address-search API
 

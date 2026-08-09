@@ -2488,19 +2488,43 @@ _NON_RES_OCC_CLS = frozenset({
 _RES_OCC_CLS = "RESIDENTIAL"
 
 
+# Every house override build_label_parts accepts through **fields. Kept as data so
+# the guard below can reject anything else by name rather than ignoring it.
+_HOUSE_FIELDS = frozenset({
+    "year_built", "construction", "foundation", "condition", "value", "units",
+    "sqft", "lot_acres", "bldg_material", "stories", "owner_occupied",
+    "water_source", "sewer", "lot_context",
+})
+
+
 def build_label_parts(*, address: str | None = None,
                       lat: float | None = None, lon: float | None = None,
                       preset: str | None = None, flood_zone: str | None = None,
                       allow_network: bool = True, overrides: dict | None = None,
                       upgrades: list[str] | None = None, location=None,
                       allow_non_residential: bool = False,
+                      geography: dict | None = None,
                       **fields) -> tuple[dict, dict, dict]:
     """Resolve a location, build the house config, and run the full simulation.
 
-    Returns (cfg, r, label). ``fields`` may carry house overrides (year_built,
-    construction, foundation, condition, value, units, sqft, lot_acres) and
-    ``upgrades`` is a list of resilience-upgrade flag names (see BONUS_FLAGS).
-    Mirrors the CLI flow so both share one code path.
+    Returns (cfg, r, label). ``upgrades`` is a list of resilience-upgrade flag
+    names (see BONUS_FLAGS). Mirrors the CLI flow so both share one code path.
+
+    ``fields`` may carry any of the house overrides in ``_HOUSE_FIELDS``:
+    ``year_built``, ``construction``, ``foundation``, ``condition``, ``value``,
+    ``units``, ``sqft``, ``lot_acres``, ``bldg_material``, ``stories``,
+    ``owner_occupied``, ``water_source``, ``sewer``, ``lot_context``. Anything
+    else raises — so this list has to stay complete, and ``_HOUSE_FIELDS`` is the
+    thing that actually enforces it.
+
+    ``geography`` forwards a pre-joined Census geography (county_fips, tract, …)
+    straight to ``resolve_location``, which then skips the geocoder. That call is
+    the ONLY network hop needed to learn a point's county and tract, and every
+    crosswalk keyed off them is bundled — so a caller who already knows the FIPS
+    scores all thirteen dimensions with no network at all. Without it, an offline
+    run carries no tract and silently unscores the eight location dimensions.
+    This is what makes bulk scoring viable (housing_label.batch); it is mutually
+    exclusive with ``address``, which says "go look it up".
 
     Raises ``NonResidentialProperty`` when a real address (no ``preset``) resolves
     to a building NSI positively classifies as non-residential — unless
@@ -2513,21 +2537,51 @@ def build_label_parts(*, address: str | None = None,
     from argparse import Namespace
     from housing_label.simulate.location import resolve_location
 
+    # **fields is a convenience, not a licence to accept anything. It used to
+    # swallow unknown keyword arguments in silence, which is the worst possible
+    # failure for this function: passing geography= before it was a real parameter
+    # dropped it into fields, scored the parcel with no tract, and returned a label
+    # with eight dimensions quietly unscored and no error anywhere. A caller
+    # mistyping year_bult would get the same silence.
+    unknown = set(fields) - _HOUSE_FIELDS
+    if unknown:
+        raise TypeError(
+            f"build_label_parts() got unexpected house field(s): "
+            f"{', '.join(sorted(unknown))}. Valid fields: "
+            f"{', '.join(sorted(_HOUSE_FIELDS))}.")
+
     # A caller may pass a pre-resolved location to reuse (skips geocoding — used
     # when scoring a baseline comparable at the same place for the cost strip).
     if location is not None:
         lat, lon = location.lat, location.lon
     elif address:
+        if geography is not None:
+            raise ValueError(
+                "Pass either address= or geography=, not both: geography says the "
+                "point's county/tract are already known, address says to geocode "
+                "for them.")
         try:
             location = resolve_location(address=address, allow_network=allow_network)
         except Exception as exc:  # noqa: BLE001 — surface as a clean validation error
             raise ValueError(f"Could not geocode address {address!r}: {exc}") from exc
         lat, lon = location.lat, location.lon
     else:
+        # A geography without coordinates must not quietly inherit the Shelby
+        # default: that pairs the caller's tract with a point a thousand miles
+        # away and returns a Location that is internally incoherent — Memphis
+        # coordinates carrying a Chicago tract — with no error anywhere. The
+        # default exists for "score the pilot parcel", which is a different
+        # request from "score the place I just told you about".
+        if geography is not None and (lat is None or lon is None):
+            raise ValueError(
+                "geography= requires lat and lon: the geography names the county "
+                "and tract, but the point is what the parcel-level models (flood "
+                "zone, seismic, solar, road noise) are evaluated at.")
         lat = lat if lat is not None else SHELBY_LAT
         lon = lon if lon is not None else SHELBY_LON
         try:
-            location = resolve_location(lat=lat, lon=lon, allow_network=allow_network)
+            location = resolve_location(lat=lat, lon=lon, allow_network=allow_network,
+                                        geography=geography)
         except Exception:  # noqa: BLE001
             location = None
 
