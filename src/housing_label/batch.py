@@ -189,10 +189,20 @@ def _building_provenance(parsed: dict, payload: dict) -> tuple[str, str]:
     """(building_source, defaulted_inputs) for one scored row.
 
     Reads the per-field ``status`` the engine already records in
-    ``payload["building"]`` (``confirmed`` = supplied, ``estimated`` = derived from
-    public data, ``assumed`` = a typical default). That provenance existed all
-    along and batch simply dropped it, so a bulk consumer saw an Energy or
-    Durability score with no signal that it came from a fabricated house.
+    ``payload["building"]``. That provenance existed all along and batch simply
+    dropped it, so a bulk consumer saw an Energy or Durability score with no
+    signal that it came from a fabricated house.
+
+    Only ``assumed`` is flagged. The engine distinguishes three states —
+    ``confirmed`` (the caller gave it), ``estimated`` (derived from public data
+    about *this* parcel, e.g. a footprint from USA Structures) and ``assumed`` (a
+    typical default) — and these columns deliberately collapse the first two.
+    The question they answer is "does the Building grade describe this house or a
+    generic one", and an estimate measured off this parcel describes this house.
+    So ``supplied`` here means "not assumed", which is a slightly loose name for
+    a --fetch run; it is the right cut for the claim being made. Anyone widening
+    this to separate estimates should add a third column rather than change what
+    ``supplied`` means, since consumers will already be filtering on it.
 
     This matters more in bulk than it does for one address. Durability has no
     geographic input at all, so across an attribute-free book it is *constant*;
@@ -504,13 +514,21 @@ def resume_offset(path, portfolio: bool = False) -> int:
         if header is None:
             return 0
         if header != expected:
+            # Report the first column that actually differs rather than guessing at
+            # a cause. An earlier version inferred "--portfolio-grades differs"
+            # from the column count, which reads as a diagnosis and would be a
+            # confident wrong one for a file written by an older version — the
+            # same overstatement these provenance columns exist to avoid.
+            where = next((f"first difference at column {i + 1}: "
+                          f"{h!r} vs {e!r}"
+                          for i, (h, e) in enumerate(zip(header, expected))
+                          if h != e),
+                         "they share a common prefix and differ only in length")
             raise ValueError(
                 f"{p} was written with different columns, so --resume would append "
-                f"rows that don't line up with it. Its header has "
-                f"{len(header)} columns and this run writes {len(expected)}"
-                + (" (--portfolio-grades differs between the two runs)"
-                   if abs(len(header) - len(expected)) > 2 else "")
-                + ". Start a fresh output file, or re-run without --resume.")
+                f"rows that don't line up with it. Its header has {len(header)} "
+                f"columns and this run writes {len(expected)}; {where}. "
+                f"Start a fresh output file, or re-run without --resume.")
         return sum(1 for _ in reader)
 
 
@@ -563,14 +581,16 @@ def run_batch(inp, out, *, allow_network: bool = False, portfolio: bool = False,
                 break
         log.info("resuming: skipped %d rows already present in the output", skipped)
 
-    total = failed = defaulted = 0
+    total = failed = defaulted = partial = 0
     held: list[dict] = []
     for rec in score_rows(source, allow_network=allow_network, jobs=jobs):
         total += 1
         if rec.get("error"):
             failed += 1
-        elif rec.get("building_source") in ("defaulted", "partial"):
+        elif rec.get("building_source") == "defaulted":
             defaulted += 1
+        elif rec.get("building_source") == "partial":
+            partial += 1
         if portfolio:
             held.append(rec)
         else:
@@ -582,18 +602,30 @@ def run_batch(inp, out, *, allow_network: bool = False, portfolio: bool = False,
         for rec in portfolio_grades(held):
             writer.writerow(rec)
 
+    # WARNING, not INFO. A 400,000-row book scored on default building attributes
+    # looks entirely normal — every row carries thirteen scores and a grade — and
+    # the defaults skew optimistic (a 2024 build, flood zone X), so nothing
+    # downstream looks wrong enough to prompt the question.
+    #
+    # The two counts are reported separately because they support different
+    # claims, and merging them would overstate the milder one — which is the exact
+    # failure these columns exist to prevent. A fully defaulted row's Building
+    # grade describes a generic house; a partial row's describes this house, less
+    # precisely.
     if defaulted:
-        # WARNING, not INFO. A 400,000-row book scored on default building
-        # attributes looks entirely normal — every row carries thirteen scores and
-        # a grade — and the defaults skew optimistic (a 2024 build, flood zone X),
-        # so nothing downstream looks wrong enough to prompt the question.
         log.warning(
-            "%d of %d scored rows used default building attributes; their Building "
-            "grade describes a typical house, not this one. See the "
+            "%d of %d scored rows supplied no building attributes at all; their "
+            "Building grade describes a typical house, not this one. See the "
             "building_source / defaulted_inputs columns.", defaulted, total - failed)
+    if partial:
+        log.warning(
+            "%d of %d scored rows were missing some building attributes; the "
+            "missing ones were filled with typical defaults, named per row in "
+            "defaulted_inputs.", partial, total - failed)
 
     summary = {"rows": total, "failed": failed, "scored": total - failed,
-               "defaulted_building": defaulted, "resumed_from": resume_from}
+               "defaulted_building": defaulted, "partial_building": partial,
+               "resumed_from": resume_from}
     if geo_summary is not None:
         summary["geocode"] = geo_summary
     return summary

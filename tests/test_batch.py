@@ -436,15 +436,20 @@ def test_defaults_move_the_building_grade_by_most_of_the_scale():
     assert abs(blank["site_score"] - real["site_score"]) < 1.0
 
 
-def test_the_run_summary_counts_rows_scored_on_defaults():
+def test_the_run_summary_counts_defaulted_and_partial_separately():
+    """Merging the two would overstate the milder one — a partial row's Building
+    grade does describe this house, just less precisely — and overstating a caveat
+    is the same defect as omitting one."""
     out = io.StringIO()
     src = ("id,lat,lon,tract,year_built,construction,foundation,condition,sqft,"
            "flood_zone\n"
            f"bare,35.15,-89.85,{SHELBY_TRACT},,,,,,\n"
+           f"some,35.15,-89.85,{SHELBY_TRACT},1948,,,,1400,\n"
            f"full,35.15,-89.85,{SHELBY_TRACT},1948,frame,crawl,poor,1400,AE\n")
     summary = B.run_batch(io.StringIO(src), out, allow_network=False)
+    assert summary["scored"] == 3
     assert summary["defaulted_building"] == 1
-    assert summary["scored"] == 2
+    assert summary["partial_building"] == 1
 
 
 def _run_all():

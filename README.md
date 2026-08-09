@@ -348,7 +348,9 @@ So every scored row reports where its building inputs came from:
 | `building_source` | `supplied` (nothing assumed) · `partial` (some assumed) · `defaulted` (every building input assumed) |
 | `defaulted_inputs` | the field names that were assumed, e.g. `construction,foundation,condition,flood_zone` |
 
-and a run with any of them logs a warning naming the count. Nothing is refused:
+and a run logs a warning naming the count — separately for the two, because a
+partial row's Building grade does describe this house, just less precisely.
+Nothing is refused:
 scoring the Site half for a customer who holds no building data is a legitimate use —
 the point is only that a defaulted A can never be mistaken for a measured one.
 
