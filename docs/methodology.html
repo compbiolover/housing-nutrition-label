@@ -88,7 +88,7 @@
 <section>
   <h1>How the scores work</h1>
   <p>Each of the thirteen dimensions is scored from 0 to 100. Every score starts with a short, plain-language summary of what it tells you; open <strong>&ldquo;How it&rsquo;s calculated&rdquo;</strong> under any dimension for the full method, data sources, and formulas. Everything is built from public data and documented so the numbers can be checked.</p>
-  <div class="insight"><strong>Where the data comes from:</strong> the label scores any U.S. address using national datasets: FEMA, USGS, EPA, CDC, the Census Bureau, and the EIA. It began as a pilot in one county (Shelby County, TN), and a few cost-model baselines are still being generalized nationwide. Wherever one of those still applies, the label flags it, so a score is never presented as more locally precise than it is.</p>
+  <div class="insight"><strong>Where the data comes from:</strong> the label scores any U.S. address using national datasets: FEMA, USGS, EPA, CDC, the Census Bureau, and the EIA. It began as a pilot in one county (Shelby County, TN), and a few cost-model baselines are still being generalized nationwide. Wherever one of those still applies, the label flags it, so a score is never presented as more locally precise than it is. <a href="#sources">Every dataset used</a>.
   </div>
 </section>
 
@@ -367,12 +367,43 @@
   </div>
 </section>
 
-<section>
+<section id="grades">
   <h2>The grade and the national percentile</h2>
   <p class="plain">Every dimension gets a <strong>national grade</strong> (how the home compares to the whole country) plus a <strong>national percentile</strong> (&ldquo;vs US homes&rdquo;) showing where it lands in that national distribution.</p>
   <p><strong>National absolute grade:</strong> A &ge; 80, B &ge; 60, C &ge; 40, D &ge; 20, F &lt; 20. Calibrated for national comparison, a Grade B means the same thing anywhere in the country.</p>
   <p><strong>National percentile:</strong> e.g. &ldquo;72nd US&rdquo;, the share of comparable U.S. homes this dimension beats, from a bundled national reference distribution.</p>
   <p><strong>Composite score:</strong> the average of the dimensions that could be scored. Dimensions with no data (for example, a location dimension whose census tract can't be resolved) are left out rather than counted as zero, so a strong home isn't dragged down by a missing input.</p>
+</section>
+
+<!-- Moved here from the home page, where seventeen rows of sourcing detail were
+     the last thing before the footer. This page already opens by naming these
+     agencies, and each dimension above cites its own inputs; this is the roster
+     in one place. -->
+<section id="sources">
+  <h2>Every dataset used</h2>
+  <p>Every row is free and keyless &mdash; scoring a U.S. address needs no API key at all, and several of these ship bundled with the package. The dimension sections above say how each one is used.</p>
+  <div class="table-scroll"><table class="data-table">
+    <thead><tr><th>Source</th><th>Provides</th><th>Access</th></tr></thead>
+    <tbody>
+      <tr><td>USACE National Structure Inventory</td><td>Building details auto-filled from the address (sqft, stories, foundation, material, year)</td><td class="free">Free, public</td></tr>
+      <tr><td>FEMA NFHL</td><td>Flood zone designations</td><td class="free">Free, no key</td></tr>
+      <tr><td>NOAA Climate Normals</td><td>Temperature, degree days, precipitation</td><td class="free">Free, no key</td></tr>
+      <tr><td>USGS NSHM</td><td>Seismic hazard (PGA values)</td><td class="free">Free, no key</td></tr>
+      <tr><td>FEMA National Risk Index</td><td>Tornado &amp; wildfire expected annual loss</td><td class="free">Free, no key</td></tr>
+      <tr><td>NREL ResStock 2024</td><td>Energy use intensity benchmarks (building type &times; climate zone &times; vintage) + foundation/HVAC factors</td><td class="free">Free, reference data</td></tr>
+      <tr><td>EIA state utility rates</td><td>Residential electricity &amp; gas prices by state</td><td class="free">Free, reference data</td></tr>
+      <tr><td>EPA eGRID2023 Rev 2</td><td>Grid carbon intensity: average rate (environmental footprint)</td><td class="free">Free, reference data</td></tr>
+      <tr><td>NREL Cambium 2023 LRMER</td><td>Long-run marginal grid emissions: credits solar/efficiency-avoided kWh</td><td class="free">Free, reference data (CC&nbsp;BY&nbsp;4.0)</td></tr>
+      <tr><td>USGS CMIP6-LOCA2</td><td>Sub-county climate-hazard projections</td><td class="free">Free, no key</td></tr>
+      <tr><td>CDC PLACES</td><td>Health metrics by census tract</td><td class="free">Free, no key</td></tr>
+      <tr><td>CDC Tracking + EPA radon zones</td><td>Air quality: PM2.5 &amp; ozone by tract, radon by county</td><td class="free">Free, no key (bundled)</td></tr>
+      <tr><td>US DOT BTS National Transportation Noise Map</td><td>Transportation-noise exposure by census tract</td><td class="free">Free, no key (bundled)</td></tr>
+      <tr><td>PVGIS (EU JRC) on NREL NSRDB</td><td>Rooftop solar specific yield by county</td><td class="free">Free, no key (bundled)</td></tr>
+      <tr><td>EPA SDWIS federal reporting</td><td>Drinking-water compliance (health-based violations) by county</td><td class="free">Free, no key (bundled)</td></tr>
+      <tr><td>Census ACS 5-yr Summary File</td><td>Socioeconomic indicators (national reference)</td><td class="free">Free, no key (bundled)</td></tr>
+      <tr><td>EPA National Walkability Index</td><td>Walkability by census tract</td><td class="free">Free, public domain (bundled)</td></tr>
+    </tbody>
+  </table></div>
 </section>
 </main>
 
