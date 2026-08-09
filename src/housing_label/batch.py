@@ -489,6 +489,17 @@ def main() -> None:
                    help="Log progress every N rows (0 to disable).")
     args = p.parse_args()
 
+    # A flag that silently does nothing is worse than one that is rejected: a
+    # reader who passes --geocode-cache and sees a clean run has every reason to
+    # believe caching is on, and will not find out otherwise until the second run
+    # is just as slow as the first.
+    if args.geocode_cache and not args.geocode:
+        p.error("--geocode-cache only applies to the geocoding pre-pass; add "
+                "--geocode (or drop it).")
+    if args.retry_misses_after is not None and not args.geocode_cache:
+        p.error("--retry-misses-after re-looks-up CACHED non-matches, so it needs "
+                "--geocode-cache; without a cache nothing is remembered to retry.")
+
     fin = sys.stdin if args.input == "-" else open(args.input, newline="")
     fout = sys.stdout if args.output == "-" else open(args.output, "w", newline="")
     try:

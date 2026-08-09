@@ -107,13 +107,25 @@ class GeocodeCache:
                              (str(SCHEMA_VERSION),))
             self._db.commit()
             return
-        if int(row[0]) != SCHEMA_VERSION:
-            # Refuse rather than guess at an older layout. The cache is
-            # reconstructible by definition — deleting it costs requests, not data
-            # — so a clear error beats reading columns that may have moved.
-            raise ValueError(
-                f"{self.path} was written by geocode cache schema v{row[0]}, this "
-                f"is v{SCHEMA_VERSION}. Delete the file to rebuild it.")
+        try:
+            found = int(row[0])
+        except (TypeError, ValueError):
+            found = None                    # corrupted, not merely older
+        if found == SCHEMA_VERSION:
+            return
+        # Refuse rather than guess at another layout. The cache is reconstructible
+        # by definition — deleting it costs requests, not data — so a clear error
+        # beats reading columns that may have moved.
+        #
+        # Close FIRST. The remedy this message gives is "delete the file", and
+        # raising with the connection still open holds a lock on exactly that
+        # file — on Windows the delete then fails, so the error would be telling
+        # the reader to do something it had just made impossible.
+        self._db.close()
+        seen = f"v{row[0]}" if found is not None else f"an unreadable version ({row[0]!r})"
+        raise ValueError(
+            f"{self.path} was written by geocode cache schema {seen}, this is "
+            f"v{SCHEMA_VERSION}. Delete the file to rebuild it.")
 
     # ── reads ────────────────────────────────────────────────────────────────
     def get(self, key: str, *, max_age_days: float | None = None

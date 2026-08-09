@@ -117,6 +117,38 @@ def test_schema_version_mismatch_is_refused_not_guessed_at():
         raise AssertionError("a foreign schema version should be refused")
 
 
+def test_the_refusal_releases_the_file_it_tells_you_to_delete():
+    """The error says "delete the file". Raising with the connection still open
+    holds a lock on exactly that file — on Windows the delete then fails, so the
+    message would be telling the reader to do something it had just prevented."""
+    import os
+    path = _tmp()
+    with GC.GeocodeCache(path) as c:
+        c._db.execute("UPDATE meta SET v = '999' WHERE k = 'schema_version'")
+        c._db.commit()
+    try:
+        GC.GeocodeCache(path)
+    except ValueError:
+        pass
+    os.remove(path)          # would raise PermissionError on a locked handle
+    assert not path.exists()
+
+
+def test_a_corrupted_version_is_refused_readably():
+    """int('zzz') would raise ValueError too, but with a message about parsing
+    rather than about the cache — and from a line that never closed the file."""
+    path = _tmp()
+    with GC.GeocodeCache(path) as c:
+        c._db.execute("UPDATE meta SET v = 'zzz' WHERE k = 'schema_version'")
+        c._db.commit()
+    try:
+        GC.GeocodeCache(path)
+    except ValueError as exc:
+        assert "unreadable version" in str(exc) and "Delete" in str(exc)
+    else:
+        raise AssertionError("a corrupted schema version should be refused")
+
+
 # ── Integration with geocode_rows ────────────────────────────────────────────
 def _counting_transport(mapping, calls):
     def fake(payload, session=None):
