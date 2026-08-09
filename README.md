@@ -445,6 +445,44 @@ deployed URL with `?api=https://your-api-host` or `window.HOUSING_LABEL_API`. Se
 </details>
 
 <details>
+<summary><strong>Embeddable badge</strong></summary>
+
+`GET /badge?address=...` returns the label as a standalone **SVG**, for putting on a page
+that isn't ours:
+
+```html
+<a href="https://housinglabel.dev/label.html">
+  <img src="https://your-api-host/badge?address=123%20Main%20St,%20Memphis,%20TN"
+       width="360" height="116"
+       alt="Housing Nutrition Label — the building and the site, graded">
+</a>
+```
+
+It renders inside a plain `<img>`: no script, no CORS, no build step on the host page.
+`style=full|compact`, `theme=auto|light|dark` (auto follows the reader's own setting, via a
+media query that browsers honour even inside an `<img>`), and `label_text=` overrides the
+caption for a caller who has already formatted the address.
+
+**It shows two grades, not one** — the building and the site, the same split the label page
+leads with and the one [`research/building-vs-location-subscores.md`](research/building-vs-location-subscores.md)
+argues for. A single letter would travel further and would be the wrong number: the two
+axes disagreeing is the information. An axis that couldn't be scored reads *not scored*
+rather than being rounded down to an F.
+
+Two things follow from the `<img>` constraint and are worth knowing before you embed.
+Browsers disable links inside an `<img>`-loaded SVG, so the badge can't click through on
+its own — wrap it in an anchor as above, and the wordmark is drawn into the image so
+attribution survives if you don't. And there are no web fonts, so text falls back to the
+reader's system stack; the layout is positioned rather than fitted, and long addresses
+truncate.
+
+The badge carries the trademark, which is licensed separately from the code — see
+[TRADEMARKS.md](TRADEMARKS.md). Displaying it unmodified, with attribution, is referential
+use and needs no permission.
+
+</details>
+
+<details>
 <summary><strong>API keys &amp; usage limits</strong></summary>
 
 **No key is needed, and on your own instance none exists.** Every caller is anonymous
@@ -456,6 +494,12 @@ Where the operator *has* issued keys, sending one as an `X-API-Key` header buys 
 things: a rate-limit bucket of your own instead of one shared with everybody behind the
 same address, and your plan's daily allowance of scoring passes. It does not buy different
 numbers — a scored address returns the same label on every plan, and it always will.
+
+Anonymous callers are counted too, one row each: a badge is attributed to the **site
+embedding it** (the `Referer`'s host, so a thousand readers of one page are one embedder),
+and everything else to the calling address. That is attribution, not authentication — a
+`Referer` is trivially forged, and it counts cooperative callers correctly without
+stopping an uncooperative one.
 
 `?key=` also works and is **not** equivalent. A query string is part of the request line,
 so it lands in the server's access log, any proxy in front of it, browser history, and the

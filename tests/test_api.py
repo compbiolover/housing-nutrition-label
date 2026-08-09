@@ -1132,6 +1132,81 @@ def test_healthz_and_the_roster_need_no_key_and_cost_nothing():
         assert client.get("/healthz", headers={"X-API-Key": "k_bad"}).json() == {"ok": True}
 
 
+def test_the_badge_is_served_as_an_embeddable_image():
+    """It has to work in a plain <img> on someone else's page: right media type,
+    publicly cacheable, and typed firmly enough that a proxy can't re-decide."""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_the_badge_is_served_as_an_embeddable_image (fastapi not installed)")
+        return
+    import xml.etree.ElementTree as ET
+    with _keys(), _offline() as api:
+        client = TestClient(api.app)
+        r = client.get("/badge", params=_OFFLINE_PARAMS)
+        assert r.status_code == 200
+        assert r.headers["content-type"].startswith("image/svg+xml")
+        assert r.headers["Cache-Control"] == "public, max-age=3600"
+        assert r.headers["X-Content-Type-Options"] == "nosniff"
+        ET.fromstring(r.text)
+        # A badge and the label page must never disagree about a house.
+        lbl = client.get("/label", params=_OFFLINE_PARAMS).json()
+        assert lbl["construction_national_grade"] in r.text
+        assert lbl["location_national_grade"] in r.text
+        # Bad enum values are refused rather than silently defaulted.
+        for bad in ({"style": "enormous"}, {"theme": "drak"}, {"preset": "nope"}):
+            assert client.get("/badge", params={**_OFFLINE_PARAMS, **bad}).status_code == 400
+        assert client.get("/badge").status_code == 400, "a badge needs a location"
+
+
+def test_a_badge_costs_one_pass_and_a_key_bearing_badge_url_is_not_cached():
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_a_badge_costs_one_pass_and_a_key_bearing_badge_url_is_not_cached (fastapi not installed)")
+        return
+    from housing_label.entitlements import Plan
+    with _keys("pro:k_badge", plans={"pro": Plan("pro", 100)}), _offline() as api:
+        client = TestClient(api.app)
+        hdr = {"X-API-Key": "k_badge"}
+        before = client.get("/usage", headers=hdr).json()["used_today"]
+        client.get("/badge", params=_OFFLINE_PARAMS, headers=hdr)
+        assert client.get("/usage", headers=hdr).json()["used_today"] - before == 1
+        # `?key=` still wins over `public, max-age=3600` — a credential in a URL
+        # must not be written into a shared cache, badge or not.
+        keyed = client.get("/badge", params={**_OFFLINE_PARAMS, "key": "k_badge"})
+        assert keyed.status_code == 200
+        assert keyed.headers["Cache-Control"] == "no-store"
+
+
+def test_anonymous_callers_are_metered_per_site_then_per_address():
+    """A badge's caller is the site embedding it, not each reader who loads the
+    page — "free below N a day" is a sentence about the embedder. And anonymous
+    callers get a row each rather than sharing one global pool, which is what
+    ANON_DAILY_SCORES has to mean to be worth setting."""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_anonymous_callers_are_metered_per_site_then_per_address (fastapi not installed)")
+        return
+    with _keys(anon_daily="2"), _offline() as api:
+        client = TestClient(api.app)
+        one = {"Referer": "https://one.example/homes/123"}
+        two = {"Referer": "https://two.example/listing"}
+        assert client.get("/badge", params=_OFFLINE_PARAMS, headers=one).status_code == 200
+        assert client.get("/badge", params=_OFFLINE_PARAMS, headers=one).status_code == 200
+        assert client.get("/badge", params=_OFFLINE_PARAMS, headers=one).status_code == 429
+        # A different embedder is a different row, not a share of the first's day.
+        assert client.get("/badge", params=_OFFLINE_PARAMS, headers=two).status_code == 200
+        # Every path on one host shares that host's allowance — the site is the
+        # unit, not the page.
+        deep = {"Referer": "https://one.example/somewhere/else"}
+        assert client.get("/badge", params=_OFFLINE_PARAMS, headers=deep).status_code == 429
+        # With no Referer at all the address is the row, and it is still its own.
+        assert client.get("/label", params=_OFFLINE_PARAMS).status_code == 200
+        assert client.get("/usage").json()["used_today"] == 1
+
+
 def test_a_recognised_key_gets_its_own_rate_limit_bucket():
     """What a key actually changes about rate limiting today: who you share the
     bucket with. Two callers behind one address stop competing; an unrecognised
