@@ -27,7 +27,7 @@ permission to:
 - Say your project works with, reads from, or is built on Housing Nutrition Label.
 - Write about, review, teach, benchmark or criticize the project by name.
 - Cite it in academic work, journalism or documentation.
-- Link to housinglabel.dev or the GitHub repository.
+- Link to <https://housinglabel.dev> or the GitHub repository.
 - Keep the existing attribution notices in a fork, as the license in fact requires.
 
 The test is simple: use the name to **refer to this project**, use no more of it than you

@@ -1,4 +1,4 @@
-# Housing Nutrition Label&trade;
+# Housing Nutrition Label™
 
 [![License: PolyForm Shield 1.0.0](https://img.shields.io/badge/License-PolyForm%20Shield%201.0.0-blue.svg)](LICENSE)
 [![Site](https://img.shields.io/badge/live-housinglabel.dev-2e7d32)](https://housinglabel.dev/label.html)

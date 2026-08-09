@@ -275,8 +275,13 @@ footer code { background: rgba(255, 255, 255, 0.1); color: #cbd5e1; }
    own #94a3b8 (6.1:1) rather than competing with it — but "quiet" must not mean
    "unreadable". #8b98ac on --navy measures 5.4:1, comfortably past the 4.5:1 AA
    floor for text this size. A darker grey read better as hierarchy and landed at
-   4.55:1, which is passing by 0.05 on text people are actually meant to read. */
-.tm-notice { display: inline-block; margin-top: 0.5rem; font-size: 0.78rem; color: #8b98ac; }
+   4.55:1, which is passing by 0.05 on text people are actually meant to read.
+   block, not inline-block: inline-block does honor margin-top, but inside an
+   inline formatting context the line box absorbs most of it — measured, forcing
+   display:inline moved the gap by 1px, not the 8px the margin implies. So the
+   spacing was really coming from a <br>, which is now gone; as a block the margin
+   does the job on its own. */
+.tm-notice { display: block; margin-top: 0.5rem; font-size: 0.78rem; color: #8b98ac; }
 
 /* Pipeline diagram */
 .pipeline { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 1.5rem 0; }
