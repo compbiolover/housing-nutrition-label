@@ -61,8 +61,16 @@ One environment variable, entries separated by commas or newlines, each
 Keys are hashed with SHA-256 as they are parsed and only the digest is kept, so
 the plaintext exists in this process only for as long as it takes to read the
 variable. The digest doubles as the caller's identity everywhere else — the
-rate-limit bucket and the ledger row — which means no log line, error body or
-``/usage`` response can carry a key even by accident.
+rate-limit bucket and the ledger row — so nothing this package writes, logs or
+returns carries a key.
+
+That is a guarantee about this code, not about the deployment, and the
+difference matters. The API also accepts a key as ``?key=``, and a query string
+is part of the request line: uvicorn's access log, any reverse proxy or load
+balancer in front of it, browser history and the ``Referer`` header will all
+capture it verbatim, and no amount of care in here can unwrite them. Steer
+callers to the ``X-API-Key`` header, and treat a key that has travelled as a
+query parameter as one to rotate.
 
 ``ANON_DAILY_SCORES`` sets the anonymous plan's daily allowance and defaults to
 0, meaning unmetered — which is what anonymous callers have always had. An
@@ -141,21 +149,29 @@ def _parse(spec: str | None) -> dict[str, Plan]:
     down, which is the same call ``api._env_num`` makes for the numeric knobs.
     The warning names the entry's position and its plan, never its key — a log
     line is exactly the wrong place for one.
+
+    The position counts every comma-separated segment, blanks included, so it
+    matches what the operator is looking at. Numbering only the non-empty ones
+    would drift the moment a value contains ``,,`` or a trailing comma, and an
+    off-by-one pointer into a variable full of secrets is worse than none: it
+    sends someone to inspect the wrong key.
     """
     registry: dict[str, Plan] = {}
     if not spec:
         return registry
-    entries = [e.strip() for e in spec.replace("\n", ",").split(",")]
-    for i, entry in enumerate(e for e in entries if e):
+    for i, entry in enumerate(spec.replace("\n", ",").split(","), start=1):
+        entry = entry.strip()
+        if not entry:
+            continue
         name, sep, raw = entry.partition(":")
         name = name.strip().lower()
         if not sep or not raw.strip():
-            log.warning("%s entry %d is not plan:key; skipped.", KEYS_ENV, i + 1)
+            log.warning("%s entry %d is not plan:key; skipped.", KEYS_ENV, i)
             continue
         plan = PLANS.get(name)
         if plan is None:
             log.warning("%s entry %d names unknown plan %r (choose one of: %s); "
-                        "skipped.", KEYS_ENV, i + 1, name, ", ".join(ASSIGNABLE))
+                        "skipped.", KEYS_ENV, i, name, ", ".join(ASSIGNABLE))
             continue
         registry[key_id(raw)] = plan
     return registry

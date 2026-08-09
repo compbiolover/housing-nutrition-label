@@ -43,12 +43,22 @@ Endpoints::
 CORS is restricted to https://housinglabel.dev by default; set the
 ALLOWED_ORIGINS env var (comma-separated) to allow other origins or local dev.
 
-API keys are optional and additive. Send one as an ``X-API-Key`` header (or
-``?key=``) to be identified as yourself: a keyed caller gets a rate-limit bucket
-of its own rather than sharing one with everybody behind the same address, and
-its plan's daily scoring allowance. With no keys configured — the default, and
-every self-hosted instance — every caller is anonymous and the service behaves
-exactly as it did before keys existed. See ``housing_label.entitlements``.
+API keys are optional and additive. Send one as an ``X-API-Key`` header to be
+identified as yourself: a keyed caller gets a rate-limit bucket of its own rather
+than sharing one with everybody behind the same address, and its plan's daily
+scoring allowance. With no keys configured — the default, and every self-hosted
+instance — every caller is anonymous and the service behaves exactly as it did
+before keys existed. See ``housing_label.entitlements``.
+
+``?key=`` is accepted as a fallback and is **not** equivalent: a query string is
+part of the request line, so it lands in uvicorn's access log, in any reverse
+proxy's log, in browser history, and in the ``Referer`` sent to third parties.
+Nothing in this process writes a key anywhere, but it cannot unwrite the URL it
+was handed. Use the header wherever you can set one, and treat a key sent as a
+query parameter as one you may need to rotate. It exists for the callers that
+genuinely cannot send a header — an ``<img>`` or iframe badge embed, and a quick
+curl — and responses to those requests are marked ``no-store`` (see
+``_cache_headers``) so the key-bearing URL at least stays out of the disk cache.
 
 Operational env vars::
 
@@ -266,12 +276,18 @@ async def _cache_headers(request, call_next):
 
     Only 200s: an error or a 422 residential refusal must stay re-askable, and a
     cached 429 would outlive the rate-limit window that produced it.
+
+    A request carrying ``?key=`` is never cached, whatever its path. The URL holds
+    a credential, and `private, max-age=600` would write it into the visitor's
+    disk cache to be found later. That does not undo the leak into access logs
+    and history (see the module docstring — the header is the safe way to send a
+    key), but it is the one part of the blast radius this process controls.
     """
     response = await call_next(request)
     if request.method == "GET" and response.status_code == 200:
         cc = _CACHE_CONTROL_BY_PATH.get(request.url.path)
         if cc and "cache-control" not in response.headers:
-            response.headers["Cache-Control"] = cc
+            response.headers["Cache-Control"] = "no-store" if "key" in request.query_params else cc
     return response
 
 # ── Rate limiting ────────────────────────────────────────────────────────────────

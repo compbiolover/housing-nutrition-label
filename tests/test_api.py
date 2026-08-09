@@ -953,6 +953,28 @@ def test_unknown_key_is_refused_and_anonymity_still_is_not():
         assert client.get("/label", params=_OFFLINE_PARAMS).status_code == 200
 
 
+def test_a_url_carrying_a_key_is_never_cached():
+    """`?key=` puts a credential in the URL. It still has to work — an <img> or
+    iframe badge embed cannot set a header — but the reply must not be written
+    into a disk cache under a key-bearing URL to be found later. The access-log
+    and history leak is not fixable here; the disk cache is."""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_a_url_carrying_a_key_is_never_cached (fastapi not installed)")
+        return
+    with _keys("pro:k_url"), _offline() as api:
+        client = TestClient(api.app)
+        header = client.get("/label", params=_OFFLINE_PARAMS, headers={"X-API-Key": "k_url"})
+        query = client.get("/label", params={**_OFFLINE_PARAMS, "key": "k_url"})
+        assert header.status_code == query.status_code == 200
+        assert header.headers["Cache-Control"] == "private, max-age=600"
+        assert query.headers["Cache-Control"] == "no-store"
+        # Same caller either way — the URL is a worse channel, not a different key.
+        assert query.headers["X-Plan"] == header.headers["X-Plan"] == "pro"
+        assert query.json() == header.json()
+
+
 def test_the_score_does_not_depend_on_the_plan():
     """A paid caller and a free one must get the same numbers for the same
     address. The plan governs how much you may ask for, never what you are told."""

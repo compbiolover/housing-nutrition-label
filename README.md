@@ -452,10 +452,18 @@ unless the operator has issued keys, and an anonymous caller is unmetered — wh
 callers have always had, and what keeps `pip install` → `housing-api` the same program the
 licence invites you to self-host.
 
-Where the operator *has* issued keys, sending one (`X-API-Key: …`, or `?key=…`) buys two
+Where the operator *has* issued keys, sending one as an `X-API-Key` header buys two
 things: a rate-limit bucket of your own instead of one shared with everybody behind the
 same address, and your plan's daily allowance of scoring passes. It does not buy different
 numbers — a scored address returns the same label on every plan, and it always will.
+
+`?key=` also works and is **not** equivalent. A query string is part of the request line,
+so it lands in the server's access log, any proxy in front of it, browser history, and the
+`Referer` sent to third parties — none of which this code can unwrite. Use the header
+wherever you can set one; `?key=` is there for callers that genuinely can't (an `<img>` or
+iframe embed, a quick curl), and a key that has travelled that way is one to rotate.
+Requests carrying it are answered `no-store` so the URL at least stays out of the disk
+cache.
 
 Metering counts **scoring passes, not requests**: `/label` is one, `/presets` is five,
 a four-scenario `/density` is four. `GET /usage` reports the calling key's plan, what it

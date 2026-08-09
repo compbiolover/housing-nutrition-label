@@ -106,6 +106,34 @@ def test_malformed_entries_are_skipped_rather_than_fatal():
         assert ent.plan_for("k_two").name == "basic"
 
 
+def test_a_skipped_entry_is_reported_at_the_position_the_operator_sees():
+    """The warning points into a variable full of secrets, so the pointer has to
+    be right. Counting only the non-empty segments would drift on `,,` or a
+    trailing comma and send someone to inspect the wrong key."""
+    import logging
+
+    records = []
+
+    class _Capture(logging.Handler):
+        def emit(self, record):
+            records.append(record.getMessage())
+
+    handler = _Capture()
+    ent.log.addHandler(handler)
+    prior = ent.log.level
+    ent.log.setLevel(logging.WARNING)
+    try:
+        # Segments:  1=basic:k_ok  2=""  3=garbage  4=""  5=nosuchplan:k_x
+        reg = ent._parse("basic:k_ok,,garbage,,nosuchplan:k_x")
+        assert len(reg) == 1
+        assert any("entry 3 is not plan:key" in m for m in records), records
+        assert any("entry 5 names unknown plan" in m for m in records), records
+        assert not any("k_ok" in m or "k_x" in m for m in records), "a warning must not echo a key"
+    finally:
+        ent.log.removeHandler(handler)
+        ent.log.setLevel(prior)
+
+
 def test_anonymous_plan_name_cannot_be_issued_as_a_key():
     """"anonymous" is what you get *without* a key. Naming it in the registry is
     a configuration mistake, not a way to mint a key that grants nothing."""
