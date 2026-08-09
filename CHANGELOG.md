@@ -9,6 +9,19 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.2.3](https://github.com/compbiolover/housing-nutrition-label/compare/v0.2.2...v0.2.3) (2026-08-09)
+
+
+### Features
+
+* **api:** tell callers apart, so the free tier can have an edge ([#287](https://github.com/compbiolover/housing-nutrition-label/issues/287)) ([795249a](https://github.com/compbiolover/housing-nutrition-label/commit/795249aa78a5c15737937fcf7968479b96ecaa8a))
+* **badge:** put the label on somebody else's page ([#288](https://github.com/compbiolover/housing-nutrition-label/issues/288)) ([8512b4b](https://github.com/compbiolover/housing-nutrition-label/commit/8512b4b5005621bee691c453e3ab0d9d5bd93dfa))
+
+
+### Bug Fixes
+
+* **docs:** stop the idle prompt restating the form above it ([#285](https://github.com/compbiolover/housing-nutrition-label/issues/285)) ([b96cf0e](https://github.com/compbiolover/housing-nutrition-label/commit/b96cf0eb9ec9bcccd7714713da8de52131d0d751))
+
 ## [0.2.2](https://github.com/compbiolover/housing-nutrition-label/compare/v0.2.1...v0.2.2) (2026-08-09)
 
 
