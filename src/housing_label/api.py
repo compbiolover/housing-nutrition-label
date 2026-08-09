@@ -38,6 +38,8 @@ Endpoints::
         optional: units=1,2,4 (counts), per_unit_value, + all /label house params
     GET /preset-profiles             the construction-profile roster (names, slugs,
                                      descriptions) — a constant, scores nothing
+    GET /badge?address=<addr>        the label as an embeddable SVG (image/svg+xml)
+        optional: style=full|compact, theme=auto|light|dark, preset, label_text
     GET /usage                       the calling key's own plan and day's usage
 
 CORS is restricted to https://housinglabel.dev by default; set the
@@ -84,10 +86,12 @@ import logging
 import os
 import threading
 import time
+import urllib.parse
 from collections import OrderedDict
 
 import requests
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi.responses import Response as RawResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -95,6 +99,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
+from housing_label import badge as badge_svg
 from housing_label import entitlements
 from housing_label.config import (
     HEADERS, PHOTON_URL, GEOAPIFY_URL, GEOAPIFY_API_KEY,
@@ -263,6 +268,13 @@ _CACHE_CONTROL_BY_PATH = {
     "/presets": _SCORE_CACHE_CONTROL,
     "/density": _SCORE_CACHE_CONTROL,
     "/preset-profiles": "public, max-age=86400",
+    # The one scoring path that is *public*-cacheable, and the exception proves
+    # the rule above: a badge URL carries an address its embedder has already
+    # published on a page anyone can read. There is no visitor privacy left to
+    # protect by keeping it out of shared caches, and an embed is exactly the
+    # traffic shape that wants one. An hour, because the underlying score barely
+    # moves and a third-party page should not re-score on every reader.
+    "/badge": "public, max-age=3600",
     # A live counter. Left unlisted it would carry no Cache-Control at all, and a
     # client is free to cache a bare 200 heuristically — which for this endpoint
     # means showing a caller yesterday's remaining balance.
@@ -352,7 +364,40 @@ class Caller:
 
     @property
     def anonymous(self) -> bool:
-        return not self.ident
+        return self.plan.name == entitlements.ANONYMOUS_NAME
+
+
+def _anon_ident(request: Request) -> str:
+    """A ledger row for a caller with no key: the embedding site, else the address.
+
+    Anonymous callers used to share the single empty identity, which made
+    ANON_DAILY_SCORES a *global* pool — one busy visitor exhausted the day for
+    everybody, which is not what an operator setting that number means. They get
+    a row each now.
+
+    For a badge the row that matters is the site doing the embedding, not the
+    reader whose browser fetched the image: a thousand visitors to one blog are
+    one embedder, and "free below N views a day" is a sentence about the embedder.
+    So the Referer's host wins when there is one.
+
+    That is attribution, not authentication — a Referer is trivially forged and
+    nothing here pretends otherwise. It is the same basis Walk Score prices its
+    badge tier on, and the honest description is that it counts cooperative
+    callers correctly and does not stop an uncooperative one.
+
+    ``hostname``, not ``netloc``: the latter carries userinfo and the port, so
+    ``example.com``, ``example.com:443`` and ``user@example.com`` would be three
+    ledger rows for one site — which splits an honest embedder's allowance three
+    ways for reasons they can't see, and hands a dishonest one a fresh allowance
+    per port. Subdomains do stay distinct; collapsing those needs the public
+    suffix list, and guessing at registrable domains would merge sites that
+    genuinely aren't one.
+    """
+    referrer = request.headers.get("Referer") or request.headers.get("Origin") or ""
+    host = ""
+    with contextlib.suppress(ValueError):
+        host = (urllib.parse.urlsplit(referrer).hostname or "")[:120]
+    return f"site:{host}" if host else f"ip:{get_remote_address(request)}"
 
 
 def _caller(request: Request) -> Caller:
@@ -367,7 +412,8 @@ def _caller(request: Request) -> Caller:
     plan = entitlements.plan_for(raw)
     if plan is None:
         raise HTTPException(401, "unknown API key")
-    return Caller(plan, entitlements.key_id(raw))
+    ident = entitlements.key_id(raw) or _anon_ident(request)
+    return Caller(plan, ident)
 
 
 def _meter(caller: Caller, response: Response, cost: int) -> None:
@@ -1205,6 +1251,78 @@ _WEBSITE_PRESETS = [
 ]
 # The Label page anchors on the walkable Cooper-Young neighborhood in Memphis.
 _PRESETS_DEFAULT_LAT, _PRESETS_DEFAULT_LON = 35.13, -89.99
+
+
+@app.get("/badge")
+def badge(
+    response: Response,
+    caller: Caller = Depends(_caller),
+    address: str | None = None,
+    lat: float | None = None,
+    lon: float | None = None,
+    preset: str | None = None,
+    style: str = "full",
+    theme: str = "auto",
+    label_text: str | None = None,
+):
+    """The label as a standalone SVG, for embedding on somebody else's page.
+
+    ``GET /badge?address=<addr>`` → ``image/svg+xml``. Renders inside a plain
+    ``<img>``: no script, no CORS, no build step on the host page. See
+    ``housing_label.badge`` for what it draws and why it draws two grades rather
+    than one.
+
+    Parameters beyond the location are ``style`` (full | compact), ``theme``
+    (auto | light | dark, where auto follows the reader's own setting), and
+    ``label_text`` to override the caption — a caller who has already formatted
+    the address for their own page should not have it re-derived here.
+
+    Scored through the same path as /label, so a badge and the label page can
+    never disagree about a house.
+    """
+    _validate("preset", preset)
+    if not address and (lat is None or lon is None):
+        raise HTTPException(400, "Provide ?address= or both ?lat= and ?lon=")
+
+    _meter(caller, response, 1)
+
+    cache_key = ("badge", _key_addr(address), _key_coord(lat), _key_coord(lon), preset)
+    payload = _result_cache.get(cache_key)
+    if payload is None:
+        try:
+            cfg, r, lbl = build_label_parts(
+                address=address, lat=lat, lon=lon, preset=preset, allow_network=True)
+        except NonResidentialProperty as exc:
+            raise HTTPException(422, str(exc))
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+        except Exception:  # noqa: BLE001 — don't leak internals; log server-side
+            log.exception("badge scoring failed (address=%r lat=%r lon=%r)", address, lat, lon)
+            raise HTTPException(502, "scoring failed")
+        payload = label_payload(cfg, r, lbl, include_building=False)
+        # Same rule as every other scoring path: a label built while NSI was
+        # unreachable rests on generic defaults, and a badge is the worst place to
+        # pin that for six hours — it is the copy a third party leaves up.
+        if not getattr(lbl.get("location"), "structure_unavailable", False):
+            _result_cache.put(cache_key, payload)
+
+    try:
+        svg = badge_svg.render_badge(payload, style=style, theme=theme,
+                                     address=label_text or address)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+    return RawResponse(
+        content=svg,
+        media_type="image/svg+xml",
+        headers={
+            # An SVG is a document a browser will run scripts in if it is opened
+            # directly rather than through <img>. Nothing here emits caller input
+            # unescaped (housing_label.badge._esc), and nosniff keeps a proxy from
+            # re-deciding the type on top of that.
+            "X-Content-Type-Options": "nosniff",
+            **{k: v for k, v in response.headers.items()},
+        })
 
 
 @app.get("/usage")
