@@ -309,7 +309,8 @@ def portfolio_grades(records: list[dict]) -> list[dict]:
     return records
 
 
-def geocode_pass(rows: list[dict], *, chunk_size: int | None = None) -> dict:
+def geocode_pass(rows: list[dict], *, chunk_size: int | None = None,
+                 cache_path=None, max_miss_age_days: float | None = None) -> dict:
     """Fill in lat/lon and tract for rows that carry an address but no geography.
 
     Run before scoring, this turns a book of addresses into a book that scores
@@ -345,36 +346,53 @@ def geocode_pass(rows: list[dict], *, chunk_size: int | None = None) -> dict:
               for i, r in enumerate(todo)]
     by_key = {s["id"]: row for s, row in zip(shadow, todo)}
 
+    cache = None
+    if cache_path:
+        from housing_label.geocode_cache import GeocodeCache
+        cache = GeocodeCache(cache_path)
+
     matched = 0
-    for res in geocode_rows(shadow, chunk_size=chunk_size or MAX_BATCH):
-        row = by_key.get(res.id)
-        if row is None:
-            continue
-        if not res.matched:
-            # Recorded on the row so the scored output can say WHY a parcel has
-            # no geography, rather than leaving it looking like the caller simply
-            # never supplied one.
-            row["_geocode_status"] = res.status
-            continue
-        matched += 1
-        row["tract"] = res.tract
-        row["county_fips"] = res.county_fips
-        row["state_fips"] = res.state_fips
-        # Only fill coordinates the caller did not give us: their own are likelier
-        # to be the rooftop point than the geocoder's interpolated street match.
-        if not _clean(row.get("lat")):
-            row["lat"] = res.lat
-        if not _clean(row.get("lon")):
-            row["lon"] = res.lon
-        # The address has done its job. Leaving it set would trip the
-        # address/geography exclusion in parse_row on the very rows we just fixed.
-        row.pop("address", None)
-    return {"geocoded": len(todo), "matched": matched,
-            "unmatched": len(todo) - matched}
+    cached = None
+    try:
+        for res in geocode_rows(shadow, chunk_size=chunk_size or MAX_BATCH,
+                                cache=cache, max_miss_age_days=max_miss_age_days):
+            row = by_key.get(res.id)
+            if row is None:
+                continue
+            if not res.matched:
+                # Recorded on the row so the scored output can say WHY a parcel has
+                # no geography, rather than leaving it looking like the caller simply
+                # never supplied one.
+                row["_geocode_status"] = res.status
+                continue
+            matched += 1
+            row["tract"] = res.tract
+            row["county_fips"] = res.county_fips
+            row["state_fips"] = res.state_fips
+            # Only fill coordinates the caller did not give us: their own are likelier
+            # to be the rooftop point than the geocoder's interpolated street match.
+            if not _clean(row.get("lat")):
+                row["lat"] = res.lat
+            if not _clean(row.get("lon")):
+                row["lon"] = res.lon
+            # The address has done its job. Leaving it set would trip the
+            # address/geography exclusion in parse_row on the very rows we just fixed.
+            row.pop("address", None)
+        cached = cache.stats() if cache is not None else None
+    finally:
+        if cache is not None:
+            cache.close()
+    summary = {"geocoded": len(todo), "matched": matched,
+               "unmatched": len(todo) - matched}
+    if cached is not None:
+        summary["cache"] = cached
+    return summary
 
 
 def run_batch(inp, out, *, allow_network: bool = False, portfolio: bool = False,
-              geocode: bool = False, progress_every: int = 0) -> dict:
+              geocode: bool = False, geocode_cache=None,
+              max_miss_age_days: float | None = None,
+              progress_every: int = 0) -> dict:
     """Score ``inp`` (an open CSV reader source) into ``out``. Returns a summary.
 
     Streams when ``portfolio`` is off, so memory stays flat regardless of row
@@ -392,10 +410,15 @@ def run_batch(inp, out, *, allow_network: bool = False, portfolio: bool = False,
         # Geocoding is a whole-file pre-pass — it batches 10,000 addresses per
         # request, so it cannot stream. Only this mode holds the input in memory.
         rows = list(reader)
-        geo_summary = geocode_pass(rows)
+        geo_summary = geocode_pass(rows, cache_path=geocode_cache,
+                                   max_miss_age_days=max_miss_age_days)
         log.info("geocoded %d rows: %d matched, %d unmatched",
                  geo_summary["geocoded"], geo_summary["matched"],
                  geo_summary["unmatched"])
+        if geo_summary.get("cache"):
+            c = geo_summary["cache"]
+            log.info("geocode cache: %d served from cache, %d looked up, "
+                     "%d rows on file", c["hits"], c["misses"], c["rows"])
         source = rows
 
     writer = csv.DictWriter(out, fieldnames=output_fieldnames(portfolio),
@@ -453,6 +476,15 @@ def main() -> None:
                         "(10,000 per request). Turns a book of addresses into one "
                         "that scores with no further network. Reads the whole "
                         "input into memory, since batching cannot stream.")
+    p.add_argument("--geocode-cache", metavar="PATH",
+                   help="SQLite file to cache geocode results in. A re-run then "
+                        "asks the Census only about addresses it has not seen "
+                        "before. Written per chunk, so a run that dies keeps what "
+                        "it already resolved.")
+    p.add_argument("--retry-misses-after", type=float, default=None, metavar="DAYS",
+                   help="Re-look-up cached NON-matches older than this many days. "
+                        "Matches never expire — an address does not move — but the "
+                        "Census does add addresses over time.")
     p.add_argument("--progress", type=int, default=1000, metavar="N",
                    help="Log progress every N rows (0 to disable).")
     args = p.parse_args()
@@ -463,6 +495,8 @@ def main() -> None:
         summary = run_batch(fin, fout, allow_network=args.fetch,
                             portfolio=args.portfolio_grades,
                             geocode=args.geocode,
+                            geocode_cache=args.geocode_cache,
+                            max_miss_age_days=args.retry_misses_after,
                             progress_every=args.progress)
     finally:
         if fin is not sys.stdin:
