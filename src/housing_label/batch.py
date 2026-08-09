@@ -233,6 +233,16 @@ def score_rows(rows: Iterable[dict], *, allow_network: bool = False) -> Iterator
         # before it returns, so the id would be gone for every malformed row.
         ident = {"id": _clean(row.get("id")),
                  "lat": _clean(row.get("lat")), "lon": _clean(row.get("lon"))}
+        # A row the batch geocoder could not place is reported with the reason it
+        # gave, and not retried. Left to fall through it would fail later on a
+        # generic "could not geocode" — blaming the scorer for something the
+        # geocoder already answered, and spending a per-address lookup to learn it
+        # a second time.
+        geo_status = _clean(row.get("_geocode_status"))
+        if geo_status:
+            yield _record(ident, None, f"geocode: {geo_status}")
+            continue
+
         parsed = None
         try:
             parsed = parse_row(row)
@@ -299,8 +309,72 @@ def portfolio_grades(records: list[dict]) -> list[dict]:
     return records
 
 
+def geocode_pass(rows: list[dict], *, chunk_size: int | None = None) -> dict:
+    """Fill in lat/lon and tract for rows that carry an address but no geography.
+
+    Run before scoring, this turns a book of addresses into a book that scores
+    with no further network at all — roughly two requests per 10,000 parcels,
+    against one per parcel for the per-address geocoder.
+
+    Mutates ``rows`` in place and returns a summary. Rows that already carry a
+    tract are left alone: re-geocoding a parcel whose geography the customer
+    already supplied would spend a request to overwrite better data with worse.
+    """
+    from housing_label.geocode import MAX_BATCH, geocode_rows
+
+    todo = [r for r in rows
+            if not _clean(r.get("tract"))
+            and (_clean(r.get("address")) or _clean(r.get("street")))]
+    if not todo:
+        return {"geocoded": 0, "matched": 0, "unmatched": 0}
+
+    # The round trip gets its OWN key, generated per row, and the caller's `id` is
+    # never read for it or written to. Two reasons, both of which bite on real
+    # exports, where the same property routinely appears on two loans:
+    #
+    #   * duplicate ids would collapse the join, so only the last row of each
+    #     group got its geography and the rest silently kept none;
+    #   * they would also go to the endpoint as colliding keys, making its reply
+    #     ambiguous before we even tried to match it up.
+    #
+    # Defaulting a missing id was the mirror-image mistake: it wrote a fabricated
+    # identifier into the customer's own row, which then came back in the output
+    # as though they had supplied it.
+    shadow = [{"id": f"g{i}", "address": r.get("address"), "street": r.get("street"),
+               "city": r.get("city"), "state": r.get("state"), "zip": r.get("zip")}
+              for i, r in enumerate(todo)]
+    by_key = {s["id"]: row for s, row in zip(shadow, todo)}
+
+    matched = 0
+    for res in geocode_rows(shadow, chunk_size=chunk_size or MAX_BATCH):
+        row = by_key.get(res.id)
+        if row is None:
+            continue
+        if not res.matched:
+            # Recorded on the row so the scored output can say WHY a parcel has
+            # no geography, rather than leaving it looking like the caller simply
+            # never supplied one.
+            row["_geocode_status"] = res.status
+            continue
+        matched += 1
+        row["tract"] = res.tract
+        row["county_fips"] = res.county_fips
+        row["state_fips"] = res.state_fips
+        # Only fill coordinates the caller did not give us: their own are likelier
+        # to be the rooftop point than the geocoder's interpolated street match.
+        if not _clean(row.get("lat")):
+            row["lat"] = res.lat
+        if not _clean(row.get("lon")):
+            row["lon"] = res.lon
+        # The address has done its job. Leaving it set would trip the
+        # address/geography exclusion in parse_row on the very rows we just fixed.
+        row.pop("address", None)
+    return {"geocoded": len(todo), "matched": matched,
+            "unmatched": len(todo) - matched}
+
+
 def run_batch(inp, out, *, allow_network: bool = False, portfolio: bool = False,
-              progress_every: int = 0) -> dict:
+              geocode: bool = False, progress_every: int = 0) -> dict:
     """Score ``inp`` (an open CSV reader source) into ``out``. Returns a summary.
 
     Streams when ``portfolio`` is off, so memory stays flat regardless of row
@@ -312,13 +386,25 @@ def run_batch(inp, out, *, allow_network: bool = False, portfolio: bool = False,
     if reader.fieldnames is None:
         raise ValueError("input CSV has no header row")
 
+    source: Iterable[dict] = reader
+    geo_summary = None
+    if geocode:
+        # Geocoding is a whole-file pre-pass — it batches 10,000 addresses per
+        # request, so it cannot stream. Only this mode holds the input in memory.
+        rows = list(reader)
+        geo_summary = geocode_pass(rows)
+        log.info("geocoded %d rows: %d matched, %d unmatched",
+                 geo_summary["geocoded"], geo_summary["matched"],
+                 geo_summary["unmatched"])
+        source = rows
+
     writer = csv.DictWriter(out, fieldnames=output_fieldnames(portfolio),
                             extrasaction="ignore")
     writer.writeheader()
 
     total = failed = 0
     held: list[dict] = []
-    for rec in score_rows(reader, allow_network=allow_network):
+    for rec in score_rows(source, allow_network=allow_network):
         total += 1
         if rec.get("error"):
             failed += 1
@@ -333,7 +419,10 @@ def run_batch(inp, out, *, allow_network: bool = False, portfolio: bool = False,
         for rec in portfolio_grades(held):
             writer.writerow(rec)
 
-    return {"rows": total, "failed": failed, "scored": total - failed}
+    summary = {"rows": total, "failed": failed, "scored": total - failed}
+    if geo_summary is not None:
+        summary["geocode"] = geo_summary
+    return summary
 
 
 def main() -> None:
@@ -358,6 +447,12 @@ def main() -> None:
                    help="Also rank each parcel within this batch (adds "
                         "*_portfolio_pct / *_portfolio_grade). Holds the results "
                         "in memory, since ranking needs every score first.")
+    p.add_argument("--geocode", action="store_true",
+                   help="Look up lat/lon and census tract for rows that have an "
+                        "address but no tract, using the Census BATCH geocoder "
+                        "(10,000 per request). Turns a book of addresses into one "
+                        "that scores with no further network. Reads the whole "
+                        "input into memory, since batching cannot stream.")
     p.add_argument("--progress", type=int, default=1000, metavar="N",
                    help="Log progress every N rows (0 to disable).")
     args = p.parse_args()
@@ -367,6 +462,7 @@ def main() -> None:
     try:
         summary = run_batch(fin, fout, allow_network=args.fetch,
                             portfolio=args.portfolio_grades,
+                            geocode=args.geocode,
                             progress_every=args.progress)
     finally:
         if fin is not sys.stdin:
