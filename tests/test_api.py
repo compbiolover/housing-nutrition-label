@@ -840,6 +840,324 @@ def test_is_self_baseline_only_construction_breaks_it():
         assert _is_self_baseline("baseline", **{**none, field: val}) is False, field
 
 
+# ── API keys, plans and metering ─────────────────────────────────────────────────
+# Every test below scores offline: `_offline` forces allow_network=False into the
+# real scoring path, so these exercise the genuine endpoints (and prove the score
+# doesn't move with the plan) without touching an upstream.
+
+import contextlib as _contextlib
+
+
+@_contextlib.contextmanager
+def _keys(spec=None, anon_daily=None, plans=None):
+    """Configure HOUSING_LABEL_KEYS / ANON_DAILY_SCORES for one test.
+
+    `plans` overrides entries in entitlements.PLANS before the registry is
+    parsed — the shipped allowances are in the thousands, and a test that had to
+    spend 5,000 scores to reach a 429 would be a bad test.
+    """
+    import os as _os
+    from housing_label import entitlements as ent
+
+    env = {"HOUSING_LABEL_KEYS": spec, "ANON_DAILY_SCORES": anon_daily}
+    prior_env = {k: _os.environ.get(k) for k in env}
+    prior_plans = dict(ent.PLANS)
+    try:
+        for k, v in env.items():
+            _os.environ.pop(k, None) if v is None else _os.environ.__setitem__(k, v)
+        if plans:
+            ent.PLANS.update(plans)
+        ent.reload()
+        ent.ledger.clear()
+        yield ent
+    finally:
+        for k, v in prior_env.items():
+            _os.environ.pop(k, None) if v is None else _os.environ.__setitem__(k, v)
+        ent.PLANS.clear()
+        ent.PLANS.update(prior_plans)
+        ent.reload()
+        ent.ledger.clear()
+
+
+@_contextlib.contextmanager
+def _offline():
+    """Force the scoring path offline for the duration, and start from a cold cache."""
+    import housing_label.api as api
+
+    real_label, real_density, real_timeline = (
+        api.build_label_parts, api.density_comparison, api.timeline_comparison)
+
+    def off(fn):
+        def wrapped(**kw):
+            kw["allow_network"] = False
+            return fn(**kw)
+        return wrapped
+
+    api.build_label_parts = off(real_label)
+    api.density_comparison = off(real_density)
+    api.timeline_comparison = off(real_timeline)
+    api._result_cache.clear()
+    try:
+        yield api
+    finally:
+        (api.build_label_parts, api.density_comparison,
+         api.timeline_comparison) = real_label, real_density, real_timeline
+        api._result_cache.clear()
+
+
+_OFFLINE_PARAMS = {"lat": 35.13, "lon": -89.99, "preset": "baseline"}
+
+
+def test_no_keys_configured_leaves_the_api_exactly_as_it_was():
+    """The self-hosting contract. README's licence section invites you to run
+    this yourself; an instance with no keys must not be a metered version of the
+    one that existed before plans did — no quota ceiling, no quota headers, and
+    /usage answering honestly rather than demanding credentials."""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_no_keys_configured_leaves_the_api_exactly_as_it_was (fastapi not installed)")
+        return
+    with _keys(), _offline() as api:
+        client = TestClient(api.app)
+        r = client.get("/label", params=_OFFLINE_PARAMS)
+        assert r.status_code == 200
+        assert r.headers.get("X-Plan") == "anonymous"
+        for h in ("X-Quota-Limit", "X-Quota-Remaining", "X-Quota-Used"):
+            assert h not in r.headers, f"{h} must not appear for an unmetered caller"
+        u = client.get("/usage")
+        assert u.headers.get("Cache-Control") == "no-store", "a live counter must not cache"
+        u = u.json()
+        assert u["plan"] == "anonymous" and u["anonymous"] is True
+        assert u["daily_scores"] is None and u["remaining_today"] is None
+        # No amount of asking exhausts anything.
+        for _ in range(5):
+            assert client.get("/label", params=_OFFLINE_PARAMS).status_code == 200
+
+
+def test_unknown_key_is_refused_and_anonymity_still_is_not():
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_unknown_key_is_refused_and_anonymity_still_is_not (fastapi not installed)")
+        return
+    with _keys("pro:k_good"), _offline() as api:
+        client = TestClient(api.app)
+        for send in ({"headers": {"X-API-Key": "k_bad"}},
+                     {"params": {**_OFFLINE_PARAMS, "key": "k_bad"}}):
+            params = send.pop("params", _OFFLINE_PARAMS)
+            r = client.get("/label", params=params, **send)
+            assert r.status_code == 401, r.status_code
+            assert "unknown API key" in r.json()["detail"]
+        # Sending nothing is still fine — the free tier is not behind a key.
+        assert client.get("/label", params=_OFFLINE_PARAMS).status_code == 200
+
+
+def test_a_url_carrying_a_key_is_never_cached():
+    """`?key=` puts a credential in the URL. It still has to work — an <img> or
+    iframe badge embed cannot set a header — but the reply must not be written
+    into a disk cache under a key-bearing URL to be found later. The access-log
+    and history leak is not fixable here; the disk cache is."""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_a_url_carrying_a_key_is_never_cached (fastapi not installed)")
+        return
+    with _keys("pro:k_url"), _offline() as api:
+        client = TestClient(api.app)
+        header = client.get("/label", params=_OFFLINE_PARAMS, headers={"X-API-Key": "k_url"})
+        query = client.get("/label", params={**_OFFLINE_PARAMS, "key": "k_url"})
+        assert header.status_code == query.status_code == 200
+        assert header.headers["Cache-Control"] == "private, max-age=600"
+        assert query.headers["Cache-Control"] == "no-store"
+        # Same caller either way — the URL is a worse channel, not a different key.
+        assert query.headers["X-Plan"] == header.headers["X-Plan"] == "pro"
+        assert query.json() == header.json()
+
+
+def test_the_score_does_not_depend_on_the_plan():
+    """A paid caller and a free one must get the same numbers for the same
+    address. The plan governs how much you may ask for, never what you are told."""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_the_score_does_not_depend_on_the_plan (fastapi not installed)")
+        return
+    with _keys("pro:k_good"), _offline() as api:
+        client = TestClient(api.app)
+        anon = client.get("/label", params=_OFFLINE_PARAMS)
+        keyed = client.get("/label", params=_OFFLINE_PARAMS,
+                           headers={"X-API-Key": "k_good"})
+        assert anon.status_code == keyed.status_code == 200
+        assert anon.json() == keyed.json()
+
+
+def test_a_metered_caller_is_charged_and_then_refused():
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_a_metered_caller_is_charged_and_then_refused (fastapi not installed)")
+        return
+    from housing_label.entitlements import Plan
+    with _keys("basic:k_small", plans={"basic": Plan("basic", 3)}), _offline() as api:
+        client = TestClient(api.app)
+        hdr = {"X-API-Key": "k_small"}
+        seen = []
+        for _ in range(3):
+            r = client.get("/label", params=_OFFLINE_PARAMS, headers=hdr)
+            assert r.status_code == 200
+            seen.append(r.headers["X-Quota-Remaining"])
+        assert seen == ["2", "1", "0"], seen
+        # A cache hit still charges: whether the answer was already in this
+        # process's memory is an accident of who asked first.
+        r = client.get("/label", params=_OFFLINE_PARAMS, headers=hdr)
+        assert r.status_code == 429
+        assert "resets at 00:00 UTC" in r.json()["detail"]
+        assert r.headers["X-Quota-Remaining"] == "0"
+        assert r.headers["X-Plan"] == "basic"
+        # The refusal is the caller's, not the service's: anonymous still works.
+        assert client.get("/label", params=_OFFLINE_PARAMS).status_code == 200
+
+
+def test_metering_counts_scoring_passes_not_requests():
+    """/presets is five labels and a default /timeline is three points. Charging
+    per request would price a dropdown the same as a portfolio row."""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_metering_counts_scoring_passes_not_requests (fastapi not installed)")
+        return
+    from housing_label.entitlements import Plan
+    from housing_label.simulate.house import DENSITY_UNIT_COUNTS, default_timeline_years
+    with _keys("pro:k_meter", plans={"pro": Plan("pro", 10_000)}), _offline() as api:
+        client = TestClient(api.app)
+        hdr = {"X-API-Key": "k_meter"}
+        expected = [
+            ("/label", {}, 1),
+            ("/presets", {}, len(api._WEBSITE_PRESETS)),
+            ("/density", {}, len(DENSITY_UNIT_COUNTS)),
+            ("/density", {"units": "1,4"}, 2),
+            ("/timeline", {}, len(default_timeline_years())),
+            ("/timeline", {"years": "2000,2010,2020,2026"}, 4),
+        ]
+        for path, extra, cost in expected:
+            before = client.get("/usage", headers=hdr).json()["used_today"]
+            r = client.get(path, params={**_OFFLINE_PARAMS, **extra}, headers=hdr)
+            assert r.status_code == 200, (path, r.status_code, r.text[:200])
+            after = client.get("/usage", headers=hdr).json()["used_today"]
+            assert after - before == cost, f"{path} {extra} charged {after - before}, want {cost}"
+
+
+def test_a_rejected_request_is_never_charged():
+    """Validation runs before metering, so a 400 costs nothing — otherwise a
+    caller could burn their day on requests that were never going to score."""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_a_rejected_request_is_never_charged (fastapi not installed)")
+        return
+    from housing_label.entitlements import Plan
+    with _keys("basic:k_v", plans={"basic": Plan("basic", 50)}), _offline() as api:
+        client = TestClient(api.app)
+        hdr = {"X-API-Key": "k_v"}
+        for path, params in (("/label", {}),                       # no location
+                             ("/label", {**_OFFLINE_PARAMS, "condition": "sublime"}),
+                             ("/density", {**_OFFLINE_PARAMS, "units": "1,2,3,4,5,6,7"}),
+                             ("/timeline", {**_OFFLINE_PARAMS, "years": "nope"})):
+            assert client.get(path, params=params, headers=hdr).status_code == 400
+        assert client.get("/usage", headers=hdr).json()["used_today"] == 0
+
+
+def test_usage_reports_the_calling_key_and_no_other():
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_usage_reports_the_calling_key_and_no_other (fastapi not installed)")
+        return
+    from housing_label.entitlements import Plan
+    with _keys("basic:k_a, pro:k_b",
+               plans={"basic": Plan("basic", 20), "pro": Plan("pro", 99)}), _offline() as api:
+        client = TestClient(api.app)
+        client.get("/label", params=_OFFLINE_PARAMS, headers={"X-API-Key": "k_a"})
+        a = client.get("/usage", headers={"X-API-Key": "k_a"}).json()
+        b = client.get("/usage", headers={"X-API-Key": "k_b"}).json()
+        assert a["plan"] == "basic" and a["used_today"] == 1 and a["remaining_today"] == 19
+        assert b["plan"] == "pro" and b["used_today"] == 0, "k_b must not see k_a's spend"
+        # `?key=` authenticates the caller, it does not name whose row to report:
+        # identity comes from the same dependency the scoring endpoints use, and
+        # the header wins when both are sent. There is no way to ask about
+        # somebody else.
+        both = client.get("/usage", params={"key": "k_a"}, headers={"X-API-Key": "k_b"})
+        assert both.json()["plan"] == "pro" and both.json()["used_today"] == 0
+        assert client.get("/usage", params={"key": "k_a"}).json()["used_today"] == 1
+        assert "k_a" not in str(a) and "k_b" not in str(b), "no reply may echo a key"
+
+
+def test_anonymous_callers_can_be_metered_when_the_operator_asks():
+    """The knob that turns this into a service. Off by default; when set, a key
+    is what lifts a named caller back above it."""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_anonymous_callers_can_be_metered_when_the_operator_asks (fastapi not installed)")
+        return
+    from housing_label.entitlements import Plan
+    with _keys("pro:k_lift", anon_daily="2", plans={"pro": Plan("pro", 100)}), _offline() as api:
+        client = TestClient(api.app)
+        assert client.get("/label", params=_OFFLINE_PARAMS).status_code == 200
+        assert client.get("/label", params=_OFFLINE_PARAMS).status_code == 200
+        assert client.get("/label", params=_OFFLINE_PARAMS).status_code == 429
+        # The key lifts the same caller straight back over it.
+        r = client.get("/label", params=_OFFLINE_PARAMS, headers={"X-API-Key": "k_lift"})
+        assert r.status_code == 200 and r.headers["X-Plan"] == "pro"
+
+
+def test_healthz_and_the_roster_need_no_key_and_cost_nothing():
+    """A probe must never be refused for want of credentials, and a constant
+    that scores nothing must never be charged as if it did."""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_healthz_and_the_roster_need_no_key_and_cost_nothing (fastapi not installed)")
+        return
+    from housing_label.entitlements import Plan
+    with _keys("basic:k_h", plans={"basic": Plan("basic", 1)}), _offline() as api:
+        client = TestClient(api.app)
+        hdr = {"X-API-Key": "k_h"}
+        for _ in range(4):
+            assert client.get("/healthz", headers=hdr).json() == {"ok": True}
+            assert client.get("/preset-profiles", headers=hdr).status_code == 200
+        assert client.get("/usage", headers=hdr).json()["used_today"] == 0
+        # A bad key doesn't lock anyone out of the probe either.
+        assert client.get("/healthz", headers={"X-API-Key": "k_bad"}).json() == {"ok": True}
+
+
+def test_a_recognised_key_gets_its_own_rate_limit_bucket():
+    """What a key actually changes about rate limiting today: who you share the
+    bucket with. Two callers behind one address stop competing; an unrecognised
+    key falls back to the address rather than minting a bucket per guess."""
+    try:
+        import fastapi  # noqa: F401
+    except ImportError:
+        print("  skip test_a_recognised_key_gets_its_own_rate_limit_bucket (fastapi not installed)")
+        return
+    from starlette.requests import Request
+    from housing_label import api
+    from housing_label.entitlements import key_id
+
+    def req(headers=None, query=b""):
+        scope = {"type": "http", "method": "GET", "path": "/label", "query_string": query,
+                 "headers": [(k.lower().encode(), v.encode()) for k, v in (headers or {}).items()],
+                 "client": ("203.0.113.7", 1234), "scheme": "http", "server": ("test", 80)}
+        return Request(scope)
+
+    with _keys("pro:k_bucket"):
+        assert api._bucket(req({"X-API-Key": "k_bucket"})) == key_id("k_bucket")
+        assert api._bucket(req(query=b"key=k_bucket")) == key_id("k_bucket")
+        assert api._bucket(req({"X-API-Key": "k_bad"})) == "203.0.113.7"
+        assert api._bucket(req()) == "203.0.113.7"
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

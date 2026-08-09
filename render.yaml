@@ -31,8 +31,9 @@ services:
         value: "2"
       - key: MALLOC_TRIM_THRESHOLD_
         value: "65536"
-      # Per-IP rate limit on the scoring endpoints (protects the keyed/free
+      # Per-caller rate limit on the scoring endpoints (protects the keyed/free
       # upstreams they proxy). "" or "0" disables it; /healthz is always exempt.
+      # The caller is the remote address, or the API key when one is recognised.
       - key: RATE_LIMIT
         value: "30/minute"
       # Interactive HTTP budget for the upstream datasets. The library defaults
@@ -56,4 +57,13 @@ services:
       - key: GOOGLE_PLACES_API_KEY
         sync: false
       - key: GEOAPIFY_API_KEY
+        sync: false
+      # Caller identity. HOUSING_LABEL_KEYS issues API keys as comma-separated
+      # "plan:key" entries and is sync:false because it holds secrets — unset,
+      # every caller is anonymous and the API behaves as it did before keys
+      # existed. ANON_DAILY_SCORES is the daily scoring-pass ceiling for callers
+      # without a key; it is deliberately absent here rather than set to "0",
+      # because the default already is unmetered and a declared "0" would only
+      # invite someone to read it as a limit that had been switched off.
+      - key: HOUSING_LABEL_KEYS
         sync: false

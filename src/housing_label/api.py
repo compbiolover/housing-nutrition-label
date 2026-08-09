@@ -38,14 +38,36 @@ Endpoints::
         optional: units=1,2,4 (counts), per_unit_value, + all /label house params
     GET /preset-profiles             the construction-profile roster (names, slugs,
                                      descriptions) — a constant, scores nothing
+    GET /usage                       the calling key's own plan and day's usage
 
 CORS is restricted to https://housinglabel.dev by default; set the
 ALLOWED_ORIGINS env var (comma-separated) to allow other origins or local dev.
 
+API keys are optional and additive. Send one as an ``X-API-Key`` header to be
+identified as yourself: a keyed caller gets a rate-limit bucket of its own rather
+than sharing one with everybody behind the same address, and its plan's daily
+scoring allowance. With no keys configured — the default, and every self-hosted
+instance — every caller is anonymous and the service behaves exactly as it did
+before keys existed. See ``housing_label.entitlements``.
+
+``?key=`` is accepted as a fallback and is **not** equivalent: a query string is
+part of the request line, so it lands in uvicorn's access log, in any reverse
+proxy's log, in browser history, and in the ``Referer`` sent to third parties.
+Nothing in this process writes a key anywhere, but it cannot unwrite the URL it
+was handed. Use the header wherever you can set one, and treat a key sent as a
+query parameter as one you may need to rotate. It exists for the callers that
+genuinely cannot send a header — an ``<img>`` or iframe badge embed, and a quick
+curl — and responses to those requests are marked ``no-store`` (see
+``_cache_headers``) so the key-bearing URL at least stays out of the disk cache.
+
 Operational env vars::
 
-    RATE_LIMIT         per-IP limit on every endpoint except /healthz
+    RATE_LIMIT         per-caller limit on every endpoint except /healthz
                        (default "30/minute"; "" or "0" disables it)
+    HOUSING_LABEL_KEYS "plan:key" entries, comma-separated, issuing API keys
+                       (unset by default: everyone is anonymous)
+    ANON_DAILY_SCORES  daily scoring passes allowed without a key
+                       (default 0 = unmetered, which is the historical behaviour)
     LABEL_CACHE_SIZE   max cached label results (default 512; 0 disables)
     LABEL_CACHE_TTL    cache entry lifetime in seconds (default 21600 = 6 h)
     HTTP_TIMEOUT       seconds per upstream call (default 60; render.yaml sets 12)
@@ -65,7 +87,7 @@ import time
 from collections import OrderedDict
 
 import requests
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -73,6 +95,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
+from housing_label import entitlements
 from housing_label.config import (
     HEADERS, PHOTON_URL, GEOAPIFY_URL, GEOAPIFY_API_KEY,
     GOOGLE_PLACES_AUTOCOMPLETE_URL, GOOGLE_PLACES_DETAILS_URL, GOOGLE_PLACES_API_KEY,
@@ -80,7 +103,7 @@ from housing_label.config import (
 from housing_label.simulate.house import (
     build_label_parts, label_payload, density_comparison, timeline_comparison,
     TIMELINE_MAX_POINTS, cost_flows, NonResidentialProperty,
-    _NON_RESIDENTIAL_MESSAGE,
+    _NON_RESIDENTIAL_MESSAGE, DENSITY_UNIT_COUNTS, default_timeline_years,
     PRESETS, CONSTRUCTION_FACTOR, FOUNDATION_FACTOR, CONDITION_FACTOR,
     BONUS_FLAGS, ELEVATION_FLAGS, WATER_SOURCES, SEWER_TYPES, LOT_CONTEXTS,
 )
@@ -240,6 +263,10 @@ _CACHE_CONTROL_BY_PATH = {
     "/presets": _SCORE_CACHE_CONTROL,
     "/density": _SCORE_CACHE_CONTROL,
     "/preset-profiles": "public, max-age=86400",
+    # A live counter. Left unlisted it would carry no Cache-Control at all, and a
+    # client is free to cache a bare 200 heuristically — which for this endpoint
+    # means showing a caller yesterday's remaining balance.
+    "/usage": "no-store",
 }
 
 
@@ -249,27 +276,127 @@ async def _cache_headers(request, call_next):
 
     Only 200s: an error or a 422 residential refusal must stay re-askable, and a
     cached 429 would outlive the rate-limit window that produced it.
+
+    A request carrying ``?key=`` is never cached, whatever its path. The URL holds
+    a credential, and `private, max-age=600` would write it into the visitor's
+    disk cache to be found later. That does not undo the leak into access logs
+    and history (see the module docstring — the header is the safe way to send a
+    key), but it is the one part of the blast radius this process controls.
     """
     response = await call_next(request)
     if request.method == "GET" and response.status_code == 200:
         cc = _CACHE_CONTROL_BY_PATH.get(request.url.path)
         if cc and "cache-control" not in response.headers:
-            response.headers["Cache-Control"] = cc
+            response.headers["Cache-Control"] = "no-store" if "key" in request.query_params else cc
     return response
 
 # ── Rate limiting ────────────────────────────────────────────────────────────────
 # Every scoring request fans out to several live upstreams — the optional keyed
 # geocoder (Geoapify) and several free government APIs that throttle. Without
-# a limit, one unauthenticated caller can drive cost and get the free endpoints
-# blocked for everyone. A per-IP token bucket (default 30/min, override with the
+# a limit, one caller can drive cost and get the free endpoints blocked for
+# everyone. A per-caller token bucket (default 30/min, override with the
 # RATE_LIMIT env var; set it to "" / "0" to disable) fronts every endpoint via
-# SlowAPIMiddleware; /healthz is exempted so probes are never throttled.
+# SlowAPIMiddleware; /healthz is exempted so probes are never throttled. "Caller"
+# is the remote address, or the API key when one is recognised — see _bucket.
 RATE_LIMIT = os.environ.get("RATE_LIMIT", "30/minute").strip()
-_default_limits = [RATE_LIMIT] if RATE_LIMIT and RATE_LIMIT.lower() not in ("0", "off", "none") else []
-limiter = Limiter(key_func=get_remote_address, default_limits=_default_limits)
+_RATE_LIMIT_OFF = not RATE_LIMIT or RATE_LIMIT.lower() in ("0", "off", "none")
+
+
+def _bucket(request: Request) -> str:
+    """Who is being rate-limited: a recognised API key, else the remote address.
+
+    Two callers behind one office NAT share an IP and therefore share one bucket,
+    which is the right default for anonymous traffic and the wrong one for a
+    caller who has identified themselves. Keying on the digest moves a keyed
+    caller into a bucket of their own.
+
+    The *rate* is still RATE_LIMIT for everyone: slowapi resolves default limits
+    without a request in hand, so the per-minute ceiling cannot be varied per
+    caller without replacing the limiter (see housing_label.entitlements). What a
+    key changes here is who you share the bucket with, not how big it is.
+
+    An unrecognised key falls back to the address on purpose: it must not mint a
+    fresh bucket per guess, and the request is about to be refused by ``_caller``
+    anyway. Must never raise — the middleware calls this before any endpoint
+    runs, so an exception here would be a 500 on every request.
+    """
+    try:
+        raw = request.headers.get("X-API-Key") or request.query_params.get("key")
+        if raw:
+            ident = entitlements.key_id(raw)
+            if ident in entitlements.registry():
+                return ident
+    except Exception:  # noqa: BLE001 — degrade to per-IP, never fail the request
+        log.exception("rate-limit bucket resolution failed; using the remote address")
+    return get_remote_address(request)
+
+
+_default_limits = [] if _RATE_LIMIT_OFF else [RATE_LIMIT]
+limiter = Limiter(key_func=_bucket, default_limits=_default_limits)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
+
+
+# ── Callers, plans and the daily allowance ───────────────────────────────────────
+# The rate limit above is a burst control; this is the day's ceiling. Both are
+# no-ops on a deployment with no keys configured, where every caller resolves to
+# the unmetered anonymous plan (see housing_label.entitlements).
+class Caller:
+    """The resolved identity of one request: a plan, and the ledger row to bill."""
+
+    __slots__ = ("plan", "ident")
+
+    def __init__(self, plan: entitlements.Plan, ident: str):
+        self.plan, self.ident = plan, ident
+
+    @property
+    def anonymous(self) -> bool:
+        return not self.ident
+
+
+def _caller(request: Request) -> Caller:
+    """Resolve the request's API key, or 401 if it was supplied and is unknown.
+
+    Anonymity is the default and stays free. What is refused is a key that looks
+    like a key and isn't one: silently treating it as anonymous would let a
+    customer whose key was mistyped or rotated read their own downgrade as the
+    service being slow.
+    """
+    raw = request.headers.get("X-API-Key") or request.query_params.get("key")
+    plan = entitlements.plan_for(raw)
+    if plan is None:
+        raise HTTPException(401, "unknown API key")
+    return Caller(plan, entitlements.key_id(raw))
+
+
+def _meter(caller: Caller, response: Response, cost: int) -> None:
+    """Charge ``cost`` scoring passes to the caller's day and stamp the headers.
+
+    Charged per *scoring pass requested*, not per pass computed: /presets is five
+    labels and a six-year /timeline is six, so metering whole requests would
+    price a dropdown the same as a portfolio row. A cache hit still charges,
+    because whether the answer was already in this process's memory is an
+    accident of who asked first and not something a caller can see or plan
+    around.
+    """
+    allowed, used, remaining = entitlements.ledger.charge(
+        caller.ident, cost, caller.plan.daily_scores)
+    headers = {"X-Plan": caller.plan.name}
+    if caller.plan.metered:
+        headers["X-Quota-Limit"] = str(caller.plan.daily_scores)
+        headers["X-Quota-Remaining"] = str(max(remaining or 0, 0))
+        headers["X-Quota-Used"] = str(used)
+    if not allowed:
+        # Headers go on the exception: raising discards the injected Response, and
+        # the one reply that most needs to say how much is left is this one.
+        raise HTTPException(
+            429,
+            f"daily allowance of {caller.plan.daily_scores} scoring passes is "
+            f"exhausted ({used} used, this request needed {cost}). It resets at "
+            "00:00 UTC.",
+            headers=headers)
+    response.headers.update(headers)
 
 
 # ── Result cache ─────────────────────────────────────────────────────────────────
@@ -809,6 +936,8 @@ def place(place_id: str | None = None, session: str | None = None) -> dict:
 
 @app.get("/label")
 def label(
+    response: Response,
+    caller: Caller = Depends(_caller),
     address: str | None = None,
     lat: float | None = None,
     lon: float | None = None,
@@ -860,6 +989,8 @@ def label(
     # real address, and `allow_non_residential` is the explicit override.
     if nonresidential and not allow_non_residential and preset is None:
         raise HTTPException(422, _NON_RESIDENTIAL_MESSAGE)
+
+    _meter(caller, response, 1)
 
     cache_key = ("label", _key_addr(address), _key_coord(lat), _key_coord(lon),
                  preset, construction, year_built,
@@ -1076,6 +1207,36 @@ _WEBSITE_PRESETS = [
 _PRESETS_DEFAULT_LAT, _PRESETS_DEFAULT_LON = 35.13, -89.99
 
 
+@app.get("/usage")
+def usage(caller: Caller = Depends(_caller)) -> dict:
+    """What the calling key's plan allows, and what it has spent today.
+
+    Answers the question a metered caller otherwise has to answer by watching
+    response headers and guessing: what am I on, how much is left, when does it
+    reset. Reports the *calling* key and only ever that one — there is no key
+    parameter to point at somebody else's row, and the identity comes from the
+    same dependency the scoring endpoints use.
+
+    Anonymous callers get an honest answer too (the unmetered anonymous plan)
+    rather than a 401, so a self-hosted instance can be probed the same way.
+
+    Explicitly ``no-store`` (see _CACHE_CONTROL_BY_PATH): it is the one number
+    here that changes on every request.
+    """
+    used = entitlements.ledger.used(caller.ident)
+    allowance = caller.plan.daily_scores
+    return {
+        "plan": caller.plan.name,
+        "anonymous": caller.anonymous,
+        "rate_limit": None if _RATE_LIMIT_OFF else RATE_LIMIT,
+        "daily_scores": allowance or None,      # null = unmetered
+        "used_today": used,
+        "remaining_today": max(allowance - used, 0) if allowance else None,
+        "day": entitlements.ledger.day,
+        "resets": "00:00 UTC",
+    }
+
+
 @app.get("/preset-profiles")
 def preset_profiles() -> dict:
     """The construction-profile roster — names, slugs, descriptions. No scoring.
@@ -1095,6 +1256,8 @@ def preset_profiles() -> dict:
 
 @app.get("/presets")
 def presets(
+    response: Response,
+    caller: Caller = Depends(_caller),
     address: str | None = None,
     lat: float | None = None,
     lon: float | None = None,
@@ -1113,6 +1276,8 @@ def presets(
             lat, lon = _PRESETS_DEFAULT_LAT, _PRESETS_DEFAULT_LON   # Label-page default
         elif lat is None or lon is None:
             raise HTTPException(400, "Provide both ?lat= and ?lon= (or ?address=, or neither)")
+
+    _meter(caller, response, len(_WEBSITE_PRESETS))
 
     cache_key = ("presets", _key_addr(address), _key_coord(lat), _key_coord(lon))
     cached = _result_cache.get(cache_key)
@@ -1163,6 +1328,8 @@ _DENSITY_MAX_SCENARIOS = 6
 
 @app.get("/density")
 def density(
+    response: Response,
+    caller: Caller = Depends(_caller),
     address: str | None = None,
     lat: float | None = None,
     lon: float | None = None,
@@ -1211,6 +1378,10 @@ def density(
             raise HTTPException(400, f"at most {_DENSITY_MAX_SCENARIOS} unit counts "
                                      "may be compared at once")
 
+    # One pass per scenario, and the default read from the shared constant so the
+    # charge can't drift from what actually gets scored.
+    _meter(caller, response, len(unit_counts or DENSITY_UNIT_COUNTS))
+
     cache_key = ("density", _key_addr(address), _key_coord(lat), _key_coord(lon),
                  preset, construction, year_built,
                  foundation, condition, value, per_unit_value, sqft, lot_acres,
@@ -1252,6 +1423,8 @@ _TIMELINE_MAX_POINTS = TIMELINE_MAX_POINTS
 
 @app.get("/timeline")
 def timeline(
+    response: Response,
+    caller: Caller = Depends(_caller),
     address: str | None = None,
     lat: float | None = None,
     lon: float | None = None,
@@ -1302,6 +1475,10 @@ def timeline(
         if len(year_list) > _TIMELINE_MAX_POINTS:
             raise HTTPException(400, f"at most {_TIMELINE_MAX_POINTS} years may be "
                                      "compared at once")
+
+    # One pass per point on the sweep; the default window comes from the same
+    # helper timeline_comparison() uses, so it moves with the dataset vintage.
+    _meter(caller, response, len(year_list or default_timeline_years()))
 
     cache_key = ("timeline", _key_addr(address), _key_coord(lat), _key_coord(lon),
                  preset, construction, year_built, foundation, condition, value,
