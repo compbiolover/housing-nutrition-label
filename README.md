@@ -304,7 +304,7 @@ else can join it from a Census bulk file) skips it entirely.
 | Input column | What it does |
 |---|---|
 | `id` | passed through untouched — your key for joining results back |
-| `lat`, `lon` | required (or `address`, which needs `--fetch`) |
+| `lat`, `lon` | required — unless you give an `address` and add `--geocode` (see below), which fills these in and keeps the scoring pass offline |
 | `tract` / `county_fips` | pre-joined geography; `tract` alone implies county and state |
 | `street`, `city`, `state`, `zip` | used by `--geocode` (or a single `address`) |
 | `year_built`, `sqft`, `construction`, … | any house field the simulator accepts |

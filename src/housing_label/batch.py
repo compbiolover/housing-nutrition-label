@@ -328,17 +328,26 @@ def geocode_pass(rows: list[dict], *, chunk_size: int | None = None) -> dict:
     if not todo:
         return {"geocoded": 0, "matched": 0, "unmatched": 0}
 
-    # Give every row a stable key for the round trip. Results are joined back by
-    # it rather than by position, because the endpoint does not promise order.
-    for i, r in enumerate(todo):
-        r.setdefault("id", f"row-{i}")
-        if not _clean(r.get("id")):
-            r["id"] = f"row-{i}"
-    by_id = {str(r["id"]): r for r in todo}
+    # The round trip gets its OWN key, generated per row, and the caller's `id` is
+    # never read for it or written to. Two reasons, both of which bite on real
+    # exports, where the same property routinely appears on two loans:
+    #
+    #   * duplicate ids would collapse the join, so only the last row of each
+    #     group got its geography and the rest silently kept none;
+    #   * they would also go to the endpoint as colliding keys, making its reply
+    #     ambiguous before we even tried to match it up.
+    #
+    # Defaulting a missing id was the mirror-image mistake: it wrote a fabricated
+    # identifier into the customer's own row, which then came back in the output
+    # as though they had supplied it.
+    shadow = [{"id": f"g{i}", "address": r.get("address"), "street": r.get("street"),
+               "city": r.get("city"), "state": r.get("state"), "zip": r.get("zip")}
+              for i, r in enumerate(todo)]
+    by_key = {s["id"]: row for s, row in zip(shadow, todo)}
 
     matched = 0
-    for res in geocode_rows(todo, chunk_size=chunk_size or MAX_BATCH):
-        row = by_id.get(res.id)
+    for res in geocode_rows(shadow, chunk_size=chunk_size or MAX_BATCH):
+        row = by_key.get(res.id)
         if row is None:
             continue
         if not res.matched:

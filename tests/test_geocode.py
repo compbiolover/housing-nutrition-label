@@ -146,7 +146,7 @@ def test_geocode_pass_fills_geography_and_clears_the_address():
     pre-pass just fixed."""
     rows = [{"id": "A", "address": "1 Main St, Memphis, TN"}]
     real = G._request_chunk
-    G._request_chunk = _fake_geocode({"A": (35.15, -89.85, "47157003100")})
+    G._request_chunk = _fake_geocode({"g0": (35.15, -89.85, "47157003100")})
     try:
         summary = B.geocode_pass(rows)
     finally:
@@ -159,6 +159,52 @@ def test_geocode_pass_fills_geography_and_clears_the_address():
     # And the fixed-up row now scores like any pre-joined one.
     rec = next(B.score_rows(rows, allow_network=False))
     assert rec["error"] is None and rec["n_scored"] == 13
+
+
+def test_duplicate_ids_each_get_their_own_geography():
+    """Real exports repeat ids — the same property on two loans is routine.
+
+    Keying the round trip on the caller's id collapsed the join, so only the last
+    row of each duplicate group got its geography and the rest silently kept
+    none; it also sent colliding keys to the endpoint, making the reply ambiguous
+    before the join was even attempted.
+    """
+    rows = [
+        {"id": "DUP", "address": "1 Main St, Memphis, TN"},
+        {"id": "DUP", "address": "2 Other Ave, Chicago, IL"},
+        {"id": "DUP", "address": "nowhere at all"},
+    ]
+    real = G._request_chunk
+    # Keyed by the SHADOW ids the pass generates, proving the caller's id is not
+    # what goes over the wire.
+    G._request_chunk = _fake_geocode({"g0": (35.15, -89.85, "47157003100"),
+                                      "g1": (41.88, -87.63, "17031081500")})
+    try:
+        summary = B.geocode_pass(rows)
+    finally:
+        G._request_chunk = real
+
+    assert summary == {"geocoded": 3, "matched": 2, "unmatched": 1}
+    assert rows[0]["tract"] == "47157003100"      # Memphis
+    assert rows[1]["tract"] == "17031081500"      # Chicago, not overwritten
+    assert "tract" not in rows[2]
+    assert rows[2]["_geocode_status"] == "No_Match"
+    # The caller's id is theirs; the pass neither reads nor rewrites it.
+    assert [r["id"] for r in rows] == ["DUP", "DUP", "DUP"]
+
+
+def test_rows_without_an_id_do_not_get_one_invented():
+    """Writing a generated id into the customer's row would surface in the output
+    as though they had supplied it."""
+    rows = [{"address": "1 Main St, Memphis, TN"}]
+    real = G._request_chunk
+    G._request_chunk = _fake_geocode({"g0": (35.15, -89.85, "47157003100")})
+    try:
+        B.geocode_pass(rows)
+    finally:
+        G._request_chunk = real
+    assert rows[0]["tract"] == "47157003100"
+    assert "id" not in rows[0]
 
 
 def test_geocode_pass_leaves_rows_that_already_have_a_tract():
@@ -182,7 +228,7 @@ def test_caller_supplied_coordinates_are_not_overwritten():
     rows = [{"id": "A", "address": "1 Main St, Memphis, TN",
              "lat": "35.1", "lon": "-89.9"}]
     real = G._request_chunk
-    G._request_chunk = _fake_geocode({"A": (35.15, -89.85, "47157003100")})
+    G._request_chunk = _fake_geocode({"g0": (35.15, -89.85, "47157003100")})
     try:
         B.geocode_pass(rows)
     finally:
@@ -210,7 +256,7 @@ def test_run_batch_geocode_end_to_end():
     inp = io.StringIO('id,address,year_built\nA,"1 Main St, Memphis, TN",1995\n')
     out = io.StringIO()
     real = G._request_chunk
-    G._request_chunk = _fake_geocode({"A": (35.15, -89.85, "47157003100")})
+    G._request_chunk = _fake_geocode({"g0": (35.15, -89.85, "47157003100")})
     try:
         summary = B.run_batch(inp, out, allow_network=False, geocode=True)
     finally:
