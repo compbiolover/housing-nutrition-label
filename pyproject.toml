@@ -39,6 +39,7 @@ dev = ["pytest>=8", "ruff>=0.5", "httpx2>=2.5", "Pillow>=10,<13"]
 [project.scripts]
 housing-simulate = "housing_label.simulate.house:main"
 housing-api = "housing_label.api:serve"
+housing-batch = "housing_label.batch:main"
 
 [tool.setuptools]
 package-dir = { "" = "src", "scripts" = "scripts" }
