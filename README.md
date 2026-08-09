@@ -1,10 +1,10 @@
 # Housing Nutrition Label
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: PolyForm Shield 1.0.0](https://img.shields.io/badge/License-PolyForm%20Shield%201.0.0-blue.svg)](LICENSE)
 [![Site](https://img.shields.io/badge/live-housinglabel.dev-2e7d32)](https://housinglabel.dev/label.html)
 [![Status](https://img.shields.io/badge/phase%201-complete-brightgreen)](#current-status)
 
-An open-source platform that scores residential properties across multiple dimensions (disaster resilience, energy efficiency, durability, environmental footprint, infrastructure burden, health impact, air quality, transportation noise, socioeconomic context, walkability, climate projections, rooftop solar potential, and drinking-water quality) and presents them in a clear, standardized format, **like a nutrition label for housing**.
+A source-available platform that scores residential properties across multiple dimensions (disaster resilience, energy efficiency, durability, environmental footprint, infrastructure burden, health impact, air quality, transportation noise, socioeconomic context, walkability, climate projections, rooftop solar potential, and drinking-water quality) and presents them in a clear, standardized format, **like a nutrition label for housing**.
 
 The goal: give homebuyers, renters, insurers, and policymakers an at-a-glance understanding of a property's true risk and quality profile, beyond what typical listings or appraisals reveal.
 
@@ -550,4 +550,23 @@ An initial version is live at [housinglabel.dev/label.html](https://housinglabel
 
 ## License
 
-MIT. See [LICENSE](LICENSE)
+**[PolyForm Shield 1.0.0](LICENSE)** — source-available, not OSI open source.
+
+Read it, run it, modify it, self-host it, build on it, and contribute back. The one
+thing it does not permit is using it to provide a product or service that competes
+with Housing Nutrition Label. Commercial licenses for competing use are available —
+open an issue or get in touch.
+
+Two things worth being explicit about:
+
+- **Releases through v0.1.82 were published under the MIT License and remain MIT
+  permanently** ([LICENSE-MIT-HISTORICAL](LICENSE-MIT-HISTORICAL)). Relicensing is
+  not retroactive and this project does not pretend otherwise. This license governs
+  releases after v0.1.82.
+- **The underlying data is not licensed here, because it isn't ours to license.**
+  The Census, FEMA, EPA, NREL, USGS, NOAA and CDC inputs are US federal works in the
+  public domain. This license covers the scoring engine, the models, and the derived
+  crosswalks — not the public facts they are built from.
+
+"Housing Nutrition Label" and housinglabel.dev are marks of the project and are not
+licensed for use by forks.

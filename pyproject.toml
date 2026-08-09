@@ -7,7 +7,11 @@ name = "housing-nutrition-label"
 version = "0.1.82"
 description = "Multi-dimensional lifecycle scoring for residential properties"
 readme = "README.md"
-license = { text = "MIT" }
+# Source-available, NOT OSI open source: use is granted for any purpose except
+# competing with this project. Deliberately no "License :: OSI Approved" classifier
+# below — claiming one would be false. Releases through v0.1.82 remain MIT
+# (LICENSE-MIT-HISTORICAL).
+license = { text = "PolyForm-Shield-1.0.0" }
 requires-python = ">=3.10"
 dependencies = [
     "requests>=2.32,<3",

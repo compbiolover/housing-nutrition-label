@@ -1,5 +1,32 @@
 # Contributing
 
+## Licensing of contributions
+
+This project is **source-available**, not open source: it is licensed under
+[PolyForm Shield 1.0.0](LICENSE), which permits everything except using the
+software to provide a product or service that competes with it. Releases through
+v0.1.82 were published under the MIT License and remain MIT permanently
+([LICENSE-MIT-HISTORICAL](LICENSE-MIT-HISTORICAL)).
+
+**By opening a pull request you agree that:**
+
+1. You own the copyright in your contribution, or have the right to submit it.
+2. You grant Andrew Willems a perpetual, worldwide, irrevocable, royalty-free
+   license to use, reproduce, modify, distribute and **sublicense** your
+   contribution, including the right to license it under terms other than
+   PolyForm Shield — including commercial terms.
+3. Your contribution is also licensed to everyone else under the project license.
+
+Point 2 is what keeps the project able to offer **commercial licenses** to parties
+who want to compete or embed. Without it, every outside contribution would be a
+veto on that, because the project could no longer license the whole work. It does
+not take your copyright away — you keep it, and you can do whatever you like with
+your own code elsewhere.
+
+If you'd rather not agree to this, open an issue describing the change instead of a
+pull request and it can be implemented independently. If your employer owns your
+work, get their sign-off before contributing.
+
 ## Commit / PR conventions
 
 This repo uses **[Conventional Commits](https://www.conventionalcommits.org/)** to drive
@@ -16,7 +43,7 @@ A workflow (`.github/workflows/pr-title.yml`) lints every PR title. Allowed type
 |------|---------|--------------------------|
 | `feat` | a new capability | patch bump (minor once ≥ 1.0) |
 | `fix` | a bug fix | patch bump |
-| `feat!` / `fix!` or a `BREAKING CHANGE:` footer | a breaking change | **minor** bump (major once ≥ 1.0) |
+| any type with `!` (`feat!`, `chore!`, …) or a `BREAKING CHANGE:` footer | a breaking change | **minor** bump (major once ≥ 1.0) |
 | `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert` | everything else | changelog-only; no release on its own |
 
 Examples: `feat(climate): add ClimRR fire-weather leg` · `fix: handle 0–360 longitude grids`
