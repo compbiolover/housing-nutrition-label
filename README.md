@@ -304,23 +304,74 @@ else can join it from a Census bulk file) skips it entirely.
 | Input column | What it does |
 |---|---|
 | `id` | passed through untouched — your key for joining results back |
-| `lat`, `lon` | required — unless you give an `address` and add `--geocode` (see below), which fills these in and keeps the scoring pass offline |
-| `tract` / `county_fips` | pre-joined geography; `tract` alone implies county and state |
+| `lat`, `lon` | **required** — unless you give an `address` and add `--geocode` (see below), which fills these in and keeps the scoring pass offline |
+| `tract` / `county_fips` | **required for the eight location dimensions**; `tract` alone implies county and state |
+| `year_built`, `sqft`, `construction`, `foundation`, `condition`, `flood_zone` | **strongly recommended** — these are what the Building axis is made of. See below |
 | `street`, `city`, `state`, `zip` | used by `--geocode` (or a single `address`) |
-| `year_built`, `sqft`, `construction`, … | any house field the simulator accepts |
-| `upgrades`, `preset`, `flood_zone` | optional |
+| `units`, `stories`, `value`, `lot_acres`, … | any other house field the simulator accepts |
+| `upgrades`, `preset` | optional |
 
 Unknown columns are ignored, so a customer export can be fed in unmodified.
 
 Output carries every dimension's score, national grade and national percentile, the
-composite, both headline axes, and `n_scored`. Rows that can't be scored keep their `id`
-and carry an `error` — a bad parcel never ends the run, and never silently vanishes from
-a book you're reconciling.
+composite, both headline axes, `n_scored`, and `building_source` / `defaulted_inputs`.
+Rows that can't be scored keep their `id` and carry an `error` — a bad parcel never ends
+the run, and never silently vanishes from a book you're reconciling.
 
 `--portfolio-grades` adds a second, clearly separate ranking: where each parcel falls
 **within this batch**. A national grade answers "how does this compare to US housing";
 a portfolio grade answers "which tenth of my book is worst". Both are reported, never
 merged.
+
+### What happens if you don't supply the building attributes
+
+A row that carries only a position and a tract still scores all thirteen dimensions —
+but the five construction-driven ones are scored against a **typical house**: a 2024
+wood-frame slab-on-grade 2,000 sqft build, and offline every parcel in the country
+defaults to flood zone X (minimal). Measured on one Memphis tract:
+
+| | nothing supplied | 1948 frame/crawl/poor, zone AE |
+|---|---|---|
+| Building axis | **92.9 (A)** | **8.3 (F)** |
+| Site axis | 42.0 | 42.4 *(this half is real either way)* |
+| `n_scored` | 13 | 13 |
+
+The defaults are not neutral — a new build and a minimal flood zone are both near the
+optimistic end — so on a whole book the error is a systematic bias toward new
+construction and away from flood risk, not noise that averages out. `n_scored` doesn't
+catch it, because thirteen dimensions really were scored.
+
+So every scored row reports where its building inputs came from:
+
+| Column | Value |
+|---|---|
+| `building_source` | `supplied` (nothing assumed) · `partial` (some assumed) · `defaulted` (every building input assumed) |
+| `defaulted_inputs` | the field names that were assumed, e.g. `construction,foundation,condition,flood_zone` |
+
+and a run logs a warning naming the count — separately for the two, because a
+partial row's Building grade does describe this house, just less precisely.
+Nothing is refused:
+scoring the Site half for a customer who holds no building data is a legitimate use —
+the point is only that a defaulted A can never be mistaken for a measured one.
+
+### Long runs
+
+`--resume` continues an interrupted run: it counts the rows the output file already
+covers, skips that many input rows and appends, producing a file byte-identical to an
+uninterrupted run. It refuses if that file was written with different columns (a
+`--portfolio-grades` flag flipped between runs would line the CSV up while making every
+appended cell mean something else), and it can't be combined with `--portfolio-grades`,
+which writes nothing until the end and so leaves nothing partial to resume from.
+
+```bash
+housing-batch -i book.csv -o scored.csv --resume     # safe on the first run too
+```
+
+`--jobs N` scores N rows concurrently. It only helps when the run is making upstream
+calls, and is **refused without `--fetch`**: measured on offline scoring, four threads
+ran at 0.89× of serial — pure GIL contention, since nothing releases it. Keep it modest;
+the constraint on a `--fetch` run is politeness to free government endpoints, not cores.
+Output order is unchanged either way.
 
 ### Only have addresses?
 
