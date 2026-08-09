@@ -384,11 +384,19 @@ def _anon_ident(request: Request) -> str:
     nothing here pretends otherwise. It is the same basis Walk Score prices its
     badge tier on, and the honest description is that it counts cooperative
     callers correctly and does not stop an uncooperative one.
+
+    ``hostname``, not ``netloc``: the latter carries userinfo and the port, so
+    ``example.com``, ``example.com:443`` and ``user@example.com`` would be three
+    ledger rows for one site — which splits an honest embedder's allowance three
+    ways for reasons they can't see, and hands a dishonest one a fresh allowance
+    per port. Subdomains do stay distinct; collapsing those needs the public
+    suffix list, and guessing at registrable domains would merge sites that
+    genuinely aren't one.
     """
     referrer = request.headers.get("Referer") or request.headers.get("Origin") or ""
     host = ""
     with contextlib.suppress(ValueError):
-        host = urllib.parse.urlsplit(referrer).netloc.lower()[:120]
+        host = (urllib.parse.urlsplit(referrer).hostname or "")[:120]
     return f"site:{host}" if host else f"ip:{get_remote_address(request)}"
 
 

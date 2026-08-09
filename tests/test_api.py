@@ -1207,6 +1207,40 @@ def test_anonymous_callers_are_metered_per_site_then_per_address():
         assert client.get("/usage").json()["used_today"] == 1
 
 
+def test_one_site_is_one_ledger_row_whatever_its_referer_looks_like():
+    """The scheme, port and any userinfo are not part of who is embedding. Left
+    in, they split an honest embedder's allowance for reasons they cannot see,
+    and hand a dishonest one a fresh allowance per port."""
+    try:
+        import fastapi  # noqa: F401
+    except ImportError:
+        print("  skip test_one_site_is_one_ledger_row_whatever_its_referer_looks_like (fastapi not installed)")
+        return
+    from starlette.requests import Request
+    from housing_label import api
+
+    def ident(referrer=None):
+        headers = [(b"referer", referrer.encode())] if referrer else []
+        return api._anon_ident(Request({
+            "type": "http", "method": "GET", "path": "/badge", "query_string": b"",
+            "headers": headers, "client": ("203.0.113.9", 1234),
+            "scheme": "http", "server": ("test", 80)}))
+
+    same = {ident(r) for r in (
+        "https://example.com/homes/1", "https://example.com:443/homes/1",
+        "http://example.com:80/other", "https://user:pw@example.com/x",
+        "https://EXAMPLE.COM/shouty",
+    )}
+    assert same == {"site:example.com"}, same
+    # Distinctions that are real stay real.
+    assert ident("https://blog.example.com/x") == "site:blog.example.com"
+    assert ident("https://other.example/x") == "site:other.example"
+    # No usable Referer falls back to the address, and junk never raises.
+    assert ident() == "ip:203.0.113.9"
+    for junk in ("", "not a url", "://", "https://", "javascript:alert(1)"):
+        assert ident(junk) == "ip:203.0.113.9", junk
+
+
 def test_a_recognised_key_gets_its_own_rate_limit_bucket():
     """What a key actually changes about rate limiting today: who you share the
     bucket with. Two callers behind one address stop competing; an unrecognised

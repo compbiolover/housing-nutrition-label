@@ -497,9 +497,10 @@ numbers — a scored address returns the same label on every plan, and it always
 
 Anonymous callers are counted too, one row each: a badge is attributed to the **site
 embedding it** (the `Referer`'s host, so a thousand readers of one page are one embedder),
-and everything else to the calling address. That is attribution, not authentication — a
-`Referer` is trivially forged, and it counts cooperative callers correctly without
-stopping an uncooperative one.
+and everything else to the calling address. Scheme, port and userinfo are not part of who
+is embedding, so `example.com` and `example.com:443` are one row; subdomains stay distinct.
+That is attribution, not authentication — a `Referer` is trivially forged, and it counts
+cooperative callers correctly without stopping an uncooperative one.
 
 `?key=` also works and is **not** equivalent. A query string is part of the request line,
 so it lands in the server's access log, any proxy in front of it, browser history, and the
