@@ -1,4 +1,4 @@
-# Housing Nutrition Label
+# Housing Nutrition Label&trade;
 
 [![License: PolyForm Shield 1.0.0](https://img.shields.io/badge/License-PolyForm%20Shield%201.0.0-blue.svg)](LICENSE)
 [![Site](https://img.shields.io/badge/live-housinglabel.dev-2e7d32)](https://housinglabel.dev/label.html)
@@ -568,5 +568,12 @@ Two things worth being explicit about:
   public domain. This license covers the scoring engine, the models, and the derived
   crosswalks — not the public facts they are built from.
 
-"Housing Nutrition Label" and housinglabel.dev are marks of the project and are not
-licensed for use by forks.
+## Trademarks
+
+**Housing Nutrition Label™** and **HousingLabel.dev** are trademarks of Andrew Willems,
+and are **not** covered by the software license above — see [TRADEMARKS.md](TRADEMARKS.md).
+
+A license to the code is not a license to the name, and the two have different reach:
+the MIT-era releases (through v0.1.82) can be forked by anyone forever, but a fork still
+may not *call itself* Housing Nutrition Label. Referential use — saying your project
+builds on it, writing about it, citing it — needs no permission and never will.

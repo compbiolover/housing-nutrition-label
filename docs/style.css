@@ -271,6 +271,12 @@ footer a { color: var(--accent-on-dark); }
    page treatment (near-white fill) put grey-on-white at 2.34:1 there. Tint it
    from the footer's own surface instead. */
 footer code { background: rgba(255, 255, 255, 0.1); color: #cbd5e1; }
+/* Trademark notice: legal fine print, so it sits a step back from the footer's
+   own #94a3b8 (6.1:1) rather than competing with it — but "quiet" must not mean
+   "unreadable". #8b98ac on --navy measures 5.4:1, comfortably past the 4.5:1 AA
+   floor for text this size. A darker grey read better as hierarchy and landed at
+   4.55:1, which is passing by 0.05 on text people are actually meant to read. */
+.tm-notice { display: inline-block; margin-top: 0.5rem; font-size: 0.78rem; color: #8b98ac; }
 
 /* Pipeline diagram */
 .pipeline { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 1.5rem 0; }
