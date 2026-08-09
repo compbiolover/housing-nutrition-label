@@ -9,6 +9,15 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.2.2](https://github.com/compbiolover/housing-nutrition-label/compare/v0.2.1...v0.2.2) (2026-08-09)
+
+
+### Features
+
+* **batch:** cache geocode results so a re-run asks only about new addresses ([#282](https://github.com/compbiolover/housing-nutrition-label/issues/282)) ([31d94ea](https://github.com/compbiolover/housing-nutrition-label/commit/31d94ea9238fe0943d4aab30ba2a3df3585d4ef9))
+* **batch:** geocode a book of addresses in bulk, 10k per request ([#280](https://github.com/compbiolover/housing-nutrition-label/issues/280)) ([1fcd726](https://github.com/compbiolover/housing-nutrition-label/commit/1fcd726e057a062e465b0925c6c6ccbe2accaa6a))
+* **batch:** report when a Building grade came from defaults, plus --jobs and --resume ([#283](https://github.com/compbiolover/housing-nutrition-label/issues/283)) ([d3d7346](https://github.com/compbiolover/housing-nutrition-label/commit/d3d7346b7d6b6c9461fb1c93739ebe0f879ea56c))
+
 ## [0.2.1](https://github.com/compbiolover/housing-nutrition-label/compare/v0.2.0...v0.2.1) (2026-08-09)
 
 
