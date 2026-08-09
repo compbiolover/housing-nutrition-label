@@ -2507,10 +2507,15 @@ def build_label_parts(*, address: str | None = None,
                       **fields) -> tuple[dict, dict, dict]:
     """Resolve a location, build the house config, and run the full simulation.
 
-    Returns (cfg, r, label). ``fields`` may carry house overrides (year_built,
-    construction, foundation, condition, value, units, sqft, lot_acres) and
-    ``upgrades`` is a list of resilience-upgrade flag names (see BONUS_FLAGS).
-    Mirrors the CLI flow so both share one code path.
+    Returns (cfg, r, label). ``upgrades`` is a list of resilience-upgrade flag
+    names (see BONUS_FLAGS). Mirrors the CLI flow so both share one code path.
+
+    ``fields`` may carry any of the house overrides in ``_HOUSE_FIELDS``:
+    ``year_built``, ``construction``, ``foundation``, ``condition``, ``value``,
+    ``units``, ``sqft``, ``lot_acres``, ``bldg_material``, ``stories``,
+    ``owner_occupied``, ``water_source``, ``sewer``, ``lot_context``. Anything
+    else raises — so this list has to stay complete, and ``_HOUSE_FIELDS`` is the
+    thing that actually enforces it.
 
     ``geography`` forwards a pre-joined Census geography (county_fips, tract, …)
     straight to ``resolve_location``, which then skips the geocoder. That call is
@@ -2561,6 +2566,17 @@ def build_label_parts(*, address: str | None = None,
             raise ValueError(f"Could not geocode address {address!r}: {exc}") from exc
         lat, lon = location.lat, location.lon
     else:
+        # A geography without coordinates must not quietly inherit the Shelby
+        # default: that pairs the caller's tract with a point a thousand miles
+        # away and returns a Location that is internally incoherent — Memphis
+        # coordinates carrying a Chicago tract — with no error anywhere. The
+        # default exists for "score the pilot parcel", which is a different
+        # request from "score the place I just told you about".
+        if geography is not None and (lat is None or lon is None):
+            raise ValueError(
+                "geography= requires lat and lon: the geography names the county "
+                "and tract, but the point is what the parcel-level models (flood "
+                "zone, seismic, solar, road noise) are evaluated at.")
         lat = lat if lat is not None else SHELBY_LAT
         lon = lon if lon is not None else SHELBY_LON
         try:

@@ -163,6 +163,53 @@ def test_unscored_rows_do_not_rank_as_the_worst():
     assert recs[0]["composite_portfolio_pct"] == 50.0       # 1 of 2 scored rows
 
 
+def test_ranking_matches_the_bisect_definition_including_ties():
+    """The O(1) lookup table must agree with a straight bisect_right, which is the
+    definition the grade thresholds were drawn for. Ties are the interesting case:
+    every row in a run takes the count at the END of the run, so identical scores
+    always get identical grades."""
+    import bisect
+    import random
+    random.seed(7)
+    # Deliberately few distinct values, so ties are common.
+    scores = [random.choice([None] + [float(v) for v in range(15)]) for _ in range(300)]
+    recs = [{"composite_score": s} for s in scores]
+    for key, _ in DIMENSIONS:
+        for r in recs:
+            r[f"{key}_score"] = None
+    B.portfolio_grades(recs)
+
+    vals = sorted(s for s in scores if s is not None)
+    n = len(vals)
+    for r, s in zip(recs, scores):
+        expected = None if s is None else round(bisect.bisect_right(vals, s) / n * 100, 1)
+        assert r["composite_portfolio_pct"] == expected, s
+
+
+def test_geography_without_coordinates_is_refused():
+    """Pairing a caller's tract with the Shelby default point would return a
+    Location that is internally incoherent — and say nothing about it."""
+    from housing_label.simulate.house import build_label_parts
+    try:
+        build_label_parts(geography={"tract": SHELBY_TRACT}, allow_network=False)
+    except ValueError as exc:
+        assert "requires lat and lon" in str(exc)
+    else:
+        raise AssertionError("geography without lat/lon should be refused")
+
+
+def test_unknown_house_field_is_refused_by_name():
+    """The silent-drop this whole path was blocked on: an unrecognised kwarg used
+    to vanish into **fields and score a subtly different parcel."""
+    from housing_label.simulate.house import build_label_parts
+    try:
+        build_label_parts(lat=35.15, lon=-89.85, allow_network=False, year_bult=1995)
+    except TypeError as exc:
+        assert "year_bult" in str(exc)
+    else:
+        raise AssertionError("an unknown house field should be refused")
+
+
 def test_national_and_portfolio_grades_are_both_reported():
     """They answer different questions — 'vs US housing' and 'vs the rest of my
     book' — so they are kept as separate columns and never merged."""

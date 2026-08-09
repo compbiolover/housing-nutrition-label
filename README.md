@@ -301,7 +301,7 @@ turns a point into a county and tract — and every crosswalk keyed off them is 
 caller who already holds the tract (lenders, insurers and assessors generally do; anyone
 else can join it from a Census bulk file) skips it entirely.
 
-| Input column | |
+| Input column | What it does |
 |---|---|
 | `id` | passed through untouched — your key for joining results back |
 | `lat`, `lon` | required (or `address`, which needs `--fetch`) |

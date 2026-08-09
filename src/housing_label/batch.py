@@ -193,6 +193,14 @@ def _record(parsed: dict, payload: dict | None, error: str | None) -> dict:
     loc = payload.get("location") or {}
     rec["tract"] = rec["tract"] or loc.get("census_tract") or payload.get("census_tract")
     rec["county_fips"] = rec["county_fips"] or loc.get("county_fips")
+    # An address row arrives with no coordinates and gets them from the geocoder.
+    # Without this the output carries a fully scored parcel with blank lat/lon —
+    # so a customer who fed in addresses could not map, dedupe or re-run their own
+    # results, and would have to geocode a second time to recover what this run
+    # already knew.
+    house = payload.get("house") or {}
+    rec["lat"] = rec["lat"] if rec["lat"] is not None else house.get("lat")
+    rec["lon"] = rec["lon"] if rec["lon"] is not None else house.get("lon")
     for d in payload.get("dimensions", []):
         k = d.get("key")
         if k is None:
@@ -265,21 +273,29 @@ def portfolio_grades(records: list[dict]) -> list[dict]:
     dimension, are excluded from that dimension's ranking rather than treated as
     zero — a missing input must never rank as the worst parcel.
     """
-    import bisect
-
     for key in DIM_KEYS + ["composite"]:
         col = f"{key}_score"
         vals = sorted(r[col] for r in records if isinstance(r.get(col), (int, float)))
         n = len(vals)
+        # One pass over the sorted values builds score → (pct, grade) for each
+        # DISTINCT score, so each record is then an O(1) dict hit. Bisecting per
+        # record instead is ~log2(n) comparisons every time: at 400k rows across
+        # fourteen columns that is on the order of a hundred million comparisons
+        # to recompute answers that only differ per distinct score. The sort is
+        # O(n log n) either way; this just stops paying it twice.
+        table: dict[float, tuple[float, str]] = {}
+        for i, v in enumerate(vals):
+            # Rank is the count of values at or below v, so a run of ties all take
+            # the count at the END of the run — matching bisect_right, and matching
+            # the rank(pct=True) convention the grade thresholds were drawn for.
+            if i + 1 == n or vals[i + 1] != v:
+                pct = round((i + 1) / n * 100, 1)
+                table[v] = (pct, percentile_to_local_grade(pct))
         for r in records:
             v = r.get(col)
-            if not isinstance(v, (int, float)) or n == 0:
-                r[f"{key}_portfolio_pct"] = None
-                r[f"{key}_portfolio_grade"] = None
-                continue
-            pct = round(bisect.bisect_right(vals, v) / n * 100, 1)
-            r[f"{key}_portfolio_pct"] = pct
-            r[f"{key}_portfolio_grade"] = percentile_to_local_grade(pct)
+            hit = table.get(v) if isinstance(v, (int, float)) else None
+            r[f"{key}_portfolio_pct"] = hit[0] if hit else None
+            r[f"{key}_portfolio_grade"] = hit[1] if hit else None
     return records
 
 
