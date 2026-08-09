@@ -73,6 +73,12 @@
       .hero .lf-app .composite-num,
       .hero .lf-app .build-line strong { color: #e2e8f0; }
     }
+
+    /* Section rhythm, page-local. The shared 4rem block padding puts 8rem between
+       sections, which reads right on the long documentation pages. This page's
+       sections are now four short ones, and at that length the gaps were bigger
+       than the content sitting in them. */
+    main > section { padding-top: 2.75rem; padding-bottom: 2.75rem; }
   </style>
 </head>
 <body>
@@ -96,147 +102,98 @@
   <div class="badge">Source available &middot; 13 dimensions &middot; any U.S. address</div>
   <h1>Housing Nutrition Label&trade;</h1>
   <!-- The tagline used to spell out all thirteen dimensions, which ran eleven
-       lines on a phone and pushed the address field below the fold. The full
-       roster is right below in "Scored Dimensions" (and on every label), so this
-       says what the scorecard is and gives a few examples of what it covers. -->
-  <p class="tagline">A free, nutrition-label-style scorecard for any U.S. home: what it costs to run, how well it holds up, and what the neighborhood is like. Thirteen dimensions, all from public data &mdash; flood risk and energy bills through walkability, air quality, and drinking water.</p>
+       lines on a phone and pushed the address field below the fold. Naming a few
+       examples had the same effect at half the length, so this now says only what
+       the scorecard is; the roster is one screen down, and on every label. -->
+  <p class="tagline">A free, nutrition-label-style scorecard for any U.S. home &mdash; what it costs to run, how well it holds up, and what the neighborhood is like. Thirteen dimensions, all from public data.</p>
   <div class="addr-search">
     <!-- Unified scoring widget (label-form.js) generates the address form,
          refine panel, detected/hypothetical modes, and density here. -->
     <div id="score-widget"></div>
   </div>
 
-  <p style="margin-top:0.75rem;font-size:0.9rem;">Enter an address or place name to see its live label. Nothing is scored until you do. Switch to a hypothetical build to see how construction choices move the scores, to a denser version of the same lot to see what sharing streets, pipes, and services across more homes would change, or to both at once &mdash; a chosen build type at several densities on this lot. You can also <a href="https://github.com/compbiolover/housing-nutrition-label">view the project on GitHub</a>.</p>
+  <!-- No trailing instruction line here any more. It used to walk through all
+       three what-if modes before the visitor had scored anything — telling them
+       about controls the widget only reveals after a result, and labels there
+       anyway. Cutting it to "enter an address" then made it a duplicate of the
+       widget's own idle prompt (label-form.js render(): state.idle), which sits
+       directly beneath it and says the same thing with an example. -->
 </div>
 
+<!-- "The problem" and "The idea" were two sections making one point, and both sat
+     between the address box and the answer. Merged, and cut to the argument. -->
 <section>
-  <h2>The problem</h2>
-  <p>A home is one of the biggest purchases people make, yet it's surprisingly hard to judge. Buyers can't easily see how well a home is built, what it will cost to run and maintain, or how exposed it is to disasters. Builders get little credit for doing better, because the market can't tell the difference. And cities struggle to show how much cheaper it is to serve compact neighborhoods than sprawl.</p>
-  <p>No one has put all of that into a single, open scorecard for every home. <strong>That's what this project is building.</strong></p>
+  <h2>Why this exists</h2>
+  <p>A home is one of the biggest purchases people make, yet it's surprisingly hard to judge. Buyers can't easily see how well a home is built, what it will cost to run, or how exposed it is to disasters. Builders get little credit for doing better, because the market can't tell the difference. Cities struggle to show how much cheaper compact neighborhoods are to serve than sprawl.</p>
+  <p>So this puts all of it into one open scorecard: thirteen dimensions, each scored 0&ndash;100 from public data, with a grade and a percentile that say how the home compares to the rest of the country.</p>
 </section>
 
+<!-- Each dimension used to get a card and a ~40-word paragraph naming its own
+     datasets and method: thirteen of them, ~550 words, the densest block on the
+     page and a duplicate of methodology.html. The roster is what a first-time
+     visitor needs here — the names, and the split between what the building
+     scores and what its surroundings score. Each chip is the door to the detail
+     rather than a summary of it. Grouped as the rendered label groups its rows
+     (simulate/dimensions.py: CONSTRUCTION_DRIVEN / LOCATION_DRIVEN /
+     CONTEXT_ONLY), so the grouping is learned here and recognized there. -->
 <section>
-  <h2>The idea</h2>
-  <p>A clear, color-coded scorecard for any home. It shows how the home does on the things that matter to buyers, neighborhoods, and cities. Each of the thirteen dimensions is scored from 0 to 100, with a national grade and a national percentile that show how the home compares to homes across the whole country.</p>
-</section>
+  <h2>What gets scored</h2>
+  <p>Thirteen dimensions, split the way the question usually splits: is it the house, or is it the block? Every label groups them this way too. Follow any one for how it's calculated.</p>
 
-<section>
-  <h2>Scored Dimensions</h2>
-  <div class="card-grid">
-    <div class="card">
-      <div class="icon" aria-hidden="true">&#x1F3D7;</div>
-      <h3>Disaster Resilience</h3>
-      <p>How much damage floods, tornadoes, earthquakes, and fire are likely to cause in a typical year, and how much the home's construction, age, and upgrades (like a reinforced roof) change that. Built on FEMA and USGS hazard data.</p>
-    </div>
-    <div class="card">
-      <div class="icon" aria-hidden="true">&#x26A1;</div>
-      <h3>Energy Efficiency</h3>
-      <p>How much energy the home is likely to use, and what that costs each month at local utility rates, based on its age, size, construction, and heating and cooling system. Benchmarked to U.S. Department of Energy data.</p>
-    </div>
-    <div class="card">
-      <div class="icon" aria-hidden="true">&#x1F6E0;</div>
-      <h3>Durability</h3>
-      <p>How much useful life the home's major systems (structure, roof, HVAC, plumbing, wiring, windows) have left, adjusted for its condition. A longevity score, kept separate from disaster risk.</p>
-    </div>
-    <div class="card">
-      <div class="icon" aria-hidden="true">&#x1F33F;</div>
-      <h3>Environmental Footprint</h3>
-      <p>The home's yearly climate impact: the energy it uses (on the local power grid), the carbon built into its materials, and its water use. A higher score means a smaller footprint.</p>
-    </div>
-    <div class="card">
-      <div class="icon" aria-hidden="true">&#x1F3D8;</div>
-      <h3>Infrastructure Burden</h3>
-      <p>Whether the home covers the cost of the city services it needs: roads, water, sewer, fire, police. Compact housing shares those costs across more homes, so it scores better.</p>
-    </div>
-    <div class="card">
-      <div class="icon" aria-hidden="true">&#x2764;</div>
-      <h3>Health Impact</h3>
-      <p>How healthy the surrounding neighborhood is, from local rates of conditions like obesity, diabetes, high blood pressure, and asthma (CDC data). This describes the area, not the building.</p>
-    </div>
-    <div class="card">
-      <div class="icon" aria-hidden="true">&#x1F32B;</div>
-      <h3>Air Quality</h3>
-      <p>How clean the local air is: annual fine-particulate (PM2.5) and ozone at the census tract from the CDC Tracking model, plus the county EPA radon zone. Scored against all U.S. tracts; higher means cleaner, safer air.</p>
-    </div>
-    <div class="card">
-      <div class="icon" aria-hidden="true">&#x1F507;</div>
-      <h3>Noise</h3>
-      <p>How quiet the neighborhood is: the share of the census tract's residents exposed to loud (&ge;60&nbsp;dB) transportation noise from aircraft, highways, and railroads (US DOT BTS National Transportation Noise Map). Scored against all U.S. tracts; higher means quieter.</p>
-    </div>
-    <div class="card">
-      <div class="icon" aria-hidden="true">&#x1F4CA;</div>
-      <h3>Socioeconomic</h3>
-      <p>The neighborhood's economic profile: income, poverty, education, and jobs (Census data). Like the health score, this reflects the area, not the building itself.</p>
-    </div>
-    <div class="card">
-      <div class="icon" aria-hidden="true">&#x1F6B6;</div>
-      <h3>Walkability</h3>
-      <p>How easy it is to run daily errands on foot, by transit, or by bike (EPA National Walkability Index: intersection density, transit proximity, and land-use mix).</p>
-    </div>
-    <div class="card">
-      <div class="icon" aria-hidden="true">&#x1F321;</div>
-      <h3>Climate Projections</h3>
-      <p>How the local climate is projected to shift by mid-century: more extreme heat, heavy rain and flooding, and drought (USGS downscaled projections). Shown as a range for lower- vs. higher-emissions futures.</p>
-    </div>
-    <div class="card">
-      <div class="icon" aria-hidden="true">&#x2600;</div>
-      <h3>Solar Potential</h3>
-      <p>How productive rooftop solar is here: the annual energy a standard array makes per kW installed (PVGIS on NREL NSRDB satellite data). Higher means sunnier; the details estimate what a typical system produces, saves, and offsets in CO&#8322;.</p>
-    </div>
-    <div class="card">
-      <div class="icon" aria-hidden="true">&#x1F6B0;</div>
-      <h3>Water Quality</h3>
-      <p>How safe the tap water is: of the county's residents on a community water system, the share served by a system that had a recent health-based drinking-water violation (EPA SDWIS). Scored against all U.S. counties; higher means cleaner, safer drinking water. Covers community water systems, not private wells.</p>
-    </div>
+  <div class="roster-group">
+    <h3>The building itself</h3>
+    <p>What the structure is. None of it changes if you put the same house somewhere else.</p>
+    <ul class="roster-chips">
+      <li><a class="roster-chip" href="methodology.html#energy"><span class="i" aria-hidden="true">&#x26A1;</span>Energy Efficiency</a></li>
+      <li><a class="roster-chip" href="methodology.html#durability"><span class="i" aria-hidden="true">&#x1F6E0;</span>Durability</a></li>
+      <li><a class="roster-chip" href="methodology.html#environmental"><span class="i" aria-hidden="true">&#x1F33F;</span>Environmental Footprint</a></li>
+    </ul>
+  </div>
+
+  <div class="roster-group">
+    <h3>The site &amp; environment</h3>
+    <p>What surrounds it &mdash; hazards, air, water, sun, streets, and the cost of serving the lot.</p>
+    <ul class="roster-chips">
+      <li><a class="roster-chip" href="methodology.html#resilience"><span class="i" aria-hidden="true">&#x1F3D7;</span>Disaster Resilience</a></li>
+      <li><a class="roster-chip" href="methodology.html#infrastructure"><span class="i" aria-hidden="true">&#x1F3D8;</span>Infrastructure Burden</a></li>
+      <li><a class="roster-chip" href="methodology.html#air-quality"><span class="i" aria-hidden="true">&#x1F32B;</span>Air Quality</a></li>
+      <li><a class="roster-chip" href="methodology.html#noise"><span class="i" aria-hidden="true">&#x1F507;</span>Noise</a></li>
+      <li><a class="roster-chip" href="methodology.html#walkability"><span class="i" aria-hidden="true">&#x1F6B6;</span>Walkability</a></li>
+      <li><a class="roster-chip" href="methodology.html#climate"><span class="i" aria-hidden="true">&#x1F321;</span>Climate Projections</a></li>
+      <li><a class="roster-chip" href="methodology.html#solar"><span class="i" aria-hidden="true">&#x2600;</span>Solar Potential</a></li>
+      <li><a class="roster-chip" href="methodology.html#water"><span class="i" aria-hidden="true">&#x1F6B0;</span>Water Quality</a></li>
+    </ul>
+  </div>
+
+  <div class="roster-group">
+    <h3>Neighborhood context</h3>
+    <p>Shown in full, but deliberately left out of the site grade: both measure the people nearby rather than the place.</p>
+    <ul class="roster-chips">
+      <li><a class="roster-chip" href="methodology.html#health"><span class="i" aria-hidden="true">&#x2764;</span>Health Impact</a></li>
+      <li><a class="roster-chip" href="methodology.html#socioeconomic"><span class="i" aria-hidden="true">&#x1F4CA;</span>Socioeconomic</a></li>
+    </ul>
   </div>
 </section>
 
+<!-- Two cards restating what methodology.html covers in full. Kept, because a
+     reader needs it to read their own label, but cut to the two facts and the
+     scale itself. -->
 <section>
-  <h2>Grade &amp; National Percentile</h2>
-  <p>Every dimension shows a grade and a national percentile, because context matters:</p>
-  <div class="card-grid">
-    <div class="card">
-      <h3>National Grade</h3>
-      <p>Fixed thresholds (A&ge;80, B&ge;60, C&ge;40, D&ge;20, F&lt;20). Tells you how the home compares to the rest of the country, useful for comparing across cities.</p>
-      <p><span class="grade grade-a">A</span> <span class="grade grade-b">B</span> <span class="grade grade-c">C</span> <span class="grade grade-d">D</span> <span class="grade grade-f">F</span></p>
-    </div>
-    <div class="card">
-      <h3>National Percentile</h3>
-      <p>Where the home lands among comparable U.S. homes on this dimension (e.g. &ldquo;72nd US&rdquo;). It's the share of the country the home beats, drawn from a bundled national reference distribution.</p>
-    </div>
-  </div>
+  <h2>Reading a score</h2>
+  <p>Every dimension gets a <strong>grade</strong> on fixed national thresholds &mdash; so a B means the same thing in any city &mdash; and a <strong>national percentile</strong> (&ldquo;72nd US&rdquo;), the share of comparable U.S. homes it beats.</p>
+  <p><span class="grade grade-a">A</span> <span class="grade grade-b">B</span> <span class="grade grade-c">C</span> <span class="grade grade-d">D</span> <span class="grade grade-f">F</span> &nbsp;A&nbsp;&ge;&nbsp;80, B&nbsp;&ge;&nbsp;60, C&nbsp;&ge;&nbsp;40, D&nbsp;&ge;&nbsp;20, F&nbsp;&lt;&nbsp;20. <a href="methodology.html#grades">How grades and percentiles are built</a>.</p>
 </section>
 
+<!-- Was two dense paragraphs (status, geographic caveat, and the full PolyForm /
+     MIT-through-v0.1.82 licensing history) followed by a seventeen-row sources
+     table — a datasheet closing a landing page. The table moved to
+     methodology.html, which is where sourcing belongs and already opens by
+     naming these agencies; the licensing history is one line and a link, with
+     the full text in the repo. -->
 <section>
   <h2>Where the project stands</h2>
-  <p>You can score <strong>any U.S. address across all thirteen dimensions</strong> right now (try the box above). The scores draw on national public datasets: FEMA, USGS, EPA, CDC, the Census Bureau, and the EIA. The project began as a pilot in Shelby County, TN, and a few cost baselines are still being generalized to the whole country; the label flags those where they apply. You can also model construction choices, including multi-unit buildings (duplexes, quadplexes) and 20+ above-code upgrades.</p>
-  <p>The scoring engine, data pipeline, and address-search service are <strong>source-available</strong> under the <a href="https://github.com/compbiolover/housing-nutrition-label/blob/main/LICENSE">PolyForm Shield 1.0.0</a> license: the full source is public to read, run, self-host and build on &mdash; the one thing it doesn&rsquo;t permit is using it to provide a competing product or service. Releases through v0.1.82 were published under the MIT license and stay MIT. The underlying government data is public domain and isn&rsquo;t licensed by us.</p>
-</section>
-
-<section>
-  <h2>Data Sources</h2>
-  <div class="table-scroll"><table class="data-table">
-    <thead><tr><th>Source</th><th>Provides</th><th>Access</th></tr></thead>
-    <tbody>
-      <tr><td>USACE National Structure Inventory</td><td>Building details auto-filled from the address (sqft, stories, foundation, material, year)</td><td class="free">Free, public</td></tr>
-      <tr><td>FEMA NFHL</td><td>Flood zone designations</td><td class="free">Free, no key</td></tr>
-      <tr><td>NOAA Climate Normals</td><td>Temperature, degree days, precipitation</td><td class="free">Free, no key</td></tr>
-      <tr><td>USGS NSHM</td><td>Seismic hazard (PGA values)</td><td class="free">Free, no key</td></tr>
-      <tr><td>FEMA National Risk Index</td><td>Tornado &amp; wildfire expected annual loss</td><td class="free">Free, no key</td></tr>
-      <tr><td>NREL ResStock 2024</td><td>Energy use intensity benchmarks (building type &times; climate zone &times; vintage) + foundation/HVAC factors</td><td class="free">Free, reference data</td></tr>
-      <tr><td>EIA state utility rates</td><td>Residential electricity &amp; gas prices by state</td><td class="free">Free, reference data</td></tr>
-      <tr><td>EPA eGRID2023 Rev 2</td><td>Grid carbon intensity: average rate (environmental footprint)</td><td class="free">Free, reference data</td></tr>
-      <tr><td>NREL Cambium 2023 LRMER</td><td>Long-run marginal grid emissions: credits solar/efficiency-avoided kWh</td><td class="free">Free, reference data (CC&nbsp;BY&nbsp;4.0)</td></tr>
-      <tr><td>USGS CMIP6-LOCA2</td><td>Sub-county climate-hazard projections</td><td class="free">Free, no key</td></tr>
-      <tr><td>CDC PLACES</td><td>Health metrics by census tract</td><td class="free">Free, no key</td></tr>
-      <tr><td>CDC Tracking + EPA radon zones</td><td>Air quality: PM2.5 &amp; ozone by tract, radon by county</td><td class="free">Free, no key (bundled)</td></tr>
-      <tr><td>US DOT BTS National Transportation Noise Map</td><td>Transportation-noise exposure by census tract</td><td class="free">Free, no key (bundled)</td></tr>
-      <tr><td>PVGIS (EU JRC) on NREL NSRDB</td><td>Rooftop solar specific yield by county</td><td class="free">Free, no key (bundled)</td></tr>
-      <tr><td>EPA SDWIS federal reporting</td><td>Drinking-water compliance (health-based violations) by county</td><td class="free">Free, no key (bundled)</td></tr>
-      <tr><td>Census ACS 5-yr Summary File</td><td>Socioeconomic indicators (national reference)</td><td class="free">Free, no key (bundled)</td></tr>
-      <tr><td>EPA National Walkability Index</td><td>Walkability by census tract</td><td class="free">Free, public domain (bundled)</td></tr>
-    </tbody>
-  </table></div>
+  <p>Any U.S. address scores across all thirteen dimensions today, from national public data: FEMA, USGS, EPA, CDC, NOAA, the Census Bureau, and the EIA &mdash; all of it free and keyless, none of it proprietary. You can also model construction choices, multi-unit buildings, and 20+ above-code upgrades. The project began as a pilot in Shelby County, TN, and a few cost baselines are still being generalized nationwide; the label flags those where they apply. <a href="methodology.html#sources">See every dataset</a>.</p>
+  <p>The engine, data pipeline, and address-search service are source-available under <a href="https://github.com/compbiolover/housing-nutrition-label/blob/main/LICENSE">PolyForm Shield 1.0.0</a> &mdash; public to read, run, self-host, and build on, but not to resell as a competing service. The government data underneath is public domain and isn't licensed by us.</p>
 </section>
 
 </main>

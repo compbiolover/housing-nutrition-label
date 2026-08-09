@@ -99,6 +99,41 @@ details.tech > p, details.tech > ul, details.tech > ol { max-width: 68ch; }
 .card .icon { font-size: 2rem; margin-bottom: 0.75rem; }
 .card h3 { margin-top: 0; }
 
+/* Dimension roster (home page) */
+/* The thirteen dimensions used to be thirteen full .card blocks, each with a
+   paragraph naming its own data source and method — ~550 words of reference
+   material sitting between the address box and everything below it. The detail
+   already lives on methodology.html (a section per dimension, plus the full
+   source table) and reference.html (per-dimension measures and resolutions), so
+   the roster is a chip apiece here: the name, and a link to that dimension's
+   method. Grouped the way the rendered label groups its rows — construction /
+   location / context, see simulate/dimensions.py — so the page teaches the split
+   a reader will meet again on their own label.
+
+   Named `roster-*`, not `dim-*`: index.html also loads label-core.css, whose
+   `.dim-group` is the uppercase eyebrow above the label card's row groups.
+   Reusing that name inherited text-transform onto the headings, the blurbs and
+   every chip. */
+.roster-group { margin: 1.5rem 0 0; }
+.roster-group > h3 { margin: 0 0 0.2rem; font-size: 1.05rem; color: var(--navy);
+  letter-spacing: 0.01em; }
+.roster-group > p { font-size: 0.9rem; color: var(--muted); margin-bottom: 0.75rem;
+  max-width: 68ch; }
+/* auto-FILL, not auto-fit: the three groups have 3, 8 and 2 chips, and auto-fit
+   collapses the empty tracks, so the two-chip group stretched each of its chips
+   to half the section while the eight-chip group sat at a quarter. Keeping the
+   empty tracks holds one chip width down the whole roster. */
+.roster-chips { display: grid; gap: 0.5rem; list-style: none;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); }
+.roster-chip { display: flex; align-items: center; gap: 0.6rem; height: 100%;
+  padding: 0.6rem 0.85rem;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); font-size: 0.95rem; line-height: 1.3;
+  transition: border-color 0.2s, box-shadow 0.2s; }
+.roster-chip:hover, .roster-chip:focus-visible { text-decoration: none;
+  border-color: var(--link); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.roster-chip .i { font-size: 1.15rem; flex: none; }
+
 /* Score bars */
 .score-bar-container { margin: 0.5rem 0; }
 .score-bar-label { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.25rem; }
@@ -335,6 +370,9 @@ footer code { background: rgba(255, 255, 255, 0.1); color: #cbd5e1; }
      already white and was never affected, which is how this stayed hidden.) */
   h1, h2, .insight strong { color: #e2e8f0; }
   h3 { color: #cbd5e1; }
+  /* .roster-group > h3 pins the light-mode navy explicitly, so the h3 rule above
+     doesn't reach it. */
+  .roster-group > h3 { color: #cbd5e1; }
   /* Positive/caution inks in the data-sources table are picked for the light
      page (5:1 there, 3.6:1 and 3.5:1 here). Brighten to the greens and oranges
      the rest of the dark theme already uses. */
