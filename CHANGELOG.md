@@ -9,6 +9,17 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.2.0](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.82...v0.2.0) (2026-08-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* relicense to PolyForm Shield 1.0.0 ([#275](https://github.com/compbiolover/housing-nutrition-label/issues/275))
+
+### Miscellaneous Chores
+
+* relicense to PolyForm Shield 1.0.0 ([#275](https://github.com/compbiolover/housing-nutrition-label/issues/275)) ([c7ab1a2](https://github.com/compbiolover/housing-nutrition-label/commit/c7ab1a29bbc13adec83c1059e030372b4072b082))
+
 ## [0.1.82](https://github.com/compbiolover/housing-nutrition-label/compare/v0.1.81...v0.1.82) (2026-08-08)
 
 
