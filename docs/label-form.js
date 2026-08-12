@@ -621,6 +621,9 @@ window.LabelForm = (function () {
           + 'was built — so this is what ageing alone does to the Building grade.</p>';
       }
       html += LC.trajPointInTime(data);
+      // The card renderer carries the notice on every other view; this one draws
+      // tables instead of cards, so it has to ask for it.
+      html += LC.legalNote(data);
       return html;
     }
 
@@ -793,6 +796,7 @@ window.LabelForm = (function () {
             + '. The home that’s there now is ignored.</p>' + html;
         }
       }
+      html += LC.legalNote(data);               // tables, not cards — see timelinePanel()
       densResult.classList.remove("is-busy");   // fresh numbers — undim
       densResult.innerHTML = html;
     }

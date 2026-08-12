@@ -41,6 +41,7 @@ from housing_label.confidence import (
     confidence_for_label, bands_for_label, CONFIDENCE_NOTES, CONFIDENCE_LEGEND,
     confidence_for_trajectory,
 )
+from housing_label.legal import DISCLAIMER
 from housing_label.data.national_percentile import national_percentile
 # Which dimensions carry a time series, what kind of time each one is, and the
 # reader-facing sentence for every dimension that carries none.
@@ -1913,6 +1914,12 @@ def print_label(cfg: dict, label: dict) -> None:
         for c in caveats:
             for line in _wrap(c, 58):
                 print(row(f"    {line}"))
+
+    # Last thing inside the box, on every card: a terminal label is the easiest
+    # of all these surfaces to paste into an email as if it were a finding.
+    print(SEP)
+    for line in _wrap(DISCLAIMER, 60):
+        print(row(f"  {line}"))
     print(BOT)
     print()
 
@@ -2176,6 +2183,10 @@ def label_payload(cfg: dict, r: dict, label: dict, include_building: bool = True
         "cost": cost_flows(r, label),
         "total_loss": round(r["total_loss"], 2),
         "fire_loss": round(r["fire_loss"], 2),
+        # Travels on the payload rather than being left to each renderer, so a
+        # label drawn from this JSON on somebody else's page carries the same
+        # notice ours does (housing_label.legal).
+        "disclaimer": DISCLAIMER,
     }
     # Per-field construction-profile provenance (value + estimated/confirmed/assumed
     # + source) for the "Refine building details" panel — present for address/point
@@ -2939,6 +2950,7 @@ def density_comparison(*, address: str | None = None,
         "location": loc_payload,
         "wildfire": wildfire,
         "caveats": caveats,
+        "disclaimer": DISCLAIMER,
         # NSI structure detection was unreachable, so every scenario was built on
         # generic defaults rather than the real parcel's building. The serialized
         # location dict doesn't carry the flag, and a caller that caches this
@@ -3230,6 +3242,7 @@ def timeline_comparison(*, address: str | None = None,
         "house": full.get("house"),
         "location": full.get("location"),
         "caveats": full.get("caveats"),
+        "disclaimer": DISCLAIMER,
         "series": series,
         "point_in_time": point_in_time,
         "confidence": confidence_for_trajectory(

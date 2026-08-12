@@ -323,6 +323,29 @@ window.LabelCore = (function () {
       + 'the dot shows how solid the data is (not how good the score is); the whisker shows the climate range</div>';
   }
 
+  // ── The disclaimer ─────────────────────────────────────────────────────────
+  // Wording comes from the payload (`housing_label.legal` is the source of truth,
+  // and the same string reaches the badge and the CLI), so it cannot fork between
+  // what the API says and what this file draws. The fallback below is for a
+  // payload that predates the field — a cached response, an older self-hosted
+  // API, examples.html's stored fixtures — because a card with no notice at all
+  // is the one outcome that isn't allowed. tests/test_disclaimer.py fails if the
+  // two copies drift.
+  var DISCLAIMER_FALLBACK = "Informational purposes only. This label is a modeled estimate built from "
+    + "public data. It is not an inspection, appraisal, survey, or insurance "
+    + "quote, and it is not legal, financial, insurance, engineering, or real "
+    + "estate advice. It describes what the model expects of a home like this "
+    + "one at this location; it cannot tell you the condition, safety, value, or "
+    + "insurability of any particular property. Verify anything you would act on "
+    + "with a qualified professional. Provided as is, without warranty.";
+
+  // Rendered inside the card, not in the page footer: the card is the unit that
+  // gets screenshotted, shared, and embedded, and it travels without the page.
+  function legalNote(data) {
+    var text = (data && data.disclaimer) || DISCLAIMER_FALLBACK;
+    return '<p class="label-legal">' + esc(text) + '</p>';
+  }
+
 
   // The two headline axes, side by side. The composite alone answers neither
   // question a buyer has — a well-built house on a hard site and a poor one on an
@@ -456,6 +479,7 @@ window.LabelCore = (function () {
     html += dimRows(data.dimensions || [], data);
     if (metricBits.length) html += '<p class="meta card-metrics">' + esc(metricBits.join("  ·  ")) + '</p>';
     if (confLine.cc) html += legendHtml();
+    html += legalNote(data);
     return html + '</div>';
   }
 
@@ -580,6 +604,7 @@ window.LabelCore = (function () {
     CONFIDENCE: CONFIDENCE, confInfo: confInfo, compositeConfidence: compositeConfidence,
     confDot: confDot, dimRow: dimRow, dimRows: dimRows, costStrip: costStrip,
     renderCard: renderCard, deltaTable: deltaTable, legendHtml: legendHtml, tapHint: tapHint,
+    legalNote: legalNote, DISCLAIMER_FALLBACK: DISCLAIMER_FALLBACK,
     trajTable: trajTable, trajPointInTime: trajPointInTime, trajDir: trajDir
   };
 })();
