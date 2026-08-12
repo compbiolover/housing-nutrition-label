@@ -13,8 +13,8 @@ So the text lives here, once, and every renderer reads it from here:
 * ``simulate.house.label_payload`` puts ``DISCLAIMER`` on the JSON, which the
   CLI's ``--json``, the HTTP API, and ``docs/label-core.js`` all consume;
 * ``print_label`` prints it under the terminal card;
-* ``badge.py`` draws ``DISCLAIMER_SHORT`` into the SVG and the full text into
-  the accessible name.
+* ``badge.py`` draws a short notice onto the SVG, ends the accessible name on
+  ``DISCLAIMER_SHORT``, and carries the full text in the image's ``<desc>``.
 
 ``docs/label-core.js`` keeps a fallback copy for payloads that predate the field
 (a cached response, an older self-hosted API); ``tests/test_disclaimer.py``

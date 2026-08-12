@@ -67,8 +67,8 @@ HOME = "housinglabel.dev"
 # The drawn notice. Both variants carry one, in the only two lengths that fit:
 # the badge is precisely the copy of the label that shows up where none of our
 # own pages (and none of our own fine print) are anywhere near it. The full
-# `DISCLAIMER` still reaches assistive tech through the SVG <title>, which is
-# also the alt text most embedders never write.
+# `DISCLAIMER` rides along in <desc> (see render_badge), so the paragraph is in
+# the image without being announced every time the image is.
 FOOTNOTE = "informational only, not advice"
 FOOTNOTE_COMPACT = "NOT ADVICE"
 
