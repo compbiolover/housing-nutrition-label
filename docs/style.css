@@ -317,6 +317,13 @@ footer code { background: rgba(255, 255, 255, 0.1); color: #cbd5e1; }
    spacing was really coming from a <br>, which is now gone; as a block the margin
    does the job on its own. */
 .tm-notice { display: block; margin-top: 0.5rem; font-size: 0.78rem; color: #8b98ac; }
+/* Disclaimer. Same fine-print treatment and the same 5.4:1 as the trademark
+   notice above, but measured to a readable line length and left-aligned rather
+   than centred: it is three sentences someone may actually have to read, and
+   centred prose at this size is a wall. Every page carries it because every page
+   either shows a score or explains how to get one. */
+.legal-notice { max-width: 60ch; margin: 1rem auto 0; text-align: left; font-size: 0.78rem;
+  line-height: 1.6; color: #8b98ac; }
 
 /* Pipeline diagram */
 .pipeline { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 1.5rem 0; }

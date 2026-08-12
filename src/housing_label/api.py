@@ -105,6 +105,7 @@ from housing_label.config import (
     HEADERS, PHOTON_URL, GEOAPIFY_URL, GEOAPIFY_API_KEY,
     GOOGLE_PLACES_AUTOCOMPLETE_URL, GOOGLE_PLACES_DETAILS_URL, GOOGLE_PLACES_API_KEY,
 )
+from housing_label.legal import DISCLAIMER
 from housing_label.simulate.house import (
     build_label_parts, label_payload, density_comparison, timeline_comparison,
     TIMELINE_MAX_POINTS, cost_flows, NonResidentialProperty,
@@ -235,7 +236,11 @@ async def _lifespan(_app):
     yield
 
 
-app = FastAPI(title="Housing Nutrition Label API", version="0.1.0", lifespan=_lifespan)
+# The disclaimer is the API's description as well as a field on every scored
+# payload: /docs is where an integrator decides what these numbers are, and that
+# decision is made before they ever read a response body.
+app = FastAPI(title="Housing Nutrition Label API", version="0.1.0",
+              description=DISCLAIMER, lifespan=_lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,

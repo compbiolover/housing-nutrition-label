@@ -10,6 +10,10 @@ The goal: give homebuyers, renters, insurers, and policymakers an at-a-glance un
 
 **➡️ See a live label at [housinglabel.dev/label.html](https://housinglabel.dev/label.html)**
 
+> **Informational purposes only.** A label is a modeled estimate from public data — not an
+> inspection, appraisal, or insurance quote, and not legal, financial, insurance,
+> engineering, or real estate advice. See [Disclaimer](#disclaimer).
+
 <details>
 <summary><strong>📖 Table of contents</strong></summary>
 
@@ -26,6 +30,8 @@ The goal: give homebuyers, renters, insurers, and policymakers an at-a-glance un
 - [Tech Stack](#tech-stack)
 - [Roadmap](#roadmap)
 - [License](#license)
+- [Trademarks](#trademarks)
+- [Disclaimer](#disclaimer)
 
 </details>
 
@@ -454,7 +460,8 @@ that isn't ours:
 <a href="https://housinglabel.dev/label.html">
   <img src="https://your-api-host/badge?address=123%20Main%20St,%20Memphis,%20TN"
        width="360" height="116"
-       alt="Housing Nutrition Label — the building and the site, graded">
+       alt="Housing Nutrition Label — the building and the site, graded.
+            Modeled estimate, for information only; not advice.">
 </a>
 ```
 
@@ -479,6 +486,12 @@ truncate.
 The badge carries the trademark, which is licensed separately from the code — see
 [TRADEMARKS.md](TRADEMARKS.md). Displaying it unmodified, with attribution, is referential
 use and needs no permission.
+
+It also carries the [disclaimer](#disclaimer), drawn into the image next to the wordmark
+(`informational only, not advice`; `NOT ADVICE` on the compact style) with the full text in
+the SVG's `<desc>`. That is deliberate and is not something to crop out: the badge is the
+one copy of the label that is read with none of our own pages, and none of our own fine
+print, anywhere near it.
 
 </details>
 
@@ -809,3 +822,40 @@ A license to the code is not a license to the name, and the two have different r
 the MIT-era releases (through v0.1.82) can be forked by anyone forever, but a fork still
 may not *call itself* Housing Nutrition Label. Referential use — saying your project
 builds on it, writing about it, citing it — needs no permission and never will.
+
+## Disclaimer
+
+**The label is for informational purposes only.** It is a modeled estimate built from
+public data. It is **not** an inspection, appraisal, survey, or insurance quote, and it is
+**not** legal, financial, insurance, engineering, or real estate advice. It describes what
+the model expects of a home *like* this one at this location; it cannot tell you the
+condition, safety, value, or insurability of any particular property. Verify anything you
+would act on with a qualified professional. Everything here is provided as is, without
+warranty of any kind (see [LICENSE](LICENSE)).
+
+That gap between "a home like this one" and "this home" is the reason the notice travels
+*with* the label rather than living on a terms page. The wording is a single constant in
+[`src/housing_label/legal.py`](src/housing_label/legal.py), and every surface reads it from
+there:
+
+| Surface | How it shows up |
+| --- | --- |
+| JSON payload (`--json`, `GET /label`, `/presets`, `/density`, `/timeline`) | `disclaimer` field |
+| Web label (`docs/label-core.js`) | fine print inside the card, on every view |
+| Embeddable SVG badge | drawn on the badge; full text in `<desc>` |
+| CLI (`housing-simulate`) | printed in the label box |
+| Bulk scoring (`housing-batch`) | logged once per run — a 400,000-row CSV can't carry a paragraph per row |
+| This README and every page on the site | footer |
+
+Consumers of the API are expected to keep it with the numbers. If you render the payload
+yourself, render `disclaimer` too — and if the field is missing (an older or cached
+response), fall back to the text above rather than showing a score with nothing attached.
+
+Two related lines this project holds, for the same reason:
+
+- **No certification.** [TRADEMARKS.md](TRADEMARKS.md) reserves offering a certification
+  bearing the marks — a label paid for by the party being rated has an incentive problem
+  that no disclaimer fixes.
+- **Data quality is reported, not implied.** Every dimension carries a confidence tier and
+  the composite says how many dimensions it could actually score, so "we don't know" never
+  renders as a number ([`src/housing_label/confidence.py`](src/housing_label/confidence.py)).

@@ -36,6 +36,8 @@ tempted to print.
 
 from __future__ import annotations
 
+from housing_label.legal import DISCLAIMER, DISCLAIMER_SHORT
+
 # ── Palette ───────────────────────────────────────────────────────────────────
 # Mirrors GRADE_COLORS / GRADE_INK in docs/label-core.js; tests/test_badge.py
 # fails if the two drift, because a badge grading a home one colour while the
@@ -61,6 +63,14 @@ FONT = ("system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-s
 
 WORDMARK = "HOUSING NUTRITION LABEL™"
 HOME = "housinglabel.dev"
+
+# The drawn notice. Both variants carry one, in the only two lengths that fit:
+# the badge is precisely the copy of the label that shows up where none of our
+# own pages (and none of our own fine print) are anywhere near it. The full
+# `DISCLAIMER` rides along in <desc> (see render_badge), so the paragraph is in
+# the image without being announced every time the image is.
+FOOTNOTE = "informational only, not advice"
+FOOTNOTE_COMPACT = "NOT ADVICE"
 
 # The address is the only free text on the badge. Capped rather than fitted,
 # because without a known font there is no width to fit to.
@@ -178,7 +188,8 @@ def _full(payload: dict, address: str | None, theme: str) -> str:
         f'letter-spacing="0.7">{WORDMARK}</text>'
         + subline +
         "".join(cells) +
-        f'<text x="{pad}" y="{g["h"] - 10}" fill="var(--mu)" font-size="9.5">{HOME}</text>')
+        f'<text x="{pad}" y="{g["h"] - 10}" fill="var(--mu)" font-size="9.5">'
+        f'{HOME} &#183; {FOOTNOTE}</text>')
 
 
 def _compact(payload: dict, address: str | None, theme: str) -> str:
@@ -198,7 +209,7 @@ def _compact(payload: dict, address: str | None, theme: str) -> str:
         f'<text x="{pad}" y="17" fill="var(--tx)" font-size="9" font-weight="700" '
         f'letter-spacing="0.5">{WORDMARK}</text>'
         f'<text x="{pad}" y="30" fill="var(--mu)" font-size="8.5">'
-        f'BUILDING &#183; SITE</text>' + "".join(chips))
+        f'BUILDING &#183; SITE &#183; {FOOTNOTE_COMPACT}</text>' + "".join(chips))
 
 
 _RENDERERS = {"full": (_full, FULL), "compact": (_compact, COMPACT)}
@@ -227,15 +238,21 @@ def render_badge(payload: dict, *, style: str = "full", theme: str = "auto",
     grades = ", ".join(f"{cap.lower().removeprefix('the ')} {_axis(payload, k)[0]}"
                        for cap, k in _AXES)
     # <title> is the accessible name a screen reader reads out of an <img>-loaded
-    # SVG, and the alt text most embedders will forget to write.
+    # SVG, and the alt text most embedders will forget to write. It ends on the
+    # short notice rather than the full one: an accessible name is announced on
+    # every encounter with the image, so the paragraph goes in <desc>, which is
+    # what a reader reaches for when they want the caveat spelled out.
     title = f"Housing Nutrition Label: {grades}"
     if address:
         title += f" — {_clip(address)}"
+    title += f". {DISCLAIMER_SHORT}"
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{geom["w"]}" '
         f'height="{geom["h"]}" viewBox="0 0 {geom["w"]} {geom["h"]}" '
-        f'role="img" aria-label="{_esc(title)}" font-family="{FONT}">'
+        f'role="img" aria-label="{_esc(title)}" aria-describedby="hnl-disclaimer" '
+        f'font-family="{FONT}">'
         f'<title>{_esc(title)}</title>'
+        f'<desc id="hnl-disclaimer">{_esc(DISCLAIMER)}</desc>'
         f'<style>{_theme_css(theme)}</style>'
         f'{body}</svg>')
 
@@ -243,6 +260,7 @@ def render_badge(payload: dict, *, style: str = "full", theme: str = "auto",
 EMBED_SNIPPET = (
     '<a href="https://housinglabel.dev/label.html">\n'
     '  <img src="{api}/badge?address={address}" width="360" height="116"\n'
-    '       alt="Housing Nutrition Label — the building and the site, graded">\n'
+    '       alt="Housing Nutrition Label — the building and the site, graded. '
+    'Modeled estimate, for information only; not advice.">\n'
     '</a>'
 )

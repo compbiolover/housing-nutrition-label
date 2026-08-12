@@ -106,8 +106,14 @@ def test_a_long_address_is_truncated_rather_than_fitted():
     svg = badge.render_badge(_SCORED, address="9" * 200 + " Street")
     ET.fromstring(svg)
     assert "…" in svg
-    longest = max((e.text or "") for e in ET.fromstring(svg).iter() if e.tag.endswith("text"))
-    assert len(longest) <= badge.MAX_ADDRESS, longest
+    # The address is the only caller text on the badge, so it's found by its own
+    # content rather than by being the longest string drawn — the standing
+    # footnote line (housinglabel.dev + the disclaimer) is longer than any
+    # address is allowed to be, and it is not what this budget governs.
+    drawn = [e.text or "" for e in ET.fromstring(svg).iter() if e.tag.endswith("text")]
+    address = max((t for t in drawn if t.startswith("9")), key=len, default="")
+    assert address, drawn
+    assert len(address) <= badge.MAX_ADDRESS, address
     # Whitespace is collapsed, so a padded address doesn't eat the budget.
     assert "  " not in badge._clip("a     b")
 

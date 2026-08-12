@@ -63,6 +63,7 @@ import logging
 import sys
 from typing import Iterable, Iterator
 
+from housing_label.legal import DISCLAIMER
 from housing_label.simulate.dimensions import DIMENSIONS
 from housing_label.simulate.house import (
     _HOUSE_FIELDS, build_label_parts, label_payload, NonResidentialProperty,
@@ -622,6 +623,12 @@ def run_batch(inp, out, *, allow_network: bool = False, portfolio: bool = False,
             "%d of %d scored rows were missing some building attributes; the "
             "missing ones were filled with typical defaults, named per row in "
             "defaulted_inputs.", partial, total - failed)
+
+    # The output is a bare CSV of grades: no card, no badge, no footer, and the
+    # single most forwardable artifact this project produces. It cannot carry the
+    # notice per row (one paragraph × 400,000 rows is a column nobody wants), so
+    # the run says it once, to whoever is about to send the file on.
+    log.info("%s", DISCLAIMER)
 
     summary = {"rows": total, "failed": failed, "scored": total - failed,
                "defaulted_building": defaulted, "partial_building": partial,

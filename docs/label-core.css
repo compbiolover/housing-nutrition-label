@@ -26,6 +26,16 @@
 .label-card .card-metrics { margin: 1rem 0 0; }
 .label-card .card-caveat { margin: 0.75rem 0; font-size: 0.85rem; padding: 0.7rem 1rem; }
 
+/* ── The disclaimer ─────────────────────────────────────────────────────────*/
+/* Small and quiet, but inside the card's border and above its bottom edge, so it
+   is part of the thing that gets screenshotted rather than page furniture the
+   screenshot crops off. A rule separates it from the numbers: it is a statement
+   about the label, not another line of it. Not italic — the confidence legend
+   above it already owns that voice, and fine print set in italic at 0.72rem is
+   the shape readers have learned to skip. */
+.label-legal { margin: 1rem 0 0; padding-top: 0.7rem; border-top: 1px solid var(--border);
+  font-size: 0.72rem; line-height: 1.5; color: var(--muted); }
+
 
 /* ── The two headline axes ───────────────────────────────────────────────────*/
 /* A buyer asks two questions, not one: is it a good house, and is it a good
