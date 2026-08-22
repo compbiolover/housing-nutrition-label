@@ -1387,6 +1387,14 @@ def label_sheet(
     caption it with an address the caller has already formatted, and ``scored``
     to stamp a date in the footer.
     """
+    # Before the scoring pass, not after: /label.svg is metered like /label, and
+    # a typo in a cosmetic parameter must not spend a caller's allowance to earn
+    # its 400 (the API's own rule — an invalid request is never charged).
+    try:
+        sheet_svg.validate_theme(theme)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
     payload = label(
         response=response, caller=caller, address=address, lat=lat, lon=lon,
         preset=preset, construction=construction, year_built=year_built,
@@ -1398,15 +1406,12 @@ def label_sheet(
         nonresidential=nonresidential,
     )
     caption = label_text or address
-    try:
-        # Both free-text parameters are caller input landing in a document a
-        # browser will parse. They are escaped by the renderer; the caps here are
-        # what keeps a 10kB "date" out of the footer in the first place.
-        svg = sheet_svg.render_sheet(
-            payload, address=(caption or None), theme=theme,
-            generated=(scored[:40] if scored else None))
-    except ValueError as exc:
-        raise HTTPException(400, str(exc))
+    # Both free-text parameters are caller input landing in a document a browser
+    # will parse. They are escaped by the renderer; the cap here is what keeps a
+    # 10kB "date" out of the footer in the first place.
+    svg = sheet_svg.render_sheet(
+        payload, address=(caption or None), theme=theme,
+        generated=(scored[:40] if scored else None))
 
     disposition = "attachment" if download else "inline"
     return RawResponse(

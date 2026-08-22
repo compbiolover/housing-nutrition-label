@@ -272,12 +272,30 @@ def test_wrapping_never_overflows_and_never_drops_text_silently():
     assert label_svg._fit("x" * 500, 100, 12).endswith("…")
 
 
+def test_a_bad_theme_can_be_refused_before_anything_is_scored():
+    """``validate_theme`` is separate from the render so the endpoint can reject a
+    typo without paying for a label first. Rendering is the cheap end of
+    /label.svg; the scoring behind it is a dozen federal datasets and a metered
+    unit of somebody's day."""
+    label_svg.validate_theme("light")           # no exception
+    for bad in ("drak", "", "LIGHT", None):
+        try:
+            label_svg.validate_theme(bad)
+        except ValueError:
+            continue
+        raise AssertionError(f"{bad!r} was accepted as a theme")
+
+
 def test_a_thin_payload_renders_rather_than_raising():
     """Every field is optional. A trimmed payload (an older self-hosted API, a
     cached response, a preset scored with no location) must produce a shorter
     sheet, not a 500."""
     for thin in ({}, {"dimensions": []}, {"dimensions": [{"key": "x"}]},
-                 {"composite_score": 12.0}):
+                 {"composite_score": 12.0},
+                 # Half a coordinate: a payload with a lat and no lon is a payload
+                 # with no location, not a crash.
+                 {"house": {"lat": 35.13}}, {"house": {"lon": -89.99}},
+                 {"house": {}}, {"location": {}}):
         ET.fromstring(label_svg.render_sheet(thin))
 
 
@@ -288,6 +306,12 @@ def test_the_download_name_survives_every_filesystem():
     assert label_svg.filename_for("../../etc/passwd") == "housing-label-etc-passwd.svg"
     name = label_svg.filename_for("Ünïcodé Straße 9, Köln")
     assert name.isascii() and " " not in name and "/" not in name, name
+    # The button downloads through a blob, so the browser uses the name the page
+    # picked, not the one the API sent — and two paths to the same file that name
+    # it differently is a support question nobody can answer from the file.
+    form = (_ROOT / "docs" / "label-form.js").read_text(encoding="utf-8")
+    assert '"housing-label.svg"' in form, "the empty-caption name has drifted"
+    assert '"housing-label-" + slug + ".svg"' in form
 
 
 def test_the_frontend_asks_for_the_sheet_the_way_the_label_was_scored():

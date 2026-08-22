@@ -700,7 +700,7 @@ window.LabelForm = (function () {
         .then(function (blob) {
           var href = URL.createObjectURL(blob), a = document.createElement("a");
           a.href = href;
-          a.download = "housing-label-" + slugForFile(caption) + ".svg";
+          a.download = sheetFilename(caption);
           document.body.appendChild(a); a.click(); document.body.removeChild(a);
           setTimeout(function () { URL.revokeObjectURL(href); }, 1000);
           if (note) note.textContent = "Saved.";
@@ -712,11 +712,14 @@ window.LabelForm = (function () {
         .then(function () { btn.disabled = false; });
     }
     // Mirrors housing_label.label_svg.filename_for — ASCII, lowercase, no spaces,
-    // so the file survives every filesystem it gets emailed to.
-    function slugForFile(addr) {
-      var slug = String(addr || "").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    // so the file survives every filesystem it gets emailed to, and so a file
+    // saved through this button is named the same as one fetched straight from
+    // the API. That includes the empty case: no caption is "housing-label.svg",
+    // not "housing-label-.svg" and not a "label" the address slot invented.
+    function sheetFilename(caption) {
+      var slug = String(caption || "").toLowerCase().replace(/[^a-z0-9]+/g, "-");
       slug = slug.replace(/^-+|-+$/g, "").slice(0, 60).replace(/-+$/, "");
-      return slug || "label";
+      return slug ? "housing-label-" + slug + ".svg" : "housing-label.svg";
     }
 
     function render() {

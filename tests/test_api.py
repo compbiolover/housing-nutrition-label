@@ -1280,7 +1280,9 @@ def test_label_sheet_is_an_svg_scored_like_the_label():
     import housing_label.api as api
 
     real = api.build_label_parts
+    calls = {"n": 0}
     def offline(**kw):
+        calls["n"] += 1
         kw["allow_network"] = False       # deterministic, no network in the test
         return real(**kw)
 
@@ -1309,6 +1311,16 @@ def test_label_sheet_is_an_svg_scored_like_the_label():
         # Scored, not cosmetic: a bad theme is a 400, and no location is a 400.
         assert client.get("/label.svg", params={**params, "theme": "drak"}).status_code == 400
         assert client.get("/label.svg").status_code == 400
+
+        # And the 400 costs nothing. The endpoint is metered like /label, so a
+        # typo in a cosmetic parameter must be refused before the scoring pass —
+        # the API's own rule is that an invalid request is never charged.
+        api._result_cache.clear()
+        before = calls["n"]
+        assert client.get("/label.svg", params={"lat": 34.05, "lon": -118.24,
+                                                "preset": "baseline",
+                                                "theme": "drak"}).status_code == 400
+        assert calls["n"] == before, "a bad theme scored a label before refusing it"
     finally:
         api.build_label_parts = real
         api._result_cache.clear()

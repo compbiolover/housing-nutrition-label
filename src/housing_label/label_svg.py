@@ -311,7 +311,9 @@ def _identity(out: list, payload: dict, address, y: float) -> float:
     title_w = COL - score_w - 24
 
     heading = address or loc.get("label") or ""
-    if not heading and house.get("lat") is not None:
+    # Both halves or neither: a payload carrying one coordinate is a payload with
+    # no location, and half a coordinate is not a heading.
+    if not heading and house.get("lat") is not None and house.get("lon") is not None:
         heading = f'{house["lat"]}, {house["lon"]}'
     top = y
     for line in _wrap(heading, title_w, 21, 700, max_lines=2):
@@ -533,6 +535,19 @@ def _footer(out: list, payload: dict, y: float, generated, source: str) -> float
 
 
 # ── The sheet ────────────────────────────────────────────────────────────────
+def validate_theme(theme: str) -> None:
+    """Raise ValueError on an unknown theme.
+
+    Exposed separately from ``render_sheet`` so a caller can refuse a bad
+    parameter *before* paying for a scoring pass. The rendering is the cheap end
+    of ``GET /label.svg``; the label behind it is a dozen federal datasets and a
+    metered unit of somebody's daily allowance, and a typo in a cosmetic
+    parameter should cost neither.
+    """
+    if theme not in THEME_NAMES:
+        raise ValueError(f"unknown theme {theme!r}; choose one of: {', '.join(THEME_NAMES)}")
+
+
 def _sheet_css(theme: str) -> str:
     """The badge's theme tokens plus the two this renderer adds. Same shape, so a
     reader who has both files open sees one system, not two."""
@@ -562,8 +577,7 @@ def render_sheet(payload: dict, *, address: str | None = None, theme: str = "lig
     Raises ValueError on an unknown theme: an unrecognised query parameter should
     be a 400 at the edge, not a silent fallback.
     """
-    if theme not in THEME_NAMES:
-        raise ValueError(f"unknown theme {theme!r}; choose one of: {', '.join(THEME_NAMES)}")
+    validate_theme(theme)
 
     out: list[str] = []
     y = _masthead(out, source, PAD + 10)
