@@ -22,7 +22,7 @@ for _p in (_ROOT, _ROOT / "src"):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
-from housing_label import badge  # noqa: E402
+from housing_label import badge, label_svg  # noqa: E402
 from housing_label.legal import DISCLAIMER, DISCLAIMER_SHORT  # noqa: E402
 from housing_label.simulate.house import label_payload  # noqa: E402
 
@@ -148,6 +148,38 @@ def test_the_badge_draws_the_notice_and_names_it_in_full():
         # The accessible name ends on the short form: it is announced on every
         # encounter with the image, so the paragraph belongs in <desc>.
         assert (root.get("aria-label") or "").endswith(DISCLAIMER_SHORT), style
+
+
+def test_the_printable_sheet_draws_the_notice_in_full():
+    """The sheet is the copy that gets printed and filed, which is the furthest
+    from our fine print any rendering of the label gets — further even than the
+    badge, because paper has no page around it and no link to follow. It has room
+    for the whole notice, so it carries the whole notice."""
+    svg = label_svg.render_sheet(
+        {"composite_score": 59.9, "composite_national_grade": "C",
+         "disclaimer": DISCLAIMER}, address="123 Main St")
+    root = ET.fromstring(svg)
+    drawn = " ".join(" ".join(e.text or "" for e in root.iter()
+                              if e.tag.endswith("text")).split())
+    assert DISCLAIMER in drawn, "the sheet does not draw the full notice"
+    desc = [e.text for e in root.iter() if e.tag.endswith("desc")]
+    assert desc == [DISCLAIMER], desc
+    assert (root.get("aria-label") or "").endswith(DISCLAIMER_SHORT)
+
+
+def test_the_print_stylesheet_never_hides_the_notice():
+    """Printing drops the site's chrome, and a rule that swept the notice out
+    with it would produce the one artifact of the label carrying no notice at
+    all — the one most likely to be handed to somebody else."""
+    css = (_DOCS / "label-core.css").read_text(encoding="utf-8")
+    assert "@media print" in css, "the print stylesheet moved"
+    block = css.split("@media print", 1)[1]
+    hidden = re.findall(r"([^{}]+)\{[^{}]*display:\s*none[^{}]*\}", block)
+    for selectors in hidden:
+        for must_survive in (".label-legal", ".print-stamp", ".label-card",
+                             ".dim-row", ".score-bar"):
+            assert must_survive not in selectors, (
+                f"{must_survive} is hidden in print by: {selectors.strip()}")
 
 
 def test_the_api_says_it_where_an_integrator_reads_it():

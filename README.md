@@ -496,6 +496,50 @@ print, anywhere near it.
 </details>
 
 <details>
+<summary><strong>Print it, or save it as an SVG</strong></summary>
+
+A label that matters gets taken out of the browser — into the folder with the inspection
+report, into a listing packet, across a kitchen table. There are two ways out, because
+they are two different artifacts.
+
+**Print** (the *Print this label* button, or ⌘/Ctrl-P). The page prints what is on screen,
+including the rows you expanded and excluding everything that only exists to be clicked.
+The printed sheet carries a colophon the screen doesn't need — where it came from and what
+day it was printed — because a page of grades with no source and no date is the copy that
+gets misread a year later.
+
+**Save as SVG** (`GET /label.svg?address=...`). The whole label redrawn as **one US Letter
+page of vector**: both headline grades, all thirteen dimensions, the running-cost line, and
+the disclaimer in full.
+
+```
+GET /label.svg?address=123%20Main%20St,%20Memphis,%20TN&theme=light&download=1
+```
+
+It takes every `/label` house parameter and is scored through the same path, so a saved
+sheet cannot disagree with the label it was saved from — including any detail you corrected
+in *Refine building details*. Beyond those: `theme=light|dark|auto` (**light** by default,
+where the badge defaults to `auto` — this artifact exists to be printed, and paper has no
+dark mode), `download=1` for a `Content-Disposition: attachment`, `label_text=` to caption
+it with an address you have already formatted, and `scored=` to stamp a date in the footer.
+
+Three things it does differently from the web card, all of them because paper is not a
+screen:
+
+- **It has an edge.** The layout is budgeted against the page, so a thirteen-dimension
+  label lands on one sheet instead of breaking across two wherever the browser chose. The
+  per-row detail panels are the one thing left off; printing all thirteen would be a
+  booklet, not a label.
+- **Colour is never the only channel.** Every grade is a letter *and* a bar length *and* a
+  number, so a grayscale printer, a fax, or a photocopy of a photocopy loses nothing.
+- **The text is still text.** Real `<text>` elements, not outlines — searchable,
+  selectable, and editable in Illustrator or Inkscape. Which is also why there are no web
+  fonts and nothing is fitted: like the badge, every element is positioned absolutely and
+  long strings are wrapped or truncated against an estimate that deliberately runs wide.
+
+</details>
+
+<details>
 <summary><strong>API keys &amp; usage limits</strong></summary>
 
 **No key is needed, and on your own instance none exists.** Every caller is anonymous
@@ -843,6 +887,8 @@ there:
 | JSON payload (`--json`, `GET /label`, `/presets`, `/density`, `/timeline`) | `disclaimer` field |
 | Web label (`docs/label-core.js`) | fine print inside the card, on every view |
 | Embeddable SVG badge | drawn on the badge; full text in `<desc>` |
+| Printable sheet (`GET /label.svg`) | drawn in full on the page, plus `<desc>` |
+| A printed page | the card's own notice, plus a colophon naming the source and date |
 | CLI (`housing-simulate`) | printed in the label box |
 | Bulk scoring (`housing-batch`) | logged once per run — a 400,000-row CSV can't carry a paragraph per row |
 | This README and every page on the site | footer |

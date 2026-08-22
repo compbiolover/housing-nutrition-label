@@ -40,6 +40,10 @@ Endpoints::
                                      descriptions) — a constant, scores nothing
     GET /badge?address=<addr>        the label as an embeddable SVG (image/svg+xml)
         optional: style=full|compact, theme=auto|light|dark, preset, label_text
+    GET /label.svg?address=<addr>    the whole label as a one-page printable SVG
+        optional: theme=light|dark|auto (default light — it is made for paper),
+                  download=1 (Content-Disposition: attachment), scored=<date>,
+                  + all /label house params, so the sheet matches the label
     GET /usage                       the calling key's own plan and day's usage
 
 CORS is restricted to https://housinglabel.dev by default; set the
@@ -101,6 +105,7 @@ from slowapi.util import get_remote_address
 
 from housing_label import badge as badge_svg
 from housing_label import entitlements
+from housing_label import label_svg as sheet_svg
 from housing_label.config import (
     HEADERS, PHOTON_URL, GEOAPIFY_URL, GEOAPIFY_API_KEY,
     GOOGLE_PLACES_AUTOCOMPLETE_URL, GOOGLE_PLACES_DETAILS_URL, GOOGLE_PLACES_API_KEY,
@@ -280,6 +285,10 @@ _CACHE_CONTROL_BY_PATH = {
     # traffic shape that wants one. An hour, because the underlying score barely
     # moves and a third-party page should not re-score on every reader.
     "/badge": "public, max-age=3600",
+    # Same content as /label and the same address in the URL, so it keeps
+    # /label's private policy rather than the badge's public one — the sheet is
+    # what somebody prints for their own house, not what they embed on a page.
+    "/label.svg": _SCORE_CACHE_CONTROL,
     # A live counter. Left unlisted it would carry no Cache-Control at all, and a
     # client is free to cache a bare 200 heuristically — which for this endpoint
     # means showing a caller yesterday's remaining balance.
@@ -1326,6 +1335,89 @@ def badge(
             # unescaped (housing_label.badge._esc), and nosniff keeps a proxy from
             # re-deciding the type on top of that.
             "X-Content-Type-Options": "nosniff",
+            **{k: v for k, v in response.headers.items()},
+        })
+
+
+@app.get("/label.svg")
+def label_sheet(
+    response: Response,
+    caller: Caller = Depends(_caller),
+    address: str | None = None,
+    lat: float | None = None,
+    lon: float | None = None,
+    preset: str | None = None,
+    construction: str | None = None,
+    year_built: int | None = None,
+    foundation: str | None = None,
+    condition: str | None = None,
+    value: float | None = None,
+    units: int | None = None,
+    sqft: float | None = None,
+    lot_acres: float | None = None,
+    flood_zone: str | None = None,
+    bldg_material: str | None = None,
+    stories: int | None = None,
+    owner_occupied: bool | None = None,
+    upgrades: str | None = None,
+    water_source: str | None = None,
+    sewer: str | None = None,
+    lot_context: str | None = None,
+    allow_non_residential: bool = False,
+    nonresidential: bool = False,
+    theme: str = "light",
+    download: bool = False,
+    label_text: str | None = None,
+    scored: str | None = None,
+):
+    """The whole label as a one-page printable SVG (``image/svg+xml``).
+
+    Where ``/badge`` is the label small enough for somebody else's sidebar, this
+    is the label big enough to print: every dimension, both headline grades, the
+    running-cost line, and the disclaimer in full, laid out on a US Letter page.
+    See ``housing_label.label_svg`` for what it draws and why it is drawn
+    separately from the web card rather than screenshotted from it.
+
+    It takes the **same house parameters as /label** and is scored through the
+    same function, so a sheet cannot disagree with the label it was printed from
+    — including the refinements a reader entered (a corrected year built, an
+    upgrade, a unit count). Beyond those: ``theme`` (light | dark | auto,
+    defaulting to light because paper has no dark mode), ``download=1`` to send
+    it as an attachment rather than rendering it in the tab, ``label_text`` to
+    caption it with an address the caller has already formatted, and ``scored``
+    to stamp a date in the footer.
+    """
+    payload = label(
+        response=response, caller=caller, address=address, lat=lat, lon=lon,
+        preset=preset, construction=construction, year_built=year_built,
+        foundation=foundation, condition=condition, value=value, units=units,
+        sqft=sqft, lot_acres=lot_acres, flood_zone=flood_zone,
+        bldg_material=bldg_material, stories=stories, owner_occupied=owner_occupied,
+        upgrades=upgrades, water_source=water_source, sewer=sewer,
+        lot_context=lot_context, allow_non_residential=allow_non_residential,
+        nonresidential=nonresidential,
+    )
+    caption = label_text or address
+    try:
+        # Both free-text parameters are caller input landing in a document a
+        # browser will parse. They are escaped by the renderer; the caps here are
+        # what keeps a 10kB "date" out of the footer in the first place.
+        svg = sheet_svg.render_sheet(
+            payload, address=(caption or None), theme=theme,
+            generated=(scored[:40] if scored else None))
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+    disposition = "attachment" if download else "inline"
+    return RawResponse(
+        content=svg,
+        media_type="image/svg+xml",
+        headers={
+            # Same reasoning as /badge: an SVG opened directly is a document, not
+            # an image, and nothing here emits caller input unescaped.
+            "X-Content-Type-Options": "nosniff",
+            "Content-Disposition":
+                f'{disposition}; filename="{sheet_svg.filename_for(caption)}"',
             **{k: v for k, v in response.headers.items()},
         })
 

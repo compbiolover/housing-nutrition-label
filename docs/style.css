@@ -398,3 +398,54 @@ footer code { background: rgba(255, 255, 255, 0.1); color: #cbd5e1; }
   .back-to-top:hover, .back-to-top:focus { background: var(--border); color: #fff; }
 }
 
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Print — the site's chrome gets out of the way
+   ───────────────────────────────────────────────────────────────────────────*/
+/* The card's own print rules live in label-core.css (and explain the reasoning);
+   this is only the page around it. Site chrome is navigation — it exists to get
+   the reader somewhere else, which paper cannot do — so it goes, and what is
+   left is the content plus the two things paper needs and a screen doesn't:
+   the address behind every link, and a white ground under everything.
+
+   Last in the file so it beats the prefers-color-scheme block above: a dark
+   screen and a printer are not mutually exclusive, and nobody wants a black
+   page out of a printer. */
+@media print {
+  @page { margin: 14mm; }
+
+  html, body { background: #fff !important; color: #000; font-size: 11pt; }
+  nav, footer, .back-to-top, .skip-link, .hamburger, .doc-toc, .addr-ac-list {
+    display: none !important;
+  }
+  /* The hero is a dark gradient with white type — unreadable and expensive on
+     paper. Flattened to the page, keeping its heading and the label under it. */
+  .hero { background: #fff !important; color: #000 !important; padding: 0 0 1rem !important;
+    text-align: left; }
+  .hero h1 { color: #13233d !important; font-size: 16pt; }
+  /* The pitch, not the page: a marketing chip and a one-line tagline are what a
+     visitor needs before they have a label, and pure overhead once they have
+     one. Every other page's hero is a title, which stays. */
+  .hero .badge, .hero .tagline { display: none !important; }
+  main, .doc-layout, .doc-intro { display: block; max-width: none; padding: 0; margin: 0; }
+  section { padding: 0; margin: 0 0 1rem; }
+
+  a { color: #000; text-decoration: underline; }
+  /* A link on paper is a dead end unless it says where it goes. Only real
+     destinations, and only in prose: printing the href of every nav-like link or
+     in-page anchor would bury the text it belongs to. */
+  main a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 8pt; color: #555;
+    word-break: break-all; }
+  main a[href^="#"]::after { content: ""; }
+
+  h1, h2, h3, .dim-group { break-after: avoid; }
+  p, li, tr, .card, .method-section, .insight, .acc { break-inside: avoid; }
+  pre, .formula, .table-scroll { overflow: visible !important; white-space: pre-wrap;
+    word-break: break-word; }
+  pre { background: #fff !important; color: #000 !important; border: 0.5pt solid #999; }
+  .comparison th, .data-table th { background: #fff !important; color: #000 !important;
+    border-bottom: 1pt solid #333; }
+  /* Accordions on the docs pages are disclosure, same as the label's rows: what
+     the reader opened is what prints. The chevron is not. */
+  .acc-chev { display: none !important; }
+}
