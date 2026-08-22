@@ -418,9 +418,10 @@ def _axis_pair(out: list, payload: dict, y: float) -> float:
                 "A modest structure in a strong place: the surroundings beat most US homes, "
                 "the building does not.")
         note += " Both are national percentiles, so they are read the same way."
-        for i, line in enumerate(_wrap(note, COL, 10, max_lines=2)):
+        lines = _wrap(note, COL, 10, max_lines=2)
+        for i, line in enumerate(lines):
             out.append(_t(PAD, y + 10 + i * 12, line, 10, fill="var(--mu)"))
-        y += 12 * len(_wrap(note, COL, 10, max_lines=2)) + 6
+        y += 12 * len(lines) + 6
     return y
 
 
@@ -566,7 +567,11 @@ def render_sheet(payload: dict, *, address: str | None = None, theme: str = "lig
 
     ``payload`` is what ``simulate.house.label_payload`` returns; only fields the
     web card already reads are used, and every one of them is optional, so a
-    trimmed or older payload renders a shorter sheet rather than failing.
+    trimmed or older payload renders a sparser sheet rather than failing. Sparser,
+    not smaller: the page is never shorter than ``PAGE_H``, because a sheet is a
+    sheet — content that ends early leaves white space at the bottom, the way it
+    would on paper, rather than cropping the page to the last line drawn. Content
+    that overruns is what grows the file, onto a second page.
 
     ``theme`` defaults to ``light`` — this artifact exists to be printed, and
     paper has no dark mode. ``generated`` is a caller-formatted date stamped in

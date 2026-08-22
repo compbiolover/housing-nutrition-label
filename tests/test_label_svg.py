@@ -290,6 +290,12 @@ def test_a_thin_payload_renders_rather_than_raising():
     """Every field is optional. A trimmed payload (an older self-hosted API, a
     cached response, a preset scored with no location) must produce a shorter
     sheet, not a 500."""
+    # And a sparse sheet is still a full page: content that ends early leaves
+    # white space at the bottom the way it would on paper, rather than cropping
+    # the page to the last line drawn.
+    empty = ET.fromstring(label_svg.render_sheet({}))
+    assert empty.get("viewBox") == f"0 0 {label_svg.PAGE_W} {label_svg.PAGE_H}"
+
     for thin in ({}, {"dimensions": []}, {"dimensions": [{"key": "x"}]},
                  {"composite_score": 12.0},
                  # Half a coordinate: a payload with a lat and no lon is a payload
