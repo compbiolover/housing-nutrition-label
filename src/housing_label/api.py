@@ -1405,12 +1405,14 @@ def label_sheet(
         lot_context=lot_context, allow_non_residential=allow_non_residential,
         nonresidential=nonresidential,
     )
-    caption = label_text or address
     # Both free-text parameters are caller input landing in a document a browser
-    # will parse. They are escaped by the renderer; the cap here is what keeps a
-    # 10kB "date" out of the footer in the first place.
+    # will parse. The renderer escapes them and truncates what it draws, so the
+    # sheet is already bounded whatever arrives — these caps bound the *work*
+    # instead, so a caller cannot make the server normalise half a megabyte of
+    # "address" to draw two lines of it. 200 is well past what the title can show.
+    caption = (label_text or address or "")[:200] or None
     svg = sheet_svg.render_sheet(
-        payload, address=(caption or None), theme=theme,
+        payload, address=caption, theme=theme,
         generated=(scored[:40] if scored else None))
 
     disposition = "attachment" if download else "inline"

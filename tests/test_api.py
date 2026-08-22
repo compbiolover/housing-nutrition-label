@@ -1312,6 +1312,17 @@ def test_label_sheet_is_an_svg_scored_like_the_label():
         assert client.get("/label.svg", params={**params, "theme": "drak"}).status_code == 400
         assert client.get("/label.svg").status_code == 400
 
+        # Caller free text is bounded at the edge. The renderer already truncates
+        # what it draws, so this is about the work and the headers: an oversized
+        # caption must not be normalised in full to draw two lines of it, and must
+        # not reach Content-Disposition at length. (A URL long enough to carry
+        # megabytes is refused by the HTTP layer before it gets here, so this is
+        # the largest caption that is actually reachable.)
+        big = client.get("/label.svg", params={**params, "label_text": "Main St " * 500})
+        assert big.status_code == 200
+        assert len(big.content) < 40_000, len(big.content)
+        assert len(big.headers["content-disposition"]) < 300
+
         # And the 400 costs nothing. The endpoint is metered like /label, so a
         # typo in a cosmetic parameter must be refused before the scoring pass —
         # the API's own rule is that an invalid request is never charged.
