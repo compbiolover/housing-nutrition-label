@@ -343,7 +343,42 @@ window.LabelCore = (function () {
   // gets screenshotted, shared, and embedded, and it travels without the page.
   function legalNote(data) {
     var text = (data && data.disclaimer) || DISCLAIMER_FALLBACK;
-    return '<p class="label-legal">' + esc(text) + '</p>';
+    return '<p class="label-legal">' + esc(text) + '</p>' + printStamp();
+  }
+
+  // ── The print colophon ─────────────────────────────────────────────────────
+  // A printed label outlives the tab it came from: it goes in the folder with the
+  // inspection report, and it gets read again by someone who was never at the
+  // screen. A sheet of grades with no date and no source is the copy that gets
+  // misread a year later, so the card carries a colophon that exists only on
+  // paper — where the address bar, the nav, and the footer all disappear.
+  //
+  // Hidden on screen (see .print-stamp in label-core.css) rather than injected at
+  // print time: markup that is already in the DOM survives a print started from
+  // the browser menu, a keyboard shortcut, or a print preview that never fires an
+  // event we could listen for.
+  function printDate() {
+    try {
+      return new Date().toLocaleDateString(undefined,
+        { year: "numeric", month: "long", day: "numeric" });
+    } catch (e) { return new Date().toDateString(); }
+  }
+  function printStamp() {
+    var where = "housinglabel.dev";
+    try { where = location.origin + location.pathname; } catch (e) {}
+    return '<p class="print-stamp">Printed from ' + esc(where)
+      + ' on <span class="print-date">' + esc(printDate()) + '</span>'
+      + ' &middot; scores are recomputed from live public data, so re-score before'
+      + ' relying on a printed copy.</p>';
+  }
+  // The stamp is written when the card renders, which can be hours before anyone
+  // prints it. Refresh the date on the way into the dialog so a page left open
+  // overnight doesn't print yesterday's.
+  if (typeof window !== "undefined" && window.addEventListener) {
+    window.addEventListener("beforeprint", function () {
+      var d = printDate(), nodes = document.querySelectorAll(".print-date");
+      for (var i = 0; i < nodes.length; i++) nodes[i].textContent = d;
+    });
   }
 
 

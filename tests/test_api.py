@@ -1267,6 +1267,76 @@ def test_a_recognised_key_gets_its_own_rate_limit_bucket():
         assert api._bucket(req()) == "203.0.113.7"
 
 
+def test_label_sheet_is_an_svg_scored_like_the_label():
+    """/label.svg is the printable sheet. It must come back as an image with a
+    filename, score through the same path as /label (so a printed sheet cannot
+    disagree with the label it was printed from), and refuse a bad theme rather
+    than quietly rendering the default."""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_label_sheet_is_an_svg_scored_like_the_label (fastapi not installed)")
+        return
+    import housing_label.api as api
+
+    real = api.build_label_parts
+    calls = {"n": 0}
+    def offline(**kw):
+        calls["n"] += 1
+        kw["allow_network"] = False       # deterministic, no network in the test
+        return real(**kw)
+
+    api._result_cache.clear()
+    api.build_label_parts = offline
+    try:
+        client = TestClient(api.app)
+        params = {"lat": 35.13, "lon": -89.99, "preset": "baseline"}
+        r = client.get("/label.svg", params={**params, "label_text": "123 Main St",
+                                             "scored": "2026-08-22"})
+        assert r.status_code == 200, r.text[:200]
+        assert r.headers["content-type"].startswith("image/svg+xml")
+        assert r.headers["x-content-type-options"] == "nosniff"
+        assert r.headers["content-disposition"].startswith("inline; filename=")
+        assert "123-main-st" in r.headers["content-disposition"]
+        assert r.text.startswith("<svg") and "123 Main St" in r.text
+
+        # download=1 is the only difference the browser needs to save it.
+        d = client.get("/label.svg", params={**params, "download": 1})
+        assert d.headers["content-disposition"].startswith("attachment; filename=")
+
+        # The same numbers as /label, from the same scoring pass.
+        payload = client.get("/label", params=params).json()
+        assert f'{payload["composite_score"]:.1f}' in d.text
+
+        # Scored, not cosmetic: a bad theme is a 400, and no location is a 400.
+        assert client.get("/label.svg", params={**params, "theme": "drak"}).status_code == 400
+        assert client.get("/label.svg").status_code == 400
+
+        # Caller free text is bounded at the edge. The renderer already truncates
+        # what it draws, so this is about the work and the headers: an oversized
+        # caption must not be normalised in full to draw two lines of it, and must
+        # not reach Content-Disposition at length. (A URL long enough to carry
+        # megabytes is refused by the HTTP layer before it gets here, so this is
+        # the largest caption that is actually reachable.)
+        big = client.get("/label.svg", params={**params, "label_text": "Main St " * 500})
+        assert big.status_code == 200
+        assert len(big.content) < 40_000, len(big.content)
+        assert len(big.headers["content-disposition"]) < 300
+
+        # And the 400 costs nothing. The endpoint is metered like /label, so a
+        # typo in a cosmetic parameter must be refused before the scoring pass —
+        # the API's own rule is that an invalid request is never charged.
+        api._result_cache.clear()
+        before = calls["n"]
+        assert client.get("/label.svg", params={"lat": 34.05, "lon": -118.24,
+                                                "preset": "baseline",
+                                                "theme": "drak"}).status_code == 400
+        assert calls["n"] == before, "a bad theme scored a label before refusing it"
+    finally:
+        api.build_label_parts = real
+        api._result_cache.clear()
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

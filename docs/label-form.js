@@ -627,6 +627,101 @@ window.LabelForm = (function () {
       return html;
     }
 
+    // ── Take it with you: print, or save the sheet ──────────────────────────────
+    // Two ways out of the browser, because they are two different artifacts and a
+    // reader wants different things from them:
+    //
+    //   Print  — the page as it stands, disclosure state and all. What a reader
+    //            has opened is what they are reading, so print takes it rather
+    //            than second-guessing it; the print stylesheet drops the controls
+    //            and adds a colophon (label-core.js printStamp) so the sheet says
+    //            where it came from and when.
+    //   SVG    — the whole label redrawn as one Letter page by the API
+    //            (housing_label.label_svg), as vector, with text still text. That
+    //            is the copy that goes into a report, an email, or a listing
+    //            packet, and it must not depend on this page's fonts, theme, or
+    //            width to survive the trip.
+    //
+    // The SVG is asked for with the SAME parameters that scored what's on screen —
+    // including refine-panel edits — so a saved sheet cannot quietly disagree with
+    // the label it was saved from.
+    function sheetQuery() {
+      if (state.mode === "detected") return buildDetectedParams().query;
+      if (state.mode === "single") {
+        var pr = state.presets && state.presets[state.idx];
+        if (!pr || !pr.preset) return null;
+        var d = descQuery(state.desc).replace(/^\?/, "");
+        return "preset=" + encodeURIComponent(pr.preset) + (d ? "&" + d : "");
+      }
+      return null;   // compare / density / timeline are not one label
+    }
+    // What the sheet is titled. A hypothetical profile scored at this address is
+    // NOT this address's home, and a saved sheet headed by the street address
+    // alone would say it was — to a reader who has only the sheet, months later,
+    // with nothing on it to contradict them. So the build is named in the title.
+    function sheetCaption() {
+      var addr = enteredAddress();
+      if (state.mode !== "single") return addr;
+      var pr = state.presets && state.presets[state.idx];
+      if (!pr) return addr;
+      return pr.name + " (hypothetical build)" + (addr ? " at " + addr : "");
+    }
+    function actionsHtml() {
+      var svg = sheetQuery();
+      // Every button says what it does to the *label*, not to the page — the same
+      // rule the address form's buttons follow.
+      return '<div class="label-actions">'
+        + '<button type="button" class="lf-print" title="Print this label. The '
+        + 'controls drop out and the printed sheet carries its source and date.">'
+        + 'Print this label</button>'
+        + (svg ? '<button type="button" class="lf-svg" title="Download the label as '
+                 + 'a one-page SVG — vector, prints at any size, opens in any browser '
+                 + 'or design tool.">Save as SVG</button>' : '')
+        + '<span class="lf-actions-note" role="status" aria-live="polite"></span>'
+        + '</div>';
+    }
+    // Fetch-then-blob rather than a plain link: the API is on another origin, where
+    // an <a download> is ignored and the browser navigates away from the label
+    // instead of saving beside it. A failed fetch (offline, CORS, a self-hosted API
+    // that hasn't allowed this origin) falls back to opening the URL, which at
+    // worst shows the reader the sheet they asked for.
+    function saveSheet(btn) {
+      var query = sheetQuery();                 // not `q` — that is this widget's querySelector
+      if (!query || !API_BASE) return;
+      var note = q(".lf-actions-note");
+      var caption = sheetCaption();
+      var url = API_BASE + "/label.svg?" + query + "&theme=light"
+        + (caption ? "&label_text=" + encodeURIComponent(caption) : "")
+        + "&scored=" + encodeURIComponent(new Date().toISOString().slice(0, 10));
+      btn.disabled = true;
+      if (note) note.textContent = "Drawing the sheet\u2026";
+      fetch(url + "&download=1")
+        .then(function (r) { if (!r.ok) throw new Error(String(r.status)); return r.blob(); })
+        .then(function (blob) {
+          var href = URL.createObjectURL(blob), a = document.createElement("a");
+          a.href = href;
+          a.download = sheetFilename(caption);
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          setTimeout(function () { URL.revokeObjectURL(href); }, 1000);
+          if (note) note.textContent = "Saved.";
+        })
+        .catch(function () {
+          if (note) note.textContent = "";
+          window.open(url, "_blank", "noopener");
+        })
+        .then(function () { btn.disabled = false; });
+    }
+    // Mirrors housing_label.label_svg.filename_for — ASCII, lowercase, no spaces,
+    // so the file survives every filesystem it gets emailed to, and so a file
+    // saved through this button is named the same as one fetched straight from
+    // the API. That includes the empty case: no caption is "housing-label.svg",
+    // not "housing-label-.svg" and not a "label" the address slot invented.
+    function sheetFilename(caption) {
+      var slug = String(caption || "").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      slug = slug.replace(/^-+|-+$/g, "").slice(0, 60).replace(/-+$/, "");
+      return slug ? "housing-label-" + slug + ".svg" : "housing-label.svg";
+    }
+
     function render() {
       if (!API_BASE) { app.innerHTML = ""; return; }
       if (state.idle) {
@@ -702,13 +797,13 @@ window.LabelForm = (function () {
         html += '<div class="picker"><label for="' + uid + 'd-sel">Construction profile: </label>'
           + sweepPickerSel("lf-d-sel", uid + "d-sel") + '</div>';
       } else if (state.mode === "detected") {
-        html += detectedCard() + gradeLegend();
+        html += detectedCard() + actionsHtml() + gradeLegend();
       } else if (state.mode === "timeline") {
         html += timelinePanel();
       } else if (state.mode === "single") {
         html += '<div class="picker"><label for="' + uid + 'p-sel">Construction profile: </label>'
           + pickerSel("lf-p-sel", uid + "p-sel", state.idx) + '</div>';
-        html += cardFor(state.idx, baselineCost()) + gradeLegend();
+        html += cardFor(state.idx, baselineCost()) + actionsHtml() + gradeLegend();
       } else {
         var A = state.presets[state.idxA], B = state.presets[state.idxB];
         A._name = A.name; B._name = B.name;   // deltaTable() headers use _name (else "A"/"B")
@@ -1184,8 +1279,12 @@ window.LabelForm = (function () {
 
     // ── events ────────────────────────────────────────────────────────────────
     app.addEventListener("click", function (e) {
-      var b = e.target.closest ? e.target.closest("button[data-mode]") : null;
-      if (b) setMode(b.getAttribute("data-mode"));
+      if (!e.target.closest) return;
+      var b = e.target.closest("button[data-mode]");
+      if (b) { setMode(b.getAttribute("data-mode")); return; }
+      if (e.target.closest(".lf-print")) { window.print(); return; }
+      var svgBtn = e.target.closest(".lf-svg");
+      if (svgBtn) saveSheet(svgBtn);
     });
     // Prefetch on intent: a pointer resting on the combined view's button, a
     // finger landing on it, or a keyboard tab onto it all mean the click is

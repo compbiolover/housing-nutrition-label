@@ -486,3 +486,102 @@
     .lf-skel-num, .lf-skel-grade, .lf-skel-row { background: #334155; }
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Take it with you: the actions under a card
+   ───────────────────────────────────────────────────────────────────────────*/
+/* Secondary by design. These sit under a label the reader has already got, so
+   they must not compete with "Score this address" above it — same quiet outline
+   as the form's secondary buttons, and the pair reads as one group rather than
+   two lone actions. */
+.label-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;
+  max-width: 640px; margin: -0.5rem auto 1.25rem; }
+.label-actions button { font: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer;
+  padding: 0.45rem 0.9rem; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--card); color: var(--navy); }
+.label-actions button:hover { background: var(--bg); }
+.label-actions button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.label-actions button[disabled] { opacity: 0.55; cursor: progress; }
+/* Comfortable touch targets on a phone, same floor as the mode toggle. */
+@media (pointer: coarse) { .label-actions button { min-height: 44px; } }
+.lf-actions-note { font-size: 0.85rem; color: var(--muted); }
+
+/* The print colophon (label-core.js printStamp): in the DOM at all times so it
+   survives a print started from the browser menu, invisible until there is
+   paper. */
+.print-stamp { display: none; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Print
+   ───────────────────────────────────────────────────────────────────────────*/
+/* Paper is where a label is most likely to be read by someone who was never at
+   the screen — the copy in the folder with the inspection report, or the one on
+   the kitchen table. Four things change for it, and they are the four decisions
+   any print stylesheet has to make:
+
+   1. WHAT COMES OUT. Anything that exists only to be operated is dropped: a
+      button on paper is an instruction the reader cannot follow, and a chevron
+      promising more on tap is a lie. What stays is the label.
+   2. WHAT STATE IT PRINTS IN. The rows are native <details>, and this file does
+      NOT force them open. What the reader has expanded is what they are reading;
+      forcing all thirteen open turns a one-page label into a six-page report
+      nobody asked for, and forcing them shut would print less than the screen
+      shows. Print takes the page as it stands. (The one-page version of the
+      whole label, detail and all, is the SVG sheet — see label_svg.py.)
+   3. WHERE IT BREAKS. A grade cut in half across a page break is worse than a
+      page that ends early, so rows, cells, the cost strip and the notice are all
+      break-inside: avoid, and a group heading is never left stranded at the
+      bottom of a page without its first row.
+   4. WHAT COLOUR IT IS. Grade fills are kept (print-color-adjust: exact) because
+      the colour is a channel, not decoration — but never the only one: the
+      letter, the number, and the bar length all carry the same grade, so a
+      grayscale printer, a fax, or a photocopy of a photocopy loses nothing that
+      matters. Dark mode is overridden back to ink-on-white: a reader who prints
+      at night should not be handed a black page.
+
+   Kept last in the file so it wins over the prefers-color-scheme block above —
+   a dark-themed OS and a printer are not mutually exclusive. */
+@media print {
+  /* 1. Nothing that only exists to be operated. */
+  .label-actions, .lf-form, .lf-refine, .lf-status, .lf-privacy, .lf-note, .lf-warn,
+  .lf-poi-hint, .lf-geo, .lf-loading, .mode-toggle, .mode-help, .picker,
+  .compare-pickers, .addr-ac-list, .dim-hint, .dim-chevron, .lf-spinner {
+    display: none !important;
+  }
+  .print-stamp { display: block; margin: 0.5rem 0 0; font-size: 8pt; color: #555;
+    line-height: 1.45; }
+  /* Fine print that only just clears the paper is fine print nobody can read.
+     The notice keeps its quiet position and gives up its light grey. */
+  .label-legal, .conf-legend { color: #333 !important; }
+
+  /* 4. Ink on white, whatever the screen was set to, with the grade fills kept. */
+  .label-card, .dim-detail, .cost-strip, .axis-cell, .row-highlight {
+    background: #fff !important; color: #000; box-shadow: none !important;
+  }
+  .label-card { border: 1.5pt solid #13233d; padding: 12pt; max-width: none;
+    font-size: 10pt; }
+  .label-card .label-title, .label-card .composite-num, .label-card .axis-num,
+  .cost-delta { color: #13233d !important; }
+  .grade, .grade-lg, .grade-md, .score-bar .fill, .conf-dot, .cost-delta .cheaper,
+  .cost-delta .pricier {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  /* A fill printed on a printer that drops backgrounds leaves an empty track and
+     no grade at all; the outline is what keeps the bar a bar either way. */
+  .score-bar { border: 0.5pt solid #999; background: #fff !important; }
+
+  /* 3. Where it breaks. */
+  .label-card { break-inside: auto; }
+  .dim-row, .axis-cell, .cost-strip, .label-legal, .composite-conf, .card-caveat,
+  .delta-table tr, .density-table tr { break-inside: avoid; }
+  .label-head, .dim-group, .axis-note { break-after: avoid; }
+  .label-legal { break-before: avoid; }
+
+  /* An expanded row is content, not a control, so it prints as plain text
+     rather than as the tinted panel it wears on screen. */
+  .dim-row > summary { cursor: auto; }
+  .dim-detail { border-left: 0.5pt solid #bbb; border-radius: 0; padding-left: 8pt; }
+
+  /* Nothing animates on paper; a mid-transition opacity would print faded. */
+  .lf-app, .lf-density-result, .label-card { opacity: 1 !important; transition: none !important; }
+}
