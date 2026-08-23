@@ -20,6 +20,7 @@ import logging
 import math
 import threading
 import time
+import urllib.parse
 
 try:  # requests is only needed for the HTTP helpers
     import requests
@@ -43,21 +44,40 @@ log = logging.getLogger(__name__)
 # ``drain()`` hands the list to whoever finishes the request (see the API's
 # scoring endpoints), which logs one line naming the worst offender. Nothing here
 # fails a request: a timing that cannot be recorded is not worth an exception.
+# Recording is OPT-IN, per request, and that is not a detail. The seam below is
+# installed process-wide, so it sees the geocoder calls behind /suggest as well
+# as the dataset calls behind a label — and nothing drains a /suggest. Recording
+# unconditionally would grow a list on every reused worker thread for as long as
+# the process lived, which on this deployment is the slow RSS climb into an OOM
+# that render.yaml already has a paragraph about. A thread records only between
+# begin() and drain(); the rest of the time the seam costs a getattr.
 _timings = threading.local()
+
+# Belt to those braces: a scoring request makes twenty-odd calls, so a list past
+# this is a bug somewhere else, and must not be allowed to become a leak here.
+_MAX_RECORDED = 200
 
 
 @contextlib.contextmanager
 def timed(name: str):
-    """Record how long one upstream call took, under ``name`` (its service)."""
+    """Record how long one upstream call took, under ``name`` (its service).
+
+    Outside a ``begin()``/``drain()`` window this only times: nobody is
+    listening, so nothing is kept.
+    """
     start = time.monotonic()
     try:
         yield
     finally:
-        elapsed = time.monotonic() - start
         calls = getattr(_timings, "calls", None)
-        if calls is None:
-            calls = _timings.calls = []
-        calls.append((name, elapsed))
+        if calls is not None and len(calls) < _MAX_RECORDED:
+            calls.append((name, time.monotonic() - start))
+
+
+def begin() -> None:
+    """Start recording on this thread, discarding anything a request that raised
+    before it could report may have left behind."""
+    _timings.calls = []
 
 
 def install_timing() -> None:
@@ -89,17 +109,23 @@ def install_timing() -> None:
 
 
 def host_of(url: str) -> str:
-    """The host out of a URL, for naming a timing. Never raises on an odd URL."""
+    """The host out of a URL, for naming a timing. Never raises on an odd URL.
+
+    ``urlsplit().hostname`` rather than splitting on slashes, because the
+    authority may carry userinfo (``https://user:pass@host/...``) and this string
+    is written to a log. None of our URLs do today; a log that would print a
+    credential if one ever did is not a thing to leave lying around.
+    """
     try:
-        return url.split("//", 1)[1].split("/", 1)[0] or url
+        return urllib.parse.urlsplit(url).hostname or url or "unknown"
     except Exception:  # noqa: BLE001
         return url or "unknown"
 
 
 def drain() -> list[tuple[str, float]]:
-    """Take and clear this thread's recorded upstream timings, slowest first."""
+    """Take this thread's recorded timings, slowest first, and stop recording."""
     calls = getattr(_timings, "calls", None) or []
-    _timings.calls = []
+    _timings.calls = None
     return sorted(calls, key=lambda c: -c[1])
 
 

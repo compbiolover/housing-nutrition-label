@@ -1068,10 +1068,13 @@ def label(
     if cached is not None:
         return cached
 
-    # This thread may be carrying timings from a request that raised before it
-    # could report them; they are not ours. (Endpoints that fail log a traceback
-    # instead, which says more than a timing would.)
-    utils.drain()
+    # Start recording upstream timings on this thread. Recording is opt-in, so
+    # nothing accumulated before now and nothing will after log_upstreams drains
+    # it — the same seam sees /suggest's geocoder calls, and those have nobody to
+    # report to. `begin` also discards anything left by a request that raised
+    # before it could report. (A request that fails logs a traceback instead,
+    # which says more than a timing would.)
+    utils.begin()
     scored_at = time.monotonic()
     try:
         cfg, r, lbl = build_label_parts(

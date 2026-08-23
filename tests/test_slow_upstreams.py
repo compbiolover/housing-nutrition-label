@@ -25,7 +25,7 @@ _FORM = _ROOT / "docs" / "label-form.js"
 
 
 def test_a_call_is_recorded_under_its_host():
-    utils.drain()
+    utils.begin()
     with utils.timed("nsi.sec.usace.army.mil"):
         pass
     calls = utils.drain()
@@ -34,7 +34,7 @@ def test_a_call_is_recorded_under_its_host():
 
 
 def test_drain_reports_the_worst_first_and_empties():
-    utils.drain()
+    utils.begin()
     for name, delay in (("fast.gov", 0.0), ("slow.gov", 0.02), ("middling.gov", 0.01)):
         with utils.timed(name):
             if delay:
@@ -48,10 +48,11 @@ def test_two_requests_do_not_braid():
     """The API serves scoring on a threadpool. One visitor's slow upstream must
     not show up in another visitor's log line, which is why the record is
     thread-local rather than a module global."""
-    utils.drain()
+    utils.begin()
     seen = {}
 
     def worker():
+        utils.begin()
         with utils.timed("other-thread.gov"):
             pass
         seen["theirs"] = [n for n, _t in utils.drain()]
@@ -68,7 +69,7 @@ def test_the_log_names_the_one_that_dragged():
     """A label that takes 20 seconds because twelve datasets each took under two
     is healthy. The line worth waking up to is the one where a single service ate
     the budget — so the threshold is per call, not on the total."""
-    utils.drain()
+    utils.begin()
     records = []
 
     class Catch(logging.Handler):
@@ -82,6 +83,7 @@ def test_the_log_names_the_one_that_dragged():
     logger.setLevel(logging.INFO)
     try:
         # Twelve brisk calls: busy, not broken.
+        utils.begin()
         for i in range(12):
             with utils.timed(f"dataset{i}.gov"):
                 pass
@@ -108,6 +110,7 @@ def test_the_log_names_the_one_that_dragged():
 def test_logging_always_drains():
     """Whatever it decides to log. A request whose timings survive into the next
     one on the same thread reports another visitor's upstreams as its own."""
+    utils.begin()
     utils._timings.calls = [("x.gov", 0.1)]
     utils.log_upstreams("somewhere", 0.2)
     assert utils.drain() == []
@@ -126,6 +129,43 @@ def test_the_seam_is_installed_once_and_by_the_application():
     assert requests.sessions.Session.send is first, "installing twice stacked a wrapper"
     src = (_ROOT / "src" / "housing_label" / "api.py").read_text(encoding="utf-8")
     assert "utils.install_timing()" in src, "the API never installs it"
+    assert "utils.begin()" in src, "the API records without opening a window"
+
+
+def test_nothing_is_recorded_when_nobody_is_listening():
+    """The seam is process-wide, so it also sees the geocoder calls behind
+    /suggest — and nothing drains a /suggest. Recording unconditionally grew a
+    list on every reused worker thread for the life of the process, which on this
+    deployment is the slow RSS climb into an OOM that render.yaml already has a
+    paragraph about. Recording is opt-in, per request."""
+    utils.drain()                       # ensure no window is open
+    with utils.timed("suggest-geocoder.example"):
+        pass
+    assert utils.drain() == [], "a call outside a scoring request was recorded"
+    # And a window closes for good when it is drained.
+    utils.begin()
+    with utils.timed("in.example"):
+        pass
+    assert [n for n, _t in utils.drain()] == ["in.example"]
+    with utils.timed("after.example"):
+        pass
+    assert utils.drain() == []
+
+
+def test_recording_is_capped():
+    """A scoring request makes twenty-odd calls. A list past the cap is a bug
+    somewhere else, and must not be allowed to become a leak here."""
+    utils.begin()
+    for _ in range(utils._MAX_RECORDED * 2):
+        with utils.timed("flood.example"):
+            pass
+    assert len(utils.drain()) == utils._MAX_RECORDED
+
+
+def test_a_url_never_logs_a_credential():
+    """None of our URLs carry userinfo today. A log that would print one if they
+    ever did is not a thing to leave lying around."""
+    assert utils.host_of("https://user:pass@nsi.example.gov/x") == "nsi.example.gov"
 
 
 def test_host_of_survives_anything():
