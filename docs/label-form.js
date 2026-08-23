@@ -802,8 +802,11 @@ window.LabelForm = (function () {
           // status line that never clears stops reading as a status line.
           actionsNote("Saved.");
           setTimeout(function () {
+            // Through the setter, not the node: the text and its kind are one
+            // fact, and clearing the first while leaving the second saying
+            // "status" is how the next reader of noteKind gets a wrong answer.
             var n = q(".lf-actions-note");
-            if (n && n.textContent === "Saved.") n.textContent = "";
+            if (n && n.textContent === "Saved.") actionsNote("");
           }, 4000);
         })
         .catch(function () {

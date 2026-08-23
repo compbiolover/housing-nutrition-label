@@ -374,6 +374,11 @@ def test_the_export_buttons_wait_for_a_label_before_offering_one():
     body = form.split("function syncActions", 1)[1].split("\n    function ", 1)[0]
     assert 'noteKind === "guard"' in body, \
         "a guard message can outlive the state that produced it"
+    # The text and its kind are one fact, so only the setter writes either — a
+    # direct write to the node leaves the kind describing a message that is gone.
+    save = form.split("function saveSheet", 1)[1].split("\n    function ", 1)[0]
+    assert "textContent = " not in save, "the save writes the note without its kind"
+    assert save.count("actionsNote(") >= 3, "the save no longer reports through the note"
     # One switch, called from every place the answer can change: after a render,
     # and on both edges of a score.
     assert "function syncActions" in form
