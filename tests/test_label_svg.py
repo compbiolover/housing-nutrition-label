@@ -330,6 +330,65 @@ def test_the_frontend_asks_for_the_sheet_the_way_the_label_was_scored():
     assert "buildDetectedParams().query" in form.split("function sheetQuery")[1][:400]
 
 
+def test_the_export_buttons_wait_for_a_label_before_offering_one():
+    """They live in the search form's own action row, which exists before any
+    label does — so they ship disabled, and one function decides when they turn
+    on. A button offering to export a label nobody has scored yet is a dead
+    click, and a phone reader who scrolls to the foot of a thirteen-row card to
+    find one is worse off than before it existed."""
+    form = (_ROOT / "docs" / "label-form.js").read_text(encoding="utf-8")
+    for cls in ("lf-print", "lf-svg"):
+        assert f'class="reset {cls}" aria-disabled="true"' in form, \
+            f"{cls} does not start unavailable"
+        # aria-disabled, never the attribute: `disabled` drops a button out of the
+        # tab order, so a keyboard or screen-reader user would not meet these two
+        # — or the descriptions saying what they do — until after a label existed.
+        # Dimming a control only sighted readers can find shows it to half the
+        # audience. The guard below is what makes them inert instead.
+        assert f'class="reset {cls}" disabled' not in form, f"{cls} is natively disabled"
+    assert "function unavailable" in form and "function setAvailable" in form
+    assert form.count("unavailable(") >= 3, "a press on an unavailable button is not guarded"
+    # A sheet already being drawn owns its button until it lands. Availability is
+    # otherwise recomputed from scratch on every render, so a mode switch or a
+    # finished re-score during the fetch would hand the button back and let a
+    # second press start a second download of the same sheet.
+    assert "if (!drawing()) setAvailable(svgBtn" in form, \
+        "a re-render can re-enable the button mid-download"
+    assert 'aria-busy") === "true"' in form.split("function unavailable")[1][:220], \
+        "busy must count as unavailable whoever set it"
+    # Same rule for the density sweep, which dims its table rather than emptying it
+    # while it re-scores: what is on screen then is the PREVIOUS answer, and
+    # superseded is not printable. Every write of that class routes through one
+    # setter, because the class is now part of the answer syncActions gives.
+    assert 'classList.contains("is-busy")' in form.split("function syncActions")[1][:600], \
+        "a re-scoring sweep counts as printable output"
+    assert 'densResult.classList.add("is-busy")' not in form, "an is-busy write bypasses the setter"
+    assert 'densResult.classList.remove("is-busy")' not in form, "an is-busy write bypasses the setter"
+    # A refused press says which of the reasons it was — telling somebody to score
+    # an address while a score is already running is both wrong and irritating —
+    # and the explanation expires when the switch moves, so it never stands beside
+    # a button that works again.
+    assert "function whyUnavailable" in form and "function whySheetUnavailable" in form
+    assert "if (busy) return" in form, "the reason does not distinguish a score in flight"
+    assert "state.error) return" in form, "the reason does not distinguish a failed score"
+    body = form.split("function syncActions", 1)[1].split("\n    function ", 1)[0]
+    assert 'noteKind === "guard"' in body, \
+        "a guard message can outlive the state that produced it"
+    # The text and its kind are one fact, so only the setter writes either — a
+    # direct write to the node leaves the kind describing a message that is gone.
+    save = form.split("function saveSheet", 1)[1].split("\n    function ", 1)[0]
+    assert "textContent = " not in save, "the save writes the note without its kind"
+    assert save.count("actionsNote(") >= 3, "the save no longer reports through the note"
+    # One switch, called from every place the answer can change: after a render,
+    # and on both edges of a score.
+    assert "function syncActions" in form
+    assert form.count("syncActions()") >= 3, "the switch is not called from every path"
+    # The old card-foot placement is gone from the markup and the stylesheet.
+    assert "label-actions" not in form
+    css = (_ROOT / "docs" / "label-core.css").read_text(encoding="utf-8")
+    assert ".label-actions" not in css
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

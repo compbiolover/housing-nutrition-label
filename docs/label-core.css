@@ -488,23 +488,22 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Take it with you: the actions under a card
+   Take it with you: Print / Save as SVG
    ───────────────────────────────────────────────────────────────────────────*/
-/* Secondary by design. These sit under a label the reader has already got, so
-   they must not compete with "Score this address" above it — same quiet outline
-   as the form's secondary buttons, and the pair reads as one group rather than
-   two lone actions. */
-.label-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;
-  max-width: 640px; margin: -0.5rem auto 1.25rem; }
-.label-actions button { font: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer;
-  padding: 0.45rem 0.9rem; border: 1px solid var(--border); border-radius: var(--radius);
-  background: var(--card); color: var(--navy); }
-.label-actions button:hover { background: var(--bg); }
-.label-actions button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
-.label-actions button[disabled] { opacity: 0.55; cursor: progress; }
-/* Comfortable touch targets on a phone, same floor as the mode toggle. */
-@media (pointer: coarse) { .label-actions button { min-height: 44px; } }
-.lf-actions-note { font-size: 0.85rem; color: var(--muted); }
+/* These live in the form's own action row (see formHtml in label-form.js), so
+   they inherit .reset's quiet outline and need only the two states that row has
+   never had: waiting for a label, and reporting what just happened.
+   Not-yet-available, not broken: dimmed rather than hidden, so the reader can see
+   what the label will let them do before they have one — and `not-allowed`
+   rather than `progress`, because nothing is running yet. Keyed off
+   `aria-disabled`, since that (not the `disabled` attribute) is what carries
+   availability here — see formHtml in label-form.js for why. The focus ring is
+   deliberately left alone: these stay in the tab order, so they must still show
+   where the focus is. */
+.label-addr-form .reset[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
+.label-addr-form .reset[disabled] { opacity: 0.5; cursor: progress; }
+.label-addr-form .reset[aria-busy="true"] { cursor: progress; }
+.lf-actions-note { font-size: 0.85rem; color: var(--muted); align-self: center; }
 
 /* The print colophon (label-core.js printStamp): in the DOM at all times so it
    survives a print started from the browser menu, invisible until there is
@@ -543,7 +542,7 @@
    a dark-themed OS and a printer are not mutually exclusive. */
 @media print {
   /* 1. Nothing that only exists to be operated. */
-  .label-actions, .lf-form, .lf-refine, .lf-status, .lf-privacy, .lf-note, .lf-warn,
+  .lf-form, .lf-refine, .lf-status, .lf-privacy, .lf-note, .lf-warn,
   .lf-poi-hint, .lf-geo, .lf-loading, .mode-toggle, .mode-help, .picker,
   .compare-pickers, .addr-ac-list, .dim-hint, .dim-chevron, .lf-spinner {
     display: none !important;

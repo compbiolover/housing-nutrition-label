@@ -192,6 +192,30 @@ window.LabelForm = (function () {
       secondary += '<button type="button" class="reset lf-reset" title="' + esc(rt) + '" aria-describedby="' + rh + '">Start over</button>';
       hints += hint(rh, rt);
     }
+    // Take-it-with-you, in the same row rather than under the card. A label runs
+    // several phone screens, so a control at its foot is a control nobody scrolls
+    // to — and both of these act on the whole label, which is exactly what this
+    // row is for. They are the only buttons here that need something to already
+    // exist, so they ship unavailable and syncActions() switches them on when
+    // there is a label to act on.
+    //
+    // `aria-disabled`, not the `disabled` attribute. A disabled button is out of
+    // the tab order, so a keyboard or screen-reader user would never meet these
+    // two — nor the descriptions below that say what they do — until after a
+    // label existed. That is the opposite of the point: the row is meant to show
+    // what a label will let you do before you have one, and dimming a control
+    // only sighted readers can find is showing it to half the audience. They stay
+    // focusable and announce themselves as unavailable; the click handler is what
+    // makes them inert, and says why. (The form's own buttons keep the real
+    // attribute: a submit that is mid-request must be genuinely uninvokable, and
+    // it was already discoverable.)
+    var ph = uid + "print-h", pt = "Prints the label below. The controls drop out, and the printed sheet carries its source and date.";
+    secondary += '<button type="button" class="reset lf-print" aria-disabled="true" title="' + esc(pt) + '" aria-describedby="' + ph + '">Print label</button>';
+    hints += hint(ph, pt);
+    var vh = uid + "svg-h", vt = "Downloads the label below as a one-page SVG: vector, prints at any size, opens in any browser or design tool.";
+    secondary += '<button type="button" class="reset lf-svg" aria-disabled="true" title="' + esc(vt) + '" aria-describedby="' + vh + '">Save as SVG</button>';
+    hints += hint(vh, vt);
+    secondary += '<span class="lf-actions-note" role="status" aria-live="polite"></span>';
     var sh = uid + "go-h", stt = "Looks up the address in the box and scores it across all thirteen dimensions.";
     return '<form class="label-addr-form lf-form">'
       + '<div class="addr-primary">'
@@ -325,6 +349,7 @@ window.LabelForm = (function () {
     var densResult = wantDensity ? q(".lf-density-result") : null;
     var locateBtn = wantGeo ? q(".lf-locate") : null;
     var resetBtn = persist ? q(".lf-reset") : null;
+    var printBtn = q(".lf-print"), svgBtn = q(".lf-svg");
 
     // Privacy disclosure: no API → hint; ?api= link → loud warning; default → quiet note.
     if (!API_BASE) {
@@ -457,6 +482,7 @@ window.LabelForm = (function () {
     // spinner, and a stale card left on screen during a re-score is dimmed so it
     // reads as superseded rather than current.
     var goLabel = goBtn ? goBtn.innerHTML : "";
+    var busy = false;              // a score is in flight (see syncActions)
     function setFormBusy(on) {
       if (goBtn) {
         goBtn.disabled = !!on;
@@ -468,6 +494,10 @@ window.LabelForm = (function () {
       if (locateBtn) locateBtn.disabled = !!on;
       app.setAttribute("aria-busy", on ? "true" : "false");
       app.classList.toggle("is-busy", !!on && !!app.querySelector(".label-card"));
+      // A card left on screen during a re-score is superseded, not current, so
+      // the actions that would carry it away go off with it.
+      busy = !!on;
+      syncActions();
     }
 
     // ── render ──────────────────────────────────────────────────────────────────
@@ -666,19 +696,84 @@ window.LabelForm = (function () {
       if (!pr) return addr;
       return pr.name + " (hypothetical build)" + (addr ? " at " + addr : "");
     }
-    function actionsHtml() {
-      var svg = sheetQuery();
-      // Every button says what it does to the *label*, not to the page — the same
-      // rule the address form's buttons follow.
-      return '<div class="label-actions">'
-        + '<button type="button" class="lf-print" title="Print this label. The '
-        + 'controls drop out and the printed sheet carries its source and date.">'
-        + 'Print this label</button>'
-        + (svg ? '<button type="button" class="lf-svg" title="Download the label as '
-                 + 'a one-page SVG — vector, prints at any size, opens in any browser '
-                 + 'or design tool.">Save as SVG</button>' : '')
-        + '<span class="lf-actions-note" role="status" aria-live="polite"></span>'
-        + '</div>';
+    // Both buttons are switched from one place, after every render and on every
+    // change of busy state.
+    //
+    // "Is there a label yet" is asked of the DOM rather than re-derived from
+    // state: six view modes each have their own way of being half-loaded, and the
+    // question the buttons actually ask is whether there is something on screen
+    // to take away. Print takes whatever that is — every view prints. The sheet
+    // needs a view that maps to a single /label.svg query, which Compare and the
+    // density sweeps do not.
+    function syncActions() {
+      // A sweep that is re-scoring dims its table rather than emptying it (see
+      // loadDensity), which means the table on screen is the *previous* answer.
+      // Superseded is not printable — the same rule `busy` applies to a card
+      // being re-scored, and the reason .is-busy is read here rather than just
+      // the presence of a table.
+      var sweep = !!densResult && !!densResult.querySelector("table")
+        && !densResult.classList.contains("is-busy");
+      var have = !busy && !state.idle && !state.error
+        && (!!app.querySelector(".label-card, table")   // a card, or Over time's tables
+            || sweep);
+      setAvailable(printBtn, have);
+      // A sheet already being drawn owns its button until it lands. Availability
+      // is otherwise recomputed from scratch here, so any re-render during the
+      // fetch — a mode switch, a re-score finishing — would hand the button back
+      // and let a second press start a second download of the same sheet.
+      if (!drawing()) setAvailable(svgBtn, have && !!sheetQuery());
+      // A guard message answers "why did that press do nothing", and anything that
+      // moves the switch can change the answer — including making the button
+      // available, which would leave the explanation standing beside a button
+      // that now works. ("Drawing the sheet…" and "Saved." belong to the save and
+      // are left alone.)
+      if (noteKind === "guard") actionsNote("");
+      else if (!have && !drawing()) actionsNote("");
+    }
+    function setAvailable(btn, on) {
+      if (btn) btn.setAttribute("aria-disabled", on ? "false" : "true");
+    }
+    // Every flip of the sweep's dimmed state goes through here, because the class
+    // is now part of the answer syncActions gives.
+    function setSweepBusy(on) {
+      if (!densResult) return;
+      densResult.classList.toggle("is-busy", !!on);
+      syncActions();
+    }
+    // Why a press did nothing. The switch has several reasons and they are not
+    // interchangeable: telling somebody to score an address while a score is
+    // already running is both wrong and irritating, and "this view is more than
+    // one label" is no answer at all when the real problem is that nothing has
+    // been scored yet.
+    function whyUnavailable(does) {
+      if (busy) return "Still scoring \u2014 then this " + does + ".";
+      if (state.error) return "That score didn\u2019t finish. Score again, and this " + does + ".";
+      return "Score an address first \u2014 then this " + does + ".";
+    }
+    function whySheetUnavailable() {
+      if (drawing()) return "Still drawing the sheet\u2026";
+      // Only once there IS a label does the view itself become the reason.
+      if (!busy && !state.error && !state.idle && !sheetQuery()) {
+        return "This view is more than one label. Switch to a single label to save one.";
+      }
+      return whyUnavailable("saves the label as an SVG");
+    }
+    function drawing() {
+      return !!svgBtn && svgBtn.getAttribute("aria-busy") === "true";
+    }
+    // Busy counts as unavailable whoever set it, so the guard holds even if some
+    // path leaves aria-disabled behind.
+    function unavailable(btn) {
+      return !btn || btn.getAttribute("aria-disabled") === "true"
+        || btn.getAttribute("aria-busy") === "true";
+    }
+    // "guard" answers a press that did nothing; "status" belongs to a save in
+    // progress. They expire differently, which is the whole reason for the tag.
+    var noteKind = "";
+    function actionsNote(text, kind) {
+      var n = q(".lf-actions-note");
+      noteKind = text ? (kind || "status") : "";
+      if (n) n.textContent = text || "";
     }
     // Fetch-then-blob rather than a plain link: the API is on another origin, where
     // an <a download> is ignored and the browser navigates away from the label
@@ -688,13 +783,13 @@ window.LabelForm = (function () {
     function saveSheet(btn) {
       var query = sheetQuery();                 // not `q` — that is this widget's querySelector
       if (!query || !API_BASE) return;
-      var note = q(".lf-actions-note");
       var caption = sheetCaption();
       var url = API_BASE + "/label.svg?" + query + "&theme=light"
         + (caption ? "&label_text=" + encodeURIComponent(caption) : "")
         + "&scored=" + encodeURIComponent(new Date().toISOString().slice(0, 10));
-      btn.disabled = true;
-      if (note) note.textContent = "Drawing the sheet\u2026";
+      setAvailable(btn, false);          // one press at a time; the guard enforces it
+      btn.setAttribute("aria-busy", "true");
+      actionsNote("Drawing the sheet\u2026");
       fetch(url + "&download=1")
         .then(function (r) { if (!r.ok) throw new Error(String(r.status)); return r.blob(); })
         .then(function (blob) {
@@ -703,13 +798,24 @@ window.LabelForm = (function () {
           a.download = sheetFilename(caption);
           document.body.appendChild(a); a.click(); document.body.removeChild(a);
           setTimeout(function () { URL.revokeObjectURL(href); }, 1000);
-          if (note) note.textContent = "Saved.";
+          // Retires itself, the same way the scoring confirmation does — a
+          // status line that never clears stops reading as a status line.
+          actionsNote("Saved.");
+          setTimeout(function () {
+            // Through the setter, not the node: the text and its kind are one
+            // fact, and clearing the first while leaving the second saying
+            // "status" is how the next reader of noteKind gets a wrong answer.
+            var n = q(".lf-actions-note");
+            if (n && n.textContent === "Saved.") actionsNote("");
+          }, 4000);
         })
         .catch(function () {
-          if (note) note.textContent = "";
+          actionsNote("");
           window.open(url, "_blank", "noopener");
         })
-        .then(function () { btn.disabled = false; });
+        // Not `disabled = false`: by the time this lands the reader may have
+        // started another score, and the switch above owns that answer.
+        .then(function () { btn.removeAttribute("aria-busy"); syncActions(); });
     }
     // Mirrors housing_label.label_svg.filename_for — ASCII, lowercase, no spaces,
     // so the file survives every filesystem it gets emailed to, and so a file
@@ -797,13 +903,13 @@ window.LabelForm = (function () {
         html += '<div class="picker"><label for="' + uid + 'd-sel">Construction profile: </label>'
           + sweepPickerSel("lf-d-sel", uid + "d-sel") + '</div>';
       } else if (state.mode === "detected") {
-        html += detectedCard() + actionsHtml() + gradeLegend();
+        html += detectedCard() + gradeLegend();
       } else if (state.mode === "timeline") {
         html += timelinePanel();
       } else if (state.mode === "single") {
         html += '<div class="picker"><label for="' + uid + 'p-sel">Construction profile: </label>'
           + pickerSel("lf-p-sel", uid + "p-sel", state.idx) + '</div>';
-        html += cardFor(state.idx, baselineCost()) + actionsHtml() + gradeLegend();
+        html += cardFor(state.idx, baselineCost()) + gradeLegend();
       } else {
         var A = state.presets[state.idxA], B = state.presets[state.idxB];
         A._name = A.name; B._name = B.name;   // deltaTable() headers use _name (else "A"/"B")
@@ -822,6 +928,7 @@ window.LabelForm = (function () {
       }
       app.innerHTML = html;
       if (densWrap) densWrap.hidden = !isSweep(state.mode);
+      syncActions();
     }
 
     // ── density comparison (fixed lot, vary units) ──────────────────────────────
@@ -892,8 +999,8 @@ window.LabelForm = (function () {
         }
       }
       html += LC.legalNote(data);               // tables, not cards — see timelinePanel()
-      densResult.classList.remove("is-busy");   // fresh numbers — undim
       densResult.innerHTML = html;
+      setSweepBusy(false);                      // fresh numbers — undim
     }
     // Picking either sweep runs the comparison straight away — it's a view, not a
     // two-step ritual, so selecting it should produce the answer. The detected
@@ -940,7 +1047,7 @@ window.LabelForm = (function () {
       // — a wrong answer wearing the right label. Say so instead of scoring it.
       if (build && !sweepSlug(build)) {
         densResult.innerHTML = "";
-        densResult.classList.remove("is-busy");
+        setSweepBusy(false);
         densStatus.error("Could not compare densities",
           "The " + build.name + " profile came back without an identifier, so it "
           + "can’t be built at other densities here.");
@@ -953,10 +1060,10 @@ window.LabelForm = (function () {
       // busy banner right above it says what's happening. Only the first sweep,
       // with nothing to keep, gets a skeleton.
       if (densResult.querySelector("table")) {
-        densResult.classList.add("is-busy");
+        setSweepBusy(true);
       } else {
-        densResult.classList.remove("is-busy");
         densResult.innerHTML = densitySkeleton();
+        setSweepBusy(false);
       }
       densStatus.busy(build ? "Comparing densities for the " + build.name + " build…"
                             : "Comparing densities on this lot…",
@@ -983,7 +1090,7 @@ window.LabelForm = (function () {
           if (seq !== reqSeq) return;
           // The stale table stays, but undimmed: it is the last real answer, and
           // leaving it greyed out under an error would imply it's still updating.
-          densResult.classList.remove("is-busy");
+          setSweepBusy(false);
           densStatus.error("Could not compare densities", err.message);
         });
     }
@@ -1279,12 +1386,31 @@ window.LabelForm = (function () {
 
     // ── events ────────────────────────────────────────────────────────────────
     app.addEventListener("click", function (e) {
-      if (!e.target.closest) return;
-      var b = e.target.closest("button[data-mode]");
-      if (b) { setMode(b.getAttribute("data-mode")); return; }
-      if (e.target.closest(".lf-print")) { window.print(); return; }
-      var svgBtn = e.target.closest(".lf-svg");
-      if (svgBtn) saveSheet(svgBtn);
+      var b = e.target.closest ? e.target.closest("button[data-mode]") : null;
+      if (b) setMode(b.getAttribute("data-mode"));
+    });
+    // Bound directly, not delegated: these two are built once with the form and
+    // survive every re-render of .lf-app, which is the whole point of moving them.
+    //
+    // The guard is what aria-disabled costs, and a press that lands on it says
+    // why rather than doing nothing — a dead click is the one thing worse than a
+    // control you cannot reach. (Enter and Space on a focused button both arrive
+    // here as a click, so this is the only place that needs to check.)
+    if (printBtn) printBtn.addEventListener("click", function () {
+      if (unavailable(printBtn)) {
+        actionsNote(whyUnavailable("prints the label"), "guard");
+        return;
+      }
+      window.print();
+    });
+    if (svgBtn) svgBtn.addEventListener("click", function () {
+      if (unavailable(svgBtn)) {
+        // "Nothing happened" is the wrong answer to every one of these — least of
+        // all to a second press on a sheet already drawing.
+        actionsNote(whySheetUnavailable(), "guard");
+        return;
+      }
+      saveSheet(svgBtn);
     });
     // Prefetch on intent: a pointer resting on the combined view's button, a
     // finger landing on it, or a keyboard tab onto it all mean the click is

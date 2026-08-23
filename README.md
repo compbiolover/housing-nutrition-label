@@ -502,11 +502,16 @@ A label that matters gets taken out of the browser — into the folder with the 
 report, into a listing packet, across a kitchen table. There are two ways out, because
 they are two different artifacts.
 
-**Print** (the *Print this label* button, or ⌘/Ctrl-P). The page prints what is on screen,
+**Print** (the *Print label* button, or ⌘/Ctrl-P). The page prints what is on screen,
 including the rows you expanded and excluding everything that only exists to be clicked.
 The printed sheet carries a colophon the screen doesn't need — where it came from and what
 day it was printed — because a page of grades with no source and no date is the copy that
 gets misread a year later.
+
+Both buttons sit in the search form's own action row, beside *Use my location* and *Start
+over*, rather than under the card: a label runs several phone screens, and a control at its
+foot is a control nobody scrolls to. They start disabled — there is nothing to take away
+until something has been scored — and switch on with the label.
 
 **Save as SVG** (`GET /label.svg?address=...`). The whole label redrawn as **one US Letter
 page of vector**: both headline grades, all thirteen dimensions, the running-cost line, and
