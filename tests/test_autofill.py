@@ -214,6 +214,55 @@ def test_acs_distribution_outranks_nsi_median_year():
     assert "ACS" in source and "not this building" in source
 
 
+def test_us_typical_must_not_outrank_the_nsi_tract_median():
+    """Specificity beats citability once the ACS row stops being local.
+
+    The ACS US typical is dated and carries a spread, but it describes the whole
+    country; NSI's median describes this tract. Preferring the national number to
+    gain a citation is a straight loss of specificity — and an earlier revision of
+    the precedence block did exactly that while its comment claimed the opposite.
+    """
+    us = {"year_built": 1980, "p25": 1959, "p75": 2000, "spread": 41,
+          "geo_level": "us", "resolved": False,
+          "source": "US typical year built (ACS) — not this building's"}
+    cfg = {}
+    filled = H._autofill_construction_from_nsi(
+        cfg, explicit=set(), location=_loc(year_built=1948, year_built_distribution=us))
+    assert cfg["year_built"] == 1948, "the US typical displaced a tract-level number"
+    assert "NSI" in filled["year_built"][0]
+
+
+def test_us_typical_is_still_used_when_nothing_more_local_exists():
+    """Last resort before the global default, which would invent a new build."""
+    us = {"year_built": 1980, "p25": 1959, "p75": 2000, "spread": 41,
+          "geo_level": "us", "resolved": False,
+          "source": "US typical year built (ACS) — not this building's"}
+    cfg = {}
+    filled = H._autofill_construction_from_nsi(
+        cfg, explicit=set(), location=_loc(year_built=None, year_built_distribution=us))
+    assert cfg["year_built"] == 1980
+    assert "US typical" in filled["year_built"][0]
+
+
+def test_no_interval_is_drawn_around_a_year_it_does_not_describe():
+    """The range must belong to the number shown.
+
+    When the precedence picks NSI's tract median, pairing it with the ACS county or
+    national spread would draw an interval the value can sit outside — 1948 inside
+    [1959, 2000] is not just noise, it is visibly wrong.
+    """
+    us = {"year_built": 1980, "p25": 1959, "p75": 2000, "spread": 41,
+          "geo_level": "us", "resolved": False,
+          "source": "US typical year built (ACS) — not this building's"}
+    loc = _loc(year_built=1948, year_built_distribution=us)
+    cfg = {"year_built": 1948, "construction": "frame", "foundation": "crawl",
+           "condition": "average", "sqft": 1400.0, "units": 1}
+    struct = {"stories": 1, "bldg_material": None, "num_units": 1}
+    b = H._building_block(cfg, struct, set(),
+                          {"year_built": ("NSI · tract median", "low", "assumed")}, loc)
+    assert "typical_range" not in b["year_built"]
+
+
 def test_nsi_year_is_the_fallback_when_no_distribution_resolves():
     """No geography, no ACS row — NSI's tract median is still better than nothing."""
     cfg = {}

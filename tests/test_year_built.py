@@ -20,10 +20,19 @@ Run standalone: ``python tests/test_year_built.py``
 
 from __future__ import annotations
 
+import pathlib
 import sys
 
-import scripts.build_year_built as yb_build
-from housing_label.data import year_built as yb
+# Standalone runs (`python tests/test_year_built.py`) get no package on the path in
+# a fresh checkout — and this file imports both `housing_label` and `scripts`, so it
+# needs the repo root as well as src/. Same bootstrap as tests/test_home_value.py.
+_ROOT = pathlib.Path(__file__).resolve().parent.parent
+for _p in (_ROOT, _ROOT / "src"):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
+
+import scripts.build_year_built as yb_build  # noqa: E402
+from housing_label.data import year_built as yb  # noqa: E402
 
 # A tract and county that must exist in any real build of the crosswalk: Shelby
 # County, TN (the pilot county) and one of its tracts.

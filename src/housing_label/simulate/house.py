@@ -2339,23 +2339,37 @@ def _autofill_construction_from_nsi(cfg: dict, explicit: set, location,
         sqft_src, sqft_conf = "NSI · building area ÷ units, less common area (per unit)", "moderate" if observed else "low"
     else:
         sqft_src, sqft_conf = "NSI · structure record", "high" if observed else "moderate"
-    # Where the year comes from when nobody has told us. Both candidates are area
-    # typicals, not measurements: NSI's med_yr_blt is, in its own documentation,
-    # "the median year built of structures within the Census tract", and the ACS row
-    # is the same central tendency for the same tract. The ACS one wins because it
-    # is dated, citable, and — the reason it was bundled — carries the SPREAD that
-    # NSI never had, so the label can say how wide a stand-in it is (the median US
-    # tract spans 27 years between its quartiles). NSI stays as the fallback for a
-    # point the ACS crosswalk cannot place. Either way the status is "assumed": a
-    # better stand-in is still a stand-in, and calling it an estimate of THIS
-    # building would imply a measurement nobody took.
+    # Where the year comes from when nobody has told us. Every candidate is an area
+    # typical, not a measurement: NSI's med_yr_blt is, in its own documentation, "the
+    # median year built of structures within the Census tract", and the ACS row is
+    # the same central tendency for the same tract. Ordered by how much they narrow
+    # the question down:
+    #
+    #   1. ACS at the tract or county (`resolved`) — dated, citable, and carrying the
+    #      SPREAD that NSI never had, which is the reason it was bundled at all: the
+    #      median US tract spans 27 years between its quartiles, and without that
+    #      number the label cannot say how wide a stand-in it is offering.
+    #   2. NSI's tract median — undocumented vintage and no spread, but it is about
+    #      THIS tract.
+    #   3. The ACS US typical, only once nothing more local exists. It must not
+    #      outrank NSI: swapping a tract-level number for a national one to gain a
+    #      citation is a straight loss of specificity, and an earlier revision of
+    #      this block did exactly that while its comment claimed otherwise.
+    #
+    # Whichever wins, the status stays "assumed". A better stand-in is still a
+    # stand-in, and calling any of them an estimate of THIS building would imply a
+    # measurement nobody took.
     dist = getattr(location, "year_built_distribution", None) or {}
-    if dist.get("year_built") is not None:
-        yb_val, yb_src = dist["year_built"], dist.get("source") or (
-            "area typical year built (ACS) — not this building's")
+    nsi_year = getattr(location, "year_built", None)
+    acs_year = dist.get("year_built")
+    acs_src = dist.get("source") or "area typical year built (ACS) — not this building's"
+    nsi_src = "census-tract median year built (NSI) — not this building's"
+    if acs_year is not None and dist.get("resolved"):
+        yb_val, yb_src = acs_year, acs_src
+    elif nsi_year is not None:
+        yb_val, yb_src = nsi_year, nsi_src
     else:
-        yb_val, yb_src = (getattr(location, "year_built", None),
-                          "census-tract median year built (NSI) — not this building's")
+        yb_val, yb_src = acs_year, acs_src
     plan = [
         ("year_built",   yb_val, yb_src, "low", "assumed"),
         ("sqft",         sqft_val, sqft_src, sqft_conf),
@@ -2476,7 +2490,14 @@ def _building_block(cfg: dict, struct: dict, explicit: set, autofilled: dict,
     yb = out.get("year_built")
     dist = getattr(location, "year_built_distribution", None) or {}
     if (yb is not None and yb.get("status") != "confirmed"
-            and dist.get("p25") is not None and dist.get("p75") is not None):
+            and dist.get("p25") is not None and dist.get("p75") is not None
+            # Only when the displayed year IS this distribution's median. The
+            # precedence above can pick NSI's tract median instead, and pairing that
+            # with the ACS county or national spread would draw an interval around a
+            # number it does not describe — one the value can sit outside. Matching
+            # on the value keeps the point inside its own range by construction,
+            # since the builder enforces p25 <= median <= p75.
+            and yb.get("value") == dist.get("year_built")):
         yb["typical_range"] = [dist["p25"], dist["p75"]]
         yb["range_geo_level"] = dist.get("geo_level")
     return out
