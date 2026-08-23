@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "housing-nutrition-label"
-version = "0.2.8"
+version = "0.2.9"
 description = "Multi-dimensional lifecycle scoring for residential properties"
 readme = "README.md"
 # Source-available, NOT OSI open source: use is granted for any purpose except
