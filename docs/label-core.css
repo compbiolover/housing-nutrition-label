@@ -495,8 +495,13 @@
    never had: waiting for a label, and reporting what just happened.
    Not-yet-available, not broken: dimmed rather than hidden, so the reader can see
    what the label will let them do before they have one — and `not-allowed`
-   rather than `progress`, because nothing is running yet. */
-.label-addr-form .reset[disabled] { opacity: 0.5; cursor: not-allowed; }
+   rather than `progress`, because nothing is running yet. Keyed off
+   `aria-disabled`, since that (not the `disabled` attribute) is what carries
+   availability here — see formHtml in label-form.js for why. The focus ring is
+   deliberately left alone: these stay in the tab order, so they must still show
+   where the focus is. */
+.label-addr-form .reset[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
+.label-addr-form .reset[disabled] { opacity: 0.5; cursor: progress; }
 .label-addr-form .reset[aria-busy="true"] { cursor: progress; }
 .lf-actions-note { font-size: 0.85rem; color: var(--muted); align-self: center; }
 

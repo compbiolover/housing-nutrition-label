@@ -338,7 +338,16 @@ def test_the_export_buttons_wait_for_a_label_before_offering_one():
     find one is worse off than before it existed."""
     form = (_ROOT / "docs" / "label-form.js").read_text(encoding="utf-8")
     for cls in ("lf-print", "lf-svg"):
-        assert f'class="reset {cls}" disabled' in form, f"{cls} does not start disabled"
+        assert f'class="reset {cls}" aria-disabled="true"' in form, \
+            f"{cls} does not start unavailable"
+        # aria-disabled, never the attribute: `disabled` drops a button out of the
+        # tab order, so a keyboard or screen-reader reader would not meet these two
+        # — or the descriptions saying what they do — until after a label existed.
+        # Dimming a control only sighted readers can find shows it to half the
+        # audience. The guard below is what makes them inert instead.
+        assert f'class="reset {cls}" disabled' not in form, f"{cls} is natively disabled"
+    assert "function unavailable" in form and "function setAvailable" in form
+    assert form.count("unavailable(") >= 3, "a press on an unavailable button is not guarded"
     # One switch, called from every place the answer can change: after a render,
     # and on both edges of a score.
     assert "function syncActions" in form

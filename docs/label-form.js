@@ -196,13 +196,24 @@ window.LabelForm = (function () {
     // several phone screens, so a control at its foot is a control nobody scrolls
     // to — and both of these act on the whole label, which is exactly what this
     // row is for. They are the only buttons here that need something to already
-    // exist, so they ship disabled and syncActions() switches them on when there
-    // is a label to act on.
+    // exist, so they ship unavailable and syncActions() switches them on when
+    // there is a label to act on.
+    //
+    // `aria-disabled`, not the `disabled` attribute. A disabled button is out of
+    // the tab order, so a keyboard or screen-reader reader would never meet these
+    // two — nor the descriptions below that say what they do — until after a
+    // label existed. That is the opposite of the point: the row is meant to show
+    // what a label will let you do before you have one, and dimming a control
+    // only sighted readers can find is showing it to half the audience. They stay
+    // focusable and announce themselves as unavailable; the click handler is what
+    // makes them inert, and says why. (The form's own buttons keep the real
+    // attribute: a submit that is mid-request must be genuinely uninvokable, and
+    // it was already discoverable.)
     var ph = uid + "print-h", pt = "Prints the label below. The controls drop out, and the printed sheet carries its source and date.";
-    secondary += '<button type="button" class="reset lf-print" disabled title="' + esc(pt) + '" aria-describedby="' + ph + '">Print label</button>';
+    secondary += '<button type="button" class="reset lf-print" aria-disabled="true" title="' + esc(pt) + '" aria-describedby="' + ph + '">Print label</button>';
     hints += hint(ph, pt);
     var vh = uid + "svg-h", vt = "Downloads the label below as a one-page SVG: vector, prints at any size, opens in any browser or design tool.";
-    secondary += '<button type="button" class="reset lf-svg" disabled title="' + esc(vt) + '" aria-describedby="' + vh + '">Save as SVG</button>';
+    secondary += '<button type="button" class="reset lf-svg" aria-disabled="true" title="' + esc(vt) + '" aria-describedby="' + vh + '">Save as SVG</button>';
     hints += hint(vh, vt);
     secondary += '<span class="lf-actions-note" role="status" aria-live="polite"></span>';
     var sh = uid + "go-h", stt = "Looks up the address in the box and scores it across all thirteen dimensions.";
@@ -698,9 +709,19 @@ window.LabelForm = (function () {
       var have = !busy && !state.idle && !state.error
         && !!(app.querySelector(".label-card, table")      // a card, or Over time's tables
               || (densResult && densResult.querySelector("table")));   // or a sweep
-      if (printBtn) printBtn.disabled = !have;
-      if (svgBtn) svgBtn.disabled = !have || !sheetQuery();
-      if (!have) { var n = q(".lf-actions-note"); if (n) n.textContent = ""; }
+      setAvailable(printBtn, have);
+      setAvailable(svgBtn, have && !!sheetQuery());
+      if (!have) actionsNote("");
+    }
+    function setAvailable(btn, on) {
+      if (btn) btn.setAttribute("aria-disabled", on ? "false" : "true");
+    }
+    function unavailable(btn) {
+      return !btn || btn.getAttribute("aria-disabled") === "true";
+    }
+    function actionsNote(text) {
+      var n = q(".lf-actions-note");
+      if (n) n.textContent = text || "";
     }
     // Fetch-then-blob rather than a plain link: the API is on another origin, where
     // an <a download> is ignored and the browser navigates away from the label
@@ -710,14 +731,13 @@ window.LabelForm = (function () {
     function saveSheet(btn) {
       var query = sheetQuery();                 // not `q` — that is this widget's querySelector
       if (!query || !API_BASE) return;
-      var note = q(".lf-actions-note");
       var caption = sheetCaption();
       var url = API_BASE + "/label.svg?" + query + "&theme=light"
         + (caption ? "&label_text=" + encodeURIComponent(caption) : "")
         + "&scored=" + encodeURIComponent(new Date().toISOString().slice(0, 10));
-      btn.disabled = true;
+      setAvailable(btn, false);          // one press at a time; the guard enforces it
       btn.setAttribute("aria-busy", "true");
-      if (note) note.textContent = "Drawing the sheet\u2026";
+      actionsNote("Drawing the sheet\u2026");
       fetch(url + "&download=1")
         .then(function (r) { if (!r.ok) throw new Error(String(r.status)); return r.blob(); })
         .then(function (blob) {
@@ -728,13 +748,14 @@ window.LabelForm = (function () {
           setTimeout(function () { URL.revokeObjectURL(href); }, 1000);
           // Retires itself, the same way the scoring confirmation does — a
           // status line that never clears stops reading as a status line.
-          if (note) {
-            note.textContent = "Saved.";
-            setTimeout(function () { if (note.textContent === "Saved.") note.textContent = ""; }, 4000);
-          }
+          actionsNote("Saved.");
+          setTimeout(function () {
+            var n = q(".lf-actions-note");
+            if (n && n.textContent === "Saved.") n.textContent = "";
+          }, 4000);
         })
         .catch(function () {
-          if (note) note.textContent = "";
+          actionsNote("");
           window.open(url, "_blank", "noopener");
         })
         // Not `disabled = false`: by the time this lands the reader may have
@@ -1315,8 +1336,27 @@ window.LabelForm = (function () {
     });
     // Bound directly, not delegated: these two are built once with the form and
     // survive every re-render of .lf-app, which is the whole point of moving them.
-    if (printBtn) printBtn.addEventListener("click", function () { window.print(); });
-    if (svgBtn) svgBtn.addEventListener("click", function () { saveSheet(svgBtn); });
+    //
+    // The guard is what aria-disabled costs, and a press that lands on it says
+    // why rather than doing nothing — a dead click is the one thing worse than a
+    // control you cannot reach. (Enter and Space on a focused button both arrive
+    // here as a click, so this is the only place that needs to check.)
+    if (printBtn) printBtn.addEventListener("click", function () {
+      if (unavailable(printBtn)) {
+        actionsNote("Score an address first \u2014 then this prints the label.");
+        return;
+      }
+      window.print();
+    });
+    if (svgBtn) svgBtn.addEventListener("click", function () {
+      if (unavailable(svgBtn)) {
+        actionsNote(sheetQuery()
+          ? "Score an address first \u2014 then this saves the label as an SVG."
+          : "This view is more than one label. Switch to a single label to save one.");
+        return;
+      }
+      saveSheet(svgBtn);
+    });
     // Prefetch on intent: a pointer resting on the combined view's button, a
     // finger landing on it, or a keyboard tab onto it all mean the click is
     // probably coming, and the roster is the one thing that gates the picker.
