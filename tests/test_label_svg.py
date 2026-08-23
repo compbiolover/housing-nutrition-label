@@ -341,7 +341,7 @@ def test_the_export_buttons_wait_for_a_label_before_offering_one():
         assert f'class="reset {cls}" aria-disabled="true"' in form, \
             f"{cls} does not start unavailable"
         # aria-disabled, never the attribute: `disabled` drops a button out of the
-        # tab order, so a keyboard or screen-reader reader would not meet these two
+        # tab order, so a keyboard or screen-reader user would not meet these two
         # — or the descriptions saying what they do — until after a label existed.
         # Dimming a control only sighted readers can find shows it to half the
         # audience. The guard below is what makes them inert instead.
@@ -364,6 +364,16 @@ def test_the_export_buttons_wait_for_a_label_before_offering_one():
         "a re-scoring sweep counts as printable output"
     assert 'densResult.classList.add("is-busy")' not in form, "an is-busy write bypasses the setter"
     assert 'densResult.classList.remove("is-busy")' not in form, "an is-busy write bypasses the setter"
+    # A refused press says which of the reasons it was — telling somebody to score
+    # an address while a score is already running is both wrong and irritating —
+    # and the explanation expires when the switch moves, so it never stands beside
+    # a button that works again.
+    assert "function whyUnavailable" in form and "function whySheetUnavailable" in form
+    assert "if (busy) return" in form, "the reason does not distinguish a score in flight"
+    assert "state.error) return" in form, "the reason does not distinguish a failed score"
+    body = form.split("function syncActions", 1)[1].split("\n    function ", 1)[0]
+    assert 'noteKind === "guard"' in body, \
+        "a guard message can outlive the state that produced it"
     # One switch, called from every place the answer can change: after a render,
     # and on both edges of a score.
     assert "function syncActions" in form

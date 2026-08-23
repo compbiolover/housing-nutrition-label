@@ -200,7 +200,7 @@ window.LabelForm = (function () {
     // there is a label to act on.
     //
     // `aria-disabled`, not the `disabled` attribute. A disabled button is out of
-    // the tab order, so a keyboard or screen-reader reader would never meet these
+    // the tab order, so a keyboard or screen-reader user would never meet these
     // two — nor the descriptions below that say what they do — until after a
     // label existed. That is the opposite of the point: the row is meant to show
     // what a label will let you do before you have one, and dimming a control
@@ -722,7 +722,13 @@ window.LabelForm = (function () {
       // fetch — a mode switch, a re-score finishing — would hand the button back
       // and let a second press start a second download of the same sheet.
       if (!drawing()) setAvailable(svgBtn, have && !!sheetQuery());
-      if (!have && !drawing()) actionsNote("");
+      // A guard message answers "why did that press do nothing", and anything that
+      // moves the switch can change the answer — including making the button
+      // available, which would leave the explanation standing beside a button
+      // that now works. ("Drawing the sheet…" and "Saved." belong to the save and
+      // are left alone.)
+      if (noteKind === "guard") actionsNote("");
+      else if (!have && !drawing()) actionsNote("");
     }
     function setAvailable(btn, on) {
       if (btn) btn.setAttribute("aria-disabled", on ? "false" : "true");
@@ -734,6 +740,24 @@ window.LabelForm = (function () {
       densResult.classList.toggle("is-busy", !!on);
       syncActions();
     }
+    // Why a press did nothing. The switch has several reasons and they are not
+    // interchangeable: telling somebody to score an address while a score is
+    // already running is both wrong and irritating, and "this view is more than
+    // one label" is no answer at all when the real problem is that nothing has
+    // been scored yet.
+    function whyUnavailable(does) {
+      if (busy) return "Still scoring \u2014 then this " + does + ".";
+      if (state.error) return "That score didn\u2019t finish. Score again, and this " + does + ".";
+      return "Score an address first \u2014 then this " + does + ".";
+    }
+    function whySheetUnavailable() {
+      if (drawing()) return "Still drawing the sheet\u2026";
+      // Only once there IS a label does the view itself become the reason.
+      if (!busy && !state.error && !state.idle && !sheetQuery()) {
+        return "This view is more than one label. Switch to a single label to save one.";
+      }
+      return whyUnavailable("saves the label as an SVG");
+    }
     function drawing() {
       return !!svgBtn && svgBtn.getAttribute("aria-busy") === "true";
     }
@@ -743,8 +767,12 @@ window.LabelForm = (function () {
       return !btn || btn.getAttribute("aria-disabled") === "true"
         || btn.getAttribute("aria-busy") === "true";
     }
-    function actionsNote(text) {
+    // "guard" answers a press that did nothing; "status" belongs to a save in
+    // progress. They expire differently, which is the whole reason for the tag.
+    var noteKind = "";
+    function actionsNote(text, kind) {
       var n = q(".lf-actions-note");
+      noteKind = text ? (kind || "status") : "";
       if (n) n.textContent = text || "";
     }
     // Fetch-then-blob rather than a plain link: the API is on another origin, where
@@ -1367,20 +1395,16 @@ window.LabelForm = (function () {
     // here as a click, so this is the only place that needs to check.)
     if (printBtn) printBtn.addEventListener("click", function () {
       if (unavailable(printBtn)) {
-        actionsNote("Score an address first \u2014 then this prints the label.");
+        actionsNote(whyUnavailable("prints the label"), "guard");
         return;
       }
       window.print();
     });
     if (svgBtn) svgBtn.addEventListener("click", function () {
       if (unavailable(svgBtn)) {
-        // Three different reasons, and "nothing happened" is the wrong answer to
-        // all of them — least of all to a second press on a sheet already drawing.
-        actionsNote(drawing()
-          ? "Still drawing the sheet\u2026"
-          : sheetQuery()
-            ? "Score an address first \u2014 then this saves the label as an SVG."
-            : "This view is more than one label. Switch to a single label to save one.");
+        // "Nothing happened" is the wrong answer to every one of these — least of
+        // all to a second press on a sheet already drawing.
+        actionsNote(whySheetUnavailable(), "guard");
         return;
       }
       saveSheet(svgBtn);
