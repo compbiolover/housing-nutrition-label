@@ -330,6 +330,25 @@ def test_the_frontend_asks_for_the_sheet_the_way_the_label_was_scored():
     assert "buildDetectedParams().query" in form.split("function sheetQuery")[1][:400]
 
 
+def test_the_export_buttons_wait_for_a_label_before_offering_one():
+    """They live in the search form's own action row, which exists before any
+    label does — so they ship disabled, and one function decides when they turn
+    on. A button offering to export a label nobody has scored yet is a dead
+    click, and a phone reader who scrolls to the foot of a thirteen-row card to
+    find one is worse off than before it existed."""
+    form = (_ROOT / "docs" / "label-form.js").read_text(encoding="utf-8")
+    for cls in ("lf-print", "lf-svg"):
+        assert f'class="reset {cls}" disabled' in form, f"{cls} does not start disabled"
+    # One switch, called from every place the answer can change: after a render,
+    # and on both edges of a score.
+    assert "function syncActions" in form
+    assert form.count("syncActions()") >= 3, "the switch is not called from every path"
+    # The old card-foot placement is gone from the markup and the stylesheet.
+    assert "label-actions" not in form
+    css = (_ROOT / "docs" / "label-core.css").read_text(encoding="utf-8")
+    assert ".label-actions" not in css
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:
