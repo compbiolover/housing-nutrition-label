@@ -387,7 +387,14 @@ def resolve_location(
     # (no geography resolved at all), so every reader must guard.
     loc.year_built_distribution = year_built_data.year_built_distribution_for(
         loc.tract, loc.county_fips)
-    if loc.county_fips and not (loc.year_built_distribution or {}).get("resolved"):
+    # Note the US fallback only when one actually happened. A None distribution is
+    # not an unresolved one — it means the bundled tables were absent (a broken
+    # install, or a source tree with nothing built), and the label then falls back
+    # to NSI or its own default. Saying "using the US typical" there would describe
+    # a number nobody used. The same None-is-not-False rule the rest of this
+    # dataclass runs on: see `incorporated` and `water_system`.
+    if (loc.county_fips and loc.year_built_distribution is not None
+            and not loc.year_built_distribution.get("resolved")):
         notes["year_built"] = (
             f"county {loc.county_fips} not in the ACS year-built crosswalk; "
             f"using the US typical")

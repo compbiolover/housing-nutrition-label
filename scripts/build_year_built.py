@@ -248,12 +248,32 @@ def derive(b25034: dict, b25035: dict) -> pd.DataFrame:
     # keeps rebuild diffs readable.
     rows: list[dict] = []
     dropped: list[str] = []
+    incomplete: list[str] = []
+    mismatched: list[str] = []
     for g in sorted(b25034):
         src = b25034[g]
-        counts = [src.get(c) or 0.0 for c, _, _ in BUCKETS]
+        raw = [src.get(c) for c, _, _ in BUCKETS]
         total = src.get(TOTAL_COL)
+
+        # Bucket completeness. `_parse_table` turns an ACS suppression jam value
+        # into None, and coercing that to zero would silently move every quantile —
+        # a distribution missing its 1940s bucket looks like a place where nobody
+        # built in the 1940s. Worse, the B25035 cross-check would not catch it,
+        # because the Census's own median is computed from cells we never saw.
+        #
+        # In the 2024 vintage this never fires: all 88,605 geographies carry all ten
+        # buckets, and sum(buckets) == E001 exactly for every one of them (both
+        # counted below). It is a guard against a future vintage that suppresses,
+        # not a fix for an observed defect — which is why it refuses the row and
+        # says so rather than patching a zero in.
+        if any(c is None for c in raw):
+            incomplete.append(_norm_geoid(g))
+            continue
+        counts = [float(c) for c in raw]
         if total is None or total < MIN_UNITS:
             continue
+        if abs(sum(counts) - total) > 0.5:
+            mismatched.append(_norm_geoid(g))
         p25 = quantile_year(counts, 0.25)
         p50 = quantile_year(counts, 0.50)
         p75 = quantile_year(counts, 0.75)
@@ -282,7 +302,21 @@ def derive(b25034: dict, b25035: dict) -> pd.DataFrame:
         })
     log.info("Dropped %d geographies over the CV>%.2f reliability threshold.",
              len(dropped), MAX_CV)
-    return pd.DataFrame(rows).set_index("geoid")
+    log.info("Bucket integrity: %d geographies with a suppressed decade bucket "
+             "(refused), %d where the buckets don't sum to the published total.",
+             len(incomplete), len(mismatched))
+    if mismatched:
+        # Not fatal — the quantiles come from the buckets, so a total that
+        # disagrees is a provenance question rather than a wrong answer — but it
+        # has never happened, so it should be looked at if it starts.
+        log.warning("  e.g. %s", ", ".join(mismatched[:5]))
+    # Name the columns explicitly so an empty result is still a well-formed frame
+    # rather than a pandas KeyError on the missing index column — the shape a
+    # fully-suppressed vintage would produce, and the one where a clear failure
+    # matters most.
+    return pd.DataFrame(
+        rows, columns=["geoid", "p25", "derived_median", "acs_median", "p75", "units"]
+    ).set_index("geoid")
 
 
 def validate_median(df: pd.DataFrame) -> float:
@@ -361,7 +395,12 @@ def main() -> int:
 
     tract_out = _DATA / "year_built_tracts.csv.gz"
     county_out = _DATA / "year_built_county.csv"
-    tracts.reset_index().to_csv(tract_out, index=False, compression="gzip")
+    # mtime=0 so an unchanged rebuild is a byte-identical file. gzip stamps the
+    # current time into its header by default, which makes every re-run show up as a
+    # binary diff with no content change — and the sorted row order above is there
+    # for exactly the opposite reason.
+    tracts.reset_index().to_csv(tract_out, index=False,
+                                compression={"method": "gzip", "mtime": 0})
     counties.reset_index().to_csv(county_out, index=False)
     log.info("Wrote %s (%d tracts) and %s (%d county/national rows).",
              tract_out.name, len(tracts), county_out.name, len(counties))

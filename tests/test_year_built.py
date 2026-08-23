@@ -96,6 +96,28 @@ def test_quantile_skips_empty_buckets():
     assert yb_build.quantile_year(c, 0.51) > 1970.0    # jumps the empty decade
 
 
+def test_a_suppressed_bucket_refuses_the_row_rather_than_reading_as_zero():
+    """A missing decade must not be coerced to "nobody built then".
+
+    Never fires on the 2024 vintage — all 88,605 geographies carry all ten buckets —
+    so this pins the guard itself. Zeroing a suppressed cell would move every
+    quantile, and the B25035 cross-check could not catch it, because the Census's
+    own median is computed from cells we never saw.
+    """
+    counts = _counts({1950: 50, 2000: 50})
+    complete = {c: v for (c, _, _), v in zip(yb_build.BUCKETS, counts)}
+    complete[yb_build.TOTAL_COL] = 100.0
+    complete[yb_build.TOTAL_MOE_COL] = 10.0
+
+    ok = yb_build.derive({"1400000US99999999999": complete}, {})
+    assert len(ok) == 1, "a complete distribution must be kept"
+
+    suppressed = dict(complete)
+    suppressed["B25034_E009"] = None            # the 1950s bucket goes missing
+    got = yb_build.derive({"1400000US99999999999": suppressed}, {})
+    assert len(got) == 0, "a suppressed bucket must refuse the row, not read as zero"
+
+
 # ── the loader contract ─────────────────────────────────────────────────────────
 def test_tract_resolves_with_ordered_quartiles():
     got = yb.year_built_distribution_for(SHELBY_TRACT)
