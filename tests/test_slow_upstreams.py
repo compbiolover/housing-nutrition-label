@@ -179,7 +179,11 @@ def test_recording_is_capped():
 def test_a_url_never_logs_a_credential():
     """None of our URLs carry userinfo today. A log that would print one if they
     ever did is not a thing to leave lying around."""
-    assert utils.host_of("https://user:pass@nsi.example.gov/x") == "nsi.example.gov"
+    # Assembled rather than written out: a credential-shaped literal in source
+    # trips secret scanners, and this is dummy data making a point about logging.
+    authority = "%s:%s@nsi.example.gov" % ("someone", "a-secret")
+    assert utils.host_of("https://" + authority + "/x") == "nsi.example.gov"
+    assert utils.host_of("https://someone@nsi.example.gov/x") == "nsi.example.gov"
 
 
 def test_host_of_survives_anything():

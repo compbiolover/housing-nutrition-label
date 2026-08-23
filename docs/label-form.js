@@ -419,7 +419,17 @@ window.LabelForm = (function () {
       if (typeof AbortController !== "function") return fetch(url);   // pre-2017 browser
       var ctl = new AbortController(), expired = false;
       var timer = setTimeout(function () { expired = true; ctl.abort(); }, SCORE_TIMEOUT_MS);
-      return fetch(url, { signal: ctl.signal }).then(
+      var pending;
+      try {
+        pending = fetch(url, { signal: ctl.signal });
+      } catch (err) {
+        // fetch() throws synchronously on a malformed URL or a bad init — rare,
+        // but it would leave the timer above running for 45 seconds, and one per
+        // attempt if the reader keeps trying.
+        clearTimeout(timer);
+        throw err;
+      }
+      return pending.then(
         function (r) { clearTimeout(timer); return r; },
         function (err) {
           clearTimeout(timer);

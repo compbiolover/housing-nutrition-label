@@ -86,6 +86,7 @@ Operational env vars::
 from __future__ import annotations
 
 import contextlib
+import functools
 import logging
 import os
 import threading
@@ -1020,6 +1021,29 @@ def _upstream_timing(context: str):
         utils.log_upstreams(context, time.monotonic() - started)
 
 
+def _times_upstreams(name: str):
+    """Give an endpoint the timing window, without reshaping its body.
+
+    A decorator rather than a ``with`` inside each one: these bodies run 70 to
+    115 lines and wrapping them by hand is five reindentations for no behaviour,
+    which is how a mechanical edit becomes a bug on a production fix. FastAPI
+    reads the signature through ``functools.wraps``, so the endpoint it sees is
+    the one that was written.
+
+    It goes on every endpoint that scores, because the one that hangs is never
+    the one you instrumented.
+    """
+    def decorate(fn):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            where = _key_addr(kwargs.get("address")) or \
+                f"{kwargs.get('lat')},{kwargs.get('lon')}"
+            with _upstream_timing(f"{name} {where}"):
+                return fn(*args, **kwargs)
+        return wrapper
+    return decorate
+
+
 @app.get("/label")
 def label(
     response: Response,
@@ -1092,7 +1116,7 @@ def label(
     # A request that raises must not leave one open on a threadpool thread for
     # the next request to start filling, and its timings are the ones most worth
     # having: a 502 after three minutes of upstream is the log line you want.
-    with _upstream_timing(_key_addr(address) or f"{lat},{lon}"):
+    with _upstream_timing("label " + (_key_addr(address) or f"{lat},{lon}")):
         try:
             cfg, r, lbl = build_label_parts(
                 address=address, lat=lat, lon=lon, preset=preset, flood_zone=flood_zone,
@@ -1299,6 +1323,7 @@ _PRESETS_DEFAULT_LAT, _PRESETS_DEFAULT_LON = 35.13, -89.99
 
 
 @app.get("/badge")
+@_times_upstreams("badge")
 def badge(
     response: Response,
     caller: Caller = Depends(_caller),
@@ -1508,6 +1533,7 @@ def preset_profiles() -> dict:
 
 
 @app.get("/presets")
+@_times_upstreams("presets")
 def presets(
     response: Response,
     caller: Caller = Depends(_caller),
@@ -1580,6 +1606,7 @@ _DENSITY_MAX_SCENARIOS = 6
 
 
 @app.get("/density")
+@_times_upstreams("density")
 def density(
     response: Response,
     caller: Caller = Depends(_caller),
@@ -1675,6 +1702,7 @@ _TIMELINE_MAX_POINTS = TIMELINE_MAX_POINTS
 
 
 @app.get("/timeline")
+@_times_upstreams("timeline")
 def timeline(
     response: Response,
     caller: Caller = Depends(_caller),

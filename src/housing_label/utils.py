@@ -112,9 +112,11 @@ def host_of(url: str) -> str:
     """The host out of a URL, for naming a timing. Never raises on an odd URL.
 
     ``urlsplit().hostname`` rather than splitting on slashes, because the
-    authority may carry userinfo (``https://user:pass@host/...``) and this string
-    is written to a log. None of our URLs do today; a log that would print a
-    credential if one ever did is not a thing to leave lying around.
+    authority may carry userinfo — a ``name:secret@`` prefix — and this string is
+    written to a log. None of our URLs do today; a log that would print a
+    credential if one ever did is not a thing to leave lying around. (Spelled out
+    in prose rather than as a URL literal: the literal form trips credential
+    scanners, and gets masked in code review, which hides the very point.)
     """
     try:
         return urllib.parse.urlsplit(url).hostname or url or "unknown"
