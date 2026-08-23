@@ -186,6 +186,41 @@ def test_a_url_never_logs_a_credential():
     assert utils.host_of("https://someone@nsi.example.gov/x") == "nsi.example.gov"
 
 
+def test_the_seam_costs_a_getattr_when_nobody_is_recording():
+    """Every non-scoring request in the process comes through the seam —
+    /suggest, /place, the geocoder proxies — and none of them has anyone to
+    report to. The comment claims they pay a getattr; this is what makes that
+    true rather than a urlsplit and a context manager per call."""
+    import types
+    import requests
+
+    before = requests.sessions.Session.send
+    real_host_of = utils.host_of
+    seen = {"parsed": 0}
+
+    def counting(url):
+        seen["parsed"] += 1
+        return real_host_of(url)
+
+    try:
+        requests.sessions.Session.send = lambda self, request, **kw: "sent"
+        utils.install_timing()
+        utils.host_of = counting
+        req = types.SimpleNamespace(url="https://x.example.gov/y")
+
+        utils.drain()                       # no window open
+        requests.sessions.Session().send(req)
+        assert seen["parsed"] == 0, "the seam parsed a URL with nobody listening"
+
+        utils.begin()
+        requests.sessions.Session().send(req)
+        assert seen["parsed"] == 1
+        assert [n for n, _t in utils.drain()] == ["x.example.gov"]
+    finally:
+        utils.host_of = real_host_of
+        requests.sessions.Session.send = before
+
+
 def test_host_of_survives_anything():
     assert utils.host_of("https://nsi.sec.usace.army.mil/x?y=1") == "nsi.sec.usace.army.mil"
     assert utils.host_of("not a url") == "not a url"

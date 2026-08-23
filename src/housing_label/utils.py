@@ -101,6 +101,13 @@ def install_timing() -> None:
     original = requests.sessions.Session.send
 
     def send_timed(self, request, **kwargs):
+        # Nobody recording: one getattr and out. Every non-scoring request in the
+        # process comes through here — /suggest, /place, the geocoder proxies —
+        # and none of them has anyone to report to, so none of them should pay
+        # for a URL parse and a context manager. (The claim above that the seam
+        # "costs a getattr" is only true because of this line.)
+        if getattr(_timings, "calls", None) is None:
+            return original(self, request, **kwargs)
         with timed(host_of(getattr(request, "url", "") or "")):
             return original(self, request, **kwargs)
 
