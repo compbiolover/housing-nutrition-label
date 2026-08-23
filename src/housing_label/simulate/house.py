@@ -2193,6 +2193,21 @@ def label_payload(cfg: dict, r: dict, label: dict, include_building: bool = True
     # scoring, omitted for the /presets grid (include_building=False).
     if include_building and label.get("building"):
         payload["building"] = label.get("building")
+        # The sensitivity rides ON the field it is about, next to the interval it
+        # quantifies, so a renderer reading building.year_built has the value, how
+        # wide the guess is, and whether the width matters in one place.
+        #
+        # The two enclosing dicts are copied for one narrow reason: to add this key
+        # WITHOUT writing it into `label["building"]`, which is shared and outlives
+        # this call (label_payload runs more than once per label on the cost-baseline
+        # path). The block itself is still aliased, like `dimensions` and `building`
+        # above it — this function hands out references throughout, and singling one
+        # out for a deep copy would suggest a guarantee the rest does not make.
+        sens = label.get("year_built_sensitivity")
+        if sens and payload["building"].get("year_built"):
+            payload["building"] = dict(payload["building"])
+            payload["building"]["year_built"] = {
+                **payload["building"]["year_built"], "sensitivity": sens}
     loc = label.get("location")
     if loc is not None:
         payload["location"] = {
@@ -2396,6 +2411,100 @@ def _autofill_construction_from_nsi(cfg: dict, explicit: set, location,
             if v is not None and cfg.get(k) is None:   # don't stomp a caller value
                 cfg[k] = v
     return filled
+
+
+# Dimensions whose score moves when the BUILDING'S year changes. Durability reads
+# it as an age (the component-lifespan basket), Energy as a ResStock vintage bin,
+# and Resilience through code_era_factor / fire_age_factor on the building leg.
+# Environmental is deliberately absent: its embodied-carbon leg is fixed at build
+# and its operational leg rides consumed kWh, so a different vintage does not move
+# it. Kept as data so a future dimension that starts reading YRBLT has one place to
+# be added rather than being silently left out of the disclosure.
+YEAR_BUILT_DRIVEN = ("durability", "energy", "resilience")
+
+
+def _year_built_sensitivity(cfg: dict, label: dict, structure: dict, location,
+                            *, overrides: dict | None = None) -> dict | None:
+    """How far the grades move across the tract's plausible year-built range.
+
+    The label offers an area typical when nobody has told it the real year, and
+    ``data/year_built.py`` now says how wide that typical is — 27 years between the
+    quartiles in the median US tract. But width alone does not tell a reader whether
+    to care: a 27-year span is irrelevant on a parcel whose grades never change
+    across it, and decisive on one where they swing two letters. This answers that,
+    and only that.
+
+    Re-scores at the tract's p25 and p75 by copying the FINAL cfg and changing one
+    key. Everything else — the detected structure, the auto-filled value, sqft,
+    foundation, the resolved location — is held identical by construction rather
+    than by remembering to pass it, which is the failure mode of re-running from the
+    original inputs. Two extra passes, measured at ~2.7 ms each against a resolved
+    location, so no network and nothing worth gating on cost.
+
+    Returns None when there is nothing to say: no interval, a degenerate one, or a
+    range across which no grade moves. Silence is the common and correct case, and
+    it must not render as an empty panel.
+    """
+    dist = getattr(location, "year_built_distribution", None) or {}
+    p25, p75, median = dist.get("p25"), dist.get("p75"), dist.get("year_built")
+    if p25 is None or p75 is None or median is None or p25 >= p75:
+        return None
+    # The displayed year must BE this distribution's median. The autofill
+    # precedence can pick NSI's tract median instead — it outranks the ACS US
+    # typical — and then `current.year` would name the ACS median while
+    # `current.grades` describe the NSI one, a block disagreeing with itself about
+    # which house it is talking about. Same invariant `_building_block` applies
+    # before drawing `typical_range`, for the same reason: the interval and the
+    # counterfactual have to be about the number on screen.
+    if cfg.get("year_built") != median:
+        return None
+    # A dimension pinned by a caller override does not move with anything, so a
+    # "confirming the year could change this" prompt would be false for it.
+    if any((overrides or {}).get(k) is not None for k in YEAR_BUILT_DRIVEN):
+        return None
+
+    def _grades_at(year: int) -> dict | None:
+        c = dict(cfg)
+        c["year_built"] = year
+        try:
+            r2 = simulate(c, structure=structure)
+            # allow_network=False on purpose: the location-driven dimensions are
+            # identical to the snapshot's by definition (same resolved location), so
+            # re-fetching them would buy nothing and could put two upstream calls on
+            # a page load. Only the construction-driven half is read below.
+            l2 = simulate_all_dimensions(c, r2["total_score"], location=location,
+                                         allow_network=False, overrides=overrides,
+                                         resilience_result=r2)
+        except Exception:  # noqa: BLE001
+            # A counterfactual is a nicety; it must never be the reason a real label
+            # fails to render.
+            return None
+        out = {d["key"]: d.get("national_grade")
+               for d in l2.get("dimensions", []) if d.get("key") in YEAR_BUILT_DRIVEN}
+        out["construction_axis"] = l2.get("construction_national_grade")
+        return out
+
+    low, high = _grades_at(p25), _grades_at(p75)
+    if low is None or high is None:
+        return None
+    # The snapshot's own grades are the third point: a median sitting on a grade
+    # boundary can differ from both endpoints even when they agree with each other.
+    mid = {d["key"]: d.get("national_grade")
+           for d in label.get("dimensions", []) if d.get("key") in YEAR_BUILT_DRIVEN}
+    mid["construction_axis"] = label.get("construction_national_grade")
+
+    moves = [k for k in list(YEAR_BUILT_DRIVEN) + ["construction_axis"]
+             if len({g for g in (low.get(k), mid.get(k), high.get(k))
+                     if g is not None}) > 1]
+    if not moves:
+        return None
+    return {
+        "low": {"year": p25, "grades": low},
+        "high": {"year": p75, "grades": high},
+        "current": {"year": median, "grades": mid},
+        "moves": moves,
+        "geo_level": dist.get("geo_level"),
+    }
 
 
 def _resolved_water_source(cfg: dict, location):
@@ -2802,6 +2911,17 @@ def build_label_parts(*, address: str | None = None,
         resilience_result=r,
     )
     label["building"] = building     # per-field provenance for the "Refine details" panel
+
+    # How much the unknown year is actually costing this reader. Only when the year
+    # is still a stand-in: a preset is a chosen hypothetical, and a confirmed entry
+    # has nothing left to doubt. Attached here rather than in label_payload because
+    # this is where the inputs a faithful re-score needs (the final cfg, the detected
+    # structure, the resolved location, the caller's overrides) are all in scope.
+    if preset is None and (building.get("year_built") or {}).get("status") == "assumed":
+        sens = _year_built_sensitivity(cfg, label, structure, location,
+                                       overrides=overrides)
+        if sens is not None:
+            label["year_built_sensitivity"] = sens
     return cfg, r, label
 
 

@@ -164,7 +164,13 @@ window.LabelForm = (function () {
       + UPGRADES.map(function (u) {
           return '<label><input type="checkbox" value="' + u[0] + '"> ' + esc(u[1]) + '</label>';
         }).join("")
-      + '</fieldset></details>';
+      + '</fieldset></details>'
+      // Outside the <details> on purpose. The panel deliberately stays collapsed
+      // after a score (see applyBuilding), so anything inside it is invisible to a
+      // reader who never opens it — and this note is the one thing that tells them
+      // opening it is worth their time. Hidden until there is something to say.
+      + '<p class="lf-yb-note" style="max-width:640px;margin:-0.5rem auto 1rem;'
+      + 'font-size:0.82rem;line-height:1.45;opacity:0.9;display:none;"></p>';
   }
 
   function formHtml(opts) {
@@ -345,6 +351,7 @@ window.LabelForm = (function () {
     var geoEl = q(".lf-geo"), privEl = q(".lf-privacy"), warnEl = q(".lf-warn"), noteEl = q(".lf-note");
     var poiHintEl = q(".lf-poi-hint");
     var refineEl = q(".lf-refine"), refineCount = q(".lf-refine-count");
+    var ybNote = q(".lf-yb-note");
     var densWrap = wantDensity ? q(".lf-density-wrap") : null;
     var densResult = wantDensity ? q(".lf-density-result") : null;
     var locateBtn = wantGeo ? q(".lf-locate") : null;
@@ -1145,7 +1152,15 @@ window.LabelForm = (function () {
     // The refine panel only makes sense in Detected mode AND when there's an API to
     // re-score against — without one it would be an empty, non-functional control.
     function syncRefineVisibility() {
-      refineEl.style.display = (API_BASE && state.mode === "detected" && !state.idle) ? "" : "none";
+      var on = !!(API_BASE && state.mode === "detected" && !state.idle);
+      refineEl.style.display = on ? "" : "none";
+      // The year-built note lives OUTSIDE the <details> so it survives the panel
+      // being collapsed — which means hiding the panel does not hide it, and in a
+      // what-if / compare / over-time view it would sit there telling the reader to
+      // open a panel that is no longer on screen. Its own content rule still
+      // applies underneath: this only ever hides it, never shows it.
+      if (!on) ybNote.style.display = "none";
+      else if (ybNote.textContent) ybNote.style.display = "";
     }
     function applyBuilding(building) {
       var estimated = 0, total = 0;
@@ -1162,6 +1177,7 @@ window.LabelForm = (function () {
         tag.title = (info.source || "") + (info.confidence ? " · " + info.confidence + " confidence" : "");
       });
       refineCount.textContent = total ? "— " + estimated + " of " + total + " estimated from public data (edit any to refine)" : "";
+      renderYearBuiltNote(building);
       // Deliberately does NOT open the panel. It used to force itself open on
       // every score, which pushed the label — the thing that was just asked for —
       // a full phone screen below the fold behind ten fields and eight
@@ -1171,6 +1187,49 @@ window.LabelForm = (function () {
       // asked for. A panel the reader opened stays open across re-scores, since
       // nothing here closes it either.
     }
+    // Says how much the unknown year is costing this reader, and nothing when the
+    // answer is "nothing". The API omits the sensitivity block entirely unless the
+    // year is still a stand-in AND a grade actually moves across the tract's
+    // plausible range, so the presence of the block IS the decision — there is no
+    // threshold to re-litigate here.
+    var AXIS_LABEL = "the Building grade";
+    function renderYearBuiltNote(building) {
+      var yb = building && building.year_built, s = yb && yb.sensitivity;
+      if (!s || !s.moves || !s.moves.length) { ybNote.style.display = "none"; ybNote.textContent = ""; return; }
+
+      // Real dimension names from the payload rather than a hardcoded map here —
+      // the roster is generated from DIMENSIONS in Python and a second copy would
+      // drift the first time one is renamed.
+      var names = {};
+      ((state.detected && state.detected.dimensions) || []).forEach(function (d) {
+        if (d && d.key) names[d.key] = d.label || d.key;
+      });
+
+      var parts = s.moves.map(function (k) {
+        var name = k === "construction_axis" ? AXIS_LABEL : (names[k] || k);
+        // The span across the range, not a single arrow: three grades are in play
+        // (p25, the typical, p75) and picking two of them would overstate what is
+        // known. Letters are ordered best-first so "A–C" reads the way a scale does.
+        var seen = [s.low, s.current, s.high].map(function (pt) {
+          return pt && pt.grades ? pt.grades[k] : null;
+        }).filter(Boolean).filter(function (g, i, a) { return a.indexOf(g) === i; });
+        seen.sort();
+        return seen.length > 1 ? name + " (" + seen.join("–") + ")" : name;
+      });
+
+      var list = parts.length === 1 ? parts[0]
+        : parts.slice(0, -1).join(", ") + " and " + parts[parts.length - 1];
+      var where = s.geo_level === "tract" ? "here"
+        : s.geo_level === "county" ? "in this county" : "nationally";
+      var lo = s.low && s.low.year, hi = s.high && s.high.year;
+      ybNote.innerHTML =
+        '<strong>Year built is a neighborhood typical, not this home\u2019s.</strong> '
+        + 'Most homes ' + esc(where) + ' were built ' + esc(String(lo)) + '\u2013' + esc(String(hi))
+        + '. Confirming the real year could change ' + esc(list)
+        + ' \u2014 open <em>Refine building details</em> above to set it.';
+      ybNote.style.display = "";
+    }
+
     function buildDetectedParams() {
       var params = new URLSearchParams(), d = state.desc, edited = false;
       if (d && d.lat != null) { params.set("lat", d.lat); params.set("lon", d.lon); }
