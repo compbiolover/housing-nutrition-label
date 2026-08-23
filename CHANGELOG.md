@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.2.7](https://github.com/compbiolover/housing-nutrition-label/compare/v0.2.6...v0.2.7) (2026-08-23)
+
+
+### Bug Fixes
+
+* **label:** stop the spinner running forever, and name the upstream that hung ([#295](https://github.com/compbiolover/housing-nutrition-label/issues/295)) ([5a665c8](https://github.com/compbiolover/housing-nutrition-label/commit/5a665c87aec99d7a015367f29af42904c109a970))
+
 ## [0.2.6](https://github.com/compbiolover/housing-nutrition-label/compare/v0.2.5...v0.2.6) (2026-08-23)
 
 
