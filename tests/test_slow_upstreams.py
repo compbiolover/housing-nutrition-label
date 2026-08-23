@@ -122,14 +122,28 @@ def test_the_seam_is_installed_once_and_by_the_application():
     it on import — the API asks for it at boot, so the CLI and batch jobs run
     uninstrumented."""
     import requests
-    utils.install_timing()
-    first = requests.sessions.Session.send
-    assert getattr(first, "_hnl_timed", False), "the seam is not marked"
-    utils.install_timing()
-    assert requests.sessions.Session.send is first, "installing twice stacked a wrapper"
+    # Restored afterwards: this patches a third-party class for the whole process,
+    # and a test that leaves it installed makes every test collected after it run
+    # through a wrapper it never asked for — the kind of order dependence that
+    # surfaces as a failure in an unrelated file months later.
+    before = requests.sessions.Session.send
+    try:
+        utils.install_timing()
+        first = requests.sessions.Session.send
+        assert getattr(first, "_hnl_timed", False), "the seam is not marked"
+        utils.install_timing()
+        assert requests.sessions.Session.send is first, "installing twice stacked a wrapper"
+    finally:
+        requests.sessions.Session.send = before
     src = (_ROOT / "src" / "housing_label" / "api.py").read_text(encoding="utf-8")
     assert "utils.install_timing()" in src, "the API never installs it"
     assert "utils.begin()" in src, "the API records without opening a window"
+    # And the window closes however the request ends. Recording is per-thread and
+    # threads are reused, so one left open by a request that raised is one the
+    # next request starts filling.
+    manager = src.split("def _upstream_timing", 1)[1].split("\n@app", 1)[0]
+    assert "utils.begin()" in manager and "finally:" in manager, \
+        "the timing window is not closed in a finally"
 
 
 def test_nothing_is_recorded_when_nobody_is_listening():

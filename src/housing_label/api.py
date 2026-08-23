@@ -1000,6 +1000,26 @@ def place(place_id: str | None = None, session: str | None = None) -> dict:
     return result
 
 
+@contextlib.contextmanager
+def _upstream_timing(context: str):
+    """Record this request's upstream timings and report them, always.
+
+    A scoring request is a dozen live federal fetches; the window is what turns
+    "the page was slow" into "earthquake.usgs.gov took 23s of it". Closing it in
+    a ``finally`` is not tidiness: recording is per-thread and these threads are
+    reused, so a window left open by a request that raised is one the next
+    request starts filling. And the timings of a request that failed are the ones
+    most worth having — a 502 after three minutes of upstream is exactly the line
+    somebody will go looking for.
+    """
+    utils.begin()
+    started = time.monotonic()
+    try:
+        yield
+    finally:
+        utils.log_upstreams(context, time.monotonic() - started)
+
+
 @app.get("/label")
 def label(
     response: Response,
@@ -1068,56 +1088,51 @@ def label(
     if cached is not None:
         return cached
 
-    # Start recording upstream timings on this thread. Recording is opt-in, so
-    # nothing accumulated before now and nothing will after log_upstreams drains
-    # it — the same seam sees /suggest's geocoder calls, and those have nobody to
-    # report to. `begin` also discards anything left by a request that raised
-    # before it could report. (A request that fails logs a traceback instead,
-    # which says more than a timing would.)
-    utils.begin()
-    scored_at = time.monotonic()
-    try:
-        cfg, r, lbl = build_label_parts(
-            address=address, lat=lat, lon=lon, preset=preset, flood_zone=flood_zone,
-            upgrades=upgrade_list,
-            allow_network=True, allow_non_residential=allow_non_residential,
-            year_built=year_built, construction=construction, foundation=foundation,
-            condition=condition, value=value, units=units, sqft=sqft, lot_acres=lot_acres,
-            bldg_material=bldg_material, stories=stories,
-            owner_occupied=owner_occupied,
-            water_source=water_source, sewer=sewer, lot_context=lot_context,
+    # One window per scoring request, opened and — whatever happens — closed.
+    # A request that raises must not leave one open on a threadpool thread for
+    # the next request to start filling, and its timings are the ones most worth
+    # having: a 502 after three minutes of upstream is the log line you want.
+    with _upstream_timing(_key_addr(address) or f"{lat},{lon}"):
+        try:
+            cfg, r, lbl = build_label_parts(
+                address=address, lat=lat, lon=lon, preset=preset, flood_zone=flood_zone,
+                upgrades=upgrade_list,
+                allow_network=True, allow_non_residential=allow_non_residential,
+                year_built=year_built, construction=construction, foundation=foundation,
+                condition=condition, value=value, units=units, sqft=sqft, lot_acres=lot_acres,
+                bldg_material=bldg_material, stories=stories,
+                owner_occupied=owner_occupied,
+                water_source=water_source, sewer=sewer, lot_context=lot_context,
+            )
+        except NonResidentialProperty as exc:
+            # Not bad input — a deliberate residential-only screen. 422 (Unprocessable
+            # Content) lets the frontend distinguish "we won't score this" from a 400
+            # validation error or a 502 upstream failure, and show the guidance verbatim.
+            raise HTTPException(422, str(exc))
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+        except Exception:  # noqa: BLE001 — don't leak internals; log server-side
+            log.exception("scoring failed (address=%r lat=%r lon=%r)", address, lat, lon)
+            raise HTTPException(502, "scoring failed")
+        payload = label_payload(cfg, r, lbl)
+        # When the scored home IS its own baseline comparable, the delta is 0 by
+        # definition — reuse the already-computed house cost instead of a redundant
+        # (network-hitting) second scoring pass. See _is_self_baseline.
+        is_self_baseline = _is_self_baseline(
+            preset, year_built=year_built, construction=construction,
+            foundation=foundation, condition=condition, bldg_material=bldg_material,
+            upgrade_list=upgrade_list,
         )
-    except NonResidentialProperty as exc:
-        # Not bad input — a deliberate residential-only screen. 422 (Unprocessable
-        # Content) lets the frontend distinguish "we won't score this" from a 400
-        # validation error or a 502 upstream failure, and show the guidance verbatim.
-        raise HTTPException(422, str(exc))
-    except ValueError as exc:
-        raise HTTPException(400, str(exc))
-    except Exception:  # noqa: BLE001 — don't leak internals; log server-side
-        log.exception("scoring failed (address=%r lat=%r lon=%r)", address, lat, lon)
-        raise HTTPException(502, "scoring failed")
-    payload = label_payload(cfg, r, lbl)
-    # When the scored home IS its own baseline comparable, the delta is 0 by
-    # definition — reuse the already-computed house cost instead of a redundant
-    # (network-hitting) second scoring pass. See _is_self_baseline.
-    is_self_baseline = _is_self_baseline(
-        preset, year_built=year_built, construction=construction,
-        foundation=foundation, condition=condition, bldg_material=bldg_material,
-        upgrade_list=upgrade_list,
-    )
-    _attach_baseline_cost(payload, lbl, cfg, self_baseline=is_self_baseline)
-    _attach_detached_cost(payload, r, cfg)   # multi-unit → density-dividend line
-    # Don't cache a degraded label. When NSI structure detection was unavailable
-    # (a transient upstream outage), the building falls back to generic defaults —
-    # caching that would pin a wrong "single-family / defaults" label onto this
-    # exact coordinate for the whole TTL, poisoning a bookmarked or shared URL.
-    # Skip the cache so the next request re-detects the real building.
-    if not getattr(lbl.get("location"), "structure_unavailable", False):
-        _result_cache.put(cache_key, payload)
-    utils.log_upstreams(_key_addr(address) or f"{lat},{lon}",
-                        time.monotonic() - scored_at)
-    return payload
+        _attach_baseline_cost(payload, lbl, cfg, self_baseline=is_self_baseline)
+        _attach_detached_cost(payload, r, cfg)   # multi-unit → density-dividend line
+        # Don't cache a degraded label. When NSI structure detection was unavailable
+        # (a transient upstream outage), the building falls back to generic defaults —
+        # caching that would pin a wrong "single-family / defaults" label onto this
+        # exact coordinate for the whole TTL, poisoning a bookmarked or shared URL.
+        # Skip the cache so the next request re-detects the real building.
+        if not getattr(lbl.get("location"), "structure_unavailable", False):
+            _result_cache.put(cache_key, payload)
+        return payload
 
 
 _BASELINE_LABEL = "a same-size 2000-era frame home"
