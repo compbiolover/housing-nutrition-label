@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.2.6](https://github.com/compbiolover/housing-nutrition-label/compare/v0.2.5...v0.2.6) (2026-08-23)
+
+
+### Features
+
+* **label:** move Print / Save as SVG up to the form, disabled until there is a label ([#293](https://github.com/compbiolover/housing-nutrition-label/issues/293)) ([a5d12aa](https://github.com/compbiolover/housing-nutrition-label/commit/a5d12aaa98bc19284b17e1d8f768b7c9b6f935c2))
+
 ## [0.2.5](https://github.com/compbiolover/housing-nutrition-label/compare/v0.2.4...v0.2.5) (2026-08-22)
 
 
