@@ -421,6 +421,14 @@ window.LabelForm = (function () {
     // long we stop, say what happened, and offer the retry that the spinner never
     // did. 45s is past a normal cold score (a few seconds warm, ~15s cold) and well
     // short of the minutes a wedged upstream can take.
+    //
+    // This is now the backstop rather than the fix. The API stops paying for a
+    // dataset that has used its share of a score (config.UPSTREAM_HOST_BUDGET) and
+    // for a score that has used its wall clock (config.UPSTREAM_BUDGET), so the
+    // one-slow-dataset case — the case this deadline was written for — comes back
+    // as a complete answer with a few N/A rows and slowDataNote() above them, well
+    // inside 45s. Reaching this now means something bigger: the API itself is cold
+    // or down, or the reader's own connection is gone.
     var SCORE_TIMEOUT_MS = 45000;
     function fetchScoring(url) {
       if (typeof AbortController !== "function") return fetch(url);   // pre-2017 browser
@@ -870,6 +878,48 @@ window.LabelForm = (function () {
       return slug ? "housing-label-" + slug + ".svg" : "housing-label.svg";
     }
 
+    // ── when one dataset was too slow to wait for ────────────────────────────────
+    // The API stops paying for a dataset that has used its share of a score and
+    // returns the rest of the label rather than the whole thing late or not at
+    // all, so a slow upstream now costs a few rows an N/A instead of costing the
+    // reader everything. That trade is only fair if the reader is told: an N/A
+    // with no explanation reads as "we know nothing about your address", when
+    // what happened is that one public service was slow for a minute and the
+    // very same address will score completely on the next try.
+    //
+    // The API names the datasets it dropped (payload.slow_upstreams); the wording
+    // is here, because it is the page that has to say it in a sentence.
+    function slowDataNote() {
+      // Only the two views scored through a payload that carries the field. The
+      // sweeps ("What-if denser", "Over time") re-score at the same location, so
+      // whatever was slow for them was slow for the card above them too.
+      var list = state.mode === "single" || state.mode === "compare"
+        ? state.presetsSlow
+        : (state.detected || {}).slow_upstreams;
+      if (!list || !list.length) return "";
+      var names = list.map(function (u) { return esc((u && (u.dataset || u.host)) || "a public dataset"); });
+      var which = names.length === 1 ? names[0]
+        : names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
+      var one = names.length === 1;
+      // Careful about what is promised. A dropped dataset does not always leave an
+      // N/A: several of them refine something the label can also answer from a
+      // bundled county table, and those rows come back coarser rather than empty.
+      // So the sentence says what is certainly true — the score went ahead without
+      // it — and describes both outcomes rather than the dramatic one.
+      //
+      // The dataset names lead with a lower-case "the" ("the Census geocoder"), so
+      // the sentence is built to put something else at the front of it.
+      return '<div class="insight warn label-notice">'
+        + (one ? '<strong>One dataset was too slow to wait for.</strong> '
+               : '<strong>Some datasets were too slow to wait for.</strong> ')
+        + 'The score went ahead without ' + which + '. Rows that depend on '
+        + (one ? 'it' : 'them') + ' fall back to a coarser estimate, or show N/A '
+        + 'where there is no substitute. Nothing is wrong with the address — '
+        + 'scoring it again in a minute usually gets the full picture.'
+        + '<br><button type="button" class="reset lf-retry" style="margin-top:0.7rem;">'
+        + 'Score again</button></div>';
+    }
+
     function render() {
       if (!API_BASE) { app.innerHTML = ""; return; }
       if (state.idle) {
@@ -946,6 +996,7 @@ window.LabelForm = (function () {
       var html = locName ? '<div class="label-loc"><span class="lf-tick" aria-hidden="true">&#10003;</span> '
         + scoredWhat + ' <strong>' + esc(locName) + '</strong></div>' : "";
       html += toggleBar();
+      html += slowDataNote();
       if (state.mode === "density") {
         // Nothing more here: the density panel is the next node in the DOM, so
         // the table lands directly under the button that asked for it.
@@ -1310,6 +1361,10 @@ window.LabelForm = (function () {
           if (seq !== reqSeq) return;
           var ps = (data && data.presets) || [];
           if (!ps.length) throw new Error("no presets returned");
+          // Carried on the wrapper rather than on each profile: a dataset that
+          // was too slow was too slow for the whole grid, which is scored in one
+          // request at one location. See slowDataNote().
+          state.presetsSlow = (data && data.slow_upstreams) || null;
           state.presets = ps; applyDefaults();
           state.idx = clampIdx(state.idx); state.idxA = clampIdx(state.idxA); state.idxB = clampIdx(state.idxB);
           // Scored presets are a superset of the roster, so they also serve the

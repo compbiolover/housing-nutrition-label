@@ -357,6 +357,16 @@
   .label-addr-form .addr-primary .go { flex: 1 1 100%; }
 }
 
+/* The retry button inside a notice — the deadline's "Try again", and the
+   too-slow-dataset note's "Score again" — sits outside .label-addr-form, so it
+   inherited none of that row's button styling and rendered as a raw browser
+   button in the middle of styled prose, which reads as broken rather than as an
+   offer. Same quiet outline as the form's secondary actions, because it is the
+   same kind of action. */
+.label-notice .reset { font: inherit; padding: 0.45rem 0.9rem; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--card); color: var(--text); cursor: pointer; }
+.label-notice .reset:hover { border-color: var(--navy); }
+
 .label-privacy { max-width: 640px; margin: -0.5rem auto 1rem; color: var(--muted); font-size: 0.8rem; text-align: center; }
 .label-privacy.err { color: #b91c1c; }
 

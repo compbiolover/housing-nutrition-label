@@ -7,6 +7,11 @@ either side of the wire said which of the twelve was to blame or gave the reader
 a way out. These are the two halves of that: the server records what each
 upstream cost so the log names the culprit, and the page stops waiting.
 
+And then the part that makes the wait unnecessary: the record doubles as a
+spending limit, so a dataset that has used its share of a score is refused, its
+dimension comes back N/A with a note, and the reader gets the rest of the label
+instead of losing all of it to the one service having a bad afternoon.
+
 No network.
 
 Run directly:  python tests/test_slow_upstreams.py
@@ -137,12 +142,12 @@ def test_the_seam_is_installed_once_and_by_the_application():
         requests.sessions.Session.send = before
     src = (_ROOT / "src" / "housing_label" / "api.py").read_text(encoding="utf-8")
     assert "utils.install_timing()" in src, "the API never installs it"
-    assert "utils.begin()" in src, "the API records without opening a window"
+    assert "utils.begin(" in src, "the API records without opening a window"
     # And the window closes however the request ends. Recording is per-thread and
     # threads are reused, so one left open by a request that raised is one the
     # next request starts filling.
     manager = src.split("def _upstream_timing", 1)[1].split("\n@app", 1)[0]
-    assert "utils.begin()" in manager and "finally:" in manager, \
+    assert "utils.begin(" in manager and "finally:" in manager, \
         "the timing window is not closed in a finally"
 
 
@@ -294,6 +299,280 @@ def test_a_timeout_says_what_happened_and_offers_a_way_out():
     assert "lf-retry" in form and "function retryLoad" in form
     # The deadline has to beat the API's own worst case or it never fires.
     assert "45000" in form
+
+
+# ── what one slow dataset is allowed to cost ─────────────────────────────────
+# Naming the upstream that dragged told the operator what happened; it did nothing
+# for the reader, who still lost the whole label — the nine dimensions that had
+# answered along with the one that hadn't — because one federal service was having
+# a bad afternoon. These are the limits that end that: a dataset that has used its
+# share of a score is refused where it stands, its own module raises the same
+# "unavailable" it raises for an outage, and its rows come back N/A while the rest
+# of the label is returned.
+
+
+import contextlib
+import types
+
+import requests
+
+
+@contextlib.contextmanager
+def _seam(fake_send):
+    """Run the real seam over ``fake_send``, and put the process back afterwards."""
+    import requests
+    before = requests.sessions.Session.send
+    try:
+        requests.sessions.Session.send = fake_send
+        utils.install_timing()
+        yield
+    finally:
+        requests.sessions.Session.send = before
+        utils.drain()
+
+
+def _sent(url="https://slow.example.gov/x"):
+    return types.SimpleNamespace(url=url)
+
+
+def test_a_host_that_used_its_share_is_refused_rather_than_waited_for():
+    """The whole point. Without this the third attempt against a wedged service is
+    made in full — another TIMEOUT seconds of a request the reader is watching —
+    for an answer the first two already showed was not coming."""
+    calls = []
+    with _seam(lambda self, request, **kw: calls.append(kw) or "sent"):
+        utils.begin(per_host=10)
+        utils._timings.calls = [("slow.example.gov", 10.0)]   # its share, spent
+        try:
+            requests.sessions.Session().send(_sent())
+        except utils.UpstreamTooSlow as exc:
+            assert "slow.example.gov" in str(exc), exc
+        else:
+            raise AssertionError("a spent host was allowed to keep the reader waiting")
+        assert calls == [], "the refused call still went out"
+        assert utils.starved() == ["slow.example.gov"]
+
+
+def test_a_slow_dataset_costs_nobody_else_its_speed():
+    """A per-host limit rather than one pot everybody drinks from: the dataset that
+    is slow is the one that pays. A shared pot would make the *next* dataset in the
+    sequence pay for the previous one's afternoon, which is how a label ends up N/A
+    in the rows that had nothing wrong with them."""
+    with _seam(lambda self, request, **kw: "sent"):
+        utils.begin(budget=60, per_host=5)
+        utils._timings.calls = [("slow.example.gov", 5.0)]
+        assert requests.sessions.Session().send(_sent("https://fine.example.gov/x")) == "sent"
+        assert utils.starved() == [], "a healthy host was refused for somebody else's cost"
+
+
+def test_the_whole_score_has_a_deadline_too():
+    """The case the per-host limit cannot see: not one dataset in trouble but six,
+    each comfortably inside its own share, together past what the page will wait."""
+    with _seam(lambda self, request, **kw: "sent"):
+        utils.begin(budget=0.0001, per_host=30)
+        try:
+            requests.sessions.Session().send(_sent("https://anyone.example.gov/x"))
+        except utils.UpstreamTooSlow as exc:
+            assert "no time left" in str(exc), exc
+        else:
+            raise AssertionError("the request's own deadline never fired")
+
+
+def test_one_call_cannot_outlive_the_budget():
+    """A 12s read timeout with 4s left in the window would blow through the window
+    on its own, so what is left is also the ceiling on the next call."""
+    seen = {}
+    with _seam(lambda self, request, **kw: seen.update(kw) or "sent"):
+        utils.begin(budget=3, per_host=30)
+        requests.sessions.Session().send(_sent(), timeout=60)
+        assert seen["timeout"] <= 3, seen
+        # A (connect, read) pair is capped on both halves — a 60s connect with 3s
+        # left is the same overrun wearing a different shape.
+        utils.begin(budget=3, per_host=30)
+        requests.sessions.Session().send(_sent(), timeout=(60, 60))
+        assert max(seen["timeout"]) <= 3, seen
+        # And a call that already fits keeps its own, shorter timeout.
+        utils.begin(budget=30, per_host=30)
+        requests.sessions.Session().send(_sent(), timeout=2)
+        assert seen["timeout"] == 2, seen
+
+
+def test_a_redirect_is_one_call_not_two():
+    """requests resolves a redirect by calling Session.send again from inside the
+    send already being timed. Counted at both levels, one 10.8s USGS request read
+    as two slow calls in the log — and, worse, billed a redirecting host twice for
+    a single answer, so a service could be refused at half its real share."""
+    def redirecting(self, request, **kw):
+        # What resolve_redirects does: the same Session, the same seam, one hop in.
+        if not getattr(request, "hopped", False):
+            hop = _sent("https://usgs.example.gov/moved")
+            hop.hopped = True
+            return requests.sessions.Session().send(hop, **kw)
+        return "sent"
+
+    with _seam(redirecting):
+        utils.begin(per_host=10)
+        requests.sessions.Session().send(_sent("https://usgs.example.gov/x"))
+        calls = utils.drain()
+        assert len(calls) == 1, calls
+        assert calls[0][0] == "usgs.example.gov"
+
+
+def test_a_refusal_is_a_timeout_every_fetcher_already_handles():
+    """Nothing in the tree had to be taught to degrade gracefully: eleven modules
+    already turn a timeout into their own 'unavailable', and those paths were
+    written years before this. A bespoke exception class would have walked past
+    every one of them and reached the reader as a 502."""
+    assert issubclass(utils.UpstreamTooSlow, requests.exceptions.Timeout)
+
+
+def test_nothing_is_budgeted_unless_the_caller_asks():
+    """The CLI and batch jobs open no window at all, and a window opened without
+    limits imposes none: there, nobody is watching a spinner and the complete
+    answer is worth waiting for."""
+    utils.begin()
+    assert utils.allowance("anywhere.example.gov") is None
+    assert utils.remaining("anywhere.example.gov") == (None, None)
+    utils.drain()
+
+
+def test_a_closed_window_lifts_the_limits():
+    """Threads are reused. A deadline left behind by a request that has already
+    answered is one the next request on that thread is refused by, having spent
+    nothing — the same bug as timings that survive their request, with a worse
+    symptom."""
+    with _seam(lambda self, request, **kw: "sent"):
+        utils.begin(budget=0.0001, per_host=0.0001)
+        utils.drain()
+        assert requests.sessions.Session().send(_sent()) == "sent"
+
+
+def test_retrying_never_sleeps_into_a_budget_that_is_spent():
+    """The fetchers back off between attempts, which is right for a flaky upstream
+    and wrong for one whose budget is gone: that retry will be refused the moment
+    it is made, so the sleep buys nothing and spends seconds the datasets that are
+    still healthy have not had yet."""
+    slept = []
+    # Patching the stdlib module's attribute, and putting it back in the finally:
+    # the alternative is a test that really sleeps the back-off it is asserting on.
+    real_sleep = utils.time.sleep
+    utils.time.sleep = lambda s: slept.append(s)
+    try:
+        # Unbudgeted: exactly the sleep it replaced.
+        utils.begin()
+        utils.retry_wait(2, 2)
+        assert slept == [4.0], slept
+
+        # Spent: no sleep at all.
+        slept.clear()
+        utils.begin(per_host=5)
+        utils._timings.calls = [("slow.example.gov", 5.0)]
+        utils._timings.last = "slow.example.gov"
+        utils.retry_wait(1, 2)
+        assert slept == [], slept
+
+        # Some left, but less than the back-off wants: wait what there is, and
+        # leave enough of it for the attempt the wait is for.
+        slept.clear()
+        utils.begin(per_host=5)
+        utils._timings.calls = [("slow.example.gov", 3.0)]
+        utils._timings.last = "slow.example.gov"
+        utils.retry_wait(3, 2)          # wants 8s, has 2s
+        assert slept and slept[0] < 2, slept
+    finally:
+        utils.time.sleep = real_sleep
+        utils.drain()
+
+
+def test_no_fetcher_backs_off_behind_the_budgets_back():
+    """A module that sleeps on its own is a module that spends the request's
+    seconds without asking, and it would be the one nobody noticed — this is the
+    grep that notices."""
+    src = _ROOT / "src" / "housing_label"
+    offenders = [p.name for p in src.rglob("*.py")
+                 if "time.sleep(BACKOFF" in p.read_text(encoding="utf-8")]
+    assert not offenders, offenders
+
+
+def test_the_label_says_which_dataset_it_gave_up_on():
+    """An N/A with no explanation reads as 'we know nothing about your address'.
+    What happened is that one public service was slow for a minute, and the same
+    address scores completely on the next try — so the payload carries the name a
+    reader would recognise, and the host an operator would search for."""
+    try:
+        import fastapi  # noqa: F401
+    except ImportError:
+        print("  skip test_the_label_says_which_dataset_it_gave_up_on (fastapi not installed)")
+        return
+    from housing_label.api import _dropped_datasets, _may_cache
+
+    utils.begin(per_host=1)
+    utils._timings.starved = ["nsi.sec.usace.army.mil", "made.up.example"]
+    assert _dropped_datasets() == [
+        {"host": "nsi.sec.usace.army.mil", "dataset": "the USACE National Structure Inventory"},
+        # An upstream nobody added to the roster is still named, by its host: a
+        # dataset that says "made.up.example" is searchable, one that says "a
+        # public dataset" is not.
+        {"host": "made.up.example", "dataset": "made.up.example"},
+    ]
+    # And a label with a hole in it is never cached: the hole is a minute old, the
+    # cache entry would be six hours old, and the URL gets bookmarked and shared.
+    assert not _may_cache(False)
+    utils.drain()
+    assert _may_cache(False)
+
+
+def test_the_api_asks_for_the_budget_it_documents():
+    """The limits are worth nothing if the one process that serves readers doesn't
+    ask for them, and they must come from config (where render.yaml's env vars land)
+    rather than from numbers typed into the endpoint."""
+    src = (_ROOT / "src" / "housing_label" / "api.py").read_text(encoding="utf-8")
+    assert "utils.begin(budget=config.UPSTREAM_BUDGET, per_host=config.UPSTREAM_HOST_BUDGET)" in src
+    from housing_label import config
+    # Inside the page's own deadline (docs/label-form.js), with room to score.
+    assert 0 < config.UPSTREAM_BUDGET <= 40
+    assert 0 < config.UPSTREAM_HOST_BUDGET <= config.UPSTREAM_BUDGET
+
+
+def test_the_log_says_what_it_dropped():
+    """A score that answers in 20 seconds having quietly abandoned a dataset looks
+    healthy in the log, and is the one an operator most needs to see."""
+    records = []
+
+    class Catch(logging.Handler):
+        def emit(self, record):
+            records.append(record)
+
+    handler = Catch()
+    logger = logging.getLogger("housing_label.utils")
+    logger.addHandler(handler)
+    old_level = logger.level
+    logger.setLevel(logging.INFO)
+    try:
+        utils.begin(per_host=1)
+        utils._timings.calls = [("quick.gov", 0.2)]
+        utils._timings.starved = ["wedged.gov"]
+        utils.log_upstreams("somewhere", 0.4)
+        assert records and records[-1].levelno == logging.WARNING
+        assert "wedged.gov" in records[-1].getMessage()
+    finally:
+        logger.removeHandler(handler)
+        logger.setLevel(old_level)
+        utils.drain()
+
+
+def test_the_page_says_it_in_a_sentence():
+    """The API names the datasets; the wording is the page's job, and it has to
+    make the trade legible: what is missing, that the rest is complete, that the
+    address is fine, and a way to ask again without retyping it."""
+    form = _FORM.read_text(encoding="utf-8")
+    assert "function slowDataNote" in form
+    assert "slowDataNote()" in form, "the note is written but never rendered"
+    assert "slow_upstreams" in form, "the page never reads the field the API sends"
+    assert "state.presetsSlow" in form, "the profile grid drops what /presets reported"
+    note = form.split("function slowDataNote", 1)[1].split("\n    function ", 1)[0]
+    assert "N/A" in note, "the note never says what a missing dataset leaves behind"
+    assert "lf-retry" in note, "the note offers no way to try again"
 
 
 def _run_all():

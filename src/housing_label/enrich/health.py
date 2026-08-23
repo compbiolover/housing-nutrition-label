@@ -57,8 +57,10 @@ Columns added
 
 from __future__ import annotations
 
-import logging, time
+import logging
 import requests, pandas as pd
+
+from housing_label import utils
 
 # Module logger only — no logging.basicConfig() at import time (library code).
 log = logging.getLogger(__name__)
@@ -147,7 +149,7 @@ def fetch_places_data(county_fips: str = COUNTY_FIPS) -> pd.DataFrame:
                 raise RuntimeError(
                     f"CDC PLACES API unavailable after {MAX_RETRIES} attempts"
                 ) from exc
-            time.sleep(BACKOFF ** attempt)
+            utils.retry_wait(attempt, BACKOFF)
 
     log.info("  %d raw records received from PLACES API", len(records))
 
@@ -255,7 +257,7 @@ def get_census_tract(lat: float, lon: float) -> str | None:
             log.warning("Geocoder attempt %d/%d: %s", attempt, MAX_RETRIES, exc)
             if attempt == MAX_RETRIES:
                 return None
-            time.sleep(BACKOFF ** attempt)
+            utils.retry_wait(attempt, BACKOFF)
             continue
 
         try:

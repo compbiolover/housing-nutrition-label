@@ -111,7 +111,7 @@ def test_an_outage_raises_rather_than_returning_none():
     says so, so it cannot be flattened into the same return value."""
     sp._yield_at.cache_clear()
     with mock.patch.object(sp.requests, "get", side_effect=RuntimeError("down")), \
-         mock.patch.object(sp.time, "sleep"):
+         mock.patch.object(sp.utils, "retry_wait"):
         try:
             sp.solar_yield_near(35.5, -84.4)
         except sp.SolarDataUnavailable:

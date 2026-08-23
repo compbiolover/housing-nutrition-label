@@ -33,11 +33,11 @@ from __future__ import annotations
 
 import json
 import math
-import time
 from functools import lru_cache
 
 import requests
 
+from housing_label import utils
 from housing_label.config import BACKOFF, HEADERS, RETRIES, TIMEOUT
 
 # National USA Structures view (keyless, Query-only). Layer 0 = footprints.
@@ -121,7 +121,7 @@ def _query(geometry: str, geometry_type: str) -> list[dict]:
         except Exception:  # noqa: BLE001
             if attempt == RETRIES:
                 return []
-            time.sleep(BACKOFF ** attempt)
+            utils.retry_wait(attempt, BACKOFF)
     return []
 
 

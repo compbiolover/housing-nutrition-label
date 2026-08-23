@@ -25,12 +25,12 @@ RES4–RES6 = lodging / institutional, COM*/IND*/… = non-residential.
 from __future__ import annotations
 
 import math
-import time
 from collections import Counter
 from functools import lru_cache
 
 import requests
 
+from housing_label import utils
 from housing_label.config import TIMEOUT, RETRIES, BACKOFF, HEADERS
 from housing_label.data._util import num as _num
 
@@ -195,7 +195,7 @@ def _nsi_query(lat: float, lon: float, half: float) -> list[dict]:
             if attempt == RETRIES:
                 raise NSIUnavailable(
                     f"NSI query failed after {RETRIES} attempts: {exc}") from exc
-            time.sleep(BACKOFF ** attempt)
+            utils.retry_wait(attempt, BACKOFF)
     return []   # unreachable (loop either returns or raises); kept for the type
 
 

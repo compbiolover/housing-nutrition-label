@@ -42,11 +42,11 @@ federal government work.
 
 from __future__ import annotations
 
-import time
 from functools import lru_cache
 
 import requests
 
+from housing_label import utils
 from housing_label.config import BACKOFF, HEADERS, RETRIES, TIMEOUT
 
 
@@ -128,7 +128,7 @@ def _query(lat: float, lon: float) -> list[dict]:
                 raise ServiceAreaUnavailable(
                     f"EPA service-area query failed after {RETRIES} attempts: {exc}"
                 ) from exc
-            time.sleep(BACKOFF ** attempt)
+            utils.retry_wait(attempt, BACKOFF)
     return []   # unreachable (the loop returns or raises); kept for the type
 
 

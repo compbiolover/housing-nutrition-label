@@ -142,7 +142,7 @@ def test_nsi_unavailable_raises_distinct_from_empty(monkeypatch):
     import pytest
 
     S._structure_at.cache_clear()
-    monkeypatch.setattr(S.time, "sleep", lambda *a, **k: None)   # no back-off waits
+    monkeypatch.setattr(S.utils, "retry_wait", lambda *a, **k: None)  # no back-off waits
 
     def boom(*a, **k):
         raise S.requests.exceptions.ConnectionError("nsi down")

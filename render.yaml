@@ -46,6 +46,24 @@ services:
         value: "12"
       - key: HTTP_RETRIES
         value: "2"
+      # What a slow dataset may cost a live score. The two above bound one CALL,
+      # which is not the same as bounding a label: a dozen datasets at 12 s × 2
+      # still let one sulking upstream cost ~26 s and two of them cost more than
+      # the page will wait for, and the reader then loses the whole label —
+      # including the nine dimensions that answered — to the one that didn't.
+      # UPSTREAM_HOST_BUDGET is what any ONE service may spend on a score; spent,
+      # its next call is refused where it stands, its dimension comes back N/A
+      # with a note, and the rest of the label is returned. UPSTREAM_BUDGET is the
+      # wall clock for the whole score — the backstop for six mildly slow datasets
+      # rather than one badly slow one. Both sit inside the page's own 45 s
+      # deadline with room for the scoring itself. "0" disables either. These are
+      # the code defaults too (housing_label.config), declared here because this
+      # is where the interactive trade-off is explained; the CLI and batch jobs
+      # open no window and stay unbudgeted.
+      - key: UPSTREAM_BUDGET
+        value: "30"
+      - key: UPSTREAM_HOST_BUDGET
+        value: "12"
       # Decode the bundled tract crosswalks at boot instead of inside the first
       # request after a deploy. Set to "0"/"off" from the dashboard to disable
       # without a code change if it ever costs more memory than it's worth.

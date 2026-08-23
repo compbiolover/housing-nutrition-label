@@ -74,10 +74,130 @@ def timed(name: str):
             calls.append((name, time.monotonic() - start))
 
 
-def begin() -> None:
+def begin(budget: float | None = None, per_host: float | None = None) -> None:
     """Start recording on this thread, discarding anything a request that raised
-    before it could report may have left behind."""
+    before it could report may have left behind.
+
+    ``budget`` (seconds from now) and ``per_host`` (seconds any one service may
+    spend) turn the window into a spending limit as well as a record — see the
+    section below. Both default to off, which is what the CLI and batch jobs
+    want: there, a slow upstream is worth waiting out.
+    """
     _timings.calls = []
+    _timings.deadline = None if not budget else time.monotonic() + float(budget)
+    _timings.host_budget = float(per_host) if per_host else None
+    _timings.starved = []
+    _timings.last = None
+    _timings.depth = 0
+
+
+# ── What one slow dataset is allowed to cost ────────────────────────────────────
+# Recording which upstream was slow told the operator what happened. It did not
+# help the reader, who still watched a spinner until the page's own deadline gave
+# up and threw the whole label away — including the eight dimensions that had
+# already answered — because one dataset was having a bad afternoon.
+#
+# So the window doubles as a spending limit. Two limits, because they answer
+# different questions:
+#
+#   per_host  what ONE service may spend on this label. This is the one that does
+#             the work: it is aimed squarely at the dataset that is slow, and it
+#             leaves every other dataset its full speed. Once a host has spent it,
+#             the next call to that host is refused where it stands, its module
+#             raises its own "unavailable" the way it would for an outage, and its
+#             dimension comes back N/A with a note instead of pinning the request.
+#   budget    what the whole request may spend before it must have an answer. The
+#             backstop for the case per_host cannot see: not one dataset in
+#             trouble but six, each individually inside its share.
+#
+# A refusal is a ``requests`` timeout, because that is what it is — this dataset
+# did not answer in the time it had — and because every fetcher in the tree
+# already handles one. Nothing new has to be taught to degrade gracefully; the
+# paths that turn an outage into a note were all written years before this.
+_MIN_CALL = 1.0     # a call given less than this cannot succeed; refuse it instead
+
+# Refusals are raised as a requests timeout so existing handlers catch them
+# unchanged; TimeoutError only for a source tree without requests, where nothing
+# can be refused anyway because nothing can be sent.
+_TimeoutBase = requests.exceptions.Timeout if requests is not None else TimeoutError
+
+
+class UpstreamTooSlow(_TimeoutBase):  # type: ignore[misc,valid-type]
+    """This upstream has used the time this request could give it."""
+
+
+def remaining(host: str) -> tuple[float | None, float | None]:
+    """Seconds left in (the request's budget, this host's share). None = unlimited."""
+    calls = getattr(_timings, "calls", None)
+    if calls is None:
+        return (None, None)
+    deadline = getattr(_timings, "deadline", None)
+    per_host = getattr(_timings, "host_budget", None)
+    total_left = None if deadline is None else deadline - time.monotonic()
+    host_left = None
+    if per_host is not None:
+        # The record is the meter: what this host has already cost this request.
+        # It holds one entry per logical call — see the seam's redirect note, which
+        # is what keeps a redirecting host from being billed twice for one answer.
+        host_left = per_host - sum(t for n, t in calls if n == host)
+    return (total_left, host_left)
+
+
+def allowance(host: str) -> float | None:
+    """How long the next call to ``host`` may take; None when unbudgeted.
+
+    Zero or less means: do not make the call at all.
+    """
+    left = [x for x in remaining(host) if x is not None]
+    return min(left) if left else None
+
+
+def _capped(timeout, allow: float):
+    """``timeout`` (a number, a (connect, read) pair, or None) held under ``allow``."""
+    if timeout is None:
+        return allow
+    if isinstance(timeout, (tuple, list)):
+        return tuple(allow if t is None else min(float(t), allow) for t in timeout)
+    try:
+        return min(float(timeout), allow)
+    except (TypeError, ValueError):   # something exotic; the budget still applies
+        return allow
+
+
+def _note_starved(host: str) -> None:
+    """Note that ``host`` was refused, for the caller that reports the label."""
+    seen = getattr(_timings, "starved", None)
+    if seen is not None and host not in seen and len(seen) < _MAX_RECORDED:
+        seen.append(host)
+
+
+def starved() -> list[str]:
+    """Hosts this request refused to wait for, in the order they ran out.
+
+    Read *inside* the window (``drain()`` closes it): the API asks after scoring,
+    so the payload can say which dataset is missing and why, and so a label
+    degraded by a slow upstream is not cached onto the coordinate.
+    """
+    return list(getattr(_timings, "starved", None) or ())
+
+
+def retry_wait(attempt: int, backoff: float | None = None) -> None:
+    """Sleep before retrying an upstream — never past what this request has left.
+
+    The fetchers all back off exponentially between attempts, which is right when
+    the upstream is merely flaky and wrong when its budget is already spent: the
+    retry will be refused the moment it is made, so the sleep buys nothing and
+    spends seconds the *other* datasets still need. Outside a budgeted window
+    (the CLI, batch jobs) this is exactly the sleep it replaced.
+    """
+    wait = float(config.BACKOFF if backoff is None else backoff) ** attempt
+    allow = allowance(getattr(_timings, "last", None) or "")
+    if allow is not None:
+        if allow <= _MIN_CALL:
+            return          # the next attempt is already doomed; don't pay to reach it
+        wait = min(wait, max(0.0, allow - _MIN_CALL))
+    if wait > 0:
+        time.sleep(wait)
 
 
 def install_timing() -> None:
@@ -108,8 +228,41 @@ def install_timing() -> None:
         # "costs a getattr" is only true because of this line.)
         if getattr(_timings, "calls", None) is None:
             return original(self, request, **kwargs)
-        with timed(host_of(getattr(request, "url", "") or "")):
+        # A redirect is resolved by calling Session.send again from inside the send
+        # we are already timing. That hop is not a second call — it is the rest of
+        # one question asked of one service — so it is neither timed again (a
+        # single 10.8s USGS request used to read as "earthquake.usgs.gov 10.8s,
+        # earthquake.usgs.gov 10.1s" in the log, two slow calls where there was
+        # one) nor charged again, which would have a redirecting host spend its
+        # share at twice the speed of the clock for no reason but redirecting. The
+        # hop is still bounded: requests passes the outer call's timeout down, and
+        # that one has already been capped to what the budget allows.
+        if getattr(_timings, "depth", 0):
             return original(self, request, **kwargs)
+        host = host_of(getattr(request, "url", "") or "")
+        _timings.last = host        # which host retry_wait is about to wait for
+        allow = allowance(host)
+        if allow is not None:
+            if allow < _MIN_CALL:
+                # Refused, not attempted: the caller sees a timeout it already
+                # knows how to survive, and pays nothing for it.
+                _note_starved(host)
+                total_left, host_left = remaining(host)
+                if host_left is not None and (total_left is None or host_left <= total_left):
+                    raise UpstreamTooSlow(
+                        f"{host} is too slow to fit in this label: it has used the "
+                        f"{getattr(_timings, 'host_budget', 0):.0f}s one dataset gets")
+                raise UpstreamTooSlow(
+                    f"no time left for {host}: this label's upstream budget is spent")
+            # One call can't outlive the budget either — a 12s read timeout with
+            # 4s left in the window would blow through it on its own.
+            kwargs["timeout"] = _capped(kwargs.get("timeout"), allow)
+        _timings.depth = 1
+        try:
+            with timed(host):
+                return original(self, request, **kwargs)
+        finally:
+            _timings.depth = 0
 
     send_timed._hnl_timed = True
     requests.sessions.Session.send = send_timed
@@ -131,10 +284,50 @@ def host_of(url: str) -> str:
         return url or "unknown"
 
 
+# The public datasets behind a label, by the host that serves each one. A host is
+# the right key because each of these services is one dataset here: we ask
+# nsi.sec.usace.army.mil exactly one question, and asking chronicdata.cdc.gov a
+# second one would be a second dataset with its own row. The names are what a
+# reader is told when one of them is missing from their label, so they are the
+# publisher's name for the data, not ours — "CDC PLACES", not "health".
+DATASET_NAMES = {
+    "nsi.sec.usace.army.mil": "the USACE National Structure Inventory",
+    "hazards.fema.gov": "the FEMA National Flood Hazard Layer",
+    "services2.arcgis.com": "the USA Structures building footprints",
+    "services.arcgis.com": "the EPA water-system service areas",
+    "earthquake.usgs.gov": "the USGS seismic hazard service",
+    "chronicdata.cdc.gov": "CDC PLACES",
+    "geocoding.geo.census.gov": "the Census geocoder",
+    "tigerweb.geo.census.gov": "the Census TIGERweb road network",
+    "api.census.gov": "the Census ACS API",
+    "re.jrc.ec.europa.eu": "the PVGIS solar-yield service",
+}
+
+
+def dataset_name(host: str) -> str:
+    """The publisher's name for the dataset ``host`` serves, else the host.
+
+    Falling back to the host is deliberate: a new upstream that nobody added here
+    still gets named in the label rather than described as "a dataset", and the
+    bare hostname is a good enough name to search for.
+    """
+    return DATASET_NAMES.get(host, host)
+
+
 def drain() -> list[tuple[str, float]]:
-    """Take this thread's recorded timings, slowest first, and stop recording."""
+    """Take this thread's recorded timings, slowest first, and stop recording.
+
+    Closing the window also lifts the spending limits, so the next thing this
+    (reused) thread does is not charged against a request that has already
+    finished — and cannot be refused by a deadline that has already passed.
+    """
     calls = getattr(_timings, "calls", None) or []
     _timings.calls = None
+    _timings.deadline = None
+    _timings.host_budget = None
+    _timings.starved = None
+    _timings.last = None
+    _timings.depth = 0
     return sorted(calls, key=lambda c: -c[1])
 
 
@@ -145,14 +338,16 @@ def log_upstreams(context: str, total: float, slow_after: float = 5.0) -> None:
     because twelve datasets each took under two is healthy, and the line worth
     waking up to is the one where a single service ate the budget.
     """
+    refused = starved()      # before drain(), which closes the window
     calls = drain()
-    if not calls:
+    if not calls and not refused:
         return
-    worst, worst_secs = calls[0]
+    dropped = f" [dropped: {', '.join(refused)}]" if refused else ""
     detail = ", ".join(f"{n} {t:.1f}s" for n, t in calls[:8])
-    if worst_secs >= slow_after:
-        log.warning("slow upstream: %s took %.1fs of %.1fs scoring %s (%s)",
-                    worst, worst_secs, total, context, detail)
+    worst, worst_secs = calls[0] if calls else ("", 0.0)
+    if refused or worst_secs >= slow_after:
+        log.warning("slow upstream: %s took %.1fs of %.1fs scoring %s (%s)%s",
+                    worst or "nothing", worst_secs, total, context, detail, dropped)
     else:
         log.info("scored %s in %.1fs (%s)", context, total, detail)
 
@@ -180,7 +375,7 @@ def http_get(url: str, params: dict | None = None) -> dict:
             last_exc = exc
             if attempt == config.RETRIES:
                 raise
-            time.sleep(config.BACKOFF ** attempt)
+            retry_wait(attempt)
     raise last_exc  # type: ignore[misc]
 
 
@@ -209,7 +404,7 @@ def http_post(url: str, data: dict | None = None) -> dict:
             last_exc = exc
             if attempt == config.RETRIES:
                 raise
-            time.sleep(config.BACKOFF ** attempt)
+            retry_wait(attempt)
     raise last_exc  # type: ignore[misc]
 
 

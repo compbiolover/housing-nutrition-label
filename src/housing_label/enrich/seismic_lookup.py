@@ -24,12 +24,12 @@ from __future__ import annotations
 import csv
 import math
 import pathlib
-import time
 from functools import lru_cache
 
 import requests
 
 from housing_label.config import TIMEOUT, RETRIES, BACKOFF, HEADERS
+from housing_label import utils
 from housing_label.utils import haversine_miles
 
 # USGS 2023 NSHM hazard-curve service (keyless; path form, longitude first). vs30=760
@@ -106,7 +106,7 @@ def _nshm_hazard_pga(lat: float, lon: float) -> tuple[float, float] | None:
         except Exception:  # noqa: BLE001
             if attempt == RETRIES:
                 return None
-            time.sleep(BACKOFF ** attempt)
+            utils.retry_wait(attempt, BACKOFF)
     return None
 
 
@@ -126,7 +126,7 @@ def _usgs_pga(lat: float, lon: float) -> float | None:
         except Exception:  # noqa: BLE001
             if attempt == RETRIES:
                 return None
-            time.sleep(BACKOFF ** attempt)
+            utils.retry_wait(attempt, BACKOFF)
     return None
 
 
