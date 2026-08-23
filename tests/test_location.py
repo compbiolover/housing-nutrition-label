@@ -148,6 +148,53 @@ def test_resolve_location_offline():
     assert "geocoder" in loc.notes
 
 
+def test_year_built_distribution_resolves_from_supplied_geography():
+    """Bundled, so it resolves with no network — the same as the hazard crosswalks."""
+    from unittest import mock
+    geo = {"county_fips": "47157", "county_name": "Shelby County",
+           "state_fips": "47", "tract": "47157003100"}
+    with mock.patch("housing_label.simulate.location._get",
+                    side_effect=AssertionError("geocoder called")):
+        loc = resolve_location(lat=35.13, lon=-89.99, allow_network=False, geography=geo)
+    d = loc.year_built_distribution
+    assert d and d["geo_level"] == "tract" and d["resolved"] is True
+    assert d["p25"] <= d["year_built"] <= d["p75"]
+    assert "year_built" not in (loc.notes or {}), "a resolved tract owes no note"
+
+
+def test_no_us_fallback_note_when_the_crosswalk_is_absent():
+    """A None distribution is not an unresolved one.
+
+    If the bundled tables are missing (a broken install, or a source tree with
+    nothing built), the label falls back to NSI or its own default — so a note
+    saying "using the US typical" would describe a number nobody used. Same
+    None-is-not-False rule as `incorporated` and `water_system`.
+    """
+    from unittest import mock
+    geo = {"county_fips": "47157", "county_name": "Shelby County",
+           "state_fips": "47", "tract": "47157003100"}
+    with mock.patch("housing_label.simulate.location.year_built_data"
+                    ".year_built_distribution_for", return_value=None):
+        loc = resolve_location(lat=35.13, lon=-89.99, allow_network=False, geography=geo)
+    assert loc.year_built_distribution is None
+    assert "year_built" not in (loc.notes or {}), (
+        "claimed a US fallback when no distribution was loaded at all")
+
+
+def test_us_fallback_is_noted_when_it_really_happens():
+    """The note must still fire for a genuine national fallback."""
+    from unittest import mock
+    geo = {"county_fips": "47157", "county_name": "Shelby County",
+           "state_fips": "47", "tract": "47157003100"}
+    us = {"year_built": 1980, "p25": 1959, "p75": 2000, "spread": 41,
+          "geo_level": "us", "resolved": False, "label": "US typical",
+          "source": "US typical year built (ACS) — not this building's"}
+    with mock.patch("housing_label.simulate.location.year_built_data"
+                    ".year_built_distribution_for", return_value=us):
+        loc = resolve_location(lat=35.13, lon=-89.99, allow_network=False, geography=geo)
+    assert "US typical" in (loc.notes or {}).get("year_built", "")
+
+
 def test_get_pga_prefers_true_nshm_hazard_curve():
     """Primary path: get_pga returns the TRUE 2%/50yr AND 10%/50yr read off the NSHM
     hazard curve — not a 10%/50yr derived from the 0.43 ratio."""
