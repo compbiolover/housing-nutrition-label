@@ -15,7 +15,10 @@ handling; some pipeline scripts still keep their own inline copies.)
 
 from __future__ import annotations
 
+import contextlib
+import logging
 import math
+import threading
 import time
 
 try:  # requests is only needed for the HTTP helpers
@@ -24,6 +27,99 @@ except ImportError:  # pragma: no cover - geometry helpers still work without it
     requests = None  # type: ignore[assignment]
 
 from . import config
+
+log = logging.getLogger(__name__)
+
+
+# ── Which upstream was slow ──────────────────────────────────────────────────────
+# A label is a dozen live fetches against federal services, and when one of them
+# starts answering in minutes the only visible symptom is a spinner: the request
+# is slow, and nothing anywhere says which of the twelve is to blame. Guessing
+# from the outside is not possible — the upstreams are reachable from everywhere
+# except, apparently, the box that matters.
+#
+# So each call records what it cost, on a thread-local because the API serves
+# requests on a threadpool and two visitors' timings must not braid together.
+# ``drain()`` hands the list to whoever finishes the request (see the API's
+# scoring endpoints), which logs one line naming the worst offender. Nothing here
+# fails a request: a timing that cannot be recorded is not worth an exception.
+_timings = threading.local()
+
+
+@contextlib.contextmanager
+def timed(name: str):
+    """Record how long one upstream call took, under ``name`` (its service)."""
+    start = time.monotonic()
+    try:
+        yield
+    finally:
+        elapsed = time.monotonic() - start
+        calls = getattr(_timings, "calls", None)
+        if calls is None:
+            calls = _timings.calls = []
+        calls.append((name, elapsed))
+
+
+def install_timing() -> None:
+    """Time every outbound HTTP call, once, at one seam.
+
+    The alternative was a ``with timed(...)`` around fourteen ``requests.get``
+    calls in eleven modules — every one of which would have to be found again by
+    the next person who adds a dataset, and silently missed if they didn't. All
+    fourteen already funnel through ``Session.send``, so that is where the clock
+    goes: complete by construction, and future call sites are covered the day
+    they are written.
+
+    Wrapping a library seam is what an APM agent does to a process, and it is
+    only defensible when it is loud about it — hence a named wrapper, an
+    idempotence flag, and an installer the *application* calls rather than an
+    import side effect. The library, the CLI, and batch jobs are untouched unless
+    they ask for this.
+    """
+    if requests is None or getattr(requests.sessions.Session.send, "_hnl_timed", False):
+        return
+    original = requests.sessions.Session.send
+
+    def send_timed(self, request, **kwargs):
+        with timed(host_of(getattr(request, "url", "") or "")):
+            return original(self, request, **kwargs)
+
+    send_timed._hnl_timed = True
+    requests.sessions.Session.send = send_timed
+
+
+def host_of(url: str) -> str:
+    """The host out of a URL, for naming a timing. Never raises on an odd URL."""
+    try:
+        return url.split("//", 1)[1].split("/", 1)[0] or url
+    except Exception:  # noqa: BLE001
+        return url or "unknown"
+
+
+def drain() -> list[tuple[str, float]]:
+    """Take and clear this thread's recorded upstream timings, slowest first."""
+    calls = getattr(_timings, "calls", None) or []
+    _timings.calls = []
+    return sorted(calls, key=lambda c: -c[1])
+
+
+def log_upstreams(context: str, total: float, slow_after: float = 5.0) -> None:
+    """Log this request's upstream timings, loudly when something dragged.
+
+    ``slow_after`` is per call, not for the total: a label that takes 20 seconds
+    because twelve datasets each took under two is healthy, and the line worth
+    waking up to is the one where a single service ate the budget.
+    """
+    calls = drain()
+    if not calls:
+        return
+    worst, worst_secs = calls[0]
+    detail = ", ".join(f"{n} {t:.1f}s" for n, t in calls[:8])
+    if worst_secs >= slow_after:
+        log.warning("slow upstream: %s took %.1fs of %.1fs scoring %s (%s)",
+                    worst, worst_secs, total, context, detail)
+    else:
+        log.info("scored %s in %.1fs (%s)", context, total, detail)
 
 
 # ── HTTP ─────────────────────────────────────────────────────────────────────────

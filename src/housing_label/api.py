@@ -106,6 +106,7 @@ from slowapi.util import get_remote_address
 from housing_label import badge as badge_svg
 from housing_label import entitlements
 from housing_label import label_svg as sheet_svg
+from housing_label import utils
 from housing_label.config import (
     HEADERS, PHOTON_URL, GEOAPIFY_URL, GEOAPIFY_API_KEY,
     GOOGLE_PLACES_AUTOCOMPLETE_URL, GOOGLE_PLACES_DETAILS_URL, GOOGLE_PLACES_API_KEY,
@@ -236,6 +237,11 @@ async def _lifespan(_app):
     # boot past Render's health-check timeout. Off-thread, the port opens
     # immediately, and a request that arrives mid-warm-up simply waits on the same
     # lru_cache it would have populated itself.
+    # Time every outbound call, so a slow score names its own culprit in the log
+    # rather than leaving the next person to guess which of a dozen federal
+    # services is dragging. Installed here, by the application, so the CLI and
+    # batch jobs are unaffected (housing_label.utils.install_timing).
+    utils.install_timing()
     if os.environ.get("WARMUP", "1").strip().lower() not in ("0", "off", "false", "no"):
         threading.Thread(target=_warmup, name="warmup", daemon=True).start()
     yield
@@ -1062,6 +1068,11 @@ def label(
     if cached is not None:
         return cached
 
+    # This thread may be carrying timings from a request that raised before it
+    # could report them; they are not ours. (Endpoints that fail log a traceback
+    # instead, which says more than a timing would.)
+    utils.drain()
+    scored_at = time.monotonic()
     try:
         cfg, r, lbl = build_label_parts(
             address=address, lat=lat, lon=lon, preset=preset, flood_zone=flood_zone,
@@ -1101,6 +1112,8 @@ def label(
     # Skip the cache so the next request re-detects the real building.
     if not getattr(lbl.get("location"), "structure_unavailable", False):
         _result_cache.put(cache_key, payload)
+    utils.log_upstreams(_key_addr(address) or f"{lat},{lon}",
+                        time.monotonic() - scored_at)
     return payload
 
 
