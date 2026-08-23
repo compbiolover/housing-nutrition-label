@@ -27,10 +27,12 @@ Flood risk classification
 
 from __future__ import annotations
 
-import json, logging, time
+import json, logging
 from functools import lru_cache
 
 import requests, pandas as pd
+
+from housing_label import utils
 
 # Module logger only — no logging.basicConfig() at import time: this is library
 # code imported by the API/simulator, and reconfiguring the root logger on import
@@ -110,7 +112,7 @@ def _flood_zone_at(lat: float, lon: float) -> dict:
             log.warning("HTTP error (attempt %d/%d): %s", attempt, MAX_RETRIES, exc)
             if attempt == MAX_RETRIES:
                 return {"flood_zone": None, "flood_risk": "unknown"}
-            time.sleep(BACKOFF ** attempt)
+            utils.retry_wait(attempt, BACKOFF)
             continue
 
         if "error" in data:

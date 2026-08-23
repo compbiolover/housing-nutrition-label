@@ -60,8 +60,10 @@ Columns added
 
 from __future__ import annotations
 
-import logging, os, time
+import logging, os
 import requests, pandas as pd
+
+from housing_label import utils
 
 # Module logger only — no logging.basicConfig() at import time (library code).
 log = logging.getLogger(__name__)
@@ -208,7 +210,7 @@ def _acs_get(url: str, params: dict) -> list:
             log.warning("ACS API attempt %d/%d failed: %s", attempt, MAX_RETRIES, exc)
             if attempt == MAX_RETRIES:
                 raise
-            time.sleep(BACKOFF ** attempt)
+            utils.retry_wait(attempt, BACKOFF)
     return []
 
 
@@ -300,7 +302,7 @@ def get_census_tract(lat: float, lon: float) -> str | None:
             log.warning("Geocoder attempt %d/%d: %s", attempt, MAX_RETRIES, exc)
             if attempt == MAX_RETRIES:
                 return None
-            time.sleep(BACKOFF ** attempt)
+            utils.retry_wait(attempt, BACKOFF)
             continue
 
         try:

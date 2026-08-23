@@ -36,11 +36,11 @@ https://re.jrc.ec.europa.eu/
 
 from __future__ import annotations
 
-import time
 from functools import lru_cache
 
 import requests
 
+from housing_label import utils
 from housing_label.config import BACKOFF, HEADERS, RETRIES, TIMEOUT
 
 
@@ -105,7 +105,7 @@ def _yield_at(lat: float, lon: float, allow_network: bool) -> dict | None:
             if attempt == RETRIES:
                 raise SolarDataUnavailable(
                     f"PVGIS failed after {RETRIES} attempts: {exc}") from exc
-            time.sleep(BACKOFF ** attempt)
+            utils.retry_wait(attempt, BACKOFF)
     return None   # unreachable
 
 

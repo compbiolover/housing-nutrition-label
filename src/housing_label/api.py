@@ -78,6 +78,15 @@ Operational env vars::
     LABEL_CACHE_TTL    cache entry lifetime in seconds (default 21600 = 6 h)
     HTTP_TIMEOUT       seconds per upstream call (default 60; render.yaml sets 12)
     HTTP_RETRIES       attempts per upstream call (default 3; render.yaml sets 2)
+    UPSTREAM_HOST_BUDGET
+                       seconds any ONE dataset may spend on a score (default 12;
+                       "0" disables). Spent, its next call is refused, its module
+                       reports the same "unavailable" it reports for an outage,
+                       and its rows come back N/A — with the dataset named in the
+                       payload as ``slow_upstreams`` — rather than the reader
+                       losing the whole label to one slow service.
+    UPSTREAM_BUDGET    seconds of wall clock a whole score may spend before it
+                       must answer with what it has (default 30; "0" disables)
     WARMUP             decode the bundled datasets at boot rather than in the first
                        request (default on; "0"/"off" disables)
     LOG_LEVEL          log level for the `housing-api` entry point (default INFO)
@@ -106,6 +115,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
 from housing_label import badge as badge_svg
+from housing_label import config
 from housing_label import entitlements
 from housing_label import label_svg as sheet_svg
 from housing_label import utils
@@ -1013,13 +1023,43 @@ def _upstream_timing(context: str):
     request starts filling. And the timings of a request that failed are the ones
     most worth having — a 502 after three minutes of upstream is exactly the line
     somebody will go looking for.
+
+    The window is also this request's spending limit — ``config.UPSTREAM_BUDGET``
+    for the score, ``config.UPSTREAM_HOST_BUDGET`` for any one dataset in it — so
+    a service having a bad afternoon costs its own dimension an N/A instead of
+    costing the reader the label. The limits live on the window rather than in the
+    fetchers for the same reason the timings do: there is one seam, and a dataset
+    added next year is inside it the day it is written.
     """
-    utils.begin()
+    utils.begin(budget=config.UPSTREAM_BUDGET, per_host=config.UPSTREAM_HOST_BUDGET)
     started = time.monotonic()
     try:
         yield
     finally:
         utils.log_upstreams(context, time.monotonic() - started)
+
+
+def _dropped_datasets() -> list[dict]:
+    """The datasets this score gave up waiting for, named for a reader.
+
+    Rides on the payload because the alternative is a row that says N/A and
+    nothing else, which reads as "we don't know anything about your address" when
+    the truth is "one public service was slow for ninety seconds". The host
+    travels with the name so an operator reading a saved payload can tell which
+    service it was without matching prose against a roster.
+    """
+    return [{"host": h, "dataset": utils.dataset_name(h)} for h in utils.starved()]
+
+
+def _may_cache(structure_unavailable: bool) -> bool:
+    """Whether a scored result is complete enough to pin to its coordinate.
+
+    Two ways it isn't. NSI was unreachable, so the building rests on generic
+    defaults. Or a dataset was dropped for being too slow, so a dimension is N/A
+    this minute and fine the next. Caching either pins a degraded answer to the
+    URL for the whole TTL — and these URLs get bookmarked and shared.
+    """
+    return not structure_unavailable and not utils.starved()
 
 
 def _timing_context(name: str, address, lat, lon) -> str:
@@ -1172,12 +1212,21 @@ def label(
         )
         _attach_baseline_cost(payload, lbl, cfg, self_baseline=is_self_baseline)
         _attach_detached_cost(payload, r, cfg)   # multi-unit → density-dividend line
+        # Which datasets this score stopped waiting for, if any. What comes back
+        # is the rest of the label — that is the whole point of the budget — but a
+        # reader looking at an N/A row is owed the reason: "one public dataset was
+        # slow just now, try again in a minute" is a very different thing to be
+        # told than "we have nothing for your address".
+        dropped = _dropped_datasets()
+        if dropped:
+            payload["slow_upstreams"] = dropped
         # Don't cache a degraded label. When NSI structure detection was unavailable
         # (a transient upstream outage), the building falls back to generic defaults —
         # caching that would pin a wrong "single-family / defaults" label onto this
         # exact coordinate for the whole TTL, poisoning a bookmarked or shared URL.
-        # Skip the cache so the next request re-detects the real building.
-        if not getattr(lbl.get("location"), "structure_unavailable", False):
+        # Skip the cache so the next request re-detects the real building. A dataset
+        # dropped for slowness is the same bargain with a shorter fuse.
+        if _may_cache(bool(getattr(lbl.get("location"), "structure_unavailable", False))):
             _result_cache.put(cache_key, payload)
         return payload
 
@@ -1394,9 +1443,10 @@ def badge(
             raise HTTPException(502, "scoring failed")
         payload = label_payload(cfg, r, lbl, include_building=False)
         # Same rule as every other scoring path: a label built while NSI was
-        # unreachable rests on generic defaults, and a badge is the worst place to
-        # pin that for six hours — it is the copy a third party leaves up.
-        if not getattr(lbl.get("location"), "structure_unavailable", False):
+        # unreachable rests on generic defaults (or a dataset was dropped for being
+        # too slow), and a badge is the worst place to pin that for six hours — it
+        # is the copy a third party leaves up.
+        if _may_cache(bool(getattr(lbl.get("location"), "structure_unavailable", False))):
             _result_cache.put(cache_key, payload)
 
     try:
@@ -1615,10 +1665,18 @@ def presets(
         entry["description"] = desc
         out.append(entry)
     result = {"location": out[0].get("location") if out else None, "presets": out}
+    # On the wrapper, not on each profile: one request, one location, one set of
+    # datasets — five copies of the same sentence would only invite a reader to
+    # wonder which profile it was about. Same field name as /label so the page
+    # reads it the same way.
+    dropped = _dropped_datasets()
+    if dropped:
+        result["slow_upstreams"] = dropped
     # Same rule as /label: a grid scored while NSI was unreachable is built on
-    # generic defaults, and caching it would pin that degraded answer to this
-    # location for the whole TTL.
-    if not getattr(resolved, "structure_unavailable", False):
+    # generic defaults — as is one missing a dataset that was too slow to wait for
+    # — and caching it would pin that degraded answer to this location for the
+    # whole TTL.
+    if _may_cache(bool(getattr(resolved, "structure_unavailable", False))):
         _result_cache.put(cache_key, result)
     return result
 
@@ -1710,9 +1768,15 @@ def density(
     except Exception:  # noqa: BLE001 — don't leak internals; log server-side
         log.exception("density failed (address=%r lat=%r lon=%r)", address, lat, lon)
         raise HTTPException(502, "density comparison failed")
+    # Same field as /label and /presets: every view the reader can switch to says
+    # for itself which datasets its own scoring pass gave up on.
+    dropped = _dropped_datasets()
+    if dropped:
+        result["slow_upstreams"] = dropped
     # Same rule as /label and /presets: don't pin a sweep built on generic
-    # defaults (NSI unreachable) onto this parcel for the whole TTL.
-    if not result.get("structure_unavailable"):
+    # defaults (NSI unreachable, or a dataset dropped for slowness) onto this
+    # parcel for the whole TTL.
+    if _may_cache(bool(result.get("structure_unavailable"))):
         _result_cache.put(cache_key, result)
     return result
 
@@ -1813,9 +1877,15 @@ def timeline(
     except Exception:  # noqa: BLE001 — don't leak internals; log server-side
         log.exception("timeline failed (address=%r lat=%r lon=%r)", address, lat, lon)
         raise HTTPException(502, "timeline failed")
+    # Same field as /label and /presets: every view the reader can switch to says
+    # for itself which datasets its own scoring pass gave up on.
+    dropped = _dropped_datasets()
+    if dropped:
+        result["slow_upstreams"] = dropped
     # Same rule as /label and /density: don't pin a sweep built on generic defaults
-    # (NSI unreachable) onto this parcel for the whole TTL.
-    if not result.get("structure_unavailable"):
+    # (NSI unreachable, or a dataset dropped for slowness) onto this parcel for the
+    # whole TTL.
+    if _may_cache(bool(result.get("structure_unavailable"))):
         _result_cache.put(cache_key, result)
     return result
 

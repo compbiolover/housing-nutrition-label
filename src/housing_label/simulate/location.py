@@ -21,12 +21,12 @@ caller can still score the dimensions that don't need them.
 
 from __future__ import annotations
 
-import time
 from dataclasses import dataclass, field
 from functools import lru_cache
 
 import requests
 
+from housing_label import utils
 from housing_label.config import TIMEOUT, RETRIES, BACKOFF, HEADERS
 from housing_label.data import climate as climate_data
 from housing_label.data import climate_projections as climate_proj_data
@@ -123,7 +123,7 @@ def _get(url: str, params: dict) -> dict | None:
         except Exception:  # noqa: BLE001
             if attempt == RETRIES:
                 return None
-            time.sleep(BACKOFF ** attempt)
+            utils.retry_wait(attempt, BACKOFF)
     return None
 
 

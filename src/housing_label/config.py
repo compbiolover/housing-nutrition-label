@@ -41,6 +41,41 @@ TIMEOUT: int = _env_int("HTTP_TIMEOUT", 60)    # seconds per HTTP call
 RETRIES: int = _env_int("HTTP_RETRIES", 3)     # attempts before giving up
 BACKOFF: int = _env_int("HTTP_BACKOFF", 2)     # back-off multiplier (BACKOFF ** attempt)
 
+# ── What a slow dataset may cost a live score ───────────────────────────────────
+# The three knobs above bound one CALL. They cannot bound a label, because a label
+# is a dozen datasets and the reader is waiting for all of them: at 12 s × 2 a
+# single sulking upstream still costs ~26 s, and two of them cost more than the
+# page will wait for. These two bound the REQUEST instead, and they are what makes
+# a slow dataset degrade to N/A rather than take the label down with it (see
+# utils.begin / the seam in utils.install_timing):
+#
+#   UPSTREAM_HOST_BUDGET  seconds any ONE service may spend on a single score.
+#                         Spent, its next call is refused where it stands, its
+#                         module raises the same "unavailable" it raises for an
+#                         outage, and its dimension comes back N/A with a note.
+#   UPSTREAM_BUDGET       seconds of wall clock the whole score may spend before
+#                         it must answer with what it has — the backstop for six
+#                         mildly slow datasets rather than one badly slow one.
+#
+# Zero disables either. They apply only where something opens a timing window,
+# which today is the API; the CLI and batch jobs are unbudgeted, as they should be
+# — nobody is watching a spinner, and the complete answer is worth the wait.
+# Defaults sit inside the page's own 45 s deadline (docs/label-form.js) with room
+# for the scoring itself, so the reader gets a label rather than a stopwatch.
+def _env_seconds(name: str, default: float) -> float:
+    raw = os.environ.get(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        val = float(raw)
+    except (TypeError, ValueError):
+        return default
+    return val if val >= 0 else default
+
+
+UPSTREAM_BUDGET: float = _env_seconds("UPSTREAM_BUDGET", 30.0)
+UPSTREAM_HOST_BUDGET: float = _env_seconds("UPSTREAM_HOST_BUDGET", 12.0)
+
 # Several upstream GIS WAFs return 403 for the default requests User-Agent, so we
 # present a browser UA on every call.
 USER_AGENT: str = (
