@@ -9,6 +9,14 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.2.8](https://github.com/compbiolover/housing-nutrition-label/compare/v0.2.7...v0.2.8) (2026-08-23)
+
+
+### Features
+
+* **label:** say whether the unknown year built actually matters here ([#299](https://github.com/compbiolover/housing-nutrition-label/issues/299)) ([970ee0f](https://github.com/compbiolover/housing-nutrition-label/commit/970ee0f0550b86c58b26ea0db78de8c727a1f793))
+* **label:** stop guessing the year built from a tract median alone ([#297](https://github.com/compbiolover/housing-nutrition-label/issues/297)) ([f26d41f](https://github.com/compbiolover/housing-nutrition-label/commit/f26d41f583c7f71f8c63a9213f65b7618f86b599))
+
 ## [0.2.7](https://github.com/compbiolover/housing-nutrition-label/compare/v0.2.6...v0.2.7) (2026-08-23)
 
 
