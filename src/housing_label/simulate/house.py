@@ -2195,9 +2195,14 @@ def label_payload(cfg: dict, r: dict, label: dict, include_building: bool = True
         payload["building"] = label.get("building")
         # The sensitivity rides ON the field it is about, next to the interval it
         # quantifies, so a renderer reading building.year_built has the value, how
-        # wide the guess is, and whether the width matters in one place. Copied
-        # rather than aliased so the payload stays a plain JSON tree with no shared
-        # mutable substructure.
+        # wide the guess is, and whether the width matters in one place.
+        #
+        # The two enclosing dicts are copied for one narrow reason: to add this key
+        # WITHOUT writing it into `label["building"]`, which is shared and outlives
+        # this call (label_payload runs more than once per label on the cost-baseline
+        # path). The block itself is still aliased, like `dimensions` and `building`
+        # above it — this function hands out references throughout, and singling one
+        # out for a deep copy would suggest a guarantee the rest does not make.
         sens = label.get("year_built_sensitivity")
         if sens and payload["building"].get("year_built"):
             payload["building"] = dict(payload["building"])
@@ -2443,6 +2448,15 @@ def _year_built_sensitivity(cfg: dict, label: dict, structure: dict, location,
     dist = getattr(location, "year_built_distribution", None) or {}
     p25, p75, median = dist.get("p25"), dist.get("p75"), dist.get("year_built")
     if p25 is None or p75 is None or median is None or p25 >= p75:
+        return None
+    # The displayed year must BE this distribution's median. The autofill
+    # precedence can pick NSI's tract median instead — it outranks the ACS US
+    # typical — and then `current.year` would name the ACS median while
+    # `current.grades` describe the NSI one, a block disagreeing with itself about
+    # which house it is talking about. Same invariant `_building_block` applies
+    # before drawing `typical_range`, for the same reason: the interval and the
+    # counterfactual have to be about the number on screen.
+    if cfg.get("year_built") != median:
         return None
     # A dimension pinned by a caller override does not move with anything, so a
     # "confirming the year could change this" prompt would be false for it.

@@ -33,9 +33,9 @@ from housing_label.simulate.house import (  # noqa: E402
     YEAR_BUILT_DRIVEN, build_label_parts, label_payload,
 )
 
-# Two Shelby County tracts at opposite ends of the vintage range, and one Maricopa
-# tract built almost all at once. Chosen from the bundled crosswalk so they are
-# stable facts about committed data, not about a live service.
+# Two Shelby County, TN tracts at opposite ends of the vintage range, and one Palm
+# Beach County, FL tract built almost all at once. Chosen from the bundled crosswalk
+# so they are stable facts about committed data, not about a live service.
 OLD_TRACT = "47157003100"      # ACS p25/median/p75 = 1935 / 1950 / 1963
 NEW_TRACT = "47157021545"      # 2006 / 2012 / 2017
 TIGHT_TRACT = "12099007850"    # 2019 / 2021 / 2023 — a 4-year spread
@@ -118,6 +118,39 @@ def test_reported_grades_match_an_independent_rescore():
         assert actual == s[side]["grades"], (
             f"{side} endpoint ({year}) disagrees with a full re-score: "
             f"reported {s[side]['grades']}, actual {actual}")
+
+
+def test_no_block_when_the_shown_year_is_not_this_distributions_median():
+    """The block must describe the same house the grades do.
+
+    The autofill precedence can pick NSI's tract median over an ACS row that only
+    resolved nationally — NSI is more local, so it should. But the distribution
+    still carries a median, and reporting it as ``current.year`` while
+    ``current.grades`` describe the NSI year is a block that disagrees with itself.
+    Reproduced before the fix: current.year said 1980 while the grades were a 1948
+    house. Same invariant _building_block applies before drawing typical_range.
+    """
+    from housing_label.simulate.house import _year_built_sensitivity
+
+    parsed = B.parse_row({"lat": "35.15", "lon": "-89.85", "tract": OLD_TRACT})
+    cfg, _r, label = build_label_parts(
+        lat=parsed["lat"], lon=parsed["lon"], geography=parsed["geography"],
+        allow_network=False, **parsed["fields"])
+    loc = label["location"]
+    struct = {"structure_type": None, "num_units": 1, "stories": 1, "bldg_material": None}
+
+    us = {"year_built": 1980, "p25": 1959, "p75": 2000, "spread": 41,
+          "geo_level": "us", "resolved": False}
+    loc.year_built_distribution = us
+
+    disagreeing = dict(cfg)
+    disagreeing["year_built"] = 1948            # NSI's tract median won the precedence
+    assert _year_built_sensitivity(disagreeing, label, struct, loc) is None
+
+    # The same distribution IS usable once the shown year is actually its median.
+    agreeing = dict(cfg)
+    agreeing["year_built"] = 1980
+    assert _year_built_sensitivity(agreeing, label, struct, loc) is not None
 
 
 def test_the_snapshot_is_not_disturbed_by_its_own_counterfactuals():
