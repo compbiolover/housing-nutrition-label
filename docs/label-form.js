@@ -405,6 +405,41 @@ window.LabelForm = (function () {
     function clone(o) { var c = {}, h = Object.prototype.hasOwnProperty; for (var k in o) if (h.call(o, k)) c[k] = o[k]; return c; }
     function findIdx(re) { for (var i = 0; i < state.presets.length; i++) if (re.test(state.presets[i].name)) return i; return -1; }
     function clampIdx(i) { return Math.max(0, Math.min(i, state.presets.length - 1)); }
+    // ── No scoring request waits forever ────────────────────────────────────────
+    // A label is a dozen federal datasets fetched live, and the API's own budget
+    // lets a single stuck upstream cost tens of seconds — several of them, minutes.
+    // Without a deadline here the page just kept saying "Still working", which is
+    // the one thing it could say that was not useful: the reader cannot tell a slow
+    // score from a dead one, and has nothing to do but wait or leave. After this
+    // long we stop, say what happened, and offer the retry that the spinner never
+    // did. 45s is past a normal cold score (a few seconds warm, ~15s cold) and well
+    // short of the minutes a wedged upstream can take.
+    var SCORE_TIMEOUT_MS = 45000;
+    function fetchScoring(url) {
+      if (typeof AbortController !== "function") return fetch(url);   // pre-2017 browser
+      var ctl = new AbortController(), expired = false;
+      var timer = setTimeout(function () { expired = true; ctl.abort(); }, SCORE_TIMEOUT_MS);
+      var pending;
+      try {
+        pending = fetch(url, { signal: ctl.signal });
+      } catch (err) {
+        // fetch() throws synchronously on a malformed URL or a bad init — rare,
+        // but it would leave the timer above running for 45 seconds, and one per
+        // attempt if the reader keeps trying.
+        clearTimeout(timer);
+        throw err;
+      }
+      return pending.then(
+        function (r) { clearTimeout(timer); return r; },
+        function (err) {
+          clearTimeout(timer);
+          if (!expired) throw err;          // a real network error, not our deadline
+          var e = new Error("the scoring API didn't answer within "
+            + Math.round(SCORE_TIMEOUT_MS / 1000) + " seconds");
+          e.status = 0; e.timedOut = true;
+          throw e;
+        });
+    }
     function okJson(r) {
       if (!r.ok) return r.json().then(
         function (j) { var e = new Error((j && j.detail) || ("HTTP " + r.status)); e.status = r.status; throw e; },
@@ -790,7 +825,7 @@ window.LabelForm = (function () {
       setAvailable(btn, false);          // one press at a time; the guard enforces it
       btn.setAttribute("aria-busy", "true");
       actionsNote("Drawing the sheet\u2026");
-      fetch(url + "&download=1")
+      fetchScoring(url + "&download=1")
         .then(function (r) { if (!r.ok) throw new Error(String(r.status)); return r.blob(); })
         .then(function (blob) {
           var href = URL.createObjectURL(blob), a = document.createElement("a");
@@ -850,6 +885,16 @@ window.LabelForm = (function () {
         // outage — show the guidance as a neutral notice, without the "retry" line.
         if (state.errorStatus === 422) {
           app.innerHTML = '<div class="insight warn label-notice">' + esc(state.error) + '</div>';
+        } else if (state.timedOut) {
+          // Not an outage and not a dead end: name the likely cause, and put the
+          // retry in the reader's hand rather than making them retype the address.
+          app.innerHTML = '<div class="insight warn label-notice">'
+            + '<strong>This is taking longer than it should.</strong> One of the public '
+            + 'datasets behind the label is slow to answer right now, so scoring '
+            + esc(placeText()) + ' didn\u2019t finish in '
+            + Math.round(SCORE_TIMEOUT_MS / 1000) + ' seconds. Nothing is wrong with '
+            + 'the address.<br><button type="button" class="reset lf-retry" '
+            + 'style="margin-top:0.7rem;">Try again</button></div>';
         } else {
           app.innerHTML = '<div class="error">Could not load the label: ' + esc(state.error)
             + '.<br>The scoring API may be temporarily unavailable &mdash; retry in a moment.</div>';
@@ -1069,7 +1114,7 @@ window.LabelForm = (function () {
                             : "Comparing densities on this lot…",
         "Re-scoring " + placeText() + " at several unit counts"
         + (build ? " as " + build.name + "." : "."));
-      fetch(API_BASE + "/density?" + densityQuery())
+      fetchScoring(API_BASE + "/density?" + densityQuery())
         .then(okJson)
         .then(function (data) {
           if (seq !== reqSeq) return;
@@ -1154,6 +1199,7 @@ window.LabelForm = (function () {
       return function (err) {
         if (seq !== reqSeq) return;
         state.error = err.message; state.errorStatus = err.status || 0;
+        state.timedOut = !!err.timedOut;
         mainStatus.hide(); setFormBusy(false); render();
       };
     }
@@ -1169,7 +1215,7 @@ window.LabelForm = (function () {
     var profilesPending = null;         // in-flight promise → never fetched twice
     function loadProfiles() {
       if (!API_BASE || state.profiles || profilesPending) return profilesPending;
-      profilesPending = fetch(API_BASE + "/preset-profiles")
+      profilesPending = fetchScoring(API_BASE + "/preset-profiles")
         .then(okJson)
         .then(function (data) {
           var ps = (data && data.profiles) || [];
@@ -1199,7 +1245,7 @@ window.LabelForm = (function () {
       var seq = ++reqSeq; state.error = null; render();
       mainStatus.busy("Scoring construction profiles…", "Building each profile at " + placeText() + ".");
       setFormBusy(true);
-      fetch(API_BASE + "/presets" + descQuery(state.desc))
+      fetchScoring(API_BASE + "/presets" + descQuery(state.desc))
         .then(okJson)
         .then(function (data) {
           if (seq !== reqSeq) return;
@@ -1232,7 +1278,7 @@ window.LabelForm = (function () {
                 : "Reading flood, climate, energy, and neighborhood data for " + placeText() + ".");
       setFormBusy(true);
       var built = buildDetectedParams();
-      fetch(API_BASE + "/label" + built.qs)
+      fetchScoring(API_BASE + "/label" + built.qs)
         .then(okJson)
         .then(function (data) {
           if (seq !== reqSeq) return;
@@ -1266,7 +1312,7 @@ window.LabelForm = (function () {
       render();
       mainStatus.busy("Scoring this address over time…",
         "Reading the climate record and aging the building for " + placeText() + ".");
-      fetch(API_BASE + "/timeline?" + buildDetectedParams().query)
+      fetchScoring(API_BASE + "/timeline?" + buildDetectedParams().query)
         .then(okJson)
         .then(function (data) {
           if (seq !== reqSeq) return;
@@ -1281,6 +1327,14 @@ window.LabelForm = (function () {
         .catch(fail(seq));
     }
 
+    // Retry after a deadline: clear the failure and ask for the same view again,
+    // forcing past the caches, since what is cached is nothing.
+    function retryLoad() {
+      state.error = null; state.errorStatus = 0; state.timedOut = false;
+      if (state.mode === "detected") { loadDetected(true); return; }
+      state.timeline = null; state.density = null; state.presets = null;
+      ensureData();
+    }
     function ensureData() {
       if (state.mode === "density") loadDensity(false);
       else if (state.mode === "detected") loadDetected(false);
@@ -1386,8 +1440,10 @@ window.LabelForm = (function () {
 
     // ── events ────────────────────────────────────────────────────────────────
     app.addEventListener("click", function (e) {
-      var b = e.target.closest ? e.target.closest("button[data-mode]") : null;
-      if (b) setMode(b.getAttribute("data-mode"));
+      if (!e.target.closest) return;
+      var b = e.target.closest("button[data-mode]");
+      if (b) { setMode(b.getAttribute("data-mode")); return; }
+      if (e.target.closest(".lf-retry")) retryLoad();
     });
     // Bound directly, not delegated: these two are built once with the form and
     // survive every re-render of .lf-app, which is the whole point of moving them.

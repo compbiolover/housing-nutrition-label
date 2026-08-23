@@ -86,6 +86,8 @@ Operational env vars::
 from __future__ import annotations
 
 import contextlib
+import functools
+import hashlib
 import logging
 import os
 import threading
@@ -106,6 +108,7 @@ from slowapi.util import get_remote_address
 from housing_label import badge as badge_svg
 from housing_label import entitlements
 from housing_label import label_svg as sheet_svg
+from housing_label import utils
 from housing_label.config import (
     HEADERS, PHOTON_URL, GEOAPIFY_URL, GEOAPIFY_API_KEY,
     GOOGLE_PLACES_AUTOCOMPLETE_URL, GOOGLE_PLACES_DETAILS_URL, GOOGLE_PLACES_API_KEY,
@@ -236,6 +239,11 @@ async def _lifespan(_app):
     # boot past Render's health-check timeout. Off-thread, the port opens
     # immediately, and a request that arrives mid-warm-up simply waits on the same
     # lru_cache it would have populated itself.
+    # Time every outbound call, so a slow score names its own culprit in the log
+    # rather than leaving the next person to guess which of a dozen federal
+    # services is dragging. Installed here, by the application, so the CLI and
+    # batch jobs are unaffected (housing_label.utils.install_timing).
+    utils.install_timing()
     if os.environ.get("WARMUP", "1").strip().lower() not in ("0", "off", "false", "no"):
         threading.Thread(target=_warmup, name="warmup", daemon=True).start()
     yield
@@ -994,6 +1002,71 @@ def place(place_id: str | None = None, session: str | None = None) -> dict:
     return result
 
 
+@contextlib.contextmanager
+def _upstream_timing(context: str):
+    """Record this request's upstream timings and report them, always.
+
+    A scoring request is a dozen live federal fetches; the window is what turns
+    "the page was slow" into "earthquake.usgs.gov took 23s of it". Closing it in
+    a ``finally`` is not tidiness: recording is per-thread and these threads are
+    reused, so a window left open by a request that raised is one the next
+    request starts filling. And the timings of a request that failed are the ones
+    most worth having — a 502 after three minutes of upstream is exactly the line
+    somebody will go looking for.
+    """
+    utils.begin()
+    started = time.monotonic()
+    try:
+        yield
+    finally:
+        utils.log_upstreams(context, time.monotonic() - started)
+
+
+def _timing_context(name: str, address, lat, lon) -> str:
+    """Name a request in the timing log without writing down where somebody lives.
+
+    The line exists to say which upstream was slow, not for whom. An address is
+    reduced to a short digest: enough to tell two concurrent requests apart and
+    to group retries of one, and no way back to the street. This module already
+    argues (see the Cache-Control block) that where a visitor lives is not to be
+    handed around casually; a log line at INFO on every successful score is
+    exactly the casual place. Before this, an address reached the log only when
+    scoring raised.
+
+    Coordinates are kept as they are — they are the handle an operator needs to
+    reproduce a slow score — and only when both halves are present, because
+    "None,None" is not a location, it is a /presets call with no address.
+    """
+    key = _key_addr(address)
+    if key:
+        return f"{name} addr#{hashlib.sha256(key.encode('utf-8')).hexdigest()[:8]}"
+    if lat is not None and lon is not None:
+        return f"{name} {lat},{lon}"
+    return name
+
+
+def _times_upstreams(name: str):
+    """Give an endpoint the timing window, without reshaping its body.
+
+    A decorator rather than a ``with`` inside each one: these bodies run 70 to
+    115 lines and wrapping them by hand is five reindentations for no behaviour,
+    which is how a mechanical edit becomes a bug on a production fix. FastAPI
+    reads the signature through ``functools.wraps``, so the endpoint it sees is
+    the one that was written.
+
+    It goes on every endpoint that scores, because the one that hangs is never
+    the one you instrumented.
+    """
+    def decorate(fn):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            with _upstream_timing(_timing_context(
+                    name, kwargs.get("address"), kwargs.get("lat"), kwargs.get("lon"))):
+                return fn(*args, **kwargs)
+        return wrapper
+    return decorate
+
+
 @app.get("/label")
 def label(
     response: Response,
@@ -1062,46 +1135,51 @@ def label(
     if cached is not None:
         return cached
 
-    try:
-        cfg, r, lbl = build_label_parts(
-            address=address, lat=lat, lon=lon, preset=preset, flood_zone=flood_zone,
-            upgrades=upgrade_list,
-            allow_network=True, allow_non_residential=allow_non_residential,
-            year_built=year_built, construction=construction, foundation=foundation,
-            condition=condition, value=value, units=units, sqft=sqft, lot_acres=lot_acres,
-            bldg_material=bldg_material, stories=stories,
-            owner_occupied=owner_occupied,
-            water_source=water_source, sewer=sewer, lot_context=lot_context,
+    # One window per scoring request, opened and — whatever happens — closed.
+    # A request that raises must not leave one open on a threadpool thread for
+    # the next request to start filling, and its timings are the ones most worth
+    # having: a 502 after three minutes of upstream is the log line you want.
+    with _upstream_timing(_timing_context("label", address, lat, lon)):
+        try:
+            cfg, r, lbl = build_label_parts(
+                address=address, lat=lat, lon=lon, preset=preset, flood_zone=flood_zone,
+                upgrades=upgrade_list,
+                allow_network=True, allow_non_residential=allow_non_residential,
+                year_built=year_built, construction=construction, foundation=foundation,
+                condition=condition, value=value, units=units, sqft=sqft, lot_acres=lot_acres,
+                bldg_material=bldg_material, stories=stories,
+                owner_occupied=owner_occupied,
+                water_source=water_source, sewer=sewer, lot_context=lot_context,
+            )
+        except NonResidentialProperty as exc:
+            # Not bad input — a deliberate residential-only screen. 422 (Unprocessable
+            # Content) lets the frontend distinguish "we won't score this" from a 400
+            # validation error or a 502 upstream failure, and show the guidance verbatim.
+            raise HTTPException(422, str(exc))
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+        except Exception:  # noqa: BLE001 — don't leak internals; log server-side
+            log.exception("scoring failed (address=%r lat=%r lon=%r)", address, lat, lon)
+            raise HTTPException(502, "scoring failed")
+        payload = label_payload(cfg, r, lbl)
+        # When the scored home IS its own baseline comparable, the delta is 0 by
+        # definition — reuse the already-computed house cost instead of a redundant
+        # (network-hitting) second scoring pass. See _is_self_baseline.
+        is_self_baseline = _is_self_baseline(
+            preset, year_built=year_built, construction=construction,
+            foundation=foundation, condition=condition, bldg_material=bldg_material,
+            upgrade_list=upgrade_list,
         )
-    except NonResidentialProperty as exc:
-        # Not bad input — a deliberate residential-only screen. 422 (Unprocessable
-        # Content) lets the frontend distinguish "we won't score this" from a 400
-        # validation error or a 502 upstream failure, and show the guidance verbatim.
-        raise HTTPException(422, str(exc))
-    except ValueError as exc:
-        raise HTTPException(400, str(exc))
-    except Exception:  # noqa: BLE001 — don't leak internals; log server-side
-        log.exception("scoring failed (address=%r lat=%r lon=%r)", address, lat, lon)
-        raise HTTPException(502, "scoring failed")
-    payload = label_payload(cfg, r, lbl)
-    # When the scored home IS its own baseline comparable, the delta is 0 by
-    # definition — reuse the already-computed house cost instead of a redundant
-    # (network-hitting) second scoring pass. See _is_self_baseline.
-    is_self_baseline = _is_self_baseline(
-        preset, year_built=year_built, construction=construction,
-        foundation=foundation, condition=condition, bldg_material=bldg_material,
-        upgrade_list=upgrade_list,
-    )
-    _attach_baseline_cost(payload, lbl, cfg, self_baseline=is_self_baseline)
-    _attach_detached_cost(payload, r, cfg)   # multi-unit → density-dividend line
-    # Don't cache a degraded label. When NSI structure detection was unavailable
-    # (a transient upstream outage), the building falls back to generic defaults —
-    # caching that would pin a wrong "single-family / defaults" label onto this
-    # exact coordinate for the whole TTL, poisoning a bookmarked or shared URL.
-    # Skip the cache so the next request re-detects the real building.
-    if not getattr(lbl.get("location"), "structure_unavailable", False):
-        _result_cache.put(cache_key, payload)
-    return payload
+        _attach_baseline_cost(payload, lbl, cfg, self_baseline=is_self_baseline)
+        _attach_detached_cost(payload, r, cfg)   # multi-unit → density-dividend line
+        # Don't cache a degraded label. When NSI structure detection was unavailable
+        # (a transient upstream outage), the building falls back to generic defaults —
+        # caching that would pin a wrong "single-family / defaults" label onto this
+        # exact coordinate for the whole TTL, poisoning a bookmarked or shared URL.
+        # Skip the cache so the next request re-detects the real building.
+        if not getattr(lbl.get("location"), "structure_unavailable", False):
+            _result_cache.put(cache_key, payload)
+        return payload
 
 
 _BASELINE_LABEL = "a same-size 2000-era frame home"
@@ -1268,6 +1346,7 @@ _PRESETS_DEFAULT_LAT, _PRESETS_DEFAULT_LON = 35.13, -89.99
 
 
 @app.get("/badge")
+@_times_upstreams("badge")
 def badge(
     response: Response,
     caller: Caller = Depends(_caller),
@@ -1477,6 +1556,7 @@ def preset_profiles() -> dict:
 
 
 @app.get("/presets")
+@_times_upstreams("presets")
 def presets(
     response: Response,
     caller: Caller = Depends(_caller),
@@ -1549,6 +1629,7 @@ _DENSITY_MAX_SCENARIOS = 6
 
 
 @app.get("/density")
+@_times_upstreams("density")
 def density(
     response: Response,
     caller: Caller = Depends(_caller),
@@ -1644,6 +1725,7 @@ _TIMELINE_MAX_POINTS = TIMELINE_MAX_POINTS
 
 
 @app.get("/timeline")
+@_times_upstreams("timeline")
 def timeline(
     response: Response,
     caller: Caller = Depends(_caller),
