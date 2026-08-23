@@ -706,9 +706,16 @@ window.LabelForm = (function () {
     // needs a view that maps to a single /label.svg query, which Compare and the
     // density sweeps do not.
     function syncActions() {
+      // A sweep that is re-scoring dims its table rather than emptying it (see
+      // loadDensity), which means the table on screen is the *previous* answer.
+      // Superseded is not printable — the same rule `busy` applies to a card
+      // being re-scored, and the reason .is-busy is read here rather than just
+      // the presence of a table.
+      var sweep = !!densResult && !!densResult.querySelector("table")
+        && !densResult.classList.contains("is-busy");
       var have = !busy && !state.idle && !state.error
-        && !!(app.querySelector(".label-card, table")      // a card, or Over time's tables
-              || (densResult && densResult.querySelector("table")));   // or a sweep
+        && (!!app.querySelector(".label-card, table")   // a card, or Over time's tables
+            || sweep);
       setAvailable(printBtn, have);
       // A sheet already being drawn owns its button until it lands. Availability
       // is otherwise recomputed from scratch here, so any re-render during the
@@ -719,6 +726,13 @@ window.LabelForm = (function () {
     }
     function setAvailable(btn, on) {
       if (btn) btn.setAttribute("aria-disabled", on ? "false" : "true");
+    }
+    // Every flip of the sweep's dimmed state goes through here, because the class
+    // is now part of the answer syncActions gives.
+    function setSweepBusy(on) {
+      if (!densResult) return;
+      densResult.classList.toggle("is-busy", !!on);
+      syncActions();
     }
     function drawing() {
       return !!svgBtn && svgBtn.getAttribute("aria-busy") === "true";
@@ -954,8 +968,8 @@ window.LabelForm = (function () {
         }
       }
       html += LC.legalNote(data);               // tables, not cards — see timelinePanel()
-      densResult.classList.remove("is-busy");   // fresh numbers — undim
       densResult.innerHTML = html;
+      setSweepBusy(false);                      // fresh numbers — undim
     }
     // Picking either sweep runs the comparison straight away — it's a view, not a
     // two-step ritual, so selecting it should produce the answer. The detected
@@ -1002,7 +1016,7 @@ window.LabelForm = (function () {
       // — a wrong answer wearing the right label. Say so instead of scoring it.
       if (build && !sweepSlug(build)) {
         densResult.innerHTML = "";
-        densResult.classList.remove("is-busy");
+        setSweepBusy(false);
         densStatus.error("Could not compare densities",
           "The " + build.name + " profile came back without an identifier, so it "
           + "can’t be built at other densities here.");
@@ -1015,10 +1029,10 @@ window.LabelForm = (function () {
       // busy banner right above it says what's happening. Only the first sweep,
       // with nothing to keep, gets a skeleton.
       if (densResult.querySelector("table")) {
-        densResult.classList.add("is-busy");
+        setSweepBusy(true);
       } else {
-        densResult.classList.remove("is-busy");
         densResult.innerHTML = densitySkeleton();
+        setSweepBusy(false);
       }
       densStatus.busy(build ? "Comparing densities for the " + build.name + " build…"
                             : "Comparing densities on this lot…",
@@ -1045,7 +1059,7 @@ window.LabelForm = (function () {
           if (seq !== reqSeq) return;
           // The stale table stays, but undimmed: it is the last real answer, and
           // leaving it greyed out under an error would imply it's still updating.
-          densResult.classList.remove("is-busy");
+          setSweepBusy(false);
           densStatus.error("Could not compare densities", err.message);
         });
     }

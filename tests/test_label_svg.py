@@ -356,6 +356,14 @@ def test_the_export_buttons_wait_for_a_label_before_offering_one():
         "a re-render can re-enable the button mid-download"
     assert 'aria-busy") === "true"' in form.split("function unavailable")[1][:220], \
         "busy must count as unavailable whoever set it"
+    # Same rule for the density sweep, which dims its table rather than emptying it
+    # while it re-scores: what is on screen then is the PREVIOUS answer, and
+    # superseded is not printable. Every write of that class routes through one
+    # setter, because the class is now part of the answer syncActions gives.
+    assert 'classList.contains("is-busy")' in form.split("function syncActions")[1][:600], \
+        "a re-scoring sweep counts as printable output"
+    assert 'densResult.classList.add("is-busy")' not in form, "an is-busy write bypasses the setter"
+    assert 'densResult.classList.remove("is-busy")' not in form, "an is-busy write bypasses the setter"
     # One switch, called from every place the answer can change: after a render,
     # and on both edges of a score.
     assert "function syncActions" in form
