@@ -348,6 +348,14 @@ def test_the_export_buttons_wait_for_a_label_before_offering_one():
         assert f'class="reset {cls}" disabled' not in form, f"{cls} is natively disabled"
     assert "function unavailable" in form and "function setAvailable" in form
     assert form.count("unavailable(") >= 3, "a press on an unavailable button is not guarded"
+    # A sheet already being drawn owns its button until it lands. Availability is
+    # otherwise recomputed from scratch on every render, so a mode switch or a
+    # finished re-score during the fetch would hand the button back and let a
+    # second press start a second download of the same sheet.
+    assert "if (!drawing()) setAvailable(svgBtn" in form, \
+        "a re-render can re-enable the button mid-download"
+    assert 'aria-busy") === "true"' in form.split("function unavailable")[1][:220], \
+        "busy must count as unavailable whoever set it"
     # One switch, called from every place the answer can change: after a render,
     # and on both edges of a score.
     assert "function syncActions" in form

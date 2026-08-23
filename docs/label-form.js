@@ -710,14 +710,24 @@ window.LabelForm = (function () {
         && !!(app.querySelector(".label-card, table")      // a card, or Over time's tables
               || (densResult && densResult.querySelector("table")));   // or a sweep
       setAvailable(printBtn, have);
-      setAvailable(svgBtn, have && !!sheetQuery());
-      if (!have) actionsNote("");
+      // A sheet already being drawn owns its button until it lands. Availability
+      // is otherwise recomputed from scratch here, so any re-render during the
+      // fetch — a mode switch, a re-score finishing — would hand the button back
+      // and let a second press start a second download of the same sheet.
+      if (!drawing()) setAvailable(svgBtn, have && !!sheetQuery());
+      if (!have && !drawing()) actionsNote("");
     }
     function setAvailable(btn, on) {
       if (btn) btn.setAttribute("aria-disabled", on ? "false" : "true");
     }
+    function drawing() {
+      return !!svgBtn && svgBtn.getAttribute("aria-busy") === "true";
+    }
+    // Busy counts as unavailable whoever set it, so the guard holds even if some
+    // path leaves aria-disabled behind.
     function unavailable(btn) {
-      return !btn || btn.getAttribute("aria-disabled") === "true";
+      return !btn || btn.getAttribute("aria-disabled") === "true"
+        || btn.getAttribute("aria-busy") === "true";
     }
     function actionsNote(text) {
       var n = q(".lf-actions-note");
@@ -1350,9 +1360,13 @@ window.LabelForm = (function () {
     });
     if (svgBtn) svgBtn.addEventListener("click", function () {
       if (unavailable(svgBtn)) {
-        actionsNote(sheetQuery()
-          ? "Score an address first \u2014 then this saves the label as an SVG."
-          : "This view is more than one label. Switch to a single label to save one.");
+        // Three different reasons, and "nothing happened" is the wrong answer to
+        // all of them — least of all to a second press on a sheet already drawing.
+        actionsNote(drawing()
+          ? "Still drawing the sheet\u2026"
+          : sheetQuery()
+            ? "Score an address first \u2014 then this saves the label as an SVG."
+            : "This view is more than one label. Switch to a single label to save one.");
         return;
       }
       saveSheet(svgBtn);
