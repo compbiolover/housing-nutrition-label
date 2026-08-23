@@ -1768,6 +1768,11 @@ def density(
     except Exception:  # noqa: BLE001 — don't leak internals; log server-side
         log.exception("density failed (address=%r lat=%r lon=%r)", address, lat, lon)
         raise HTTPException(502, "density comparison failed")
+    # Same field as /label and /presets: every view the reader can switch to says
+    # for itself which datasets its own scoring pass gave up on.
+    dropped = _dropped_datasets()
+    if dropped:
+        result["slow_upstreams"] = dropped
     # Same rule as /label and /presets: don't pin a sweep built on generic
     # defaults (NSI unreachable, or a dataset dropped for slowness) onto this
     # parcel for the whole TTL.
@@ -1872,6 +1877,11 @@ def timeline(
     except Exception:  # noqa: BLE001 — don't leak internals; log server-side
         log.exception("timeline failed (address=%r lat=%r lon=%r)", address, lat, lon)
         raise HTTPException(502, "timeline failed")
+    # Same field as /label and /presets: every view the reader can switch to says
+    # for itself which datasets its own scoring pass gave up on.
+    dropped = _dropped_datasets()
+    if dropped:
+        result["slow_upstreams"] = dropped
     # Same rule as /label and /density: don't pin a sweep built on generic defaults
     # (NSI unreachable, or a dataset dropped for slowness) onto this parcel for the
     # whole TTL.

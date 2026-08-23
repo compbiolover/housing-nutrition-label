@@ -890,13 +890,26 @@ window.LabelForm = (function () {
     // The API names the datasets it dropped (payload.slow_upstreams); the wording
     // is here, because it is the page that has to say it in a sentence.
     function slowDataNote() {
-      // Only the two views scored through a payload that carries the field. The
-      // sweeps ("What-if denser", "Over time") re-score at the same location, so
-      // whatever was slow for them was slow for the card above them too.
-      var list = state.mode === "single" || state.mode === "compare"
-        ? state.presetsSlow
-        : (state.detected || {}).slow_upstreams;
-      if (!list || !list.length) return "";
+      // Every payload on screen, not the one this mode happens to render from.
+      // Picking per mode looked tidier and quietly dropped the disclosure in the
+      // combined view, which can reach its profile list through /presets without
+      // a /label having been scored at all — the one path where `detected` is
+      // null and `presetsSlow` is not. These four are all scored at the same
+      // location and the reader toggles between them freely, so a dataset that
+      // was too slow for any of them is a caveat on all of them until the next
+      // score clears it (each load replaces its own payload, so a name here is
+      // never older than the view it came from).
+      var seen = {}, list = [];
+      [(state.detected || {}).slow_upstreams,
+       state.presetsSlow,
+       (densityCache() || {}).slow_upstreams,
+       (state.timeline || {}).slow_upstreams].forEach(function (from) {
+        (from || []).forEach(function (u) {
+          var key = (u && (u.host || u.dataset)) || "";
+          if (key && !seen[key]) { seen[key] = 1; list.push(u); }
+        });
+      });
+      if (!list.length) return "";
       var names = list.map(function (u) { return esc((u && (u.dataset || u.host)) || "a public dataset"); });
       var which = names.length === 1 ? names[0]
         : names.slice(0, -1).join(", ") + " and " + names[names.length - 1];

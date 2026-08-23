@@ -573,6 +573,13 @@ def test_the_page_says_it_in_a_sentence():
     note = form.split("function slowDataNote", 1)[1].split("\n    function ", 1)[0]
     assert "N/A" in note, "the note never says what a missing dataset leaves behind"
     assert "lf-retry" in note, "the note offers no way to try again"
+    # Reading whichever payload the current mode renders from looked tidier and
+    # silently dropped the disclosure in the combined view, which can reach its
+    # profile list through /presets with no /label scored at all. Every payload on
+    # screen is consulted instead, so no view can lose the notice by being added.
+    for source in ("state.detected", "state.presetsSlow", "densityCache()", "state.timeline"):
+        assert source in note, f"the note never looks at {source}"
+    assert "state.mode" not in note, "the note is gated on the mode again"
 
 
 def _run_all():
