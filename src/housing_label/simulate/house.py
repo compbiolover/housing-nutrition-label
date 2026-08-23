@@ -2339,15 +2339,25 @@ def _autofill_construction_from_nsi(cfg: dict, explicit: set, location,
         sqft_src, sqft_conf = "NSI · building area ÷ units, less common area (per unit)", "moderate" if observed else "low"
     else:
         sqft_src, sqft_conf = "NSI · structure record", "high" if observed else "moderate"
+    # Where the year comes from when nobody has told us. Both candidates are area
+    # typicals, not measurements: NSI's med_yr_blt is, in its own documentation,
+    # "the median year built of structures within the Census tract", and the ACS row
+    # is the same central tendency for the same tract. The ACS one wins because it
+    # is dated, citable, and — the reason it was bundled — carries the SPREAD that
+    # NSI never had, so the label can say how wide a stand-in it is (the median US
+    # tract spans 27 years between its quartiles). NSI stays as the fallback for a
+    # point the ACS crosswalk cannot place. Either way the status is "assumed": a
+    # better stand-in is still a stand-in, and calling it an estimate of THIS
+    # building would imply a measurement nobody took.
+    dist = getattr(location, "year_built_distribution", None) or {}
+    if dist.get("year_built") is not None:
+        yb_val, yb_src = dist["year_built"], dist.get("source") or (
+            "area typical year built (ACS) — not this building's")
+    else:
+        yb_val, yb_src = (getattr(location, "year_built", None),
+                          "census-tract median year built (NSI) — not this building's")
     plan = [
-        # NSI's med_yr_blt is, in its own documentation, "the median year built of
-        # structures within the Census tract" — a property of the tract, never of
-        # this building. It is still the best prior available (dropping it would
-        # fall back to a flat national default, which is worse), so it is kept and
-        # relabelled rather than removed: "assumed", naming the tract, so the panel
-        # renders it as a stand-in rather than as something measured here.
-        ("year_built",   getattr(location, "year_built", None),
-         "census-tract median year built (NSI) — not this building's", "low", "assumed"),
+        ("year_built",   yb_val, yb_src, "low", "assumed"),
         ("sqft",         sqft_val, sqft_src, sqft_conf),
         ("construction", getattr(location, "construction", None), "NSI · material class (coarse estimate)", "low"),
         ("foundation",   getattr(location, "foundation", None), "NSI · structure record", "moderate" if observed else "low"),
@@ -2452,6 +2462,23 @@ def _building_block(cfg: dict, struct: dict, explicit: set, autofilled: dict,
         else:
             out[field] = {"value": value, "status": "assumed",
                           "source": "typical default", "confidence": "low"}
+
+    # The year-built interval. A bare median cannot say how wrong it might be, and
+    # the answer varies enormously by place: the middle half of homes spans 8 years
+    # in a new subdivision and 50 in a mixed-vintage neighbourhood (median US tract:
+    # 27). Carried on the field itself rather than in confidence.bands, which is
+    # reserved for score-space whiskers on a dimension — this is an input-space
+    # interval on an input, and conflating the two would put a data gap and a
+    # climate scenario spread on the same channel.
+    #
+    # Only while the value is still ours to doubt: once the reader confirms the real
+    # year, what the neighbours did stops bearing on it.
+    yb = out.get("year_built")
+    dist = getattr(location, "year_built_distribution", None) or {}
+    if (yb is not None and yb.get("status") != "confirmed"
+            and dist.get("p25") is not None and dist.get("p75") is not None):
+        yb["typical_range"] = [dist["p25"], dist["p75"]]
+        yb["range_geo_level"] = dist.get("geo_level")
     return out
 
 

@@ -7,6 +7,7 @@ Run directly:  python tests/test_batch.py
 import io
 
 from housing_label import batch as B
+from housing_label.data import year_built as year_built_data
 from housing_label.simulate.dimensions import DIMENSIONS
 from housing_label.simulate.house import build_label_parts, label_payload
 
@@ -376,21 +377,46 @@ def test_resume_skips_by_position_not_by_id():
 
 # ── Defaulted-input provenance ───────────────────────────────────────────────
 def test_a_row_with_no_building_attributes_says_so():
-    """The finding this whole column exists for: an attribute-free row is scored as
-    a 2024 wood-frame slab 2,000 sqft house in flood zone X, which grades ~A on the
-    Building axis — and n_scored still reads 13/13. Nothing in the output
-    distinguished that from a measured A."""
+    """The finding this whole column exists for: an attribute-free row is scored as a
+    generic wood-frame slab 2,000 sqft house in flood zone X — and n_scored still
+    reads 13/13. Nothing in the output distinguished that from a measured grade."""
     rec = next(B.score_rows([{"lat": "35.15", "lon": "-89.85", "tract": SHELBY_TRACT}],
                             allow_network=False))
     assert rec["error"] is None and rec["n_scored"] == 13
     assert rec["building_source"] == "defaulted"
     defaulted = rec["defaulted_inputs"].split(",")
+    # year_built is still ASSUMED even though it is now the tract's ACS median
+    # rather than a flat default: an area typical is not a fact about this house,
+    # and the column exists to say so.
     assert "year_built" in defaulted
     # Offline every parcel in the country defaults to zone X (minimal) — the best
     # of the three — so a book of coastal AE properties would otherwise read as
     # though none of them were in a floodplain.
     assert "flood_zone" in defaulted
-    assert rec["building_score"] > 70, "the default house grades optimistically"
+
+
+def test_the_defaulted_year_built_is_the_tracts_own_median():
+    """The assumed vintage is this tract's, not a national stand-in.
+
+    Pinned because the bundled ACS crosswalk resolves offline, so the batch path
+    gets it for free — and the failure mode if that ever regresses is silent: the
+    row would still score, still say "defaulted", and just quietly describe a
+    different house.
+    """
+    dist = year_built_data.year_built_distribution_for(SHELBY_TRACT)
+    assert dist is not None and dist["geo_level"] == "tract"
+
+    # The batch record reports scores, not inputs, so read the same payload batch
+    # scores from (batch.py drives build_label_parts / label_payload directly).
+    parsed = B.parse_row({"lat": "35.15", "lon": "-89.85", "tract": SHELBY_TRACT})
+    cfg, r, label = build_label_parts(lat=parsed["lat"], lon=parsed["lon"],
+                                      geography=parsed["geography"],
+                                      allow_network=False, **parsed["fields"])
+    yb = label_payload(cfg, r, label)["building"]["year_built"]
+    assert yb["value"] == dist["year_built"]
+    assert yb["status"] == "assumed", "an area typical must never read as measured"
+    assert "not this building" in yb["source"]
+    assert yb["typical_range"] == [dist["p25"], dist["p75"]]
 
 
 def test_a_fully_specified_row_reads_supplied():
@@ -412,10 +438,17 @@ def test_a_partly_specified_row_names_the_missing_fields():
     assert {"construction", "foundation", "condition", "flood_zone"} <= missing
 
 
-def test_defaults_move_the_building_grade_by_most_of_the_scale():
-    """States the size of the error, so the warning is not taken as pedantry: the
-    same tract scores A or F on the Building axis depending only on whether the
-    attributes were supplied."""
+def test_defaults_still_move_the_building_grade():
+    """States the size of the remaining error, so the warning is not taken as
+    pedantry — while no longer overstating it.
+
+    This assertion used to demand a 40-point gap, which held only because an
+    attribute-free row was scored as a 2024 new build in a 1950s neighbourhood. Now
+    that the assumed vintage follows the tract, most of that gap was never about the
+    missing *attributes* at all — it was one bad default. What is left (condition,
+    construction, foundation) is real and still worth a grade step, so the warning
+    stands on a smaller, truer number.
+    """
     # Same tract, same flood zone, so the ONLY difference is whether the building
     # attributes were supplied.
     blank = next(B.score_rows([{"lat": "35.15", "lon": "-89.85",
@@ -427,13 +460,34 @@ def test_defaults_move_the_building_grade_by_most_of_the_scale():
                              allow_network=False))
     assert blank["building_source"] == "defaulted"
     assert real["building_source"] == "supplied"
-    assert blank["building_score"] - real["building_score"] > 40
+    assert blank["building_score"] - real["building_score"] > 10
     # The Site half barely moves — 0.4 of a point here, and only because Air
     # Quality reads the foundation for radon exposure. That asymmetry is why the
     # provenance is reported for the building half specifically instead of the
     # whole row being discarded: Site-only scoring is a legitimate product for a
     # customer who holds no building data.
     assert abs(blank["site_score"] - real["site_score"]) < 1.0
+
+
+def test_a_defaulted_grade_follows_the_neighbourhoods_vintage():
+    """The improvement, pinned: the default is no longer a flat optimistic constant.
+
+    Two Shelby County tracts, identical rows, nothing supplied. The 1950s tract has
+    to grade far below the 2010s one — if this ever collapses to a single number
+    again, every book of older housing silently reads as new construction, which is
+    the bias the provenance columns were added to expose.
+    """
+    def _blank(tract):
+        return next(B.score_rows([{"lat": "35.15", "lon": "-89.85", "tract": tract}],
+                                 allow_network=False))
+
+    old_tract, new_tract = "47157003100", "47157021545"   # ACS medians 1950 and 2012
+    a, b = _blank(old_tract), _blank(new_tract)
+    assert a["building_source"] == b["building_source"] == "defaulted"
+    assert b["building_score"] - a["building_score"] > 40, (
+        f"defaulted grades barely differ between a 1950s and a 2010s tract "
+        f"({a['building_score']} vs {b['building_score']}) — the assumed vintage "
+        f"is not tracking the neighbourhood")
 
 
 def test_the_run_summary_counts_defaulted_and_partial_separately():

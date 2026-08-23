@@ -200,7 +200,7 @@ The national/local thresholds are identical across all dimensions, so a grade me
 ## Data Sources
 
 <details>
-<summary><strong>All sources & API-key requirements</strong> (13 datasets, all free)</summary>
+<summary><strong>All sources & API-key requirements</strong> (19 datasets, all free)</summary>
 
 | Source | Provides | API key |
 |---|---|---|
@@ -221,6 +221,7 @@ The national/local thresholds are identical across all dimensions, so a grade me
 | [PVGIS](https://re.jrc.ec.europa.eu/) (EU JRC) on NREL NSRDB | County rooftop solar specific yield (Solar Potential) | Free, no key (bundled) |
 | [EPA SDWIS](https://www.epa.gov/ground-water-and-drinking-water/safe-drinking-water-information-system-sdwis-federal-reporting) | County community-water-system health-based violations (Water Quality) | Free, no key (bundled) |
 | [Census ACS 5-yr Summary File](https://www.census.gov/programs-surveys/acs/data/summary-file.html) | Socioeconomic indicators (poverty, income, housing-cost burden), national reference | Free, no key (bundled; the live scoring path needs no key) |
+| [Census ACS 5-yr Summary File](https://www.census.gov/programs-surveys/acs/data/summary-file.html) | Tract year-built distribution — B25034 quartiles + B25035 median (the vintage stand-in and its spread, when nobody supplies the real year) | Free, no key (bundled) |
 | [EPA National Walkability Index](https://www.epa.gov/smartgrowth/national-walkability-index-user-guide-and-methodology) | Walkability (block-group index, aggregated to tract) | Free, public domain (bundled) |
 
 > Tract geocoding for the health and socioeconomic joins uses the free [FCC Area API](https://geo.fcc.gov/api/census/) (no key).
@@ -332,20 +333,29 @@ merged.
 ### What happens if you don't supply the building attributes
 
 A row that carries only a position and a tract still scores all thirteen dimensions —
-but the five construction-driven ones are scored against a **typical house**: a 2024
-wood-frame slab-on-grade 2,000 sqft build, and offline every parcel in the country
-defaults to flood zone X (minimal). Measured on one Memphis tract:
+but the five construction-driven ones are scored against a **typical house**: a
+wood-frame slab-on-grade 2,000 sqft build of the tract's typical vintage, and offline
+every parcel in the country defaults to flood zone X (minimal). Measured on one
+Memphis tract (47157003100, whose homes are typically from 1950):
 
 | | nothing supplied | 1948 frame/crawl/poor, zone AE |
 |---|---|---|
-| Building axis | **92.9 (A)** | **8.3 (F)** |
+| Building axis | **22.4 (D)** | **10.7 (F)** |
 | Site axis | 42.0 | 42.4 *(this half is real either way)* |
 | `n_scored` | 13 | 13 |
 
-The defaults are not neutral — a new build and a minimal flood zone are both near the
-optimistic end — so on a whole book the error is a systematic bias toward new
-construction and away from flood risk, not noise that averages out. `n_scored` doesn't
-catch it, because thirteen dimensions really were scored.
+The default year built used to be a flat 2024, which graded **92.9 (A)** on that same
+tract — a book of century-old housing read as new construction. It is now the tract's
+ACS median year built ([`data/year_built.py`](src/housing_label/data/year_built.py),
+bundled, so it resolves offline here too), which follows the neighbourhood instead of
+flattering it: the same attribute-free row grades **19 in a 1950s Memphis tract and 84
+in a 2010s one**.
+
+The remaining defaults are still not neutral — a minimal flood zone and an average
+condition both sit toward the optimistic end — so on a whole book there is still a
+systematic bias, not noise that averages out, and `n_scored` doesn't catch it because
+thirteen dimensions really were scored. What changed is that the largest single source
+of that bias is gone.
 
 So every scored row reports where its building inputs came from:
 

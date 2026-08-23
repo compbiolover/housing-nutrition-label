@@ -33,6 +33,7 @@ from housing_label.data import climate_projections as climate_proj_data
 from housing_label.data import egrid as egrid_data
 from housing_label.data import cambium as cambium_data
 from housing_label.data import wildfire as wildfire_data
+from housing_label.data import year_built as year_built_data
 from housing_label.data import tornado as tornado_data
 
 GEOCODER_ONELINE = "https://geocoding.geo.census.gov/geocoder/geographies/onelineaddress"
@@ -60,6 +61,11 @@ class Location:
     climate_projection: dict | None = None  # CMIP6-LOCA2 hazard projection (tract→county→US)
     wildfire: dict | None = None          # FEMA NRI wildfire hazard (tract→county→US)
     tornado: dict | None = None           # FEMA NRI tornado hazard (tract→county→US)
+    # When the homes AROUND this point were built (ACS B25034/B25035, tract→county→US):
+    # {year_built, p25, p75, spread, …}. An area typical with its spread attached —
+    # the stand-in used when nobody has told us this building's real year, and the
+    # only thing that says how wide a stand-in it is.
+    year_built_distribution: dict | None = None
     # Building structure at this point (USACE National Structure Inventory). Best
     # effort — all None when NSI is unavailable or the point isn't a building.
     structure_type: str | None = None     # single_family | multifamily | manufactured | ...
@@ -372,6 +378,19 @@ def resolve_location(
     if loc.county_fips and not loc.tornado.get("resolved"):
         notes["tornado"] = (
             f"county {loc.county_fips} not in NRI tornado crosswalk; using US average")
+
+    # Year-built distribution (ACS B25034/B25035): tract→county→national, same
+    # shape as the hazard lookups above. This is NOT a fact about the building on
+    # this parcel — it is when its neighbours were built, and how much they vary.
+    # The label uses the median as a stand-in for an unknown year and the quartiles
+    # to say how much of a stand-in it is. Unlike the hazard rows it can be None
+    # (no geography resolved at all), so every reader must guard.
+    loc.year_built_distribution = year_built_data.year_built_distribution_for(
+        loc.tract, loc.county_fips)
+    if loc.county_fips and not (loc.year_built_distribution or {}).get("resolved"):
+        notes["year_built"] = (
+            f"county {loc.county_fips} not in the ACS year-built crosswalk; "
+            f"using the US typical")
 
     # Building structure (USACE NSI, live keyless API): what kind of building sits
     # here — single-family, multi-family, unit count, stories. Best effort; leaves

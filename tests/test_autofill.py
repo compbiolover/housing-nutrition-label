@@ -193,6 +193,72 @@ def test_autofill_fills_unset_fields():
     assert filled["sqft"][1] == "high"           # parcel-observed → high confidence
 
 
+def test_acs_distribution_outranks_nsi_median_year():
+    """Two tract medians disagree; the dated, citable one with a spread wins.
+
+    NSI's med_yr_blt and the ACS row answer the same question about the same tract.
+    The ACS one is preferred because it is versioned, attributable, and carries the
+    quartiles — but it is still an area typical, so the status must stay "assumed".
+    """
+    loc = _loc(year_built=1960,
+               year_built_distribution={"year_built": 1993, "p25": 1985, "p75": 2004,
+                                        "spread": 19, "geo_level": "tract",
+                                        "resolved": True,
+                                        "source": "neighborhood typical year built "
+                                                  "(ACS) — not this building's"})
+    cfg = {}
+    filled = H._autofill_construction_from_nsi(cfg, explicit=set(), location=loc)
+    assert cfg["year_built"] == 1993, "the ACS median must win over NSI's"
+    source, conf, status = filled["year_built"]
+    assert status == "assumed" and conf == "low"
+    assert "ACS" in source and "not this building" in source
+
+
+def test_nsi_year_is_the_fallback_when_no_distribution_resolves():
+    """No geography, no ACS row — NSI's tract median is still better than nothing."""
+    cfg = {}
+    filled = H._autofill_construction_from_nsi(
+        cfg, explicit=set(), location=_loc(year_built=1960, year_built_distribution=None))
+    assert cfg["year_built"] == 1960
+    source, _conf, status = filled["year_built"]
+    assert status == "assumed"
+    assert "NSI" in source and "not this building" in source
+
+
+def test_building_block_carries_the_year_built_interval():
+    """The interval rides the field, not confidence.bands — and only while the value
+    is still ours to doubt."""
+    dist = {"year_built": 1993, "p25": 1985, "p75": 2004, "spread": 19,
+            "geo_level": "tract", "resolved": True}
+    loc = _loc(year_built_distribution=dist)
+    cfg = {"year_built": 1993, "construction": "frame", "foundation": "crawl",
+           "condition": "average", "sqft": 1400.0, "units": 1}
+    struct = {"stories": 1, "bldg_material": None, "num_units": 1}
+    autofilled = {"year_built": ("neighborhood typical (ACS)", "low", "assumed")}
+
+    assumed = H._building_block(cfg, struct, set(), autofilled, loc)["year_built"]
+    assert assumed["status"] == "assumed"
+    assert assumed["typical_range"] == [1985, 2004]
+    assert assumed["range_geo_level"] == "tract"
+
+    # Once the reader confirms the real year, what the neighbours did stops bearing
+    # on it — the range must not linger next to a value we were told.
+    confirmed = H._building_block(cfg, struct, {"year_built"}, {}, loc)["year_built"]
+    assert confirmed["status"] == "confirmed"
+    assert "typical_range" not in confirmed
+
+
+def test_building_block_omits_the_interval_when_no_distribution():
+    """No crosswalk row, no range — never a placeholder pair of years."""
+    cfg = {"year_built": 1960, "construction": "frame", "foundation": "crawl",
+           "condition": "average", "sqft": 1400.0, "units": 1}
+    struct = {"stories": 1, "bldg_material": None, "num_units": 1}
+    b = H._building_block(cfg, struct, set(),
+                          {"year_built": ("NSI · tract median", "low", "assumed")},
+                          _loc(year_built_distribution=None))
+    assert "typical_range" not in b["year_built"]
+
+
 def test_footprint_propagated_only_for_single_dwelling():
     loc = _loc(footprint_area_m2=400.0, footprint_perimeter_m=90.0)
     sf = {}

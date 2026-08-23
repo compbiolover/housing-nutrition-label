@@ -181,8 +181,14 @@ def output_fieldnames(portfolio: bool = False) -> list[str]:
 
 
 # The building inputs that actually move the construction-driven dimensions. A row
-# missing all of these is scored as a 2024 wood-frame slab-on-grade 2,000 sqft
-# house (simulate/house.py GLOBAL_DEFAULTS), which grades ~A on the Building axis.
+# missing all of these is scored as a wood-frame slab-on-grade 2,000 sqft house
+# (simulate/house.py GLOBAL_DEFAULTS) of its NEIGHBOURHOOD's typical vintage — the
+# year comes from the tract's ACS year-built median (data/year_built.py), which is
+# bundled and so resolves offline here too. That last part used to be a flat 2024,
+# which graded ~A on the Building axis everywhere and made a book of century-old
+# housing read as new construction. It now tracks the tract: a defaulted row in a
+# 1950s Memphis tract grades ~19, the same row in a 2010s one grades ~84. Still a
+# generic house, but no longer an optimistic one.
 _SCORING_INPUTS = ("year_built", "construction", "foundation", "condition", "sqft")
 
 
