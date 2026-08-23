@@ -192,6 +192,48 @@ def test_host_of_survives_anything():
     assert utils.host_of("") == "unknown"
 
 
+def test_the_timing_log_does_not_write_down_where_somebody_lives():
+    """This module argues elsewhere that a scored URL carries an address that is
+    very often the visitor's own home, and that it should not be handed around
+    casually. A log line at INFO on every successful score is exactly the casual
+    place — before the timing window, an address reached the log only when
+    scoring raised."""
+    try:
+        import fastapi  # noqa: F401
+    except ImportError:
+        print("  skip test_the_timing_log_does_not_write_down_where_somebody_lives"
+              " (fastapi not installed)")
+        return
+    from housing_label.api import _timing_context
+
+    addr = "1664 Botsford Drive, Knoxville, TN"
+    line = _timing_context("label", addr, None, None)
+    assert "Botsford" not in line and "Knoxville" not in line, line
+    assert line.startswith("label addr#")
+    # Still useful: the same address is the same token, so retries group and two
+    # concurrent requests stay apart.
+    assert line == _timing_context("label", "1664 botsford  drive, knoxville, tn", None, None)
+    assert line != _timing_context("label", "1 Other St, Memphis, TN", None, None)
+
+    # Coordinates are the handle an operator needs to reproduce a slow score, and
+    # they are kept — but only when there are two of them.
+    assert _timing_context("label", None, 35.13, -89.99) == "label 35.13,-89.99"
+    assert _timing_context("presets", None, None, None) == "presets"
+    assert "None" not in _timing_context("presets", None, 35.13, None)
+
+
+def test_every_scoring_endpoint_carries_a_window():
+    """The one that hangs is never the one you instrumented — /badge was among
+    the endpoints observed hanging. /label.svg is the exception on purpose: it
+    scores through label(), which opens its own."""
+    src = (_ROOT / "src" / "housing_label" / "api.py").read_text(encoding="utf-8")
+    for name in ("badge", "presets", "density", "timeline"):
+        assert f'@_times_upstreams("{name}")' in src, f"/{name} has no timing window"
+    assert "with _upstream_timing(" in src, "/label lost its window"
+    sheet = src.split('@app.get("/label.svg")', 1)[1][:120]
+    assert "_times_upstreams" not in sheet, "/label.svg nests a second, empty window"
+
+
 # ── the page's half ──────────────────────────────────────────────────────────
 def test_no_scoring_request_waits_forever():
     """The spinner used to be unbounded: the API's own budget lets one stuck

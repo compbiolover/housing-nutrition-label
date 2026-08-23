@@ -87,6 +87,7 @@ from __future__ import annotations
 
 import contextlib
 import functools
+import hashlib
 import logging
 import os
 import threading
@@ -1021,6 +1022,29 @@ def _upstream_timing(context: str):
         utils.log_upstreams(context, time.monotonic() - started)
 
 
+def _timing_context(name: str, address, lat, lon) -> str:
+    """Name a request in the timing log without writing down where somebody lives.
+
+    The line exists to say which upstream was slow, not for whom. An address is
+    reduced to a short digest: enough to tell two concurrent requests apart and
+    to group retries of one, and no way back to the street. This module already
+    argues (see the Cache-Control block) that where a visitor lives is not to be
+    handed around casually; a log line at INFO on every successful score is
+    exactly the casual place. Before this, an address reached the log only when
+    scoring raised.
+
+    Coordinates are kept as they are — they are the handle an operator needs to
+    reproduce a slow score — and only when both halves are present, because
+    "None,None" is not a location, it is a /presets call with no address.
+    """
+    key = _key_addr(address)
+    if key:
+        return f"{name} addr#{hashlib.sha256(key.encode('utf-8')).hexdigest()[:8]}"
+    if lat is not None and lon is not None:
+        return f"{name} {lat},{lon}"
+    return name
+
+
 def _times_upstreams(name: str):
     """Give an endpoint the timing window, without reshaping its body.
 
@@ -1036,9 +1060,8 @@ def _times_upstreams(name: str):
     def decorate(fn):
         @functools.wraps(fn)
         def wrapper(*args, **kwargs):
-            where = _key_addr(kwargs.get("address")) or \
-                f"{kwargs.get('lat')},{kwargs.get('lon')}"
-            with _upstream_timing(f"{name} {where}"):
+            with _upstream_timing(_timing_context(
+                    name, kwargs.get("address"), kwargs.get("lat"), kwargs.get("lon"))):
                 return fn(*args, **kwargs)
         return wrapper
     return decorate
@@ -1116,7 +1139,7 @@ def label(
     # A request that raises must not leave one open on a threadpool thread for
     # the next request to start filling, and its timings are the ones most worth
     # having: a 502 after three minutes of upstream is the log line you want.
-    with _upstream_timing("label " + (_key_addr(address) or f"{lat},{lon}")):
+    with _upstream_timing(_timing_context("label", address, lat, lon)):
         try:
             cfg, r, lbl = build_label_parts(
                 address=address, lat=lat, lon=lon, preset=preset, flood_zone=flood_zone,
