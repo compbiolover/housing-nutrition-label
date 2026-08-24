@@ -5,9 +5,12 @@
     "assessment_year": "2026",
     "fetched": "2026-08-24",
     "rows": 217,
-    "sha256_16": "99d3c612912da46b"
+    "sha256_16": "adea9ce0193c4007",
+    "sampled": 219
   },
-  "adapter_resolved_pct": 84.8,
+  "unscored": 2,
+  "adapter_resolved_pct": 81.7,
+  "pin_mismatches": 0,
   "baseline": {
     "fields": {
       "year_built": {
@@ -19,17 +22,17 @@
         "within_10yr_pct": 41.5
       },
       "sqft": {
-        "n": 217,
+        "n": 117,
         "coverage_pct": 100.0,
-        "median_abs_error": 309.1,
-        "exact_pct": 19.4,
-        "median_abs_pct_error": 23.1
+        "median_abs_error": 211.0,
+        "exact_pct": 25.6,
+        "median_abs_pct_error": 14.6
       },
       "stories": {
-        "n": 174,
-        "coverage_pct": 75.3,
+        "n": 167,
+        "coverage_pct": 75.4,
         "median_abs_error": 0.0,
-        "exact_pct": 61.8
+        "exact_pct": 63.5
       },
       "construction": {
         "n": 215,
@@ -54,7 +57,7 @@
       },
       "energy": {
         "n": 217,
-        "differs_pct": 36.9
+        "differs_pct": 37.3
       },
       "resilience": {
         "n": 217,
@@ -62,11 +65,11 @@
       },
       "environmental": {
         "n": 217,
-        "differs_pct": 35.0
+        "differs_pct": 26.7
       },
       "building_axis": {
         "n": 217,
-        "differs_pct": 30.4
+        "differs_pct": 30.0
       }
     }
   },
@@ -76,32 +79,32 @@
         "n": 217,
         "coverage_pct": 100.0,
         "median_abs_error": 0.0,
-        "exact_pct": 82.5,
-        "within_5yr_pct": 86.6,
-        "within_10yr_pct": 89.4
+        "exact_pct": 83.4,
+        "within_5yr_pct": 85.7,
+        "within_10yr_pct": 88.0
       },
       "sqft": {
-        "n": 217,
+        "n": 117,
         "coverage_pct": 100.0,
         "median_abs_error": 0.0,
-        "exact_pct": 83.4,
+        "exact_pct": 86.3,
         "median_abs_pct_error": 0.0
       },
       "stories": {
-        "n": 174,
-        "coverage_pct": 96.0,
+        "n": 167,
+        "coverage_pct": 95.8,
         "median_abs_error": 0.0,
-        "exact_pct": 92.8
+        "exact_pct": 92.5
       },
       "construction": {
         "n": 215,
         "coverage_pct": 100.0,
-        "exact_pct": 89.8
+        "exact_pct": 88.8
       },
       "foundation": {
         "n": 217,
         "coverage_pct": 100.0,
-        "exact_pct": 90.8
+        "exact_pct": 88.9
       },
       "condition": {
         "n": 217,
@@ -112,11 +115,11 @@
     "grade_impact": {
       "durability": {
         "n": 217,
-        "differs_pct": 6.5
+        "differs_pct": 6.9
       },
       "energy": {
         "n": 217,
-        "differs_pct": 6.5
+        "differs_pct": 7.4
       },
       "resilience": {
         "n": 217,
@@ -124,11 +127,11 @@
       },
       "environmental": {
         "n": 217,
-        "differs_pct": 7.8
+        "differs_pct": 5.5
       },
       "building_axis": {
         "n": 217,
-        "differs_pct": 6.5
+        "differs_pct": 6.0
       }
     }
   }
