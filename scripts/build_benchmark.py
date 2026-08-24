@@ -44,8 +44,11 @@ rows. PINs are ordered by township, so the first N would all be one corner of th
 county and the "national" accuracy number would really be a statement about
 Barrington. Even offsets spread the sample across every township in Cook.
 
-Rows without a street address, coordinates, or a usable year built are dropped:
-they cannot be scored by address, or there is nothing to be right or wrong about.
+Rows without a street address or without a usable year built are dropped: there is
+nothing to geocode, or nothing to be right or wrong about. Coordinates are NOT
+required — nothing in the scoring path reads them, and DC's parcel source has no
+coordinate columns at all, so requiring them would drop good rows in one
+jurisdiction and describe a different population in the other.
 
 Run:  python scripts/build_benchmark.py --rows 200
 """
@@ -58,8 +61,10 @@ import hashlib
 import io
 import json
 import logging
+import os
 import pathlib
 import sys
+import tempfile
 import time
 from datetime import date
 
@@ -81,11 +86,28 @@ BENCHMARK = CACHE_DIR / "benchmark.csv"          # legacy single-jurisdiction pa
 # replaces another's — the published page reports both side by side.
 
 
-def _write_atomic(path: pathlib.Path, text: str) -> None:
-    """Write via a temporary file and rename, so no reader sees a partial file."""
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(text)
-    tmp.replace(path)
+def _write_atomic(path: pathlib.Path, data: str | bytes) -> None:
+    """Write via a unique temporary file and rename, so no reader sees a partial one.
+
+    The temp name must be UNIQUE, not merely temporary. A fixed `<name>.tmp` is one
+    path shared by every concurrent build of the same jurisdiction: two of them
+    interleave their bytes into it, or one renames it away while the other is still
+    filling it, and the rename that was supposed to make the write atomic delivers
+    a torn file instead. Builds are not otherwise serialised — they are long,
+    manual, and there is nothing to stop two.
+
+    Same directory as the target, because a rename is only atomic within a
+    filesystem.
+    """
+    fd, name = tempfile.mkstemp(dir=path.parent, prefix=path.name + ".", suffix=".tmp")
+    tmp = pathlib.Path(name)
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(data if isinstance(data, bytes) else data.encode())
+        tmp.replace(path)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
 
 
 def benchmark_path(juris: str) -> pathlib.Path:
@@ -500,12 +522,23 @@ def main() -> int:
         keys = [str(r["pin"]).zfill(14) for r in sample]
         info = _parcel_info(keys)
         truth_of, key_of = _truth, (lambda r: str(r["pin"]).zfill(14))
-    else:
+    elif juris == "dc":
         year = "current"
         sample, draw = _dc_sample(args.rows)
         keys = [(r.get("SSL") or "").strip() for r in sample]
         info = _dc_place([k for k in keys if k])
         truth_of, key_of = _dc_truth, (lambda r: (r.get("SSL") or "").strip())
+    else:
+        # The CLI takes its choices from the registry, so a third entry becomes
+        # selectable the moment it is added — before anyone writes its sampler. A
+        # bare `else` running DC's would have drawn DC parcels, written them to
+        # benchmark-<new>.csv and stamped the new jurisdiction on the metadata: a
+        # fabricated benchmark, indistinguishable from a real one downstream. This
+        # is the cross-jurisdiction fallback again, reached from the other end.
+        raise SystemExit(
+            f"{juris} is registered in scripts/jurisdictions.py but has no sampler "
+            f"in this script. Add one rather than letting another jurisdiction's "
+            f"draw be written under its name.")
 
     log.info("Fetched %d characteristics rows.", len(sample))
     log.info("Resolved %d of them to an address.", len(info))
@@ -536,9 +569,7 @@ def main() -> int:
     digest = hashlib.sha256(payload).hexdigest()[:16]
 
     benchmark = benchmark_path(juris)
-    tmp = benchmark.with_suffix(benchmark.suffix + ".tmp")
-    tmp.write_bytes(payload)
-    tmp.replace(benchmark)
+    _write_atomic(benchmark, payload)
 
     # Metadata second, and also atomically. Interrupted between the two, the pair
     # is a new CSV beside stale metadata — which the consumer now REFUSES on the

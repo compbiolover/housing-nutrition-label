@@ -56,6 +56,7 @@ import argparse
 import contextlib
 import csv
 import hashlib
+import io
 import dataclasses
 import html
 import json
@@ -424,7 +425,7 @@ than collapsing into one median: {_tolerance_sentence(data)}</p>
 
 <p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
 {data['adapter_resolved_pct']}% of the sample{_mismatch_note(data)} &middot; benchmark
-digest {html.escape(m['sha256_16'])}.</p>
+digest {html.escape(m.get('sha256_16') or 'unrecorded')}.</p>
 """
 
 
@@ -599,42 +600,56 @@ def _results_lock():
         LOCK.unlink(missing_ok=True)
 
 
-def _verify_benchmark(path: pathlib.Path, meta: dict) -> None:
-    """Refuse a benchmark that is not the one its metadata describes.
+def _verify_benchmark(path: pathlib.Path, meta: dict, juris: str) -> bytes:
+    """The benchmark's bytes, once they are proven to be the ones it claims to be.
 
-    The builder moves a finished CSV into place, so the two files should never
-    disagree. They can still be made to: an interrupted build leaves a new CSV
-    beside stale metadata, and a hand-edited or half-copied cache file is the same
-    shape of problem. Without this check that mismatch is not detectable anywhere
-    downstream — a partial sample scores cleanly and publishes under the previous
-    run's row count and digest, which is a fabricated measurement that looks
-    entirely ordinary. Exactly the failure the cross-jurisdiction fallback had.
+    Returns the snapshot it validated, and the caller parses THAT rather than
+    reopening the file. Hashing one read and parsing another leaves a window in
+    which a concurrent build can rename a new CSV into place: this run would then
+    score the new sample while reporting the old metadata's row count and digest —
+    the very mispairing the check exists to prevent, produced by the check itself.
 
-    Silent when the metadata records no digest: the pre-split cache predates the
-    field, and refusing to run against it would be inventing a problem rather than
-    catching one. Everything the builder writes today carries it.
+    Three things have to hold, and none makes the others redundant:
+
+    * **Jurisdiction.** The metadata records which assessor the draw came from, and
+      until now nobody read it. Copying `benchmark-cook.*` to `benchmark-dc.*`
+      passes the digest — the file really is the one its metadata describes — and
+      publishes Cook addresses under `jurisdictions["dc"]`. The evidence was
+      already in the file; this reads it.
+    * **Digest.** Catches an interrupted build: a partial CSV beside the previous
+      run's metadata.
+    * **Row count.** Checked independently of the digest, not as a follow-on. A
+      pre-split cache records `rows` but no digest, and skipping the count there
+      would leave that file unvalidated altogether.
+
+    A measurement published under the wrong provenance is indistinguishable from a
+    real one downstream, so each of these fails the run rather than warning.
     """
-    want = meta.get("sha256_16")
-    if not want:
-        return
-    got = hashlib.sha256(path.read_bytes()).hexdigest()[:16]
-    if got != want:
+    payload = path.read_bytes()
+    stamped = meta.get("jurisdiction")
+    if stamped and stamped != juris:
         raise SystemExit(
-            f"{path.name} does not match {path.stem}.meta.json: the metadata "
-            f"describes digest {want}, the file on disk is {got}. That pairing "
-            f"means an interrupted or edited build, and scoring it would publish "
-            f"one sample under another's provenance. Rebuild it with "
-            f"scripts/build_benchmark.py.")
+            f"{path.name} carries metadata for {stamped!r}, not {juris!r}. Scoring "
+            f"it would publish one jurisdiction's addresses under another's name. "
+            f"Rebuild with scripts/build_benchmark.py --jurisdiction {juris}.")
+    want = meta.get("sha256_16")
+    if want:
+        got = hashlib.sha256(payload).hexdigest()[:16]
+        if got != want:
+            raise SystemExit(
+                f"{path.name} does not match {path.stem}.meta.json: the metadata "
+                f"describes digest {want}, the file on disk is {got}. That pairing "
+                f"means an interrupted or edited build, and scoring it would "
+                f"publish one sample under another's provenance. Rebuild it with "
+                f"scripts/build_benchmark.py.")
     rows = meta.get("rows")
     if rows is not None:
-        # A digest match makes this redundant, and that is why it is here: it costs
-        # nothing and it catches the case where someone regenerates the digest by
-        # hand but not the count, which is the likelier of the two edits.
-        have = sum(1 for _ in csv.DictReader(path.open()))
+        have = sum(1 for _ in csv.DictReader(io.StringIO(payload.decode())))
         if have != rows:
             raise SystemExit(
                 f"{path.name} holds {have} rows; its metadata claims {rows}. "
                 f"Rebuild it with scripts/build_benchmark.py.")
+    return payload
 
 
 def _write_atomic(path: pathlib.Path, text: str) -> None:
@@ -664,11 +679,13 @@ def main() -> int:
     # page would be written anyway, --limit says score fewer rows and nothing is
     # scored at all. A flag that is accepted and ignored is worse than one that is
     # rejected, because the caller believes it took effect.
-    if args.render_only and (args.dry_run or args.limit is not None):
+    if args.render_only and (args.dry_run or args.check or args.limit is not None):
         raise SystemExit(
             "--render-only rebuilds the page from the committed results and scores "
-            "nothing, so it cannot be combined with --dry-run or --limit. Use "
-            "--render-only alone, or drop it to score.")
+            "nothing, so it cannot be combined with --check, --dry-run or --limit. "
+            "Use --render-only alone, or drop it to score. (--check VERIFIES the "
+            "page against the results; --render-only OVERWRITES it, which would "
+            "make the gate pass by rewriting what it was asked to inspect.)")
 
     if args.render_only:
         # For a copy or layout edit: the measurements are the expensive part and
@@ -725,8 +742,8 @@ def main() -> int:
             "the committed results.")
 
     meta = json.loads(meta_file.read_text()) if meta_file.exists() else {}
-    _verify_benchmark(benchmark, meta)
-    rows = list(csv.DictReader(benchmark.open()))
+    payload = _verify_benchmark(benchmark, meta, juris)
+    rows = list(csv.DictReader(io.StringIO(payload.decode())))
     if args.limit is not None:
         # `if args.limit` would read 0 as "no limit" and quietly score the whole
         # benchmark — the opposite of what was asked, and expensive to discover.

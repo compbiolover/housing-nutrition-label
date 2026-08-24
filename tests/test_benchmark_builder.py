@@ -249,6 +249,28 @@ def test_both_scripts_read_one_jurisdiction_registry():
         assert M.LABELS[key] == cfg["label"]
 
 
+def test_a_registered_jurisdiction_with_no_sampler_fails_rather_than_drawing_dc():
+    """The CLI takes its choices from the registry, so a third entry is selectable
+    the moment it is added — before anyone writes its sampler. A bare `else` ran
+    DC's, writing DC parcels under the new name with the new name stamped on the
+    metadata: a fabricated benchmark, indistinguishable downstream from a real one.
+
+    Asserted on the source rather than by running main(), which needs network: the
+    dispatch must name each jurisdiction explicitly and end in a refusal.
+    """
+    src = pathlib.Path(B.__file__).read_text()
+    dispatch = src[src.index('    if juris == "cook":'):src.index('    log.info("Fetched')]
+    assert 'elif juris == "dc":' in dispatch, (
+        "the DC branch must be explicit; a bare `else` claims every future "
+        "jurisdiction and draws DC for it")
+    assert "raise SystemExit" in dispatch, (
+        "the dispatch must refuse a registered jurisdiction it has no sampler for")
+    for key in B.JURISDICTIONS:
+        assert f'juris == "{key}"' in dispatch, (
+            f"{key} is registered but the builder's dispatch does not name it, so "
+            f"it would fall through to the refusal or to another jurisdiction's draw")
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]

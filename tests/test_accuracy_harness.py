@@ -18,6 +18,7 @@ Run standalone: ``python tests/test_accuracy_harness.py``
 from __future__ import annotations
 
 import contextlib
+import json
 import pathlib
 import sys
 import tempfile
@@ -413,7 +414,11 @@ def _benchmark(tmp, text="parcel_id,address\n1,A\n2,B\n"):
 def test_a_benchmark_matching_its_metadata_is_accepted():
     with tempfile.TemporaryDirectory() as tmp:
         path, digest = _benchmark(tmp)
-        M._verify_benchmark(path, {"sha256_16": digest, "rows": 2})
+        got = M._verify_benchmark(path, {"sha256_16": digest, "rows": 2,
+                                         "jurisdiction": "x"}, "x")
+        assert got == path.read_bytes(), (
+            "the validated bytes are what the caller parses; returning anything "
+            "else reopens the window this check exists to close")
 
 
 def test_a_benchmark_that_is_not_the_one_its_metadata_describes_is_refused():
@@ -424,7 +429,7 @@ def test_a_benchmark_that_is_not_the_one_its_metadata_describes_is_refused():
     with tempfile.TemporaryDirectory() as tmp:
         path, _ = _benchmark(tmp)
         try:
-            M._verify_benchmark(path, {"sha256_16": "deadbeefdeadbeef"})
+            M._verify_benchmark(path, {"sha256_16": "deadbeefdeadbeef"}, "x")
         except SystemExit as exc:
             assert "does not match" in str(exc)
         else:
@@ -435,7 +440,7 @@ def test_a_hand_edited_row_count_is_refused():
     with tempfile.TemporaryDirectory() as tmp:
         path, digest = _benchmark(tmp)
         try:
-            M._verify_benchmark(path, {"sha256_16": digest, "rows": 99})
+            M._verify_benchmark(path, {"sha256_16": digest, "rows": 99}, "x")
         except SystemExit as exc:
             assert "99" in str(exc)
         else:
@@ -447,7 +452,50 @@ def test_a_benchmark_with_no_recorded_digest_still_runs():
     rather than catch one."""
     with tempfile.TemporaryDirectory() as tmp:
         path, _ = _benchmark(tmp)
-        M._verify_benchmark(path, {})
+        M._verify_benchmark(path, {}, "x")
+
+
+def test_a_benchmark_stamped_for_another_jurisdiction_is_refused():
+    """Copying benchmark-cook.* to benchmark-dc.* passes the digest — the file
+    really is the one its metadata describes — and would publish Cook addresses
+    under DC's name. The metadata said `cook` the whole time; nobody read it."""
+    with tempfile.TemporaryDirectory() as tmp:
+        path, digest = _benchmark(tmp)
+        try:
+            M._verify_benchmark(path, {"sha256_16": digest,
+                                       "jurisdiction": "cook"}, "dc")
+        except SystemExit as exc:
+            assert "cook" in str(exc) and "dc" in str(exc)
+        else:
+            raise AssertionError(
+                "one jurisdiction's benchmark was accepted under another's name")
+
+
+def test_the_row_count_is_checked_even_with_no_digest_recorded():
+    """The count used to hang off the digest check, so a pre-split cache — which
+    records `rows` and no digest — was not validated at all."""
+    with tempfile.TemporaryDirectory() as tmp:
+        path, _ = _benchmark(tmp)
+        try:
+            M._verify_benchmark(path, {"rows": 99}, "x")
+        except SystemExit as exc:
+            assert "99" in str(exc)
+        else:
+            raise AssertionError("a wrong row count passed when no digest was set")
+
+
+def test_a_section_renders_without_a_recorded_digest():
+    """`m['sha256_16']` was indexed directly, so a digest-less benchmark raised
+    KeyError during render — AFTER results.json had already been overwritten. A
+    crash that leaves the published state half-updated is the worst ordering, so
+    this renders the real committed section with the digest taken away rather than
+    a hand-built stand-in that might not have the shape the renderer expects."""
+    import copy
+    results = json.loads(M.RESULTS.read_text())
+    key, data = next(iter(M.as_jurisdictions(results).items()))
+    data = copy.deepcopy(data)
+    data["benchmark"].pop("sha256_16", None)
+    assert "unrecorded" in M._section(key, data)
 
 
 def _run_all() -> int:
