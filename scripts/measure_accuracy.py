@@ -125,13 +125,28 @@ def _grades(payload: dict) -> dict:
     return out
 
 
+def _parcel_key(raw) -> str:
+    """A parcel identifier in a form two jurisdictions can both be compared in.
+
+    Cook's PIN is a 14-digit number that loses leading zeros in some exports, so it
+    is zero-padded — the county's own guidance. DC's SSL is `square + suffix + lot`
+    with interior spaces and is not a number at all, so padding it would be
+    meaningless; only the digit case is padded, and whitespace is collapsed so a
+    difference in column formatting cannot read as a different parcel.
+    """
+    text = " ".join(str(raw or "").split()).upper()
+    return text.zfill(14) if text.isdigit() else text
+
+
 def _pin_matches(loc, row: dict) -> bool:
     """Whether the adapter resolved the same parcel the benchmark row describes."""
     record = getattr(loc, "assessor", None)
     if record is None:
         return False
-    got = str(getattr(record, "parcel_id", "") or "").strip().zfill(14)
-    want = str(row.get("pin") or "").strip().zfill(14)
+    got = _parcel_key(getattr(record, "parcel_id", ""))
+    # `pin` is the column the first benchmark used, before a second jurisdiction
+    # made the name wrong; an older cached file still reads.
+    want = _parcel_key(row.get("parcel_id") or row.get("pin"))
     return bool(got) and got == want
 
 
@@ -288,11 +303,31 @@ def _unscored_note(results: dict) -> str:
             f"rate below")
 
 
-def _render(results: dict) -> str:
-    m = results["benchmark"]
+LABELS = {"cook": "Cook County, Illinois", "dc": "Washington, DC"}
+
+
+def as_jurisdictions(results: dict) -> dict:
+    """The per-jurisdiction map, upgrading the original single-county shape.
+
+    The first published run predates a second adapter and stored one county's
+    numbers at the top level. Rather than require a hand-edit of a committed
+    measurement, that shape is read as `{"cook": ...}` — the jurisdiction it in
+    fact described.
+    """
+    if "jurisdictions" in results:
+        return results["jurisdictions"]
+    keys = ("benchmark", "baseline", "adapter")
+    if all(k in results for k in keys):
+        return {"cook": {k: v for k, v in results.items() if k != "generated"}}
+    return {}
+
+
+def _section(key: str, data: dict) -> str:
+    """One jurisdiction's numbers. The page carries one of these per adapter."""
+    m = data["benchmark"]
     rows_f, rows_g = [], []
     for f in FIELDS:
-        b, a = results["baseline"]["fields"][f], results["adapter"]["fields"][f]
+        b, a = data["baseline"]["fields"][f], data["adapter"]["fields"][f]
         def cell(e, k, suffix=""):
             v = e.get(k)
             return "—" if v is None else f"{v}{suffix}"
@@ -303,11 +338,53 @@ def _render(results: dict) -> str:
             f"<td>{cell(b,'median_abs_error')}</td><td>{cell(a,'median_abs_error')}</td>"
             f"<td>{b.get('n', 0)}</td></tr>")
     for k in list(GRADED) + ["building_axis"]:
-        b, a = results["baseline"]["grade_impact"][k], results["adapter"]["grade_impact"][k]
+        b, a = data["baseline"]["grade_impact"][k], data["adapter"]["grade_impact"][k]
         bv = "—" if b["differs_pct"] is None else f"{b['differs_pct']}%"
         av = "—" if a["differs_pct"] is None else f"{a['differs_pct']}%"
         rows_g.append(f"<tr><td>{html.escape(k)}</td><td>{bv}</td><td>{av}</td>"
                       f"<td>{b['n']}</td></tr>")
+
+    scope = m.get("scope")
+    scope_html = (f" Scope: {html.escape(scope)}." if scope else "")
+    return f"""
+<h2 id="{html.escape(key)}">{html.escape(LABELS.get(key, key))}</h2>
+
+<p><strong>Method.</strong> {m.get('sampled', m['rows'])} addresses sampled across
+{html.escape(m['source'])} (assessment year {html.escape(str(m['assessment_year']))},
+fetched {html.escape(m['fetched'])}){_unscored_note(data)}.{scope_html} Each is scored
+from the address alone, with no construction details supplied, and compared against
+the assessor's record.</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+{chr(10).join(rows_f)}
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: {_tolerance_sentence(data)}</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+{chr(10).join(rows_g)}
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+{data['adapter_resolved_pct']}% of the sample{_mismatch_note(data)} &middot; benchmark
+digest {html.escape(m['sha256_16'])}.</p>
+"""
+
+
+def _render(results: dict) -> str:
+    juris = as_jurisdictions(results)
+    sections = "\n".join(_section(k, juris[k]) for k in sorted(juris))
+    measured = ", ".join(LABELS.get(k, k) for k in sorted(juris))
 
     # The site-wide head block and the disclaimer are not decoration: two tests
     # (test_icons, test_disclaimer) assert that EVERY page under docs/ carries
@@ -347,62 +424,48 @@ often that inference matches what a county assessor recorded for the same
 building &mdash; the only check that asks whether the output describes the world
 rather than whether the code does what it says.</p>
 
-<p><strong>Method.</strong> {m.get('sampled', m['rows'])} addresses sampled across
-{html.escape(m['source'])} (assessment year {html.escape(str(m['assessment_year']))},
-fetched {html.escape(m['fetched'])}){_unscored_note(results)}. Each is scored from
-the address alone, with no construction details supplied, and compared against the
-county's record. The benchmark itself is not redistributed; see the note at the
-foot of this page.</p>
+<p><strong>How to read it.</strong> <em>Baseline</em> is what the label infers
+everywhere: a modelled structure record plus the census tract's year-built
+distribution. <em>With assessor</em> adds an observed county record where one
+resolves. The number that matters is the last table in each section — a year-built
+error that moves no letter is not a defect anyone can see; one that crosses a
+code-era boundary is.</p>
 
-<h2>Field accuracy</h2>
-<p><em>Baseline</em> is what the label infers everywhere: a modelled structure
-record plus the census tract's year-built distribution. <em>With assessor</em> adds
-an observed county record where one resolves.</p>
-<div class="table-scroll"><table class="data-table"><thead><tr>
-<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
-<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
-<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Graded on</th>
-</tr></thead><tbody>
-{chr(10).join(rows_f)}
-</tbody></table></div>
-
-<p><strong>Year built, by tolerance.</strong> The single field the rest of the
-construction profile leans on hardest, so the near-misses are worth seeing rather
-than collapsing into one median: {_tolerance_sentence(results)}</p>
-
-<h2>Does the reader see a different grade?</h2>
-<p>The number that matters. A year-built error that moves no letter is not a
-defect anyone can see; one that crosses a code-era boundary is. Share of
-addresses whose letter differs from the one the true attributes produce:</p>
-<div class="table-scroll"><table class="data-table"><thead><tr>
-<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
-</tr></thead><tbody>
-{chr(10).join(rows_g)}
-</tbody></table></div>
-
+<p>Measured so far: {html.escape(measured)}. Each adapter is measured against its
+own assessor, and the sections are not comparable to each other &mdash; different
+housing stock, different record-keeping, different sample.</p>
+{sections}
 <h2>What this does and does not establish</h2>
 <ul>
-<li>The sample is <strong>Cook County, Illinois only</strong>. It is a real
-measurement of one county's housing stock, not a national accuracy figure, and it
-should not be read as one. A second adapter (Washington, DC) now exists and has not
-yet been measured this way; until it is, nothing here describes it.</li>
+<li><strong>These are the jurisdictions with an adapter, not a national sample.</strong>
+Each figure describes one place's housing stock and record-keeping.
+Nothing here supports a claim about anywhere else, and the two sections should not
+be averaged into one.</li>
+<li><strong>Washington, DC excludes condominiums</strong>, which are about 36% of
+its assessor's residential stock (61,329 condo records against 109,273 others). DC
+keeps them in a separate table keyed by unit, and a unit-level identifier does not
+appear in the parcel geometry at all &mdash; so no coordinate can pick one unit out
+of a building. The DC figures therefore describe non-condo homes, and the adapter
+returns nothing for a condo rather than guessing.</li>
 <li>The county's own record is treated as truth. It can be stale or wrong; it is
 the best available reference, not a survey.</li>
 <li>Addresses where the assessor lookup does not resolve fall back to the
 baseline, so the &ldquo;with assessor&rdquo; column includes them. It is the
 end-to-end number a visitor would experience, not the adapter's accuracy on the
 rows it answers.</li>
-<li>The benchmark is fetched on demand and not committed: Cook County grants no
-explicit right to redistribute a dataset. Re-running months later samples a
-refreshed roll, so the digest and date above are recorded to make that visible.</li>
+<li>The benchmarks are fetched on demand and not committed: neither source grants
+an explicit right to redistribute a dataset. Re-running months later samples a
+refreshed roll, so each section's digest and date are recorded to make that
+visible.</li>
 <li><strong>The categorical fields are a weaker test than the numeric ones.</strong>
 Wall material, foundation and condition are translated out of the county's
 vocabulary into the label's by the same table on both sides of the comparison, so
 their &ldquo;exact&rdquo; rates in the assessor column largely measure whether the
 right parcel was found &mdash; not whether the translation is right. One entry is
-knowingly lossy: the county's single <em>Masonry</em> category is read as brick,
-the label's brick/block/stone distinction being finer than the source. Year built
-and floor area carry no such circularity; they are numbers, compared as numbers.</li>
+knowingly lossy in each source: Cook's single <em>Masonry</em> category and DC's
+<em>Brick/Stone</em> are both read as brick, the label's brick/block/stone
+distinction being finer than either. Year built and floor area carry no such
+circularity; they are numbers, compared as numbers.</li>
 <li><strong>Rows are not graded on every field.</strong> The
 <em>Graded on</em> column is each field's own denominator, and it is not always the
 full sample. Floor area is the clearest case: the county records the whole
@@ -410,10 +473,13 @@ building's area while the label's figure is per dwelling unit, so on a multi-uni
 parcel the two are different quantities and the row is excluded rather than scored
 as a miss. A rate is over the rows in that column, not over every address
 sampled.</li>
-<li><strong>Condition is close to a constant here.</strong> All but a handful of
-sampled parcels carry the county's <em>Average</em> grade, so a high agreement rate
-on that row reflects the distribution of the source far more than the label's
-skill, and should not be read as one.</li>
+<li><strong>Condition is close to a constant.</strong> Most sampled parcels carry
+one dominant grade in each source, so a high agreement rate on that row reflects the
+distribution of the source far more than the label's skill, and should not be read
+as one.</li>
+<li><strong>DC records no basement type</strong>, so foundation is never observed
+there and its row stays at the baseline. That is a gap in the source, not a failure
+of the lookup.</li>
 <li><strong>The reference profile is not wholly observed.</strong> Where the county
 records nothing for a field, the truth arm falls back to the same modelled inputs
 the other two arms use, so a grade attributed to &ldquo;true attributes&rdquo; is
@@ -425,10 +491,10 @@ distance between the arms rather than overstating it.</li>
 <p style="opacity:0.75;font-size:0.85rem;margin-top:2rem;border-top:1px solid #cbd5e1;
 padding-top:0.9rem;">{html.escape(DISCLAIMER)}</p>
 
-<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
-{results['adapter_resolved_pct']}% of the sample{_mismatch_note(results)} &middot; benchmark digest
-{html.escape(m['sha256_16'])} &middot; generated {html.escape(results['generated'])}.
-Regenerate with <code>python scripts/measure_accuracy.py</code>.</p>
+<p style="opacity:0.75;font-size:0.85rem;">Generated
+{html.escape(results['generated'])}. Regenerate with
+<code>python scripts/measure_accuracy.py --jurisdiction &lt;name&gt;</code>; each
+run replaces only its own section.</p>
 </main>
 <script src="nav.js"></script>
 </body></html>
@@ -443,6 +509,8 @@ def main() -> int:
     ap.add_argument("--limit", type=int, default=None, help="score only the first N rows")
     ap.add_argument("--render-only", action="store_true",
                     help="rebuild the page from the committed results, no scoring")
+    ap.add_argument("--jurisdiction", default="cook",
+                    help="which benchmark to score (default cook)")
     args = ap.parse_args()
 
     if args.render_only:
@@ -467,8 +535,14 @@ def main() -> int:
         log.info("accuracy page is in sync with the committed measurements.")
         return 0
 
-    if not BENCHMARK.exists():
-        raise SystemExit(f"{BENCHMARK} missing — run scripts/build_benchmark.py first")
+    juris = args.jurisdiction
+    benchmark = CACHE_DIR / f"benchmark-{juris}.csv"
+    meta_file = CACHE_DIR / f"benchmark-{juris}.meta.json"
+    if not benchmark.exists():          # the pre-split path, for an older cache
+        benchmark, meta_file = BENCHMARK, META
+    if not benchmark.exists():
+        raise SystemExit(f"{benchmark} missing — run scripts/build_benchmark.py "
+                         f"--jurisdiction {juris} first")
     # Fail closed, not open. With no adapter enabled both arms resolve identically
     # and the run would overwrite the published results with a comparison of the
     # baseline against itself — a non-measurement that renders as a real one, and
@@ -483,14 +557,14 @@ def main() -> int:
             "ASSESSOR_ADAPTERS=1 to run, or --render-only to rebuild the page from "
             "the committed results.")
 
-    rows = list(csv.DictReader(BENCHMARK.open()))
+    rows = list(csv.DictReader(benchmark.open()))
     if args.limit is not None:
         # `if args.limit` would read 0 as "no limit" and quietly score the whole
         # benchmark — the opposite of what was asked, and expensive to discover.
         if args.limit < 1:
             raise SystemExit(f"--limit must be at least 1 (got {args.limit})")
         rows = rows[:args.limit]
-    meta = json.loads(META.read_text()) if META.exists() else {}
+    meta = json.loads(meta_file.read_text()) if meta_file.exists() else {}
 
     cases = []
     for i, row in enumerate(rows, 1):
@@ -504,8 +578,7 @@ def main() -> int:
 
     resolved = sum(1 for c in cases if c["resolved"])
     mismatched = sum(1 for c in cases if c.get("pin_mismatch"))
-    results = {
-        "generated": date.today().isoformat(),
+    measured = {
         # Both counts, deliberately. Every rate below is over the rows that could be
         # scored, and silently republishing that as the sample size would let a
         # network outage or a batch of hard addresses quietly narrow the population
@@ -523,24 +596,32 @@ def main() -> int:
         "adapter": _summarise(cases, "adapter"),
     }
 
+    # Merge, never replace. Each jurisdiction is a separate expensive run, and
+    # writing the file wholesale would silently delete the other's numbers while
+    # the page still claimed to report both.
+    previous = json.loads(RESULTS.read_text()) if RESULTS.exists() else {}
+    juris_map = dict(as_jurisdictions(previous))
+    juris_map[juris] = measured
+    results = {"generated": date.today().isoformat(), "jurisdictions": juris_map}
+
     RESULTS.parent.mkdir(parents=True, exist_ok=True)
     RESULTS.write_text(json.dumps(results, indent=2) + "\n")
     PAGE.write_text(_render(results))
 
     log.info("Scored %d addresses; assessor answered for %d (%.1f%%); "
              "%d of those landed on a different parcel (scored as error).",
-             len(cases), resolved, results["adapter_resolved_pct"], mismatched)
+             len(cases), resolved, measured["adapter_resolved_pct"], mismatched)
     for f in FIELDS:
-        b = results["baseline"]["fields"][f]
-        a = results["adapter"]["fields"][f]
+        b = measured["baseline"]["fields"][f]
+        a = measured["adapter"]["fields"][f]
         log.info("  %-13s exact %5s%% → %5s%%   median err %6s → %6s",
                  f, b.get("exact_pct"), a.get("exact_pct"),
                  b.get("median_abs_error"), a.get("median_abs_error"))
     log.info("  grade differs from truth:")
     for k in list(GRADED) + ["building_axis"]:
         log.info("    %-14s %5s%% → %5s%%", k,
-                 results["baseline"]["grade_impact"][k]["differs_pct"],
-                 results["adapter"]["grade_impact"][k]["differs_pct"])
+                 measured["baseline"]["grade_impact"][k]["differs_pct"],
+                 measured["adapter"]["grade_impact"][k]["differs_pct"])
     log.info("Wrote %s and %s.", RESULTS, PAGE)
     return 0
 

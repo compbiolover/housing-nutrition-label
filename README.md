@@ -210,10 +210,16 @@ not a defect anyone can see, and a small one that crosses a code-era boundary is
 
 Published at [housinglabel.dev/accuracy.html](https://housinglabel.dev/accuracy.html)
 and regenerated from a committed measurement run, which CI verifies the page still
-matches. The sample is **Cook County, Illinois only** — a real measurement of one
-county's housing stock, not a national accuracy figure. Washington, DC now has an
-adapter too, and measuring it is the obvious next run; until that happens these
-numbers describe Cook and nothing else.
+matches. Both jurisdictions with an adapter are measured — **Cook County, Illinois**
+and **Washington, DC** — each against its own assessor. They are real measurements of
+two housing stocks, not a national accuracy figure, and they are not comparable to
+each other: different stock, different record-keeping, different sample.
+
+DC's figures cover **non-condominium homes only**. Condominium units are about a
+third of its assessor's residential stock and live in a separate table keyed by
+unit; a unit-level identifier never appears in the parcel geometry, so no coordinate
+can pick one unit out of a building. The adapter returns nothing for a condo rather
+than guessing, and the page says so where the numbers are.
 
 The measurement feeds back into the label rather than only being published. Where a
 dimension's grade was measured as sensitive to construction provenance — durability

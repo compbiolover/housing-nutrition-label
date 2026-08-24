@@ -60,7 +60,33 @@ log = logging.getLogger("build_benchmark")
 
 _ROOT = pathlib.Path(__file__).resolve().parents[1]
 CACHE_DIR = _ROOT / ".accuracy_cache"
-BENCHMARK = CACHE_DIR / "benchmark.csv"
+BENCHMARK = CACHE_DIR / "benchmark.csv"          # legacy single-jurisdiction path
+
+# Each jurisdiction gets its own benchmark file, so building one never silently
+# replaces another's — the published page reports both side by side.
+JURISDICTIONS = {
+    "cook": {
+        "source": "Cook County Assessor (Open Data)",
+        "label": "Cook County, Illinois",
+        "scope": "all residential improvement records",
+    },
+    "dc": {
+        "source": "DC Office of Tax and Revenue (Open Data)",
+        "label": "Washington, DC",
+        # Named here, not buried: condominium units are a separate CAMA table and
+        # cannot be reached from a coordinate, so they are outside what this
+        # measures. 61,329 condo rows against 109,273 residential.
+        "scope": "non-condominium homes only (condos are ~36% of DC's CAMA stock)",
+    },
+}
+
+
+def benchmark_path(juris: str) -> pathlib.Path:
+    return CACHE_DIR / f"benchmark-{juris}.csv"
+
+
+def meta_path(juris: str) -> pathlib.Path:
+    return CACHE_DIR / f"benchmark-{juris}.meta.json"
 
 CAMA_URL = "https://datacatalog.cookcountyil.gov/resource/x54s-btds.json"
 PARCEL_URL = ("https://gis.cookcountyil.gov/traditional/rest/services"
@@ -207,6 +233,135 @@ def _parcel_info(pins: list[str]) -> dict[str, dict]:
     return out
 
 
+# --- Washington, DC ------------------------------------------------------------
+#
+# A second jurisdiction, so the harness measures the registry rather than one
+# county. DC's shape differs from Cook's in three ways that matter here:
+#
+#   * Its CAMA lives on ArcGIS, not Socrata, and is keyed by SSL (square-suffix-
+#     lot) rather than PIN. Row offsets work the same way, so the even-spacing
+#     rule carries over unchanged.
+#   * Its parcel layer publishes no latitude/longitude columns, so a representative
+#     point is computed from the polygon. Nothing in the scoring path uses it — the
+#     harness geocodes the address exactly as a visitor would — so it is carried for
+#     inspection only.
+#   * CONDOMINIUM units live in a SEPARATE CAMA table (61,329 rows against
+#     RESIDENTIAL's 109,273 — 36% of DC's CAMA stock). They cannot enter this
+#     benchmark: a unit-level SSL does not appear in the parcel polygon layer at
+#     all, so there is no way to resolve one to an address, and no coordinate can
+#     distinguish one unit from another in the same building. So this measures
+#     NON-CONDO DC homes, and the published page says so rather than letting a
+#     figure drawn from 64% of the stock read as the whole city.
+DC_BASE = ("https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA"
+           "/Property_and_Land_WebMercator/MapServer")
+DC_CAMA_URL = f"{DC_BASE}/25/query"          # RESIDENTIAL (CAMA)
+DC_PARCEL_URL = f"{DC_BASE}/40/query"        # Owner Polygons (Common Ownership)
+DC_BATCH = 40
+
+# Only what the benchmark needs. The parcel layer also carries OWNERNAME, owner
+# mailing addresses and tax balances; naming the fields keeps them unrequested.
+_DC_PARCEL_FIELDS = "SSL,PREMISEADD"
+_DC_CAMA_FIELDS = "SSL,AYB,GBA,STORIES,EXTWALL_D,CNDTN_D,NUM_UNITS"
+
+
+def _dc_sample(rows: int) -> list[dict]:
+    """Evenly-spaced rows from DC's residential CAMA table."""
+    if rows < 1:
+        raise SystemExit(f"--rows must be at least 1 (got {rows})")
+    got = _fetch(DC_CAMA_URL, {"where": "1=1", "returnCountOnly": "true", "f": "json"})
+    total = int((got or {}).get("count") or 0)
+    if total <= 0:
+        raise SystemExit("could not size DC's residential CAMA table; try again later")
+    log.info("DC residential CAMA has %d rows; sampling %d.", total, rows)
+
+    rows = min(rows, total)
+    out, seen, dropped = [], set(), 0
+    for i in range(rows):
+        body = _fetch(DC_CAMA_URL, {
+            "where": "1=1", "outFields": _DC_CAMA_FIELDS, "orderByFields": "SSL",
+            "resultOffset": str(i * total // rows), "resultRecordCount": "1",
+            "returnGeometry": "false", "f": "json",
+        })
+        if body is None:
+            dropped += 1
+        else:
+            feats = (body or {}).get("features") or []
+            a = (feats[0].get("attributes") if feats else None) or {}
+            ssl = (a.get("SSL") or "").strip()
+            if ssl and ssl not in seen:
+                seen.add(ssl)
+                out.append(a)
+        if (i + 1) % 25 == 0:
+            log.info("  sampled %d/%d", i + 1, rows)
+        time.sleep(0.05)
+    if dropped:
+        log.warning("  %d of %d sample offsets were unreachable and skipped.",
+                    dropped, rows)
+    return out
+
+
+def _ring_point(geom: dict) -> tuple[float, float] | None:
+    """A representative point inside a parcel polygon (mean of its outer ring)."""
+    ring = ((geom or {}).get("rings") or [[]])[0]
+    pts = [p for p in ring if isinstance(p, (list, tuple)) and len(p) >= 2]
+    if not pts:
+        return None
+    return (sum(p[1] for p in pts) / len(pts), sum(p[0] for p in pts) / len(pts))
+
+
+def _dc_place(ssls: list[str]) -> dict[str, dict]:
+    """SSL → {address, lat, lon} from the parcel layer, in batches."""
+    out: dict[str, dict] = {}
+    for i in range(0, len(ssls), DC_BATCH):
+        chunk = ssls[i:i + DC_BATCH]
+        where = "SSL IN (" + ",".join("'" + s.replace("'", "''") + "'" for s in chunk) + ")"
+        body = _fetch(DC_PARCEL_URL, {
+            "where": where, "outFields": _DC_PARCEL_FIELDS,
+            "returnGeometry": "true", "outSR": "4326", "f": "json",
+        })
+        for f in (body or {}).get("features") or []:
+            a = f.get("attributes") or {}
+            ssl, addr = (a.get("SSL") or "").strip(), (a.get("PREMISEADD") or "").strip()
+            if not ssl or not addr:
+                continue
+            pt = _ring_point(f.get("geometry") or {})
+            # PREMISEADD is already the full mailing form ("3401 NEWARK ST NW
+            # WASHINGTON DC 20016"), so it is geocoded as a visitor would type it.
+            out[ssl] = {"address": addr,
+                        "lat": pt[0] if pt else "", "lon": pt[1] if pt else ""}
+        log.info("  resolved %d/%d parcels", min(i + DC_BATCH, len(ssls)), len(ssls))
+        time.sleep(0.05)
+    return out
+
+
+def _dc_truth(row: dict) -> dict | None:
+    """DC's record, in the label's vocabulary. None if ungradeable."""
+    from housing_label.enrich.assessor import dc
+
+    def num(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+
+    year = num(row.get("AYB"))
+    if not year or not (1800 <= year <= 2100):
+        return None
+    sqft = num(row.get("GBA"))
+    units = num(row.get("NUM_UNITS")) or 1
+    return {
+        "year_built": int(year),
+        # Same rule the adapter applies: GBA is the whole building's, the label's
+        # figure is per dwelling, so a multi-unit row contributes no floor area
+        # rather than a building total wearing a per-unit label.
+        "sqft": sqft if sqft and sqft > 0 and units <= 1 else "",
+        "stories": dc._stories(row.get("STORIES")) or "",
+        "construction": dc._EXT_WALL.get((row.get("EXTWALL_D") or "").strip(), ""),
+        "foundation": "",          # DC's residential CAMA has no basement column
+        "condition": dc._CONDITION.get((row.get("CNDTN_D") or "").strip(), ""),
+    }
+
+
 def _truth(row: dict) -> dict | None:
     """The county's record, in the label's vocabulary. None if ungradeable."""
     # Reuse the adapter's own mapping tables rather than a second copy: a
@@ -238,45 +393,60 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--rows", type=int, default=200, help="parcels to sample (default 200)")
+    ap.add_argument("--jurisdiction", choices=sorted(JURISDICTIONS), default="cook",
+                    help="which assessor to build a benchmark from (default cook)")
     args = ap.parse_args()
 
     sys.path.insert(0, str(_ROOT / "src"))
     CACHE_DIR.mkdir(exist_ok=True)
+    juris = args.jurisdiction
 
-    year = _latest_year()
-    sample = _cama_sample(year, args.rows)
+    if juris == "cook":
+        year = _latest_year()
+        sample = _cama_sample(year, args.rows)
+        keys = [str(r["pin"]).zfill(14) for r in sample]
+        info = _parcel_info(keys)
+        truth_of, key_of = _truth, (lambda r: str(r["pin"]).zfill(14))
+    else:
+        year = "current"
+        sample = _dc_sample(args.rows)
+        keys = [(r.get("SSL") or "").strip() for r in sample]
+        info = _dc_place([k for k in keys if k])
+        truth_of, key_of = _dc_truth, (lambda r: (r.get("SSL") or "").strip())
+
     log.info("Fetched %d characteristics rows.", len(sample))
-
-    info = _parcel_info([str(r["pin"]).zfill(14) for r in sample])
-    log.info("Resolved %d of them to an address + coordinate.", len(info))
+    log.info("Resolved %d of them to an address.", len(info))
 
     out_rows = []
     for row in sample:
-        pin = str(row["pin"]).zfill(14)
-        place = info.get(pin)
-        truth = _truth(row) if place else None
+        key = key_of(row)
+        place = info.get(key)
+        truth = truth_of(row) if place else None
         if place and truth:
-            out_rows.append({"pin": pin, "address": place["address"],
+            out_rows.append({"parcel_id": key, "address": place["address"],
                              "lat": place["lat"], "lon": place["lon"], **truth})
 
     if not out_rows:
         raise SystemExit("no gradeable rows — refusing to write an empty benchmark")
 
-    with BENCHMARK.open("w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=["pin", "address", "lat", "lon"] + FIELDS)
+    benchmark = benchmark_path(juris)
+    with benchmark.open("w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=["parcel_id", "address", "lat", "lon"] + FIELDS)
         w.writeheader()
         w.writerows(out_rows)
 
-    digest = hashlib.sha256(BENCHMARK.read_bytes()).hexdigest()[:16]
-    (CACHE_DIR / "benchmark.meta.json").write_text(json.dumps({
-        "source": "Cook County Assessor (Open Data)",
+    digest = hashlib.sha256(benchmark.read_bytes()).hexdigest()[:16]
+    meta_path(juris).write_text(json.dumps({
+        "jurisdiction": juris,
+        "source": JURISDICTIONS[juris]["source"],
+        "scope": JURISDICTIONS[juris]["scope"],
         "assessment_year": year,
         "fetched": date.today().isoformat(),
         "rows": len(out_rows),
         "sha256_16": digest,
     }, indent=2) + "\n")
 
-    log.info("Wrote %s (%d rows, digest %s).", BENCHMARK, len(out_rows), digest)
+    log.info("Wrote %s (%d rows, digest %s).", benchmark, len(out_rows), digest)
     log.info("Not committed — see this script's docstring for why.")
     for fld in FIELDS:
         have = sum(1 for r in out_rows if r.get(fld) not in (None, ""))

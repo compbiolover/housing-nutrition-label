@@ -31,21 +31,30 @@ often that inference matches what a county assessor recorded for the same
 building &mdash; the only check that asks whether the output describes the world
 rather than whether the code does what it says.</p>
 
+<p><strong>How to read it.</strong> <em>Baseline</em> is what the label infers
+everywhere: a modelled structure record plus the census tract's year-built
+distribution. <em>With assessor</em> adds an observed county record where one
+resolves. The number that matters is the last table in each section — a year-built
+error that moves no letter is not a defect anyone can see; one that crosses a
+code-era boundary is.</p>
+
+<p>Measured so far: Cook County, Illinois. Each adapter is measured against its
+own assessor, and the sections are not comparable to each other &mdash; different
+housing stock, different record-keeping, different sample.</p>
+
+<h2 id="cook">Cook County, Illinois</h2>
+
 <p><strong>Method.</strong> 219 addresses sampled across
 Cook County Assessor (Open Data) (assessment year 2026,
-fetched 2026-08-24); a further 2 sampled addresses could not be geocoded or scored and are excluded from every rate below. Each is scored from
-the address alone, with no construction details supplied, and compared against the
-county's record. The benchmark itself is not redistributed; see the note at the
-foot of this page.</p>
+fetched 2026-08-24); a further 2 sampled addresses could not be geocoded or scored and are excluded from every rate below. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the assessor's record.</p>
 
-<h2>Field accuracy</h2>
-<p><em>Baseline</em> is what the label infers everywhere: a modelled structure
-record plus the census tract's year-built distribution. <em>With assessor</em> adds
-an observed county record where one resolves.</p>
+<h3>Field accuracy</h3>
 <div class="table-scroll"><table class="data-table"><thead><tr>
 <th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
 <th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
-<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Graded on</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
 </tr></thead><tbody>
 <tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>4.1%</td><td>83.4%</td><td>14.0</td><td>0.0</td><td>217</td></tr>
 <tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>25.6%</td><td>86.3%</td><td>211.0</td><td>0.0</td><td>117</td></tr>
@@ -59,10 +68,7 @@ an observed county record where one resolves.</p>
 construction profile leans on hardest, so the near-misses are worth seeing rather
 than collapsing into one median: within &plusmn;5 years 29.5% of the time at baseline and 85.7% with the assessor; within &plusmn;10 years 41.5% and 88.0%.</p>
 
-<h2>Does the reader see a different grade?</h2>
-<p>The number that matters. A year-built error that moves no letter is not a
-defect anyone can see; one that crosses a code-era boundary is. Share of
-addresses whose letter differs from the one the true attributes produce:</p>
+<h3>Does the reader see a different grade?</h3>
 <div class="table-scroll"><table class="data-table"><thead><tr>
 <th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
 </tr></thead><tbody>
@@ -73,29 +79,41 @@ addresses whose letter differs from the one the true attributes produce:</p>
 <tr><td>building_axis</td><td>30.0%</td><td>6.0%</td><td>217</td></tr>
 </tbody></table></div>
 
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+81.7% of the sample &middot; benchmark
+digest adea9ce0193c4007.</p>
+
 <h2>What this does and does not establish</h2>
 <ul>
-<li>The sample is <strong>Cook County, Illinois only</strong>. It is a real
-measurement of one county's housing stock, not a national accuracy figure, and it
-should not be read as one. A second adapter (Washington, DC) now exists and has not
-yet been measured this way; until it is, nothing here describes it.</li>
+<li><strong>These are the jurisdictions with an adapter, not a national sample.</strong>
+Each figure describes one place's housing stock and record-keeping.
+Nothing here supports a claim about anywhere else, and the two sections should not
+be averaged into one.</li>
+<li><strong>Washington, DC excludes condominiums</strong>, which are about 36% of
+its assessor's residential stock (61,329 condo records against 109,273 others). DC
+keeps them in a separate table keyed by unit, and a unit-level identifier does not
+appear in the parcel geometry at all &mdash; so no coordinate can pick one unit out
+of a building. The DC figures therefore describe non-condo homes, and the adapter
+returns nothing for a condo rather than guessing.</li>
 <li>The county's own record is treated as truth. It can be stale or wrong; it is
 the best available reference, not a survey.</li>
 <li>Addresses where the assessor lookup does not resolve fall back to the
 baseline, so the &ldquo;with assessor&rdquo; column includes them. It is the
 end-to-end number a visitor would experience, not the adapter's accuracy on the
 rows it answers.</li>
-<li>The benchmark is fetched on demand and not committed: Cook County grants no
-explicit right to redistribute a dataset. Re-running months later samples a
-refreshed roll, so the digest and date above are recorded to make that visible.</li>
+<li>The benchmarks are fetched on demand and not committed: neither source grants
+an explicit right to redistribute a dataset. Re-running months later samples a
+refreshed roll, so each section's digest and date are recorded to make that
+visible.</li>
 <li><strong>The categorical fields are a weaker test than the numeric ones.</strong>
 Wall material, foundation and condition are translated out of the county's
 vocabulary into the label's by the same table on both sides of the comparison, so
 their &ldquo;exact&rdquo; rates in the assessor column largely measure whether the
 right parcel was found &mdash; not whether the translation is right. One entry is
-knowingly lossy: the county's single <em>Masonry</em> category is read as brick,
-the label's brick/block/stone distinction being finer than the source. Year built
-and floor area carry no such circularity; they are numbers, compared as numbers.</li>
+knowingly lossy in each source: Cook's single <em>Masonry</em> category and DC's
+<em>Brick/Stone</em> are both read as brick, the label's brick/block/stone
+distinction being finer than either. Year built and floor area carry no such
+circularity; they are numbers, compared as numbers.</li>
 <li><strong>Rows are not graded on every field.</strong> The
 <em>Graded on</em> column is each field's own denominator, and it is not always the
 full sample. Floor area is the clearest case: the county records the whole
@@ -103,10 +121,13 @@ building's area while the label's figure is per dwelling unit, so on a multi-uni
 parcel the two are different quantities and the row is excluded rather than scored
 as a miss. A rate is over the rows in that column, not over every address
 sampled.</li>
-<li><strong>Condition is close to a constant here.</strong> All but a handful of
-sampled parcels carry the county's <em>Average</em> grade, so a high agreement rate
-on that row reflects the distribution of the source far more than the label's
-skill, and should not be read as one.</li>
+<li><strong>Condition is close to a constant.</strong> Most sampled parcels carry
+one dominant grade in each source, so a high agreement rate on that row reflects the
+distribution of the source far more than the label's skill, and should not be read
+as one.</li>
+<li><strong>DC records no basement type</strong>, so foundation is never observed
+there and its row stays at the baseline. That is a gap in the source, not a failure
+of the lookup.</li>
 <li><strong>The reference profile is not wholly observed.</strong> Where the county
 records nothing for a field, the truth arm falls back to the same modelled inputs
 the other two arms use, so a grade attributed to &ldquo;true attributes&rdquo; is
@@ -118,10 +139,10 @@ distance between the arms rather than overstating it.</li>
 <p style="opacity:0.75;font-size:0.85rem;margin-top:2rem;border-top:1px solid #cbd5e1;
 padding-top:0.9rem;">Informational purposes only. This label is a modeled estimate built from public data. It is not an inspection, appraisal, survey, or insurance quote, and it is not legal, financial, insurance, engineering, or real estate advice. It describes what the model expects of a home like this one at this location; it cannot tell you the condition, safety, value, or insurability of any particular property. Verify anything you would act on with a qualified professional. Provided as is, without warranty.</p>
 
-<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
-81.7% of the sample &middot; benchmark digest
-adea9ce0193c4007 &middot; generated 2026-08-24.
-Regenerate with <code>python scripts/measure_accuracy.py</code>.</p>
+<p style="opacity:0.75;font-size:0.85rem;">Generated
+2026-08-24. Regenerate with
+<code>python scripts/measure_accuracy.py --jurisdiction &lt;name&gt;</code>; each
+run replaces only its own section.</p>
 </main>
 <script src="nav.js"></script>
 </body></html>

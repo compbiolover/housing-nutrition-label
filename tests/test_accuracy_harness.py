@@ -182,7 +182,8 @@ def test_the_page_reports_the_numbers_it_was_given():
     page = M._render(results)
     assert "deadbeefdeadbeef" in page
     assert "62.5%" in page
-    assert "Cook County, Illinois only" in page, "the scope caveat must survive"
+    assert "Cook County, Illinois" in page, "the measured jurisdiction must be named"
+    assert "not a national sample" in page, "the scope caveat must survive"
     assert "7 addresses sampled" in page, "the sample size must be stated"
     # The two arms must not be transposed — the whole page is a comparison, and
     # swapping the columns would invert its conclusion while looking fine.
@@ -190,6 +191,58 @@ def test_the_page_reports_the_numbers_it_was_given():
                         if l.startswith("<tr><td>durability</td>"))
     assert baseline_row.index("100.0%") < baseline_row.index("0.0%"), (
         "baseline (worse) must be the first grade-impact column, adapter the second")
+
+
+def _juris(source, digest, rows=7):
+    return {
+        "benchmark": {"source": source, "assessment_year": "2026",
+                      "fetched": "2026-08-24", "rows": rows, "sha256_16": digest},
+        "adapter_resolved_pct": 62.5,
+        "baseline": M._summarise([_case({"year_built": 1900}, {"year_built": 1930},
+                                        {"durability": "B"}, {"durability": "C"})],
+                                 "baseline"),
+        "adapter": M._summarise([_case({"year_built": 1900}, {"year_built": 1900},
+                                       {"durability": "B"}, {"durability": "B"})],
+                                "adapter"),
+    }
+
+
+def test_every_measured_jurisdiction_gets_its_own_section():
+    """Two adapters, two sets of numbers. Averaging them would invent a figure
+    describing no real place, so each is rendered separately and both digests must
+    survive to the page."""
+    page = M._render({"generated": "2026-08-24", "jurisdictions": {
+        "cook": _juris("Cook County Assessor (Open Data)", "aaaaaaaaaaaaaaaa"),
+        "dc": _juris("DC Office of Tax and Revenue (Open Data)", "bbbbbbbbbbbbbbbb"),
+    }})
+    assert "aaaaaaaaaaaaaaaa" in page and "bbbbbbbbbbbbbbbb" in page
+    assert "Cook County, Illinois" in page and "Washington, DC" in page
+    assert "not comparable to each other" in page, (
+        "a reader must be told the sections describe different places")
+
+
+def test_the_original_single_county_results_still_render():
+    """The first published run stored one county's numbers at the top level. A
+    committed measurement should not need hand-editing to survive a second adapter,
+    so that shape is read as the jurisdiction it in fact described."""
+    flat = {"generated": "2026-08-24", **_juris("Cook County Assessor (Open Data)", "cccc")}
+    assert set(M.as_jurisdictions(flat)) == {"cook"}
+    assert "Cook County, Illinois" in M._render(flat)
+
+
+def test_an_unrecognised_results_shape_yields_no_sections():
+    """Better an empty page than a confident one built from a file this code does
+    not understand."""
+    assert M.as_jurisdictions({"generated": "2026-08-24"}) == {}
+
+
+def test_dc_scope_is_stated_where_the_numbers_are():
+    """DC's exclusion of condominiums is a third of its housing stock. It belongs
+    beside the figures, not only in the caveats at the foot of the page."""
+    data = _juris("DC Office of Tax and Revenue (Open Data)", "dddddddddddddddd")
+    data["benchmark"]["scope"] = "non-condominium homes only"
+    page = M._render({"generated": "2026-08-24", "jurisdictions": {"dc": data}})
+    assert "non-condominium homes only" in page
 
 
 def test_the_page_states_the_sampled_count_not_the_scored_one():
