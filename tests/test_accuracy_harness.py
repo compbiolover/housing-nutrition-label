@@ -571,10 +571,13 @@ def test_an_unreadable_results_shape_is_not_treated_as_an_empty_store():
     assert M.as_jurisdictions({"something": "else"}) == {}, (
         "if this ever returns sections for an unknown shape, the guard that "
         "depends on it being empty needs revisiting")
-    src = pathlib.Path(M.__file__).read_text()
-    assert "if previous and not juris_map:" in src, (
-        "the merge must refuse a non-empty results file it cannot read, rather "
-        "than writing this run's section alone over it")
+    try:
+        M._readable_results({"something": "else"}, "this merge", existed=True)
+    except SystemExit as exc:
+        assert "no jurisdiction sections" in str(exc)
+    else:
+        raise AssertionError(
+            "a results file with no readable sections was accepted for merging")
 
 
 def test_a_per_jurisdiction_benchmark_must_carry_a_digest():
@@ -629,13 +632,61 @@ def test_render_only_refuses_an_unreadable_results_file():
     destructive with the same empty answer: the merge writes this run alone over
     the file, the render publishes an empty page over the real one."""
     try:
-        M._readable_results({"something": "else"}, "the rendered page")
+        M._readable_results({"something": "else"}, "the rendered page", existed=True)
     except SystemExit as exc:
         assert "no jurisdiction sections" in str(exc)
     else:
         raise AssertionError("an unreadable results file was accepted for render")
     # And the empty case is still a legitimate fresh start.
-    assert M._readable_results({}, "x") == {}
+    assert M._readable_results({}, "x", existed=False) == {}
+
+
+def test_an_existing_but_falsy_results_file_is_not_a_fresh_start():
+    """`{}`, `[]`, `0`, `false` are all files that EXIST and say something this
+    code cannot read. Testing truthiness let every one through as a fresh store —
+    the same absent/unreadable conflation, one level up. `0` and `false` were
+    worse than accepted: they raised TypeError inside as_jurisdictions, an
+    unhandled crash where a stated refusal belongs."""
+    for value in ({}, [], 0, False, "text"):
+        try:
+            M._readable_results(value, "x", existed=True)
+        except SystemExit:
+            pass
+        else:
+            raise AssertionError(f"an existing results file holding {value!r} was "
+                                 f"treated as nothing worth preserving")
+    assert M._readable_results({}, "x", existed=False) == {}, (
+        "a genuinely missing file is still a fresh start")
+
+
+def test_a_render_failure_replaces_neither_file():
+    """The page was written second, straight from _render() in the argument list,
+    so anything that made rendering raise left results.json already replaced and
+    the page still describing the previous run — the two disagreeing, with the CI
+    gate comparing exactly those two."""
+    with tempfile.TemporaryDirectory() as tmp:
+        results_p = pathlib.Path(tmp) / "results.json"
+        page_p = pathlib.Path(tmp) / "accuracy.html"
+        results_p.write_text('{"before": true}')
+        page_p.write_text("<p>before</p>")
+        orig = (M.RESULTS, M.PAGE, M._render)
+        M.RESULTS, M.PAGE = results_p, page_p
+
+        def boom(_results):
+            raise KeyError("benchmark")
+
+        M._render = boom
+        try:
+            M._publish({"after": True})
+        except KeyError:
+            pass
+        else:
+            raise AssertionError("a failing render reported success")
+        finally:
+            M.RESULTS, M.PAGE, M._render = orig
+        assert results_p.read_text() == '{"before": true}', (
+            "results.json was replaced even though the page could not be built")
+        assert page_p.read_text() == "<p>before</p>"
 
 
 def _run_all() -> int:

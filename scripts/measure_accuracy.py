@@ -612,7 +612,7 @@ def _results_lock():
         LOCK.unlink(missing_ok=True)
 
 
-def _readable_results(previous: dict, where: str) -> dict:
+def _readable_results(previous, where: str, *, existed: bool) -> dict:
     """The jurisdiction sections of a results file, or the end of the run.
 
     `as_jurisdictions` answers {} for a shape it does not recognise, and BOTH
@@ -624,12 +624,24 @@ def _readable_results(previous: dict, where: str) -> dict:
     One function because the two paths kept diverging: the merge grew this guard a
     commit before --render-only did, which is the same one-branch-and-not-its-
     neighbour mistake that produced half the findings on this change.
+
+    `existed` rather than truthiness. A file holding `{}`, `[]`, `0` or `false` is
+    a file that exists and says something this code cannot read — testing
+    `if previous` let every one of those through as a fresh store, which is the
+    same "absent" and "unreadable" conflation, one level up. A non-dict is refused
+    before it reaches `as_jurisdictions`, which used to raise TypeError on it: an
+    unhandled crash where a stated refusal belongs.
     """
-    juris_map = dict(as_jurisdictions(previous))
-    if previous and not juris_map:
+    if existed and not isinstance(previous, dict):
         raise SystemExit(
-            f"{RESULTS.name} is not empty but no jurisdiction sections could be "
-            f"read from it, so {where} would destroy whatever it holds. Inspect it "
+            f"{RESULTS.name} holds {type(previous).__name__}, not an object, so "
+            f"{where} cannot read it — and writing would destroy it. Inspect it "
+            f"(or move it aside) and re-run.")
+    juris_map = dict(as_jurisdictions(previous or {}))
+    if existed and not juris_map:
+        raise SystemExit(
+            f"{RESULTS.name} exists but no jurisdiction sections could be read "
+            f"from it, so {where} would destroy whatever it holds. Inspect it "
             f"(or move it aside) and re-run.")
     return juris_map
 
@@ -715,6 +727,25 @@ def _verify_benchmark(path: pathlib.Path, meta: dict, juris: str,
     return payload
 
 
+def _publish(results: dict) -> None:
+    """Replace the results file and the page, or replace neither.
+
+    The page used to be written second, straight from `_render(results)` in the
+    argument list. Anything that made rendering raise — a section carried over
+    from the file just read that this code cannot render — therefore left
+    results.json already replaced and the page still describing the previous run.
+    The two would disagree, and the CI gate compares exactly those two.
+
+    Rendering first turns that into a failure that changes nothing. It is a
+    function rather than two ordered lines because the ordering IS the guarantee,
+    and a guarantee that lives in the order of two statements is one edit from
+    being lost silently.
+    """
+    page = _render(results)                     # may raise; nothing written yet
+    _write_atomic(RESULTS, json.dumps(results, indent=2) + "\n")
+    _write_atomic(PAGE, page)
+
+
 def _write_atomic(path: pathlib.Path, text: str) -> None:
     """Write via a temporary file and rename, so no reader sees a partial file."""
     tmp = path.with_suffix(path.suffix + ".tmp")
@@ -774,7 +805,7 @@ def main() -> int:
         # files disagreeing — and the CI gate compares exactly those two.
         with _results_lock():
             previous = json.loads(RESULTS.read_text())
-            _readable_results(previous, "the rendered page")
+            _readable_results(previous, "the rendered page", existed=True)
             _write_atomic(PAGE, _render(previous))
         log.info("Rendered %s from the committed measurements.", PAGE)
         return 0
@@ -926,12 +957,12 @@ def main() -> int:
 
     RESULTS.parent.mkdir(parents=True, exist_ok=True)
     with _results_lock():
-        previous = json.loads(RESULTS.read_text()) if RESULTS.exists() else {}
-        juris_map = _readable_results(previous, "this merge")
+        existed = RESULTS.exists()
+        previous = json.loads(RESULTS.read_text()) if existed else {}
+        juris_map = _readable_results(previous, "this merge", existed=existed)
         juris_map[juris] = measured
         results = {"generated": date.today().isoformat(), "jurisdictions": juris_map}
-        _write_atomic(RESULTS, json.dumps(results, indent=2) + "\n")
-        _write_atomic(PAGE, _render(results))
+        _publish(results)
 
     _log_summary(measured, juris)
     log.info("Wrote %s and %s.", RESULTS, PAGE)
