@@ -266,6 +266,7 @@ def resolve_location(
     *,
     allow_network: bool = True,
     geography: dict | None = None,
+    want_assessor: bool = True,
 ) -> Location:
     """Resolve an address or lat/lon into a fully-populated Location.
 
@@ -420,7 +421,11 @@ def resolve_location(
     # entered. Fails open to None, so a county portal having a bad day is
     # indistinguishable from a county with no adapter — which is correct, because
     # the label's response to both is identical.
-    if allow_network:
+    # `want_assessor` is False when the caller already knows it will discard the
+    # result — scoring a hypothetical preset skips the construction autofill
+    # entirely, so the two hops would be paid and thrown away, on a critical path
+    # with a 12-second budget for every upstream combined.
+    if allow_network and want_assessor:
         from housing_label.enrich.assessor import assessor_for_point
         loc.assessor = assessor_for_point(loc.lat, loc.lon, loc.county_fips,
                                           address=loc.matched_address)

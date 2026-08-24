@@ -100,20 +100,23 @@ def _fetch(url: str, params: dict, attempts: int = 4):
 
 
 def _latest_year() -> str:
-    r = requests.get(CAMA_URL, params={"$select": "max(year)"},
-                     headers=HEADERS, timeout=TIMEOUT)
-    r.raise_for_status()
-    return str((r.json() or [{}])[0].get("max_year", "")).split(".")[0]
+    got = _fetch(CAMA_URL, {"$select": "max(year)"})
+    if got is None:
+        raise SystemExit("could not reach the county portal to find the latest "
+                         "assessment year; try again later")
+    return str((got or [{}])[0].get("max_year", "")).split(".")[0]
 
 
 def _cama_sample(year: str, rows: int) -> list[dict]:
     """Evenly-spaced rows from the latest assessment year."""
-    r = requests.get(CAMA_URL, params={"$select": "count(*)", "$where": f"year='{year}'"},
-                     headers=HEADERS, timeout=TIMEOUT)
-    r.raise_for_status()
+    # Before the network call: an unusable argument should not cost a request.
     if rows < 1:
         raise SystemExit(f"--rows must be at least 1 (got {rows})")
-    total = int((r.json() or [{}])[0].get("count", 0))
+    got = _fetch(CAMA_URL, {"$select": "count(*)", "$where": f"year='{year}'"})
+    if got is None:
+        raise SystemExit(f"could not reach the county portal to size assessment "
+                         f"year {year}; try again later")
+    total = int((got or [{}])[0].get("count", 0))
     if total <= 0:
         raise SystemExit(f"no rows for assessment year {year}")
     log.info("Assessment year %s has %d parcels; sampling %d.", year, total, rows)

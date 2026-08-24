@@ -439,6 +439,36 @@ def test_a_record_with_nothing_in_it_is_not_a_resolved_lookup():
             os.environ[reg.ENABLE_ENV] = prev
 
 
+def test_a_preset_build_does_not_pay_for_an_assessor_lookup():
+    """Scoring a hypothetical preset skips the construction autofill entirely, so
+    a record fetched for it is discarded — two upstream hops of latency bought and
+    thrown away, on a path sharing a 12-second budget with every other upstream.
+
+    Checked against the source of build_label_parts rather than by running it,
+    because exercising the real path needs network that CI does not have. That
+    makes this a guard on the wiring, not the behaviour: it catches the flag being
+    dropped from an existing call site, which is how this regressed once.
+    """
+    import inspect
+
+    from housing_label.simulate.house import build_label_parts
+    from housing_label.simulate.location import resolve_location
+
+    params = inspect.signature(resolve_location).parameters
+    assert "want_assessor" in params, "resolve_location lost its opt-out"
+    assert params["want_assessor"].default is True, (
+        "the opt-out must default to on; a caller that forgets it should still get "
+        "the county record, not silently lose it")
+
+    src = inspect.getsource(build_label_parts)
+    resolves = src.count("resolve_location(")
+    gated = src.count("want_assessor=preset is None")
+    assert resolves == gated, (
+        f"{resolves} resolve_location call(s) in build_label_parts but {gated} pass "
+        f"want_assessor=preset is None; a preset build would fetch a county record "
+        f"it then discards")
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]

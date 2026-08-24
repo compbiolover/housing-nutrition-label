@@ -157,7 +157,7 @@ window.LabelForm = (function () {
     return '<details class="addr-details lf-refine" style="max-width:640px;margin:0 auto 1rem;display:none;">'
       + '<summary><span>Refine building details</span> <span class="refine-count lf-refine-count"></span></summary>'
       + '<p class="addr-hint" style="margin:0 0 0.5rem;font-size:0.82rem;opacity:0.85;">'
-      + 'We estimate these from public data (USACE structure records + Census) and score with them. '
+      + 'We fill these in from public data \u2014 a county parcel record where one is published, otherwise USACE structure records + Census \u2014 and score with them. '
       + 'Anything looks off? Edit it and the label updates. Living area is <strong>per unit</strong>.</p>'
       + '<div class="addr-fields">' + FIELDS.map(fieldHtml).join("") + '</div>'
       + '<fieldset class="addr-upgrades"><legend>Resilience upgrades</legend>'

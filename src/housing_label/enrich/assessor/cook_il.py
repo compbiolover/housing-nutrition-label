@@ -128,8 +128,9 @@ _STORIES = {"1 Story": 1, "2 Story": 2}
 
 # Street-type suffixes, mapped to a canonical form. They are NOT dropped: "213
 # MAIN ST" and "213 MAIN AVE" are different streets that can both exist within
-# one buffer, and collapsing both to "MAIN" would let a match this whole
-# confirmation step exists to prevent through as a confident "observed" answer.
+# one buffer, and collapsing both to "MAIN" would let the wrong parcel pass the
+# confirmation step and be reported as a confident "observed" answer — exactly
+# what that step exists to prevent.
 # They are canonicalised rather than compared raw because the geocoder and the
 # parcel layer abbreviate differently ("STREET" vs "ST") for the same street.
 #

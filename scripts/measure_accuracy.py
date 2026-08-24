@@ -261,7 +261,8 @@ def _render(results: dict) -> str:
             f"<tr><td>{html.escape(f)}</td>"
             f"<td>{cell(b,'coverage_pct','%')}</td><td>{cell(a,'coverage_pct','%')}</td>"
             f"<td>{cell(b,'exact_pct','%')}</td><td>{cell(a,'exact_pct','%')}</td>"
-            f"<td>{cell(b,'median_abs_error')}</td><td>{cell(a,'median_abs_error')}</td></tr>")
+            f"<td>{cell(b,'median_abs_error')}</td><td>{cell(a,'median_abs_error')}</td>"
+            f"<td>{b.get('n', 0)}</td></tr>")
     for k in list(GRADED) + ["building_axis"]:
         b, a = results["baseline"]["grade_impact"][k], results["adapter"]["grade_impact"][k]
         bv = "—" if b["differs_pct"] is None else f"{b['differs_pct']}%"
@@ -321,7 +322,7 @@ an observed county record where one resolves.</p>
 <div class="table-scroll"><table class="data-table"><thead><tr>
 <th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
 <th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
-<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Graded on</th>
 </tr></thead><tbody>
 {chr(10).join(rows_f)}
 </tbody></table></div>
@@ -363,6 +364,13 @@ right parcel was found &mdash; not whether the translation is right. One entry i
 knowingly lossy: the county's single <em>Masonry</em> category is read as brick,
 the label's brick/block/stone distinction being finer than the source. Year built
 and floor area carry no such circularity; they are numbers, compared as numbers.</li>
+<li><strong>Rows are not graded on every field.</strong> The
+<em>Graded on</em> column is each field's own denominator, and it is not always the
+full sample. Floor area is the clearest case: the county records the whole
+building's area while the label's figure is per dwelling unit, so on a multi-unit
+parcel the two are different quantities and the row is excluded rather than scored
+as a miss. A rate is over the rows in that column, not over every address
+sampled.</li>
 <li><strong>Condition is close to a constant here.</strong> All but a handful of
 sampled parcels carry the county's <em>Average</em> grade, so a high agreement rate
 on that row reflects the distribution of the source far more than the label's

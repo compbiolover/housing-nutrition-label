@@ -2415,6 +2415,13 @@ def _autofill_construction_from_nsi(cfg: dict, explicit: set, location,
     record = getattr(location, "assessor", None)
     observed_fields = dict(record.fields()) if record is not None else {}
     obs_src = getattr(record, "source", None) or "county assessor"
+    # The record carries the assessment roll it came from; without it a reader is
+    # told a value is "observed" but not observed *when*, and a county record can
+    # be several years stale. The vintage is the difference between a fact and a
+    # dated fact, so it travels with the source rather than being dropped here.
+    obs_vintage = getattr(record, "data_vintage", None)
+    if obs_vintage:
+        obs_src = f"{obs_src} ({obs_vintage})"
 
     # A county's floor area is the whole BUILDING's. The label's sqft is per
     # dwelling unit — that is the basis the form, the scorer and _nsi_per_unit_sqft
@@ -2793,7 +2800,8 @@ def build_label_parts(*, address: str | None = None,
                 "point's county/tract are already known, address says to geocode "
                 "for them.")
         try:
-            location = resolve_location(address=address, allow_network=allow_network)
+            location = resolve_location(address=address, allow_network=allow_network,
+                                        want_assessor=preset is None)
         except Exception as exc:  # noqa: BLE001 — surface as a clean validation error
             raise ValueError(f"Could not geocode address {address!r}: {exc}") from exc
         lat, lon = location.lat, location.lon
@@ -2813,7 +2821,8 @@ def build_label_parts(*, address: str | None = None,
         lon = lon if lon is not None else SHELBY_LON
         try:
             location = resolve_location(lat=lat, lon=lon, allow_network=allow_network,
-                                        geography=geography)
+                                        geography=geography,
+                                        want_assessor=preset is None)
         except Exception:  # noqa: BLE001
             location = None
 
