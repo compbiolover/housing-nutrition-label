@@ -52,6 +52,9 @@ class Location:
     county_name: str | None = None
     tract: str | None = None              # 11-digit tract GEOID
     place_label: str | None = None
+    # What the geocoder said it matched, verbatim ("213 W MAIN ST, BARRINGTON, ...").
+    # Only set when an address was geocoded — a lat/lon caller never has one.
+    matched_address: str | None = None
     in_urban_area: bool | None = None
     climate_zone: str | None = None       # IECC zone, e.g. "4A"
     egrid_subregion: str | None = None
@@ -66,6 +69,11 @@ class Location:
     # the stand-in used when nobody has told us this building's real year, and the
     # only thing that says how wide a stand-in it is.
     year_built_distribution: dict | None = None
+    # What the COUNTY ASSESSOR says is standing here (enrich/assessor) — the only
+    # observed construction data in the label, and only in the handful of counties
+    # with an adapter, only when ASSESSOR_ADAPTERS is on. None everywhere else,
+    # which is the same thing the label did before adapters existed.
+    assessor: object | None = None
     # Building structure at this point (USACE National Structure Inventory). Best
     # effort — all None when NSI is unavailable or the point isn't a building.
     structure_type: str | None = None     # single_family | multifamily | manufactured | ...
@@ -221,8 +229,14 @@ def _geocode_address_uncached(address: str) -> dict | None:
     coords = m.get("coordinates") or {}
     out = {"lat": coords.get("y"), "lon": coords.get("x")}
     out.update(_parse_geographies(m.get("geographies") or {}))
+    # Keep the matched address in its own key, not only as a place_label fallback.
+    # The county-assessor adapters need it: the Census geocoder interpolates many
+    # addresses along a street centerline, which puts the point in the roadway
+    # where no parcel polygon exists, and the house number is the only thing that
+    # can tell 213 W Main from the 205 and 209 that are nearer to it.
+    out["matched_address"] = m.get("matchedAddress")
     if out.get("place_label") is None:
-        out["place_label"] = m.get("matchedAddress")
+        out["place_label"] = out["matched_address"]
     return out
 
 
@@ -252,6 +266,7 @@ def resolve_location(
     *,
     allow_network: bool = True,
     geography: dict | None = None,
+    want_assessor: bool = True,
 ) -> Location:
     """Resolve an address or lat/lon into a fully-populated Location.
 
@@ -399,6 +414,32 @@ def resolve_location(
             f"county {loc.county_fips} not in the ACS year-built crosswalk; "
             f"using the US typical")
 
+    # County assessor characteristics, where a county has an adapter and the
+    # operator has switched them on. Deliberately BEFORE the NSI block so the note
+    # ordering reads source-of-truth first; the autofill applies it per field over
+    # anything NSI or the ACS distribution offers, and under anything the reader
+    # entered. Fails open to None, so a county portal having a bad day is
+    # indistinguishable from a county with no adapter — which is correct, because
+    # the label's response to both is identical.
+    # `want_assessor` is False when the caller already knows it will discard the
+    # result — scoring a hypothetical preset skips the construction autofill
+    # entirely, so the two hops would be paid and thrown away, on a critical path
+    # with a 12-second budget for every upstream combined.
+    if allow_network and want_assessor:
+        from housing_label.enrich.assessor import assessor_for_point
+        # The geocoder does not always echo a matchedAddress. Without one, _pin_at
+        # falls back to accepting a sole containing polygon unconfirmed — and the
+        # interpolation error that motivates the confirmation can land the point
+        # inside a neighbour's lot. So the caller's own address string stands in.
+        # It stays None for coordinate-only callers, who genuinely have nothing to
+        # confirm against.
+        loc.assessor = assessor_for_point(loc.lat, loc.lon, loc.county_fips,
+                                          address=loc.matched_address or address)
+        if loc.assessor is not None:
+            notes["assessor"] = (
+                f"construction details observed by the {loc.assessor.source}"
+                f" (parcel {loc.assessor.parcel_id})")
+
     # Building structure (USACE NSI, live keyless API): what kind of building sits
     # here — single-family, multi-family, unit count, stories. Best effort; leaves
     # the fields None (with a note) when NSI is unavailable or off-network.
@@ -478,6 +519,7 @@ def _apply_geo(loc: Location, geo: dict) -> None:
     loc.county_name = geo.get("county_name")
     loc.tract = geo.get("tract")
     loc.place_label = geo.get("place_label")
+    loc.matched_address = geo.get("matched_address")
     loc.place_geoid = geo.get("place_geoid")
     loc.incorporated = geo.get("incorporated")
     loc.in_urban_area = geo.get("in_urban_area")

@@ -45,5 +45,12 @@ jobs:
         run: python scripts/sync_docs.py --check
       - name: Icons in sync with the palette (favicons / apple-touch-icon)
         run: python scripts/build_icons.py --check
+      # The measurements themselves need network (every row geocodes and hits NSI),
+      # so they are taken by hand and committed, exactly like the build_*.py
+      # crosswalks. What CI can enforce is that the page a reader sees still
+      # reports the run that was committed — the failure mode being a published
+      # accuracy claim that no longer matches any measurement anyone took.
+      - name: Accuracy page in sync with the committed measurements
+        run: python scripts/measure_accuracy.py --check
       - name: Test (pytest)
         run: pytest -q

@@ -197,10 +197,31 @@ The national/local thresholds are identical across all dimensions, so a grade me
 >
 > **National percentile per dimension ("vs US homes").** Each dimension also shows where the home stands nationally, e.g. *"72nd US"*. The construction-driven dimensions (energy, durability, environmental, resilience) map their score through a bundled national distribution built by [`scripts/calibrate_construction_percentiles.py`](scripts/calibrate_construction_percentiles.py) (a household-weighted panel of every US county × documented building archetypes, scored with the real models); walkability maps through the EPA-NWI crosswalk distribution; health/socioeconomic already are national percentiles; climate/infrastructure/air quality track national quantiles. These construction/walkability references are **modeled** distributions, so the percentile is an honest, versioned *estimate* (labelled as such on the label).
 
+## Accuracy
+
+Every score is inferred from public data. Whether that inference describes the
+house actually standing there is measured, not asserted:
+[`scripts/measure_accuracy.py`](scripts/measure_accuracy.py) scores a sample of
+addresses from the address alone and compares the result against a county
+assessor's own record for the same parcel. The headline number is the
+**grade-impact rate** — how often the letter a reader sees differs from the one
+the true attributes produce — because a year-built error that moves no grade is
+not a defect anyone can see, and a small one that crosses a code-era boundary is.
+
+Published at [housinglabel.dev/accuracy.html](https://housinglabel.dev/accuracy.html)
+and regenerated from a committed measurement run, which CI verifies the page still
+matches. The sample is **Cook County, Illinois only** — the one county with both
+an adapter and free published ground truth — so it is a real measurement of one
+county's housing stock and not a national accuracy figure.
+
+The benchmark itself is fetched on demand and deliberately **not committed**: Cook
+County grants no explicit right to redistribute a dataset, so only the
+measurements taken from it live in this repository.
+
 ## Data Sources
 
 <details>
-<summary><strong>All sources & API-key requirements</strong> (19 datasets, all free)</summary>
+<summary><strong>All sources & API-key requirements</strong> (20 datasets, all free)</summary>
 
 | Source | Provides | API key |
 |---|---|---|
@@ -222,6 +243,7 @@ The national/local thresholds are identical across all dimensions, so a grade me
 | [EPA SDWIS](https://www.epa.gov/ground-water-and-drinking-water/safe-drinking-water-information-system-sdwis-federal-reporting) | County community-water-system health-based violations (Water Quality) | Free, no key (bundled) |
 | [Census ACS 5-yr Summary File](https://www.census.gov/programs-surveys/acs/data/summary-file.html) | Socioeconomic indicators (poverty, income, housing-cost burden), national reference | Free, no key (bundled; the live scoring path needs no key) |
 | [Census ACS 5-yr Summary File](https://www.census.gov/programs-surveys/acs/data/summary-file.html) | Tract year-built distribution — B25034 quartiles + B25035 median (the vintage stand-in and its spread, when nobody supplies the real year) | Free, no key (bundled) |
+| [Cook County Assessor](https://datacatalog.cookcountyil.gov/) (Open Data) | **Observed** parcel construction: year built, living area, exterior wall, basement type, condition, stories — Cook County, IL only, queried live and never bundled | Free, no key (off unless `ASSESSOR_ADAPTERS=1`) |
 | [EPA National Walkability Index](https://www.epa.gov/smartgrowth/national-walkability-index-user-guide-and-methodology) | Walkability (block-group index, aggregated to tract) | Free, public domain (bundled) |
 
 > Tract geocoding for the health and socioeconomic joins uses the free [FCC Area API](https://geo.fcc.gov/api/census/) (no key).

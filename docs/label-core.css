@@ -247,6 +247,10 @@
 .field-tag { font-size: 0.68rem; font-weight: 600; padding: 0.05rem 0.4rem; border-radius: 999px;
   vertical-align: middle; white-space: nowrap; }
 .field-tag.confirmed { background: #dcfce7; color: #166534; }
+/* Observed sits between "you edited" and "estimated": teal reads as its own kind
+   of provenance rather than a shade of either, so a reader can tell at a glance
+   which fields somebody actually measured. */
+.field-tag.observed  { background: #ccfbf1; color: #115e59; }
 .field-tag.estimated { background: #e0e7ff; color: #3730a3; }
 .field-tag.assumed   { background: #f1f5f9; color: #475569; }
 .refine-count { font-weight: 500; font-size: 0.82rem; color: var(--muted); }
@@ -324,6 +328,7 @@
   .addr-suggest li.active, .addr-suggest li:hover { background: #334155; }
   .conf-dot.conf-high { color: #e2e8f0; }
   .field-tag.confirmed { background: #14532d; color: #bbf7d0; }
+  .field-tag.observed  { background: #134e4a; color: #99f6e4; }
   .field-tag.estimated { background: #312e81; color: #c7d2fe; }
   .field-tag.assumed   { background: #334155; color: #cbd5e1; }
   .addr-details summary, .addr-upgrades legend { color: #cbd5e1; }

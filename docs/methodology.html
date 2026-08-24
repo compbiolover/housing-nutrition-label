@@ -375,6 +375,12 @@
   <p><strong>Composite score:</strong> the average of the dimensions that could be scored. Dimensions with no data (for example, a location dimension whose census tract can't be resolved) are left out rather than counted as zero, so a strong home isn't dragged down by a missing input.</p>
 </section>
 
+<section id="accuracy">
+  <h2>How accurate is any of this?</h2>
+  <p class="plain">Everything above describes how a score is <em>computed</em>. A separate and harder question is whether the inputs describe the house that is actually there &mdash; most of them are modelled or are an area typical, not a measurement of your building.</p>
+  <p>That is measured rather than asserted: a sample of addresses is scored from the address alone and compared against what a county assessor recorded for the same parcel, and the headline number is how often the letter grade a reader sees differs from the one the true attributes produce. <a href="accuracy.html">See the current measurements</a>, including what they do and do not establish &mdash; the sample is one county, because it is the only one with free published ground truth.</p>
+</section>
+
 <!-- Moved here from the home page, where seventeen rows of sourcing detail were
      the last thing before the footer. This page already opens by naming these
      agencies, and each dimension above cites its own inputs; this is the roster
@@ -401,7 +407,9 @@
       <tr><td>PVGIS (EU JRC) on NREL NSRDB</td><td>Rooftop solar specific yield by county</td><td class="free">Free, no key (bundled)</td></tr>
       <tr><td>EPA SDWIS federal reporting</td><td>Drinking-water compliance (health-based violations) by county</td><td class="free">Free, no key (bundled)</td></tr>
       <tr><td>Census ACS 5-yr Summary File</td><td>Socioeconomic indicators (national reference)</td><td class="free">Free, no key (bundled)</td></tr>
+      <tr><td>Census ACS 5-yr Summary File (B25034/B25035)</td><td>Tract year-built distribution: the vintage stand-in and its spread</td><td class="free">Free, no key (bundled)</td></tr>
       <tr><td>EPA National Walkability Index</td><td>Walkability by census tract</td><td class="free">Free, public domain (bundled)</td></tr>
+      <tr><td>Cook County Assessor (Open Data)</td><td>Observed parcel construction (Cook County, IL only): year built, living area, stories, exterior wall, basement, condition</td><td class="free">Free, no key (queried live, never bundled; off unless enabled)</td></tr>
     </tbody>
   </table></div>
 </section>

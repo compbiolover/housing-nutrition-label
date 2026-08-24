@@ -2312,7 +2312,23 @@ def _nsi_per_unit_sqft(location, units: int | None = None) -> float | None:
     if sqft is None:
         return None
     n = _nsi_sqft_divisor(location, units)
-    return round(float(sqft) / n * _MF_NET_TO_GROSS, 1) if n else sqft
+    if n:
+        return round(float(sqft) / n * _MF_NET_TO_GROSS, 1)
+    # A DETECTED multi-unit record's sqft is the whole building's. With no usable
+    # count to divide by there is no per-unit figure to report, and returning the
+    # building total would publish a 100k sqft "apartment" as this dwelling's
+    # living area — the same whole-building-as-per-unit error guarded against for
+    # the county's area and the USA Structures footprint, in the one path that
+    # feeds most labels. Nothing is the honest answer; the caller's own default
+    # then stands.
+    #
+    # The cluster heuristic is deliberately excluded: it reaches "multifamily" from
+    # repeated single-family footprints, so its sqft already describes one house
+    # and dividing or dropping it would both be wrong.
+    if (getattr(location, "units_confidence", None) == "detected"
+            and getattr(location, "structure_type", None) == "multifamily"):
+        return None
+    return sqft
 
 
 def _nsi_sqft_divisor(location, units: int | None = None) -> int | None:
@@ -2331,9 +2347,17 @@ def _nsi_sqft_divisor(location, units: int | None = None) -> int | None:
 
 def _autofill_construction_from_nsi(cfg: dict, explicit: set, location,
                                     units: int | None = None) -> dict:
-    """Fill year_built / sqft / construction / foundation from the NSI-detected
-    Location when the user left them unset. Returns ``{field: (source, confidence)}``
-    for the fields that were auto-filled, so the label can tag them as estimates.
+    """Fill year_built / sqft / construction / foundation / stories / condition from
+    the resolved Location when the user left them unset. Returns
+    ``{field: (source, confidence[, status])}`` for the fields that were auto-filled,
+    so the label can tag each with where it came from.
+
+    Sources in precedence order: an OBSERVED county-assessor record (tagged
+    ``observed``), then a modelled stand-in, then a global default. The modelled
+    step is field-dependent: ``year_built`` prefers the tract's ACS distribution
+    where the tract resolved and falls back to NSI's tract median; every other
+    field comes from NSI's structure record. The assessor is applied per field, so a
+    county publishing only some attributes contributes only those.
 
     year_built is a CENSUS-TRACT MEDIAN — a fact about the tract, not the building —
     so it is tagged ``assumed`` rather than ``estimated``; construction is a coarse
@@ -2394,9 +2418,70 @@ def _autofill_construction_from_nsi(cfg: dict, explicit: set, location,
         # embodied model, so real addresses were scored as 1-story. Now wired through.
         ("stories",      getattr(location, "stories", None), "NSI · structure record", "moderate" if observed else "low"),
     ]
+    # An OBSERVED county-assessor record outranks every entry in `plan`, because
+    # every entry in `plan` is modeled or typical and this one is a measurement.
+    # It is applied per FIELD rather than wholesale: a county that publishes a year
+    # built and a basement but no floor area should hand over the two it has and
+    # leave NSI to the third, instead of an all-or-nothing swap that would trade
+    # two observations for one.
+    #
+    # It does not outrank the reader — `explicit` is still checked first below. A
+    # county record can be decades stale or simply wrong about a house somebody is
+    # standing in.
+    from housing_label.enrich.assessor.base import TRANSLATED as _ASSESSOR_TRANSLATED
+
+    record = getattr(location, "assessor", None)
+    observed_fields = dict(record.fields()) if record is not None else {}
+    obs_src = getattr(record, "source", None) or "county assessor"
+    # The record carries the assessment roll it came from; without it a reader is
+    # told a value is "observed" but not observed *when*, and a county record can
+    # be several years stale. The vintage is the difference between a fact and a
+    # dated fact, so it travels with the source rather than being dropped here.
+    obs_vintage = getattr(record, "data_vintage", None)
+    if obs_vintage:
+        obs_src = f"{obs_src} ({obs_vintage})"
+
+    # A county's floor area is the whole BUILDING's. The label's sqft is per
+    # dwelling unit — that is the basis the form, the scorer and _nsi_per_unit_sqft
+    # all use — so on a multi-unit parcel handing the raw county figure straight
+    # through would make the entire building's area the area of one apartment, and
+    # tag that inflation "observed". The adapters do not carry a reliable unit
+    # count, so the field is dropped for a multi-unit building rather than divided
+    # by a guess; NSI's per-unit split (which does have one) then stands.
+    # `units` alone is not enough: NSI can classify a building multifamily and
+    # still carry no usable unit count, and `(None or 1) > 1` is False — so the
+    # building total would survive into the per-unit field wearing an "observed"
+    # tag. An unknown divisor is a reason to drop the field, not to keep it.
+    multi = (units or 1) > 1 or getattr(location, "structure_type", None) == "multifamily"
+    if observed_fields.get("sqft") is not None and multi:
+        observed_fields.pop("sqft")
+
+    def _take_observed(field: str) -> bool:
+        """Apply the county's value for one field. False if there isn't one."""
+        if field not in observed_fields:
+            return False
+        cfg[field] = observed_fields[field]
+        # A translated category is the adapter's reading of the county's
+        # vocabulary, not a number the county wrote down; it does not earn the
+        # same confidence as a transcribed one. See TRANSLATED in assessor/base.
+        conf = "moderate" if field in _ASSESSOR_TRANSLATED else "high"
+        filled[field] = (obs_src, conf, "observed")
+        return True
+
+    # Fields the county records that `plan` has no entry for — `condition` today.
+    # Without this they would be looked up, found, and then silently dropped for
+    # the sole reason that NSI has nothing comparable to fall back to.
+    for field in observed_fields:
+        if field not in explicit and not any(e[0] == field for e in plan):
+            _take_observed(field)
+
     for entry in plan:
         field, val, source, conf = entry[:4]
-        if field not in explicit and val is not None:
+        if field in explicit:
+            continue          # the reader outranks the county and NSI alike
+        if _take_observed(field):
+            continue
+        if val is not None:
             cfg[field] = val
             filled[field] = (source, conf) if len(entry) < 5 else (source, conf, entry[4])
     # Real building footprint (USA Structures) — internal geometry for the embodied
@@ -2405,7 +2490,11 @@ def _autofill_construction_from_nsi(cfg: dict, explicit: set, location,
     # scores. For a multi-unit building SFLA is per unit while the USA Structures
     # footprint is the WHOLE building, so propagating it would inflate the per-unit
     # geometry — skip it and let the model estimate per unit instead.
-    if not (units and units > 1):
+    # `multi`, not `units > 1`: NSI can classify a building multifamily and carry no
+    # usable unit count, and the footprint is whole-building either way. The same
+    # hole as the assessor-area guard above, in the same shape — an absent divisor
+    # is a reason to withhold whole-building geometry, not to pass it through.
+    if not multi:
         for k in ("footprint_area_m2", "footprint_perimeter_m"):
             v = getattr(location, k, None)
             if v is not None and cfg.get(k) is None:   # don't stomp a caller value
@@ -2577,6 +2666,12 @@ def _building_block(cfg: dict, struct: dict, explicit: set, autofilled: dict,
             # about, which is what "assumed" means. NSI's year_built is the case
             # that forced the distinction: it is a census-tract median, so calling
             # it an estimate of this building implies a measurement nobody took.
+            #
+            # "observed" is the fourth and strongest non-user status: a county
+            # assessor went and looked. It exists because collapsing it into
+            # "estimated" would put a measured 1881 build year and a modeled Hazus
+            # material class on the same footing, and the whole reason for adding
+            # assessor adapters is that they are not the same thing.
             entry = autofilled.get(field) or detected[field]
             source, conf = entry[0], entry[1]
             status = entry[2] if len(entry) > 2 else "estimated"
@@ -2594,11 +2689,14 @@ def _building_block(cfg: dict, struct: dict, explicit: set, autofilled: dict,
     # interval on an input, and conflating the two would put a data gap and a
     # climate scenario spread on the same channel.
     #
-    # Only while the value is still ours to doubt: once the reader confirms the real
-    # year, what the neighbours did stops bearing on it.
+    # Only while the value is still ours to doubt — status "assumed". A confirmed
+    # year came from the reader and an observed one from the county; in both cases
+    # what the neighbours did has stopped bearing on it. Testing for "assumed"
+    # rather than "not confirmed" is what keeps an observed year from being drawn
+    # inside a tract spread on the rare parcel where the two coincide.
     yb = out.get("year_built")
     dist = getattr(location, "year_built_distribution", None) or {}
-    if (yb is not None and yb.get("status") != "confirmed"
+    if (yb is not None and yb.get("status") == "assumed"
             and dist.get("p25") is not None and dist.get("p75") is not None
             # Only when the displayed year IS this distribution's median. The
             # precedence above can pick NSI's tract median instead, and pairing that
@@ -2729,7 +2827,8 @@ def build_label_parts(*, address: str | None = None,
                 "point's county/tract are already known, address says to geocode "
                 "for them.")
         try:
-            location = resolve_location(address=address, allow_network=allow_network)
+            location = resolve_location(address=address, allow_network=allow_network,
+                                        want_assessor=preset is None)
         except Exception as exc:  # noqa: BLE001 — surface as a clean validation error
             raise ValueError(f"Could not geocode address {address!r}: {exc}") from exc
         lat, lon = location.lat, location.lon
@@ -2749,7 +2848,8 @@ def build_label_parts(*, address: str | None = None,
         lon = lon if lon is not None else SHELBY_LON
         try:
             location = resolve_location(lat=lat, lon=lon, allow_network=allow_network,
-                                        geography=geography)
+                                        geography=geography,
+                                        want_assessor=preset is None)
         except Exception:  # noqa: BLE001
             location = None
 
@@ -2870,6 +2970,13 @@ def build_label_parts(*, address: str | None = None,
     if preset is None:
         autofilled.update(_autofill_construction_from_nsi(
             cfg, explicit, location, struct.get("num_units")))
+        # The autofill writes cfg["stories"], and `struct` was derived from cfg
+        # before it ran. While every autofilled value came from NSI that was
+        # harmless — recomputing reproduced the same numbers — but a county
+        # assessor's storey count differs from NSI's by design, so the stale
+        # `struct` would score and display NSI's height while the field carried
+        # the "observed" tag. Recompute from the cfg that actually won.
+        struct = effective_structure(cfg, location)
         # Provenance for the detected drinking-water source (EPA service-area
         # boundaries) — only the tag, deliberately not the value.
         #

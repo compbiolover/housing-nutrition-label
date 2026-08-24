@@ -43,6 +43,10 @@ Your Walk Score API Key.pdf
 .home_value_cache/
 # ACS Summary-File download cache for scripts/build_year_built.py
 .yearbuilt_cache/
+# Accuracy benchmark fetched by scripts/build_benchmark.py. Deliberately NOT
+# committed: Cook County grants no explicit right to redistribute a dataset, so
+# the harness fetches ground truth on demand and only the measurements are kept.
+.accuracy_cache/
 
 # Census Gazetteer centroid cache for scripts/calibrate_construction_percentiles.py
 .gaz_cache/
