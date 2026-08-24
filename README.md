@@ -214,6 +214,14 @@ matches. The sample is **Cook County, Illinois only** — the one county with bo
 an adapter and free published ground truth — so it is a real measurement of one
 county's housing stock and not a national accuracy figure.
 
+The measurement feeds back into the label rather than only being published. Where a
+dimension's grade was measured as sensitive to construction provenance — durability
+and energy differ from the county's answer 37% of the time when the profile is a
+neighbourhood typical — its confidence tier is now capped at Moderate until the
+building's own details are known. Resilience is deliberately exempt: it moved on 2.8%
+of the same addresses, so the vintage barely reaches its letter and capping it would
+understate a signal the measurement says is strong.
+
 The benchmark itself is fetched on demand and deliberately **not committed**: Cook
 County grants no explicit right to redistribute a dataset, so only the
 measurements taken from it live in this repository.

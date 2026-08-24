@@ -67,6 +67,7 @@ from housing_label.badge import (
     FONT, GRADE_COLORS, GRADE_INK, HOME, THEME_NAMES, UNSCORED, UNSCORED_INK,
     WORDMARK, _esc, _ordinal, _theme_css,
 )
+from housing_label.confidence import year_built_display
 from housing_label.legal import DISCLAIMER, DISCLAIMER_SHORT
 
 # ── The page ─────────────────────────────────────────────────────────────────
@@ -328,7 +329,10 @@ def _identity(out: list, payload: dict, address, y: float) -> float:
     bits = []
     if house.get("construction"):
         bits.append(_WALL_LABELS.get(house["construction"], house["construction"]))
-    if house.get("year_built"):
+    yb = year_built_display(payload.get("building"))
+    if yb:
+        bits.append(f"built {yb}")
+    elif house.get("year_built"):
         bits.append(f'built {house["year_built"]}')
     if house.get("sqft") is not None:
         bits.append(f'{_r(house["sqft"]):,} sqft')

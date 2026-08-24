@@ -53,6 +53,7 @@ are not requested; when an HVAC input appears they are already here.
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from functools import lru_cache
@@ -228,6 +229,10 @@ def _deadline(given: float | None) -> float:
     return given if given is not None else time.monotonic() + TIMEOUT
 
 
+_CHUNK_BYTES = 8192
+_MAX_BYTES = 4 * 1024 * 1024
+
+
 def _get(url: str, params: dict, deadline: float):
     """One request against the shared budget. Raises if the budget is spent.
 
@@ -239,9 +244,29 @@ def _get(url: str, params: dict, deadline: float):
     remaining = deadline - time.monotonic()
     if remaining <= 0:
         raise TimeoutError("assessor lookup budget exhausted")
-    r = requests.get(url, params=params, headers=HEADERS, timeout=remaining)
-    r.raise_for_status()
-    body = r.json()
+    # requests' timeout bounds the connect and the gap BETWEEN reads, not the total
+    # time spent reading — a portal dribbling one byte inside every window keeps the
+    # call alive indefinitely and blows the budget this whole function exists to
+    # enforce. So the body is streamed and the deadline checked as it arrives.
+    r = requests.get(url, params=params, headers=HEADERS, timeout=remaining,
+                     stream=True)
+    try:
+        r.raise_for_status()
+        chunks, size = [], 0
+        for chunk in r.iter_content(_CHUNK_BYTES):
+            if time.monotonic() >= deadline:
+                raise TimeoutError("assessor lookup budget exhausted while reading")
+            size += len(chunk)
+            # These responses are a single row or a handful of parcels. A body
+            # orders of magnitude larger is a misrouted query or a portal error
+            # page, and reading it to the end would spend the budget on something
+            # that cannot be an answer.
+            if size > _MAX_BYTES:
+                raise RuntimeError(f"assessor response exceeded {_MAX_BYTES} bytes")
+            chunks.append(chunk)
+        body = json.loads(b"".join(chunks) or b"null")
+    finally:
+        r.close()
     # ArcGIS reports failures in a 200 body rather than by status. Left unraised it
     # reads as "no parcels here", and because the lookup is cached that turns a
     # transient portal error into a cached None for this point until eviction.

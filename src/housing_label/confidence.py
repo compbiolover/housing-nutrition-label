@@ -45,6 +45,48 @@ CONFIDENCE_LEGEND = (
 )
 
 
+# Construction provenance and what it measurably costs.
+#
+# Until the accuracy harness existed, every scored dimension carried the same tier
+# whatever its construction inputs were made of: a durability grade computed from a
+# census-tract median year built was labelled exactly as confidently as one computed
+# from the county's record of the building. That was an editorial judgement, and the
+# measurement says it was wrong.
+#
+# From research/accuracy/results.json (217 Cook County addresses, scored from the
+# address alone and compared against the county's own record) — how often the letter
+# a reader sees differs from the letter the true attributes produce:
+#
+#                      inputs assumed      inputs observed
+#     durability            37.3%                6.9%
+#     energy                37.3%                7.4%
+#     environmental         26.7%                5.5%
+#     resilience             2.8%                0.5%
+#
+# So durability and energy are wrong better than one time in three when the
+# construction profile is a stand-in. That is not a High-confidence number by any
+# reading of this module's own rubric, and it is now capped.
+#
+# Resilience is deliberately NOT capped. Its grade moved on 2.8% of the same
+# addresses — the flood zone, seismic band and wildfire class do the work there, and
+# the vintage barely reaches the letter. Capping it would trade a measured fact for
+# a tidy rule and tell readers a real signal is weaker than it is.
+#
+# The fields listed per dimension are its PRIMARY construction drivers, not every
+# input it touches: the ones whose provenance the measurement above actually varied.
+_PROVENANCE_SENSITIVE = {
+    "durability": ("year_built", "condition"),
+    "energy": ("year_built", "sqft", "foundation"),
+    "environmental": ("sqft", "construction"),
+}
+
+# `assumed` is the status the pipeline gives an area typical — a value that
+# describes the neighbourhood rather than the building. `estimated` (NSI's record
+# of this structure) and `observed` (a county's) are both about the building
+# itself, and `confirmed` is the reader's own answer.
+_STANDIN_STATUS = "assumed"
+
+
 # Bases whose points are not measurements of the world at each point in time, and
 # so can never carry the top tier however good the underlying data is. A projection
 # is a model of a future that has not happened; an aging curve is arithmetic on a
@@ -66,6 +108,7 @@ def confidence_for_label(label: dict) -> dict:
     score (null → unscored), and ``location_notes`` (measured vs. unavailable).
     """
     notes = label.get("location_notes", {}) or {}
+    building = label.get("building") or {}
     tiers = {}
     for d in label.get("dimensions", []):
         key = d.get("key")
@@ -76,9 +119,81 @@ def confidence_for_label(label: dict) -> dict:
             tiers[key] = "low"          # unscored / N/A / placeholder
         elif key in WIDE_BAND_DIMS:
             tiers[key] = "moderate"     # documented wide or scenario band
+        elif _rests_on_a_standin(key, building):
+            tiers[key] = "moderate"     # measured: the letter is often wrong here
         else:
             tiers[key] = "high"
     return tiers
+
+
+def _rests_on_a_standin(key: str, building: dict) -> bool:
+    """Whether this dimension's grade is being computed from an area typical.
+
+    True only for the dimensions the accuracy harness measured as sensitive, and
+    only when a PRIMARY driver carries the `assumed` status. A field the pipeline
+    could not produce at all is not treated as a stand-in here: it never reached
+    the model, so it is not a wrong input — the dimension's own score being None
+    is what reports that, one branch up.
+    """
+    drivers = _PROVENANCE_SENSITIVE.get(key)
+    if not drivers:
+        return False
+    for field in drivers:
+        info = building.get(field)
+        if isinstance(info, dict) and info.get("status") == _STANDIN_STATUS:
+            return True
+    return False
+
+
+# Appended to a capped dimension's hover note. The dot changing colour without a
+# reason is worse than not capping at all: the reader sees a downgrade and cannot
+# tell whether the data source is weak in general or weak for THEIR address, and
+# the second is fixable by them in the panel directly above.
+STANDIN_NOTE = (" Confidence is held at Moderate here because this dimension is "
+                "being computed from a neighbourhood typical rather than a record "
+                "of this building — measured against county records, the letter "
+                "differs about a third of the time on such inputs. Correcting the "
+                "building details above resolves it.")
+
+
+def confidence_notes_for_label(label: dict) -> dict:
+    """The hover notes, with the stand-in caveat added where the cap applied.
+
+    Separate from CONFIDENCE_NOTES so the constant stays a plain description of
+    each dimension's sources, and the per-address part is added per address.
+    """
+    building = label.get("building") or {}
+    out = dict(CONFIDENCE_NOTES)
+    for key in _PROVENANCE_SENSITIVE:
+        if key in out and _rests_on_a_standin(key, building):
+            out[key] = out[key] + STANDIN_NOTE
+    return out
+
+
+def year_built_display(building: dict | None) -> str | None:
+    """The year built as a reader should see it, or None when there is none.
+
+    The web page carries a sentence explaining that a year built can be a
+    neighbourhood typical rather than this home's, and shows the range it was drawn
+    from. Every other surface — the terminal card, the printable SVG, the shared
+    card — printed the same number bare, which reads as a fact about the building.
+    That is the one field in this codebase whose whole difficulty is that it is
+    usually NOT a fact about the building, so the surfaces are brought level here
+    rather than each inventing its own wording.
+
+    Lives in this module because it is the same question the tiers answer: what may
+    honestly be claimed about where a value came from.
+    """
+    info = (building or {}).get("year_built")
+    if not isinstance(info, dict) or info.get("value") is None:
+        return None
+    year = info["value"]
+    if info.get("status") != _STANDIN_STATUS:
+        return str(year)                  # about this building — say it plainly
+    lo_hi = info.get("typical_range") or []
+    if len(lo_hi) == 2 and all(x is not None for x in lo_hi):
+        return f"{lo_hi[0]}\u2013{lo_hi[1]} (area typical)"
+    return f"~{year} (area typical)"
 
 
 def confidence_for_trajectory(label: dict, series: dict) -> dict:

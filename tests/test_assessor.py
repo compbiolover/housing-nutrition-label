@@ -613,6 +613,98 @@ def test_two_overlapping_parcels_are_ambiguous_rather_than_a_coin_flip():
     assert _lookup([_PARCEL, other], _CAMA, address="213 W Main St") is None
 
 
+# --- the request budget --------------------------------------------------------
+
+
+class _FakeResponse:
+    """A response that dribbles its body, the way a stalled portal does."""
+
+    def __init__(self, chunks, pause=0.0):
+        self._chunks, self._pause = chunks, pause
+        self.closed = False
+
+    def raise_for_status(self):
+        pass
+
+    def iter_content(self, _size):
+        for c in self._chunks:
+            yield c
+            if self._pause:
+                time.sleep(self._pause)
+
+    def close(self):
+        self.closed = True
+
+
+def _with_fake_get(response):
+    """Swap cook_il's requests for one returning `response`. Returns a restorer."""
+    from housing_label.enrich.assessor import cook_il
+
+    class _Stub:
+        @staticmethod
+        def get(*_a, **_k):
+            return response
+    original = cook_il.requests
+    cook_il.requests = _Stub
+    return lambda: setattr(cook_il, "requests", original)
+
+
+def test_a_dribbling_response_cannot_outlive_the_budget():
+    """requests' timeout bounds the gap BETWEEN reads, not the total read. A portal
+    sending one byte inside every window would otherwise hold the label open past
+    the advertised budget — on a path sharing a 12-second allowance with every other
+    upstream. The deadline is checked as the body arrives, so it cannot."""
+    from housing_label.enrich.assessor import cook_il
+
+    # Chunks that concatenate to VALID json, deliberately: without the in-loop
+    # deadline check this test must fail on its own assertion ("a slow body must
+    # hit the deadline"), not incidentally on a parse error, or it would still go
+    # red after a regression while pointing at the wrong cause.
+    resp = _FakeResponse([b"[1,", b"2,", b"3,", b"4,", b"5]"], pause=0.05)
+    restore = _with_fake_get(resp)
+    try:
+        raised = None
+        try:
+            cook_il._get("http://x", {}, time.monotonic() + 0.06)
+        except TimeoutError as exc:
+            raised = exc
+        assert raised is not None, "a slow body must hit the deadline, not run on"
+        assert "reading" in str(raised), f"unexpected message: {raised}"
+        assert resp.closed, "the connection must be released, not leaked"
+    finally:
+        restore()
+
+
+def test_a_response_that_arrives_in_time_is_parsed_normally():
+    """The counterweight: the deadline check must not break the ordinary path."""
+    from housing_label.enrich.assessor import cook_il
+
+    restore = _with_fake_get(_FakeResponse([b'[{"pin":', b'"17031"}]']))
+    try:
+        assert cook_il._get("http://x", {}, time.monotonic() + 5) == [{"pin": "17031"}]
+    finally:
+        restore()
+
+
+def test_an_implausibly_large_body_is_refused_rather_than_read_to_the_end():
+    """These responses are one row or a few parcels. Something orders of magnitude
+    bigger is a misrouted query or an error page, and reading it would spend the
+    budget on something that cannot be an answer."""
+    from housing_label.enrich.assessor import cook_il
+
+    oversize = [b"x" * cook_il._CHUNK_BYTES] * (cook_il._MAX_BYTES // cook_il._CHUNK_BYTES + 2)
+    restore = _with_fake_get(_FakeResponse(oversize))
+    try:
+        raised = None
+        try:
+            cook_il._get("http://x", {}, time.monotonic() + 30)
+        except RuntimeError as exc:
+            raised = exc
+        assert raised is not None and "exceeded" in str(raised)
+    finally:
+        restore()
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]
