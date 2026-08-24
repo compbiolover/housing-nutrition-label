@@ -599,8 +599,10 @@ def _results_lock():
                 raise SystemExit(
                     f"another run holds {LOCK}"
                     f"{f' (pid {held})' if held else ''}; waited {_LOCK_TIMEOUT_S}s.\n"
-                    f"If no measurement is running, that lock is left over from a "
-                    f"killed one — remove it and re-run:\n    rm {LOCK}")
+                    f"If no measurement is running, that lock is left over from "
+                    f"a killed one. Delete that file and re-run:\n"
+                    f"    rm {LOCK}\n"
+                    f"    del {LOCK}      (Windows)")
             time.sleep(0.5)
     try:
         yield
@@ -610,7 +612,8 @@ def _results_lock():
         LOCK.unlink(missing_ok=True)
 
 
-def _verify_benchmark(path: pathlib.Path, meta: dict, juris: str) -> bytes:
+def _verify_benchmark(path: pathlib.Path, meta: dict, juris: str,
+                      legacy: bool = False) -> bytes:
     """The benchmark's bytes, once they are proven to be the ones it claims to be.
 
     Returns the snapshot it validated, and the caller parses THAT rather than
@@ -625,7 +628,9 @@ def _verify_benchmark(path: pathlib.Path, meta: dict, juris: str) -> bytes:
       until now nobody read it. Copying `benchmark-cook.*` to `benchmark-dc.*`
       passes the digest — the file really is the one its metadata describes — and
       publishes Cook addresses under `jurisdictions["dc"]`. The evidence was
-      already in the file; this reads it.
+      already in the file; this reads it. It must MATCH, not merely not-conflict:
+      `legacy` marks the one pre-split file that predates the field, and every
+      other benchmark has to name its jurisdiction outright.
     * **Digest.** Catches an interrupted build: a partial CSV beside the previous
       run's metadata.
     * **Row count.** Checked independently of the digest, not as a follow-on. A
@@ -637,11 +642,18 @@ def _verify_benchmark(path: pathlib.Path, meta: dict, juris: str) -> bytes:
     """
     payload = path.read_bytes()
     stamped = meta.get("jurisdiction")
-    if stamped and stamped != juris:
+    if stamped != juris and not (legacy and not stamped):
+        # A MISSING stamp is refused as firmly as a wrong one, everywhere except
+        # the one file that legitimately predates the field. Accepting "unstamped"
+        # would leave the hole open in its easiest form: a legacy Cook benchmark
+        # copied to benchmark-dc.* carries no stamp at all, matches its own digest,
+        # and publishes Cook as DC. Checking only for a wrong stamp catches the
+        # careful mistake and misses the careless one.
+        was = f"metadata for {stamped!r}" if stamped else "no jurisdiction recorded"
         raise SystemExit(
-            f"{path.name} carries metadata for {stamped!r}, not {juris!r}. Scoring "
-            f"it would publish one jurisdiction's addresses under another's name. "
-            f"Rebuild with scripts/build_benchmark.py --jurisdiction {juris}.")
+            f"{path.name} carries {was}, not {juris!r}. Scoring it would publish "
+            f"one jurisdiction's addresses under another's name. Rebuild with "
+            f"scripts/build_benchmark.py --jurisdiction {juris}.")
     want = meta.get("sha256_16")
     if want:
         got = hashlib.sha256(payload).hexdigest()[:16]
@@ -684,18 +696,29 @@ def main() -> int:
                     help="which benchmark to score (default cook)")
     args = ap.parse_args()
 
-    # --render-only is dispatched first, so on its own it would quietly win over
-    # flags that promise the opposite: --dry-run says nothing is written and the
-    # page would be written anyway, --limit says score fewer rows and nothing is
-    # scored at all. A flag that is accepted and ignored is worse than one that is
-    # rejected, because the caller believes it took effect.
-    if args.render_only and (args.dry_run or args.check or args.limit is not None):
+    # Stated as one rule rather than a condition per pair, because fixing the pairs
+    # one at a time is how --check --limit survived the round that fixed
+    # --render-only --limit. Two modes score nothing, and each is dispatched before
+    # the scoring flags are even validated; two flags only modify scoring. Any
+    # combination across that line is a flag accepted and ignored, which is worse
+    # than one rejected — the caller believes it took effect. Two no-score modes
+    # together contradict each other outright: --check VERIFIES the page against
+    # the results, --render-only OVERWRITES it, so the gate would pass by
+    # rewriting what it was asked to inspect.
+    no_score = [n for n, on in (("--check", args.check),
+                                ("--render-only", args.render_only)) if on]
+    scoring = [n for n, on in (("--dry-run", args.dry_run),
+                               ("--limit", args.limit is not None)) if on]
+    if len(no_score) > 1:
         raise SystemExit(
-            "--render-only rebuilds the page from the committed results and scores "
-            "nothing, so it cannot be combined with --check, --dry-run or --limit. "
-            "Use --render-only alone, or drop it to score. (--check VERIFIES the "
-            "page against the results; --render-only OVERWRITES it, which would "
-            "make the gate pass by rewriting what it was asked to inspect.)")
+            "--check verifies the published page against the committed results and "
+            "--render-only overwrites that page, so together the check would pass "
+            "by rewriting what it was asked to inspect. Use one.")
+    if no_score and scoring:
+        raise SystemExit(
+            f"{no_score[0]} scores nothing, so {' and '.join(scoring)} would be "
+            f"accepted and ignored. Drop {no_score[0]} to score, or drop "
+            f"{' and '.join(scoring)}.")
 
     if args.render_only:
         # For a copy or layout edit: the measurements are the expensive part and
@@ -728,12 +751,14 @@ def main() -> int:
     juris = args.jurisdiction
     benchmark = CACHE_DIR / f"benchmark-{juris}.csv"
     meta_file = CACHE_DIR / f"benchmark-{juris}.meta.json"
+    legacy = False
     if not benchmark.exists() and juris == "cook":
         # The pre-split path held Cook's benchmark and nothing else, so it is a
         # valid fallback for Cook alone. Applying it to any other jurisdiction
         # would score Cook addresses and publish them under that jurisdiction's
         # name — a fabricated measurement that would look entirely ordinary.
         benchmark, meta_file = BENCHMARK, META
+        legacy = True
     if not benchmark.exists():
         raise SystemExit(f"{benchmark} missing — run scripts/build_benchmark.py "
                          f"--jurisdiction {juris} first")
@@ -752,7 +777,7 @@ def main() -> int:
             "the committed results.")
 
     meta = json.loads(meta_file.read_text()) if meta_file.exists() else {}
-    payload = _verify_benchmark(benchmark, meta, juris)
+    payload = _verify_benchmark(benchmark, meta, juris, legacy=legacy)
     rows = list(csv.DictReader(io.StringIO(payload.decode())))
     if args.limit is not None:
         # `if args.limit` would read 0 as "no limit" and quietly score the whole

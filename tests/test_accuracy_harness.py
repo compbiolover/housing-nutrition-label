@@ -433,7 +433,8 @@ def test_a_benchmark_that_is_not_the_one_its_metadata_describes_is_refused():
     with tempfile.TemporaryDirectory() as tmp:
         path, _ = _benchmark(tmp)
         try:
-            M._verify_benchmark(path, {"sha256_16": "deadbeefdeadbeef"}, "x")
+            M._verify_benchmark(path, {"sha256_16": "deadbeefdeadbeef",
+                                       "jurisdiction": "x"}, "x")
         except SystemExit as exc:
             assert "does not match" in str(exc)
         else:
@@ -444,7 +445,8 @@ def test_a_hand_edited_row_count_is_refused():
     with tempfile.TemporaryDirectory() as tmp:
         path, digest = _benchmark(tmp)
         try:
-            M._verify_benchmark(path, {"sha256_16": digest, "rows": 99}, "x")
+            M._verify_benchmark(path, {"sha256_16": digest, "rows": 99,
+                                       "jurisdiction": "x"}, "x")
         except SystemExit as exc:
             assert "99" in str(exc)
         else:
@@ -456,7 +458,7 @@ def test_a_benchmark_with_no_recorded_digest_still_runs():
     rather than catch one."""
     with tempfile.TemporaryDirectory() as tmp:
         path, _ = _benchmark(tmp)
-        M._verify_benchmark(path, {}, "x")
+        M._verify_benchmark(path, {}, "cook", legacy=True)
 
 
 def test_a_benchmark_stamped_for_another_jurisdiction_is_refused():
@@ -481,7 +483,7 @@ def test_the_row_count_is_checked_even_with_no_digest_recorded():
     with tempfile.TemporaryDirectory() as tmp:
         path, _ = _benchmark(tmp)
         try:
-            M._verify_benchmark(path, {"rows": 99}, "x")
+            M._verify_benchmark(path, {"rows": 99}, "cook", legacy=True)
         except SystemExit as exc:
             assert "99" in str(exc)
         else:
@@ -527,6 +529,38 @@ def test_metadata_without_a_breakdown_claims_no_cause():
 
 def test_no_gap_says_nothing():
     assert M._ungradeable_note({"drawn": 218, "sampled": 218}) == ""
+
+
+def test_an_unstamped_per_jurisdiction_benchmark_is_refused():
+    """A missing stamp has to be refused as firmly as a wrong one. Checking only
+    for a CONFLICTING jurisdiction catches the careful mistake and misses the
+    careless one: a legacy Cook benchmark copied to benchmark-dc.* carries no stamp
+    at all, matches its own digest, and would publish Cook as DC."""
+    with tempfile.TemporaryDirectory() as tmp:
+        path, digest = _benchmark(tmp)
+        try:
+            M._verify_benchmark(path, {"sha256_16": digest}, "dc")
+        except SystemExit as exc:
+            assert "no jurisdiction recorded" in str(exc)
+        else:
+            raise AssertionError(
+                "an unstamped benchmark was accepted under a jurisdiction's name")
+
+
+def test_only_the_legacy_path_may_go_unstamped():
+    """The pre-split file is the one that legitimately predates the field, and it
+    described Cook. Nothing else gets the exemption."""
+    with tempfile.TemporaryDirectory() as tmp:
+        path, digest = _benchmark(tmp)
+        M._verify_benchmark(path, {"sha256_16": digest}, "cook", legacy=True)
+        try:
+            M._verify_benchmark(path, {"sha256_16": digest, "jurisdiction": "dc"},
+                                "cook", legacy=True)
+        except SystemExit:
+            pass
+        else:
+            raise AssertionError(
+                "legacy must excuse a MISSING stamp, never a contradicting one")
 
 
 def _run_all() -> int:
