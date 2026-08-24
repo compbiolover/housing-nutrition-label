@@ -685,6 +685,23 @@ def test_a_response_that_arrives_in_time_is_parsed_normally():
         restore()
 
 
+def test_an_empty_body_is_a_failure_not_an_answer():
+    """A 200 with no body is a portal glitch. Parsed as `null` it flows on as "no
+    parcels here" and is CACHED as absence for the bucket's lifetime, so a
+    momentary upstream blip would suppress the county record for six hours. It has
+    to stay on the fail-open path, where nothing is cached."""
+    restore = _with_fake_get(_FakeResponse([b"", b"   "]))
+    try:
+        raised = None
+        try:
+            _shared.get_json("http://x", {}, time.monotonic() + 5)
+        except RuntimeError as exc:
+            raised = exc
+        assert raised is not None and "empty response" in str(raised)
+    finally:
+        restore()
+
+
 def test_an_implausibly_large_body_is_refused_rather_than_read_to_the_end():
     """These responses are one row or a few parcels. Something orders of magnitude
     bigger is a misrouted query or an error page, and reading it would spend the

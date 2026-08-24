@@ -101,7 +101,15 @@ def get_json(url: str, params: dict, deadline: float):
             if size > _MAX_BYTES:
                 raise RuntimeError(f"assessor response exceeded {_MAX_BYTES} bytes")
             chunks.append(chunk)
-        body = json.loads(b"".join(chunks) or b"null")
+        raw = b"".join(chunks).strip()
+        # An empty 200 is a portal glitch, not an answer. Parsing it as `null`
+        # would flow on as "no parcels here" and be CACHED as absence for the
+        # bucket's lifetime — the same failure the ArcGIS-error check below
+        # exists to stop, arriving by a quieter route. Raising keeps it in the
+        # fail-open path, where it is not cached and stays diagnosable.
+        if not raw:
+            raise RuntimeError("empty response body from assessor upstream")
+        body = json.loads(raw)
     finally:
         r.close()
     # ArcGIS reports failures in a 200 body rather than by status. Left unraised it
