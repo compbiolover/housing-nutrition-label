@@ -254,7 +254,7 @@ def test_rows_the_assessor_could_not_document_are_disclosed():
     data["benchmark"].update({"drawn": 220, "sampled": 218})
     page = M._render({"generated": "2026-08-24", "jurisdictions": {"dc": data}})
     assert "Drawn from 220 assessor rows" in page
-    assert "2 did not reach the benchmark" in page
+    assert "2 carried no address" in page
 
 
 def test_the_note_measures_against_the_benchmark_not_the_scored_rows():
@@ -266,17 +266,8 @@ def test_the_note_measures_against_the_benchmark_not_the_scored_rows():
     data["benchmark"]["drawn"] = 220
     data["benchmark"]["sampled"] = 218
     page = M._render({"generated": "2026-08-24", "jurisdictions": {"dc": data}})
-    assert "2 did not reach the benchmark" in page, (
+    assert "2 carried no address" in page, (
         "the note must describe 220 - 218, not 220 - 216")
-
-
-def test_a_portal_outage_is_not_reported_as_a_documentation_gap():
-    """An offset the portal never answered and a house the assessor never
-    documented are different failures with different owners."""
-    data = _juris("X", "2222222222222222", rows=210)
-    data["benchmark"].update({"drawn": 220, "sampled": 215, "unreachable": 3})
-    page = M._render({"generated": "2026-08-24", "jurisdictions": {"dc": data}})
-    assert "3 were offsets the portal never answered" in page
 
 
 def test_nothing_is_said_when_every_drawn_row_was_gradeable():

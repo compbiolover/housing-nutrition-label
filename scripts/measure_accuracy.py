@@ -313,16 +313,11 @@ def _ungradeable_note(m: dict) -> str:
     drawn, sampled = m.get("drawn"), m.get("sampled")
     if not drawn or not sampled or drawn <= sampled:
         return ""
-    unreachable = m.get("unreachable") or 0
-    lost = drawn - sampled
-    # Two different causes, named separately. A portal outage is not the assessor
-    # failing to document a house, and reporting them as one number would blame
-    # the wrong party for whichever actually happened.
-    outage = (f", of which {unreachable} were offsets the portal never answered"
-              if unreachable else "")
-    return (f" Drawn from {drawn} assessor rows; {lost} did not reach the "
-            f"benchmark{outage} &mdash; the rest carried no address or no usable "
-            f"year built.")
+    # Only one cause is possible here: the builder now fails rather than write a
+    # benchmark with unanswered offsets in it, so every row that was drawn and did
+    # not arrive was one the assessor had no address or no usable year for.
+    return (f" Drawn from {drawn} assessor rows; {drawn - sampled} carried no "
+            f"address or no usable year built and could not be graded.")
 
 
 def _unscored_note(results: dict) -> str:

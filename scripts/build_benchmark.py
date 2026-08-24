@@ -162,28 +162,38 @@ def _cama_sample(year: str, rows: int) -> list[dict]:
     # turns a "county-wide" sample into one corner of Cook.
     rows = min(rows, total)
     seen: list[str] = []
-    dropped = 0
-    for i in range(rows):
-        got = _fetch(CAMA_URL, {
-            "$select": "pin", "$where": f"year='{year}'",
-            "$order": "pin", "$limit": "1", "$offset": str(i * total // rows),
-        })
-        if got is None:
-            # One unreachable offset is a missing sample, not a failed build. It
-            # is counted and reported rather than silently absorbed, because a
-            # sample that quietly shrank is a different sample.
-            dropped += 1
-        else:
-            pin = (got[0].get("pin") if got else None)
-            if pin and pin not in seen:
-                seen.append(pin)
-        if (i + 1) % 25 == 0:
-            log.info("  sampled %d/%d", i + 1, rows)
-        time.sleep(0.05)          # polite to a free public portal
-    if dropped:
-        log.warning("  %d of %d sample offsets were unreachable and skipped.",
-                    dropped, rows)
-    return _primary_cards(year, seen), {"attempted": rows, "dropped": dropped}
+
+    def attempt(offsets: list[int]) -> list[int]:
+        """Read these offsets; return the ones that did not answer."""
+        failed = []
+        for n, i in enumerate(offsets, 1):
+            got = _fetch(CAMA_URL, {
+                "$select": "pin", "$where": f"year='{year}'",
+                "$order": "pin", "$limit": "1", "$offset": str(i * total // rows),
+            })
+            if got is None:
+                failed.append(i)
+            else:
+                pin = (got[0].get("pin") if got else None)
+                if pin and pin not in seen:
+                    seen.append(pin)
+            if n % 25 == 0:
+                log.info("  sampled %d/%d", n, len(offsets))
+            time.sleep(0.05)      # polite to a free public portal
+        return failed
+
+    missed = attempt(list(range(rows)))
+    if missed:
+        # See the DC sampler: a skipped offset shifts an evenly spaced draw toward
+        # the offsets that answered, and nothing downstream can see that it did.
+        log.warning("  %d offsets did not answer; retrying them.", len(missed))
+        missed = attempt(missed)
+    if missed:
+        raise SystemExit(
+            f"{len(missed)} of {rows} sample offsets never answered. Writing the "
+            f"benchmark anyway would bias it toward the offsets that worked, "
+            f"invisibly. Try again when the portal is healthy.")
+    return _primary_cards(year, seen), {"attempted": rows}
 
 
 def _primary_cards(year: str, pins: list[str]) -> list[dict]:
@@ -284,40 +294,50 @@ def _dc_sample(rows: int) -> list[dict]:
     log.info("DC residential CAMA has %d rows; sampling %d.", total, rows)
 
     rows = min(rows, total)
-    out, seen, dropped = [], set(), 0
-    for i in range(rows):
-        body = _fetch(DC_CAMA_URL, {
-            "where": "1=1", "outFields": _DC_CAMA_FIELDS, "orderByFields": "SSL",
-            "resultOffset": str(i * total // rows), "resultRecordCount": "1",
-            "returnGeometry": "false", "f": "json",
-        })
-        if body is None or (isinstance(body, dict) and body.get("error")):
-            # ArcGIS reports failures in a 200 body. Counted as a dropped offset
-            # rather than read as "no row here": the second would quietly shrink
-            # the sample toward whichever offsets happened to succeed, and a
-            # biased benchmark still looks like a valid one.
-            dropped += 1
-        else:
-            feats = (body or {}).get("features") or []
-            if not feats:
-                # An offset inside a table of this size always has a row. An empty
-                # answer is the portal failing quietly, and counting it as "no row
-                # here" would shrink the sample toward whichever offsets happened
-                # to work — a biased draw that still looks like a clean one.
-                dropped += 1
-                continue
-            a = (feats[0].get("attributes") if feats else None) or {}
-            ssl = (a.get("SSL") or "").strip()
-            if ssl and ssl not in seen:
-                seen.add(ssl)
-                out.append(a)
-        if (i + 1) % 25 == 0:
-            log.info("  sampled %d/%d", i + 1, rows)
-        time.sleep(0.05)
-    if dropped:
-        log.warning("  %d of %d sample offsets were unreachable and skipped.",
-                    dropped, rows)
-    return out, {"attempted": rows, "dropped": dropped}
+    out, seen = [], set()
+
+    def attempt(offsets: list[int]) -> list[int]:
+        """Read these offsets; return the ones that did not answer."""
+        failed = []
+        for n, i in enumerate(offsets, 1):
+            body = _fetch(DC_CAMA_URL, {
+                "where": "1=1", "outFields": _DC_CAMA_FIELDS, "orderByFields": "SSL",
+                "resultOffset": str(i * total // rows), "resultRecordCount": "1",
+                "returnGeometry": "false", "f": "json",
+            })
+            feats = None if body is None else (body or {}).get("features")
+            # An ArcGIS failure arrives in a 200 body, and an offset inside a table
+            # this size always has a row — so an empty answer is the portal failing
+            # quietly. Neither is "no row here".
+            if body is None or (isinstance(body, dict) and body.get("error")) or not feats:
+                failed.append(i)
+            else:
+                a = (feats[0].get("attributes") or {})
+                ssl = (a.get("SSL") or "").strip()
+                if ssl and ssl not in seen:
+                    seen.add(ssl)
+                    out.append(a)
+            if n % 25 == 0:
+                log.info("  sampled %d/%d", n, len(offsets))
+            time.sleep(0.05)
+        return failed
+
+    missed = attempt(list(range(rows)))
+    if missed:
+        # Retried rather than skipped. Dropping an offset shifts the draw toward
+        # whichever ones happened to answer, and a benchmark with holes in an
+        # evenly spaced sample still looks like a clean one — the bias is
+        # invisible in the output. _fetch already backs off four times, so these
+        # are offsets that failed repeatedly; one more pass separates a blip from
+        # an outage.
+        log.warning("  %d offsets did not answer; retrying them.", len(missed))
+        missed = attempt(missed)
+    if missed:
+        raise SystemExit(
+            f"{len(missed)} of {rows} sample offsets never answered. Writing the "
+            f"benchmark anyway would bias it toward the offsets that worked, "
+            f"invisibly. Try again when the portal is healthy.")
+    return out, {"attempted": rows}
 
 
 def _ring_point(geom: dict) -> tuple[float, float] | None:
@@ -473,10 +493,6 @@ def main() -> int:
         # offsets that failed: that would read a portal outage as a smaller clean
         # sample rather than a gap in a full one.
         "drawn": draw["attempted"],
-        # Offsets the portal never answered. Reported separately because it is a
-        # different cause from a row the assessor never documented, and folding
-        # the two together would blame the assessor for an outage.
-        "unreachable": draw["dropped"],
         # And what reached the benchmark, after rows with no address or no usable
         # year were dropped.
         "sampled": len(out_rows),
