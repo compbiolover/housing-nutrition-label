@@ -1,137 +1,278 @@
 {
   "generated": "2026-08-24",
-  "benchmark": {
-    "source": "Cook County Assessor (Open Data)",
-    "assessment_year": "2026",
-    "fetched": "2026-08-24",
-    "rows": 217,
-    "sha256_16": "adea9ce0193c4007",
-    "sampled": 219
-  },
-  "unscored": 2,
-  "adapter_resolved_pct": 81.7,
-  "pin_mismatches": 0,
-  "baseline": {
-    "fields": {
-      "year_built": {
-        "n": 217,
-        "coverage_pct": 100.0,
-        "median_abs_error": 14.0,
-        "exact_pct": 4.1,
-        "within_5yr_pct": 29.5,
-        "within_10yr_pct": 41.5
+  "jurisdictions": {
+    "cook": {
+      "benchmark": {
+        "source": "Cook County Assessor (Open Data)",
+        "assessment_year": "2026",
+        "fetched": "2026-08-24",
+        "rows": 217,
+        "sha256_16": "adea9ce0193c4007",
+        "sampled": 219
       },
-      "sqft": {
-        "n": 117,
-        "coverage_pct": 100.0,
-        "median_abs_error": 211.0,
-        "exact_pct": 25.6,
-        "median_abs_pct_error": 14.6
+      "unscored": 2,
+      "adapter_resolved_pct": 81.7,
+      "pin_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 217,
+            "coverage_pct": 100.0,
+            "median_abs_error": 14.0,
+            "exact_pct": 4.1,
+            "within_5yr_pct": 29.5,
+            "within_10yr_pct": 41.5
+          },
+          "sqft": {
+            "n": 117,
+            "coverage_pct": 100.0,
+            "median_abs_error": 211.0,
+            "exact_pct": 25.6,
+            "median_abs_pct_error": 14.6
+          },
+          "stories": {
+            "n": 167,
+            "coverage_pct": 75.4,
+            "median_abs_error": 0.0,
+            "exact_pct": 63.5
+          },
+          "construction": {
+            "n": 215,
+            "coverage_pct": 100.0,
+            "exact_pct": 47.0
+          },
+          "foundation": {
+            "n": 217,
+            "coverage_pct": 100.0,
+            "exact_pct": 47.5
+          },
+          "condition": {
+            "n": 217,
+            "coverage_pct": 100.0,
+            "exact_pct": 98.6
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 217,
+            "differs_pct": 37.3
+          },
+          "energy": {
+            "n": 217,
+            "differs_pct": 37.3
+          },
+          "resilience": {
+            "n": 217,
+            "differs_pct": 2.8
+          },
+          "environmental": {
+            "n": 217,
+            "differs_pct": 26.7
+          },
+          "building_axis": {
+            "n": 217,
+            "differs_pct": 30.0
+          }
+        }
       },
-      "stories": {
-        "n": 167,
-        "coverage_pct": 75.4,
-        "median_abs_error": 0.0,
-        "exact_pct": 63.5
-      },
-      "construction": {
-        "n": 215,
-        "coverage_pct": 100.0,
-        "exact_pct": 47.0
-      },
-      "foundation": {
-        "n": 217,
-        "coverage_pct": 100.0,
-        "exact_pct": 47.5
-      },
-      "condition": {
-        "n": 217,
-        "coverage_pct": 100.0,
-        "exact_pct": 98.6
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 217,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 83.4,
+            "within_5yr_pct": 85.7,
+            "within_10yr_pct": 88.0
+          },
+          "sqft": {
+            "n": 117,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 86.3,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 167,
+            "coverage_pct": 95.8,
+            "median_abs_error": 0.0,
+            "exact_pct": 92.5
+          },
+          "construction": {
+            "n": 215,
+            "coverage_pct": 100.0,
+            "exact_pct": 88.8
+          },
+          "foundation": {
+            "n": 217,
+            "coverage_pct": 100.0,
+            "exact_pct": 88.9
+          },
+          "condition": {
+            "n": 217,
+            "coverage_pct": 100.0,
+            "exact_pct": 100.0
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 217,
+            "differs_pct": 6.9
+          },
+          "energy": {
+            "n": 217,
+            "differs_pct": 7.4
+          },
+          "resilience": {
+            "n": 217,
+            "differs_pct": 0.5
+          },
+          "environmental": {
+            "n": 217,
+            "differs_pct": 5.5
+          },
+          "building_axis": {
+            "n": 217,
+            "differs_pct": 6.0
+          }
+        }
       }
     },
-    "grade_impact": {
-      "durability": {
-        "n": 217,
-        "differs_pct": 37.3
+    "dc": {
+      "benchmark": {
+        "jurisdiction": "dc",
+        "source": "DC Office of Tax and Revenue (Open Data)",
+        "scope": "non-condominium homes only (condos are ~36% of DC's CAMA stock)",
+        "assessment_year": "current",
+        "fetched": "2026-08-24",
+        "rows": 218,
+        "sha256_16": "37c36ab1949c3db2",
+        "sampled": 218
       },
-      "energy": {
-        "n": 217,
-        "differs_pct": 37.3
+      "unscored": 0,
+      "adapter_resolved_pct": 87.6,
+      "pin_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 218,
+            "coverage_pct": 100.0,
+            "median_abs_error": 18.5,
+            "exact_pct": 2.8,
+            "within_5yr_pct": 12.4,
+            "within_10yr_pct": 25.2
+          },
+          "sqft": {
+            "n": 67,
+            "coverage_pct": 100.0,
+            "median_abs_error": 298.0,
+            "exact_pct": 10.4,
+            "median_abs_pct_error": 15.7
+          },
+          "stories": {
+            "n": 195,
+            "coverage_pct": 66.7,
+            "median_abs_error": 0.0,
+            "exact_pct": 66.2
+          },
+          "construction": {
+            "n": 209,
+            "coverage_pct": 100.0,
+            "exact_pct": 50.2
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 218,
+            "coverage_pct": 100.0,
+            "exact_pct": 40.4
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 218,
+            "differs_pct": 50.5
+          },
+          "energy": {
+            "n": 218,
+            "differs_pct": 32.6
+          },
+          "resilience": {
+            "n": 218,
+            "differs_pct": 8.7
+          },
+          "environmental": {
+            "n": 218,
+            "differs_pct": 23.4
+          },
+          "building_axis": {
+            "n": 218,
+            "differs_pct": 60.6
+          }
+        }
       },
-      "resilience": {
-        "n": 217,
-        "differs_pct": 2.8
-      },
-      "environmental": {
-        "n": 217,
-        "differs_pct": 26.7
-      },
-      "building_axis": {
-        "n": 217,
-        "differs_pct": 30.0
-      }
-    }
-  },
-  "adapter": {
-    "fields": {
-      "year_built": {
-        "n": 217,
-        "coverage_pct": 100.0,
-        "median_abs_error": 0.0,
-        "exact_pct": 83.4,
-        "within_5yr_pct": 85.7,
-        "within_10yr_pct": 88.0
-      },
-      "sqft": {
-        "n": 117,
-        "coverage_pct": 100.0,
-        "median_abs_error": 0.0,
-        "exact_pct": 86.3,
-        "median_abs_pct_error": 0.0
-      },
-      "stories": {
-        "n": 167,
-        "coverage_pct": 95.8,
-        "median_abs_error": 0.0,
-        "exact_pct": 92.5
-      },
-      "construction": {
-        "n": 215,
-        "coverage_pct": 100.0,
-        "exact_pct": 88.8
-      },
-      "foundation": {
-        "n": 217,
-        "coverage_pct": 100.0,
-        "exact_pct": 88.9
-      },
-      "condition": {
-        "n": 217,
-        "coverage_pct": 100.0,
-        "exact_pct": 100.0
-      }
-    },
-    "grade_impact": {
-      "durability": {
-        "n": 217,
-        "differs_pct": 6.9
-      },
-      "energy": {
-        "n": 217,
-        "differs_pct": 7.4
-      },
-      "resilience": {
-        "n": 217,
-        "differs_pct": 0.5
-      },
-      "environmental": {
-        "n": 217,
-        "differs_pct": 5.5
-      },
-      "building_axis": {
-        "n": 217,
-        "differs_pct": 6.0
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 218,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 88.1,
+            "within_5yr_pct": 90.4,
+            "within_10yr_pct": 92.7
+          },
+          "sqft": {
+            "n": 67,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 92.5,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 195,
+            "coverage_pct": 94.4,
+            "median_abs_error": 0.0,
+            "exact_pct": 99.5
+          },
+          "construction": {
+            "n": 209,
+            "coverage_pct": 100.0,
+            "exact_pct": 91.9
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 218,
+            "coverage_pct": 100.0,
+            "exact_pct": 94.0
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 218,
+            "differs_pct": 5.0
+          },
+          "energy": {
+            "n": 218,
+            "differs_pct": 4.1
+          },
+          "resilience": {
+            "n": 218,
+            "differs_pct": 0.5
+          },
+          "environmental": {
+            "n": 218,
+            "differs_pct": 3.2
+          },
+          "building_axis": {
+            "n": 218,
+            "differs_pct": 7.8
+          }
+        }
       }
     }
   }

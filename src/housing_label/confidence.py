@@ -53,24 +53,34 @@ CONFIDENCE_LEGEND = (
 # from the county's record of the building. That was an editorial judgement, and the
 # measurement says it was wrong.
 #
-# From research/accuracy/results.json (217 Cook County addresses, scored from the
-# address alone and compared against the county's own record) — how often the letter
-# a reader sees differs from the letter the true attributes produce:
+# From research/accuracy/results.json (217 Cook County and 218 Washington, DC
+# addresses, each scored from the address alone and compared against that
+# jurisdiction's own assessor record) — how often the letter a reader sees differs
+# from the letter the true attributes produce:
 #
-#                      inputs assumed      inputs observed
-#     durability            37.3%                6.9%
-#     energy                37.3%                7.4%
-#     environmental         26.7%                5.5%
-#     resilience             2.8%                0.5%
+#                        Cook County            Washington, DC
+#                    assumed   observed       assumed   observed
+#     durability       37.3%      6.9%          50.5%      5.0%
+#     energy           37.3%      7.4%          32.6%      4.1%
+#     environmental    26.7%      5.5%          23.4%      3.2%
+#     resilience        2.8%      0.5%           8.7%      0.5%
 #
 # So durability and energy are wrong better than one time in three when the
 # construction profile is a stand-in. That is not a High-confidence number by any
 # reading of this module's own rubric, and it is now capped.
 #
-# Resilience is deliberately NOT capped. Its grade moved on 2.8% of the same
-# addresses — the flood zone, seismic band and wildfire class do the work there, and
-# the vintage barely reaches the letter. Capping it would trade a measured fact for
-# a tidy rule and tell readers a real signal is weaker than it is.
+# Resilience is deliberately NOT capped, and this is the judgement most worth
+# revisiting. It moved on 2.8% of Cook addresses and 8.7% of DC ones — a third of a
+# figure that was quoted alone when only Cook had been measured, and a reminder that
+# one city is not a constant. It is still an order of magnitude below durability's
+# 37-50%: the flood zone, seismic band and wildfire class do the work there, and the
+# vintage reaches the letter only at the margin.
+#
+# So the exemption rests on a judgement about magnitude, not a bright line. Capping
+# resilience would tell readers a genuinely strong signal is weak; leaving it
+# uncapped accepts that roughly one DC label in eleven carries a resilience letter a
+# real year built would move. If a third jurisdiction lands nearer durability than
+# this, the exemption should go rather than be defended.
 #
 # The fields listed per dimension are its PRIMARY construction drivers, not every
 # input it touches: the ones whose provenance the measurement above actually varied.

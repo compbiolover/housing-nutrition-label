@@ -225,7 +225,7 @@ The measurement feeds back into the label rather than only being published. Wher
 dimension's grade was measured as sensitive to construction provenance — durability
 and energy differ from the county's answer 37% of the time when the profile is a
 neighbourhood typical — its confidence tier is now capped at Moderate until the
-building's own details are known. Resilience is deliberately exempt: it moved on 2.8%
+building's own details are known. Resilience is deliberately exempt: it moved on 2.8%–8.7%
 of the same addresses, so the vintage barely reaches its letter and capping it would
 understate a signal the measurement says is strong.
 

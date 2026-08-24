@@ -110,10 +110,16 @@ def test_an_area_typical_caps_the_dimensions_it_measurably_moves():
 
 
 def test_resilience_is_not_capped_because_the_measurement_says_not_to():
-    """The deliberate exemption. Resilience moved on 2.8% of the same addresses —
-    flood zone, seismic band and wildfire class do the work, and the vintage barely
-    reaches the letter. Capping it would trade a measured fact for a tidy rule and
-    understate a signal that is genuinely strong."""
+    """The deliberate exemption, and the judgement most worth revisiting.
+
+    Resilience moved on 2.8% of Cook addresses and 8.7% of DC ones — the second
+    figure arrived only after a second jurisdiction was measured, and is three times
+    the first. It is still an order of magnitude below durability's 37-50%, so the
+    exemption stands on magnitude rather than on a bright line. Pinned here so that
+    a later tidy-up has to argue with the measurement rather than quietly restore
+    symmetry — and so that a third jurisdiction landing nearer durability makes this
+    test the place the decision gets reopened.
+    """
     assert confidence_for_label(_with_building("assumed"))["resilience"] == "high"
 
 
