@@ -134,6 +134,36 @@ def _fetch(url: str, params: dict, attempts: int = 4):
     return None
 
 
+def _batch_or_die(url: str, params: dict, what: str, n: int) -> list:
+    """The rows of a batch request, or the end of the build.
+
+    A batch that exhausts its retries is not "these parcels have no record" — it
+    is the portal being down for one slice of the draw. Returning nothing here
+    deletes that slice from an evenly spaced sample, and every count downstream
+    then attributes the absence to the assessor's own documentation rather than
+    to a request that never landed. Neither the written benchmark nor the
+    published page can show the difference: a draw with a batch missing from it
+    looks exactly like a smaller clean one.
+
+    That is the same failure the offset sampler above refuses, one layer down. It
+    is one function so the two cannot drift apart again, and so a third
+    jurisdiction inherits the rule instead of reimplementing it.
+
+    Socrata answers with a list and ArcGIS with a dict carrying ``features`` —
+    and ArcGIS reports failure inside a 200 body, so an ``error`` key counts as
+    no answer. A batch that comes back short is a different matter and is left
+    alone: those parcels really are absent from the layer, which is what the
+    drawn-versus-sampled gap is for.
+    """
+    body = _fetch(url, params)
+    rows = body.get("features") if isinstance(body, dict) else body
+    if body is None or (isinstance(body, dict) and body.get("error")) or not rows:
+        raise SystemExit(
+            f"{what} failed for a batch of {n}; refusing to write a benchmark "
+            f"missing them. Try again when the portal is healthy.")
+    return rows
+
+
 def _latest_year() -> str:
     got = _fetch(CAMA_URL, {"$select": "max(year)"})
     if got is None:
@@ -175,12 +205,16 @@ def _cama_sample(year: str, rows: int) -> tuple[list[dict], dict]:
             # table it just sized — a failure, not an empty slot. The DC sampler
             # treats it the same way; the two must agree or one jurisdiction's
             # sample silently tolerates what the other rejects.
-            if not got:
+            pin = got[0].get("pin") if got else None
+            if not got or not pin:
+                # Two ways for an offset not to answer, and both are the portal:
+                # `[]` inside a table it just sized, and a row carrying no PIN,
+                # which cannot be looked up so cannot enter the draw. A PIN
+                # already seen is different — the table has a row per card, and
+                # collapsing duplicates is the point.
                 failed.append(i)
-            else:
-                pin = got[0].get("pin")
-                if pin and pin not in seen:
-                    seen.append(pin)
+            elif pin not in seen:
+                seen.append(pin)
             if n % 25 == 0:
                 log.info("  sampled %d/%d", n, len(offsets))
             time.sleep(0.05)      # polite to a free public portal
@@ -222,11 +256,11 @@ def _primary_cards(year: str, pins: list[str]) -> list[dict]:
         chunk = pins[i:i + CAMA_BATCH]
         where = (f"year='{year}' AND pin IN ("
                  + ",".join(f"'{p}'" for p in chunk) + ")")
-        for row in _fetch(CAMA_URL, {
+        for row in _batch_or_die(CAMA_URL, {
             "$select": ("pin,card,char_yrblt,char_bldg_sf,char_ext_wall,char_bsmt,"
                         "char_repair_cnd,char_type_resd"),
             "$where": where, "$order": "pin, card", "$limit": "5000",
-        }) or []:
+        }, "card lookup", len(chunk)):
             out.setdefault(str(row.get("pin")), row)     # first = lowest card
         log.info("  primary card %d/%d", min(i + CAMA_BATCH, len(pins)), len(pins))
         time.sleep(0.05)
@@ -239,11 +273,11 @@ def _parcel_info(pins: list[str]) -> dict[str, dict]:
     for i in range(0, len(pins), PARCEL_BATCH):
         chunk = pins[i:i + PARCEL_BATCH]
         where = "PIN14 IN (" + ",".join(f"'{p}'" for p in chunk) + ")"
-        for f in (_fetch(PARCEL_URL, {
+        for f in _batch_or_die(PARCEL_URL, {
             "where": where,
             "outFields": "PIN14,street_address,city_state_zip,latitude,longitude",
             "returnGeometry": "false", "f": "json",
-        }) or {}).get("features") or []:
+        }, "parcel lookup", len(chunk)):
             a = f.get("attributes") or {}
             pin = str(a.get("PIN14") or "").zfill(14)
             if pin and a.get("latitude") and a.get("longitude") and a.get("street_address"):
@@ -318,14 +352,18 @@ def _dc_sample(rows: int) -> tuple[list[dict], dict]:
             # An ArcGIS failure arrives in a 200 body, and an offset inside a table
             # this size always has a row — so an empty answer is the portal failing
             # quietly. Neither is "no row here".
-            if body is None or (isinstance(body, dict) and body.get("error")) or not feats:
+            a = (feats[0].get("attributes") or {}) if feats else {}
+            ssl = (a.get("SSL") or "").strip()
+            if (body is None or (isinstance(body, dict) and body.get("error"))
+                    or not feats or not ssl):
+                # A row with no SSL joins the empty and error cases: it cannot be
+                # resolved to an address, so it is an offset that did not answer.
+                # See the Cook sampler — the two must agree or one jurisdiction
+                # quietly tolerates what the other refuses.
                 failed.append(i)
-            else:
-                a = (feats[0].get("attributes") or {})
-                ssl = (a.get("SSL") or "").strip()
-                if ssl and ssl not in seen:
-                    seen.add(ssl)
-                    out.append(a)
+            elif ssl not in seen:
+                seen.add(ssl)
+                out.append(a)
             if n % 25 == 0:
                 log.info("  sampled %d/%d", n, len(offsets))
             time.sleep(0.05)
@@ -365,20 +403,10 @@ def _dc_place(ssls: list[str]) -> dict[str, dict]:
     for i in range(0, len(ssls), DC_BATCH):
         chunk = ssls[i:i + DC_BATCH]
         where = "SSL IN (" + ",".join("'" + s.replace("'", "''") + "'" for s in chunk) + ")"
-        body = _fetch(DC_PARCEL_URL, {
+        for f in _batch_or_die(DC_PARCEL_URL, {
             "where": where, "outFields": _DC_PARCEL_FIELDS,
             "returnGeometry": "true", "outSR": "4326", "f": "json",
-        })
-        if (body is None or (isinstance(body, dict) and body.get("error"))
-                or not ((body or {}).get("features"))):
-            # A failed batch would otherwise look like 40 parcels that simply have
-            # no address, and those rows would be dropped and later disclosed as
-            # assessor documentation gaps — the wrong cause, on a page whose point
-            # is stating causes accurately. Fail the build instead.
-            raise SystemExit(
-                f"parcel lookup failed for a batch of {len(chunk)}; refusing to "
-                f"write a benchmark missing them. Try again later.")
-        for f in (body or {}).get("features") or []:
+        }, "parcel lookup", len(chunk)):
             a = f.get("attributes") or {}
             ssl, addr = (a.get("SSL") or "").strip(), (a.get("PREMISEADD") or "").strip()
             if not ssl or not addr:
