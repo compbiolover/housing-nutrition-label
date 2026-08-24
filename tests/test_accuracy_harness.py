@@ -577,6 +577,38 @@ def test_an_unreadable_results_shape_is_not_treated_as_an_empty_store():
         "than writing this run's section alone over it")
 
 
+def test_a_per_jurisdiction_benchmark_must_carry_a_digest():
+    """Without a digest AND without `rows`, nothing checks the file's content at
+    all: a benchmark correctly labelled `dc` could hold any bytes and still be
+    published as DC. The no-digest exemption belongs to the pre-split file only —
+    I granted it to the stamp and not the digest in the same edit."""
+    with tempfile.TemporaryDirectory() as tmp:
+        path, _ = _benchmark(tmp)
+        try:
+            M._verify_benchmark(path, {"jurisdiction": "dc"}, "dc")
+        except SystemExit as exc:
+            assert "sha256_16" in str(exc)
+        else:
+            raise AssertionError(
+                "a benchmark whose contents nothing verifies was accepted")
+
+
+def test_the_legacy_path_may_still_lack_a_digest():
+    with tempfile.TemporaryDirectory() as tmp:
+        path, _ = _benchmark(tmp)
+        M._verify_benchmark(path, {}, "cook", legacy=True)
+
+
+def test_the_gate_reads_the_results_and_page_together():
+    """They are renamed into place one after the other, so an unlocked read can
+    catch the instant between and report the page as stale when it is merely being
+    replaced — a spurious CI failure."""
+    src = pathlib.Path(M.__file__).read_text()
+    check = src[src.index("    if args.check:"):src.index("    juris = args.jurisdiction")]
+    assert "with _results_lock():" in check, (
+        "the check must read both files inside the same lock the writers hold")
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]

@@ -593,6 +593,21 @@ def main() -> int:
     if not out_rows:
         raise SystemExit("no gradeable rows — refusing to write an empty benchmark")
 
+    # Every drawn parcel is either written or counted under a reason. This has
+    # been true since the card lookup stopped accepting a short batch, and it is
+    # asserted rather than reasoned about because it has been re-derived by hand in
+    # four review rounds and quietly stopped holding in three of them. A future
+    # path that drops a row without recording why now fails the build instead of
+    # publishing a disclosure that silently under-reports the gap.
+    unexplained = draw["attempted"] - len(out_rows) - sum(dropped.values())
+    if unexplained:
+        raise SystemExit(
+            f"{draw['attempted']} parcels drawn, {len(out_rows)} written, "
+            f"{sum(dropped.values())} dropped for a recorded reason — "
+            f"{unexplained} unaccounted for. The published note reports the "
+            f"recorded reasons, so writing this would under-report the gap. This "
+            f"is a bug in the builder, not a portal problem.")
+
     # Built in memory and moved into place, rather than truncating the real file
     # and filling it over several minutes of network. An interrupted build used to
     # leave a half-written CSV beside the PREVIOUS run's metadata, and nothing

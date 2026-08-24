@@ -632,7 +632,9 @@ def _verify_benchmark(path: pathlib.Path, meta: dict, juris: str,
       `legacy` marks the one pre-split file that predates the field, and every
       other benchmark has to name its jurisdiction outright.
     * **Digest.** Catches an interrupted build: a partial CSV beside the previous
-      run's metadata.
+      run's metadata. Required outside the legacy path, because without it and
+      without `rows` nothing checks the file's CONTENT at all — a correctly
+      labelled benchmark could hold any bytes and still be published.
     * **Row count.** Checked independently of the digest, not as a follow-on. A
       pre-split cache records `rows` but no digest, and skipping the count there
       would leave that file unvalidated altogether.
@@ -655,6 +657,16 @@ def _verify_benchmark(path: pathlib.Path, meta: dict, juris: str,
             f"one jurisdiction's addresses under another's name. Rebuild with "
             f"scripts/build_benchmark.py --jurisdiction {juris}.")
     want = meta.get("sha256_16")
+    if not want and not legacy:
+        # Same exemption as the stamp above, and I granted it to one and not the
+        # other in the same edit. Without a digest AND without `rows`, nothing
+        # about the file's CONTENT is checked at all — a benchmark correctly
+        # labelled `dc` can hold any bytes whatsoever and still be scored and
+        # published as DC. Only the pre-split file may lack this.
+        raise SystemExit(
+            f"{path.stem}.meta.json records no sha256_16, so nothing would verify "
+            f"that {path.name} is the sample it describes. Rebuild with "
+            f"scripts/build_benchmark.py --jurisdiction {juris}.")
     if want:
         got = hashlib.sha256(payload).hexdigest()[:16]
         if got != want:
@@ -740,8 +752,16 @@ def main() -> int:
         if not RESULTS.exists():
             log.error("%s is missing — run the harness and commit its output.", RESULTS)
             return 1
-        results = json.loads(RESULTS.read_text())
-        if not PAGE.exists() or PAGE.read_text() != _render(results):
+        # Under the same lock as the writers. The two files are renamed into place
+        # one after the other, so an unlocked read can catch the instant between
+        # them and pair new results with the old page — a spurious failure of the
+        # CI gate, reported as the page being out of date when it is merely being
+        # replaced. Reading them together is the same critical section as writing
+        # them together.
+        with _results_lock():
+            results = json.loads(RESULTS.read_text())
+            page = PAGE.read_text() if PAGE.exists() else None
+        if page is None or page != _render(results):
             log.error("%s is out of date. Regenerate: python scripts/measure_accuracy.py "
                       "--render-only", PAGE)
             return 1
