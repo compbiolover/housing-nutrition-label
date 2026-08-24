@@ -306,6 +306,21 @@ def _mismatch_note(results: dict) -> str:
             f"scored as the error they are rather than set aside")
 
 
+#: Drop reasons this page can state, and the wording for each. The note is only
+#: allowed to name reasons when THESE account for the whole gap, so a reason added
+#: to the builder later forces the generic sentence rather than being silently
+#: excluded from a total that still appears to balance.
+#:
+#: "were not in the parcel layer" is deliberately weaker than "had no address on
+#: file": the layer held no record at all, so what the assessor documents about
+#: those parcels was never observed by this build.
+_DROP_REASONS = {
+    "no_parcel_record": "{} were not in the parcel layer",
+    "no_address": "{} had no address on file",
+    "no_year_built": "{} had no usable year built",
+}
+
+
 def _ungradeable_note(m: dict) -> str:
     """Say how many drawn rows never reached the benchmark, and stay silent at zero.
 
@@ -325,25 +340,18 @@ def _ungradeable_note(m: dict) -> str:
     # without claiming a cause, rather than asserting the likeliest one. Four
     # review rounds found this sentence naming a cause it could not know.
     d = m.get("dropped") or {}
-    parts = []
-    if d.get("no_parcel_record"):
-        # Deliberately weaker than "had no address on file": the parcel layer held
-        # no record for these at all, so what the assessor documents about them is
-        # not something this build observed.
-        parts.append(f"{d['no_parcel_record']} were not in the parcel layer")
-    if d.get("no_address"):
-        parts.append(f"{d['no_address']} had no address on file")
-    if d.get("no_year_built"):
-        parts.append(f"{d['no_year_built']} had no usable year built")
     gap = drawn - sampled
-    # The named reasons are used ONLY when they account for the whole gap. The
-    # builder asserts that they do, but this reads metadata it did not write —
-    # an older file with one reason recorded, or a newer builder with a reason
-    # this code does not know — and a partial list rendered as a complete one is
-    # the same under-reporting the whole drop-accounting change was made to end.
-    # Being unable to name every cause is not a licence to name some and imply
-    # the rest away.
-    if parts and sum(v for v in d.values() if isinstance(v, int)) == gap:
+    # Summed over exactly the reasons that will be PRINTED, not over the map. The
+    # first version added up every integer in `dropped`, so a builder adding a
+    # reason this code does not render — the map is written by a script that
+    # changes independently of this one — could make the total match while the
+    # sentence named a subset. That is under-reporting produced by the check
+    # written to prevent under-reporting, and it stays impossible only if the
+    # rendered set and the summed set are the same object.
+    parts = [tmpl.format(n) for key, tmpl in _DROP_REASONS.items()
+             if (n := d.get(key))]
+    named = sum(n for key in _DROP_REASONS if isinstance(n := d.get(key), int))
+    if parts and named == gap:
         return f" Drawn from {drawn} assessor rows; {', '.join(parts)}."
     return (f" Drawn from {drawn} assessor rows; {gap} could not be graded from "
             f"the assessor's own record.")

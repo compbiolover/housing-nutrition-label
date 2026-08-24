@@ -793,6 +793,36 @@ def test_a_parcel_absent_from_the_layer_is_not_an_undocumented_address():
     assert "1 had no address on file" in note, note
 
 
+def test_a_drop_reason_this_page_cannot_name_forces_the_generic_sentence():
+    """The completeness test summed EVERY integer in `dropped` while the sentence
+    rendered only the reasons this module knows. The map is written by a script
+    that changes independently of this one, so a reason added there could make the
+    total balance while the sentence named a subset — under-reporting produced by
+    the check written to prevent under-reporting.
+
+    It stays impossible only because the rendered set and the summed set are now
+    the same object, so this pins that they are."""
+    note = M._ungradeable_note({"drawn": 10, "sampled": 5,
+                                "dropped": {"no_address": 2, "no_parcel_id": 3}})
+    assert "5 could not be graded" in note, note
+    assert "had no address" not in note, (
+        "naming 2 of a 5-row gap implies the unknown 3 away")
+
+    # A reason the page CAN name, accounting for the whole gap, still reads out.
+    named = M._ungradeable_note({"drawn": 10, "sampled": 5,
+                                 "dropped": {"no_address": 2, "no_year_built": 3}})
+    assert "2 had no address on file" in named and "3 had no usable year" in named
+
+
+def test_every_rendered_drop_reason_is_one_the_summation_counts():
+    """The guarantee is structural, not a coincidence to be maintained by hand."""
+    for key in M._DROP_REASONS:
+        gap_note = M._ungradeable_note({"drawn": 9, "sampled": 2,
+                                        "dropped": {key: 7}})
+        assert "could not be graded" not in gap_note, (
+            f"{key} is rendered but was not counted toward completeness")
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]
