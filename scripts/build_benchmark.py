@@ -121,13 +121,17 @@ def _cama_sample(year: str, rows: int) -> list[dict]:
         raise SystemExit(f"no rows for assessment year {year}")
     log.info("Assessment year %s has %d parcels; sampling %d.", year, total, rows)
 
-    step = max(1, total // rows)
+    # Spread the offsets across [0, total), rather than flooring a stride: with a
+    # stride, any request for more than half the population collapses to step 1 and
+    # silently reads the first N rows — which, since PINs are township-ordered,
+    # turns a "county-wide" sample into one corner of Cook.
+    rows = min(rows, total)
     seen: list[str] = []
     dropped = 0
     for i in range(rows):
         got = _fetch(CAMA_URL, {
             "$select": "pin", "$where": f"year='{year}'",
-            "$order": "pin", "$limit": "1", "$offset": str(i * step),
+            "$order": "pin", "$limit": "1", "$offset": str(i * total // rows),
         })
         if got is None:
             # One unreachable offset is a missing sample, not a failed build. It

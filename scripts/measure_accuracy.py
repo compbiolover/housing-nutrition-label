@@ -186,14 +186,20 @@ def _score_arms(row: dict) -> dict | None:
     return {
         "address": row["address"],
         "truth": truth_fields,
-        # Resolved means the adapter found THIS parcel, not merely some parcel.
-        # The harness geocodes the address exactly as a visitor would, so the
-        # lookup can land on a neighbour — and comparing a neighbour's record
-        # against this PIN's truth would be published as adapter error when it is
-        # really a matching failure. The two are different defects with different
-        # fixes, so a PIN disagreement is counted as unresolved and reported
-        # separately rather than folded into the accuracy rate.
-        "resolved": _pin_matches(loc, row),
+        # `resolved` is whether the adapter answered at all, because that is what a
+        # visitor experiences: they type this address, the lookup runs, and either
+        # a county record reaches the label or it does not.
+        #
+        # A wrong-parcel answer is NOT excluded. An earlier revision marked a PIN
+        # disagreement unresolved while still scoring the adapter arm from the
+        # record it found — hiding the mismatch from coverage while letting its
+        # wrong values degrade accuracy, which is the least honest of the
+        # available choices. Whichever parcel the lookup landed on, its values are
+        # what the visitor is shown for THIS address, so they belong in the
+        # accuracy rates. The mismatch is a distinct defect from a bad field
+        # mapping, so it is counted and published beside them rather than folded
+        # in silently.
+        "resolved": loc.assessor is not None,
         "pin_mismatch": (loc.assessor is not None and not _pin_matches(loc, row)),
         "baseline": {"inferred": {f: cfg_off.get(f) for f in FIELDS},
                      "grades": _grades(pay_off)},
@@ -265,8 +271,9 @@ def _mismatch_note(results: dict) -> str:
     n = results.get("pin_mismatches") or 0
     if not n:
         return ""
-    return (f" ({n} found a different parcel than the benchmark row and "
-            f"{'are' if n != 1 else 'is'} counted unresolved)")
+    return (f", of which {n} landed on a different parcel than the benchmark row "
+            f"&mdash; those answers are wrong for the address asked about, and are "
+            f"scored as the error they are rather than set aside")
 
 
 def _unscored_note(results: dict) -> str:
@@ -520,8 +527,8 @@ def main() -> int:
     RESULTS.write_text(json.dumps(results, indent=2) + "\n")
     PAGE.write_text(_render(results))
 
-    log.info("Scored %d addresses; assessor resolved for %d (%.1f%%); "
-             "%d landed on a different parcel and are counted unresolved.",
+    log.info("Scored %d addresses; assessor answered for %d (%.1f%%); "
+             "%d of those landed on a different parcel (scored as error).",
              len(cases), resolved, results["adapter_resolved_pct"], mismatched)
     for f in FIELDS:
         b = results["baseline"]["fields"][f]

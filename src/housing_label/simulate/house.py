@@ -2312,7 +2312,23 @@ def _nsi_per_unit_sqft(location, units: int | None = None) -> float | None:
     if sqft is None:
         return None
     n = _nsi_sqft_divisor(location, units)
-    return round(float(sqft) / n * _MF_NET_TO_GROSS, 1) if n else sqft
+    if n:
+        return round(float(sqft) / n * _MF_NET_TO_GROSS, 1)
+    # A DETECTED multi-unit record's sqft is the whole building's. With no usable
+    # count to divide by there is no per-unit figure to report, and returning the
+    # building total would publish a 100k sqft "apartment" as this dwelling's
+    # living area — the same whole-building-as-per-unit error guarded against for
+    # the county's area and the USA Structures footprint, in the one path that
+    # feeds most labels. Nothing is the honest answer; the caller's own default
+    # then stands.
+    #
+    # The cluster heuristic is deliberately excluded: it reaches "multifamily" from
+    # repeated single-family footprints, so its sqft already describes one house
+    # and dividing or dropping it would both be wrong.
+    if (getattr(location, "units_confidence", None) == "detected"
+            and getattr(location, "structure_type", None) == "multifamily"):
+        return None
+    return sqft
 
 
 def _nsi_sqft_divisor(location, units: int | None = None) -> int | None:

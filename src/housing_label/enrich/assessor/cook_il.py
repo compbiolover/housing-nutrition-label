@@ -174,6 +174,13 @@ def _addr_key(raw: str | None) -> tuple[str, tuple[str, ...], str | None] | None
         if t in _UNIT_MARKERS:
             rest = rest[:i]
             break
+    # The parcel layer also writes the unit with no marker at all — "234 W STATION
+    # ST B12". Only a trailing token that carries a digit AND sits directly after a
+    # street type is taken as one: that is specific enough to catch "ST B12" while
+    # leaving "100 ROUTE 66" alone, where the digit-bearing token is the street's
+    # own name rather than a unit.
+    if len(rest) >= 2 and rest[-2] in _SUFFIXES and any(c.isdigit() for c in rest[-1]):
+        rest = rest[:-1]
     # Only a TERMINAL street type is a street type. Consuming the token wherever it
     # appeared collapsed "213 ST JOHN ST" onto "213 JOHN ST" and "100 PARK PLACE DR"
     # onto "100 PARK DR" — both real naming patterns, and both exactly the
@@ -330,8 +337,22 @@ def _characteristics(pin: str, *, deadline: float | None = None) -> dict | None:
     return rows[0] if rows else None
 
 
+# The county refreshes bi-weekly and the assessment roll advances, so a
+# process-lifetime cache lets a long-lived worker keep serving an observed value —
+# and its now-wrong roll date — indefinitely. The key carries a coarse time bucket
+# so entries age out on their own: the same point looked up in a later bucket is a
+# cache miss and re-queries. Cheaper and less breakable than an eviction thread,
+# and it bounds staleness to the bucket rather than to the worker's uptime.
+CACHE_TTL_S = 6 * 3600
+
+
+def _cache_bucket() -> int:
+    return int(time.time() // CACHE_TTL_S)
+
+
 @lru_cache(maxsize=4096)
-def _lookup_cached(lat: float, lon: float, address: str | None) -> AssessorRecord | None:
+def _lookup_cached(lat: float, lon: float, address: str | None,
+                   _bucket: int = 0) -> AssessorRecord | None:
     deadline = time.monotonic() + TIMEOUT
     pin = _pin_at(lat, lon, address, deadline=deadline)
     if not pin:
@@ -377,7 +398,8 @@ def lookup(lat: float, lon: float, address: str | None = None) -> AssessorRecord
     try:
         # Round before the cache so two clicks on the same rooftop share an entry.
         # 5 dp is ~1 m — finer than a parcel, coarse enough to be a useful key.
-        return _lookup_cached(round(float(lat), 5), round(float(lon), 5), address)
+        return _lookup_cached(round(float(lat), 5), round(float(lon), 5), address,
+                              _cache_bucket())
     except Exception as exc:  # noqa: BLE001
         log.debug("Cook County assessor lookup failed at %s,%s: %s", lat, lon, exc)
         return None

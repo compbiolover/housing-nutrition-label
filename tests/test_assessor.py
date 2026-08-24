@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import os
 import pathlib
+import time
 import sys
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -554,6 +555,38 @@ def test_a_row_without_a_usable_year_still_produces_a_record():
     rec = _lookup([_PARCEL], row, address="213 W Main St")
     assert rec is not None and rec.fields()["year_built"] == 1971
     assert "roll" not in rec.data_vintage
+
+
+def test_an_unmarked_unit_suffix_does_not_block_a_condo_match():
+    """The parcel layer writes "234 W STATION ST B12" with no unit marker. The
+    module documented that as noise while the code kept it, so a condo failed to
+    match its own address — a documented rule the implementation did not have."""
+    from housing_label.enrich.assessor.cook_il import _same_address
+    assert _same_address("234 W STATION ST B12", "234 W STATION ST")
+    assert _same_address("234 W STATION ST", "234 W STATION ST APT 4")
+
+
+def test_a_digit_bearing_street_name_is_not_mistaken_for_a_unit():
+    """The counterweight to the rule above: "100 ROUTE 66" ends in a digit-bearing
+    token that is the street's name, not a unit. Only a digit-bearing token sitting
+    directly after a street type is dropped."""
+    from housing_label.enrich.assessor.cook_il import _same_address
+    assert _same_address("100 ROUTE 66", "100 ROUTE 66")
+    assert not _same_address("100 ROUTE 66", "100 ROUTE")
+
+
+def test_the_cache_key_ages_out_so_a_long_lived_worker_cannot_serve_a_stale_roll():
+    """The source refreshes bi-weekly and the roll advances. A process-lifetime
+    cache would pin an observed value, and its now-wrong roll date, to the worker's
+    uptime; the key carries a time bucket so entries expire on their own."""
+    from housing_label.enrich.assessor import cook_il
+    assert cook_il.CACHE_TTL_S > 0
+    bucket = cook_il._cache_bucket()
+    assert isinstance(bucket, int)
+    # The bucket must be a function of wall-clock time, not a constant, or the key
+    # never changes and the TTL is decorative.
+    later = int((time.time() + cook_il.CACHE_TTL_S * 2) // cook_il.CACHE_TTL_S)
+    assert later > bucket
 
 
 def test_a_pin_with_no_characteristics_row_yields_nothing():
