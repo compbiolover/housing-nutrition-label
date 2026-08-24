@@ -307,7 +307,7 @@ often that inference matches what a county assessor recorded for the same
 building &mdash; the only check that asks whether the output describes the world
 rather than whether the code does what it says.</p>
 
-<p><strong>Method.</strong> {m['rows']} addresses sampled across
+<p><strong>Method.</strong> {m.get('sampled', m['rows'])} addresses sampled across
 {html.escape(m['source'])} (assessment year {html.escape(str(m['assessment_year']))},
 fetched {html.escape(m['fetched'])}){_unscored_note(results)}. Each is scored from
 the address alone, with no construction details supplied, and compared against the
@@ -382,7 +382,9 @@ padding-top:0.9rem;">{html.escape(DISCLAIMER)}</p>
 {results['adapter_resolved_pct']}% of the sample &middot; benchmark digest
 {html.escape(m['sha256_16'])} &middot; generated {html.escape(results['generated'])}.
 Regenerate with <code>python scripts/measure_accuracy.py</code>.</p>
-</main></body></html>
+</main>
+<script src="nav.js"></script>
+</body></html>
 """
 
 
@@ -458,7 +460,12 @@ def main() -> int:
         # while the page still read as the full sample.
         "benchmark": {**meta, "sampled": len(rows), "rows": len(cases)},
         "unscored": len(rows) - len(cases),
-        "adapter_resolved_pct": round(100 * resolved / len(cases), 1),
+        # Over the sampled population, not the scored subset. Dividing by
+        # `cases` would drop every address that failed to geocode out of the
+        # denominator, so the failures this metric should expose could only ever
+        # raise it. It is published as end-to-end coverage, so it is measured
+        # that way.
+        "adapter_resolved_pct": round(100 * resolved / len(rows), 1),
         "baseline": _summarise(cases, "baseline"),
         "adapter": _summarise(cases, "adapter"),
     }

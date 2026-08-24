@@ -46,6 +46,7 @@ package-dir = { "" = "src", "scripts" = "scripts" }
 packages = [
     "housing_label",
     "housing_label.enrich",
+    "housing_label.enrich.assessor",
     "housing_label.score",
     "housing_label.simulate",
     "housing_label.data",

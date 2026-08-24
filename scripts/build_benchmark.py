@@ -77,6 +77,28 @@ HEADERS = {"User-Agent": "housing-nutrition-label (accuracy benchmark build)"}
 FIELDS = ["year_built", "sqft", "stories", "construction", "foundation", "condition"]
 
 
+def _fetch(url: str, params: dict, attempts: int = 4):
+    """GET with backoff. Returns None once the attempts are spent.
+
+    The sample is built from a few hundred sequential requests against a free
+    public portal, so a transient read timeout is expected rather than
+    exceptional. Without this one slow response discards every request made
+    before it, which is both a waste of the portal's bandwidth and ours.
+    """
+    for i in range(attempts):
+        try:
+            r = requests.get(url, params=params, headers=HEADERS, timeout=TIMEOUT)
+            r.raise_for_status()
+            return r.json()
+        except requests.RequestException as exc:
+            if i == attempts - 1:
+                log.warning("  giving up on a request after %d attempts: %s",
+                            attempts, exc)
+                return None
+            time.sleep(2 ** i)          # 1s, 2s, 4s
+    return None
+
+
 def _latest_year() -> str:
     r = requests.get(CAMA_URL, params={"$select": "max(year)"},
                      headers=HEADERS, timeout=TIMEOUT)
@@ -96,19 +118,27 @@ def _cama_sample(year: str, rows: int) -> list[dict]:
 
     step = max(1, total // rows)
     seen: list[str] = []
+    dropped = 0
     for i in range(rows):
-        r = requests.get(CAMA_URL, params={
+        got = _fetch(CAMA_URL, {
             "$select": "pin", "$where": f"year='{year}'",
             "$order": "pin", "$limit": "1", "$offset": str(i * step),
-        }, headers=HEADERS, timeout=TIMEOUT)
-        r.raise_for_status()
-        got = r.json() or []
-        pin = (got[0].get("pin") if got else None)
-        if pin and pin not in seen:
-            seen.append(pin)
+        })
+        if got is None:
+            # One unreachable offset is a missing sample, not a failed build. It
+            # is counted and reported rather than silently absorbed, because a
+            # sample that quietly shrank is a different sample.
+            dropped += 1
+        else:
+            pin = (got[0].get("pin") if got else None)
+            if pin and pin not in seen:
+                seen.append(pin)
         if (i + 1) % 25 == 0:
             log.info("  sampled %d/%d", i + 1, rows)
         time.sleep(0.05)          # polite to a free public portal
+    if dropped:
+        log.warning("  %d of %d sample offsets were unreachable and skipped.",
+                    dropped, rows)
     return _primary_cards(year, seen)
 
 
@@ -129,13 +159,11 @@ def _primary_cards(year: str, pins: list[str]) -> list[dict]:
         chunk = pins[i:i + CAMA_BATCH]
         where = (f"year='{year}' AND pin IN ("
                  + ",".join(f"'{p}'" for p in chunk) + ")")
-        r = requests.get(CAMA_URL, params={
+        for row in _fetch(CAMA_URL, {
             "$select": ("pin,card,char_yrblt,char_bldg_sf,char_ext_wall,char_bsmt,"
                         "char_repair_cnd,char_type_resd"),
             "$where": where, "$order": "pin, card", "$limit": "5000",
-        }, headers=HEADERS, timeout=TIMEOUT)
-        r.raise_for_status()
-        for row in r.json() or []:
+        }) or []:
             out.setdefault(str(row.get("pin")), row)     # first = lowest card
         log.info("  primary card %d/%d", min(i + CAMA_BATCH, len(pins)), len(pins))
         time.sleep(0.05)
@@ -148,13 +176,11 @@ def _parcel_info(pins: list[str]) -> dict[str, dict]:
     for i in range(0, len(pins), PARCEL_BATCH):
         chunk = pins[i:i + PARCEL_BATCH]
         where = "PIN14 IN (" + ",".join(f"'{p}'" for p in chunk) + ")"
-        r = requests.get(PARCEL_URL, params={
+        for f in (_fetch(PARCEL_URL, {
             "where": where,
             "outFields": "PIN14,street_address,city_state_zip,latitude,longitude",
             "returnGeometry": "false", "f": "json",
-        }, headers=HEADERS, timeout=TIMEOUT)
-        r.raise_for_status()
-        for f in (r.json() or {}).get("features") or []:
+        }) or {}).get("features") or []:
             a = f.get("attributes") or {}
             pin = str(a.get("PIN14") or "").zfill(14)
             if pin and a.get("latitude") and a.get("longitude") and a.get("street_address"):

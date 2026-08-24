@@ -23,6 +23,7 @@ Run standalone: ``python tests/test_assessor.py``
 
 from __future__ import annotations
 
+import os
 import pathlib
 import sys
 
@@ -387,6 +388,55 @@ def test_an_open_ended_storey_bucket_is_not_a_storey_count():
     observed height for every 4- and 6-storey building in the bucket."""
     assert cook_il._STORIES.get("3 Story +") is None
     assert cook_il._STORIES["2 Story"] == 2
+
+
+def test_a_record_with_nothing_in_it_is_not_a_resolved_lookup():
+    """A parcel can match and still carry no usable fact: an unrecorded year and
+    area, with every category outside the label's vocabulary. Both the "county
+    record" tag and the published coverage rate read non-None as "the assessor
+    answered", so an empty record would be counted as a parcel that contributed
+    something. Unmapping "3 Story +" and "Stucco" made this reachable, so it is
+    pinned. Enforced in the registry, not the adapter, so a second adapter cannot
+    reintroduce it.
+    """
+    import housing_label.enrich.assessor as reg
+    from housing_label.enrich.assessor.base import AssessorRecord
+
+    empty = AssessorRecord(source="Cook County", data_vintage="2026",
+                           parcel_id="17031000000000")
+    assert empty.fields() == {}, "precondition: this record carries no attribute"
+
+    populated = AssessorRecord(source="Cook County", data_vintage="2026",
+                               parcel_id="17031000000000", year_built=1971)
+
+    class _Stub:
+        __name__ = "stub"
+        returns = None
+
+        @classmethod
+        def lookup(cls, lat, lon, address=None):
+            return cls.returns
+
+    orig, fips = dict(reg.ADAPTERS), "17031"
+    prev = os.environ.get(reg.ENABLE_ENV)
+    try:
+        os.environ[reg.ENABLE_ENV] = "1"
+        reg.ADAPTERS[fips] = _Stub
+
+        _Stub.returns = empty
+        assert reg.assessor_for_point(41.9, -88.1, fips) is None, (
+            "an empty record must not be reported as a resolved lookup")
+
+        _Stub.returns = populated
+        assert reg.assessor_for_point(41.9, -88.1, fips) is populated, (
+            "a record with a real field must still pass through untouched")
+    finally:
+        reg.ADAPTERS.clear()
+        reg.ADAPTERS.update(orig)
+        if prev is None:
+            os.environ.pop(reg.ENABLE_ENV, None)
+        else:
+            os.environ[reg.ENABLE_ENV] = prev
 
 
 def _run_all() -> int:

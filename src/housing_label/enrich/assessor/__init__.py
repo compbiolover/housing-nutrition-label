@@ -83,7 +83,14 @@ def assessor_for_point(lat: float | None, lon: float | None,
     if adapter is None:
         return None
     try:
-        return adapter.lookup(float(lat), float(lon), address)
+        record = adapter.lookup(float(lat), float(lon), address)
+        # A parcel can match and still tell us nothing: an unrecorded year and
+        # area, with every category outside the label's vocabulary. Returning the
+        # empty record would be read as "the assessor answered" by both the UI tag
+        # and the coverage metric, so a parcel that contributed no fact would be
+        # counted as one that did. Enforced here rather than in each adapter so a
+        # new one cannot reintroduce it.
+        return record if record is not None and record.fields() else None
     except Exception as exc:  # noqa: BLE001
         # An adapter is supposed to swallow its own failures; this is the belt to
         # that braces, so a badly-behaved one still cannot break a label.

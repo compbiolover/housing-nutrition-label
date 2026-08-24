@@ -192,6 +192,42 @@ def test_the_page_reports_the_numbers_it_was_given():
         "baseline (worse) must be the first grade-impact column, adapter the second")
 
 
+def test_the_page_states_the_sampled_count_not_the_scored_one():
+    """`rows` is the scored subset and `sampled` is the population. The method
+    sentence says "N addresses sampled", so it must use the latter — quoting the
+    scored count there would let a batch of failed geocodes shrink the stated
+    sample while the page still read as though nothing had been dropped."""
+    results = {
+        "generated": "2026-08-24",
+        "benchmark": {"source": "Cook County Assessor (Open Data)",
+                      "assessment_year": "2026", "fetched": "2026-08-24",
+                      "sampled": 220, "rows": 200, "sha256_16": "deadbeefdeadbeef"},
+        "unscored": 20,
+        "adapter_resolved_pct": 62.5,
+        "baseline": M._summarise([_case({}, {}, {}, {})], "baseline"),
+        "adapter": M._summarise([_case({}, {}, {}, {})], "adapter"),
+    }
+    page = M._render(results)
+    assert "220 addresses sampled" in page
+    assert "20 sampled addresses could not be" in page, (
+        "the excluded rows must be disclosed, not just netted out of the count")
+
+
+def test_an_older_result_without_a_sampled_count_still_renders():
+    """`sampled` was added after the first published run, so the renderer must not
+    hard-fail on a results file that predates it."""
+    results = {
+        "generated": "2026-08-24",
+        "benchmark": {"source": "Cook County Assessor (Open Data)",
+                      "assessment_year": "2026", "fetched": "2026-08-24",
+                      "rows": 200, "sha256_16": "deadbeefdeadbeef"},
+        "adapter_resolved_pct": 62.5,
+        "baseline": M._summarise([_case({}, {}, {}, {})], "baseline"),
+        "adapter": M._summarise([_case({}, {}, {}, {})], "adapter"),
+    }
+    assert "200 addresses sampled" in M._render(results)
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]
