@@ -2410,16 +2410,32 @@ def _autofill_construction_from_nsi(cfg: dict, explicit: set, location,
     # It does not outrank the reader — `explicit` is still checked first below. A
     # county record can be decades stale or simply wrong about a house somebody is
     # standing in.
+    from housing_label.enrich.assessor.base import TRANSLATED as _ASSESSOR_TRANSLATED
+
     record = getattr(location, "assessor", None)
-    observed_fields = record.fields() if record is not None else {}
+    observed_fields = dict(record.fields()) if record is not None else {}
     obs_src = getattr(record, "source", None) or "county assessor"
+
+    # A county's floor area is the whole BUILDING's. The label's sqft is per
+    # dwelling unit — that is the basis the form, the scorer and _nsi_per_unit_sqft
+    # all use — so on a multi-unit parcel handing the raw county figure straight
+    # through would make the entire building's area the area of one apartment, and
+    # tag that inflation "observed". The adapters do not carry a reliable unit
+    # count, so the field is dropped for a multi-unit building rather than divided
+    # by a guess; NSI's per-unit split (which does have one) then stands.
+    if observed_fields.get("sqft") is not None and (units or 1) > 1:
+        observed_fields.pop("sqft")
 
     def _take_observed(field: str) -> bool:
         """Apply the county's value for one field. False if there isn't one."""
         if field not in observed_fields:
             return False
         cfg[field] = observed_fields[field]
-        filled[field] = (obs_src, "high", "observed")
+        # A translated category is the adapter's reading of the county's
+        # vocabulary, not a number the county wrote down; it does not earn the
+        # same confidence as a transcribed one. See TRANSLATED in assessor/base.
+        conf = "moderate" if field in _ASSESSOR_TRANSLATED else "high"
+        filled[field] = (obs_src, conf, "observed")
         return True
 
     # Fields the county records that `plan` has no entry for — `condition` today.
@@ -2918,6 +2934,13 @@ def build_label_parts(*, address: str | None = None,
     if preset is None:
         autofilled.update(_autofill_construction_from_nsi(
             cfg, explicit, location, struct.get("num_units")))
+        # The autofill writes cfg["stories"], and `struct` was derived from cfg
+        # before it ran. While every autofilled value came from NSI that was
+        # harmless — recomputing reproduced the same numbers — but a county
+        # assessor's storey count differs from NSI's by design, so the stale
+        # `struct` would score and display NSI's height while the field carried
+        # the "observed" tag. Recompute from the cfg that actually won.
+        struct = effective_structure(cfg, location)
         # Provenance for the detected drinking-water source (EPA service-area
         # boundaries) — only the tag, deliberately not the value.
         #

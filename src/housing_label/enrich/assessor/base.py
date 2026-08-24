@@ -73,6 +73,19 @@ CONDITION_VALUES = frozenset({
     "unsound", "poor", "fair", "average", "good", "excellent",
 })
 
+# Fields where an adapter must map a county's own category system onto the
+# label's, rather than transcribe a value the county already records in the
+# label's terms. A year built and a floor area are numbers the assessor wrote
+# down; a wall material and a condition grade are the adapter's reading of a
+# different vocabulary, and at least one such reading is knowingly lossy (Cook's
+# single "Masonry" category covers the label's brick, block and stone).
+#
+# The distinction is not cosmetic: it is the difference between "the county
+# recorded this" and "the county recorded something we believe means this", and
+# the label carries it as a lower confidence on the translated fields so the
+# `observed` tag does not claim more than the source supports.
+TRANSLATED = frozenset({"construction", "condition"})
+
 
 @dataclass(frozen=True)
 class AssessorRecord:

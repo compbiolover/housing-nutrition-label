@@ -131,6 +131,22 @@ def test_grade_impact_skips_pairs_with_a_missing_side():
     assert g["differs_pct"] == 100.0
 
 
+def test_an_unscorable_dimension_is_not_counted_as_agreement():
+    """The payload renders an unscored dimension as an em dash, not None, and it
+    arrives under the same key a real letter does. Compared as a grade, two of them
+    match each other — so a row nobody could score would be counted as the label
+    getting it right, in the number this project publishes as its headline."""
+    payload = {"dimensions": [{"key": "durability", "national_grade": "\u2014"}],
+               "construction_national_grade": "\u2014"}
+    assert M._grades(payload) == {"durability": None, "building_axis": None}
+
+    cases = [_case({}, {}, {"durability": "\u2014"}, {"durability": "\u2014"})]
+    cases[0]["truth_grades"] = M._grades(
+        {"dimensions": [{"key": "durability", "national_grade": "\u2014"}]})
+    cases[0]["baseline"]["grades"] = cases[0]["truth_grades"]
+    assert M._summarise(cases, "baseline")["grade_impact"]["durability"]["n"] == 0
+
+
 def test_composite_is_not_among_the_graded_dimensions():
     """It averages in eight location dimensions no construction input touches, so
     a grade-impact rate over it would be diluted by construction and read as

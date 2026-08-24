@@ -68,6 +68,7 @@ PARCEL_URL = ("https://gis.cookcountyil.gov/traditional/rest/services"
 
 TIMEOUT = 90
 PARCEL_BATCH = 40          # PINs per ArcGIS IN-clause; keeps the URL under limits
+CAMA_BATCH = 40            # PINs per Socrata IN-clause, same reason
 HEADERS = {"User-Agent": "housing-nutrition-label (accuracy benchmark build)"}
 
 # The columns the label can actually be graded on. Everything else the county
@@ -94,23 +95,51 @@ def _cama_sample(year: str, rows: int) -> list[dict]:
     log.info("Assessment year %s has %d parcels; sampling %d.", year, total, rows)
 
     step = max(1, total // rows)
-    out, seen = [], set()
+    seen: list[str] = []
     for i in range(rows):
         r = requests.get(CAMA_URL, params={
-            "$select": ("pin,char_yrblt,char_bldg_sf,char_ext_wall,char_bsmt,"
-                        "char_repair_cnd,char_type_resd"),
-            "$where": f"year='{year}'", "$order": "pin", "$limit": "1",
-            "$offset": str(i * step),
+            "$select": "pin", "$where": f"year='{year}'",
+            "$order": "pin", "$limit": "1", "$offset": str(i * step),
         }, headers=HEADERS, timeout=TIMEOUT)
         r.raise_for_status()
         got = r.json() or []
-        if got and got[0].get("pin") not in seen:
-            seen.add(got[0]["pin"])
-            out.append(got[0])
+        pin = (got[0].get("pin") if got else None)
+        if pin and pin not in seen:
+            seen.append(pin)
         if (i + 1) % 25 == 0:
             log.info("  sampled %d/%d", i + 1, rows)
         time.sleep(0.05)          # polite to a free public portal
-    return out
+    return _primary_cards(year, seen)
+
+
+def _primary_cards(year: str, pins: list[str]) -> list[dict]:
+    """The one card per PIN that the runtime adapter would read.
+
+    Sampling by row offset lands on an arbitrary card, and a PIN can carry several
+    (a coach house, a second improvement). The adapter takes ``year DESC, card
+    ASC`` — the newest year's lowest-numbered card — so truth has to be drawn the
+    same way. Otherwise a multi-card parcel is graded against a card the label was
+    never going to read, and the disagreement is scored as the label's error.
+
+    The year is already pinned to the newest by the caller, so ordering by card
+    within it and keeping the first per PIN reproduces that rule exactly.
+    """
+    out: dict[str, dict] = {}
+    for i in range(0, len(pins), CAMA_BATCH):
+        chunk = pins[i:i + CAMA_BATCH]
+        where = (f"year='{year}' AND pin IN ("
+                 + ",".join(f"'{p}'" for p in chunk) + ")")
+        r = requests.get(CAMA_URL, params={
+            "$select": ("pin,card,char_yrblt,char_bldg_sf,char_ext_wall,char_bsmt,"
+                        "char_repair_cnd,char_type_resd"),
+            "$where": where, "$order": "pin, card", "$limit": "5000",
+        }, headers=HEADERS, timeout=TIMEOUT)
+        r.raise_for_status()
+        for row in r.json() or []:
+            out.setdefault(str(row.get("pin")), row)     # first = lowest card
+        log.info("  primary card %d/%d", min(i + CAMA_BATCH, len(pins)), len(pins))
+        time.sleep(0.05)
+    return [out[p] for p in pins if p in out]
 
 
 def _parcel_info(pins: list[str]) -> dict[str, dict]:

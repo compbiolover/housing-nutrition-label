@@ -74,7 +74,7 @@ def test_an_address_with_no_house_number_is_unusable():
 # ── hop 1: which parcel, if any ─────────────────────────────────────────────────
 def _stub_parcels(monkey, exact, near=()):
     """Stub the parcel layer: ``exact`` at the point, ``near`` within the buffer."""
-    def fake(lat, lon, distance_m=0):
+    def fake(lat, lon, distance_m=0, *, deadline=None):
         return list(near) if distance_m else list(exact)
     monkey(cook_il, "_parcels", fake)
 
@@ -273,6 +273,34 @@ def test_an_observed_record_outranks_nsi_field_by_field():
         assert filled[f][2] == "observed", f
 
 
+def test_a_translated_category_does_not_claim_a_transcribed_value_s_confidence():
+    """A year built is a number the county wrote down. A wall material is the
+    adapter's reading of the county's vocabulary, and Cook's single "Masonry"
+    category is knowingly coarser than the label's brick/block/stone. Both are
+    `observed`; they are not equally certain."""
+    from housing_label.simulate import house as H
+    filled = H._autofill_construction_from_nsi({}, explicit=set(),
+                                               location=_loc_with(_RECORD))
+    assert filled["year_built"][1] == "high"
+    assert filled["sqft"][1] == "high"
+    assert filled["construction"][1] == "moderate"
+    assert filled["condition"][1] == "moderate"
+
+
+def test_the_county_s_whole_building_area_is_not_a_units_area():
+    """The county records the BUILDING's floor area; the label's sqft is per
+    dwelling unit. Passing the raw figure through on a multi-unit parcel would make
+    the whole building the size of one apartment and tag that "observed"."""
+    from housing_label.simulate import house as H
+    cfg = {}
+    filled = H._autofill_construction_from_nsi(
+        cfg, explicit=set(), location=_loc_with(_RECORD), units=6)
+    entry = filled.get("sqft") or ()
+    assert len(entry) < 3 or entry[2] != "observed", (
+        "published the building's area as one unit's")
+    assert cfg["year_built"] == 1881, "the other observed fields still apply"
+
+
 def test_the_reader_still_outranks_the_county():
     """A county record can be decades stale; the person in the house cannot be
     overruled by it. This inverted once during development — the assessor was
@@ -314,6 +342,51 @@ def test_no_record_leaves_the_previous_behaviour_untouched():
                                                location=_loc_with(None))
     assert cfg["year_built"] == 1960                 # NSI's, as before adapters
     assert all(len(v) < 3 or v[2] != "observed" for v in filled.values())
+
+
+def test_a_different_street_type_is_not_the_same_address():
+    """"213 MAIN ST" and "213 MAIN AVE" are different houses that a corner can put
+    inside one 80 m buffer. An earlier revision dropped the street type entirely
+    before comparing, so both normalised to "213 MAIN" and matched."""
+    assert not cook_il._same_address("213 W MAIN ST", "213 W MAIN AVE")
+    assert not cook_il._same_address("100 OAK RD", "100 OAK BLVD")
+
+
+def test_a_missing_street_type_still_matches():
+    """The geocoder and the parcel layer do not always both carry the suffix, so
+    absence on one side must not cost a real match — only a CONFLICT may."""
+    assert cook_il._same_address("213 W MAIN ST", "213 W MAIN")
+    assert cook_il._same_address("213 W MAIN", "213 W MAIN STREET")
+
+
+def test_a_longer_street_name_is_not_the_same_street():
+    """"MAIN" vs "MAIN STATION" are two streets. The old subset rule accepted them
+    because one token set contained the other."""
+    assert not cook_il._same_address("213 W MAIN ST", "213 W MAIN STATION ST")
+
+
+def test_a_containing_parcel_with_the_wrong_address_does_not_win():
+    """A sole polygon under the point is not proof of anything when the point was
+    interpolated: 38 m of error is wider than a city lot, so it can land inside the
+    neighbour. The number must still agree, and when it does not the search widens
+    rather than accepting the neighbour."""
+    orig = cook_il._parcels
+    try:
+        _stub_parcels(_patch,
+                      [{"PIN14": "01011000050000", "street_address": "209 W MAIN ST"}],
+                      near=[{"PIN14": "01011000050000", "street_address": "209 W MAIN ST"},
+                            {"PIN14": "01011000040000", "street_address": "213 W MAIN ST"}])
+        got = cook_il._pin_at(42.154164, -88.139354, "213 W MAIN ST, BARRINGTON, IL")
+        assert got == "01011000040000", "took the containing neighbour, not the address"
+    finally:
+        cook_il._parcels = orig
+
+
+def test_an_open_ended_storey_bucket_is_not_a_storey_count():
+    """"3 Story +" has no top. Recording it as exactly 3 would report a precise
+    observed height for every 4- and 6-storey building in the bucket."""
+    assert cook_il._STORIES.get("3 Story +") is None
+    assert cook_il._STORIES["2 Story"] == 2
 
 
 def _run_all() -> int:

@@ -54,6 +54,7 @@ are not requested; when an HVAC input appears they are already here.
 from __future__ import annotations
 
 import logging
+import time
 from functools import lru_cache
 
 import requests
@@ -86,6 +87,14 @@ HEADERS = {"User-Agent": "housing-nutrition-label (assessor adapter)"}
 
 # County wording → the label's vocabulary. Anything absent here is dropped; see
 # the module docstring for which values that is and why.
+# "Masonry" is the county's single category for all solid masonry; the label
+# distinguishes brick, block and stone. It is mapped to `brick` as the class that
+# dominates Cook County residential masonry, which makes this the one genuinely
+# LOSSY entry in this table rather than a transcription — block and stone houses
+# are read as brick. It is kept, rather than dropped under the map-only-unambiguous
+# rule, because the alternative is NSI's coarse 5-class guess for 45% of the
+# county's stock, which is less accurate rather than more honest. The cost is paid
+# instead in confidence: see TRANSLATED in base.py.
 _EXT_WALL = {
     "Frame": "frame",
     "Masonry": "brick",
@@ -107,31 +116,51 @@ _CONDITION = {
     "Average": "average",
     "Below Average": "fair",
 }
-_STORIES = {"1 Story": 1, "2 Story": 2, "3 Story +": 3}
+# "3 Story +" is deliberately absent. It is a bucket with an open top, and
+# recording it as exactly 3 would report a precise observed height for every 4-
+# and 6-storey building in it — inventing a fact rather than transcribing one, and
+# understating the multi-family flood-floor adjustment while carrying the
+# "observed" tag that tells a reader not to doubt it. Same reasoning as "1.5
+# Story" and "Split Level": the label's field is a whole-number storey count and
+# these three categories do not answer it.
+_STORIES = {"1 Story": 1, "2 Story": 2}
 
 
-# Street-type suffixes dropped before comparing two addresses. Directionals are
-# NOT dropped: "213 W Main" and "213 E Main" are different houses, and a match
-# that ignored the W would be exactly the confident-but-wrong answer this whole
-# confirmation step exists to prevent.
-_SUFFIXES = frozenset({
-    "st", "street", "ave", "avenue", "rd", "road", "dr", "drive", "ln", "lane",
-    "ct", "court", "blvd", "boulevard", "pl", "place", "way", "ter", "terrace",
-    "pkwy", "parkway", "cir", "circle", "hwy", "highway", "trl", "trail",
-})
+# Street-type suffixes, mapped to a canonical form. They are NOT dropped: "213
+# MAIN ST" and "213 MAIN AVE" are different streets that can both exist within
+# one buffer, and collapsing both to "MAIN" would let a match this whole
+# confirmation step exists to prevent through as a confident "observed" answer.
+# They are canonicalised rather than compared raw because the geocoder and the
+# parcel layer abbreviate differently ("STREET" vs "ST") for the same street.
+#
+# Directionals are neither dropped nor canonicalised away, for the same reason:
+# "213 W Main" and "213 E Main" are different houses.
+_SUFFIXES = {
+    "st": "st", "street": "st", "ave": "ave", "avenue": "ave", "rd": "rd",
+    "road": "rd", "dr": "dr", "drive": "dr", "ln": "ln", "lane": "ln",
+    "ct": "ct", "court": "ct", "blvd": "blvd", "boulevard": "blvd",
+    "pl": "pl", "place": "pl", "way": "way", "ter": "ter", "terrace": "ter",
+    "pkwy": "pkwy", "parkway": "pkwy", "cir": "cir", "circle": "cir",
+    "hwy": "hwy", "highway": "hwy", "trl": "trl", "trail": "trl",
+}
 # Everything from a unit marker onwards is dropped: the parcel layer writes
 # "234 W STATION ST B12" for one condo, and a unit number must not decide whether
 # two records describe the same building.
 _UNIT_MARKERS = frozenset({"apt", "unit", "ste", "suite", "#", "fl", "floor", "rm"})
 
 
-def _addr_key(raw: str | None) -> tuple[str, frozenset] | None:
-    """(house number, street-name tokens) for comparison, or None if unusable.
+def _addr_key(raw: str | None) -> tuple[str, tuple[str, ...], str | None] | None:
+    """(house number, street-name tokens, canonical suffix), or None if unusable.
 
-    Deliberately strict on the number and lenient on everything else: the number
-    is what separates 213 W Main from the 205 and 209 that can sit closer to an
-    interpolated geocode, so it must match exactly, while the suffix and any unit
-    are noise that differs between two records of the same house.
+    Deliberately strict: the number is what separates 213 W Main from the 205 and
+    209 that can sit closer to an interpolated geocode, and the street type is what
+    separates 213 Main St from 213 Main Ave when a corner puts both inside one
+    buffer. Only the unit is treated as noise, because it genuinely differs between
+    two records of the same building.
+
+    The suffix is returned separately from the name tokens so a record that omits
+    it entirely ("213 W MAIN") can still match one that has it, without letting two
+    different street types match each other.
     """
     if not raw:
         return None
@@ -140,24 +169,38 @@ def _addr_key(raw: str | None) -> tuple[str, frozenset] | None:
     if not tokens or not tokens[0].isdigit():
         return None                       # no house number → nothing to anchor on
     number, rest = tokens[0], tokens[1:]
-    out = []
+    name: list[str] = []
+    suffix: str | None = None
     for t in rest:
         if t in _UNIT_MARKERS:
             break
         if t in _SUFFIXES:
+            suffix = _SUFFIXES[t]          # last one wins: "MAIN ST" → st
             continue
-        out.append(t)
-    return (number, frozenset(out)) if out else None
+        name.append(t)
+    return (number, tuple(name), suffix) if name else None
 
 
 def _same_address(a: str | None, b: str | None) -> bool:
+    """Whether two address strings name the same building.
+
+    Every part must agree. An earlier revision accepted one street-name token set
+    *containing* the other, which reads as tolerant and is not: it matches "MAIN"
+    to "MAIN STATION", two different streets, and combined with dropping the
+    suffix it also matched "MAIN ST" to "MAIN AVE". Both are precisely the
+    confident-but-wrong "observed" answer the confirmation step exists to stop, so
+    the name tokens must be equal.
+
+    The one asymmetry allowed is a missing street type on one side, since the
+    geocoder and the parcel layer do not always both carry it. Two *different*
+    types never match.
+    """
     ka, kb = _addr_key(a), _addr_key(b)
     if ka is None or kb is None:
         return False
-    # Number identical, and one street-name token set contains the other — which
-    # tolerates "MAIN" vs "MAIN ST N" style extra words without letting a
-    # different street through.
-    return ka[0] == kb[0] and (ka[1] <= kb[1] or kb[1] <= ka[1])
+    if ka[0] != kb[0] or ka[1] != kb[1]:
+        return False
+    return ka[2] is None or kb[2] is None or ka[2] == kb[2]
 
 
 def _num(v):
@@ -167,7 +210,37 @@ def _num(v):
         return None
 
 
-def _parcels(lat: float, lon: float, distance_m: float = 0) -> list[dict]:
+def _deadline(given: float | None) -> float:
+    """The shared budget's end instant. A caller that did not pass one gets a
+    fresh full budget, which is right for a single direct call and is why the
+    lookup path threads its own through every hop instead."""
+    return given if given is not None else time.monotonic() + TIMEOUT
+
+
+def _get(url: str, params: dict, deadline: float):
+    """One request against the shared budget. Raises if the budget is spent.
+
+    TIMEOUT is the budget for the *whole* lookup, not for each hop. An off-parcel
+    address costs three requests (containment, buffer, characteristics), and giving
+    each of them the full timeout would let a slow portal hold the label for three
+    times the advertised budget on a host whose own HTTP budget is 12 s.
+    """
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise TimeoutError("assessor lookup budget exhausted")
+    r = requests.get(url, params=params, headers=HEADERS, timeout=remaining)
+    r.raise_for_status()
+    body = r.json()
+    # ArcGIS reports failures in a 200 body rather than by status. Left unraised it
+    # reads as "no parcels here", and because the lookup is cached that turns a
+    # transient portal error into a cached None for this point until eviction.
+    if isinstance(body, dict) and body.get("error"):
+        raise RuntimeError(f"upstream error: {body['error']}")
+    return body
+
+
+def _parcels(lat: float, lon: float, distance_m: float = 0,
+             *, deadline: float | None = None) -> list[dict]:
     """Parcel attributes at (or within ``distance_m`` of) a point."""
     params = {
         "geometry": f"{lon},{lat}", "geometryType": "esriGeometryPoint",
@@ -177,9 +250,9 @@ def _parcels(lat: float, lon: float, distance_m: float = 0) -> list[dict]:
     if distance_m:
         params["distance"] = str(distance_m)
         params["units"] = "esriSRUnit_Meter"
-    r = requests.get(PARCEL_URL, params=params, headers=HEADERS, timeout=TIMEOUT)
-    r.raise_for_status()
-    return [(f or {}).get("attributes") or {} for f in ((r.json() or {}).get("features") or [])]
+    body = _get(PARCEL_URL, params, _deadline(deadline))
+    return [(f or {}).get("attributes") or {}
+            for f in ((body or {}).get("features") or [])]
 
 
 def _clean_pin(attrs: dict) -> str | None:
@@ -190,7 +263,8 @@ def _clean_pin(attrs: dict) -> str | None:
     return pin.zfill(14) if pin and pin.lower() != "none" else None
 
 
-def _pin_at(lat: float, lon: float, address: str | None = None) -> str | None:
+def _pin_at(lat: float, lon: float, address: str | None = None,
+            *, deadline: float | None = None) -> str | None:
     """Hop 1: the PIN of the parcel this point belongs to, or None.
 
     Point-in-polygon first. That is the only unambiguous answer and it is the one
@@ -206,41 +280,52 @@ def _pin_at(lat: float, lon: float, address: str | None = None) -> str | None:
     worse answer than the tract typical it would replace.
 
     So the buffer is only used with the geocoder's own matched address in hand, and
-    a parcel is accepted only when its street address agrees on the house number.
-    No address, or no agreement, or more than one agreeing parcel → None.
+    a parcel is accepted only when its street address agrees. No address, or no
+    agreement, or more than one agreeing parcel → None.
+
+    Containment is confirmed against the address too, when there is one. The same
+    38 m of interpolation error that lands a point in the roadway can equally land
+    it inside the *neighbour's* polygon — city lots are far narrower than the error
+    — so a sole containing parcel is not by itself evidence that it is the right
+    one. When it disagrees, the search widens rather than giving up: the buffer is
+    anchored on the address, so it can still find the correct parcel nearby.
     """
-    exact = _parcels(lat, lon)
-    if len(exact) == 1:
+    deadline = _deadline(deadline)
+    exact = _parcels(lat, lon, deadline=deadline)
+    if len(exact) == 1 and not address:
+        # Nothing to confirm against. Containment alone is all there is, and it is
+        # the answer wherever the geocode landed on real parcel geometry.
+        return _clean_pin(exact[0])
+    if len(exact) == 1 and _same_address(address, exact[0].get("street_address")):
         return _clean_pin(exact[0])
     if len(exact) > 1 or not address:
         # Overlapping parcels are ambiguous, and without an address there is
         # nothing to disambiguate a buffer with.
         return None
-    hits = [a for a in _parcels(lat, lon, SEARCH_RADIUS_M)
+    hits = [a for a in _parcels(lat, lon, SEARCH_RADIUS_M, deadline=deadline)
             if _same_address(address, a.get("street_address"))]
     return _clean_pin(hits[0]) if len(hits) == 1 else None
 
 
-def _characteristics(pin: str) -> dict | None:
+def _characteristics(pin: str, *, deadline: float | None = None) -> dict | None:
     """Hop 2: the newest assessment year's primary card for this PIN."""
-    r = requests.get(CAMA_URL, params={
+    rows = _get(CAMA_URL, {
         "pin": pin,
         "$select": ("pin,year,card,char_yrblt,char_bldg_sf,char_ext_wall,"
                     "char_bsmt,char_repair_cnd,char_type_resd"),
         "$order": "year DESC, card ASC",
         "$limit": "1",
-    }, headers=HEADERS, timeout=TIMEOUT)
-    r.raise_for_status()
-    rows = r.json() or []
+    }, _deadline(deadline))
     return rows[0] if rows else None
 
 
 @lru_cache(maxsize=4096)
 def _lookup_cached(lat: float, lon: float, address: str | None) -> AssessorRecord | None:
-    pin = _pin_at(lat, lon, address)
+    deadline = time.monotonic() + TIMEOUT
+    pin = _pin_at(lat, lon, address, deadline=deadline)
     if not pin:
         return None
-    row = _characteristics(pin)
+    row = _characteristics(pin, deadline=deadline)
     if not row:
         return None
 
