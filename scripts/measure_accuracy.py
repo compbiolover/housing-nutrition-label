@@ -55,6 +55,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import csv
+import hashlib
 import dataclasses
 import html
 import json
@@ -79,6 +80,9 @@ for _p in (_ROOT, _ROOT / "src"):
         sys.path.insert(0, str(_p))
 
 from housing_label.legal import DISCLAIMER  # noqa: E402
+# The display names, derived from the registry build_benchmark.py draws from,
+# so a third adapter cannot be accepted by one script and unknown to the other.
+from scripts.jurisdictions import LABELS  # noqa: E402
 # The brand navy, read from the constant the favicons are actually drawn from
 # rather than copied as a literal — test_icons already pins that constant against
 # the CSS variable, so importing it puts this page inside the same guard instead
@@ -331,9 +335,6 @@ def _unscored_note(results: dict) -> str:
     return (f"; a further {n} sampled address{'es' if n != 1 else ''} could not be "
             f"geocoded or scored and {'are' if n != 1 else 'is'} excluded from every "
             f"rate below")
-
-
-LABELS = {"cook": "Cook County, Illinois", "dc": "Washington, DC"}
 
 
 def as_jurisdictions(results: dict) -> dict:
@@ -598,6 +599,44 @@ def _results_lock():
         LOCK.unlink(missing_ok=True)
 
 
+def _verify_benchmark(path: pathlib.Path, meta: dict) -> None:
+    """Refuse a benchmark that is not the one its metadata describes.
+
+    The builder moves a finished CSV into place, so the two files should never
+    disagree. They can still be made to: an interrupted build leaves a new CSV
+    beside stale metadata, and a hand-edited or half-copied cache file is the same
+    shape of problem. Without this check that mismatch is not detectable anywhere
+    downstream — a partial sample scores cleanly and publishes under the previous
+    run's row count and digest, which is a fabricated measurement that looks
+    entirely ordinary. Exactly the failure the cross-jurisdiction fallback had.
+
+    Silent when the metadata records no digest: the pre-split cache predates the
+    field, and refusing to run against it would be inventing a problem rather than
+    catching one. Everything the builder writes today carries it.
+    """
+    want = meta.get("sha256_16")
+    if not want:
+        return
+    got = hashlib.sha256(path.read_bytes()).hexdigest()[:16]
+    if got != want:
+        raise SystemExit(
+            f"{path.name} does not match {path.stem}.meta.json: the metadata "
+            f"describes digest {want}, the file on disk is {got}. That pairing "
+            f"means an interrupted or edited build, and scoring it would publish "
+            f"one sample under another's provenance. Rebuild it with "
+            f"scripts/build_benchmark.py.")
+    rows = meta.get("rows")
+    if rows is not None:
+        # A digest match makes this redundant, and that is why it is here: it costs
+        # nothing and it catches the case where someone regenerates the digest by
+        # hand but not the count, which is the likelier of the two edits.
+        have = sum(1 for _ in csv.DictReader(path.open()))
+        if have != rows:
+            raise SystemExit(
+                f"{path.name} holds {have} rows; its metadata claims {rows}. "
+                f"Rebuild it with scripts/build_benchmark.py.")
+
+
 def _write_atomic(path: pathlib.Path, text: str) -> None:
     """Write via a temporary file and rename, so no reader sees a partial file."""
     tmp = path.with_suffix(path.suffix + ".tmp")
@@ -619,6 +658,17 @@ def main() -> int:
     ap.add_argument("--jurisdiction", choices=sorted(LABELS), default="cook",
                     help="which benchmark to score (default cook)")
     args = ap.parse_args()
+
+    # --render-only is dispatched first, so on its own it would quietly win over
+    # flags that promise the opposite: --dry-run says nothing is written and the
+    # page would be written anyway, --limit says score fewer rows and nothing is
+    # scored at all. A flag that is accepted and ignored is worse than one that is
+    # rejected, because the caller believes it took effect.
+    if args.render_only and (args.dry_run or args.limit is not None):
+        raise SystemExit(
+            "--render-only rebuilds the page from the committed results and scores "
+            "nothing, so it cannot be combined with --dry-run or --limit. Use "
+            "--render-only alone, or drop it to score.")
 
     if args.render_only:
         # For a copy or layout edit: the measurements are the expensive part and
@@ -674,6 +724,8 @@ def main() -> int:
             "ASSESSOR_ADAPTERS=1 to run, or --render-only to rebuild the page from "
             "the committed results.")
 
+    meta = json.loads(meta_file.read_text()) if meta_file.exists() else {}
+    _verify_benchmark(benchmark, meta)
     rows = list(csv.DictReader(benchmark.open()))
     if args.limit is not None:
         # `if args.limit` would read 0 as "no limit" and quietly score the whole
@@ -691,7 +743,6 @@ def main() -> int:
                 "published one. Add --dry-run to score a few rows and print the "
                 "result without writing.")
         rows = rows[:args.limit]
-    meta = json.loads(meta_file.read_text()) if meta_file.exists() else {}
 
     cases = []
     for i, row in enumerate(rows, 1):

@@ -215,6 +215,40 @@ def test_both_samplers_refuse_the_same_answers():
             assert "never answered" in msg, (kind, msg)
 
 
+# --- a coordinate the harness never reads must not drop a good parcel ----------
+
+
+def test_a_parcel_with_no_coordinates_still_reaches_the_benchmark():
+    """lat/lon are carried for inspection only — the harness geocodes the address,
+    exactly as a visitor would. Requiring them dropped rows whose address and year
+    were fine, and the published note then reported those as records the assessor
+    never documented: a real row, blamed on the wrong party."""
+    body = {"features": [{"attributes": {
+        "PIN14": "1" * 14, "street_address": "1 MAIN ST",
+        "city_state_zip": "CHICAGO IL 60601", "latitude": None, "longitude": None}}]}
+    with _fetching(lambda url, params: body):
+        got = B._parcel_info(["1" * 14])
+    assert list(got) == ["1" * 14], got
+    assert got["1" * 14]["address"] == "1 MAIN ST, CHICAGO IL 60601"
+    assert got["1" * 14]["lat"] == "" and got["1" * 14]["lon"] == ""
+
+
+def test_a_parcel_with_no_address_is_still_dropped():
+    """The one legitimate absence: no address means nothing to geocode."""
+    body = {"features": [{"attributes": {"PIN14": "1" * 14, "street_address": ""}}]}
+    with _fetching(lambda url, params: body):
+        assert B._parcel_info(["1" * 14]) == {}
+
+
+def test_both_scripts_read_one_jurisdiction_registry():
+    """They kept the list twice, so a third adapter would be accepted by one script
+    and unknown to the other — and that only shows up in the measurement."""
+    import scripts.measure_accuracy as M
+    assert set(M.LABELS) == set(B.JURISDICTIONS)
+    for key, cfg in B.JURISDICTIONS.items():
+        assert M.LABELS[key] == cfg["label"]
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]

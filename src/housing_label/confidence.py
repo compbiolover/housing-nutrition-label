@@ -70,13 +70,14 @@ CONFIDENCE_LEGEND = (
 # reading of this module's own rubric, and it is now capped.
 #
 # Resilience is deliberately NOT capped, and this is the judgement most worth
-# revisiting. It moved on 2.8% of Cook addresses and 8.7% of DC ones — a third of a
-# figure that was quoted alone when only Cook had been measured, and a reminder that
-# one city is not a constant. It is still four to six times below durability's
-# 37-50% (not the order of magnitude an earlier draft of this comment claimed — the
-# ratio is 4.3x against Cook's durability and 5.8x against DC's): the flood zone,
-# seismic band and wildfire class do the work there, and the vintage reaches the
-# letter only at the margin.
+# revisiting. It moved on 2.8% of Cook addresses and 8.7% of DC ones — DC's rate is
+# roughly THREE TIMES Cook's, and Cook's was quoted alone, as though it were a
+# property of the dimension, when only Cook had been measured. One city is not a
+# constant. It is still four to six times below durability's 37-50% (not the order
+# of magnitude an earlier draft of this comment claimed — the ratio is 4.3x against
+# Cook's durability and 5.8x against DC's): the flood zone, seismic band and
+# wildfire class do the work there, and the vintage reaches the letter only at the
+# margin.
 #
 # So the exemption rests on a judgement about magnitude, not a bright line. Capping
 # resilience would tell readers a genuinely strong signal is weak; leaving it

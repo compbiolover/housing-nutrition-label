@@ -400,6 +400,56 @@ def test_an_older_result_without_a_sampled_count_still_renders():
     assert "200 addresses sampled" in M._render(results)
 
 
+# --- the benchmark and its metadata must describe the same file ----------------
+
+
+def _benchmark(tmp, text="parcel_id,address\n1,A\n2,B\n"):
+    path = pathlib.Path(tmp) / "benchmark-x.csv"
+    path.write_text(text)
+    import hashlib
+    return path, hashlib.sha256(path.read_bytes()).hexdigest()[:16]
+
+
+def test_a_benchmark_matching_its_metadata_is_accepted():
+    with tempfile.TemporaryDirectory() as tmp:
+        path, digest = _benchmark(tmp)
+        M._verify_benchmark(path, {"sha256_16": digest, "rows": 2})
+
+
+def test_a_benchmark_that_is_not_the_one_its_metadata_describes_is_refused():
+    """The interrupted-build case. The builder renames a finished file into place,
+    so the pair should never disagree — but if it does, scoring it would publish a
+    partial sample under the previous run's row count and digest, which is a
+    fabricated measurement that looks entirely ordinary."""
+    with tempfile.TemporaryDirectory() as tmp:
+        path, _ = _benchmark(tmp)
+        try:
+            M._verify_benchmark(path, {"sha256_16": "deadbeefdeadbeef"})
+        except SystemExit as exc:
+            assert "does not match" in str(exc)
+        else:
+            raise AssertionError("a mismatched benchmark was accepted for scoring")
+
+
+def test_a_hand_edited_row_count_is_refused():
+    with tempfile.TemporaryDirectory() as tmp:
+        path, digest = _benchmark(tmp)
+        try:
+            M._verify_benchmark(path, {"sha256_16": digest, "rows": 99})
+        except SystemExit as exc:
+            assert "99" in str(exc)
+        else:
+            raise AssertionError("a benchmark with the wrong row count was accepted")
+
+
+def test_a_benchmark_with_no_recorded_digest_still_runs():
+    """The pre-split cache predates the field. Refusing it would invent a problem
+    rather than catch one."""
+    with tempfile.TemporaryDirectory() as tmp:
+        path, _ = _benchmark(tmp)
+        M._verify_benchmark(path, {})
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]

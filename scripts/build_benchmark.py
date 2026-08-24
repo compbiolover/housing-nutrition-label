@@ -55,6 +55,7 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import io
 import json
 import logging
 import pathlib
@@ -68,26 +69,23 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(mes
 log = logging.getLogger("build_benchmark")
 
 _ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(_ROOT) not in sys.path:     # so the shared registry imports
+    sys.path.insert(0, str(_ROOT))
+
+from scripts.jurisdictions import JURISDICTIONS  # noqa: E402
+
 CACHE_DIR = _ROOT / ".accuracy_cache"
 BENCHMARK = CACHE_DIR / "benchmark.csv"          # legacy single-jurisdiction path
 
 # Each jurisdiction gets its own benchmark file, so building one never silently
 # replaces another's — the published page reports both side by side.
-JURISDICTIONS = {
-    "cook": {
-        "source": "Cook County Assessor (Open Data)",
-        "label": "Cook County, Illinois",
-        "scope": "all residential improvement records",
-    },
-    "dc": {
-        "source": "DC Office of Tax and Revenue (Open Data)",
-        "label": "Washington, DC",
-        # Named here, not buried: condominium units are a separate CAMA table and
-        # cannot be reached from a coordinate, so they are outside what this
-        # measures. 61,329 condo rows against 109,273 residential.
-        "scope": "non-condominium homes only (condos are ~36% of DC's CAMA stock)",
-    },
-}
+
+
+def _write_atomic(path: pathlib.Path, text: str) -> None:
+    """Write via a temporary file and rename, so no reader sees a partial file."""
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(text)
+    tmp.replace(path)
 
 
 def benchmark_path(juris: str) -> pathlib.Path:
@@ -280,7 +278,15 @@ def _parcel_info(pins: list[str]) -> dict[str, dict]:
         }, "parcel lookup", len(chunk)):
             a = f.get("attributes") or {}
             pin = str(a.get("PIN14") or "").zfill(14)
-            if pin and a.get("latitude") and a.get("longitude") and a.get("street_address"):
+            # Coordinates are NOT required. Nothing in the scoring path reads them
+            # — the harness geocodes the address exactly as a visitor would, and
+            # scoring from the parcel centroid would measure the adapter under
+            # ideal geocoding — so they are carried for inspection only. Requiring
+            # them dropped rows whose address and year were perfectly good, and the
+            # published note then reported those as records the assessor never
+            # documented. DC already carried an empty point rather than dropping
+            # the row; this is the same rule.
+            if pin and a.get("street_address"):
                 # Full mailing form, so the harness can geocode each row the way a
                 # visitor would. Scoring from the parcel centroid instead would put
                 # every point inside its own polygon and quietly measure the adapter
@@ -289,7 +295,7 @@ def _parcel_info(pins: list[str]) -> dict[str, dict]:
                 csz = (a.get("city_state_zip") or "").strip()
                 out[pin] = {"street_address": a["street_address"],
                             "address": ", ".join(x for x in (a["street_address"], csz) if x),
-                            "lat": a["latitude"], "lon": a["longitude"]}
+                            "lat": a.get("latitude") or "", "lon": a.get("longitude") or ""}
         log.info("  resolved %d/%d parcels", min(i + PARCEL_BATCH, len(pins)), len(pins))
         time.sleep(0.05)
     return out
@@ -516,14 +522,29 @@ def main() -> int:
     if not out_rows:
         raise SystemExit("no gradeable rows — refusing to write an empty benchmark")
 
-    benchmark = benchmark_path(juris)
-    with benchmark.open("w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=["parcel_id", "address", "lat", "lon"] + FIELDS)
-        w.writeheader()
-        w.writerows(out_rows)
+    # Built in memory and moved into place, rather than truncating the real file
+    # and filling it over several minutes of network. An interrupted build used to
+    # leave a half-written CSV beside the PREVIOUS run's metadata, and nothing
+    # downstream compared the two — so a partial draw could be scored and published
+    # wearing the complete run's row count and digest. The rename is atomic, so the
+    # file a reader opens is either wholly the old sample or wholly the new one.
+    buf = io.StringIO()
+    w = csv.DictWriter(buf, fieldnames=["parcel_id", "address", "lat", "lon"] + FIELDS)
+    w.writeheader()
+    w.writerows(out_rows)
+    payload = buf.getvalue().encode()
+    digest = hashlib.sha256(payload).hexdigest()[:16]
 
-    digest = hashlib.sha256(benchmark.read_bytes()).hexdigest()[:16]
-    meta_path(juris).write_text(json.dumps({
+    benchmark = benchmark_path(juris)
+    tmp = benchmark.with_suffix(benchmark.suffix + ".tmp")
+    tmp.write_bytes(payload)
+    tmp.replace(benchmark)
+
+    # Metadata second, and also atomically. Interrupted between the two, the pair
+    # is a new CSV beside stale metadata — which the consumer now REFUSES on the
+    # digest rather than scoring. Failing that way round is the point: the only
+    # states are "matched" and "refused", never "scored the wrong sample".
+    _write_atomic(meta_path(juris), json.dumps({
         "jurisdiction": juris,
         # What was actually asked of the assessor. NOT `args.rows`, which both
         # samplers cap to the table's own size — a --rows larger than the source
