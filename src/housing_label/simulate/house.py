@@ -2474,7 +2474,11 @@ def _autofill_construction_from_nsi(cfg: dict, explicit: set, location,
     # scores. For a multi-unit building SFLA is per unit while the USA Structures
     # footprint is the WHOLE building, so propagating it would inflate the per-unit
     # geometry — skip it and let the model estimate per unit instead.
-    if not (units and units > 1):
+    # `multi`, not `units > 1`: NSI can classify a building multifamily and carry no
+    # usable unit count, and the footprint is whole-building either way. The same
+    # hole as the assessor-area guard above, in the same shape — an absent divisor
+    # is a reason to withhold whole-building geometry, not to pass it through.
+    if not multi:
         for k in ("footprint_area_m2", "footprint_perimeter_m"):
             v = getattr(location, k, None)
             if v is not None and cfg.get(k) is None:   # don't stomp a caller value

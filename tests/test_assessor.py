@@ -538,6 +538,24 @@ def test_a_renamed_response_key_does_not_pass_silently():
         "positive test above fails loudly when that happens for real")
 
 
+def test_the_record_is_dated_by_the_assessment_roll_it_came_from():
+    """"Observed" without a date is half a fact: the roll advances underneath the
+    same wording, so an observed value can change while its provenance string does
+    not. The row carries the year the query already sorts on; it travels with it."""
+    rec = _lookup([_PARCEL], [dict(_CAMA[0], year="2026")], address="213 W Main St")
+    assert rec is not None and "2026 roll" in rec.data_vintage
+
+
+def test_a_row_without_a_usable_year_still_produces_a_record():
+    """The date is an improvement to the provenance string, not a precondition for
+    reporting what the county recorded."""
+    row = [{k: v for k, v in _CAMA[0].items()}]
+    row[0]["year"] = ""
+    rec = _lookup([_PARCEL], row, address="213 W Main St")
+    assert rec is not None and rec.fields()["year_built"] == 1971
+    assert "roll" not in rec.data_vintage
+
+
 def test_a_pin_with_no_characteristics_row_yields_nothing():
     assert _lookup([_PARCEL], [], address="213 W Main St") is None
 

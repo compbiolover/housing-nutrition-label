@@ -311,6 +311,13 @@ def _pin_at(lat: float, lon: float, address: str | None = None,
     return _clean_pin(hits[0]) if len(hits) == 1 else None
 
 
+def _assessment_year(row: dict) -> str | None:
+    """The assessment roll a characteristics row belongs to, as a plain year."""
+    raw = str(row.get("year") or "").strip()
+    year = raw.split(".")[0]
+    return f"{year} roll" if year.isdigit() and len(year) == 4 else None
+
+
 def _characteristics(pin: str, *, deadline: float | None = None) -> dict | None:
     """Hop 2: the newest assessment year's primary card for this PIN."""
     rows = _get(CAMA_URL, {
@@ -339,7 +346,13 @@ def _lookup_cached(lat: float, lon: float, address: str | None) -> AssessorRecor
     # a zero floor area. Both would otherwise reach the scorer as facts.
     return AssessorRecord(
         source=ATTRIBUTION,
-        data_vintage=DATA_VINTAGE,
+        # The row carries the assessment year it belongs to, and the query
+        # deliberately picks the newest. Storing only the generic refresh note
+        # would tell a reader the value is observed without letting them date it,
+        # and the roll advances underneath the same wording — so the selected year
+        # travels with it when the row has one.
+        data_vintage=(f"{DATA_VINTAGE}, {_roll}" if (_roll := _assessment_year(row))
+                      else DATA_VINTAGE),
         parcel_id=pin,
         year_built=int(year) if year and 1800 <= year <= 2100 else None,
         sqft=sqft if sqft and sqft > 0 else None,

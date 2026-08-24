@@ -153,11 +153,21 @@ window.LabelForm = (function () {
     return '<label>' + esc(f.label) + ' ' + tag + control + '</label>';
   }
 
+  // The panel used to assert one sourcing story for every label. Which one is true
+  // depends on whether a county adapter answered for this address — adapters are
+  // off unless deployed with ASSESSOR_ADAPTERS, and cover one county when they are
+  // — so promising a "county parcel record" to every reader describes something
+  // most of them are not getting. The line is chosen per label instead.
+  var HINT_ESTIMATED = "We estimate these from public data (USACE structure records "
+    + "+ Census) and score with them.";
+  var HINT_OBSERVED = "Some of these are your county's own parcel record; the rest we "
+    + "estimate from public data (USACE structure records + Census). We score with both.";
+
   function refineHtml() {
     return '<details class="addr-details lf-refine" style="max-width:640px;margin:0 auto 1rem;display:none;">'
       + '<summary><span>Refine building details</span> <span class="refine-count lf-refine-count"></span></summary>'
-      + '<p class="addr-hint" style="margin:0 0 0.5rem;font-size:0.82rem;opacity:0.85;">'
-      + 'We fill these in from public data \u2014 a county parcel record where one is published, otherwise USACE structure records + Census \u2014 and score with them. '
+      + '<p class="addr-hint lf-refine-hint" style="margin:0 0 0.5rem;font-size:0.82rem;opacity:0.85;">'
+      + HINT_ESTIMATED + ' '
       + 'Anything looks off? Edit it and the label updates. Living area is <strong>per unit</strong>.</p>'
       + '<div class="addr-fields">' + FIELDS.map(fieldHtml).join("") + '</div>'
       + '<fieldset class="addr-upgrades"><legend>Resilience upgrades</legend>'
@@ -1187,6 +1197,10 @@ window.LabelForm = (function () {
         : (observed ? "— " + observed + " of " + total + " from county records, "
                       + estimated + " estimated (edit any to refine)"
                     : "— " + estimated + " of " + total + " estimated from public data (edit any to refine)");
+      var hintEl = q(".lf-refine-hint");
+      if (hintEl && total) {
+        hintEl.firstChild.nodeValue = (observed ? HINT_OBSERVED : HINT_ESTIMATED) + " ";
+      }
       renderYearBuiltNote(building);
       // Deliberately does NOT open the panel. It used to force itself open on
       // every score, which pushed the label — the thing that was just asked for —
