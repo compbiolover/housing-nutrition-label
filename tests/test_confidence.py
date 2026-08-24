@@ -114,7 +114,7 @@ def test_resilience_is_not_capped_because_the_measurement_says_not_to():
 
     Resilience moved on 2.8% of Cook addresses and 8.7% of DC ones — the second
     figure arrived only after a second jurisdiction was measured, and is three times
-    the first. It is still an order of magnitude below durability's 37-50%, so the
+    the first. It is still four to six times below durability's 37-50%, so the
     exemption stands on magnitude rather than on a bright line. Pinned here so that
     a later tidy-up has to argue with the measurement rather than quietly restore
     symmetry — and so that a third jurisdiction landing nearer durability makes this

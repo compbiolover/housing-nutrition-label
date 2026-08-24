@@ -225,9 +225,10 @@ The measurement feeds back into the label rather than only being published. Wher
 dimension's grade was measured as sensitive to construction provenance — durability
 and energy differ from the county's answer 37% of the time when the profile is a
 neighbourhood typical — its confidence tier is now capped at Moderate until the
-building's own details are known. Resilience is deliberately exempt: it moved on 2.8%–8.7%
-of the same addresses, so the vintage barely reaches its letter and capping it would
-understate a signal the measurement says is strong.
+building's own details are known. Resilience is deliberately exempt: it moved on 2.8% of the
+Cook sample and 8.7% of the DC one — separate samples, not a paired comparison — so
+the vintage reaches its letter only at the margin, and capping it would understate a
+signal the measurement says is strong.
 
 The benchmark itself is fetched on demand and deliberately **not committed**: Cook
 County grants no explicit right to redistribute a dataset, so only the

@@ -72,9 +72,11 @@ CONFIDENCE_LEGEND = (
 # Resilience is deliberately NOT capped, and this is the judgement most worth
 # revisiting. It moved on 2.8% of Cook addresses and 8.7% of DC ones — a third of a
 # figure that was quoted alone when only Cook had been measured, and a reminder that
-# one city is not a constant. It is still an order of magnitude below durability's
-# 37-50%: the flood zone, seismic band and wildfire class do the work there, and the
-# vintage reaches the letter only at the margin.
+# one city is not a constant. It is still four to six times below durability's
+# 37-50% (not the order of magnitude an earlier draft of this comment claimed — the
+# ratio is 4.3x against Cook's durability and 5.8x against DC's): the flood zone,
+# seismic band and wildfire class do the work there, and the vintage reaches the
+# letter only at the margin.
 #
 # So the exemption rests on a judgement about magnitude, not a bright line. Capping
 # resilience would tell readers a genuinely strong signal is weak; leaving it
@@ -161,9 +163,10 @@ def _rests_on_a_standin(key: str, building: dict) -> bool:
 # the second is fixable by them in the panel directly above.
 STANDIN_NOTE = (" Confidence is held at Moderate here because this dimension is "
                 "being computed from a neighbourhood typical rather than a record "
-                "of this building — measured against county records, the letter "
-                "differs about a third of the time on such inputs. Correcting the "
-                "building details above resolves it.")
+                "of this building. Measured against assessor records in the two "
+                "places that have been checked, the letter differs between a "
+                "quarter and half the time on such inputs. Correcting the building "
+                "details above resolves it.")
 
 
 def confidence_notes_for_label(label: dict) -> dict:

@@ -8,11 +8,20 @@ asserts the *output matches the world*, and every buyer conversation in
 ``research/monetization-research.md`` opens with that question. This script
 assembles the yardstick; ``scripts/measure_accuracy.py`` reads it.
 
-Ground truth comes from the Cook County Assessor, for the same reason the first
-adapter does: it is the only free source in the country publishing year built,
-floor area, exterior wall, basement type and condition for a real parcel. Each
-row is one address the scorer can be pointed at, plus what the county says is
-actually standing there.
+Ground truth comes from an assessor that publishes construction characteristics for
+a real parcel, free and keyless — the same sources the adapters read. Each row is one
+address the scorer can be pointed at, plus what that jurisdiction says is actually
+standing there.
+
+Two are supported, selected with ``--jurisdiction``:
+
+  cook   Cook County, IL — Socrata CAMA keyed by PIN, plus the county parcel layer.
+  dc     Washington, DC — ArcGIS residential CAMA keyed by SSL, plus the District's
+         parcel layer. Condominium units live in a separate table that no
+         coordinate can reach, so this covers non-condo homes; see JURISDICTIONS.
+
+Each writes its own ``benchmark-<jurisdiction>.csv``, so building one never
+replaces another.
 
 Why the output is NOT committed
 -------------------------------
@@ -282,7 +291,11 @@ def _dc_sample(rows: int) -> list[dict]:
             "resultOffset": str(i * total // rows), "resultRecordCount": "1",
             "returnGeometry": "false", "f": "json",
         })
-        if body is None:
+        if body is None or (isinstance(body, dict) and body.get("error")):
+            # ArcGIS reports failures in a 200 body. Counted as a dropped offset
+            # rather than read as "no row here": the second would quietly shrink
+            # the sample toward whichever offsets happened to succeed, and a
+            # biased benchmark still looks like a valid one.
             dropped += 1
         else:
             feats = (body or {}).get("features") or []
@@ -438,6 +451,11 @@ def main() -> int:
     digest = hashlib.sha256(benchmark.read_bytes()).hexdigest()[:16]
     meta_path(juris).write_text(json.dumps({
         "jurisdiction": juris,
+        # What was drawn from the assessor, before rows without an address or a
+        # usable year were dropped. Without it the harness can only see the
+        # gradeable rows and would report those as the whole sample, losing the
+        # fact that some of the draw could not be graded at all.
+        "drawn": len(sample),
         "source": JURISDICTIONS[juris]["source"],
         "scope": JURISDICTIONS[juris]["scope"],
         "assessment_year": year,

@@ -245,6 +245,27 @@ def test_dc_scope_is_stated_where_the_numbers_are():
     assert "non-condominium homes only" in page
 
 
+def test_rows_the_assessor_could_not_document_are_disclosed():
+    """The builder drops a row with no address or no usable year before writing the
+    benchmark, so the benchmark is already smaller than the draw. Reporting only the
+    survivors would quietly redefine the population as "rows the assessor documented
+    well" — a flattering sample nobody chose."""
+    data = _juris("DC Office of Tax and Revenue (Open Data)", "eeeeeeeeeeeeeeee", rows=218)
+    data["benchmark"]["drawn"] = 220
+    page = M._render({"generated": "2026-08-24", "jurisdictions": {"dc": data}})
+    assert "Drawn from 220 assessor rows" in page
+    assert "2 carried no address" in page
+
+
+def test_nothing_is_said_when_every_drawn_row_was_gradeable():
+    """A permanent "0 could not be graded" is noise; a missing one when there were
+    40 is a misrepresented sample."""
+    data = _juris("X", "ffffffffffffffff", rows=218)
+    data["benchmark"]["drawn"] = 218
+    assert "could not be graded" not in M._render(
+        {"generated": "2026-08-24", "jurisdictions": {"dc": data}})
+
+
 def test_the_page_states_the_sampled_count_not_the_scored_one():
     """`rows` is the scored subset and `sampled` is the population. The method
     sentence says "N addresses sampled", so it must use the latter — quoting the

@@ -49,7 +49,9 @@ Run:  python scripts/build_benchmark.py --rows 200
 from __future__ import annotations
 
 import argparse
+import contextlib
 import csv
+import fcntl
 import dataclasses
 import html
 import json
@@ -84,6 +86,7 @@ CACHE_DIR = _ROOT / ".accuracy_cache"
 BENCHMARK = CACHE_DIR / "benchmark.csv"
 META = CACHE_DIR / "benchmark.meta.json"
 RESULTS = _ROOT / "research" / "accuracy" / "results.json"
+LOCK = CACHE_DIR / "results.lock"
 PAGE = _ROOT / "docs" / "accuracy.html"
 
 NUMERIC = ("year_built", "sqft", "stories")
@@ -291,6 +294,20 @@ def _mismatch_note(results: dict) -> str:
             f"scored as the error they are rather than set aside")
 
 
+def _ungradeable_note(m: dict) -> str:
+    """Say how many drawn rows never reached the benchmark, and stay silent at zero.
+
+    The builder drops a row the assessor gave no address or no usable year for, so
+    the benchmark is already smaller than the draw. Reporting only the survivors
+    would quietly redefine the population as "rows the assessor documented well".
+    """
+    drawn, rows = m.get("drawn"), m.get("rows")
+    if not drawn or not rows or drawn <= rows:
+        return ""
+    return (f" Drawn from {drawn} assessor rows; {drawn - rows} carried no address "
+            f"or no usable year built and could not be graded.")
+
+
 def _unscored_note(results: dict) -> str:
     """Say so when rows were sampled but could not be scored, and stay silent when
     none were — a permanent "0 could not be scored" is noise, a missing one when
@@ -351,9 +368,9 @@ def _section(key: str, data: dict) -> str:
 
 <p><strong>Method.</strong> {m.get('sampled', m['rows'])} addresses sampled across
 {html.escape(m['source'])} (assessment year {html.escape(str(m['assessment_year']))},
-fetched {html.escape(m['fetched'])}){_unscored_note(data)}.{scope_html} Each is scored
+fetched {html.escape(m['fetched'])}){_unscored_note(data)}.{scope_html}{_ungradeable_note(m)} Each is scored
 from the address alone, with no construction details supplied, and compared against
-the assessor's record.</p>
+that jurisdiction's own assessor record.</p>
 
 <h3>Field accuracy</h3>
 <div class="table-scroll"><table class="data-table"><thead><tr>
@@ -426,8 +443,8 @@ rather than whether the code does what it says.</p>
 
 <p><strong>How to read it.</strong> <em>Baseline</em> is what the label infers
 everywhere: a modelled structure record plus the census tract's year-built
-distribution. <em>With assessor</em> adds an observed county record where one
-resolves. The number that matters is the last table in each section — a year-built
+distribution. <em>With assessor</em> adds an observed record from the assessing
+authority where one resolves. The number that matters is the last table in each section — a year-built
 error that moves no letter is not a defect anyone can see; one that crosses a
 code-era boundary is.</p>
 
@@ -467,8 +484,8 @@ knowingly lossy in each source: Cook's single <em>Masonry</em> category and DC's
 distinction being finer than either. Year built and floor area carry no such
 circularity; they are numbers, compared as numbers.</li>
 <li><strong>Rows are not graded on every field.</strong> The
-<em>Graded on</em> column is each field's own denominator, and it is not always the
-full sample. Floor area is the clearest case: the county records the whole
+<em>Truth rows</em> column is each field's own denominator, and it is not always the
+full sample. Floor area is the clearest case: an assessor records the whole
 building's area while the label's figure is per dwelling unit, so on a multi-unit
 parcel the two are different quantities and the row is excluded rather than scored
 as a miss. A rate is over the rows in that column, not over every address
@@ -501,6 +518,25 @@ run replaces only its own section.</p>
 """
 
 
+@contextlib.contextmanager
+def _results_lock():
+    """Serialise the results read-modify-write across concurrent runs."""
+    LOCK.parent.mkdir(parents=True, exist_ok=True)
+    with LOCK.open("w") as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
+
+
+def _write_atomic(path: pathlib.Path, text: str) -> None:
+    """Write via a temporary file and rename, so no reader sees a partial file."""
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(text)
+    tmp.replace(path)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -509,7 +545,7 @@ def main() -> int:
     ap.add_argument("--limit", type=int, default=None, help="score only the first N rows")
     ap.add_argument("--render-only", action="store_true",
                     help="rebuild the page from the committed results, no scoring")
-    ap.add_argument("--jurisdiction", default="cook",
+    ap.add_argument("--jurisdiction", choices=sorted(LABELS), default="cook",
                     help="which benchmark to score (default cook)")
     args = ap.parse_args()
 
@@ -538,7 +574,11 @@ def main() -> int:
     juris = args.jurisdiction
     benchmark = CACHE_DIR / f"benchmark-{juris}.csv"
     meta_file = CACHE_DIR / f"benchmark-{juris}.meta.json"
-    if not benchmark.exists():          # the pre-split path, for an older cache
+    if not benchmark.exists() and juris == "cook":
+        # The pre-split path held Cook's benchmark and nothing else, so it is a
+        # valid fallback for Cook alone. Applying it to any other jurisdiction
+        # would score Cook addresses and publish them under that jurisdiction's
+        # name — a fabricated measurement that would look entirely ordinary.
         benchmark, meta_file = BENCHMARK, META
     if not benchmark.exists():
         raise SystemExit(f"{benchmark} missing — run scripts/build_benchmark.py "
@@ -599,14 +639,21 @@ def main() -> int:
     # Merge, never replace. Each jurisdiction is a separate expensive run, and
     # writing the file wholesale would silently delete the other's numbers while
     # the page still claimed to report both.
-    previous = json.loads(RESULTS.read_text()) if RESULTS.exists() else {}
-    juris_map = dict(as_jurisdictions(previous))
-    juris_map[juris] = measured
-    results = {"generated": date.today().isoformat(), "jurisdictions": juris_map}
-
+    #
+    # The read-modify-write is held under a lock, and the write is a rename onto
+    # the target. Two runs finishing together would otherwise both read the same
+    # prior file and the second would drop the first's brand-new section — a
+    # 45-minute measurement lost silently, with a page that still looks complete.
+    # An interrupted write would be worse: a truncated results file is the one
+    # input the CI gate trusts.
     RESULTS.parent.mkdir(parents=True, exist_ok=True)
-    RESULTS.write_text(json.dumps(results, indent=2) + "\n")
-    PAGE.write_text(_render(results))
+    with _results_lock():
+        previous = json.loads(RESULTS.read_text()) if RESULTS.exists() else {}
+        juris_map = dict(as_jurisdictions(previous))
+        juris_map[juris] = measured
+        results = {"generated": date.today().isoformat(), "jurisdictions": juris_map}
+        _write_atomic(RESULTS, json.dumps(results, indent=2) + "\n")
+        _write_atomic(PAGE, _render(results))
 
     log.info("Scored %d addresses; assessor answered for %d (%.1f%%); "
              "%d of those landed on a different parcel (scored as error).",

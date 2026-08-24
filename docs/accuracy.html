@@ -33,8 +33,8 @@ rather than whether the code does what it says.</p>
 
 <p><strong>How to read it.</strong> <em>Baseline</em> is what the label infers
 everywhere: a modelled structure record plus the census tract's year-built
-distribution. <em>With assessor</em> adds an observed county record where one
-resolves. The number that matters is the last table in each section — a year-built
+distribution. <em>With assessor</em> adds an observed record from the assessing
+authority where one resolves. The number that matters is the last table in each section — a year-built
 error that moves no letter is not a defect anyone can see; one that crosses a
 code-era boundary is.</p>
 
@@ -48,7 +48,7 @@ housing stock, different record-keeping, different sample.</p>
 Cook County Assessor (Open Data) (assessment year 2026,
 fetched 2026-08-24); a further 2 sampled addresses could not be geocoded or scored and are excluded from every rate below. Each is scored
 from the address alone, with no construction details supplied, and compared against
-the assessor's record.</p>
+that jurisdiction's own assessor record.</p>
 
 <h3>Field accuracy</h3>
 <div class="table-scroll"><table class="data-table"><thead><tr>
@@ -90,7 +90,7 @@ digest adea9ce0193c4007.</p>
 DC Office of Tax and Revenue (Open Data) (assessment year current,
 fetched 2026-08-24). Scope: non-condominium homes only (condos are ~36% of DC&#x27;s CAMA stock). Each is scored
 from the address alone, with no construction details supplied, and compared against
-the assessor's record.</p>
+that jurisdiction's own assessor record.</p>
 
 <h3>Field accuracy</h3>
 <div class="table-scroll"><table class="data-table"><thead><tr>
@@ -157,8 +157,8 @@ knowingly lossy in each source: Cook's single <em>Masonry</em> category and DC's
 distinction being finer than either. Year built and floor area carry no such
 circularity; they are numbers, compared as numbers.</li>
 <li><strong>Rows are not graded on every field.</strong> The
-<em>Graded on</em> column is each field's own denominator, and it is not always the
-full sample. Floor area is the clearest case: the county records the whole
+<em>Truth rows</em> column is each field's own denominator, and it is not always the
+full sample. Floor area is the clearest case: an assessor records the whole
 building's area while the label's figure is per dwelling unit, so on a multi-unit
 parcel the two are different quantities and the row is excluded rather than scored
 as a miss. A rate is over the rows in that column, not over every address
