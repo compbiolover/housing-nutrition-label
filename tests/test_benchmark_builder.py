@@ -410,6 +410,20 @@ def test_the_join_reports_which_parcels_the_layer_actually_held():
     assert out == {} and present == {"1234 0056"}
 
 
+def test_a_body_that_is_not_a_list_of_rows_is_not_a_batch():
+    """`{"features": "oops"}` made `rows` a non-empty string, which passed every
+    guard and reached the callers as characters to call .get() on — an
+    AttributeError deep inside a join instead of the stated refusal this helper
+    exists to give. A malformed body is a portal that did not answer."""
+    for bad in ({"features": "oops"}, {"features": [1, 2]}, "text", 7,
+                {"features": [{"ok": 1}, "not a row"]}):
+        with _fetching(lambda url, params, b=bad: b):
+            _refuses(lambda: B._batch_or_die("u", {}, "parcel lookup", 40))
+    # A well-formed batch still passes.
+    with _fetching(lambda url, params: {"features": [{"attributes": {}}]}):
+        assert B._batch_or_die("u", {}, "x", 1) == [{"attributes": {}}]
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]

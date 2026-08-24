@@ -845,6 +845,53 @@ def test_a_failed_rename_leaves_no_temp_file_behind():
             f"temp file left behind: {list(pathlib.Path(tmp).glob('*.tmp'))}")
 
 
+def test_a_failed_lock_acquisition_does_not_leave_the_lock_behind():
+    """Between the exclusive create and the try/finally that releases it, the lock
+    EXISTS and nothing is registered to remove it. A write or close that raised in
+    between left the file behind, turning a transient filesystem error into a
+    permanent outage for every later measurement — recoverable only by hand, which
+    is exactly what the no-automatic-takeover decision makes expensive."""
+    import os as _os
+    with _isolated_lock() as lock:
+        real_write = _os.write
+
+        def boom(fd, data):
+            raise OSError("disk full")
+
+        _os.write = boom
+        try:
+            with M._results_lock():
+                raise AssertionError("acquisition reported success")
+        except OSError:
+            pass
+        finally:
+            _os.write = real_write
+        assert not lock.exists(), (
+            "the lock this process created outlived the failure that created it")
+
+    # And the ordinary path still acquires and releases.
+    with _isolated_lock() as lock:
+        with M._results_lock():
+            assert lock.exists()
+        assert not lock.exists()
+
+
+def test_a_results_file_naming_an_unregistered_jurisdiction_is_refused():
+    """The registry decides what may be published. A typo or a section left by a
+    newer copy of these scripts was carried through the merge and rendered under
+    its bare key, and --check would then certify a page claiming a jurisdiction no
+    adapter is registered for."""
+    try:
+        M._readable_results({"jurisdictions": {"dcx": {}}}, "this merge", existed=True)
+    except SystemExit as exc:
+        assert "dcx" in str(exc)
+    else:
+        raise AssertionError("an unregistered jurisdiction section was accepted")
+    # A registered one still passes.
+    assert set(M._readable_results({"jurisdictions": {"cook": {}}}, "x",
+                                   existed=True)) == {"cook"}
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]

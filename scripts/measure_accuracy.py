@@ -622,22 +622,36 @@ def _results_lock():
     while True:
         try:
             fd = os.open(LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            os.write(fd, f"{os.getpid()}".encode())
-            os.close(fd)
-            break
         except FileExistsError:
-            if time.monotonic() >= deadline:
-                held = ""
-                with contextlib.suppress(OSError):
-                    held = LOCK.read_text()
-                raise SystemExit(
-                    f"another run holds {LOCK}"
-                    f"{f' (pid {held})' if held else ''}; waited {_LOCK_TIMEOUT_S}s.\n"
-                    f"If no measurement is running, that lock is left over from "
-                    f"a killed one. Delete that file and re-run:\n"
-                    f"    rm {LOCK}\n"
-                    f"    del {LOCK}      (Windows)")
-            time.sleep(0.5)
+            pass
+        else:
+            # From here the lock EXISTS, and the try/finally that releases it is
+            # not installed until this function yields. A write or close that
+            # raised in between left the file behind, turning a transient
+            # filesystem error into a permanent outage for every later
+            # measurement — recoverable only by hand, which is exactly what the
+            # no-automatic-takeover decision makes expensive.
+            try:
+                try:
+                    os.write(fd, f"{os.getpid()}".encode())
+                finally:
+                    os.close(fd)
+            except BaseException:
+                LOCK.unlink(missing_ok=True)     # only ever this process's own
+                raise
+            break
+        if time.monotonic() >= deadline:
+            held = ""
+            with contextlib.suppress(OSError):
+                held = LOCK.read_text()
+            raise SystemExit(
+                f"another run holds {LOCK}"
+                f"{f' (pid {held})' if held else ''}; waited {_LOCK_TIMEOUT_S}s.\n"
+                f"If no measurement is running, that lock is left over from "
+                f"a killed one. Delete that file and re-run:\n"
+                f"    rm {LOCK}\n"
+                f"    del {LOCK}      (Windows)")
+        time.sleep(0.5)
     try:
         yield
     finally:
@@ -688,6 +702,18 @@ def _readable_results(previous, where: str, *, existed: bool) -> dict:
             f"{RESULTS.name} exists but no jurisdiction sections could be read "
             f"from it, so {where} would destroy whatever it holds. Inspect it "
             f"(or move it aside) and re-run.")
+    # The registry decides what may be published. A typo, or a section left by a
+    # newer copy of these scripts, was carried through the merge and rendered under
+    # its bare key — and --check would then certify a page claiming a jurisdiction
+    # no adapter is registered for. This page states measured accuracy per
+    # jurisdiction; a heading nothing can produce is a claim nothing backs.
+    unknown = sorted(set(juris_map) - set(LABELS))
+    if unknown:
+        raise SystemExit(
+            f"{RESULTS.name} holds {', '.join(repr(u) for u in unknown)}, which "
+            f"scripts/jurisdictions.py does not register. {where} would carry a "
+            f"measurement forward under a name nothing can produce. Add the "
+            f"jurisdiction, or move the file aside.")
     return juris_map
 
 
@@ -826,7 +852,11 @@ def _publish(results: dict) -> None:
             if before is None:
                 RESULTS.unlink(missing_ok=True)
             else:
-                _staged(RESULTS, before).replace(RESULTS)
+                back = _staged(RESULTS, before)
+                try:
+                    back.replace(RESULTS)
+                finally:
+                    back.unlink(missing_ok=True)
             raise
     finally:
         for tmp in staged:

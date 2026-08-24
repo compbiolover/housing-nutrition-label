@@ -178,8 +178,14 @@ def _batch_or_die(url: str, params: dict, what: str, n: int) -> list:
     body = _fetch(url, params)
     rows = body.get("features") if isinstance(body, dict) else body
     truncated = isinstance(body, dict) and body.get("exceededTransferLimit")
+    # The SHAPE is checked, not just the truthiness. `{"features": "oops"}` made
+    # `rows` a non-empty string, which passed every guard here and then reached the
+    # callers as characters to call .get() on — an AttributeError deep in a join
+    # instead of the stated refusal this helper exists to give. A malformed body is
+    # a portal that did not answer, which is the case already handled.
+    well_formed = isinstance(rows, list) and all(isinstance(r, dict) for r in rows)
     if (body is None or (isinstance(body, dict) and body.get("error"))
-            or truncated or not rows):
+            or truncated or not rows or not well_formed):
         # `exceededTransferLimit` is ArcGIS SAYING it truncated, and it rides along
         # with a perfectly well-formed, non-empty feature list. Accepting that as a
         # legitimately short batch is the one truncation case the portal actually
