@@ -319,11 +319,21 @@ def _ungradeable_note(m: dict) -> str:
     drawn, sampled = m.get("drawn"), m.get("sampled")
     if not drawn or not sampled or drawn <= sampled:
         return ""
-    # Only one cause is possible here: the builder now fails rather than write a
-    # benchmark with unanswered offsets in it, so every row that was drawn and did
-    # not arrive was one the assessor had no address or no usable year for.
-    return (f" Drawn from {drawn} assessor rows; {drawn - sampled} carried no "
-            f"address or no usable year built and could not be graded.")
+    # The builder records why each row was dropped. Where it did, say so; where it
+    # did not — metadata written before the field existed — describe the gap
+    # without claiming a cause, rather than asserting the likeliest one. Four
+    # review rounds found this sentence naming a cause it could not know.
+    d = m.get("dropped") or {}
+    parts = []
+    if d.get("no_address"):
+        parts.append(f"{d['no_address']} had no address on file")
+    if d.get("no_year_built"):
+        parts.append(f"{d['no_year_built']} had no usable year built")
+    gap = drawn - sampled
+    if parts:
+        return f" Drawn from {drawn} assessor rows; {' and '.join(parts)}."
+    return (f" Drawn from {drawn} assessor rows; {gap} could not be graded from "
+            f"the assessor's own record.")
 
 
 def _unscored_note(results: dict) -> str:

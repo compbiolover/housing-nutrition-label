@@ -543,14 +543,26 @@ def main() -> int:
     log.info("Fetched %d characteristics rows.", len(sample))
     log.info("Resolved %d of them to an address.", len(info))
 
-    out_rows = []
+    # Counted, not inferred. The published note used to derive the cause of every
+    # dropped row from `drawn - sampled`, and review found it naming the wrong one
+    # four separate times — each fix reworded a guess. The builder is the only
+    # place that KNOWS why a row was dropped, so it records it and the page reports
+    # what happened rather than reconstructing it from two totals.
+    out_rows, dropped = [], {"no_address": 0, "no_year_built": 0}
     for row in sample:
         key = key_of(row)
         place = info.get(key)
-        truth = truth_of(row) if place else None
-        if place and truth:
-            out_rows.append({"parcel_id": key, "address": place["address"],
-                             "lat": place["lat"], "lon": place["lon"], **truth})
+        if not place:
+            # No record in the parcel layer, so no address to geocode. The CAMA
+            # tables carry no address of their own in either jurisdiction.
+            dropped["no_address"] += 1
+            continue
+        truth = truth_of(row)
+        if not truth:
+            dropped["no_year_built"] += 1
+            continue
+        out_rows.append({"parcel_id": key, "address": place["address"],
+                         "lat": place["lat"], "lon": place["lon"], **truth})
 
     if not out_rows:
         raise SystemExit("no gradeable rows — refusing to write an empty benchmark")
@@ -587,6 +599,9 @@ def main() -> int:
         # And what reached the benchmark, after rows with no address or no usable
         # year were dropped.
         "sampled": len(out_rows),
+        # Why each of the others was dropped, so the page states the cause instead
+        # of deducing it from `drawn - sampled`.
+        "dropped": dropped,
         "source": JURISDICTIONS[juris]["source"],
         "scope": JURISDICTIONS[juris]["scope"],
         "assessment_year": year,

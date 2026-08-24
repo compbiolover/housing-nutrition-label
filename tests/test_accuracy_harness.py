@@ -254,10 +254,11 @@ def test_rows_the_assessor_could_not_document_are_disclosed():
     survivors would quietly redefine the population as "rows the assessor documented
     well" — a flattering sample nobody chose."""
     data = _juris("DC Office of Tax and Revenue (Open Data)", "eeeeeeeeeeeeeeee", rows=218)
-    data["benchmark"].update({"drawn": 220, "sampled": 218})
+    data["benchmark"].update({"drawn": 220, "sampled": 218,
+                              "dropped": {"no_address": 2, "no_year_built": 0}})
     page = M._render({"generated": "2026-08-24", "jurisdictions": {"dc": data}})
     assert "Drawn from 220 assessor rows" in page
-    assert "2 carried no address" in page
+    assert "2 had no address on file" in page
 
 
 def test_the_note_measures_against_the_benchmark_not_the_scored_rows():
@@ -269,8 +270,11 @@ def test_the_note_measures_against_the_benchmark_not_the_scored_rows():
     data["benchmark"]["drawn"] = 220
     data["benchmark"]["sampled"] = 218
     page = M._render({"generated": "2026-08-24", "jurisdictions": {"dc": data}})
-    assert "2 carried no address" in page, (
+    # No recorded breakdown here, so this exercises the no-cause-claimed path as
+    # well as the denominator: the count must be 220 - 218, never 220 - 216.
+    assert "2 could not be graded" in page, (
         "the note must describe 220 - 218, not 220 - 216")
+    assert "4 could not be graded" not in page
 
 
 def test_nothing_is_said_when_every_drawn_row_was_gradeable():
@@ -496,6 +500,33 @@ def test_a_section_renders_without_a_recorded_digest():
     data = copy.deepcopy(data)
     data["benchmark"].pop("sha256_16", None)
     assert "unrecorded" in M._section(key, data)
+
+
+def test_the_drop_disclosure_reports_recorded_reasons_not_deduced_ones():
+    """Four review rounds found this sentence naming a cause it could not know —
+    each fix reworded a guess derived from `drawn - sampled`. The builder is the
+    only place that knows why a row was dropped, so it records it now."""
+    note = M._ungradeable_note({"drawn": 220, "sampled": 215,
+                                "dropped": {"no_address": 2, "no_year_built": 3}})
+    assert "2 had no address on file" in note and "3 had no usable year built" in note
+
+
+def test_a_reason_with_no_rows_is_not_listed():
+    note = M._ungradeable_note({"drawn": 220, "sampled": 218,
+                                "dropped": {"no_address": 2, "no_year_built": 0}})
+    assert "no address on file" in note and "year built" not in note
+
+
+def test_metadata_without_a_breakdown_claims_no_cause():
+    """Benchmarks built before the field exists must not have a cause invented for
+    them — that is the mistake this whole change is undoing."""
+    note = M._ungradeable_note({"drawn": 220, "sampled": 218})
+    assert "could not be graded" in note
+    assert "no address" not in note and "year built" not in note
+
+
+def test_no_gap_says_nothing():
+    assert M._ungradeable_note({"drawn": 218, "sampled": 218}) == ""
 
 
 def _run_all() -> int:
