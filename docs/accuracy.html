@@ -27,7 +27,7 @@
 <h1>How accurate is the label?</h1>
 
 <p>Every score on this site is inferred from public data. This page measures how
-often that inference matches what a county assessor recorded for the same
+often that inference matches what the assessing authority recorded for the same
 building &mdash; the only check that asks whether the output describes the world
 rather than whether the code does what it says.</p>
 
@@ -131,13 +131,13 @@ digest 37c36ab1949c3db2.</p>
 Each figure describes one place's housing stock and record-keeping.
 Nothing here supports a claim about anywhere else, and the two sections should not
 be averaged into one.</li>
-<li><strong>Washington, DC excludes condominiums</strong>, which are about 36% of
-its assessor's residential stock (61,329 condo records against 109,273 others). DC
-keeps them in a separate table keyed by unit, and a unit-level identifier does not
-appear in the parcel geometry at all &mdash; so no coordinate can pick one unit out
-of a building. The DC figures therefore describe non-condo homes, and the adapter
-returns nothing for a condo rather than guessing.</li>
-<li>The county's own record is treated as truth. It can be stale or wrong; it is
+<li><strong>Washington, DC excludes condominiums</strong>, which are
+about 36% of its assessor's residential stock (61,329 condo records against 109,273
+others). DC keeps them in a separate table keyed by unit, and a unit-level
+identifier does not appear in the parcel geometry at all &mdash; so no coordinate
+can pick one unit out of a building. The DC figures therefore describe non-condo
+homes, and the adapter returns nothing for a condo rather than guessing.</li>
+<li>The assessor's own record is treated as truth. It can be stale or wrong; it is
 the best available reference, not a survey.</li>
 <li>Addresses where the assessor lookup does not resolve fall back to the
 baseline, so the &ldquo;with assessor&rdquo; column includes them. It is the

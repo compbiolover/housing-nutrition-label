@@ -266,6 +266,31 @@ def test_nothing_is_said_when_every_drawn_row_was_gradeable():
         {"generated": "2026-08-24", "jurisdictions": {"dc": data}})
 
 
+def test_the_dc_caveat_appears_only_when_dc_is_on_the_page():
+    """The condominium exclusion is a fact about a measurement. Printing it on a
+    page that carries no DC section would describe a limitation of numbers that are
+    not there."""
+    cook_only = M._render({"generated": "2026-08-24", "jurisdictions": {
+        "cook": _juris("Cook County Assessor (Open Data)", "aaaaaaaaaaaaaaaa")}})
+    assert "excludes condominiums" not in cook_only
+
+    with_dc = M._render({"generated": "2026-08-24", "jurisdictions": {
+        "dc": _juris("DC Office of Tax and Revenue (Open Data)", "bbbbbbbbbbbbbbbb")}})
+    assert "excludes condominiums" in with_dc
+
+
+def test_the_lock_is_released_and_needs_no_unix_only_import():
+    """`fcntl` is Unix-only, and this module is imported by the test suite and by
+    --check. The repository documents a Windows setup, so a platform-specific import
+    would fail the whole file at collection time rather than at the write it guards.
+    """
+    import measure_accuracy
+    assert "fcntl" not in dir(measure_accuracy), "a Unix-only import came back"
+    with M._results_lock():
+        assert M.LOCK.exists()
+    assert not M.LOCK.exists(), "the lock must not outlive the run that took it"
+
+
 def test_the_page_states_the_sampled_count_not_the_scored_one():
     """`rows` is the scored subset and `sampled` is the population. The method
     sentence says "N addresses sampled", so it must use the latter — quoting the

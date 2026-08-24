@@ -451,11 +451,15 @@ def main() -> int:
     digest = hashlib.sha256(benchmark.read_bytes()).hexdigest()[:16]
     meta_path(juris).write_text(json.dumps({
         "jurisdiction": juris,
-        # What was drawn from the assessor, before rows without an address or a
-        # usable year were dropped. Without it the harness can only see the
-        # gradeable rows and would report those as the whole sample, losing the
-        # fact that some of the draw could not be graded at all.
-        "drawn": len(sample),
+        # What was ASKED FOR, not what came back: an unreachable offset is dropped
+        # from `sample` before it ever gets here, so len(sample) would treat a
+        # portal failure as a smaller draw rather than a gap in a draw of this
+        # size. The distinction matters because the second reads as a clean
+        # sample and the first is a biased one.
+        "drawn": args.rows,
+        # And what reached the benchmark, after rows with no address or no usable
+        # year were dropped.
+        "sampled": len(out_rows),
         "source": JURISDICTIONS[juris]["source"],
         "scope": JURISDICTIONS[juris]["scope"],
         "assessment_year": year,

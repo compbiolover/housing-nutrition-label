@@ -10,13 +10,14 @@ the output matches the world. This does.
 
 For each benchmark address (``scripts/build_benchmark.py``) the scorer is pointed
 at the address with **no construction attributes supplied** — the way a visitor
-uses it — and what it infers is compared against what the county recorded.
+uses it — and what it infers is compared against what that jurisdiction's assessor
+recorded.
 
 Three arms, and the third is the point
 --------------------------------------
 * ``baseline`` — adapters off. NSI's structure record plus the tract's ACS
-  year-built distribution: what every label outside an adapter county gets.
-* ``adapter`` — adapters on. The county's observed record where it resolves.
+  year-built distribution: what every label outside an adapter's area gets.
+* ``adapter`` — adapters on. The assessor's observed record where it resolves.
 * ``truth`` — the ground truth supplied explicitly. Not an accuracy arm; it is
   the reference the other two are graded against, because the number that
   matters is not "how many years out is the year built" but *does the reader see
@@ -41,8 +42,11 @@ Every row geocodes and hits NSI, so this cannot run in CI. It follows the
 ``build_*.py`` contract instead: run manually, commit the results, and let CI
 verify the published page still matches the committed run (``--check``).
 
-Run:  python scripts/build_benchmark.py --rows 200
-      ASSESSOR_ADAPTERS=1 python scripts/measure_accuracy.py
+Each jurisdiction is measured separately and its results merge into the published
+page, so running one never replaces another's numbers.
+
+Run:  python scripts/build_benchmark.py --jurisdiction dc --rows 200
+      ASSESSOR_ADAPTERS=1 python scripts/measure_accuracy.py --jurisdiction dc
       python scripts/measure_accuracy.py --check
 """
 
@@ -51,14 +55,15 @@ from __future__ import annotations
 import argparse
 import contextlib
 import csv
-import fcntl
 import dataclasses
 import html
 import json
 import logging
+import os
 import pathlib
 import statistics
 import sys
+import time
 from datetime import date
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(message)s")
@@ -339,6 +344,22 @@ def as_jurisdictions(results: dict) -> dict:
     return {}
 
 
+def _dc_caveat(juris: dict) -> str:
+    """DC's condominium exclusion — emitted only when DC is actually on the page.
+
+    Rendering it unconditionally would tell a reader of a Cook-only page about a
+    limitation of a measurement that page does not contain.
+    """
+    if "dc" not in juris:
+        return ""
+    return """<li><strong>Washington, DC excludes condominiums</strong>, which are
+about 36% of its assessor's residential stock (61,329 condo records against 109,273
+others). DC keeps them in a separate table keyed by unit, and a unit-level
+identifier does not appear in the parcel geometry at all &mdash; so no coordinate
+can pick one unit out of a building. The DC figures therefore describe non-condo
+homes, and the adapter returns nothing for a condo rather than guessing.</li>"""
+
+
 def _section(key: str, data: dict) -> str:
     """One jurisdiction's numbers. The page carries one of these per adapter."""
     m = data["benchmark"]
@@ -437,7 +458,7 @@ def _render(results: dict) -> str:
 <h1>How accurate is the label?</h1>
 
 <p>Every score on this site is inferred from public data. This page measures how
-often that inference matches what a county assessor recorded for the same
+often that inference matches what the assessing authority recorded for the same
 building &mdash; the only check that asks whether the output describes the world
 rather than whether the code does what it says.</p>
 
@@ -458,13 +479,8 @@ housing stock, different record-keeping, different sample.</p>
 Each figure describes one place's housing stock and record-keeping.
 Nothing here supports a claim about anywhere else, and the two sections should not
 be averaged into one.</li>
-<li><strong>Washington, DC excludes condominiums</strong>, which are about 36% of
-its assessor's residential stock (61,329 condo records against 109,273 others). DC
-keeps them in a separate table keyed by unit, and a unit-level identifier does not
-appear in the parcel geometry at all &mdash; so no coordinate can pick one unit out
-of a building. The DC figures therefore describe non-condo homes, and the adapter
-returns nothing for a condo rather than guessing.</li>
-<li>The county's own record is treated as truth. It can be stale or wrong; it is
+{_dc_caveat(juris)}
+<li>The assessor's own record is treated as truth. It can be stale or wrong; it is
 the best available reference, not a survey.</li>
 <li>Addresses where the assessor lookup does not resolve fall back to the
 baseline, so the &ldquo;with assessor&rdquo; column includes them. It is the
@@ -518,16 +534,52 @@ run replaces only its own section.</p>
 """
 
 
+_LOCK_TIMEOUT_S = 60
+_LOCK_STALE_S = 900
+
+
 @contextlib.contextmanager
 def _results_lock():
-    """Serialise the results read-modify-write across concurrent runs."""
+    """Serialise the results read-modify-write across concurrent runs.
+
+    An exclusive-create lockfile rather than `fcntl.flock`: this module is imported
+    by the test suite and by `--check`, and the repository documents a Windows
+    setup, where a Unix-only import would fail the whole file at collection time.
+    `O_CREAT | O_EXCL` is atomic on every platform Python runs on and needs no
+    platform branch.
+
+    A lock older than the longest plausible run is treated as abandoned — a killed
+    measurement should not block the next one forever — and the wait is bounded so
+    a stuck holder surfaces as an error rather than a hang.
+    """
     LOCK.parent.mkdir(parents=True, exist_ok=True)
-    with LOCK.open("w") as handle:
-        fcntl.flock(handle, fcntl.LOCK_EX)
+    deadline = time.monotonic() + _LOCK_TIMEOUT_S
+    while True:
         try:
-            yield
-        finally:
-            fcntl.flock(handle, fcntl.LOCK_UN)
+            fd = os.open(LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            break
+        except FileExistsError:
+            try:
+                age = time.time() - LOCK.stat().st_mtime
+            except OSError:
+                continue                      # released between the two calls
+            if age > _LOCK_STALE_S:
+                log.warning("Clearing a stale results lock (%.0f minutes old).",
+                            age / 60)
+                LOCK.unlink(missing_ok=True)
+                continue
+            if time.monotonic() >= deadline:
+                raise SystemExit(
+                    f"another measurement run holds {LOCK}; it has been waited on "
+                    f"for {_LOCK_TIMEOUT_S}s. Wait for it to finish, or remove the "
+                    f"file if no run is active.")
+            time.sleep(0.5)
+    try:
+        os.write(fd, str(os.getpid()).encode())
+        os.close(fd)
+        yield
+    finally:
+        LOCK.unlink(missing_ok=True)
 
 
 def _write_atomic(path: pathlib.Path, text: str) -> None:
@@ -619,11 +671,18 @@ def main() -> int:
     resolved = sum(1 for c in cases if c["resolved"])
     mismatched = sum(1 for c in cases if c.get("pin_mismatch"))
     measured = {
-        # Both counts, deliberately. Every rate below is over the rows that could be
-        # scored, and silently republishing that as the sample size would let a
-        # network outage or a batch of hard addresses quietly narrow the population
-        # while the page still read as the full sample.
-        "benchmark": {**meta, "sampled": len(rows), "rows": len(cases)},
+        # Three counts, and they mean different things:
+        #   drawn    what the builder asked the assessor for
+        #   sampled  what reached the benchmark (drawn, minus rows with no address
+        #            or no usable year — the builder drops those before writing)
+        #   rows     what this run could actually score
+        # `sampled` takes the benchmark's own count where the meta records one,
+        # NOT the length of the CSV as read: with --limit, or after the builder
+        # dropped rows, the CSV is already the smaller number and reporting it as
+        # the sample would quietly redefine the population as whatever survived.
+        "benchmark": {**meta,
+                      "sampled": meta.get("sampled", meta.get("rows", len(rows))),
+                      "rows": len(cases)},
         "unscored": len(rows) - len(cases),
         # Over the sampled population, not the scored subset. Dividing by
         # `cases` would drop every address that failed to geocode out of the
