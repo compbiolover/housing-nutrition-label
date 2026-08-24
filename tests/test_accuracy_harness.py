@@ -284,11 +284,27 @@ def test_the_lock_is_released_and_needs_no_unix_only_import():
     --check. The repository documents a Windows setup, so a platform-specific import
     would fail the whole file at collection time rather than at the write it guards.
     """
-    import measure_accuracy
-    assert "fcntl" not in dir(measure_accuracy), "a Unix-only import came back"
+    assert "fcntl" not in dir(M), "a Unix-only import came back"
     with M._results_lock():
         assert M.LOCK.exists()
     assert not M.LOCK.exists(), "the lock must not outlive the run that took it"
+
+
+def test_a_stale_lock_is_only_removed_while_it_is_still_the_same_lock():
+    """Two waiters can both decide one lock is abandoned. With a bare unlink the
+    second would delete the first's brand-new lock and both would enter the merge —
+    the lost update the lock exists to prevent — and then each would remove the
+    other's file on the way out. Compare-and-delete makes that a lost race instead
+    of a lost measurement."""
+    M.LOCK.parent.mkdir(parents=True, exist_ok=True)
+    M.LOCK.write_text("another-process")
+    try:
+        M._unlink_if_unchanged("me")
+        assert M.LOCK.exists(), "a lock taken by someone else must survive"
+        M._unlink_if_unchanged("another-process")
+        assert not M.LOCK.exists(), "a lock still holding what was read is removed"
+    finally:
+        M.LOCK.unlink(missing_ok=True)
 
 
 def test_the_page_states_the_sampled_count_not_the_scored_one():

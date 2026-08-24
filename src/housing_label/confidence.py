@@ -164,9 +164,9 @@ def _rests_on_a_standin(key: str, building: dict) -> bool:
 STANDIN_NOTE = (" Confidence is held at Moderate here because this dimension is "
                 "being computed from a neighbourhood typical rather than a record "
                 "of this building. Measured against assessor records in the two "
-                "places that have been checked, the letter differs between a "
-                "quarter and half the time on such inputs. Correcting the building "
-                "details above resolves it.")
+                "places that have been checked, the letter differs between about "
+                "a third and about half the time on such inputs. Correcting the "
+                "building details above resolves it.")
 
 
 def confidence_notes_for_label(label: dict) -> dict:

@@ -299,6 +299,13 @@ def _dc_sample(rows: int) -> list[dict]:
             dropped += 1
         else:
             feats = (body or {}).get("features") or []
+            if not feats:
+                # An offset inside a table of this size always has a row. An empty
+                # answer is the portal failing quietly, and counting it as "no row
+                # here" would shrink the sample toward whichever offsets happened
+                # to work — a biased draw that still looks like a clean one.
+                dropped += 1
+                continue
             a = (feats[0].get("attributes") if feats else None) or {}
             ssl = (a.get("SSL") or "").strip()
             if ssl and ssl not in seen:
@@ -332,6 +339,14 @@ def _dc_place(ssls: list[str]) -> dict[str, dict]:
             "where": where, "outFields": _DC_PARCEL_FIELDS,
             "returnGeometry": "true", "outSR": "4326", "f": "json",
         })
+        if body is None or (isinstance(body, dict) and body.get("error")):
+            # A failed batch would otherwise look like 40 parcels that simply have
+            # no address, and those rows would be dropped and later disclosed as
+            # assessor documentation gaps — the wrong cause, on a page whose point
+            # is stating causes accurately. Fail the build instead.
+            raise SystemExit(
+                f"parcel lookup failed for a batch of {len(chunk)}; refusing to "
+                f"write a benchmark missing them. Try again later.")
         for f in (body or {}).get("features") or []:
             a = f.get("attributes") or {}
             ssl, addr = (a.get("SSL") or "").strip(), (a.get("PREMISEADD") or "").strip()

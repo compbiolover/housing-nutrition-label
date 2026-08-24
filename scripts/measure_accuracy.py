@@ -491,7 +491,7 @@ an explicit right to redistribute a dataset. Re-running months later samples a
 refreshed roll, so each section's digest and date are recorded to make that
 visible.</li>
 <li><strong>The categorical fields are a weaker test than the numeric ones.</strong>
-Wall material, foundation and condition are translated out of the county's
+Wall material, foundation and condition are translated out of the assessor's
 vocabulary into the label's by the same table on both sides of the comparison, so
 their &ldquo;exact&rdquo; rates in the assessor column largely measure whether the
 right parcel was found &mdash; not whether the translation is right. One entry is
@@ -535,7 +535,11 @@ run replaces only its own section.</p>
 
 
 _LOCK_TIMEOUT_S = 60
-_LOCK_STALE_S = 900
+# The critical section is the MERGE — read the results file, splice one
+# jurisdiction in, write two files. Milliseconds. The measurement itself runs
+# outside the lock; what the lock protects is the moment its output is written.
+# So a lock held for minutes is not a slow run, it is a dead one.
+_LOCK_STALE_S = 300
 
 
 @contextlib.contextmanager
@@ -548,38 +552,57 @@ def _results_lock():
     `O_CREAT | O_EXCL` is atomic on every platform Python runs on and needs no
     platform branch.
 
-    A lock older than the longest plausible run is treated as abandoned — a killed
-    measurement should not block the next one forever — and the wait is bounded so
-    a stuck holder surfaces as an error rather than a hang.
+    Takeover of an abandoned lock is by compare-and-delete on a nonce, not a bare
+    unlink. Two waiters can both decide the same lock is stale; with an
+    unconditional unlink the second would delete the first's brand-new lock and
+    both would enter, which is the lost update this exists to prevent — and then
+    each `finally` would remove the other's file. Deleting only a lock whose
+    contents still match what was read makes that a lost race rather than a lost
+    measurement.
     """
     LOCK.parent.mkdir(parents=True, exist_ok=True)
+    nonce = f"{os.getpid()}:{time.time_ns()}"
     deadline = time.monotonic() + _LOCK_TIMEOUT_S
     while True:
         try:
             fd = os.open(LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, nonce.encode())
+            os.close(fd)
             break
         except FileExistsError:
             try:
-                age = time.time() - LOCK.stat().st_mtime
+                held, age = LOCK.read_text(), time.time() - LOCK.stat().st_mtime
             except OSError:
                 continue                      # released between the two calls
             if age > _LOCK_STALE_S:
-                log.warning("Clearing a stale results lock (%.0f minutes old).",
-                            age / 60)
-                LOCK.unlink(missing_ok=True)
+                log.warning("Clearing an abandoned results lock (%.0f minutes old, "
+                            "held by %s).", age / 60, held or "unknown")
+                _unlink_if_unchanged(held)
                 continue
             if time.monotonic() >= deadline:
                 raise SystemExit(
-                    f"another measurement run holds {LOCK}; it has been waited on "
-                    f"for {_LOCK_TIMEOUT_S}s. Wait for it to finish, or remove the "
-                    f"file if no run is active.")
+                    f"another run holds {LOCK} (owner {held or 'unknown'}); waited "
+                    f"{_LOCK_TIMEOUT_S}s. Wait for it to finish, or remove the file "
+                    f"if no run is active.")
             time.sleep(0.5)
     try:
-        os.write(fd, str(os.getpid()).encode())
-        os.close(fd)
         yield
     finally:
-        LOCK.unlink(missing_ok=True)
+        _unlink_if_unchanged(nonce)
+
+
+def _unlink_if_unchanged(expected: str) -> None:
+    """Remove the lock only while it still holds `expected`.
+
+    Never a bare unlink: between reading the file and removing it, the holder may
+    have released and a third process taken the lock. Removing that one would let
+    two merges run at once.
+    """
+    try:
+        if LOCK.read_text() == expected:
+            LOCK.unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 def _write_atomic(path: pathlib.Path, text: str) -> None:
@@ -594,7 +617,10 @@ def main() -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--check", action="store_true",
                     help="verify the published page matches the committed results")
-    ap.add_argument("--limit", type=int, default=None, help="score only the first N rows")
+    ap.add_argument("--limit", type=int, default=None,
+                    help="score only the first N rows (requires --dry-run)")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="score and report without writing results or the page")
     ap.add_argument("--render-only", action="store_true",
                     help="rebuild the page from the committed results, no scoring")
     ap.add_argument("--jurisdiction", choices=sorted(LABELS), default="cook",
@@ -655,6 +681,16 @@ def main() -> int:
         # benchmark — the opposite of what was asked, and expensive to discover.
         if args.limit < 1:
             raise SystemExit(f"--limit must be at least 1 (got {args.limit})")
+        # --limit is a smoke test, and a smoke test must not become the published
+        # measurement. Without this, scoring one row republishes the section with
+        # one case while the benchmark metadata still says the full sample size —
+        # a partial run wearing a complete run's numbers. (Done accidentally
+        # during development; the committed results had to be restored from git.)
+        if not args.dry_run:
+            raise SystemExit(
+                "--limit produces a partial measurement, which must not replace a "
+                "published one. Add --dry-run to score a few rows and print the "
+                "result without writing.")
         rows = rows[:args.limit]
     meta = json.loads(meta_file.read_text()) if meta_file.exists() else {}
 
@@ -700,11 +736,17 @@ def main() -> int:
     # the page still claimed to report both.
     #
     # The read-modify-write is held under a lock, and the write is a rename onto
-    # the target. Two runs finishing together would otherwise both read the same
-    # prior file and the second would drop the first's brand-new section — a
-    # 45-minute measurement lost silently, with a page that still looks complete.
-    # An interrupted write would be worse: a truncated results file is the one
-    # input the CI gate trusts.
+    # the target. The lock covers only this splice, not the scoring above: two runs
+    # finishing together would otherwise both read the same prior file and the
+    # second would drop the first's brand-new section — the RESULT of a 45-minute
+    # measurement lost silently, with a page that still looks complete. An
+    # interrupted write would be worse: a truncated results file is the one input
+    # the CI gate trusts.
+    if args.dry_run:
+        log.info("Dry run — results and page NOT written.")
+        _log_summary(measured, juris)
+        return 0
+
     RESULTS.parent.mkdir(parents=True, exist_ok=True)
     with _results_lock():
         previous = json.loads(RESULTS.read_text()) if RESULTS.exists() else {}
@@ -714,9 +756,16 @@ def main() -> int:
         _write_atomic(RESULTS, json.dumps(results, indent=2) + "\n")
         _write_atomic(PAGE, _render(results))
 
-    log.info("Scored %d addresses; assessor answered for %d (%.1f%%); "
-             "%d of those landed on a different parcel (scored as error).",
-             len(cases), resolved, measured["adapter_resolved_pct"], mismatched)
+    _log_summary(measured, juris)
+    log.info("Wrote %s and %s.", RESULTS, PAGE)
+    return 0
+
+
+def _log_summary(measured: dict, juris: str) -> None:
+    log.info("[%s] scored %d addresses; assessor answered for %.1f%%; "
+             "%d landed on a different parcel (scored as error).",
+             juris, measured["benchmark"]["rows"],
+             measured["adapter_resolved_pct"], measured["pin_mismatches"])
     for f in FIELDS:
         b = measured["baseline"]["fields"][f]
         a = measured["adapter"]["fields"][f]
@@ -728,8 +777,6 @@ def main() -> int:
         log.info("    %-14s %5s%% → %5s%%", k,
                  measured["baseline"]["grade_impact"][k]["differs_pct"],
                  measured["adapter"]["grade_impact"][k]["differs_pct"])
-    log.info("Wrote %s and %s.", RESULTS, PAGE)
-    return 0
 
 
 if __name__ == "__main__":
