@@ -689,6 +689,33 @@ def test_a_render_failure_replaces_neither_file():
         assert page_p.read_text() == "<p>before</p>"
 
 
+def test_named_reasons_are_used_only_when_they_explain_the_whole_gap():
+    """The builder asserts the reasons account for every drawn parcel, but this
+    reads metadata it did not write — an older file with one reason recorded, or a
+    newer builder with a reason this code does not know. A partial list rendered
+    as a complete one is the under-reporting the drop accounting exists to end."""
+    complete = M._ungradeable_note({"drawn": 220, "sampled": 215,
+                                    "dropped": {"no_address": 2, "no_year_built": 3}})
+    assert "2 had no address on file" in complete
+
+    partial = M._ungradeable_note({"drawn": 220, "sampled": 215,
+                                   "dropped": {"no_address": 2}})
+    assert "5 could not be graded" in partial, partial
+    assert "no address on file" not in partial, (
+        "naming 2 of a 5-row gap implies the other 3 away")
+
+
+def test_jurisdiction_is_rejected_in_the_modes_that_ignore_it():
+    """--check --jurisdiction dc read exactly the same committed results as
+    --check, and reported success as though it had checked something narrower."""
+    src = pathlib.Path(M.__file__).read_text()
+    assert '"--jurisdiction", choices=sorted(LABELS), default=None' in src, (
+        "the default must be None so the guard can tell 'not supplied' from "
+        "'supplied as the default'")
+    assert '("--jurisdiction", args.jurisdiction is not None)' in src, (
+        "--jurisdiction must join the scoring flags rejected by the no-score modes")
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]

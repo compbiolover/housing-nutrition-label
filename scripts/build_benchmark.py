@@ -325,6 +325,7 @@ def _parcel_info(pins: list[str]) -> dict[str, dict]:
     out: dict[str, dict] = {}
     for i in range(0, len(pins), PARCEL_BATCH):
         chunk = pins[i:i + PARCEL_BATCH]
+        wanted = set(chunk)
         where = "PIN14 IN (" + ",".join(f"'{p}'" for p in chunk) + ")"
         for f in _batch_or_die(PARCEL_URL, {
             "where": where,
@@ -343,6 +344,17 @@ def _parcel_info(pins: list[str]) -> dict[str, dict]:
                     f"of {len(chunk)}. It cannot be joined, and continuing would "
                     f"drop a sampled parcel and report it as undocumented.")
             pin = str(a.get("PIN14") or "").zfill(14)
+            if pin not in wanted:
+                # The query is an IN over `chunk`, so a PIN outside it means the
+                # filter was ignored or a stale response was served. Storing it
+                # would leave every requested parcel looking absent — a whole
+                # batch published as houses with no address on file, from a
+                # response that never answered the question asked.
+                raise SystemExit(
+                    f"the parcel layer returned PIN {pin}, which was not in the "
+                    f"batch of {len(chunk)} requested. The response does not "
+                    f"answer the query, and continuing would report every parcel "
+                    f"in this batch as undocumented.")
             # Coordinates are NOT required. Nothing in the scoring path reads them
             # — the harness geocodes the address exactly as a visitor would, and
             # scoring from the parcel centroid would measure the adapter under
@@ -351,15 +363,16 @@ def _parcel_info(pins: list[str]) -> dict[str, dict]:
             # published note then reported those as records the assessor never
             # documented. DC already carried an empty point rather than dropping
             # the row; this is the same rule.
-            if pin and a.get("street_address"):
+            street = (a.get("street_address") or "").strip()
+            if pin and street:
                 # Full mailing form, so the harness can geocode each row the way a
                 # visitor would. Scoring from the parcel centroid instead would put
                 # every point inside its own polygon and quietly measure the adapter
                 # under ideal geocoding — hiding the interpolation problem that is
                 # the single biggest obstacle to it working at all.
                 csz = (a.get("city_state_zip") or "").strip()
-                out[pin] = {"street_address": a["street_address"],
-                            "address": ", ".join(x for x in (a["street_address"], csz) if x),
+                out[pin] = {"street_address": street,
+                            "address": ", ".join(x for x in (street, csz) if x),
                             "lat": a.get("latitude") or "", "lon": a.get("longitude") or ""}
         log.info("  resolved %d/%d parcels", min(i + PARCEL_BATCH, len(pins)), len(pins))
         time.sleep(0.05)
@@ -473,6 +486,7 @@ def _dc_place(ssls: list[str]) -> dict[str, dict]:
     out: dict[str, dict] = {}
     for i in range(0, len(ssls), DC_BATCH):
         chunk = ssls[i:i + DC_BATCH]
+        wanted = set(chunk)
         where = "SSL IN (" + ",".join("'" + s.replace("'", "''") + "'" for s in chunk) + ")"
         for f in _batch_or_die(DC_PARCEL_URL, {
             "where": where, "outFields": _DC_PARCEL_FIELDS,
@@ -488,6 +502,14 @@ def _dc_place(ssls: list[str]) -> dict[str, dict]:
                     f"the parcel layer returned a feature with no SSL in a batch of "
                     f"{len(chunk)}. It cannot be joined, and continuing would drop "
                     f"a sampled parcel and report it as undocumented.")
+            if ssl not in wanted:
+                # See the Cook parcel lookup: an SSL outside the requested batch
+                # means the response is not an answer to this query.
+                raise SystemExit(
+                    f"the parcel layer returned SSL {ssl!r}, which was not in the "
+                    f"batch of {len(chunk)} requested. The response does not "
+                    f"answer the query, and continuing would report every parcel "
+                    f"in this batch as undocumented.")
             if not addr:
                 continue
             pt = _ring_point(f.get("geometry") or {})

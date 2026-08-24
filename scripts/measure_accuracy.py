@@ -330,7 +330,14 @@ def _ungradeable_note(m: dict) -> str:
     if d.get("no_year_built"):
         parts.append(f"{d['no_year_built']} had no usable year built")
     gap = drawn - sampled
-    if parts:
+    # The named reasons are used ONLY when they account for the whole gap. The
+    # builder asserts that they do, but this reads metadata it did not write —
+    # an older file with one reason recorded, or a newer builder with a reason
+    # this code does not know — and a partial list rendered as a complete one is
+    # the same under-reporting the whole drop-accounting change was made to end.
+    # Being unable to name every cause is not a licence to name some and imply
+    # the rest away.
+    if parts and sum(v for v in d.values() if isinstance(v, int)) == gap:
         return f" Drawn from {drawn} assessor rows; {' and '.join(parts)}."
     return (f" Drawn from {drawn} assessor rows; {gap} could not be graded from "
             f"the assessor's own record.")
@@ -764,7 +771,12 @@ def main() -> int:
                     help="score and report without writing results or the page")
     ap.add_argument("--render-only", action="store_true",
                     help="rebuild the page from the committed results, no scoring")
-    ap.add_argument("--jurisdiction", choices=sorted(LABELS), default="cook",
+    # Default None, not "cook", so the guard below can tell "not supplied" from
+    # "supplied as the default". Without that distinction --jurisdiction joins the
+    # accepted-and-ignored list: --check --jurisdiction dc reads exactly the same
+    # committed results as --check, and reports success as though it had checked
+    # something narrower.
+    ap.add_argument("--jurisdiction", choices=sorted(LABELS), default=None,
                     help="which benchmark to score (default cook)")
     args = ap.parse_args()
 
@@ -780,7 +792,8 @@ def main() -> int:
     no_score = [n for n, on in (("--check", args.check),
                                 ("--render-only", args.render_only)) if on]
     scoring = [n for n, on in (("--dry-run", args.dry_run),
-                               ("--limit", args.limit is not None)) if on]
+                               ("--limit", args.limit is not None),
+                               ("--jurisdiction", args.jurisdiction is not None)) if on]
     if len(no_score) > 1:
         raise SystemExit(
             "--check verifies the published page against the committed results and "
@@ -830,7 +843,7 @@ def main() -> int:
         log.info("accuracy page is in sync with the committed measurements.")
         return 0
 
-    juris = args.jurisdiction
+    juris = args.jurisdiction or "cook"
     benchmark = CACHE_DIR / f"benchmark-{juris}.csv"
     meta_file = CACHE_DIR / f"benchmark-{juris}.meta.json"
     legacy = False

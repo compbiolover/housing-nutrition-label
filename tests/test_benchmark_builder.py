@@ -331,6 +331,33 @@ def test_a_parcel_with_a_key_but_no_address_is_still_a_plain_drop():
         assert B._dc_place(["1234 0056"]) == {}
 
 
+def test_a_parcel_identifier_outside_the_requested_batch_stops_the_build():
+    """The query is an IN over the chunk, so an identifier outside it means the
+    filter was ignored or a stale response was served. Storing it leaves every
+    requested parcel looking absent — a whole batch published as houses with no
+    address, from a response that never answered the question asked."""
+    cook = {"features": [{"attributes": {
+        "PIN14": "9" * 14, "street_address": "9 OTHER ST"}}]}
+    with _fetching(lambda url, params: cook):
+        msg = _refuses(lambda: B._parcel_info(["1" * 14]))
+    assert "not in the batch" in msg, msg
+    dc = {"features": [{"attributes": {"SSL": "9999 0001", "PREMISEADD": "9 X ST"}}]}
+    with _fetching(lambda url, params: dc):
+        msg = _refuses(lambda: B._dc_place(["1234 0056"]))
+    assert "not in the batch" in msg, msg
+
+
+def test_a_whitespace_only_address_is_not_an_address():
+    """Cook tested the raw field for truthiness while DC stripped first — the
+    fourth Cook/DC drift in this file. A whitespace address was written as a
+    sampled row the scorer cannot geocode, counted as neither kept nor dropped."""
+    body = {"features": [{"attributes": {
+        "PIN14": "1" * 14, "street_address": "   ",
+        "city_state_zip": "CHICAGO IL 60601"}}]}
+    with _fetching(lambda url, params: body):
+        assert B._parcel_info(["1" * 14]) == {}
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]
