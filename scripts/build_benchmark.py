@@ -111,6 +111,8 @@ def _cama_sample(year: str, rows: int) -> list[dict]:
     r = requests.get(CAMA_URL, params={"$select": "count(*)", "$where": f"year='{year}'"},
                      headers=HEADERS, timeout=TIMEOUT)
     r.raise_for_status()
+    if rows < 1:
+        raise SystemExit(f"--rows must be at least 1 (got {rows})")
     total = int((r.json() or [{}])[0].get("count", 0))
     if total <= 0:
         raise SystemExit(f"no rows for assessment year {year}")

@@ -318,13 +318,13 @@ foot of this page.</p>
 <p><em>Baseline</em> is what the label infers everywhere: a modelled structure
 record plus the census tract's year-built distribution. <em>With assessor</em> adds
 an observed county record where one resolves.</p>
-<table><thead><tr>
+<div class="table-scroll"><table class="data-table"><thead><tr>
 <th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
 <th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
 <th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th>
 </tr></thead><tbody>
 {chr(10).join(rows_f)}
-</tbody></table>
+</tbody></table></div>
 
 <p><strong>Year built, by tolerance.</strong> The single field the rest of the
 construction profile leans on hardest, so the near-misses are worth seeing rather
@@ -334,11 +334,11 @@ than collapsing into one median: {_tolerance_sentence(results)}</p>
 <p>The number that matters. A year-built error that moves no letter is not a
 defect anyone can see; one that crosses a code-era boundary is. Share of
 addresses whose letter differs from the one the true attributes produce:</p>
-<table><thead><tr>
+<div class="table-scroll"><table class="data-table"><thead><tr>
 <th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
 </tr></thead><tbody>
 {chr(10).join(rows_g)}
-</tbody></table>
+</tbody></table></div>
 
 <h2>What this does and does not establish</h2>
 <ul>
@@ -437,7 +437,11 @@ def main() -> int:
             "the committed results.")
 
     rows = list(csv.DictReader(BENCHMARK.open()))
-    if args.limit:
+    if args.limit is not None:
+        # `if args.limit` would read 0 as "no limit" and quietly score the whole
+        # benchmark — the opposite of what was asked, and expensive to discover.
+        if args.limit < 1:
+            raise SystemExit(f"--limit must be at least 1 (got {args.limit})")
         rows = rows[:args.limit]
     meta = json.loads(META.read_text()) if META.exists() else {}
 
