@@ -251,17 +251,39 @@ def test_rows_the_assessor_could_not_document_are_disclosed():
     survivors would quietly redefine the population as "rows the assessor documented
     well" — a flattering sample nobody chose."""
     data = _juris("DC Office of Tax and Revenue (Open Data)", "eeeeeeeeeeeeeeee", rows=218)
-    data["benchmark"]["drawn"] = 220
+    data["benchmark"].update({"drawn": 220, "sampled": 218})
     page = M._render({"generated": "2026-08-24", "jurisdictions": {"dc": data}})
     assert "Drawn from 220 assessor rows" in page
-    assert "2 carried no address" in page
+    assert "2 did not reach the benchmark" in page
+
+
+def test_the_note_measures_against_the_benchmark_not_the_scored_rows():
+    """`rows` is what this run scored; `sampled` is what reached the benchmark. A
+    geocoding failure is already reported by the unscored note, so comparing
+    against `rows` would count it twice AND attribute a scorer failure to the
+    assessor's record-keeping."""
+    data = _juris("X", "1111111111111111", rows=216)      # 2 lost to geocoding
+    data["benchmark"]["drawn"] = 220
+    data["benchmark"]["sampled"] = 218
+    page = M._render({"generated": "2026-08-24", "jurisdictions": {"dc": data}})
+    assert "2 did not reach the benchmark" in page, (
+        "the note must describe 220 - 218, not 220 - 216")
+
+
+def test_a_portal_outage_is_not_reported_as_a_documentation_gap():
+    """An offset the portal never answered and a house the assessor never
+    documented are different failures with different owners."""
+    data = _juris("X", "2222222222222222", rows=210)
+    data["benchmark"].update({"drawn": 220, "sampled": 215, "unreachable": 3})
+    page = M._render({"generated": "2026-08-24", "jurisdictions": {"dc": data}})
+    assert "3 were offsets the portal never answered" in page
 
 
 def test_nothing_is_said_when_every_drawn_row_was_gradeable():
     """A permanent "0 could not be graded" is noise; a missing one when there were
     40 is a misrepresented sample."""
     data = _juris("X", "ffffffffffffffff", rows=218)
-    data["benchmark"]["drawn"] = 218
+    data["benchmark"].update({"drawn": 218, "sampled": 218})
     assert "could not be graded" not in M._render(
         {"generated": "2026-08-24", "jurisdictions": {"dc": data}})
 
@@ -290,21 +312,42 @@ def test_the_lock_is_released_and_needs_no_unix_only_import():
     assert not M.LOCK.exists(), "the lock must not outlive the run that took it"
 
 
-def test_a_stale_lock_is_only_removed_while_it_is_still_the_same_lock():
-    """Two waiters can both decide one lock is abandoned. With a bare unlink the
-    second would delete the first's brand-new lock and both would enter the merge —
-    the lost update the lock exists to prevent — and then each would remove the
-    other's file on the way out. Compare-and-delete makes that a lost race instead
-    of a lost measurement."""
+def test_a_held_lock_is_never_taken_automatically():
+    """Two earlier versions tried to reclaim an old lock — unlink-if-old, then
+    compare-the-contents-and-unlink. Both were time-of-check/time-of-use races:
+    between deciding a lock is abandoned and removing it, its holder can release
+    and a third process acquire, and the removal then frees a live lock so two
+    merges run at once. That is the lost update the lock exists to prevent, so the
+    window was not the problem — the takeover was.
+
+    Now a lock that outlives the wait is reported with the command to clear it.
+    This pins that it is never silently reclaimed, and that the error names the
+    file so the message is actionable rather than merely correct.
+    """
     M.LOCK.parent.mkdir(parents=True, exist_ok=True)
     M.LOCK.write_text("another-process")
+    original = M._LOCK_TIMEOUT_S
+    M._LOCK_TIMEOUT_S = 0            # do not sit through the real wait
     try:
-        M._unlink_if_unchanged("me")
-        assert M.LOCK.exists(), "a lock taken by someone else must survive"
-        M._unlink_if_unchanged("another-process")
-        assert not M.LOCK.exists(), "a lock still holding what was read is removed"
+        raised = None
+        try:
+            with M._results_lock():
+                raise AssertionError("acquired a lock somebody else was holding")
+        except SystemExit as exc:
+            raised = exc
+        assert raised is not None, "a held lock must not be taken"
+        assert str(M.LOCK) in str(raised), "the error must name the file to remove"
+        assert M.LOCK.exists(), "the other process's lock must survive"
     finally:
+        M._LOCK_TIMEOUT_S = original
         M.LOCK.unlink(missing_ok=True)
+
+
+def test_the_lock_is_released_by_the_run_that_took_it():
+    M.LOCK.unlink(missing_ok=True)
+    with M._results_lock():
+        assert M.LOCK.exists()
+    assert not M.LOCK.exists()
 
 
 def test_the_page_states_the_sampled_count_not_the_scored_one():

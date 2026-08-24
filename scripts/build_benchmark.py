@@ -183,7 +183,7 @@ def _cama_sample(year: str, rows: int) -> list[dict]:
     if dropped:
         log.warning("  %d of %d sample offsets were unreachable and skipped.",
                     dropped, rows)
-    return _primary_cards(year, seen)
+    return _primary_cards(year, seen), {"attempted": rows, "dropped": dropped}
 
 
 def _primary_cards(year: str, pins: list[str]) -> list[dict]:
@@ -317,7 +317,7 @@ def _dc_sample(rows: int) -> list[dict]:
     if dropped:
         log.warning("  %d of %d sample offsets were unreachable and skipped.",
                     dropped, rows)
-    return out
+    return out, {"attempted": rows, "dropped": dropped}
 
 
 def _ring_point(geom: dict) -> tuple[float, float] | None:
@@ -431,13 +431,13 @@ def main() -> int:
 
     if juris == "cook":
         year = _latest_year()
-        sample = _cama_sample(year, args.rows)
+        sample, draw = _cama_sample(year, args.rows)
         keys = [str(r["pin"]).zfill(14) for r in sample]
         info = _parcel_info(keys)
         truth_of, key_of = _truth, (lambda r: str(r["pin"]).zfill(14))
     else:
         year = "current"
-        sample = _dc_sample(args.rows)
+        sample, draw = _dc_sample(args.rows)
         keys = [(r.get("SSL") or "").strip() for r in sample]
         info = _dc_place([k for k in keys if k])
         truth_of, key_of = _dc_truth, (lambda r: (r.get("SSL") or "").strip())
@@ -466,12 +466,17 @@ def main() -> int:
     digest = hashlib.sha256(benchmark.read_bytes()).hexdigest()[:16]
     meta_path(juris).write_text(json.dumps({
         "jurisdiction": juris,
-        # What was ASKED FOR, not what came back: an unreachable offset is dropped
-        # from `sample` before it ever gets here, so len(sample) would treat a
-        # portal failure as a smaller draw rather than a gap in a draw of this
-        # size. The distinction matters because the second reads as a clean
-        # sample and the first is a biased one.
-        "drawn": args.rows,
+        # What was actually asked of the assessor. NOT `args.rows`, which both
+        # samplers cap to the table's own size — a --rows larger than the source
+        # would otherwise claim a draw bigger than the whole table and report the
+        # excess as undocumented rows. And not len(sample), which excludes
+        # offsets that failed: that would read a portal outage as a smaller clean
+        # sample rather than a gap in a full one.
+        "drawn": draw["attempted"],
+        # Offsets the portal never answered. Reported separately because it is a
+        # different cause from a row the assessor never documented, and folding
+        # the two together would blame the assessor for an outage.
+        "unreachable": draw["dropped"],
         # And what reached the benchmark, after rows with no address or no usable
         # year were dropped.
         "sampled": len(out_rows),

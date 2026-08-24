@@ -306,11 +306,23 @@ def _ungradeable_note(m: dict) -> str:
     the benchmark is already smaller than the draw. Reporting only the survivors
     would quietly redefine the population as "rows the assessor documented well".
     """
-    drawn, rows = m.get("drawn"), m.get("rows")
-    if not drawn or not rows or drawn <= rows:
+    # Against `sampled` — what reached the benchmark — NOT `rows`, which is what
+    # this run managed to score. Rows lost to geocoding are already reported by
+    # _unscored_note; counting them here too would double-report them AND blame
+    # the assessor for a failure that happened in the scorer.
+    drawn, sampled = m.get("drawn"), m.get("sampled")
+    if not drawn or not sampled or drawn <= sampled:
         return ""
-    return (f" Drawn from {drawn} assessor rows; {drawn - rows} carried no address "
-            f"or no usable year built and could not be graded.")
+    unreachable = m.get("unreachable") or 0
+    lost = drawn - sampled
+    # Two different causes, named separately. A portal outage is not the assessor
+    # failing to document a house, and reporting them as one number would blame
+    # the wrong party for whichever actually happened.
+    outage = (f", of which {unreachable} were offsets the portal never answered"
+              if unreachable else "")
+    return (f" Drawn from {drawn} assessor rows; {lost} did not reach the "
+            f"benchmark{outage} &mdash; the rest carried no address or no usable "
+            f"year built.")
 
 
 def _unscored_note(results: dict) -> str:
@@ -513,10 +525,11 @@ as one.</li>
 <li><strong>DC records no basement type</strong>, so foundation is never observed
 there and its row stays at the baseline. That is a gap in the source, not a failure
 of the lookup.</li>
-<li><strong>The reference profile is not wholly observed.</strong> Where the county
-records nothing for a field, the truth arm falls back to the same modelled inputs
-the other two arms use, so a grade attributed to &ldquo;true attributes&rdquo; is
-built from the county's facts <em>plus</em> those fallbacks. It is the best
+<li><strong>The reference profile is not wholly observed.</strong> Where the
+assessor records nothing for a field, the truth arm falls back to the same modelled
+inputs the other two arms use, so a grade attributed to &ldquo;true
+attributes&rdquo; is built from the assessor's facts <em>plus</em> those
+fallbacks. It is the best
 available reference, and on the rows with an incomplete record it understates the
 distance between the arms rather than overstating it.</li>
 </ul>
@@ -535,11 +548,6 @@ run replaces only its own section.</p>
 
 
 _LOCK_TIMEOUT_S = 60
-# The critical section is the MERGE — read the results file, splice one
-# jurisdiction in, write two files. Milliseconds. The measurement itself runs
-# outside the lock; what the lock protects is the moment its output is written.
-# So a lock held for minutes is not a slow run, it is a dead one.
-_LOCK_STALE_S = 300
 
 
 @contextlib.contextmanager
@@ -552,57 +560,46 @@ def _results_lock():
     `O_CREAT | O_EXCL` is atomic on every platform Python runs on and needs no
     platform branch.
 
-    Takeover of an abandoned lock is by compare-and-delete on a nonce, not a bare
-    unlink. Two waiters can both decide the same lock is stale; with an
-    unconditional unlink the second would delete the first's brand-new lock and
-    both would enter, which is the lost update this exists to prevent — and then
-    each `finally` would remove the other's file. Deleting only a lock whose
-    contents still match what was read makes that a lost race rather than a lost
-    measurement.
+    There is deliberately NO automatic takeover of an old lock. Two earlier
+    attempts — unlink-if-old, then compare-the-contents-and-unlink — were both
+    time-of-check/time-of-use races: between deciding a lock is abandoned and
+    removing it, its holder can release and a third process acquire, and the
+    removal then frees a live lock so two merges run at once. That is the exact
+    lost update this exists to prevent, so shrinking the window is not good enough.
+
+    Doing it correctly needs a lease with a heartbeat, or a platform lock
+    primitive. Neither is worth carrying for a script run by hand a few times a
+    week whose critical section is a file read, a dict splice and two renames —
+    milliseconds. (The 45-minute measurement runs OUTSIDE this lock; only its
+    result is written inside.) So a lock that outlives the wait is reported with
+    the command to clear it, and a human decides. A stuck build that says exactly
+    what to do beats a silent double-write.
     """
     LOCK.parent.mkdir(parents=True, exist_ok=True)
-    nonce = f"{os.getpid()}:{time.time_ns()}"
     deadline = time.monotonic() + _LOCK_TIMEOUT_S
     while True:
         try:
             fd = os.open(LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            os.write(fd, nonce.encode())
+            os.write(fd, f"{os.getpid()}".encode())
             os.close(fd)
             break
         except FileExistsError:
-            try:
-                held, age = LOCK.read_text(), time.time() - LOCK.stat().st_mtime
-            except OSError:
-                continue                      # released between the two calls
-            if age > _LOCK_STALE_S:
-                log.warning("Clearing an abandoned results lock (%.0f minutes old, "
-                            "held by %s).", age / 60, held or "unknown")
-                _unlink_if_unchanged(held)
-                continue
             if time.monotonic() >= deadline:
+                held = ""
+                with contextlib.suppress(OSError):
+                    held = LOCK.read_text()
                 raise SystemExit(
-                    f"another run holds {LOCK} (owner {held or 'unknown'}); waited "
-                    f"{_LOCK_TIMEOUT_S}s. Wait for it to finish, or remove the file "
-                    f"if no run is active.")
+                    f"another run holds {LOCK}"
+                    f"{f' (pid {held})' if held else ''}; waited {_LOCK_TIMEOUT_S}s.\n"
+                    f"If no measurement is running, that lock is left over from a "
+                    f"killed one — remove it and re-run:\n    rm {LOCK}")
             time.sleep(0.5)
     try:
         yield
     finally:
-        _unlink_if_unchanged(nonce)
-
-
-def _unlink_if_unchanged(expected: str) -> None:
-    """Remove the lock only while it still holds `expected`.
-
-    Never a bare unlink: between reading the file and removing it, the holder may
-    have released and a third process taken the lock. Removing that one would let
-    two merges run at once.
-    """
-    try:
-        if LOCK.read_text() == expected:
-            LOCK.unlink(missing_ok=True)
-    except OSError:
-        pass
+        # Safe as a plain unlink: nothing takes this lock away from its holder, so
+        # the file here is always the one acquired above.
+        LOCK.unlink(missing_ok=True)
 
 
 def _write_atomic(path: pathlib.Path, text: str) -> None:
