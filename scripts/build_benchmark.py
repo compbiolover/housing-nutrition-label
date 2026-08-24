@@ -142,7 +142,7 @@ def _latest_year() -> str:
     return str((got or [{}])[0].get("max_year", "")).split(".")[0]
 
 
-def _cama_sample(year: str, rows: int) -> list[dict]:
+def _cama_sample(year: str, rows: int) -> tuple[list[dict], dict]:
     """Evenly-spaced rows from the latest assessment year."""
     # Before the network call: an unusable argument should not cost a request.
     if rows < 1:
@@ -171,10 +171,14 @@ def _cama_sample(year: str, rows: int) -> list[dict]:
                 "$select": "pin", "$where": f"year='{year}'",
                 "$order": "pin", "$limit": "1", "$offset": str(i * total // rows),
             })
-            if got is None:
+            # `got == []` is the portal answering nothing for an offset inside a
+            # table it just sized — a failure, not an empty slot. The DC sampler
+            # treats it the same way; the two must agree or one jurisdiction's
+            # sample silently tolerates what the other rejects.
+            if not got:
                 failed.append(i)
             else:
-                pin = (got[0].get("pin") if got else None)
+                pin = got[0].get("pin")
                 if pin and pin not in seen:
                     seen.append(pin)
             if n % 25 == 0:
@@ -193,7 +197,12 @@ def _cama_sample(year: str, rows: int) -> list[dict]:
             f"{len(missed)} of {rows} sample offsets never answered. Writing the "
             f"benchmark anyway would bias it toward the offsets that worked, "
             f"invisibly. Try again when the portal is healthy.")
-    return _primary_cards(year, seen), {"attempted": rows}
+    # `attempted` is how many DISTINCT parcels the draw actually asked about, not
+    # how many offsets were read. Two offsets can land on one PIN (the table has a
+    # row per card), and `seen` collapses them — so counting offsets would make
+    # `drawn - sampled` positive for a parcel that was fine, and the page would
+    # report a duplicate as a house the assessor never documented.
+    return _primary_cards(year, seen), {"attempted": len(seen)}
 
 
 def _primary_cards(year: str, pins: list[str]) -> list[dict]:
@@ -283,7 +292,7 @@ _DC_PARCEL_FIELDS = "SSL,PREMISEADD"
 _DC_CAMA_FIELDS = "SSL,AYB,GBA,STORIES,EXTWALL_D,CNDTN_D,NUM_UNITS"
 
 
-def _dc_sample(rows: int) -> list[dict]:
+def _dc_sample(rows: int) -> tuple[list[dict], dict]:
     """Evenly-spaced rows from DC's residential CAMA table."""
     if rows < 1:
         raise SystemExit(f"--rows must be at least 1 (got {rows})")
@@ -337,7 +346,8 @@ def _dc_sample(rows: int) -> list[dict]:
             f"{len(missed)} of {rows} sample offsets never answered. Writing the "
             f"benchmark anyway would bias it toward the offsets that worked, "
             f"invisibly. Try again when the portal is healthy.")
-    return out, {"attempted": rows}
+    # Distinct parcels, not offsets read — see the Cook sampler for why.
+    return out, {"attempted": len(out)}
 
 
 def _ring_point(geom: dict) -> tuple[float, float] | None:
@@ -359,7 +369,8 @@ def _dc_place(ssls: list[str]) -> dict[str, dict]:
             "where": where, "outFields": _DC_PARCEL_FIELDS,
             "returnGeometry": "true", "outSR": "4326", "f": "json",
         })
-        if body is None or (isinstance(body, dict) and body.get("error")):
+        if (body is None or (isinstance(body, dict) and body.get("error"))
+                or not ((body or {}).get("features"))):
             # A failed batch would otherwise look like 40 parcels that simply have
             # no address, and those rows would be dropped and later disclosed as
             # assessor documentation gaps — the wrong cause, on a page whose point

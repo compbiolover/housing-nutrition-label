@@ -146,7 +146,7 @@ def _parcel_key(raw) -> str:
     return text.zfill(14) if text.isdigit() else text
 
 
-def _pin_matches(loc, row: dict) -> bool:
+def _parcel_matches(loc, row: dict) -> bool:
     """Whether the adapter resolved the same parcel the benchmark row describes."""
     record = getattr(loc, "assessor", None)
     if record is None:
@@ -223,7 +223,8 @@ def _score_arms(row: dict) -> dict | None:
         # mapping, so it is counted and published beside them rather than folded
         # in silently.
         "resolved": loc.assessor is not None,
-        "pin_mismatch": (loc.assessor is not None and not _pin_matches(loc, row)),
+        "parcel_mismatch": (loc.assessor is not None
+                            and not _parcel_matches(loc, row)),
         "baseline": {"inferred": {f: cfg_off.get(f) for f in FIELDS},
                      "grades": _grades(pay_off)},
         "adapter": {"inferred": {f: cfg_on.get(f) for f in FIELDS},
@@ -291,7 +292,7 @@ def _mismatch_note(results: dict) -> str:
     accuracy failure. They are a distinct defect, so they are counted unresolved
     and named here instead of disappearing.
     """
-    n = results.get("pin_mismatches") or 0
+    n = results.get("parcel_mismatches", results.get("pin_mismatches")) or 0
     if not n:
         return ""
     return (f", of which {n} landed on a different parcel than the benchmark row "
@@ -625,7 +626,13 @@ def main() -> int:
         # would be both slow and a small lie about when they were taken.
         if not RESULTS.exists():
             raise SystemExit(f"{RESULTS} missing — nothing to render")
-        PAGE.write_text(_render(json.loads(RESULTS.read_text())))
+        # Under the same lock and the same atomic write as a real run. Reading the
+        # results and writing the page is the identical critical section; unlocked,
+        # a render started before a measurement finishes would publish a page built
+        # from the old results over the one that run just wrote, leaving the two
+        # files disagreeing — and the CI gate compares exactly those two.
+        with _results_lock():
+            _write_atomic(PAGE, _render(json.loads(RESULTS.read_text())))
         log.info("Rendered %s from the committed measurements.", PAGE)
         return 0
 
@@ -697,7 +704,7 @@ def main() -> int:
         raise SystemExit("no address scored — refusing to publish an empty measurement")
 
     resolved = sum(1 for c in cases if c["resolved"])
-    mismatched = sum(1 for c in cases if c.get("pin_mismatch"))
+    mismatched = sum(1 for c in cases if c.get("parcel_mismatch"))
     measured = {
         # Three counts, and they mean different things:
         #   drawn    what the builder asked the assessor for
@@ -718,7 +725,11 @@ def main() -> int:
         # raise it. It is published as end-to-end coverage, so it is measured
         # that way.
         "adapter_resolved_pct": round(100 * resolved / len(rows), 1),
-        "pin_mismatches": mismatched,
+        # Named for the parcel, not for Cook's PIN: DC's identifier is an SSL and
+        # a Cook-specific key in a cross-jurisdiction schema misleads whoever reads
+        # it next. `pin_mismatches` is still accepted so a committed measurement
+        # taken before the rename keeps rendering.
+        "parcel_mismatches": mismatched,
         "baseline": _summarise(cases, "baseline"),
         "adapter": _summarise(cases, "adapter"),
     }
@@ -757,7 +768,7 @@ def _log_summary(measured: dict, juris: str) -> None:
     log.info("[%s] scored %d addresses; assessor answered for %.1f%%; "
              "%d landed on a different parcel (scored as error).",
              juris, measured["benchmark"]["rows"],
-             measured["adapter_resolved_pct"], measured["pin_mismatches"])
+             measured["adapter_resolved_pct"], measured["parcel_mismatches"])
     for f in FIELDS:
         b = measured["baseline"]["fields"][f]
         a = measured["adapter"]["fields"][f]

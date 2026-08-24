@@ -17,8 +17,10 @@ Run standalone: ``python tests/test_accuracy_harness.py``
 
 from __future__ import annotations
 
+import contextlib
 import pathlib
 import sys
+import tempfile
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
 for _p in (_ROOT, _ROOT / "src"):
@@ -292,15 +294,33 @@ def test_the_dc_caveat_appears_only_when_dc_is_on_the_page():
     assert "excludes condominiums" in with_dc
 
 
+@contextlib.contextmanager
+def _isolated_lock():
+    """Point the lock at a temp path for the duration of a test.
+
+    These tests create and delete lock files. Aimed at the real one, a suite run
+    during a live measurement's critical section would delete that run's guard and
+    let a second merge in — a test corrupting the thing it is testing.
+    """
+    original = M.LOCK
+    with tempfile.TemporaryDirectory() as tmp:
+        M.LOCK = pathlib.Path(tmp) / "results.lock"
+        try:
+            yield M.LOCK
+        finally:
+            M.LOCK = original
+
+
 def test_the_lock_is_released_and_needs_no_unix_only_import():
     """`fcntl` is Unix-only, and this module is imported by the test suite and by
     --check. The repository documents a Windows setup, so a platform-specific import
     would fail the whole file at collection time rather than at the write it guards.
     """
     assert "fcntl" not in dir(M), "a Unix-only import came back"
-    with M._results_lock():
-        assert M.LOCK.exists()
-    assert not M.LOCK.exists(), "the lock must not outlive the run that took it"
+    with _isolated_lock() as lock:
+        with M._results_lock():
+            assert lock.exists()
+        assert not lock.exists(), "the lock must not outlive the run that took it"
 
 
 def test_a_held_lock_is_never_taken_automatically():
@@ -315,30 +335,33 @@ def test_a_held_lock_is_never_taken_automatically():
     This pins that it is never silently reclaimed, and that the error names the
     file so the message is actionable rather than merely correct.
     """
-    M.LOCK.parent.mkdir(parents=True, exist_ok=True)
-    M.LOCK.write_text("another-process")
     original = M._LOCK_TIMEOUT_S
     M._LOCK_TIMEOUT_S = 0            # do not sit through the real wait
     try:
-        raised = None
-        try:
-            with M._results_lock():
-                raise AssertionError("acquired a lock somebody else was holding")
-        except SystemExit as exc:
-            raised = exc
-        assert raised is not None, "a held lock must not be taken"
-        assert str(M.LOCK) in str(raised), "the error must name the file to remove"
-        assert M.LOCK.exists(), "the other process's lock must survive"
+        with _isolated_lock() as lock:
+            lock.write_text("another-process")
+            raised = None
+            try:
+                with M._results_lock():
+                    raise AssertionError("acquired a lock somebody else was holding")
+            except SystemExit as exc:
+                raised = exc
+            assert raised is not None, "a held lock must not be taken"
+            assert str(lock) in str(raised), "the error must name the file to remove"
+            assert lock.exists(), "the other process's lock must survive"
     finally:
         M._LOCK_TIMEOUT_S = original
-        M.LOCK.unlink(missing_ok=True)
 
 
-def test_the_lock_is_released_by_the_run_that_took_it():
-    M.LOCK.unlink(missing_ok=True)
-    with M._results_lock():
-        assert M.LOCK.exists()
-    assert not M.LOCK.exists()
+def test_a_measurement_taken_before_the_rename_still_renders():
+    """`pin_mismatches` was named for Cook's identifier; DC's is an SSL. The key is
+    parcel-generic now, and the old one is still read so a committed measurement
+    does not need hand-editing to survive a rename — the same rule applied to the
+    single-jurisdiction results shape."""
+    data = _juris("Cook County Assessor (Open Data)", "9999999999999999")
+    data["pin_mismatches"] = 3
+    page = M._render({"generated": "2026-08-24", "jurisdictions": {"cook": data}})
+    assert "3 landed on a different parcel" in page
 
 
 def test_the_page_states_the_sampled_count_not_the_scored_one():
