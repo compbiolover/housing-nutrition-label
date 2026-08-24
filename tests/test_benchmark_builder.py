@@ -139,7 +139,12 @@ def _cook_portal(pin_for_offset):
         if params.get("$select") == "pin":
             row = pin_for_offset(params.get("$offset"))
             return None if row is None else [row]
-        return [{"pin": "1" * 14, "card": "1", "char_yrblt": "1990"}]
+        # A card for each PIN the caller actually asked about. Returning a fixed
+        # one made this stub the very truncated response _primary_cards now
+        # refuses — the stub has to answer the query, not a query.
+        import re
+        asked = re.findall(r"'([^']+)'", params.get("$where", ""))[1:]
+        return [{"pin": q, "card": "1", "char_yrblt": "1990"} for q in asked]
     return fetch
 
 
@@ -269,6 +274,31 @@ def test_a_registered_jurisdiction_with_no_sampler_fails_rather_than_drawing_dc(
         assert f'juris == "{key}"' in dispatch, (
             f"{key} is registered but the builder's dispatch does not name it, so "
             f"it would fall through to the refusal or to another jurisdiction's draw")
+
+
+def test_a_card_lookup_that_omits_a_requested_pin_fails_the_build():
+    """Short answers are legitimate for the parcel-layer joins and not here. Every
+    PIN in the chunk was returned by this same table for this same year moments
+    ago, so each provably has a card; a missing one is a truncated response, and
+    it would vanish from the sample and publish as a house with no address."""
+    def fetch(url, params):
+        asked = __import__("re").findall(r"'([^']+)'", params.get("$where", ""))[1:]
+        return [{"pin": q, "card": "1"} for q in asked[:-1]]     # one short
+    with _fetching(fetch):
+        msg = _refuses(lambda: B._primary_cards("2024", ["1" * 14, "2" * 14]))
+    assert "truncated" in msg, msg
+
+
+def test_a_parcel_layer_gap_is_still_allowed_to_be_short():
+    """The complement, so the distinction is pinned rather than remembered: these
+    parcels really can be missing from the layer, and making that fatal would break
+    the build for an honest data gap."""
+    body = {"features": [{"attributes": {
+        "PIN14": "1" * 14, "street_address": "1 MAIN ST",
+        "city_state_zip": "CHICAGO IL 60601"}}]}
+    with _fetching(lambda url, params: body):
+        got = B._parcel_info(["1" * 14, "2" * 14])
+    assert list(got) == ["1" * 14], got
 
 
 def _run_all() -> int:

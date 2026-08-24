@@ -563,6 +563,20 @@ def test_only_the_legacy_path_may_go_unstamped():
                 "legacy must excuse a MISSING stamp, never a contradicting one")
 
 
+def test_an_unreadable_results_shape_is_not_treated_as_an_empty_store():
+    """"Merge, never replace" has to hold against a file this code does not
+    recognise — precisely when it is least safe to assume there is nothing to
+    preserve. as_jurisdictions returns {} for an unknown shape, and continuing
+    would delete every other jurisdiction's measurement to fix a schema mistake."""
+    assert M.as_jurisdictions({"something": "else"}) == {}, (
+        "if this ever returns sections for an unknown shape, the guard that "
+        "depends on it being empty needs revisiting")
+    src = pathlib.Path(M.__file__).read_text()
+    assert "if previous and not juris_map:" in src, (
+        "the merge must refuse a non-empty results file it cannot read, rather "
+        "than writing this run's section alone over it")
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]

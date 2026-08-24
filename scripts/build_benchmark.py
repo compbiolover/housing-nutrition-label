@@ -178,9 +178,19 @@ def _batch_or_die(url: str, params: dict, what: str, n: int) -> list:
     body = _fetch(url, params)
     rows = body.get("features") if isinstance(body, dict) else body
     if body is None or (isinstance(body, dict) and body.get("error")) or not rows:
+        # An empty answer is AMBIGUOUS here, and deliberately resolved as failure.
+        # A portal returning nothing because it is unwell and a portal returning
+        # nothing because an `IN` list genuinely matched no rows are byte-identical
+        # — there is no discriminator in the response. Guessing "no rows" makes a
+        # silent, invisible bias; guessing "outage" makes a loud, recoverable stop.
+        # Only one of those can be noticed, so the message names the ambiguity
+        # rather than asserting a cause.
         raise SystemExit(
-            f"{what} failed for a batch of {n}; refusing to write a benchmark "
-            f"missing them. Try again when the portal is healthy.")
+            f"{what} returned nothing for a batch of {n}. Either the portal is "
+            f"unwell or none of those {n} exists in that layer, and the response "
+            f"cannot tell the two apart — so this refuses rather than write a "
+            f"benchmark that may be missing them invisibly. Retry; if it repeats "
+            f"identically, check whether those records are really absent.")
     return rows
 
 
@@ -282,6 +292,22 @@ def _primary_cards(year: str, pins: list[str]) -> list[dict]:
             "$where": where, "$order": "pin, card", "$limit": "5000",
         }, "card lookup", len(chunk)):
             out.setdefault(str(row.get("pin")), row)     # first = lowest card
+        # A SHORT answer is legitimate for the parcel-layer joins — those parcels
+        # really can be absent from the layer, which is what a `no_address` drop
+        # records. It is NOT legitimate here, and treating the two the same was a
+        # rule generalised past its evidence: every PIN in this chunk was returned
+        # by THIS table filtered to THIS year moments ago, so each provably has a
+        # card. A missing one is a truncated response (a `$limit` cut, a partial
+        # page), and it would vanish from the sample and be published as a house
+        # the assessor never gave an address for.
+        missing = [q for q in chunk if q not in out]
+        if missing:
+            raise SystemExit(
+                f"the card lookup returned no row for {len(missing)} of "
+                f"{len(chunk)} PINs that this same table listed for {year} "
+                f"(first: {missing[0]}). That is a truncated response, not a gap "
+                f"in the county's records, and dropping those parcels would bias "
+                f"the draw invisibly. Try again when the portal is healthy.")
         log.info("  primary card %d/%d", min(i + CAMA_BATCH, len(pins)), len(pins))
         time.sleep(0.05)
     return [out[p] for p in pins if p in out]

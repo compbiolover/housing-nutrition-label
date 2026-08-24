@@ -776,8 +776,28 @@ def main() -> int:
             "ASSESSOR_ADAPTERS=1 to run, or --render-only to rebuild the page from "
             "the committed results.")
 
-    meta = json.loads(meta_file.read_text()) if meta_file.exists() else {}
+    if not meta_file.exists():
+        # A benchmark with no metadata has no provenance, and a measurement whose
+        # provenance is unknown is the one thing this page must not publish. It is
+        # also reachable: a build interrupted between the CSV rename and the
+        # metadata rename leaves exactly this. The named path is already refused by
+        # the jurisdiction stamp; this covers the legacy one, which is exempt from
+        # that check and would otherwise be scored and then crash the renderer
+        # AFTER results.json had been replaced.
+        raise SystemExit(
+            f"{meta_file.name} is missing, so {benchmark.name} has no recorded "
+            f"provenance — an interrupted build leaves exactly this. Rebuild with "
+            f"scripts/build_benchmark.py --jurisdiction {juris}.")
+    meta = json.loads(meta_file.read_text())
     payload = _verify_benchmark(benchmark, meta, juris, legacy=legacy)
+    # Checked before scoring, not discovered during render: the page is written
+    # AFTER results.json, so a field missing here would abort a 45-minute run with
+    # the published state already half-replaced.
+    for field in ("source", "assessment_year", "fetched", "rows"):
+        if not meta.get(field):
+            raise SystemExit(
+                f"{meta_file.name} has no {field!r}, which the published page "
+                f"states for every measurement. Rebuild the benchmark.")
     rows = list(csv.DictReader(io.StringIO(payload.decode())))
     if args.limit is not None:
         # `if args.limit` would read 0 as "no limit" and quietly score the whole
@@ -857,6 +877,16 @@ def main() -> int:
     with _results_lock():
         previous = json.loads(RESULTS.read_text()) if RESULTS.exists() else {}
         juris_map = dict(as_jurisdictions(previous))
+        if previous and not juris_map:
+            # "Merge, never replace" has to hold against a file this code does not
+            # recognise, which is precisely when it is least safe to assume there
+            # is nothing to preserve. as_jurisdictions returns {} for an unknown
+            # shape, and continuing would write this run's section alone — deleting
+            # every other jurisdiction's measurement to fix a schema mistake.
+            raise SystemExit(
+                f"{RESULTS.name} is not empty but no jurisdiction sections could be "
+                f"read from it. Writing now would replace whatever it holds with "
+                f"this run alone. Inspect it (or move it aside) and re-run.")
         juris_map[juris] = measured
         results = {"generated": date.today().isoformat(), "jurisdictions": juris_map}
         _write_atomic(RESULTS, json.dumps(results, indent=2) + "\n")
