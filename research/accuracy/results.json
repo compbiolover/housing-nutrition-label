@@ -1,0 +1,135 @@
+{
+  "generated": "2026-08-24",
+  "benchmark": {
+    "source": "Cook County Assessor (Open Data)",
+    "assessment_year": "2026",
+    "fetched": "2026-08-24",
+    "rows": 217,
+    "sha256_16": "99d3c612912da46b"
+  },
+  "adapter_resolved_pct": 84.8,
+  "baseline": {
+    "fields": {
+      "year_built": {
+        "n": 217,
+        "coverage_pct": 100.0,
+        "median_abs_error": 14.0,
+        "exact_pct": 4.1,
+        "within_5yr_pct": 29.5,
+        "within_10yr_pct": 41.5
+      },
+      "sqft": {
+        "n": 217,
+        "coverage_pct": 100.0,
+        "median_abs_error": 309.1,
+        "exact_pct": 19.4,
+        "median_abs_pct_error": 23.1
+      },
+      "stories": {
+        "n": 174,
+        "coverage_pct": 75.3,
+        "median_abs_error": 0.0,
+        "exact_pct": 61.8
+      },
+      "construction": {
+        "n": 215,
+        "coverage_pct": 100.0,
+        "exact_pct": 47.0
+      },
+      "foundation": {
+        "n": 217,
+        "coverage_pct": 100.0,
+        "exact_pct": 47.5
+      },
+      "condition": {
+        "n": 217,
+        "coverage_pct": 100.0,
+        "exact_pct": 98.6
+      }
+    },
+    "grade_impact": {
+      "durability": {
+        "n": 217,
+        "differs_pct": 37.3
+      },
+      "energy": {
+        "n": 217,
+        "differs_pct": 36.9
+      },
+      "resilience": {
+        "n": 217,
+        "differs_pct": 2.8
+      },
+      "environmental": {
+        "n": 217,
+        "differs_pct": 35.0
+      },
+      "building_axis": {
+        "n": 217,
+        "differs_pct": 30.4
+      }
+    }
+  },
+  "adapter": {
+    "fields": {
+      "year_built": {
+        "n": 217,
+        "coverage_pct": 100.0,
+        "median_abs_error": 0.0,
+        "exact_pct": 82.5,
+        "within_5yr_pct": 86.6,
+        "within_10yr_pct": 89.4
+      },
+      "sqft": {
+        "n": 217,
+        "coverage_pct": 100.0,
+        "median_abs_error": 0.0,
+        "exact_pct": 83.4,
+        "median_abs_pct_error": 0.0
+      },
+      "stories": {
+        "n": 174,
+        "coverage_pct": 96.0,
+        "median_abs_error": 0.0,
+        "exact_pct": 92.8
+      },
+      "construction": {
+        "n": 215,
+        "coverage_pct": 100.0,
+        "exact_pct": 89.8
+      },
+      "foundation": {
+        "n": 217,
+        "coverage_pct": 100.0,
+        "exact_pct": 90.8
+      },
+      "condition": {
+        "n": 217,
+        "coverage_pct": 100.0,
+        "exact_pct": 100.0
+      }
+    },
+    "grade_impact": {
+      "durability": {
+        "n": 217,
+        "differs_pct": 6.5
+      },
+      "energy": {
+        "n": 217,
+        "differs_pct": 6.5
+      },
+      "resilience": {
+        "n": 217,
+        "differs_pct": 0.5
+      },
+      "environmental": {
+        "n": 217,
+        "differs_pct": 7.8
+      },
+      "building_axis": {
+        "n": 217,
+        "differs_pct": 6.5
+      }
+    }
+  }
+}
