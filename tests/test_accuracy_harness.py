@@ -823,6 +823,28 @@ def test_every_rendered_drop_reason_is_one_the_summation_counts():
             f"{key} is rendered but was not counted toward completeness")
 
 
+def test_a_failed_rename_leaves_no_temp_file_behind():
+    """`_staged` returns a live file, so a failing `replace` propagates and leaves
+    `<name>.<random>.tmp` behind. The cleanup existed in `_publish` and not in the
+    helper beside it."""
+    with tempfile.TemporaryDirectory() as tmp:
+        # The target is a NON-EMPTY DIRECTORY, so staging succeeds and the rename
+        # is what fails. A missing parent would fail inside `_staged` instead,
+        # before any temp exists — which is what my first version of this test did,
+        # so it passed against the unfixed code and proved nothing.
+        target = pathlib.Path(tmp) / "out.txt"
+        target.mkdir()
+        (target / "occupant").write_text("x")
+        try:
+            M._write_atomic(target, "x")
+        except OSError:
+            pass
+        else:
+            raise AssertionError("a failed rename reported success")
+        assert not list(pathlib.Path(tmp).glob("*.tmp")), (
+            f"temp file left behind: {list(pathlib.Path(tmp).glob('*.tmp'))}")
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]

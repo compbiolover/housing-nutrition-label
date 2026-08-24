@@ -125,7 +125,7 @@ def test_a_short_batch_is_not_a_failure():
         "PIN14": "1" * 14, "street_address": "1 MAIN ST",
         "city_state_zip": "CHICAGO IL 60601", "latitude": 41.0, "longitude": -87.0}}]}
     with _fetching(lambda url, params: body):
-        got = B._parcel_info(["1" * 14, "2" * 14])
+        got, present = B._parcel_info(["1" * 14, "2" * 14])
     assert list(got) == ["1" * 14], got
 
 
@@ -232,7 +232,7 @@ def test_a_parcel_with_no_coordinates_still_reaches_the_benchmark():
         "PIN14": "1" * 14, "street_address": "1 MAIN ST",
         "city_state_zip": "CHICAGO IL 60601", "latitude": None, "longitude": None}}]}
     with _fetching(lambda url, params: body):
-        got = B._parcel_info(["1" * 14])
+        got, present = B._parcel_info(["1" * 14])
     assert list(got) == ["1" * 14], got
     assert got["1" * 14]["address"] == "1 MAIN ST, CHICAGO IL 60601"
     assert got["1" * 14]["lat"] == "" and got["1" * 14]["lon"] == ""
@@ -242,7 +242,7 @@ def test_a_parcel_with_no_address_is_still_dropped():
     """The one legitimate absence: no address means nothing to geocode."""
     body = {"features": [{"attributes": {"PIN14": "1" * 14, "street_address": ""}}]}
     with _fetching(lambda url, params: body):
-        assert B._parcel_info(["1" * 14]) == {}
+        assert B._parcel_info(["1" * 14])[0] == {}
 
 
 def test_both_scripts_read_one_jurisdiction_registry():
@@ -297,7 +297,7 @@ def test_a_parcel_layer_gap_is_still_allowed_to_be_short():
         "PIN14": "1" * 14, "street_address": "1 MAIN ST",
         "city_state_zip": "CHICAGO IL 60601"}}]}
     with _fetching(lambda url, params: body):
-        got = B._parcel_info(["1" * 14, "2" * 14])
+        got, present = B._parcel_info(["1" * 14, "2" * 14])
     assert list(got) == ["1" * 14], got
 
 
@@ -328,7 +328,7 @@ def test_a_parcel_with_a_key_but_no_address_is_still_a_plain_drop():
     `no_address`, not a malformed response. The two must not collapse together."""
     dc = {"features": [{"attributes": {"SSL": "1234 0056", "PREMISEADD": ""}}]}
     with _fetching(lambda url, params: dc):
-        assert B._dc_place(["1234 0056"]) == {}
+        assert B._dc_place(["1234 0056"])[0] == {}
 
 
 def test_a_parcel_identifier_outside_the_requested_batch_stops_the_build():
@@ -355,7 +355,7 @@ def test_a_whitespace_only_address_is_not_an_address():
         "PIN14": "1" * 14, "street_address": "   ",
         "city_state_zip": "CHICAGO IL 60601"}}]}
     with _fetching(lambda url, params: body):
-        assert B._parcel_info(["1" * 14]) == {}
+        assert B._parcel_info(["1" * 14])[0] == {}
 
 
 def test_a_paged_offset_read_is_not_a_truncated_batch():
@@ -385,6 +385,29 @@ def test_a_paged_offset_read_is_not_a_truncated_batch():
     # ...while the batch helper must still refuse exactly that response.
     with _fetching(lambda url, params: body):
         _refuses(lambda: B._batch_or_die("u", {}, "parcel lookup", 40))
+
+
+def test_the_join_reports_which_parcels_the_layer_actually_held():
+    """"Absent from the layer" and "present with no address" are different facts
+    about the assessor, and both used to leave the same trace — no entry in the
+    returned map — so the build reported every addressless parcel as one the layer
+    had never heard of. Splitting the drop REASONS without making the DATA carry
+    the distinction only relabelled the misattribution, and left `no_address` a
+    branch that could never be taken.
+    """
+    body = {"features": [{"attributes": {
+        "PIN14": "1" * 14, "street_address": "",              # held, no address
+        "city_state_zip": "CHICAGO IL 60601"}}]}
+    with _fetching(lambda url, params: body):
+        out, present = B._parcel_info(["1" * 14, "2" * 14])
+    assert out == {}, "a parcel with no address is still not usable"
+    assert "1" * 14 in present, "the layer held it; the build must be able to say so"
+    assert "2" * 14 not in present, "the layer never returned this one"
+
+    dc = {"features": [{"attributes": {"SSL": "1234 0056", "PREMISEADD": "  "}}]}
+    with _fetching(lambda url, params: dc):
+        out, present = B._dc_place(["1234 0056", "9999 0001"])
+    assert out == {} and present == {"1234 0056"}
 
 
 def _run_all() -> int:

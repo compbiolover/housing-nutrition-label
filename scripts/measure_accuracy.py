@@ -773,7 +773,16 @@ def _verify_benchmark(path: pathlib.Path, meta: dict, juris: str,
 
 
 def _publish(results: dict) -> None:
-    """Replace the results file and the page, or replace neither.
+    """Replace the results file and the page, or replace neither — in this process.
+
+    Worth stating the limit rather than implying more. Two renames cannot be one
+    atomic step, so a KILL between them (SIGKILL, power loss) still leaves new
+    results beside the old page. That state is not silent: `--check` compares
+    exactly those two files, fails, and names `--render-only` as the repair, which
+    rebuilds the page from the results now on disk. A generation or manifest scheme
+    would close the window properly, and does not earn its keep for a script run by
+    hand whose exposure is the microseconds between two renames and whose failure
+    is loudly detected by the gate that already runs on every commit.
 
     The page used to be written second, straight from `_render(results)` in the
     argument list. Anything that made rendering raise — a section carried over
@@ -844,8 +853,20 @@ def _staged(path: pathlib.Path, data: bytes) -> pathlib.Path:
 
 
 def _write_atomic(path: pathlib.Path, text: str) -> None:
-    """Write via a temporary file and rename, so no reader sees a partial file."""
-    _staged(path, text.encode()).replace(path)
+    """Write via a temporary file and rename, so no reader sees a partial file.
+
+    The rename is wrapped because `_staged` has already created a live file by the
+    time it returns: a failing `replace` — a permissions change, an open target on
+    Windows — otherwise propagates and leaves `<name>.<random>.tmp` behind. The
+    cleanup existed in `_publish` and not in the helper beside it, which is the
+    same one-branch-and-not-its-neighbour pattern as most findings on this change.
+    """
+    tmp = _staged(path, text.encode())
+    try:
+        tmp.replace(path)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
 
 
 def main() -> int:

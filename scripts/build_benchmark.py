@@ -320,9 +320,19 @@ def _primary_cards(year: str, pins: list[str]) -> list[dict]:
     return [out[p] for p in pins if p in out]
 
 
-def _parcel_info(pins: list[str]) -> dict[str, dict]:
-    """PIN → {street_address, lat, lon} from the parcel layer, in batches."""
+def _parcel_info(pins: list[str]) -> tuple[dict[str, dict], set[str]]:
+    """PIN → {street_address, lat, lon}, and the PINs the layer held a record for.
+
+    The second value exists because "absent from the layer" and "present with no
+    address" are different facts about the assessor, and both used to leave the
+    same trace: no entry in the returned map. The build reported every addressless
+    parcel as one the layer had never heard of — a stronger claim than the evidence
+    supports, and the very misattribution the split into separate drop reasons was
+    supposed to end. Splitting the REPORT without making the DATA carry the
+    distinction just relabelled it.
+    """
     out: dict[str, dict] = {}
+    present: set[str] = set()
     for i in range(0, len(pins), PARCEL_BATCH):
         chunk = pins[i:i + PARCEL_BATCH]
         wanted = set(chunk)
@@ -363,6 +373,7 @@ def _parcel_info(pins: list[str]) -> dict[str, dict]:
             # published note then reported those as records the assessor never
             # documented. DC already carried an empty point rather than dropping
             # the row; this is the same rule.
+            present.add(pin)
             street = (a.get("street_address") or "").strip()
             if pin and street:
                 # Full mailing form, so the harness can geocode each row the way a
@@ -376,7 +387,7 @@ def _parcel_info(pins: list[str]) -> dict[str, dict]:
                             "lat": a.get("latitude") or "", "lon": a.get("longitude") or ""}
         log.info("  resolved %d/%d parcels", min(i + PARCEL_BATCH, len(pins)), len(pins))
         time.sleep(0.05)
-    return out
+    return out, present
 
 
 # --- Washington, DC ------------------------------------------------------------
@@ -493,9 +504,13 @@ def _ring_point(geom: dict) -> tuple[float, float] | None:
     return (sum(p[1] for p in pts) / len(pts), sum(p[0] for p in pts) / len(pts))
 
 
-def _dc_place(ssls: list[str]) -> dict[str, dict]:
-    """SSL → {address, lat, lon} from the parcel layer, in batches."""
+def _dc_place(ssls: list[str]) -> tuple[dict[str, dict], set[str]]:
+    """SSL → {address, lat, lon}, and the SSLs the layer held a record for.
+
+    See ``_parcel_info`` for why the second value exists.
+    """
     out: dict[str, dict] = {}
+    present: set[str] = set()
     for i in range(0, len(ssls), DC_BATCH):
         chunk = ssls[i:i + DC_BATCH]
         wanted = set(chunk)
@@ -522,6 +537,7 @@ def _dc_place(ssls: list[str]) -> dict[str, dict]:
                     f"batch of {len(chunk)} requested. The response does not "
                     f"answer the query, and continuing would report every parcel "
                     f"in this batch as undocumented.")
+            present.add(ssl)
             if not addr:
                 continue
             pt = _ring_point(f.get("geometry") or {})
@@ -531,7 +547,7 @@ def _dc_place(ssls: list[str]) -> dict[str, dict]:
                         "lat": pt[0] if pt else "", "lon": pt[1] if pt else ""}
         log.info("  resolved %d/%d parcels", min(i + DC_BATCH, len(ssls)), len(ssls))
         time.sleep(0.05)
-    return out
+    return out, present
 
 
 def _dc_truth(row: dict) -> dict | None:
@@ -605,13 +621,13 @@ def main() -> int:
         year = _latest_year()
         sample, draw = _cama_sample(year, args.rows)
         keys = [str(r["pin"]).zfill(14) for r in sample]
-        info = _parcel_info(keys)
+        info, present = _parcel_info(keys)
         truth_of, key_of = _truth, (lambda r: str(r["pin"]).zfill(14))
     elif juris == "dc":
         year = "current"
         sample, draw = _dc_sample(args.rows)
         keys = [(r.get("SSL") or "").strip() for r in sample]
-        info = _dc_place([k for k in keys if k])
+        info, present = _dc_place([k for k in keys if k])
         truth_of, key_of = _dc_truth, (lambda r: (r.get("SSL") or "").strip())
     else:
         # The CLI takes its choices from the registry, so a third entry becomes
@@ -644,7 +660,10 @@ def main() -> int:
         key = key_of(row)
         place = info.get(key)
         if not place:
-            dropped["no_parcel_record"] += 1
+            # Which of the two it was is now knowable, so it is stated rather than
+            # guessed at: the layer either had no record for this parcel, or had
+            # one carrying no address.
+            dropped["no_address" if key in present else "no_parcel_record"] += 1
             continue
         truth = truth_of(row)
         if not truth:
