@@ -210,9 +210,10 @@ not a defect anyone can see, and a small one that crosses a code-era boundary is
 
 Published at [housinglabel.dev/accuracy.html](https://housinglabel.dev/accuracy.html)
 and regenerated from a committed measurement run, which CI verifies the page still
-matches. The sample is **Cook County, Illinois only** — the one county with both
-an adapter and free published ground truth — so it is a real measurement of one
-county's housing stock and not a national accuracy figure.
+matches. The sample is **Cook County, Illinois only** — a real measurement of one
+county's housing stock, not a national accuracy figure. Washington, DC now has an
+adapter too, and measuring it is the obvious next run; until that happens these
+numbers describe Cook and nothing else.
 
 The measurement feeds back into the label rather than only being published. Where a
 dimension's grade was measured as sensitive to construction provenance — durability
@@ -229,7 +230,7 @@ measurements taken from it live in this repository.
 ## Data Sources
 
 <details>
-<summary><strong>All sources & API-key requirements</strong> (20 datasets, all free)</summary>
+<summary><strong>All sources & API-key requirements</strong> (21 datasets, all free)</summary>
 
 | Source | Provides | API key |
 |---|---|---|
@@ -252,6 +253,7 @@ measurements taken from it live in this repository.
 | [Census ACS 5-yr Summary File](https://www.census.gov/programs-surveys/acs/data/summary-file.html) | Socioeconomic indicators (poverty, income, housing-cost burden), national reference | Free, no key (bundled; the live scoring path needs no key) |
 | [Census ACS 5-yr Summary File](https://www.census.gov/programs-surveys/acs/data/summary-file.html) | Tract year-built distribution — B25034 quartiles + B25035 median (the vintage stand-in and its spread, when nobody supplies the real year) | Free, no key (bundled) |
 | [Cook County Assessor](https://datacatalog.cookcountyil.gov/) (Open Data) | **Observed** parcel construction: year built, living area, exterior wall, basement type, condition, stories — Cook County, IL only, queried live and never bundled | Free, no key (off unless `ASSESSOR_ADAPTERS=1`) |
+| [DC Office of Tax and Revenue](https://opendata.dc.gov/) (Open Data DC) | **Observed** parcel construction: year built, gross floor area, stories, exterior wall, condition — Washington, DC only, queried live and never bundled | Free, no key (off unless `ASSESSOR_ADAPTERS=1`) |
 | [EPA National Walkability Index](https://www.epa.gov/smartgrowth/national-walkability-index-user-guide-and-methodology) | Walkability (block-group index, aggregated to tract) | Free, public domain (bundled) |
 
 > Tract geocoding for the health and socioeconomic joins uses the free [FCC Area API](https://geo.fcc.gov/api/census/) (no key).

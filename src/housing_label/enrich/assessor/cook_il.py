@@ -53,13 +53,12 @@ are not requested; when an HVAC input appears they are already here.
 
 from __future__ import annotations
 
-import json
 import logging
-import time
 from functools import lru_cache
 
-import requests
-
+from housing_label.enrich.assessor._shared import (
+    arcgis_parcels, cache_bucket, deadline_from, get_json, num, select_parcel,
+)
 from housing_label.enrich.assessor.base import AssessorRecord
 
 log = logging.getLogger(__name__)
@@ -72,19 +71,6 @@ DATA_VINTAGE = "Cook County Assessor iasWorld improvement characteristics (refre
 PARCEL_URL = ("https://gis.cookcountyil.gov/traditional/rest/services"
               "/CookViewer3Parcels/MapServer/0/query")
 CAMA_URL = "https://datacatalog.cookcountyil.gov/resource/x54s-btds.json"
-
-# Two hops share one budget. The hosted API allows ~12 s for a whole upstream and
-# this is a nicety on the critical path, so it gets a fraction of that and no
-# retries — a slow county portal must cost a visitor a moment, not a page.
-TIMEOUT = 4.0
-
-# How far from an interpolated geocode to look for the parcel whose street address
-# matches. Sized from the observed error: the Barrington case misses by 38 m, and
-# a 20 m buffer there does not reach the right parcel. It is safe to be generous
-# because distance does not decide anything — the house number does.
-SEARCH_RADIUS_M = 80
-
-HEADERS = {"User-Agent": "housing-nutrition-label (assessor adapter)"}
 
 # County wording → the label's vocabulary. Anything absent here is dropped; see
 # the module docstring for which values that is and why.
@@ -127,168 +113,11 @@ _CONDITION = {
 _STORIES = {"1 Story": 1, "2 Story": 2}
 
 
-# Street-type suffixes, mapped to a canonical form. They are NOT dropped: "213
-# MAIN ST" and "213 MAIN AVE" are different streets that can both exist within
-# one buffer, and collapsing both to "MAIN" would let the wrong parcel pass the
-# confirmation step and be reported as a confident "observed" answer — exactly
-# what that step exists to prevent.
-# They are canonicalised rather than compared raw because the geocoder and the
-# parcel layer abbreviate differently ("STREET" vs "ST") for the same street.
-#
-# Directionals are neither dropped nor canonicalised away, for the same reason:
-# "213 W Main" and "213 E Main" are different houses.
-_SUFFIXES = {
-    "st": "st", "street": "st", "ave": "ave", "avenue": "ave", "rd": "rd",
-    "road": "rd", "dr": "dr", "drive": "dr", "ln": "ln", "lane": "ln",
-    "ct": "ct", "court": "ct", "blvd": "blvd", "boulevard": "blvd",
-    "pl": "pl", "place": "pl", "way": "way", "ter": "ter", "terrace": "ter",
-    "pkwy": "pkwy", "parkway": "pkwy", "cir": "cir", "circle": "cir",
-    "hwy": "hwy", "highway": "hwy", "trl": "trl", "trail": "trl",
-}
-# Everything from a unit marker onwards is dropped: the parcel layer writes
-# "234 W STATION ST B12" for one condo, and a unit number must not decide whether
-# two records describe the same building.
-_UNIT_MARKERS = frozenset({"apt", "unit", "ste", "suite", "#", "fl", "floor", "rm"})
-
-
-def _addr_key(raw: str | None) -> tuple[str, tuple[str, ...], str | None] | None:
-    """(house number, street-name tokens, canonical suffix), or None if unusable.
-
-    Deliberately strict: the number is what separates 213 W Main from the 205 and
-    209 that can sit closer to an interpolated geocode, and the street type is what
-    separates 213 Main St from 213 Main Ave when a corner puts both inside one
-    buffer. Only the unit is treated as noise, because it genuinely differs between
-    two records of the same building.
-
-    The suffix is returned separately from the name tokens so a record that omits
-    it entirely ("213 W MAIN") can still match one that has it, without letting two
-    different street types match each other.
-    """
-    if not raw:
-        return None
-    head = str(raw).split(",")[0].strip().lower()
-    tokens = [t.strip(".") for t in head.replace("#", " # ").split() if t.strip(".")]
-    if not tokens or not tokens[0].isdigit():
-        return None                       # no house number → nothing to anchor on
-    number, rest = tokens[0], tokens[1:]
-    for i, t in enumerate(rest):           # everything from a unit marker on is noise
-        if t in _UNIT_MARKERS:
-            rest = rest[:i]
-            break
-    # The parcel layer also writes the unit with no marker at all — "234 W STATION
-    # ST B12". Only a trailing token that carries a digit AND sits directly after a
-    # street type is taken as one: that is specific enough to catch "ST B12" while
-    # leaving "100 ROUTE 66" alone, where the digit-bearing token is the street's
-    # own name rather than a unit.
-    if len(rest) >= 2 and rest[-2] in _SUFFIXES and any(c.isdigit() for c in rest[-1]):
-        rest = rest[:-1]
-    # Only a TERMINAL street type is a street type. Consuming the token wherever it
-    # appeared collapsed "213 ST JOHN ST" onto "213 JOHN ST" and "100 PARK PLACE DR"
-    # onto "100 PARK DR" — both real naming patterns, and both exactly the
-    # confident-but-wrong "observed" match this comparison exists to reject.
-    suffix: str | None = None
-    if rest and rest[-1] in _SUFFIXES:
-        suffix = _SUFFIXES[rest[-1]]
-        rest = rest[:-1]
-    return (number, tuple(rest), suffix) if rest else None
-
-
-def _same_address(a: str | None, b: str | None) -> bool:
-    """Whether two address strings name the same building.
-
-    Every part must agree. An earlier revision accepted one street-name token set
-    *containing* the other, which reads as tolerant and is not: it matches "MAIN"
-    to "MAIN STATION", two different streets, and combined with dropping the
-    suffix it also matched "MAIN ST" to "MAIN AVE". Both are precisely the
-    confident-but-wrong "observed" answer the confirmation step exists to stop, so
-    the name tokens must be equal.
-
-    The one asymmetry allowed is a missing street type on one side, since the
-    geocoder and the parcel layer do not always both carry it. Two *different*
-    types never match.
-    """
-    ka, kb = _addr_key(a), _addr_key(b)
-    if ka is None or kb is None:
-        return False
-    if ka[0] != kb[0] or ka[1] != kb[1]:
-        return False
-    return ka[2] is None or kb[2] is None or ka[2] == kb[2]
-
-
-def _num(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return None
-
-
-def _deadline(given: float | None) -> float:
-    """The shared budget's end instant. A caller that did not pass one gets a
-    fresh full budget, which is right for a single direct call and is why the
-    lookup path threads its own through every hop instead."""
-    return given if given is not None else time.monotonic() + TIMEOUT
-
-
-_CHUNK_BYTES = 8192
-_MAX_BYTES = 4 * 1024 * 1024
-
-
-def _get(url: str, params: dict, deadline: float):
-    """One request against the shared budget. Raises if the budget is spent.
-
-    TIMEOUT is the budget for the *whole* lookup, not for each hop. An off-parcel
-    address costs three requests (containment, buffer, characteristics), and giving
-    each of them the full timeout would let a slow portal hold the label for three
-    times the advertised budget on a host whose own HTTP budget is 12 s.
-    """
-    remaining = deadline - time.monotonic()
-    if remaining <= 0:
-        raise TimeoutError("assessor lookup budget exhausted")
-    # requests' timeout bounds the connect and the gap BETWEEN reads, not the total
-    # time spent reading — a portal dribbling one byte inside every window keeps the
-    # call alive indefinitely and blows the budget this whole function exists to
-    # enforce. So the body is streamed and the deadline checked as it arrives.
-    r = requests.get(url, params=params, headers=HEADERS, timeout=remaining,
-                     stream=True)
-    try:
-        r.raise_for_status()
-        chunks, size = [], 0
-        for chunk in r.iter_content(_CHUNK_BYTES):
-            if time.monotonic() >= deadline:
-                raise TimeoutError("assessor lookup budget exhausted while reading")
-            size += len(chunk)
-            # These responses are a single row or a handful of parcels. A body
-            # orders of magnitude larger is a misrouted query or a portal error
-            # page, and reading it to the end would spend the budget on something
-            # that cannot be an answer.
-            if size > _MAX_BYTES:
-                raise RuntimeError(f"assessor response exceeded {_MAX_BYTES} bytes")
-            chunks.append(chunk)
-        body = json.loads(b"".join(chunks) or b"null")
-    finally:
-        r.close()
-    # ArcGIS reports failures in a 200 body rather than by status. Left unraised it
-    # reads as "no parcels here", and because the lookup is cached that turns a
-    # transient portal error into a cached None for this point until eviction.
-    if isinstance(body, dict) and body.get("error"):
-        raise RuntimeError(f"upstream error: {body['error']}")
-    return body
-
-
 def _parcels(lat: float, lon: float, distance_m: float = 0,
-             *, deadline: float | None = None) -> list[dict]:
+             *, deadline: float) -> list[dict]:
     """Parcel attributes at (or within ``distance_m`` of) a point."""
-    params = {
-        "geometry": f"{lon},{lat}", "geometryType": "esriGeometryPoint",
-        "inSR": "4326", "spatialRel": "esriSpatialRelIntersects",
-        "outFields": "PIN14,street_address", "returnGeometry": "false", "f": "json",
-    }
-    if distance_m:
-        params["distance"] = str(distance_m)
-        params["units"] = "esriSRUnit_Meter"
-    body = _get(PARCEL_URL, params, _deadline(deadline))
-    return [(f or {}).get("attributes") or {}
-            for f in ((body or {}).get("features") or [])]
+    return arcgis_parcels(PARCEL_URL, lat, lon, "PIN14,street_address",
+                          distance_m, deadline=deadline)
 
 
 def _clean_pin(attrs: dict) -> str | None:
@@ -303,44 +132,16 @@ def _pin_at(lat: float, lon: float, address: str | None = None,
             *, deadline: float | None = None) -> str | None:
     """Hop 1: the PIN of the parcel this point belongs to, or None.
 
-    Point-in-polygon first. That is the only unambiguous answer and it is the one
-    used wherever it exists.
-
-    It frequently does not exist. The Census geocoder interpolates a large share of
-    addresses along the street centerline, which lands the point in the roadway
-    between parcels — measured at 213 W Main St, Barrington: the geocode falls 38 m
-    from the parcel and hits no polygon at all. Widening to the nearest parcel is
-    the obvious repair and it is wrong: at a 10 m buffer the two nearest parcels
-    there are 205 and 209, and a nearest-match would have reported a neighbour's
-    1881 house as this address's, tagged "observed" with high confidence. That is a
-    worse answer than the tract typical it would replace.
-
-    So the buffer is only used with the geocoder's own matched address in hand, and
-    a parcel is accepted only when its street address agrees. No address, or no
-    agreement, or more than one agreeing parcel → None.
-
-    Containment is confirmed against the address too, when there is one. The same
-    38 m of interpolation error that lands a point in the roadway can equally land
-    it inside the *neighbour's* polygon — city lots are far narrower than the error
-    — so a sole containing parcel is not by itself evidence that it is the right
-    one. When it disagrees, the search widens rather than giving up: the buffer is
-    anchored on the address, so it can still find the correct parcel nearby.
+    The selection policy — containment confirmed by address, then an
+    address-anchored buffer — is shared; see ``_shared.select_parcel`` for why it
+    is shaped that way. Cook's parcel layer keeps the city in its own column, so
+    ``street_address`` is already free of a locality tail and no trim is needed.
     """
-    deadline = _deadline(deadline)
-    exact = _parcels(lat, lon, deadline=deadline)
-    if len(exact) == 1 and not address:
-        # Nothing to confirm against. Containment alone is all there is, and it is
-        # the answer wherever the geocode landed on real parcel geometry.
-        return _clean_pin(exact[0])
-    if len(exact) == 1 and _same_address(address, exact[0].get("street_address")):
-        return _clean_pin(exact[0])
-    if len(exact) > 1 or not address:
-        # Overlapping parcels are ambiguous, and without an address there is
-        # nothing to disambiguate a buffer with.
-        return None
-    hits = [a for a in _parcels(lat, lon, SEARCH_RADIUS_M, deadline=deadline)
-            if _same_address(address, a.get("street_address"))]
-    return _clean_pin(hits[0]) if len(hits) == 1 else None
+    deadline = deadline_from(deadline)
+    chosen = select_parcel(
+        lambda d: _parcels(lat, lon, d, deadline=deadline),
+        address, lambda a: a.get("street_address"))
+    return _clean_pin(chosen) if chosen else None
 
 
 def _assessment_year(row: dict) -> str | None:
@@ -352,33 +153,20 @@ def _assessment_year(row: dict) -> str | None:
 
 def _characteristics(pin: str, *, deadline: float | None = None) -> dict | None:
     """Hop 2: the newest assessment year's primary card for this PIN."""
-    rows = _get(CAMA_URL, {
+    rows = get_json(CAMA_URL, {
         "pin": pin,
         "$select": ("pin,year,card,char_yrblt,char_bldg_sf,char_ext_wall,"
                     "char_bsmt,char_repair_cnd,char_type_resd"),
         "$order": "year DESC, card ASC",
         "$limit": "1",
-    }, _deadline(deadline))
+    }, deadline_from(deadline))
     return rows[0] if rows else None
-
-
-# The county refreshes bi-weekly and the assessment roll advances, so a
-# process-lifetime cache lets a long-lived worker keep serving an observed value —
-# and its now-wrong roll date — indefinitely. The key carries a coarse time bucket
-# so entries age out on their own: the same point looked up in a later bucket is a
-# cache miss and re-queries. Cheaper and less breakable than an eviction thread,
-# and it bounds staleness to the bucket rather than to the worker's uptime.
-CACHE_TTL_S = 6 * 3600
-
-
-def _cache_bucket() -> int:
-    return int(time.time() // CACHE_TTL_S)
 
 
 @lru_cache(maxsize=4096)
 def _lookup_cached(lat: float, lon: float, address: str | None,
                    _bucket: int = 0) -> AssessorRecord | None:
-    deadline = time.monotonic() + TIMEOUT
+    deadline = deadline_from(None)
     pin = _pin_at(lat, lon, address, deadline=deadline)
     if not pin:
         return None
@@ -386,8 +174,8 @@ def _lookup_cached(lat: float, lon: float, address: str | None,
     if not row:
         return None
 
-    year = _num(row.get("char_yrblt"))
-    sqft = _num(row.get("char_bldg_sf"))
+    year = num(row.get("char_yrblt"))
+    sqft = num(row.get("char_bldg_sf"))
     # A year of 0 is the county's "not recorded", not the year zero; the same for
     # a zero floor area. Both would otherwise reach the scorer as facts.
     return AssessorRecord(
@@ -424,7 +212,7 @@ def lookup(lat: float, lon: float, address: str | None = None) -> AssessorRecord
         # Round before the cache so two clicks on the same rooftop share an entry.
         # 5 dp is ~1 m — finer than a parcel, coarse enough to be a useful key.
         return _lookup_cached(round(float(lat), 5), round(float(lon), 5), address,
-                              _cache_bucket())
+                              cache_bucket())
     except Exception as exc:  # noqa: BLE001
         log.debug("Cook County assessor lookup failed at %s,%s: %s", lat, lon, exc)
         return None
