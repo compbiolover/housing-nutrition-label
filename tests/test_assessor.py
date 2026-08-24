@@ -685,6 +685,65 @@ def test_a_response_that_arrives_in_time_is_parsed_normally():
         restore()
 
 
+def test_no_single_read_may_block_longer_than_the_slice():
+    """Streaming alone does not make the budget wall-clock: the deadline check can
+    only run once a chunk has ARRIVED, so a gap shorter than the read timeout but
+    longer than the remaining budget would be waited out in full and overshoot by
+    nearly the whole budget. Capping the READ half of the timeout bounds any single
+    stall, and therefore the overshoot, to the slice.
+
+    The connect half deliberately keeps the full remainder — a slow handshake is the
+    one wait that cannot be broken into slices.
+    """
+    from housing_label.enrich.assessor import _shared
+
+    seen = {}
+
+    class _Stub:
+        @staticmethod
+        def get(*_a, **kw):
+            seen["timeout"] = kw.get("timeout")
+            return _FakeResponse([b"[]"])
+
+    original = _shared.requests
+    _shared.requests = _Stub
+    try:
+        _shared.get_json("http://x", {}, time.monotonic() + 30)
+    finally:
+        _shared.requests = original
+
+    timeout = seen["timeout"]
+    assert isinstance(timeout, tuple), "a scalar timeout applies to reads too"
+    connect, read = timeout
+    assert read <= _shared._READ_SLICE_S, f"read timeout {read} exceeds the slice"
+    assert connect > _shared._READ_SLICE_S, (
+        "the connect half should keep the remaining budget, not the slice")
+
+
+def test_the_slice_never_outlives_what_is_left_of_the_budget():
+    """With almost no budget left, the slice must shrink to it rather than grant a
+    fresh second — otherwise the last hop of three could overrun on its own."""
+    from housing_label.enrich.assessor import _shared
+
+    seen = {}
+
+    class _Stub:
+        @staticmethod
+        def get(*_a, **kw):
+            seen["timeout"] = kw.get("timeout")
+            return _FakeResponse([b"[]"])
+
+    original = _shared.requests
+    _shared.requests = _Stub
+    try:
+        _shared.get_json("http://x", {}, time.monotonic() + 0.2)
+    finally:
+        _shared.requests = original
+
+    connect, read = seen["timeout"]
+    assert read <= 0.2 and connect <= 0.2
+
+
 def test_an_empty_body_is_a_failure_not_an_answer():
     """A 200 with no body is a portal glitch. Parsed as `null` it flows on as "no
     parcels here" and is CACHED as absence for the bucket's lifetime, so a

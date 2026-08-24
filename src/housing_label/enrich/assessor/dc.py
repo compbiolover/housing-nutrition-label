@@ -89,6 +89,13 @@ _EXT_WALL = {
     "Brick Veneer": "brick-frame",
     "Brick/Siding": "brick-frame",
     "Stone": "stone",
+    # Both halves are solid masonry, and the label has no combined class. Read as
+    # brick, which dominates DC masonry — the same knowingly LOSSY call the Cook
+    # adapter makes for its single "Masonry" category, and paid for the same way,
+    # in confidence rather than coverage (see TRANSLATED). It is the largest
+    # unmapped group in the city at ~4% of stock; the alternative is NSI's coarse
+    # guess for those, which is less accurate rather than more honest.
+    "Brick/Stone": "brick",
     "Concrete Block": "block",
     "Stucco Block": "block",
     "Vinyl Siding": "vinyl",

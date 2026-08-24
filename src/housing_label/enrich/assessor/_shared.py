@@ -46,6 +46,9 @@ SEARCH_RADIUS_M = 80
 
 HEADERS = {"User-Agent": "housing-nutrition-label (assessor adapter)"}
 
+# The longest a single socket read may block, and so the most the whole lookup can
+# overshoot its deadline. See get_json for why this is not simply `remaining`.
+_READ_SLICE_S = 1.0
 _CHUNK_BYTES = 8192
 _MAX_BYTES = 4 * 1024 * 1024
 
@@ -81,12 +84,25 @@ def get_json(url: str, params: dict, deadline: float):
     total time spent reading — a portal dribbling one byte inside every window
     keeps the call alive indefinitely and blows the budget this function exists to
     enforce. So the body is streamed and the deadline checked as it arrives.
+
+    Streaming alone does not make the budget wall-clock, because the check can only
+    run once a chunk has ARRIVED: a gap shorter than the read timeout but longer
+    than what is left would still be waited out in full, overshooting by nearly the
+    whole budget. So the read timeout is also capped to a slice, which bounds any
+    single stall — and therefore the overshoot — to ``_READ_SLICE_S`` rather than to
+    the budget. The connect timeout keeps the full remainder: a slow handshake is
+    the one wait that cannot be broken into slices.
+
+    The slice is a deliberate trade. Too small and an ordinarily slow portal is cut
+    off mid-body; at one second, against responses that are a single row and
+    complete in well under that, a gap this long is already a stall rather than
+    slowness.
     """
     remaining = deadline - time.monotonic()
     if remaining <= 0:
         raise TimeoutError("assessor lookup budget exhausted")
-    r = requests.get(url, params=params, headers=HEADERS, timeout=remaining,
-                     stream=True)
+    r = requests.get(url, params=params, headers=HEADERS, stream=True,
+                     timeout=(remaining, min(remaining, _READ_SLICE_S)))
     try:
         r.raise_for_status()
         chunks, size = [], 0
