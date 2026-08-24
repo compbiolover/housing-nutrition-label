@@ -126,16 +126,38 @@ def confidence_for_label(label: dict) -> dict:
         key = d.get("key")
         if key is None:
             continue
-        score = d.get("score")
-        if score is None or _is_unavailable(notes.get(key)):
-            tiers[key] = "low"          # unscored / N/A / placeholder
-        elif key in WIDE_BAND_DIMS:
-            tiers[key] = "moderate"     # documented wide or scenario band
-        elif _rests_on_a_standin(key, building):
-            tiers[key] = "moderate"     # measured: the letter is often wrong here
-        else:
-            tiers[key] = "high"
+        reason = _cap_reason(key, d.get("score"), notes.get(key), building)
+        tiers[key] = _TIER_FOR_REASON.get(reason, "high")
     return tiers
+
+
+# Why a dimension cannot carry the top tier. Ordered: the first that applies is
+# the one that actually caps it, and the later ones would be redundant.
+_TIER_FOR_REASON = {
+    "unscored": "low",        # unscored / N/A / placeholder
+    "wide_band": "moderate",  # documented wide or scenario band
+    "standin": "moderate",    # measured: the letter is often wrong here
+}
+
+
+def _cap_reason(key: str, score, note, building: dict) -> str | None:
+    """Which of the three caps applies to this dimension, or None for High.
+
+    One function rather than a branch in the tier and a separate condition in the
+    note, because the two have to agree about *why*. They did not: `environmental`
+    is in both WIDE_BAND_DIMS and _PROVENANCE_SENSITIVE, so the tier capped it for
+    its band while the note told the reader it was capped for a stand-in and that
+    correcting the building details would resolve it. It would not — environmental
+    is Moderate whatever the reader enters. A hover note that hands someone an
+    action that cannot work is worse than the uncaptioned dot it replaced.
+    """
+    if score is None or _is_unavailable(note):
+        return "unscored"
+    if key in WIDE_BAND_DIMS:
+        return "wide_band"
+    if _rests_on_a_standin(key, building):
+        return "standin"
+    return None
 
 
 def _rests_on_a_standin(key: str, building: dict) -> bool:
@@ -157,10 +179,18 @@ def _rests_on_a_standin(key: str, building: dict) -> bool:
     return False
 
 
-# Appended to a capped dimension's hover note. The dot changing colour without a
+# Appended to a dimension the STAND-IN capped. The dot changing colour without a
 # reason is worse than not capping at all: the reader sees a downgrade and cannot
 # tell whether the data source is weak in general or weak for THEIR address, and
 # the second is fixable by them in the panel directly above.
+#
+# The rate below spans the dimensions this note can reach — durability and energy,
+# the two _PROVENANCE_SENSITIVE dimensions that are not already capped for their
+# band. Measured on stand-in inputs: durability 37.3% (Cook) and 50.5% (DC),
+# energy 37.3% and 32.6%. So a third to a half is the real envelope, and it must
+# be re-read against research/accuracy/results.json when a jurisdiction is added.
+# Environmental's 26.7%/23.4% is deliberately NOT in that range: this note never
+# reaches it, because its band caps it first.
 STANDIN_NOTE = (" Confidence is held at Moderate here because this dimension is "
                 "being computed from a neighbourhood typical rather than a record "
                 "of this building. Measured against assessor records in the two "
@@ -176,9 +206,15 @@ def confidence_notes_for_label(label: dict) -> dict:
     each dimension's sources, and the per-address part is added per address.
     """
     building = label.get("building") or {}
+    notes = label.get("location_notes", {}) or {}
+    scores = {d.get("key"): d.get("score") for d in label.get("dimensions", [])}
     out = dict(CONFIDENCE_NOTES)
     for key in _PROVENANCE_SENSITIVE:
-        if key in out and _rests_on_a_standin(key, building):
+        # Only where the stand-in is what actually capped it. A dimension capped
+        # for its band, or one with no score at all, is Moderate or Low for a
+        # different reason and correcting the building details will not move it.
+        if key in out and _cap_reason(key, scores.get(key), notes.get(key),
+                                      building) == "standin":
             out[key] = out[key] + STANDIN_NOTE
     return out
 
