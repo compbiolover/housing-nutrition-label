@@ -609,6 +609,35 @@ def test_the_gate_reads_the_results_and_page_together():
         "the check must read both files inside the same lock the writers hold")
 
 
+def test_the_published_sample_size_is_verified_against_the_file():
+    """`sampled` is what the page states as the population and uses as the drop
+    disclosure's denominator. Checking only `rows` left the number the reader
+    actually sees unverified."""
+    with tempfile.TemporaryDirectory() as tmp:
+        path, digest = _benchmark(tmp)               # two rows
+        try:
+            M._verify_benchmark(path, {"sha256_16": digest, "rows": 2,
+                                       "sampled": 218, "jurisdiction": "dc"}, "dc")
+        except SystemExit as exc:
+            assert "sampled" in str(exc) and "218" in str(exc)
+        else:
+            raise AssertionError("a false published sample size was accepted")
+
+
+def test_render_only_refuses_an_unreadable_results_file():
+    """The merge grew this guard a commit before --render-only did. Both are
+    destructive with the same empty answer: the merge writes this run alone over
+    the file, the render publishes an empty page over the real one."""
+    try:
+        M._readable_results({"something": "else"}, "the rendered page")
+    except SystemExit as exc:
+        assert "no jurisdiction sections" in str(exc)
+    else:
+        raise AssertionError("an unreadable results file was accepted for render")
+    # And the empty case is still a legitimate fresh start.
+    assert M._readable_results({}, "x") == {}
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]

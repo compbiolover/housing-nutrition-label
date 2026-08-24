@@ -301,6 +301,36 @@ def test_a_parcel_layer_gap_is_still_allowed_to_be_short():
     assert list(got) == ["1" * 14], got
 
 
+def test_arcgis_saying_it_truncated_is_not_a_short_batch():
+    """`exceededTransferLimit` rides along with a well-formed, non-empty feature
+    list. It is the one truncation the portal actually announces, so accepting it
+    as a legitimately short batch was the cheapest possible miss."""
+    body = {"exceededTransferLimit": True,
+            "features": [{"attributes": {"SSL": "1234 0056", "PREMISEADD": "1 A ST"}}]}
+    with _fetching(lambda url, params: body):
+        _refuses(lambda: B._dc_place(["1234 0056", "1234 0057"]))
+
+
+def test_a_parcel_feature_with_no_join_key_stops_the_build():
+    """The query is keyed by the identifier, so a feature returned without one
+    cannot be joined. Skipping it made the parcel vanish and publish as a house the
+    assessor never documented — blamed for a malformed response."""
+    cook = {"features": [{"attributes": {"street_address": "1 MAIN ST"}}]}
+    with _fetching(lambda url, params: cook):
+        _refuses(lambda: B._parcel_info(["1" * 14]))
+    dc = {"features": [{"attributes": {"PREMISEADD": "1 A ST NW"}}]}
+    with _fetching(lambda url, params: dc):
+        _refuses(lambda: B._dc_place(["1234 0056"]))
+
+
+def test_a_parcel_with_a_key_but_no_address_is_still_a_plain_drop():
+    """The complement: a parcel that really has no address on file is a legitimate
+    `no_address`, not a malformed response. The two must not collapse together."""
+    dc = {"features": [{"attributes": {"SSL": "1234 0056", "PREMISEADD": ""}}]}
+    with _fetching(lambda url, params: dc):
+        assert B._dc_place(["1234 0056"]) == {}
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]

@@ -177,7 +177,14 @@ def _batch_or_die(url: str, params: dict, what: str, n: int) -> list:
     """
     body = _fetch(url, params)
     rows = body.get("features") if isinstance(body, dict) else body
-    if body is None or (isinstance(body, dict) and body.get("error")) or not rows:
+    truncated = isinstance(body, dict) and body.get("exceededTransferLimit")
+    if (body is None or (isinstance(body, dict) and body.get("error"))
+            or truncated or not rows):
+        # `exceededTransferLimit` is ArcGIS SAYING it truncated, and it rides along
+        # with a perfectly well-formed, non-empty feature list. Accepting that as a
+        # legitimately short batch is the one truncation case the portal actually
+        # announces, so not reading it was the cheapest possible miss.
+        #
         # An empty answer is AMBIGUOUS here, and deliberately resolved as failure.
         # A portal returning nothing because it is unwell and a portal returning
         # nothing because an `IN` list genuinely matched no rows are byte-identical
@@ -325,6 +332,16 @@ def _parcel_info(pins: list[str]) -> dict[str, dict]:
             "returnGeometry": "false", "f": "json",
         }, "parcel lookup", len(chunk)):
             a = f.get("attributes") or {}
+            if not (a.get("PIN14") or "").strip():
+                # The query is keyed BY PIN14, so a feature that comes back without
+                # one cannot be joined to anything. Skipping it makes the parcel
+                # vanish and publish as `no_address` — the assessor blamed for a
+                # malformed response. Same rule the offset samplers apply: a row
+                # with no identifier is the portal failing, not a record.
+                raise SystemExit(
+                    f"the parcel layer returned a feature with no PIN14 in a batch "
+                    f"of {len(chunk)}. It cannot be joined, and continuing would "
+                    f"drop a sampled parcel and report it as undocumented.")
             pin = str(a.get("PIN14") or "").zfill(14)
             # Coordinates are NOT required. Nothing in the scoring path reads them
             # — the harness geocodes the address exactly as a visitor would, and
@@ -463,7 +480,15 @@ def _dc_place(ssls: list[str]) -> dict[str, dict]:
         }, "parcel lookup", len(chunk)):
             a = f.get("attributes") or {}
             ssl, addr = (a.get("SSL") or "").strip(), (a.get("PREMISEADD") or "").strip()
-            if not ssl or not addr:
+            if not ssl:
+                # The join key, missing — see the Cook parcel lookup. A missing
+                # ADDRESS below is different and legitimate: that parcel really has
+                # none on file, which is what a `no_address` drop records.
+                raise SystemExit(
+                    f"the parcel layer returned a feature with no SSL in a batch of "
+                    f"{len(chunk)}. It cannot be joined, and continuing would drop "
+                    f"a sampled parcel and report it as undocumented.")
+            if not addr:
                 continue
             pt = _ring_point(f.get("geometry") or {})
             # PREMISEADD is already the full mailing form ("3401 NEWARK ST NW

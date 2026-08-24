@@ -612,6 +612,28 @@ def _results_lock():
         LOCK.unlink(missing_ok=True)
 
 
+def _readable_results(previous: dict, where: str) -> dict:
+    """The jurisdiction sections of a results file, or the end of the run.
+
+    `as_jurisdictions` answers {} for a shape it does not recognise, and BOTH
+    writers then do something destructive with that answer: the merge writes this
+    run's section alone over whatever the file held, and --render-only publishes an
+    empty accuracy page over the real one. An unreadable file is exactly when it is
+    least safe to assume there is nothing worth keeping.
+
+    One function because the two paths kept diverging: the merge grew this guard a
+    commit before --render-only did, which is the same one-branch-and-not-its-
+    neighbour mistake that produced half the findings on this change.
+    """
+    juris_map = dict(as_jurisdictions(previous))
+    if previous and not juris_map:
+        raise SystemExit(
+            f"{RESULTS.name} is not empty but no jurisdiction sections could be "
+            f"read from it, so {where} would destroy whatever it holds. Inspect it "
+            f"(or move it aside) and re-run.")
+    return juris_map
+
+
 def _verify_benchmark(path: pathlib.Path, meta: dict, juris: str,
                       legacy: bool = False) -> bytes:
     """The benchmark's bytes, once they are proven to be the ones it claims to be.
@@ -676,13 +698,20 @@ def _verify_benchmark(path: pathlib.Path, meta: dict, juris: str,
                 f"means an interrupted or edited build, and scoring it would "
                 f"publish one sample under another's provenance. Rebuild it with "
                 f"scripts/build_benchmark.py.")
-    rows = meta.get("rows")
-    if rows is not None:
-        have = sum(1 for _ in csv.DictReader(io.StringIO(payload.decode())))
-        if have != rows:
+    # `sampled` is checked beside `rows` because main() publishes it as the
+    # population and uses it as the denominator of the drop disclosure. Verifying
+    # only `rows` left the number the page actually states unverified.
+    have = None
+    for field in ("rows", "sampled"):
+        claimed = meta.get(field)
+        if claimed is None:
+            continue
+        if have is None:
+            have = sum(1 for _ in csv.DictReader(io.StringIO(payload.decode())))
+        if have != claimed:
             raise SystemExit(
-                f"{path.name} holds {have} rows; its metadata claims {rows}. "
-                f"Rebuild it with scripts/build_benchmark.py.")
+                f"{path.name} holds {have} rows; its metadata claims {claimed} "
+                f"for {field!r}. Rebuild it with scripts/build_benchmark.py.")
     return payload
 
 
@@ -744,7 +773,9 @@ def main() -> int:
         # from the old results over the one that run just wrote, leaving the two
         # files disagreeing — and the CI gate compares exactly those two.
         with _results_lock():
-            _write_atomic(PAGE, _render(json.loads(RESULTS.read_text())))
+            previous = json.loads(RESULTS.read_text())
+            _readable_results(previous, "the rendered page")
+            _write_atomic(PAGE, _render(previous))
         log.info("Rendered %s from the committed measurements.", PAGE)
         return 0
 
@@ -896,17 +927,7 @@ def main() -> int:
     RESULTS.parent.mkdir(parents=True, exist_ok=True)
     with _results_lock():
         previous = json.loads(RESULTS.read_text()) if RESULTS.exists() else {}
-        juris_map = dict(as_jurisdictions(previous))
-        if previous and not juris_map:
-            # "Merge, never replace" has to hold against a file this code does not
-            # recognise, which is precisely when it is least safe to assume there
-            # is nothing to preserve. as_jurisdictions returns {} for an unknown
-            # shape, and continuing would write this run's section alone — deleting
-            # every other jurisdiction's measurement to fix a schema mistake.
-            raise SystemExit(
-                f"{RESULTS.name} is not empty but no jurisdiction sections could be "
-                f"read from it. Writing now would replace whatever it holds with "
-                f"this run alone. Inspect it (or move it aside) and re-run.")
+        juris_map = _readable_results(previous, "this merge")
         juris_map[juris] = measured
         results = {"generated": date.today().isoformat(), "jurisdictions": juris_map}
         _write_atomic(RESULTS, json.dumps(results, indent=2) + "\n")
