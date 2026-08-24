@@ -34,7 +34,10 @@ for _p in (_ROOT, _ROOT / "src"):
         sys.path.insert(0, str(_p))
 
 from housing_label.enrich import assessor as A  # noqa: E402
-from housing_label.enrich.assessor import cook_il  # noqa: E402
+from housing_label.enrich.assessor import _shared, cook_il  # noqa: E402
+from housing_label.enrich.assessor._shared import (  # noqa: E402
+    address_key, same_address,
+)
 from housing_label.enrich.assessor.base import (  # noqa: E402
     CONDITION_VALUES, CONSTRUCTION_VALUES, FOUNDATION_VALUES, AssessorRecord,
 )
@@ -45,14 +48,14 @@ def test_a_different_house_number_never_matches():
     """The case that makes a distance buffer unsafe, pinned directly."""
     asked = "213 W MAIN ST, BARRINGTON, IL, 60010"
     for neighbour in ("205 W MAIN ST", "209 W MAIN ST", "215 W MAIN ST"):
-        assert not cook_il._same_address(asked, neighbour), neighbour
+        assert not same_address(asked, neighbour), neighbour
 
 
 def test_the_same_house_matches_across_formatting():
     asked = "213 W MAIN ST, BARRINGTON, IL, 60010"
     for same in ("213 W MAIN ST", "213 w main street", "213 W Main St.",
                  "213 W MAIN ST APT 2", "213 W MAIN ST #3"):
-        assert cook_il._same_address(asked, same), same
+        assert same_address(asked, same), same
 
 
 def test_a_different_street_never_matches():
@@ -61,16 +64,16 @@ def test_a_different_street_never_matches():
     Dropping the directional would be the classic normalisation shortcut, and it
     would make 213 W Main and 213 E Main the same house.
     """
-    assert not cook_il._same_address("213 W MAIN ST", "213 E MAIN ST")
-    assert not cook_il._same_address("213 W MAIN ST", "213 W STATION ST")
+    assert not same_address("213 W MAIN ST", "213 E MAIN ST")
+    assert not same_address("213 W MAIN ST", "213 W STATION ST")
 
 
 def test_an_address_with_no_house_number_is_unusable():
     """Nothing to anchor on, so it must refuse rather than match on the street."""
-    assert cook_il._addr_key("W MAIN ST") is None
-    assert cook_il._addr_key("") is None
-    assert cook_il._addr_key(None) is None
-    assert not cook_il._same_address("W MAIN ST", "W MAIN ST")
+    assert address_key("W MAIN ST") is None
+    assert address_key("") is None
+    assert address_key(None) is None
+    assert not same_address("W MAIN ST", "W MAIN ST")
 
 
 # ── hop 1: which parcel, if any ─────────────────────────────────────────────────
@@ -350,21 +353,21 @@ def test_a_different_street_type_is_not_the_same_address():
     """"213 MAIN ST" and "213 MAIN AVE" are different houses that a corner can put
     inside one 80 m buffer. An earlier revision dropped the street type entirely
     before comparing, so both normalised to "213 MAIN" and matched."""
-    assert not cook_il._same_address("213 W MAIN ST", "213 W MAIN AVE")
-    assert not cook_il._same_address("100 OAK RD", "100 OAK BLVD")
+    assert not same_address("213 W MAIN ST", "213 W MAIN AVE")
+    assert not same_address("100 OAK RD", "100 OAK BLVD")
 
 
 def test_a_missing_street_type_still_matches():
     """The geocoder and the parcel layer do not always both carry the suffix, so
     absence on one side must not cost a real match — only a CONFLICT may."""
-    assert cook_il._same_address("213 W MAIN ST", "213 W MAIN")
-    assert cook_il._same_address("213 W MAIN", "213 W MAIN STREET")
+    assert same_address("213 W MAIN ST", "213 W MAIN")
+    assert same_address("213 W MAIN", "213 W MAIN STREET")
 
 
 def test_a_longer_street_name_is_not_the_same_street():
     """"MAIN" vs "MAIN STATION" are two streets. The old subset rule accepted them
     because one token set contained the other."""
-    assert not cook_il._same_address("213 W MAIN ST", "213 W MAIN STATION ST")
+    assert not same_address("213 W MAIN ST", "213 W MAIN STATION ST")
 
 
 def test_a_containing_parcel_with_the_wrong_address_does_not_win():
@@ -482,19 +485,21 @@ def test_a_preset_build_does_not_pay_for_an_assessor_lookup():
 
 def _stub_transport(monkey_target, parcels, cama):
     """Replace cook_il._get with one that answers from recorded bodies."""
-    from housing_label.enrich.assessor import cook_il
-
     def fake(url, params, deadline):
         if url == cook_il.PARCEL_URL:
             return {"features": [{"attributes": a} for a in parcels]}
         return cama
-    monkey_target.append((cook_il, cook_il._get))
-    cook_il._get = fake
+    # cook_il binds get_json into its own namespace at import, and the shared
+    # parcel query is called through cook_il too, so both names are swapped.
+    monkey_target.append((cook_il, cook_il.get_json))
+    cook_il.get_json = fake
+    monkey_target.append((_shared, _shared.get_json))
+    _shared.get_json = fake
 
 
 def _restore(saved):
     for module, original in saved:
-        module._get = original
+        module.get_json = original
 
 
 def _lookup(parcels, cama, lat=41.9, lon=-88.1, address=None):
@@ -561,31 +566,30 @@ def test_an_unmarked_unit_suffix_does_not_block_a_condo_match():
     """The parcel layer writes "234 W STATION ST B12" with no unit marker. The
     module documented that as noise while the code kept it, so a condo failed to
     match its own address — a documented rule the implementation did not have."""
-    from housing_label.enrich.assessor.cook_il import _same_address
-    assert _same_address("234 W STATION ST B12", "234 W STATION ST")
-    assert _same_address("234 W STATION ST", "234 W STATION ST APT 4")
+    from housing_label.enrich.assessor._shared import same_address
+    assert same_address("234 W STATION ST B12", "234 W STATION ST")
+    assert same_address("234 W STATION ST", "234 W STATION ST APT 4")
 
 
 def test_a_digit_bearing_street_name_is_not_mistaken_for_a_unit():
     """The counterweight to the rule above: "100 ROUTE 66" ends in a digit-bearing
     token that is the street's name, not a unit. Only a digit-bearing token sitting
     directly after a street type is dropped."""
-    from housing_label.enrich.assessor.cook_il import _same_address
-    assert _same_address("100 ROUTE 66", "100 ROUTE 66")
-    assert not _same_address("100 ROUTE 66", "100 ROUTE")
+    from housing_label.enrich.assessor._shared import same_address
+    assert same_address("100 ROUTE 66", "100 ROUTE 66")
+    assert not same_address("100 ROUTE 66", "100 ROUTE")
 
 
 def test_the_cache_key_ages_out_so_a_long_lived_worker_cannot_serve_a_stale_roll():
     """The source refreshes bi-weekly and the roll advances. A process-lifetime
     cache would pin an observed value, and its now-wrong roll date, to the worker's
     uptime; the key carries a time bucket so entries expire on their own."""
-    from housing_label.enrich.assessor import cook_il
-    assert cook_il.CACHE_TTL_S > 0
-    bucket = cook_il._cache_bucket()
+    assert _shared.CACHE_TTL_S > 0
+    bucket = _shared.cache_bucket()
     assert isinstance(bucket, int)
     # The bucket must be a function of wall-clock time, not a constant, or the key
     # never changes and the TTL is decorative.
-    later = int((time.time() + cook_il.CACHE_TTL_S * 2) // cook_il.CACHE_TTL_S)
+    later = int((time.time() + _shared.CACHE_TTL_S * 2) // _shared.CACHE_TTL_S)
     assert later > bucket
 
 
@@ -611,6 +615,168 @@ def test_a_containing_parcel_whose_address_disagrees_is_not_accepted():
 def test_two_overlapping_parcels_are_ambiguous_rather_than_a_coin_flip():
     other = {"PIN14": "17031000000001", "street_address": "213 W MAIN ST"}
     assert _lookup([_PARCEL, other], _CAMA, address="213 W Main St") is None
+
+
+# --- the request budget --------------------------------------------------------
+
+
+class _FakeResponse:
+    """A response that dribbles its body, the way a stalled portal does."""
+
+    def __init__(self, chunks, pause=0.0):
+        self._chunks, self._pause = chunks, pause
+        self.closed = False
+
+    def raise_for_status(self):
+        pass
+
+    def iter_content(self, _size):
+        for c in self._chunks:
+            yield c
+            if self._pause:
+                time.sleep(self._pause)
+
+    def close(self):
+        self.closed = True
+
+
+def _with_fake_get(response):
+    """Swap cook_il's requests for one returning `response`. Returns a restorer."""
+    class _Stub:
+        @staticmethod
+        def get(*_a, **_k):
+            return response
+    original = _shared.requests
+    _shared.requests = _Stub
+    return lambda: setattr(_shared, "requests", original)
+
+
+def test_a_dribbling_response_cannot_outlive_the_budget():
+    """requests' timeout bounds the gap BETWEEN reads, not the total read. A portal
+    sending one byte inside every window would otherwise hold the label open past
+    the advertised budget — on a path sharing a 12-second allowance with every other
+    upstream. The deadline is checked as the body arrives, so it cannot."""
+    # Chunks that concatenate to VALID json, deliberately: without the in-loop
+    # deadline check this test must fail on its own assertion ("a slow body must
+    # hit the deadline"), not incidentally on a parse error, or it would still go
+    # red after a regression while pointing at the wrong cause.
+    resp = _FakeResponse([b"[1,", b"2,", b"3,", b"4,", b"5]"], pause=0.05)
+    restore = _with_fake_get(resp)
+    try:
+        raised = None
+        try:
+            _shared.get_json("http://x", {}, time.monotonic() + 0.06)
+        except TimeoutError as exc:
+            raised = exc
+        assert raised is not None, "a slow body must hit the deadline, not run on"
+        assert "reading" in str(raised), f"unexpected message: {raised}"
+        assert resp.closed, "the connection must be released, not leaked"
+    finally:
+        restore()
+
+
+def test_a_response_that_arrives_in_time_is_parsed_normally():
+    """The counterweight: the deadline check must not break the ordinary path."""
+
+    restore = _with_fake_get(_FakeResponse([b'[{"pin":', b'"17031"}]']))
+    try:
+        assert _shared.get_json("http://x", {}, time.monotonic() + 5) == [{"pin": "17031"}]
+    finally:
+        restore()
+
+
+def test_no_single_read_may_block_longer_than_the_slice():
+    """Streaming alone does not make the budget wall-clock: the deadline check can
+    only run once a chunk has ARRIVED, so a gap shorter than the read timeout but
+    longer than the remaining budget would be waited out in full and overshoot by
+    nearly the whole budget. Capping the READ half of the timeout bounds any single
+    stall, and therefore the overshoot, to the slice.
+
+    The connect half deliberately keeps the full remainder — a slow handshake is the
+    one wait that cannot be broken into slices.
+    """
+    from housing_label.enrich.assessor import _shared
+
+    seen = {}
+
+    class _Stub:
+        @staticmethod
+        def get(*_a, **kw):
+            seen["timeout"] = kw.get("timeout")
+            return _FakeResponse([b"[]"])
+
+    original = _shared.requests
+    _shared.requests = _Stub
+    try:
+        _shared.get_json("http://x", {}, time.monotonic() + 30)
+    finally:
+        _shared.requests = original
+
+    timeout = seen["timeout"]
+    assert isinstance(timeout, tuple), "a scalar timeout applies to reads too"
+    connect, read = timeout
+    assert read <= _shared._READ_SLICE_S, f"read timeout {read} exceeds the slice"
+    assert connect > _shared._READ_SLICE_S, (
+        "the connect half should keep the remaining budget, not the slice")
+
+
+def test_the_slice_never_outlives_what_is_left_of_the_budget():
+    """With almost no budget left, the slice must shrink to it rather than grant a
+    fresh second — otherwise the last hop of three could overrun on its own."""
+    from housing_label.enrich.assessor import _shared
+
+    seen = {}
+
+    class _Stub:
+        @staticmethod
+        def get(*_a, **kw):
+            seen["timeout"] = kw.get("timeout")
+            return _FakeResponse([b"[]"])
+
+    original = _shared.requests
+    _shared.requests = _Stub
+    try:
+        _shared.get_json("http://x", {}, time.monotonic() + 0.2)
+    finally:
+        _shared.requests = original
+
+    connect, read = seen["timeout"]
+    assert read <= 0.2 and connect <= 0.2
+
+
+def test_an_empty_body_is_a_failure_not_an_answer():
+    """A 200 with no body is a portal glitch. Parsed as `null` it flows on as "no
+    parcels here" and is CACHED as absence for the bucket's lifetime, so a
+    momentary upstream blip would suppress the county record for six hours. It has
+    to stay on the fail-open path, where nothing is cached."""
+    restore = _with_fake_get(_FakeResponse([b"", b"   "]))
+    try:
+        raised = None
+        try:
+            _shared.get_json("http://x", {}, time.monotonic() + 5)
+        except RuntimeError as exc:
+            raised = exc
+        assert raised is not None and "empty response" in str(raised)
+    finally:
+        restore()
+
+
+def test_an_implausibly_large_body_is_refused_rather_than_read_to_the_end():
+    """These responses are one row or a few parcels. Something orders of magnitude
+    bigger is a misrouted query or an error page, and reading it would spend the
+    budget on something that cannot be an answer."""
+
+    oversize = [b"x" * _shared._CHUNK_BYTES] * (_shared._MAX_BYTES // _shared._CHUNK_BYTES + 2)
+    restore = _with_fake_get(_FakeResponse(oversize))
+    try:
+        raised = None
+        try:
+            _shared.get_json("http://x", {}, time.monotonic() + 30)
+        except RuntimeError as exc:
+            raised = exc
+        assert raised is not None and "exceeded" in str(raised)
+    finally:
+        restore()
 
 
 def _run_all() -> int:

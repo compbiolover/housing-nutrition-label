@@ -473,7 +473,21 @@ window.LabelCore = (function () {
     var subline = opts.subline != null ? opts.subline : (function () {
       var bits = [];
       if (h.construction) bits.push(WALL_LABELS[h.construction] || h.construction);
-      if (h.year_built) bits.push("built " + h.year_built);
+      // Mirrors housing_label.confidence.year_built_display — the terminal card, the
+      // printable SVG and this one all state a neighbourhood typical as the range it
+      // came from. A bare number here reads as a fact about the building, and this
+      // is the one field whose whole difficulty is that it usually is not one.
+      var ybInfo = (data.building || {}).year_built;
+      if (ybInfo && ybInfo.value != null && ybInfo.status === "assumed") {
+        var tr = ybInfo.typical_range;
+        bits.push("built " + (tr && tr.length === 2 && tr[0] != null && tr[1] != null
+          ? tr[0] + "\u2013" + tr[1] + " (area typical)"
+          : "~" + ybInfo.value + " (area typical)"));
+      } else if (ybInfo && ybInfo.value != null) {
+        bits.push("built " + ybInfo.value);
+      } else if (h.year_built) {
+        bits.push("built " + h.year_built);
+      }
       if (h.sqft != null) bits.push(Math.round(h.sqft).toLocaleString() + " sqft");
       return bits.length ? esc(bits.join(" · ")) : "";
     })();

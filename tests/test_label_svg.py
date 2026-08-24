@@ -77,6 +77,29 @@ def _texts(svg: str) -> list[str]:
     return [(e.text or "") for e in root.iter() if e.tag.endswith("text")]
 
 
+def test_a_stand_in_year_prints_as_a_range_not_a_bare_number():
+    """The printable sheet is the surface most likely to outlive its context — it
+    gets saved, mailed and filed away from the page that explains it. A tract
+    typical printed as a bare year becomes, on paper, an assertion about the
+    building that nobody can trace back."""
+    payload = _payload(building={"year_built": {"value": 1955, "status": "assumed",
+                                                "typical_range": [1932, 1996]}})
+    svg = label_svg.render_sheet(payload)
+    assert "1932\u20131996 (area typical)" in svg
+    assert "built 1955" not in svg, "the bare year must not also appear"
+
+
+def test_a_year_about_the_building_still_prints_plainly():
+    payload = _payload(building={"year_built": {"value": 1955, "status": "observed"}})
+    assert "built 1955" in label_svg.render_sheet(payload)
+
+
+def test_a_payload_with_no_provenance_block_falls_back_to_the_house_year():
+    """Older callers and the badge path build a payload with no `building` key. They
+    must keep rendering, not lose the year."""
+    assert "built 1955" in label_svg.render_sheet(_payload())
+
+
 def test_every_theme_renders_well_formed_svg():
     for theme in badge.THEME_NAMES:
         svg = label_svg.render_sheet(_payload(), address="123 Main St", theme=theme)

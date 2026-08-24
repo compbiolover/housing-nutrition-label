@@ -38,7 +38,8 @@ from housing_label.simulate.dimensions import (
     AUTOFILL_VALUE_SOURCE, VALUE_PER_DOOR_SOURCE, HOME_VALUE_SOURCE,
 )
 from housing_label.confidence import (
-    confidence_for_label, bands_for_label, CONFIDENCE_NOTES, CONFIDENCE_LEGEND,
+    confidence_for_label, bands_for_label, confidence_notes_for_label,
+    year_built_display, CONFIDENCE_LEGEND,
     confidence_for_trajectory,
 )
 from housing_label.legal import DISCLAIMER
@@ -1561,7 +1562,7 @@ def _box(inner: int = 64):
     return top, sep, bot, row
 
 
-def print_scorecard(cfg: dict, r: dict) -> None:
+def print_scorecard(cfg: dict, r: dict, label: dict | None = None) -> None:
     """Print a clean, fixed-width resilience scorecard to stdout."""
     TOP, SEP, BOT, row = _box()
 
@@ -1578,7 +1579,11 @@ def print_scorecard(cfg: dict, r: dict) -> None:
 
     # ── House characteristics ─────────────────────────────────────────────────
     print(section("HOUSE CHARACTERISTICS"))
-    print(row(f"    Year built       : {cfg['year_built']}"))
+    # The label's own provenance when the caller has it, so the terminal says what
+    # the web says: a tract typical is shown as the range it came from, not as a
+    # bare number that reads like a fact about this building.
+    yb = year_built_display((label or {}).get("building")) or str(cfg["year_built"])
+    print(row(f"    Year built       : {yb}"))
     print(row(f"    Construction     : {cfg['construction'].upper()}"))
     print(row(f"    Foundation       : {cfg['foundation']}"))
     print(row(f"    Condition        : {cfg['condition']}"))
@@ -2176,7 +2181,9 @@ def label_payload(cfg: dict, r: dict, label: dict, include_building: bool = True
         # Data-quality confidence channel (research/uncertainty-confidence-research.md).
         "confidence": confidence_for_label(label),
         "bands": bands_for_label(label),
-        "confidence_notes": dict(CONFIDENCE_NOTES),  # copy — never hand out the shared constant
+        # Per address, not the shared constant: a dimension capped for resting on a
+        # neighbourhood typical says so here, where the reader is already looking.
+        "confidence_notes": confidence_notes_for_label(label),
         "confidence_legend": CONFIDENCE_LEGEND,
         # Annual $ flows for the lifetime-cost strip (delta vs. a baseline is
         # added by the API, which scores a typical comparable at this location).
@@ -3693,7 +3700,7 @@ def main() -> None:
     if args.json:
         emit_json(cfg, r, label)
     else:
-        print_scorecard(cfg, r)
+        print_scorecard(cfg, r, label)
         print_label(cfg, label)
 
 
