@@ -65,8 +65,9 @@ CONFIDENCE_LEGEND = (
 #     environmental    26.7%      5.5%          23.4%      3.2%
 #     resilience        2.8%      0.5%           8.7%      0.5%
 #
-# So durability and energy are wrong better than one time in three when the
-# construction profile is a stand-in. That is not a High-confidence number by any
+# So on a stand-in construction profile, durability carries the wrong letter for
+# 37.3% of Cook addresses and 50.5% of DC ones, and energy for 37.3% and 32.6%.
+# A third to a half is not a High-confidence number by any
 # reading of this module's own rubric, and it is now capped.
 #
 # Resilience is deliberately NOT capped, and this is the judgement most worth

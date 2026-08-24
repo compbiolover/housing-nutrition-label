@@ -716,6 +716,83 @@ def test_jurisdiction_is_rejected_in_the_modes_that_ignore_it():
         "--jurisdiction must join the scoring flags rejected by the no-score modes")
 
 
+def test_a_non_dict_jurisdictions_map_is_refused_not_crashed():
+    """The ROOT type was checked and the map inside it was not, so
+    {"jurisdictions": null} reached dict(None) and raised TypeError — the
+    unhandled crash this guard exists to replace, one level in from where the
+    check was put."""
+    for bad in (None, [], "text", 3):
+        try:
+            M._readable_results({"jurisdictions": bad}, "x", existed=True)
+        except SystemExit as exc:
+            assert "not an object" in str(exc), (bad, str(exc))
+        except (TypeError, ValueError) as exc:
+            raise AssertionError(
+                f"jurisdictions={bad!r} crashed with {type(exc).__name__} instead "
+                f"of a stated refusal")
+        else:
+            raise AssertionError(f"jurisdictions={bad!r} was accepted")
+
+
+def test_a_failed_page_write_rolls_the_results_back():
+    """Rendering first only covers exceptions from _render. If the page write or
+    rename fails — a full disk, a permissions change — the new results would sit
+    beside the old page, which is the inconsistency the ordering exists to
+    prevent, reached a different way."""
+    with tempfile.TemporaryDirectory() as tmp:
+        results_p = pathlib.Path(tmp) / "results.json"
+        page_p = pathlib.Path(tmp) / "sub" / "accuracy.html"     # dir absent
+        results_p.write_text('{"before": true}')
+        orig = (M.RESULTS, M.PAGE, M._render)
+        M.RESULTS, M.PAGE = results_p, page_p
+        M._render = lambda _r: "<p>new</p>"
+        try:
+            M._publish({"after": True})
+        except (OSError, FileNotFoundError):
+            pass
+        else:
+            raise AssertionError("a failed page write reported success")
+        finally:
+            M.RESULTS, M.PAGE, M._render = orig
+        assert results_p.read_text() == '{"before": true}', (
+            "results.json kept its new content while the page was never written")
+        assert not list(pathlib.Path(tmp).glob("*.tmp")), "temp files left behind"
+
+
+def test_the_check_applies_the_same_readability_guard_as_the_writers():
+    """{"jurisdictions": {}} paired with the matching empty page PASSED the gate,
+    while both writers refuse that state as destructive. The gate's one job is
+    agreeing with the writers about what is publishable."""
+    try:
+        M._readable_results({"jurisdictions": {}}, "this check", existed=True)
+    except SystemExit:
+        pass
+    else:
+        raise AssertionError("an empty jurisdictions map was accepted")
+    src = pathlib.Path(M.__file__).read_text()
+    check = src[src.index("    if args.check:"):src.index("    juris = args.jurisdiction")]
+    assert "_readable_results(" in check, (
+        "the check must refuse what the writers refuse, or it certifies a state "
+        "neither of them would produce")
+
+
+def test_the_dc_basement_caveat_needs_a_dc_section():
+    """It lived in the static caveat list, so a Cook-only page told readers what DC
+    does not record without showing them any DC."""
+    assert M._dc_foundation_caveat({"dc": {}}) != ""
+    assert M._dc_foundation_caveat({"cook": {}}) == ""
+
+
+def test_a_parcel_absent_from_the_layer_is_not_an_undocumented_address():
+    """Two different facts were folded into one reason, so the page said "had no
+    address on file" about a parcel whose record was simply not there — a claim
+    about the assessor's documentation the build has no evidence for."""
+    note = M._ungradeable_note({"drawn": 10, "sampled": 7,
+                                "dropped": {"no_parcel_record": 2, "no_address": 1}})
+    assert "2 were not in the parcel layer" in note, note
+    assert "1 had no address on file" in note, note
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]

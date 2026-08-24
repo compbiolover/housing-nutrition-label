@@ -193,6 +193,41 @@ def test_the_parcel_query_never_asks_for_owner_data():
         assert token not in combined, f"{token} must not be requested"
 
 
+def test_a_street_named_after_the_city_still_matches():
+    """The locality tail was stripped at the FIRST locality token anywhere in the
+    string, so "401 WASHINGTON AVE SW WASHINGTON DC 20024" truncated at token zero
+    and address_key returned None. No DC address on a Washington-named street could
+    confirm a parcel — the adapter returned nothing for them, and the measured
+    coverage absorbed it silently as though those homes simply had no record.
+
+    These are real addresses from DC's own parcel layer. The same shape waits in
+    any jurisdiction whose name is also a street name, which is most of them, so
+    this is pinned before a third adapter inherits it.
+    """
+    from housing_label.enrich.assessor._shared import same_address
+    from housing_label.enrich.assessor.dc import _LOCALITY
+    for premise, typed in (
+        ("401 WASHINGTON AVE SW WASHINGTON DC 20024-2134",
+         "401 Washington Ave SW, Washington, DC 20024"),
+        ("2211 WASHINGTON CIR NW WASHINGTON DC 20037",
+         "2211 Washington Cir NW, Washington, DC 20037"),
+        ("3401 NEWARK ST NW WASHINGTON DC 20016",
+         "3401 Newark St NW, Washington, DC 20016"),
+    ):
+        assert same_address(typed, premise, _LOCALITY), premise
+
+
+def test_the_city_named_street_fix_did_not_loosen_the_match():
+    """The whole point of this comparison is refusing a confident wrong answer, so
+    the repair must not buy coverage with a wrong-house match."""
+    from housing_label.enrich.assessor._shared import same_address
+    from housing_label.enrich.assessor.dc import _LOCALITY
+    assert not same_address("2211 Washington Cir NW, Washington, DC",
+                            "2213 WASHINGTON CIR NW WASHINGTON DC 20037", _LOCALITY)
+    assert not same_address("401 Washington Ave SW, Washington, DC",
+                            "401 WASHINGTON ST SW WASHINGTON DC 20024", _LOCALITY)
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]

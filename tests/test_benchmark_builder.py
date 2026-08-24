@@ -358,6 +358,35 @@ def test_a_whitespace_only_address_is_not_an_address():
         assert B._parcel_info(["1" * 14]) == {}
 
 
+def test_a_paged_offset_read_is_not_a_truncated_batch():
+    """`exceededTransferLimit` means "more records match than were returned".
+
+    The offset sampler asks for ONE row on purpose — it is a paged read of a
+    109,273-row table — so ArcGIS sets that flag on every healthy response.
+    `_batch_or_die` gives no page size, expects the whole matching set, and there
+    the same flag really does mean a truncated answer.
+
+    The asymmetry is pinned because it does not look like one: adding the check to
+    the sampler "for consistency" rejected all six offsets of a live build, and the
+    next person to notice the difference will be tempted to make it uniform again.
+    """
+    body = {"exceededTransferLimit": True,
+            "features": [{"attributes": {"SSL": "1234 0056", "AYB": 1920}}]}
+
+    def fetch(url, params):
+        if params.get("returnCountOnly") == "true":
+            return {"count": 1000}
+        return body
+
+    with _fetching(fetch):
+        rows, draw = B._dc_sample(2)
+    assert draw["attempted"] == 1, draw
+
+    # ...while the batch helper must still refuse exactly that response.
+    with _fetching(lambda url, params: body):
+        _refuses(lambda: B._batch_or_die("u", {}, "parcel lookup", 40))
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]

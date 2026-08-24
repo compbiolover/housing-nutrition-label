@@ -65,6 +65,7 @@ import os
 import pathlib
 import statistics
 import sys
+import tempfile
 import time
 from datetime import date
 
@@ -325,6 +326,11 @@ def _ungradeable_note(m: dict) -> str:
     # review rounds found this sentence naming a cause it could not know.
     d = m.get("dropped") or {}
     parts = []
+    if d.get("no_parcel_record"):
+        # Deliberately weaker than "had no address on file": the parcel layer held
+        # no record for these at all, so what the assessor documents about them is
+        # not something this build observed.
+        parts.append(f"{d['no_parcel_record']} were not in the parcel layer")
     if d.get("no_address"):
         parts.append(f"{d['no_address']} had no address on file")
     if d.get("no_year_built"):
@@ -338,7 +344,7 @@ def _ungradeable_note(m: dict) -> str:
     # Being unable to name every cause is not a licence to name some and imply
     # the rest away.
     if parts and sum(v for v in d.values() if isinstance(v, int)) == gap:
-        return f" Drawn from {drawn} assessor rows; {' and '.join(parts)}."
+        return f" Drawn from {drawn} assessor rows; {', '.join(parts)}."
     return (f" Drawn from {drawn} assessor rows; {gap} could not be graded from "
             f"the assessor's own record.")
 
@@ -369,6 +375,21 @@ def as_jurisdictions(results: dict) -> dict:
     if all(k in results for k in keys):
         return {"cook": {k: v for k, v in results.items() if k != "generated"}}
     return {}
+
+
+def _dc_foundation_caveat(juris: dict) -> str:
+    """The basement note, only where a DC section is actually present.
+
+    It was in the static caveat list, so a Cook-only page — the legacy shape, or a
+    first run of a new jurisdiction — told readers what DC does not record without
+    showing them any DC. `_dc_caveat` next to it was already conditional; this is
+    the same fact stated in two places, one of them gated and one not.
+    """
+    if "dc" not in juris:
+        return ""
+    return ("<li><strong>DC records no basement type</strong>, so foundation is "
+            "never observed there and its row stays at the baseline. That is a gap "
+            "in the source, not a failure of the lookup.</li>")
 
 
 def _dc_caveat(juris: dict) -> str:
@@ -537,9 +558,7 @@ sampled.</li>
 one dominant grade in each source, so a high agreement rate on that row reflects the
 distribution of the source far more than the label's skill, and should not be read
 as one.</li>
-<li><strong>DC records no basement type</strong>, so foundation is never observed
-there and its row stays at the baseline. That is a gap in the source, not a failure
-of the lookup.</li>
+{_dc_foundation_caveat(juris)}
 <li><strong>The reference profile is not wholly observed.</strong> Where the
 assessor records nothing for a field, the truth arm falls back to the same modelled
 inputs the other two arms use, so a grade attributed to &ldquo;true
@@ -639,6 +658,17 @@ def _readable_results(previous, where: str, *, existed: bool) -> dict:
     before it reaches `as_jurisdictions`, which used to raise TypeError on it: an
     unhandled crash where a stated refusal belongs.
     """
+    if existed and isinstance(previous, dict) and "jurisdictions" in previous \
+            and not isinstance(previous["jurisdictions"], dict):
+        # The root type was checked and the map inside it was not, so
+        # {"jurisdictions": null} reached dict(None) and raised TypeError — the
+        # unhandled crash this function exists to replace with a stated refusal,
+        # one level in from where I put the guard.
+        raise SystemExit(
+            f"{RESULTS.name} has a 'jurisdictions' key holding "
+            f"{type(previous['jurisdictions']).__name__}, not an object, so "
+            f"{where} cannot read it — and writing would destroy it. Inspect it "
+            f"(or move it aside) and re-run.")
     if existed and not isinstance(previous, dict):
         raise SystemExit(
             f"{RESULTS.name} holds {type(previous).__name__}, not an object, so "
@@ -749,15 +779,65 @@ def _publish(results: dict) -> None:
     being lost silently.
     """
     page = _render(results)                     # may raise; nothing written yet
-    _write_atomic(RESULTS, json.dumps(results, indent=2) + "\n")
-    _write_atomic(PAGE, page)
+    payload = json.dumps(results, indent=2) + "\n"
+
+    # Two files cannot be renamed in one atomic step, so the aim is to make the
+    # window as small as the filesystem allows and to leave nothing behind if it
+    # is missed. Both temps are written FIRST — a full disk or a permissions
+    # problem fails there, before anything published has changed — and only then
+    # are the renames issued back to back. If the second still fails, the first is
+    # rolled back from the copy taken beforehand, so the pair stays consistent
+    # rather than leaving new results beside the old page.
+    before = RESULTS.read_bytes() if RESULTS.exists() else None
+    staged: list[pathlib.Path] = []
+    try:
+        # Both staged before either rename, and inside the cleanup — staging the
+        # page can itself fail (a missing directory, a full disk), and the first
+        # temp was orphaned when it did. Found by the test written for the rename
+        # failure, which is the point of testing the failure rather than the path.
+        results_tmp = _staged(RESULTS, payload.encode())
+        staged.append(results_tmp)
+        page_tmp = _staged(PAGE, page.encode())
+        staged.append(page_tmp)
+
+        results_tmp.replace(RESULTS)
+        staged.remove(results_tmp)
+        try:
+            page_tmp.replace(PAGE)
+            staged.remove(page_tmp)
+        except BaseException:
+            if before is None:
+                RESULTS.unlink(missing_ok=True)
+            else:
+                _staged(RESULTS, before).replace(RESULTS)
+            raise
+    finally:
+        for tmp in staged:
+            tmp.unlink(missing_ok=True)
+
+
+def _staged(path: pathlib.Path, data: bytes) -> pathlib.Path:
+    """Write `data` to a fresh temp file beside `path`, ready to be renamed onto it.
+
+    Unique, not merely temporary: a fixed `<name>.tmp` is one path shared by every
+    concurrent writer, so two interleave into it or one renames it away while the
+    other is filling it. Same directory, because a rename is only atomic within a
+    filesystem.
+    """
+    fd, name = tempfile.mkstemp(dir=path.parent, prefix=path.name + ".", suffix=".tmp")
+    tmp = pathlib.Path(name)
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+    return tmp
 
 
 def _write_atomic(path: pathlib.Path, text: str) -> None:
     """Write via a temporary file and rename, so no reader sees a partial file."""
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(text)
-    tmp.replace(path)
+    _staged(path, text.encode()).replace(path)
 
 
 def main() -> int:
@@ -835,6 +915,12 @@ def main() -> int:
         # them together.
         with _results_lock():
             results = json.loads(RESULTS.read_text())
+            # The same guard the merge and the render apply. Without it
+            # {"jurisdictions": {}} paired with the matching empty page PASSES the
+            # gate, while both writers correctly refuse that state as destructive —
+            # so the one job of the gate, agreeing with the writers about what is
+            # publishable, was the job it did not do.
+            _readable_results(results, "this check", existed=True)
             page = PAGE.read_text() if PAGE.exists() else None
         if page is None or page != _render(results):
             log.error("%s is out of date. Regenerate: python scripts/measure_accuracy.py "

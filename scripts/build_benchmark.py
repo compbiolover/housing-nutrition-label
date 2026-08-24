@@ -440,6 +440,18 @@ def _dc_sample(rows: int) -> tuple[list[dict], dict]:
             ssl = (a.get("SSL") or "").strip()
             if (body is None or (isinstance(body, dict) and body.get("error"))
                     or not feats or not ssl):
+                # `exceededTransferLimit` is deliberately NOT checked here, and
+                # the asymmetry with `_batch_or_die` is the point. The flag means
+                # "more records match than were returned". This query asks for
+                # ONE row on purpose — it is a paged read of a 109,273-row table —
+                # so the flag is set on every healthy response. In the batch
+                # lookups no page size is given, the whole matching set is
+                # expected, and the same flag really does mean a truncated answer.
+                #
+                # Adding the check here rejected all six offsets of a live build
+                # on the first run, which is how the difference was noticed: one
+                # more rule generalised past the evidence for it.
+                #
                 # A row with no SSL joins the empty and error cases: it cannot be
                 # resolved to an address, so it is an offset that did not answer.
                 # See the Cook sampler — the two must agree or one jurisdiction
@@ -621,14 +633,18 @@ def main() -> int:
     # four separate times — each fix reworded a guess. The builder is the only
     # place that KNOWS why a row was dropped, so it records it and the page reports
     # what happened rather than reconstructing it from two totals.
-    out_rows, dropped = [], {"no_address": 0, "no_year_built": 0}
+    # Three reasons, not two. `_parcel_info`/`_dc_place` omit a parcel both when
+    # the layer holds no feature for it and when the feature it holds carries a
+    # blank address, and folding those together let the page say "had no address
+    # on file" about a parcel whose record was simply not there — a claim about
+    # the assessor's documentation that the build has no evidence for.
+    out_rows, dropped = [], {"no_parcel_record": 0, "no_address": 0,
+                             "no_year_built": 0}
     for row in sample:
         key = key_of(row)
         place = info.get(key)
         if not place:
-            # No record in the parcel layer, so no address to geocode. The CAMA
-            # tables carry no address of their own in either jurisdiction.
-            dropped["no_address"] += 1
+            dropped["no_parcel_record"] += 1
             continue
         truth = truth_of(row)
         if not truth:
