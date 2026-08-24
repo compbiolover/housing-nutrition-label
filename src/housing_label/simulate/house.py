@@ -2337,8 +2337,10 @@ def _autofill_construction_from_nsi(cfg: dict, explicit: set, location,
     so the label can tag each with where it came from.
 
     Sources in precedence order: an OBSERVED county-assessor record (tagged
-    ``observed``), then NSI's structure record, then the tract's year-built
-    distribution, then a global default. The assessor is applied per field, so a
+    ``observed``), then a modelled stand-in, then a global default. The modelled
+    step is field-dependent: ``year_built`` prefers the tract's ACS distribution
+    where the tract resolved and falls back to NSI's tract median; every other
+    field comes from NSI's structure record. The assessor is applied per field, so a
     county publishing only some attributes contributes only those.
 
     year_built is a CENSUS-TRACT MEDIAN — a fact about the tract, not the building —
@@ -2430,7 +2432,12 @@ def _autofill_construction_from_nsi(cfg: dict, explicit: set, location,
     # tag that inflation "observed". The adapters do not carry a reliable unit
     # count, so the field is dropped for a multi-unit building rather than divided
     # by a guess; NSI's per-unit split (which does have one) then stands.
-    if observed_fields.get("sqft") is not None and (units or 1) > 1:
+    # `units` alone is not enough: NSI can classify a building multifamily and
+    # still carry no usable unit count, and `(None or 1) > 1` is False — so the
+    # building total would survive into the per-unit field wearing an "observed"
+    # tag. An unknown divisor is a reason to drop the field, not to keep it.
+    multi = (units or 1) > 1 or getattr(location, "structure_type", None) == "multifamily"
+    if observed_fields.get("sqft") is not None and multi:
         observed_fields.pop("sqft")
 
     def _take_observed(field: str) -> bool:

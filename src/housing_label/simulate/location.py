@@ -427,8 +427,14 @@ def resolve_location(
     # with a 12-second budget for every upstream combined.
     if allow_network and want_assessor:
         from housing_label.enrich.assessor import assessor_for_point
+        # The geocoder does not always echo a matchedAddress. Without one, _pin_at
+        # falls back to accepting a sole containing polygon unconfirmed — and the
+        # interpolation error that motivates the confirmation can land the point
+        # inside a neighbour's lot. So the caller's own address string stands in.
+        # It stays None for coordinate-only callers, who genuinely have nothing to
+        # confirm against.
         loc.assessor = assessor_for_point(loc.lat, loc.lon, loc.county_fips,
-                                          address=loc.matched_address)
+                                          address=loc.matched_address or address)
         if loc.assessor is not None:
             notes["assessor"] = (
                 f"construction details observed by the {loc.assessor.source}"

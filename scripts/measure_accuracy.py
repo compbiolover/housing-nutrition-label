@@ -125,6 +125,16 @@ def _grades(payload: dict) -> dict:
     return out
 
 
+def _pin_matches(loc, row: dict) -> bool:
+    """Whether the adapter resolved the same parcel the benchmark row describes."""
+    record = getattr(loc, "assessor", None)
+    if record is None:
+        return False
+    got = str(getattr(record, "parcel_id", "") or "").strip().zfill(14)
+    want = str(row.get("pin") or "").strip().zfill(14)
+    return bool(got) and got == want
+
+
 def _score_arms(row: dict) -> dict | None:
     """Score one benchmark address three ways off a single location resolve."""
     from housing_label.simulate.house import build_label_parts, label_payload
@@ -176,7 +186,15 @@ def _score_arms(row: dict) -> dict | None:
     return {
         "address": row["address"],
         "truth": truth_fields,
-        "resolved": loc.assessor is not None,
+        # Resolved means the adapter found THIS parcel, not merely some parcel.
+        # The harness geocodes the address exactly as a visitor would, so the
+        # lookup can land on a neighbour — and comparing a neighbour's record
+        # against this PIN's truth would be published as adapter error when it is
+        # really a matching failure. The two are different defects with different
+        # fixes, so a PIN disagreement is counted as unresolved and reported
+        # separately rather than folded into the accuracy rate.
+        "resolved": _pin_matches(loc, row),
+        "pin_mismatch": (loc.assessor is not None and not _pin_matches(loc, row)),
         "baseline": {"inferred": {f: cfg_off.get(f) for f in FIELDS},
                      "grades": _grades(pay_off)},
         "adapter": {"inferred": {f: cfg_on.get(f) for f in FIELDS},
@@ -235,6 +253,20 @@ def _tolerance_sentence(results: dict) -> str:
             f"baseline and {pct(a,'within_5yr_pct')} with the assessor; within "
             f"&plusmn;10 years {pct(b,'within_10yr_pct')} and "
             f"{pct(a,'within_10yr_pct')}.")
+
+
+def _mismatch_note(results: dict) -> str:
+    """Disclose lookups that found a parcel, but not the right one.
+
+    Folding these into the accuracy rate would publish a matching failure as an
+    accuracy failure. They are a distinct defect, so they are counted unresolved
+    and named here instead of disappearing.
+    """
+    n = results.get("pin_mismatches") or 0
+    if not n:
+        return ""
+    return (f" ({n} found a different parcel than the benchmark row and "
+            f"{'are' if n != 1 else 'is'} counted unresolved)")
 
 
 def _unscored_note(results: dict) -> str:
@@ -387,7 +419,7 @@ distance between the arms rather than overstating it.</li>
 padding-top:0.9rem;">{html.escape(DISCLAIMER)}</p>
 
 <p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
-{results['adapter_resolved_pct']}% of the sample &middot; benchmark digest
+{results['adapter_resolved_pct']}% of the sample{_mismatch_note(results)} &middot; benchmark digest
 {html.escape(m['sha256_16'])} &middot; generated {html.escape(results['generated'])}.
 Regenerate with <code>python scripts/measure_accuracy.py</code>.</p>
 </main>
@@ -464,6 +496,7 @@ def main() -> int:
         raise SystemExit("no address scored — refusing to publish an empty measurement")
 
     resolved = sum(1 for c in cases if c["resolved"])
+    mismatched = sum(1 for c in cases if c.get("pin_mismatch"))
     results = {
         "generated": date.today().isoformat(),
         # Both counts, deliberately. Every rate below is over the rows that could be
@@ -478,6 +511,7 @@ def main() -> int:
         # raise it. It is published as end-to-end coverage, so it is measured
         # that way.
         "adapter_resolved_pct": round(100 * resolved / len(rows), 1),
+        "pin_mismatches": mismatched,
         "baseline": _summarise(cases, "baseline"),
         "adapter": _summarise(cases, "adapter"),
     }
@@ -486,8 +520,9 @@ def main() -> int:
     RESULTS.write_text(json.dumps(results, indent=2) + "\n")
     PAGE.write_text(_render(results))
 
-    log.info("Scored %d addresses; assessor resolved for %d (%.1f%%).",
-             len(cases), resolved, results["adapter_resolved_pct"])
+    log.info("Scored %d addresses; assessor resolved for %d (%.1f%%); "
+             "%d landed on a different parcel and are counted unresolved.",
+             len(cases), resolved, results["adapter_resolved_pct"], mismatched)
     for f in FIELDS:
         b = results["baseline"]["fields"][f]
         a = results["adapter"]["fields"][f]

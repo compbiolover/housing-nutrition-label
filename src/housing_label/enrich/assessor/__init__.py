@@ -25,12 +25,17 @@ actually buy" is a number rather than an argument.
 
 Precedence
 ----------
-Above NSI and above any area typical, below the reader. The order the label
-applies is: what the visitor entered, then what the county observed, then NSI's
-structure record, then the tract's year-built distribution, then a global
-default. An observed value outranks a modeled one — that is the whole point —
-but the person standing in the house still outranks the county, whose record can
-be decades stale or simply wrong.
+Above NSI and above any area typical, below the reader. The label applies what the
+visitor entered first, then what the county observed, then a modelled stand-in,
+then a global default. An observed value outranks a modelled one — that is the
+whole point — but the person standing in the house still outranks the county,
+whose record can be decades stale or simply wrong.
+
+Which modelled stand-in comes next is field-dependent, and worth stating exactly
+because it has been described wrongly here before: for ``year_built`` the tract's
+ACS distribution wins where the tract resolves, and NSI's tract median is the
+fallback when it does not; for every other field NSI's structure record is the
+only modelled source.
 """
 
 from __future__ import annotations
@@ -92,8 +97,8 @@ def assessor_for_point(lat: float | None, lon: float | None,
         # new one cannot reintroduce it.
         return record if record is not None and record.fields() else None
     except Exception as exc:  # noqa: BLE001
-        # An adapter is supposed to swallow its own failures; this is the belt to
-        # that braces, so a badly-behaved one still cannot break a label.
+        # An adapter is supposed to swallow its own failures; this is belt and
+        # braces, so a badly-behaved one still cannot break a label.
         log.debug("assessor adapter %s raised for %s: %s", adapter.__name__,
                   county_fips, exc)
         return None

@@ -469,6 +469,99 @@ def test_a_preset_build_does_not_pay_for_an_assessor_lookup():
         f"it then discards")
 
 
+# --- end-to-end, network-free -------------------------------------------------
+#
+# Everything above tests a helper in isolation. None of it would notice the one
+# failure mode that matters most in practice: a renamed response key, a broken PIN
+# join, or a mapping applied to the wrong column. The adapter fails open, so all of
+# those look identical to "this county has no record here" — the label keeps
+# working and quietly stops observing anything. These drive lookup() end to end
+# over recorded response shapes so that silence has to announce itself.
+
+
+def _stub_transport(monkey_target, parcels, cama):
+    """Replace cook_il._get with one that answers from recorded bodies."""
+    from housing_label.enrich.assessor import cook_il
+
+    def fake(url, params, deadline):
+        if url == cook_il.PARCEL_URL:
+            return {"features": [{"attributes": a} for a in parcels]}
+        return cama
+    monkey_target.append((cook_il, cook_il._get))
+    cook_il._get = fake
+
+
+def _restore(saved):
+    for module, original in saved:
+        module._get = original
+
+
+def _lookup(parcels, cama, lat=41.9, lon=-88.1, address=None):
+    from housing_label.enrich.assessor import cook_il
+    cook_il._lookup_cached.cache_clear()
+    saved = []
+    _stub_transport(saved, parcels, cama)
+    try:
+        return cook_il.lookup(lat, lon, address)
+    finally:
+        _restore(saved)
+        cook_il._lookup_cached.cache_clear()
+
+
+_PARCEL = {"PIN14": "17031000000000", "street_address": "213 W MAIN ST"}
+_CAMA = [{"pin": "17031000000000", "char_yrblt": "1971", "char_bldg_sf": "1840",
+          "char_ext_wall": "Frame", "char_bsmt": "Full",
+          "char_repair_cnd": "Average", "char_type_resd": "2 Story"}]
+
+
+def test_a_full_row_maps_end_to_end_into_the_labels_vocabulary():
+    rec = _lookup([_PARCEL], _CAMA, address="213 W Main St")
+    assert rec is not None, "a containing parcel with a matching address must resolve"
+    assert rec.parcel_id == "17031000000000"
+    assert rec.fields() == {
+        "year_built": 1971, "sqft": 1840.0, "stories": 2,
+        "construction": "frame", "foundation": "full-basement",
+        "condition": "average",
+    }
+
+
+def test_a_renamed_response_key_does_not_pass_silently():
+    """The whole point of this file: the adapter fails open, so a schema change
+    reads as "no record here". Pinning the mapped output means a renamed column
+    breaks a test instead of quietly turning observation off in production."""
+    broken = [dict(_CAMA[0])]
+    broken[0]["char_year_built"] = broken[0].pop("char_yrblt")
+    rec = _lookup([_PARCEL], broken, address="213 W Main St")
+    assert rec is not None
+    assert "year_built" not in rec.fields(), (
+        "precondition: the renamed key is not read — this test exists so that the "
+        "positive test above fails loudly when that happens for real")
+
+
+def test_a_pin_with_no_characteristics_row_yields_nothing():
+    assert _lookup([_PARCEL], [], address="213 W Main St") is None
+
+
+def test_a_zero_year_and_zero_area_are_read_as_not_recorded():
+    row = [dict(_CAMA[0], char_yrblt="0", char_bldg_sf="0")]
+    rec = _lookup([_PARCEL], row, address="213 W Main St")
+    assert rec is not None
+    assert "year_built" not in rec.fields() and "sqft" not in rec.fields(), (
+        "a county zero means 'not recorded', not the year zero or a zero-area house")
+
+
+def test_a_containing_parcel_whose_address_disagrees_is_not_accepted():
+    """The interpolated point can land inside the neighbour's lot, so containment
+    alone is not evidence. With no second candidate to fall back to, the answer is
+    nothing rather than the neighbour."""
+    assert _lookup([_PARCEL], _CAMA, address="209 W Main St") is None
+
+
+def test_two_overlapping_parcels_are_ambiguous_rather_than_a_coin_flip():
+    other = {"PIN14": "17031000000001", "street_address": "213 W MAIN ST"}
+    assert _lookup([_PARCEL, other], _CAMA, address="213 W Main St") is None
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]

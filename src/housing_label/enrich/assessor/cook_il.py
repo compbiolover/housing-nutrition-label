@@ -170,16 +170,19 @@ def _addr_key(raw: str | None) -> tuple[str, tuple[str, ...], str | None] | None
     if not tokens or not tokens[0].isdigit():
         return None                       # no house number → nothing to anchor on
     number, rest = tokens[0], tokens[1:]
-    name: list[str] = []
-    suffix: str | None = None
-    for t in rest:
+    for i, t in enumerate(rest):           # everything from a unit marker on is noise
         if t in _UNIT_MARKERS:
+            rest = rest[:i]
             break
-        if t in _SUFFIXES:
-            suffix = _SUFFIXES[t]          # last one wins: "MAIN ST" → st
-            continue
-        name.append(t)
-    return (number, tuple(name), suffix) if name else None
+    # Only a TERMINAL street type is a street type. Consuming the token wherever it
+    # appeared collapsed "213 ST JOHN ST" onto "213 JOHN ST" and "100 PARK PLACE DR"
+    # onto "100 PARK DR" — both real naming patterns, and both exactly the
+    # confident-but-wrong "observed" match this comparison exists to reject.
+    suffix: str | None = None
+    if rest and rest[-1] in _SUFFIXES:
+        suffix = _SUFFIXES[rest[-1]]
+        rest = rest[:-1]
+    return (number, tuple(rest), suffix) if rest else None
 
 
 def _same_address(a: str | None, b: str | None) -> bool:
