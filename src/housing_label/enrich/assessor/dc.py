@@ -13,6 +13,12 @@ The chain, verified live and keyless:
 2. ``RESIDENTIAL (CAMA)`` — ``SSL`` → ``AYB``, ``GBA``, ``STORIES``, ``EXTWALL_D``,
    ``CNDTN_D``, ``NUM_UNITS``.
 
+Condominium units take a second chain, for the reason given under "Two kinds of
+address" below:
+
+3. ``RESIDENTIAL UNITS`` — ``PRIMARY_ADDRESS`` + ``UNIT_NUMBER`` → ``CONDO_SSL``.
+4. ``CONDOMINIUM (CAMA)`` — that SSL → ``AYB`` and ``LIVING_GBA``.
+
 Two things differ from Cook in ways worth knowing
 -------------------------------------------------
 **The parcel layer carries owner data.** Cook's CAMA split meant the characteristics
@@ -29,26 +35,49 @@ structural difference the label's ``brick-frame`` value exists for — so ``Bric
 Veneer`` maps to a framed wall with a brick face rather than to solid masonry, which
 is what it actually is.
 
+**Two kinds of address, and only one of them is a place.** A house is somewhere a
+coordinate can land. A condominium unit is not: its SSL never appears in the parcel
+polygons — those hold the building — so no point-in-polygon can pick unit 305 out of
+a stack of forty. That is a property of the District's schema, and it is why roughly
+a third of DC's housing stock was unreachable here: 61,329 condominium records
+against 109,273 residential.
+
+The District publishes the missing edge keylessly in the same MapServer, so the
+condo lookup runs off the address instead of the point, and the unit number the
+reader typed is the only thing that can identify their home. Without one there is no
+lookup — every unit in the building shares the street address, and answering with
+one of them would be the same confident guess as taking the nearest parcel, which
+``select_parcel`` exists to refuse. So the parcel path is asked first and its answer
+is never second-guessed; the condominium path runs only where point-in-polygon found
+no residential record, which is what a condo address looks like from the parcel
+layer.
+
+A condo record carries less and more than a house's. Less: the condominium table has
+no exterior wall, no storey count and no condition, and those stay absent rather
+than being borrowed from the building the unit sits in — a different structure's
+record. More: ``LIVING_GBA`` is the unit's own floor area, where the residential
+table's ``GBA`` is the whole building's and has to be dropped on a multi-unit parcel.
+
 Not covered
 -----------
-DC keeps condominium units in a separate CAMA table (``CONDOMINIUM (CAMA)``), so a
-condo address finds its parcel and then no residential row, and the lookup returns
-None. That is the correct failure — the label keeps what it had — but it means
-coverage in the denser wards is lower than the parcel match rate suggests. A condo
-table is a follow-up, not a silent gap.
+There is no basement or foundation column in either table. That field is simply not
+among the ones this county contributes; the autofill applies what an adapter returns
+per field, so NSI's estimate stands for it.
 
-There is no basement or foundation column in the residential table. That field is
-simply not among the ones this county contributes; the autofill applies what an
-adapter returns per field, so NSI's estimate stands for it.
+The published accuracy figures do not cover the condominium path. The benchmark is
+drawn from the residential table, so the measurement describes houses only — see
+``scripts/jurisdictions.py``. Serving a path is not the same as having measured it.
 """
 
 from __future__ import annotations
 
 import logging
+import re
 from functools import lru_cache
 
 from housing_label.enrich.assessor._shared import (
-    arcgis_parcels, cache_bucket, deadline_from, get_json, num, select_parcel,
+    address_key, arcgis_parcels, cache_bucket, deadline_from, get_json, num,
+    same_address, select_parcel,
 )
 from housing_label.enrich.assessor.base import AssessorRecord
 
@@ -58,6 +87,7 @@ COUNTY_FIPS = frozenset({"11001"})          # District of Columbia
 NAME = "DC Office of Tax and Revenue"
 ATTRIBUTION = "DC Office of Tax and Revenue (Open Data DC, keyless)"
 DATA_VINTAGE = "DC OTR Computer Assisted Mass Appraisal — residential"
+CONDO_VINTAGE = "DC OTR Computer Assisted Mass Appraisal — condominium"
 
 _BASE = ("https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA"
          "/Property_and_Land_WebMercator/MapServer")
@@ -175,6 +205,130 @@ def _characteristics(ssl: str, *, deadline: float | None = None) -> dict | None:
     return ((feats[0] or {}).get("attributes") or None) if feats else None
 
 
+# --- condominium units ---------------------------------------------------------
+#
+# A condo unit is not reachable from a coordinate. Its SSL never appears in the
+# parcel polygons — those hold the building — so no point-in-polygon can pick unit
+# 305 out of a stack of forty. That is a property of the schema, not of this code,
+# and it is why the residential path returns nothing for roughly a third of DC's
+# housing stock.
+#
+# The District does publish the missing edge, keylessly, in the same MapServer:
+# RESIDENTIAL UNITS carries FULL_ADDRESS, PRIMARY_ADDRESS, UNIT_NUMBER and the
+# unit's own CONDO_SSL. So the lookup is address-driven rather than point-driven —
+# the unit number the reader typed is the only thing that can identify their home,
+# and it has to come from them.
+UNITS_URL = f"{_BASE}/68/query"
+CONDO_CAMA_URL = f"{_BASE}/24/query"
+_UNITS_FIELDS = "PRIMARY_ADDRESS,UNIT_NUMBER,CONDO_SSL"
+# LIVING_GBA is the unit's own area, unlike the residential table's GBA, which is
+# the whole building's. So a condo reports floor area where a multi-unit
+# non-condo parcel has to drop it.
+_CONDO_FIELDS = "SSL,AYB,LIVING_GBA"
+
+# "#305", "APT 305", "UNIT 305" — and a bare trailing token, which is how DC's own
+# unit table writes it ("2123 CALIFORNIA STREET NW D7").
+_UNIT_MARKER_RE = re.compile(
+    r"[\s,]+(?:#|apt\.?|unit|ste\.?|suite)\s*([A-Za-z0-9\-]+)\s*$", re.I)
+_BARE_UNIT_RE = re.compile(
+    r"^(?P<base>.*\b(?:nw|ne|sw|se))\s+(?P<unit>[A-Za-z]?\d+[A-Za-z]?|[A-Za-z]\d*)\s*$",
+    re.I)
+
+
+def _split_unit(address: str | None) -> tuple[str, str | None]:
+    """``(building address, unit)`` — the unit being None when none was given.
+
+    A condo lookup without a unit is not a lookup: every unit in the building
+    shares the street address, and picking one would be the same confident guess
+    as taking the nearest parcel. So the absence is reported, not filled in.
+    """
+    text = " ".join(str(address or "").split())
+    if not text:
+        return "", None
+    m = _UNIT_MARKER_RE.search(text)
+    if m:
+        return text[:m.start()].strip(" ,"), m.group(1)
+    m = _BARE_UNIT_RE.match(text)
+    if m:
+        return m.group("base").strip(), m.group("unit")
+    return text, None
+
+
+def _same_unit(a: str | None, b: str | None) -> bool:
+    """Whether two unit designators are the same one.
+
+    Case and punctuation vary between what a reader types and what the District
+    records ("#3-B", "3B"). Nothing else is normalised: leading zeros stay
+    significant because unit 01 and unit 1 can both exist in one building.
+    """
+    def norm(v):
+        return "".join(ch for ch in str(v or "").upper() if ch.isalnum())
+    return bool(norm(a)) and norm(a) == norm(b)
+
+
+def _condo_ssl(base: str, unit: str, *, deadline: float | None = None) -> str | None:
+    """The SSL of this unit, or None — never a guess at which unit was meant.
+
+    The query is narrowed by house number so the response stays small, and the
+    decision is made here rather than in the predicate: the address is compared
+    with the same matcher the parcel path uses, and the unit must match exactly
+    one row. Two rows claiming the unit is an ambiguity, not a tie to break.
+    """
+    key = address_key(base, _LOCALITY)
+    if not key:
+        return None
+    number = key[0].replace("'", "")
+    body = get_json(UNITS_URL, {
+        "where": (f"PRIMARY_ADDRESS LIKE '{number} %' "
+                  f"AND UNIT_TYPE='CONDO' AND STATUS='ACTIVE'"),
+        "outFields": _UNITS_FIELDS, "returnGeometry": "false", "f": "json",
+    }, deadline_from(deadline))
+    hits = []
+    for feat in (body or {}).get("features") or []:
+        a = (feat or {}).get("attributes") or {}
+        if not same_address(base, a.get("PRIMARY_ADDRESS"), _LOCALITY):
+            continue
+        if _same_unit(unit, a.get("UNIT_NUMBER")) and (a.get("CONDO_SSL") or "").strip():
+            hits.append(a["CONDO_SSL"].strip())
+    return hits[0] if len(set(hits)) == 1 else None
+
+
+def _condo_characteristics(ssl: str, *, deadline: float | None = None) -> dict | None:
+    body = get_json(CONDO_CAMA_URL, {
+        "where": f"SSL='{ssl.replace(chr(39), '')}'",
+        "outFields": _CONDO_FIELDS, "returnGeometry": "false", "f": "json",
+    }, deadline_from(deadline))
+    feats = (body or {}).get("features") or []
+    return ((feats[0] or {}).get("attributes") or None) if feats else None
+
+
+def _condo_record(address: str | None, *, deadline: float | None = None):
+    """The District's record of one condominium unit, or None.
+
+    Reports year built and the unit's own floor area, and nothing else: the
+    condominium table records no exterior wall, no storey count and no condition,
+    so those stay absent rather than being borrowed from the building.
+    """
+    base, unit = _split_unit(address)
+    if not (base and unit):
+        return None
+    ssl = _condo_ssl(base, unit, deadline=deadline)
+    if not ssl:
+        return None
+    row = _condo_characteristics(ssl, deadline=deadline)
+    if not row:
+        return None
+    year = num(row.get("AYB"))
+    area = num(row.get("LIVING_GBA"))
+    return AssessorRecord(
+        source=ATTRIBUTION,
+        data_vintage=CONDO_VINTAGE,
+        parcel_id=ssl,
+        year_built=int(year) if year and 1800 <= year <= 2100 else None,
+        sqft=area if area and area > 0 else None,
+    )
+
+
 def _stories(raw) -> int | None:
     """A whole-number storey count, or None.
 
@@ -186,10 +340,9 @@ def _stories(raw) -> int | None:
     return int(v) if v is not None and v > 0 and float(v).is_integer() else None
 
 
-@lru_cache(maxsize=4096)
-def _lookup_cached(lat: float, lon: float, address: str | None,
-                   _bucket: int = 0) -> AssessorRecord | None:
-    deadline = deadline_from(None)
+def _residential_record(lat: float, lon: float, address: str | None,
+                        *, deadline: float | None = None) -> AssessorRecord | None:
+    """The District's record of the house standing on this parcel, or None."""
     ssl = _ssl_at(lat, lon, address, deadline=deadline)
     if not ssl:
         return None
@@ -220,6 +373,25 @@ def _lookup_cached(lat: float, lon: float, address: str | None,
         construction=_EXT_WALL.get((row.get("EXTWALL_D") or "").strip()),
         condition=_CONDITION.get((row.get("CNDTN_D") or "").strip()),
     )
+
+
+@lru_cache(maxsize=4096)
+def _lookup_cached(lat: float, lon: float, address: str | None,
+                   _bucket: int = 0) -> AssessorRecord | None:
+    """The parcel first, then the unit — never the unit instead of the parcel.
+
+    The two paths answer for disjoint halves of the District's stock, and the
+    parcel path is the one that can be reached from a coordinate alone. So it is
+    asked first and its answer is never second-guessed: the condominium lookup
+    runs only where point-in-polygon found no residential record, which is what a
+    condo address looks like from the parcel layer. Nothing an existing caller
+    already gets can change shape.
+    """
+    deadline = deadline_from(None)
+    record = _residential_record(lat, lon, address, deadline=deadline)
+    if record is not None:
+        return record
+    return _condo_record(address, deadline=deadline)
 
 
 def lookup(lat: float, lon: float, address: str | None = None) -> AssessorRecord | None:

@@ -164,6 +164,12 @@ SUFFIXES = {
 # two records describe the same building.
 UNIT_MARKERS = frozenset({"apt", "unit", "ste", "suite", "#", "fl", "floor", "rm"})
 
+# A trailing directional, which sits AFTER the street type in DC, Denver and every
+# other quadrant-addressed city. It is part of the street's identity — 1234 Main St
+# NW and 1234 Main St SE are different buildings — so it is never dropped, only
+# stepped over when deciding which token is the street type.
+QUADRANTS = frozenset({"nw", "ne", "sw", "se"})
+
 # A trailing postal code marks the start of a locality tail whatever the source's
 # formatting. Safe to key on because the house number has already been consumed by
 # the time this is tested — a street-name token is not a bare five-digit number.
@@ -232,6 +238,18 @@ def address_key(raw: str | None, locality: frozenset[str] = frozenset()):
     if rest and rest[-1] in SUFFIXES:
         suffix = SUFFIXES[rest[-1]]
         rest = rest[:-1]
+    elif len(rest) >= 2 and rest[-1] in QUADRANTS and rest[-2] in SUFFIXES:
+        # ...or terminal except for a quadrant, which is what every address in a
+        # quadrant-addressed city looks like. "2123 CALIFORNIA STREET NW" left
+        # `street` sitting in the name tokens, so it never matched "2123
+        # CALIFORNIA ST NW" — and DC's unit table spells the type out while its
+        # parcel layer abbreviates, so the two could not be joined at all.
+        #
+        # The quadrant STAYS in the name tokens. It is not decoration: 1234 Main
+        # St NW and 1234 Main St SE are different buildings, and folding the
+        # quadrant away would make them equal.
+        suffix = SUFFIXES[rest[-2]]
+        rest = rest[:-2] + [rest[-1]]
     return (number, tuple(rest), suffix) if rest else None
 
 

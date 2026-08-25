@@ -34,18 +34,29 @@ _CAMA = {"SSL": "2076    0099", "AYB": 1895.0, "GBA": 1840.0, "STORIES": 2.0,
          "EXTWALL_D": "Common Brick", "CNDTN_D": "Good", "NUM_UNITS": 1.0}
 
 
-def _lookup(parcels, cama, lat=38.9347, lon=-77.0665, address=None):
-    """Drive dc.lookup() over recorded response shapes."""
+def _lookup(parcels, cama, lat=38.9347, lon=-77.0665, address=None,
+            units=(), condo=(), trace=False):
+    """Drive dc.lookup() over recorded response shapes.
+
+    Every one of the four endpoints is answered explicitly. A test that exercises
+    the parcel path and leaves the unit tables empty is then really asserting that
+    the condominium fallback found nothing, rather than being handed the
+    residential rows under a different URL.
+    """
+    asked = []
+
     def fake(url, params, deadline):
-        if url == dc.PARCEL_URL:
-            return {"features": [{"attributes": a} for a in parcels]}
-        return {"features": [{"attributes": a} for a in cama]}
+        asked.append(url)
+        rows = {dc.PARCEL_URL: parcels, dc.CAMA_URL: cama,
+                dc.UNITS_URL: units, dc.CONDO_CAMA_URL: condo}[url]
+        return {"features": [{"attributes": a} for a in rows]}
 
     dc._lookup_cached.cache_clear()
     saved = (dc.get_json, _shared.get_json)
     dc.get_json, _shared.get_json = fake, fake
     try:
-        return dc.lookup(lat, lon, address)
+        record = dc.lookup(lat, lon, address)
+        return (record, asked) if trace else record
     finally:
         dc.get_json, _shared.get_json = saved
         dc._lookup_cached.cache_clear()
@@ -76,7 +87,7 @@ def test_a_postal_code_ends_the_street_even_with_no_locality_word():
     """ZIP+4 appears on some rows ("...WASHINGTON DC 20008-3329"). The trim keys on
     the postal code too, so a source that omits the city still parses."""
     assert address_key("1349 MARYLAND AVE NE 20002-4406", dc._LOCALITY) == \
-        ("1349", ("maryland", "ave", "ne"), None)
+        ("1349", ("maryland", "ne"), "ave")
 
 
 def test_a_neighbouring_house_number_is_still_refused():
@@ -227,6 +238,195 @@ def test_the_city_named_street_fix_did_not_loosen_the_match():
     assert not same_address("401 Washington Ave SW, Washington, DC",
                             "401 WASHINGTON ST SW WASHINGTON DC 20024", _LOCALITY)
 
+
+# --- condominiums ---------------------------------------------------------------
+#
+# The recorded shapes are the ones DC actually returns: 2123 California St NW is a
+# 1911 building whose units carry their own floor areas, verified against the live
+# service before these were written down.
+
+_UNIT_ROW = {"PRIMARY_ADDRESS": "2123 CALIFORNIA STREET NW",
+             "UNIT_NUMBER": "D7", "CONDO_SSL": "2528    2029"}
+_CONDO_CAMA = {"SSL": "2528    2029", "AYB": 1911.0, "LIVING_GBA": 680.0}
+
+
+def test_a_unit_number_is_what_makes_a_condo_reachable():
+    """No point-in-polygon can pick unit D7 out of a stack: the unit's SSL is not in
+    the parcel layer at all. The address the reader typed carries the only thing
+    that identifies their home, so the lookup is driven from it."""
+    rec = _lookup([], [], address="2123 California St NW #D7",
+                  units=[_UNIT_ROW], condo=[_CONDO_CAMA])
+    assert rec is not None
+    assert rec.parcel_id == "2528    2029"
+    assert rec.year_built == 1911
+    assert rec.sqft == 680.0
+
+
+def test_the_condo_table_reports_the_units_own_floor_area():
+    """LIVING_GBA is per unit, unlike the residential table's whole-building GBA —
+    which is why the parcel path has to drop sqft on a multi-unit parcel and this
+    one does not. Sibling units in one building carry different areas."""
+    sibling = dict(_UNIT_ROW, UNIT_NUMBER="D8", CONDO_SSL="2528    2030")
+    rec = _lookup([], [], address="2123 California St NW #D8",
+                  units=[_UNIT_ROW, sibling],
+                  condo=[{"SSL": "2528    2030", "AYB": 1911.0,
+                          "LIVING_GBA": 1256.0}])
+    assert rec is not None and rec.sqft == 1256.0
+
+
+def test_a_condo_reports_only_what_its_table_records():
+    """The condominium table has no exterior wall, no storey count and no condition
+    column. Those stay absent rather than being borrowed from the building the unit
+    happens to sit in, which is a different structure's record."""
+    rec = _lookup([], [], address="2123 California St NW #D7",
+                  units=[_UNIT_ROW], condo=[_CONDO_CAMA])
+    assert rec is not None
+    assert rec.stories is None
+    assert rec.construction is None
+    assert rec.condition is None
+    assert rec.data_vintage == dc.CONDO_VINTAGE
+    assert rec.data_vintage != dc.DATA_VINTAGE
+
+
+def test_an_address_with_no_unit_is_not_even_asked_about():
+    """Every unit in the building shares the street address. Answering with one of
+    them would be the same confident guess as taking the nearest parcel, so the
+    absence is reported — and the unit table is not consulted at all, which is what
+    tells this refusal apart from a lookup that ran and found nothing."""
+    record, asked = _lookup([], [], address="2123 California St NW",
+                            units=[_UNIT_ROW], condo=[_CONDO_CAMA], trace=True)
+    assert record is None
+    assert dc.UNITS_URL not in asked
+    # ...and the one difference that makes it answerable is the unit.
+    with_unit, asked = _lookup([], [], address="2123 California St NW #D7",
+                               units=[_UNIT_ROW], condo=[_CONDO_CAMA], trace=True)
+    assert with_unit is not None and dc.UNITS_URL in asked
+
+
+def test_two_units_claiming_the_same_designator_are_an_ambiguity():
+    """Two different SSLs answering to unit D7 means the question has no single
+    answer. Taking the first row would be picking one home out of two."""
+    twin = dict(_UNIT_ROW, CONDO_SSL="2528    9999")
+    assert _lookup([], [], address="2123 California St NW #D7",
+                   units=[_UNIT_ROW], condo=[_CONDO_CAMA]) is not None
+    assert _lookup([], [], address="2123 California St NW #D7",
+                   units=[_UNIT_ROW, twin], condo=[_CONDO_CAMA]) is None
+
+
+def test_the_same_unit_recorded_twice_is_not_an_ambiguity():
+    """A duplicated row is one home listed twice, not two homes. The refusal is
+    keyed on distinct SSLs so a repeated row does not read as a conflict."""
+    rec = _lookup([], [], address="2123 California St NW #D7",
+                  units=[_UNIT_ROW, dict(_UNIT_ROW)], condo=[_CONDO_CAMA])
+    assert rec is not None and rec.parcel_id == "2528    2029"
+
+
+def test_a_matching_unit_on_a_different_street_is_refused():
+    """The unit query is narrowed by house number, so 2123 15th St NW comes back
+    alongside 2123 California St NW. Unit D7 exists in both; only one is the
+    address that was asked about."""
+    other = {"PRIMARY_ADDRESS": "2123 15TH STREET NW", "UNIT_NUMBER": "D7",
+             "CONDO_SSL": "2666    2001"}
+    assert _lookup([], [], address="2123 15th St NW #D7", units=[other],
+                   condo=[{"SSL": "2666    2001", "AYB": 1925.0,
+                           "LIVING_GBA": 900.0}]) is not None
+    assert _lookup([], [], address="2123 California St NW #D7",
+                   units=[other], condo=[_CONDO_CAMA]) is None
+
+
+def test_the_parcel_path_is_asked_first_and_never_second_guessed():
+    """The two paths answer for disjoint halves of the stock. Where point-in-polygon
+    found a house, that is the answer — the condominium lookup must not be able to
+    overwrite a record an existing caller already gets."""
+    rec = _lookup([_PARCEL], [_CAMA],
+                  address="3401 Newark St NW #D7",
+                  units=[dict(_UNIT_ROW, PRIMARY_ADDRESS="3401 NEWARK ST NW")],
+                  condo=[_CONDO_CAMA])
+    assert rec is not None
+    assert rec.parcel_id == "2076    0099"
+    assert rec.data_vintage == dc.DATA_VINTAGE
+
+
+def test_a_condo_with_no_cama_row_is_a_miss_not_a_bare_ssl():
+    """A unit SSL that the characteristics table does not carry has nothing to say
+    about the building. Returning the identifier alone would put an assessor-sourced
+    record on the label with no observation in it."""
+    assert _lookup([], [], address="2123 California St NW #D7",
+                   units=[_UNIT_ROW], condo=[_CONDO_CAMA]) is not None
+    assert _lookup([], [], address="2123 California St NW #D7",
+                   units=[_UNIT_ROW], condo=[]) is None
+
+
+def test_the_unit_is_read_from_every_form_a_reader_writes_it():
+    """"#305", "Apt 305", "Unit 305" and the bare trailing token DC's own table
+    uses ("2123 CALIFORNIA STREET NW D7")."""
+    base = "2123 California St NW"
+    for text, unit in ((f"{base} #305", "305"), (f"{base}, #305", "305"),
+                       (f"{base} Apt 305", "305"), (f"{base} APT. 305", "305"),
+                       (f"{base} Unit 305", "305"), (f"{base} Suite 305", "305"),
+                       (f"{base} D7", "D7"), (f"{base} 305", "305")):
+        assert dc._split_unit(text) == (base, unit), text
+
+
+def test_a_plain_street_address_yields_no_unit():
+    """The quadrant is the last token of a great many DC addresses and is not a unit
+    designator. Reading it as one would send every non-condo lookup down the
+    condominium path with a fabricated unit."""
+    for text in ("2123 California St NW", "3401 Newark St NW Washington DC 20016",
+                 "1349 Maryland Ave NE"):
+        assert dc._split_unit(text)[1] is None, text
+
+
+def test_unit_designators_compare_past_punctuation_but_not_past_zeros():
+    """"#3-B" and "3B" are the same home written two ways. "01" and "1" are not:
+    both can exist in one building, so the leading zero stays significant."""
+    assert dc._same_unit("#3-B", "3B")
+    assert dc._same_unit("d7", "D7")
+    assert not dc._same_unit("01", "1")
+    assert not dc._same_unit("", "")
+    assert not dc._same_unit(None, "3B")
+
+
+def test_a_street_type_before_a_quadrant_is_still_a_street_type():
+    """"2123 CALIFORNIA STREET NW" and "2123 California St NW" are one address. The
+    suffix table only reached a terminal token, so in every quadrant-addressed city
+    the abbreviation went unrecognised and the two spellings never matched."""
+    assert address_key("2123 CALIFORNIA STREET NW", dc._LOCALITY) == \
+        address_key("2123 California St NW", dc._LOCALITY)
+    assert same_address("2123 California St NW, Washington, DC",
+                        "2123 CALIFORNIA STREET NW", dc._LOCALITY)
+
+
+def test_normalising_the_street_type_did_not_swallow_the_quadrant():
+    """Stepping over the quadrant to find the street type must not drop it: NW and
+    SE are opposite corners of the city at the same house number."""
+    assert not same_address("2123 California St NW", "2123 California St SE",
+                            dc._LOCALITY)
+    assert address_key("2123 California St NW", dc._LOCALITY)[1][-1] == "nw"
+
+
+def test_the_condo_fallback_spends_the_same_budget_not_a_second_one():
+    """Four hops now sit behind one lookup. They share the parcel path's deadline, so
+    a condo address cannot cost twice the adapter's timeout on a host that allows
+    twelve seconds for the whole label."""
+    seen = []
+
+    def fake(url, params, deadline):
+        seen.append(deadline)
+        rows = {dc.PARCEL_URL: [], dc.CAMA_URL: [], dc.UNITS_URL: [_UNIT_ROW],
+                dc.CONDO_CAMA_URL: [_CONDO_CAMA]}[url]
+        return {"features": [{"attributes": a} for a in rows]}
+
+    dc._lookup_cached.cache_clear()
+    saved = (dc.get_json, _shared.get_json)
+    dc.get_json, _shared.get_json = fake, fake
+    try:
+        dc.lookup(38.9166, -77.0492, "2123 California St NW #D7")
+    finally:
+        dc.get_json, _shared.get_json = saved
+        dc._lookup_cached.cache_clear()
+    assert len(seen) > 1
+    assert len(set(seen)) == 1, seen
 
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())

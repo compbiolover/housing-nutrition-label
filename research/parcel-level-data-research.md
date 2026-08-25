@@ -408,6 +408,57 @@ are hostile:
 party fields at ingest.** That removes the single most commonly restricted class of
 field from almost every county's terms, and removes a PII liability from a public repo.
 
+### 4.1 A negative result worth writing down — Colorado Springs / El Paso County, CO
+
+**Verified live 2026-08-25. Parcel geometry: yes. Construction characteristics: no.
+Not an adapter candidate.**
+
+Colorado Springs looks like a candidate from the outside — a city ArcGIS server, a
+county ArcGIS server, a Socrata portal, a quarter-million parcels, all keyless. It
+is not one, and the reason generalises: *a parcel layer is a map of boundaries, not
+a record of buildings.* Cook and DC qualify because each publishes a separate
+characteristics table keyed to the parcel id. El Paso County publishes no such table
+anywhere public.
+
+What is there, keyless:
+
+| Service | Layer | Rows | Carries |
+|---|---|---|---|
+| `gis.coloradosprings.gov/arcgis/…/GeneralUse/LandRecords/MapServer` | 4 Parcels | 243,735 | `PARCEL`, `MAINADDRES`, `ParcelAdr`, `ZONING`, `ACREAGE`, `LEGAL` — plus `OwnerName`/`ADDRESS1`/`OwnerCSZ` |
+| same | 1 Subaddress Points | 62,109 | the unit-level address edge (DC's table 68 equivalent) |
+| same | 0 Address Points | — | address geocoding |
+| `gisservices.elpasoco.com/arcgis2/…/HubPublic/Parcels/MapServer` | 0 | 276,880 | `PARCEL` and geometry, nothing else |
+
+What is not there, checked rather than assumed:
+
+- **No CAMA table in any public folder on either server.** All 28 Colorado Springs
+  folders and all 6 El Paso County folders enumerated; `LandRecords` has no `tables`
+  array at all, so there is nothing to join a `PARCEL` to.
+- **`GeneralUse/BuildingsImpSurfaces/0` (Buildings) is footprints only** —
+  `BUILDINGTYPE`, `FEATURECODE`, address pointers, and GIS record dates
+  (`DATECREATED`, `LASTPHOTO`). No year built, no floor area, no wall or roof.
+  A building layer is not a building record.
+- **`data.coloradosprings.gov` holds 16 datasets**, none property or assessment:
+  airport traffic, bus routes, trees, sidewalks, budget ledgers.
+- **The assessor's property search is Spatialest-hosted HTML**
+  (`property.spatialest.com/co/elpaso/`) — a rendered page per parcel, not an API.
+  Scraping it is a licence and a load question, not a keyless data source.
+- `gis.elpasoco.com` and `data.elpasoco.com` are unreachable through this
+  environment's proxy, so they are unexamined rather than ruled out.
+
+**Why we stop here rather than shipping a partial adapter.** An adapter that resolves
+a coordinate to `PARCEL` and returns no construction fields changes nothing: every
+field it could fill stays at NSI's tract estimate, and the label gains a parcel id no
+dimension reads. It would raise the *parcel match rate* while leaving the *observed
+field rate* at zero — a number that looks like coverage and is not. The published
+accuracy figures would then describe a jurisdiction the adapter cannot actually
+answer for.
+
+**The screening test this yields**, to run before any further adapter work: does the
+jurisdiction publish a characteristics table, keyed to the parcel id, containing at
+minimum a year built? If not, the jurisdiction belongs in the bulk-download column
+of the table above or in no column at all. Parcel geometry alone is never the answer.
+
 ---
 
 ## Part 5 — Commercial parcel aggregators: licensing first, then price
