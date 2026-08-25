@@ -450,6 +450,14 @@ def _dc_sample(rows: int) -> tuple[list[dict], dict]:
                 "returnGeometry": "false", "f": "json",
             })
             feats = None if body is None else (body or {}).get("features")
+            # Shape, not truthiness — the same check the batch helper needed. A
+            # body like {"features": "oops"} made `feats` a non-empty string, and
+            # feats[0].get() then raised AttributeError: an incidental crash where
+            # this sampler's whole design is to retry an offset and then fail
+            # closed with a message about the draw. Adjacent branch, same file.
+            if not (isinstance(feats, list)
+                    and all(isinstance(f, dict) for f in feats)):
+                feats = None
             # An ArcGIS failure arrives in a 200 body, and an offset inside a table
             # this size always has a row — so an empty answer is the portal failing
             # quietly. Neither is "no row here".
@@ -622,6 +630,14 @@ def main() -> int:
     sys.path.insert(0, str(_ROOT / "src"))
     CACHE_DIR.mkdir(exist_ok=True)
     juris = args.jurisdiction
+
+    # Before the branch, so it holds for every jurisdiction. `_cama_sample`
+    # checked it too, but Cook resolves the assessment year FIRST, so `--rows 0`
+    # made a live portal request before being told the argument was unusable —
+    # the docstring promised "an unusable argument should not cost a request" and
+    # the DC path honoured it while Cook did not.
+    if args.rows < 1:
+        raise SystemExit(f"--rows must be at least 1 (got {args.rows})")
 
     if juris == "cook":
         year = _latest_year()

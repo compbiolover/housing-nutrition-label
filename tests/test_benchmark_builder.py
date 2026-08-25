@@ -424,6 +424,46 @@ def test_a_body_that_is_not_a_list_of_rows_is_not_a_batch():
         assert B._batch_or_die("u", {}, "x", 1) == [{"attributes": {}}]
 
 
+def test_a_malformed_offset_body_is_a_failed_offset_not_a_crash():
+    """`{"features": "oops"}` made `feats` a non-empty string and feats[0].get()
+    raised AttributeError — an incidental crash where this sampler's whole design
+    is to retry an offset and then fail closed with a message about the draw."""
+    def fetch(url, params):
+        if params.get("returnCountOnly") == "true":
+            return {"count": 1000}
+        return {"features": "oops"}
+
+    with _fetching(fetch):
+        msg = _refuses(lambda: B._dc_sample(2))
+    assert "never answered" in msg, msg
+
+
+def test_an_unusable_rows_argument_costs_no_request_in_either_jurisdiction():
+    """Cook resolved the assessment year FIRST, so --rows 0 made a live portal
+    request before being told the argument was unusable — the docstring promised
+    otherwise and the DC path honoured it while Cook did not."""
+    calls = []
+
+    def fetch(url, params):
+        calls.append(url)
+        return None
+
+    for juris in sorted(B.JURISDICTIONS):
+        calls.clear()
+        argv = sys.argv
+        sys.argv = ["build_benchmark.py", "--jurisdiction", juris, "--rows", "0"]
+        try:
+            with _fetching(fetch):
+                B.main()
+        except SystemExit as exc:
+            assert "--rows must be at least 1" in str(exc), (juris, str(exc))
+        else:
+            raise AssertionError(f"{juris}: --rows 0 was accepted")
+        finally:
+            sys.argv = argv
+        assert not calls, f"{juris}: {len(calls)} request(s) made before rejecting"
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]

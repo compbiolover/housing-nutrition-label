@@ -714,6 +714,25 @@ def _readable_results(previous, where: str, *, existed: bool) -> dict:
             f"scripts/jurisdictions.py does not register. {where} would carry a "
             f"measurement forward under a name nothing can produce. Add the "
             f"jurisdiction, or move the file aside.")
+    # And each section must agree with the key it sits under. Checking only that
+    # the KEY is registered leaves the fabrication one move away: put the DC
+    # section under "cook" and the page prints DC's numbers beneath Cook's
+    # heading, with Cook's source line, and --check certifies it. The stamp that
+    # would have caught it was already in the file — the same oversight as the
+    # benchmark's stamp going unread for the whole first half of this change.
+    #
+    # Unstamped is allowed for `cook` alone: the pre-split measurement predates
+    # the field and is genuinely Cook's. Anywhere else it is a section whose
+    # provenance nothing records.
+    for key, data in juris_map.items():
+        stamped = ((data or {}).get("benchmark") or {}).get("jurisdiction")
+        if stamped == key or (stamped is None and key == "cook"):
+            continue
+        was = f"{stamped!r}" if stamped else "no jurisdiction"
+        raise SystemExit(
+            f"{RESULTS.name} has a section keyed {key!r} whose benchmark records "
+            f"{was}. {where} would publish one jurisdiction's measurement under "
+            f"another's heading. Inspect it (or move it aside) and re-run.")
     return juris_map
 
 

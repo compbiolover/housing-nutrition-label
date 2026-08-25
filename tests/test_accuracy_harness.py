@@ -892,6 +892,41 @@ def test_a_results_file_naming_an_unregistered_jurisdiction_is_refused():
                                    existed=True)) == {"cook"}
 
 
+def test_a_section_must_agree_with_the_key_it_sits_under():
+    """Checking only that the KEY is registered left the fabrication one move
+    away: put the DC section under "cook" and the page prints DC's numbers beneath
+    Cook's heading, with Cook's source line, and --check certifies it. The stamp
+    that would catch it was already in the file — the same oversight as the
+    benchmark's stamp going unread for the first half of this change."""
+    try:
+        M._readable_results({"jurisdictions": {"cook": {"benchmark":
+                            {"jurisdiction": "dc"}}}}, "x", existed=True)
+    except SystemExit as exc:
+        assert "'dc'" in str(exc) and "cook" in str(exc)
+    else:
+        raise AssertionError("a section was published under another's heading")
+
+    # Unstamped is allowed for cook alone: the pre-split measurement predates the
+    # field and is genuinely Cook's.
+    assert set(M._readable_results({"jurisdictions": {"cook": {"benchmark": {}}}},
+                                   "x", existed=True)) == {"cook"}
+    try:
+        M._readable_results({"jurisdictions": {"dc": {"benchmark": {}}}},
+                            "x", existed=True)
+    except SystemExit as exc:
+        assert "no jurisdiction" in str(exc)
+    else:
+        raise AssertionError("an unstamped non-legacy section was accepted")
+
+
+def test_the_committed_results_still_pass_every_readability_guard():
+    """The guards are only worth having if the real file satisfies them; a guard
+    that would reject the committed measurement is a broken guard, not a strict
+    one."""
+    results = json.loads(M.RESULTS.read_text())
+    assert set(M._readable_results(results, "x", existed=True)) == {"cook", "dc"}
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]
