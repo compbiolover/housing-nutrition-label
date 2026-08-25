@@ -280,6 +280,141 @@
           }
         }
       }
+    },
+    "dc-condo": {
+      "benchmark": {
+        "jurisdiction": "dc-condo",
+        "drawn": 220,
+        "sampled": 212,
+        "dropped": {
+          "no_parcel_record": 8,
+          "no_address": 0,
+          "no_year_built": 0
+        },
+        "source": "DC Office of Tax and Revenue (Open Data)",
+        "scope": "condominium units only (61,329 of DC's 170,602 CAMA records)",
+        "assessment_year": "current",
+        "fetched": "2026-08-25",
+        "rows": 211,
+        "sha256_16": "a9e8366b11ebce95"
+      },
+      "unscored": 1,
+      "adapter_resolved_pct": 96.7,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 211,
+            "coverage_pct": 100.0,
+            "median_abs_error": 22.0,
+            "exact_pct": 1.9,
+            "within_5yr_pct": 17.1,
+            "within_10yr_pct": 28.9
+          },
+          "sqft": {
+            "n": 211,
+            "coverage_pct": 100.0,
+            "median_abs_error": 473.2,
+            "exact_pct": 0.0,
+            "median_abs_pct_error": 52.4
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 211,
+            "differs_pct": 39.3
+          },
+          "energy": {
+            "n": 211,
+            "differs_pct": 45.5
+          },
+          "resilience": {
+            "n": 211,
+            "differs_pct": 14.2
+          },
+          "environmental": {
+            "n": 211,
+            "differs_pct": 44.5
+          },
+          "building_axis": {
+            "n": 211,
+            "differs_pct": 64.5
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 211,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 97.6,
+            "within_5yr_pct": 97.6,
+            "within_10yr_pct": 97.6
+          },
+          "sqft": {
+            "n": 211,
+            "coverage_pct": 100.0,
+            "median_abs_error": 293.9,
+            "exact_pct": 10.4,
+            "median_abs_pct_error": 38.5
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 211,
+            "differs_pct": 0.9
+          },
+          "energy": {
+            "n": 211,
+            "differs_pct": 16.6
+          },
+          "resilience": {
+            "n": 211,
+            "differs_pct": 0.0
+          },
+          "environmental": {
+            "n": 211,
+            "differs_pct": 23.2
+          },
+          "building_axis": {
+            "n": 211,
+            "differs_pct": 23.7
+          }
+        }
+      }
     }
   }
 }

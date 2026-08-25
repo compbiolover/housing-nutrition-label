@@ -38,7 +38,7 @@ authority where one resolves. The number that matters is the last table in each 
 error that moves no letter is not a defect anyone can see; one that crosses a
 code-era boundary is.</p>
 
-<p>Measured so far: Cook County, Illinois, Washington, DC. Each adapter is measured against its
+<p>Measured so far: Cook County, Illinois, Washington, DC, Washington, DC — condominiums. Each adapter is measured against its
 own assessor, and the sections are not comparable to each other &mdash; different
 housing stock, different record-keeping, different sample.</p>
 
@@ -124,6 +124,48 @@ than collapsing into one median: within &plusmn;5 years 12.4% of the time at bas
 <p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
 91.3% of the sample &middot; benchmark
 digest 37c36ab1949c3db2.</p>
+
+
+<h2 id="dc-condo">Washington, DC — condominiums</h2>
+
+<p><strong>Method.</strong> 212 addresses sampled across
+DC Office of Tax and Revenue (Open Data) (assessment year current,
+fetched 2026-08-25); a further 1 sampled address could not be geocoded or scored and is excluded from every rate below. Scope: condominium units only (61,329 of DC&#x27;s 170,602 CAMA records). Drawn from 220 assessor rows; 8 were not in the parcel layer. Each is scored
+from the address alone, with no construction details supplied, and compared against
+that jurisdiction's own assessor record.</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>1.9%</td><td>97.6%</td><td>22.0</td><td>0.0</td><td>211</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>0.0%</td><td>10.4%</td><td>473.2</td><td>293.9</td><td>211</td></tr>
+<tr><td>stories</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 17.1% of the time at baseline and 97.6% with the assessor; within &plusmn;10 years 28.9% and 97.6%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>39.3%</td><td>0.9%</td><td>211</td></tr>
+<tr><td>energy</td><td>45.5%</td><td>16.6%</td><td>211</td></tr>
+<tr><td>resilience</td><td>14.2%</td><td>0.0%</td><td>211</td></tr>
+<tr><td>environmental</td><td>44.5%</td><td>23.2%</td><td>211</td></tr>
+<tr><td>building_axis</td><td>64.5%</td><td>23.7%</td><td>211</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+96.7% of the sample &middot; benchmark
+digest a9e8366b11ebce95.</p>
 
 <h2>What this does and does not establish</h2>
 <ul>
