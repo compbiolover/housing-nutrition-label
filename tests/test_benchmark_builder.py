@@ -464,6 +464,46 @@ def test_an_unusable_rows_argument_costs_no_request_in_either_jurisdiction():
         assert not calls, f"{juris}: {len(calls)} request(s) made before rejecting"
 
 
+def test_every_parse_point_agrees_on_what_a_response_is():
+    """Each parse point had its own idea of a response shape, and each crashed on
+    one the others had already learned to reject: `(body or {}).get("features")`
+    raises on a JSON list, `got[0]` raises on an error object, and a feature whose
+    `attributes` is a string passes an isinstance check then raises one .get()
+    later. All of them promise to retry the offset and fail closed instead."""
+    malformed = ("text", 7, {"features": "oops"}, {"features": [1]},
+                 {"features": [{"attributes": "oops"}]}, ["not a row"], None)
+    for body in malformed:
+        assert B._rows_of(body) is None, body
+
+    # An EMPTY list is well-formed, not malformed: the portal answered with no
+    # rows. Whether that is acceptable is the caller's question, and each one
+    # already answers it — the batch helper refuses it, the samplers retry it.
+    assert B._rows_of([]) == []
+    assert B._rows_of({"features": []}) == []
+    assert B._rows_of([{"pin": "1"}]) == [{"pin": "1"}]
+    assert B._rows_of({"features": [{"attributes": {"SSL": "1"}}]}) == [
+        {"attributes": {"SSL": "1"}}]
+
+
+def test_a_malformed_body_is_a_failed_offset_in_both_samplers():
+    for body in ({"features": [{"attributes": "oops"}]}, ["not a row"], "text"):
+        def cook(url, params, b=body):
+            if params.get("$select") == "count(*)":
+                return [{"count": "1000"}]
+            return b
+
+        with _fetching(cook):
+            assert "never answered" in _refuses(lambda: B._cama_sample("2024", 2))
+
+        def dc(url, params, b=body):
+            if params.get("returnCountOnly") == "true":
+                return {"count": 1000}
+            return b
+
+        with _fetching(dc):
+            assert "never answered" in _refuses(lambda: B._dc_sample(2))
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]

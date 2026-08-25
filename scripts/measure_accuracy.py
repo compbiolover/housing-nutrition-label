@@ -84,7 +84,7 @@ for _p in (_ROOT, _ROOT / "src"):
 from housing_label.legal import DISCLAIMER  # noqa: E402
 # The display names, derived from the registry build_benchmark.py draws from,
 # so a third adapter cannot be accepted by one script and unknown to the other.
-from scripts.jurisdictions import LABELS  # noqa: E402
+from scripts.jurisdictions import JURISDICTIONS, LABELS  # noqa: E402
 # The brand navy, read from the constant the favicons are actually drawn from
 # rather than copied as a literal — test_icons already pins that constant against
 # the CSS variable, so importing it puts this page inside the same guard instead
@@ -725,7 +725,26 @@ def _readable_results(previous, where: str, *, existed: bool) -> dict:
     # the field and is genuinely Cook's. Anywhere else it is a section whose
     # provenance nothing records.
     for key, data in juris_map.items():
-        stamped = ((data or {}).get("benchmark") or {}).get("jurisdiction")
+        if not isinstance(data, dict):
+            # `{"cook": []}` is falsy, so `data or {}` read it as an empty section
+            # and accepted it; a truthy non-mapping reached .get() and raised
+            # AttributeError. Both are the unreadable file this guard exists to
+            # refuse, arriving one level further in.
+            raise SystemExit(
+                f"{RESULTS.name} has a section keyed {key!r} holding "
+                f"{type(data).__name__}, not an object. {where} cannot read it. "
+                f"Inspect it (or move it aside) and re-run.")
+        source = (data.get("benchmark") or {}).get("source")
+        expected = JURISDICTIONS.get(key, {}).get("source")
+        if source and expected and source != expected:
+            # The page prints this line beneath the heading, so a section stamped
+            # `dc` carrying Cook's source text renders a DC result attributed to
+            # Cook — and every other guard here passes it.
+            raise SystemExit(
+                f"{RESULTS.name}'s {key!r} section records source {source!r}, but "
+                f"scripts/jurisdictions.py says {key!r} is {expected!r}. {where} "
+                f"would publish a measurement attributed to the wrong assessor.")
+        stamped = (data.get("benchmark") or {}).get("jurisdiction")
         if stamped == key or (stamped is None and key == "cook"):
             continue
         was = f"{stamped!r}" if stamped else "no jurisdiction"
@@ -780,6 +799,18 @@ def _verify_benchmark(path: pathlib.Path, meta: dict, juris: str,
             f"{path.name} carries {was}, not {juris!r}. Scoring it would publish "
             f"one jurisdiction's addresses under another's name. Rebuild with "
             f"scripts/build_benchmark.py --jurisdiction {juris}.")
+    # The stamp is metadata and the digest covers only the CSV bytes, so copying
+    # Cook's pair and editing one word makes a valid-looking DC benchmark. The
+    # source line the page prints is checked against the registry, which a forger
+    # would then also have to edit — and doing that publishes Cook's source under
+    # DC's heading, which the results guard refuses.
+    source = meta.get("source")
+    expected = JURISDICTIONS.get(juris, {}).get("source")
+    if source and expected and source != expected:
+        raise SystemExit(
+            f"{path.stem}.meta.json records source {source!r}, but "
+            f"scripts/jurisdictions.py says {juris!r} is {expected!r}. Rebuild "
+            f"with scripts/build_benchmark.py --jurisdiction {juris}.")
     want = meta.get("sha256_16")
     if not want and not legacy:
         # Same exemption as the stamp above, and I granted it to one and not the
@@ -800,6 +831,19 @@ def _verify_benchmark(path: pathlib.Path, meta: dict, juris: str,
                 f"means an interrupted or edited build, and scoring it would "
                 f"publish one sample under another's provenance. Rebuild it with "
                 f"scripts/build_benchmark.py.")
+    # The digest proves the file is the one its metadata describes; it says nothing
+    # about whether that file can be scored. A CSV holding only `parcel_id,address`
+    # passes every check above, and `_score_arms` then runs with NO truth fields —
+    # publishing zero observed rows for every field while the grade-impact rate is
+    # computed against a synthetic default label instead of the assessor's record.
+    # A measurement of nothing, rendered as a measurement.
+    header = next(csv.reader(io.StringIO(payload.decode())), [])
+    absent = [f for f in ("parcel_id", "address", *FIELDS) if f not in header]
+    if absent:
+        raise SystemExit(
+            f"{path.name} has no {', '.join(absent)} column(s), so there is "
+            f"nothing to grade against. Rebuild with scripts/build_benchmark.py "
+            f"--jurisdiction {juris}.")
     # `sampled` is checked beside `rows` because main() publishes it as the
     # population and uses it as the denominator of the drop disclosure. Verifying
     # only `rows` left the number the page actually states unverified.

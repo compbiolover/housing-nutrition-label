@@ -154,6 +154,39 @@ def _fetch(url: str, params: dict, attempts: int = 4):
     return None
 
 
+def _rows_of(body):
+    """A list of row mappings from any portal answer, or None if it is not one.
+
+    Every parse point in this file had its own idea of what a response looks like,
+    and each one crashed on a shape the others had already learned to reject:
+    `(body or {}).get("features")` raises on a JSON list; `got[0]` raises on an
+    error object; `isinstance(r, dict)` passes a feature whose `attributes` is a
+    string, which then raises one `.get()` later. An incidental traceback where
+    the samplers all promise to retry the offset and then fail closed with a
+    message about the draw.
+
+    So the shape question is answered once. ArcGIS wraps rows in `features` with
+    the payload under `attributes`; Socrata returns the rows directly. Anything
+    else — including a well-formed envelope carrying a malformed row — is not an
+    answer, and every caller already knows what to do with that.
+    """
+    if isinstance(body, dict):
+        rows = body.get("features")
+        if not isinstance(rows, list):
+            return None
+        # An ArcGIS row is only usable through `attributes`, so a non-mapping there
+        # makes the whole response unusable rather than that one row.
+        for r in rows:
+            if not isinstance(r, dict):
+                return None
+            if "attributes" in r and not isinstance(r["attributes"], dict):
+                return None
+        return rows
+    if isinstance(body, list):
+        return body if all(isinstance(r, dict) for r in body) else None
+    return None
+
+
 def _batch_or_die(url: str, params: dict, what: str, n: int) -> list:
     """The rows of a batch request, or the end of the build.
 
@@ -176,16 +209,15 @@ def _batch_or_die(url: str, params: dict, what: str, n: int) -> list:
     drawn-versus-sampled gap is for.
     """
     body = _fetch(url, params)
-    rows = body.get("features") if isinstance(body, dict) else body
+    rows = _rows_of(body)
     truncated = isinstance(body, dict) and body.get("exceededTransferLimit")
     # The SHAPE is checked, not just the truthiness. `{"features": "oops"}` made
     # `rows` a non-empty string, which passed every guard here and then reached the
     # callers as characters to call .get() on — an AttributeError deep in a join
     # instead of the stated refusal this helper exists to give. A malformed body is
     # a portal that did not answer, which is the case already handled.
-    well_formed = isinstance(rows, list) and all(isinstance(r, dict) for r in rows)
     if (body is None or (isinstance(body, dict) and body.get("error"))
-            or truncated or not rows or not well_formed):
+            or truncated or not rows):
         # `exceededTransferLimit` is ArcGIS SAYING it truncated, and it rides along
         # with a perfectly well-formed, non-empty feature list. Accepting that as a
         # legitimately short batch is the one truncation case the portal actually
@@ -248,6 +280,7 @@ def _cama_sample(year: str, rows: int) -> tuple[list[dict], dict]:
             # table it just sized — a failure, not an empty slot. The DC sampler
             # treats it the same way; the two must agree or one jurisdiction's
             # sample silently tolerates what the other rejects.
+            got = _rows_of(got)
             pin = got[0].get("pin") if got else None
             if not got or not pin:
                 # Two ways for an offset not to answer, and both are the portal:
@@ -449,15 +482,7 @@ def _dc_sample(rows: int) -> tuple[list[dict], dict]:
                 "resultOffset": str(i * total // rows), "resultRecordCount": "1",
                 "returnGeometry": "false", "f": "json",
             })
-            feats = None if body is None else (body or {}).get("features")
-            # Shape, not truthiness — the same check the batch helper needed. A
-            # body like {"features": "oops"} made `feats` a non-empty string, and
-            # feats[0].get() then raised AttributeError: an incidental crash where
-            # this sampler's whole design is to retry an offset and then fail
-            # closed with a message about the draw. Adjacent branch, same file.
-            if not (isinstance(feats, list)
-                    and all(isinstance(f, dict) for f in feats)):
-                feats = None
+            feats = _rows_of(body)
             # An ArcGIS failure arrives in a 200 body, and an offset inside a table
             # this size always has a row — so an empty answer is the portal failing
             # quietly. Neither is "no row here".

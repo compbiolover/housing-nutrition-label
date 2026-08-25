@@ -408,7 +408,16 @@ def test_an_older_result_without_a_sampled_count_still_renders():
 # --- the benchmark and its metadata must describe the same file ----------------
 
 
-def _benchmark(tmp, text="parcel_id,address\n1,A\n2,B\n"):
+_GRADEABLE = ("parcel_id,address,year_built,sqft,stories,construction,"
+              "foundation,condition\n"
+              "1,A,1990,1000,1,brick,,good\n"
+              "2,B,1975,900,2,frame,,average\n")
+
+
+def _benchmark(tmp, text=_GRADEABLE):
+    """A benchmark with the columns the scorer grades on. A header-only stand-in
+    is refused now, and rightly: a file with nothing to grade against publishes
+    zero observed rows while the grade-impact rate is computed from a default."""
     path = pathlib.Path(tmp) / "benchmark-x.csv"
     path.write_text(text)
     import hashlib
@@ -925,6 +934,80 @@ def test_the_committed_results_still_pass_every_readability_guard():
     one."""
     results = json.loads(M.RESULTS.read_text())
     assert set(M._readable_results(results, "x", existed=True)) == {"cook", "dc"}
+
+
+_FULL_HEADER = ("parcel_id,address,year_built,sqft,stories,construction,"
+                "foundation,condition\n1,A,1990,1000,1,brick,,good\n")
+
+
+def _graded(tmp, text=_FULL_HEADER):
+    import hashlib
+    path = pathlib.Path(tmp) / "benchmark-dc.csv"
+    path.write_text(text)
+    return path, hashlib.sha256(path.read_bytes()).hexdigest()[:16]
+
+
+def test_a_benchmark_with_no_truth_columns_cannot_be_scored():
+    """The digest proves the file is the one its metadata describes and says
+    nothing about whether it can be scored. A CSV holding only parcel_id,address
+    passed every check, and _score_arms then ran with NO truth fields — zero
+    observed rows published for every field while the grade-impact rate was
+    computed against a synthetic default label instead of the assessor's record.
+    A measurement of nothing, rendered as a measurement."""
+    with tempfile.TemporaryDirectory() as tmp:
+        path, digest = _graded(tmp, "parcel_id,address\n1,A\n")
+        try:
+            M._verify_benchmark(path, {"jurisdiction": "dc", "sha256_16": digest,
+                                       "rows": 1}, "dc")
+        except SystemExit as exc:
+            assert "year_built" in str(exc)
+        else:
+            raise AssertionError("a benchmark with nothing to grade was accepted")
+
+
+def test_provenance_is_checked_against_the_registry_not_only_itself():
+    """The stamp is metadata and the digest covers only the CSV bytes, so copying
+    Cook's pair and editing one word makes a valid-looking DC benchmark. The
+    source line the page prints has to agree with the registry too."""
+    with tempfile.TemporaryDirectory() as tmp:
+        path, digest = _graded(tmp)
+        base = {"jurisdiction": "dc", "sha256_16": digest, "rows": 1}
+        try:
+            M._verify_benchmark(path, {**base, "source": "Cook County Assessor "
+                                       "(Open Data)"}, "dc")
+        except SystemExit as exc:
+            assert "jurisdictions.py" in str(exc)
+        else:
+            raise AssertionError("a DC benchmark citing Cook's assessor passed")
+        M._verify_benchmark(path, {**base, "source": "DC Office of Tax and "
+                                   "Revenue (Open Data)"}, "dc")
+
+
+def test_a_section_citing_the_wrong_assessor_is_refused():
+    """The page prints the source line beneath the heading, so a section stamped
+    `dc` carrying Cook's source renders a DC result attributed to Cook."""
+    bad = {"jurisdictions": {"dc": {"benchmark": {
+        "jurisdiction": "dc", "source": "Cook County Assessor (Open Data)"}}}}
+    try:
+        M._readable_results(bad, "x", existed=True)
+    except SystemExit as exc:
+        assert "wrong assessor" in str(exc)
+    else:
+        raise AssertionError("a section attributed to the wrong assessor passed")
+
+
+def test_a_section_that_is_not_an_object_is_refused_either_way():
+    """`{"cook": []}` is falsy, so `data or {}` read it as an empty section and
+    accepted it; a truthy non-mapping reached .get() and raised AttributeError."""
+    for value in ([], "x", 3, None):
+        try:
+            M._readable_results({"jurisdictions": {"dc": value}}, "x", existed=True)
+        except SystemExit:
+            pass
+        except AttributeError:
+            raise AssertionError(f"section {value!r} crashed instead of refusing")
+        else:
+            raise AssertionError(f"section {value!r} was accepted")
 
 
 def _run_all() -> int:
