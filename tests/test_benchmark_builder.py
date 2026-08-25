@@ -1,0 +1,523 @@
+#!/usr/bin/env python3
+"""A drawn parcel reaches the benchmark, or the build stops and says why.
+
+Why this exists
+---------------
+``scripts/build_benchmark.py`` needs network for every row, so what it *builds*
+is checked by hand. What can be checked offline is the one property the whole
+measurement rests on: **the only reason a drawn parcel may be absent from the
+written benchmark is that the assessor's own record is unusable.** Every other
+absence — an offset that did not answer, a batch request that never landed, a
+row carrying no parcel identifier — must stop the build.
+
+That property is worth pinning rather than reviewing, because breaking it is
+invisible downstream. An evenly spaced draw with a slice deleted from it is
+still a well-formed CSV with a real digest and plausible rates; it reads as a
+smaller clean sample rather than a biased one, and the published page then
+attributes the missing rows to gaps in the assessor's documentation — the wrong
+cause, on a page whose whole purpose is stating causes accurately.
+
+Three review rounds found three instances of exactly that failure at three
+different layers, each fixed where it was found. These tests state the rule for
+both jurisdictions at once, so the next layer inherits it instead of repeating
+the round.
+
+The complement matters just as much and is tested beside it: a batch that comes
+back *short* is not a failure. Those parcels really are missing from the layer,
+and turning that into a fatal error would make the build unrunnable for an
+honest data gap.
+
+No network — ``_fetch`` is replaced throughout.
+
+Run standalone: ``python tests/test_benchmark_builder.py``
+"""
+
+from __future__ import annotations
+
+import contextlib
+import sys
+import pathlib
+
+_ROOT = pathlib.Path(__file__).resolve().parent.parent
+for _p in (_ROOT, _ROOT / "src"):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
+
+import scripts.build_benchmark as B  # noqa: E402
+
+
+@contextlib.contextmanager
+def _fetching(fn):
+    """Swap the module's single network entry point for the duration."""
+    original = B._fetch
+    B._fetch = fn
+    try:
+        yield
+    finally:
+        B._fetch = original
+
+
+def _refuses(fn) -> str:
+    """Run `fn`, requiring it to stop the build. Returns the message."""
+    try:
+        fn()
+    except SystemExit as exc:
+        return str(exc)
+    raise AssertionError(
+        "the build continued. A request that never landed was folded into the "
+        "sample as an absence, which is the one thing this file exists to stop.")
+
+
+# --- the shared batch rule ----------------------------------------------------
+
+def test_the_batch_helper_reads_both_portal_shapes():
+    """Socrata answers with a list, ArcGIS with a dict carrying `features`. One
+    helper has to understand both or one jurisdiction silently loses its guard."""
+    with _fetching(lambda url, params: [{"pin": "1"}]):
+        assert B._batch_or_die("u", {}, "x", 1) == [{"pin": "1"}]
+    with _fetching(lambda url, params: {"features": [{"attributes": {}}]}):
+        assert B._batch_or_die("u", {}, "x", 1) == [{"attributes": {}}]
+
+
+def test_an_exhausted_batch_stops_the_build():
+    """The message has to name the stage and the size, because this stops a build
+    someone is watching and the next move depends on which request died."""
+    with _fetching(lambda url, params: None):
+        msg = _refuses(lambda: B._batch_or_die("u", {}, "card lookup", 40))
+    assert "card lookup" in msg and "40" in msg, msg
+
+
+def test_an_arcgis_error_body_is_not_a_successful_batch():
+    """ArcGIS reports failure inside a 200, sometimes alongside rows. Trusting
+    the row list would accept a partial answer as a complete one."""
+    body = {"error": {"code": 500}, "features": [{"attributes": {"SSL": "1"}}]}
+    with _fetching(lambda url, params: body):
+        _refuses(lambda: B._batch_or_die("u", {}, "parcel lookup", 40))
+
+
+def test_an_empty_batch_stops_the_build():
+    for empty in ([], {"features": []}, {}):
+        with _fetching(lambda url, params, e=empty: e):
+            _refuses(lambda: B._batch_or_die("u", {}, "parcel lookup", 40))
+
+
+# --- the rule as the callers actually use it ----------------------------------
+
+def test_a_dead_batch_stops_cooks_card_lookup():
+    with _fetching(lambda url, params: None):
+        _refuses(lambda: B._primary_cards("2024", ["1" * 14]))
+
+
+def test_a_dead_batch_stops_cooks_parcel_lookup():
+    with _fetching(lambda url, params: None):
+        _refuses(lambda: B._parcel_info(["1" * 14]))
+
+
+def test_a_dead_batch_stops_dcs_parcel_lookup():
+    with _fetching(lambda url, params: None):
+        _refuses(lambda: B._dc_place(["1234    0056"]))
+
+
+def test_a_short_batch_is_not_a_failure():
+    """The legitimate gap: asked about two parcels, the layer holds one. That is
+    what the drawn-versus-sampled figure is for, and it must not be fatal."""
+    body = {"features": [{"attributes": {
+        "PIN14": "1" * 14, "street_address": "1 MAIN ST",
+        "city_state_zip": "CHICAGO IL 60601", "latitude": 41.0, "longitude": -87.0}}]}
+    with _fetching(lambda url, params: body):
+        got, present = B._parcel_info(["1" * 14, "2" * 14])
+    assert list(got) == ["1" * 14], got
+
+
+# --- an offset that answers with nothing usable -------------------------------
+
+def _cook_portal(pin_for_offset):
+    """A Socrata stand-in: sizes the table, then answers offset queries."""
+    def fetch(url, params):
+        if params.get("$select") == "count(*)":
+            return [{"count": "1000"}]
+        if params.get("$select") == "pin":
+            row = pin_for_offset(params.get("$offset"))
+            return None if row is None else [row]
+        # A card for each PIN the caller actually asked about. Returning a fixed
+        # one made this stub the very truncated response _primary_cards now
+        # refuses — the stub has to answer the query, not a query.
+        import re
+        asked = re.findall(r"'([^']+)'", params.get("$where", ""))[1:]
+        return [{"pin": q, "card": "1", "char_yrblt": "1990"} for q in asked]
+    return fetch
+
+
+def test_a_cook_row_with_no_pin_is_an_offset_that_did_not_answer():
+    """A PIN is how a sampled row is looked up. A row without one cannot enter
+    the draw, so it is the portal failing — not a parcel that has no PIN."""
+    with _fetching(_cook_portal(lambda off: {"pin": ""})):
+        msg = _refuses(lambda: B._cama_sample("2024", 3))
+    assert "never answered" in msg, msg
+
+
+def test_a_cook_offset_that_recovers_on_retry_is_not_fatal():
+    """Retried once before the build gives up, so a blip does not cost a run."""
+    tries: dict[str, int] = {}
+
+    def pin(off):
+        tries[off] = tries.get(off, 0) + 1
+        return None if tries[off] == 1 else {"pin": str(off).zfill(14)}
+
+    with _fetching(_cook_portal(pin)):
+        cards, draw = B._cama_sample("2024", 3)
+    assert draw["attempted"] == 3, draw
+    assert all(n == 2 for n in tries.values()), tries
+
+
+def test_a_repeated_cook_pin_is_deduplicated_not_retried():
+    """The table has a row per card, so two offsets can land on one parcel. That
+    is the intended collapse, and must not read as an offset that failed."""
+    with _fetching(_cook_portal(lambda off: {"pin": "1" * 14})):
+        cards, draw = B._cama_sample("2024", 3)
+    assert draw["attempted"] == 1, draw
+
+
+def _dc_portal(attrs_for_offset):
+    def fetch(url, params):
+        if params.get("returnCountOnly") == "true":
+            return {"count": 1000}
+        a = attrs_for_offset(params.get("resultOffset"))
+        return {} if a is None else {"features": [{"attributes": a}]}
+    return fetch
+
+
+def test_a_dc_row_with_no_ssl_is_an_offset_that_did_not_answer():
+    with _fetching(_dc_portal(lambda off: {"SSL": "  ", "AYB": 1920})):
+        msg = _refuses(lambda: B._dc_sample(3))
+    assert "never answered" in msg, msg
+
+
+def test_a_dc_offset_that_recovers_on_retry_is_not_fatal():
+    tries: dict[str, int] = {}
+
+    def attrs(off):
+        tries[off] = tries.get(off, 0) + 1
+        return None if tries[off] == 1 else {"SSL": f"{off} 0001", "AYB": 1920}
+
+    with _fetching(_dc_portal(attrs)):
+        rows, draw = B._dc_sample(3)
+    assert draw["attempted"] == 3, draw
+
+
+def test_both_samplers_refuse_the_same_answers():
+    """The two have drifted apart twice — once on an empty 200, once on a row
+    with no identifier — and each time one jurisdiction quietly tolerated what
+    the other rejected. Pin the parity rather than the two behaviours."""
+    cook = (_cook_portal, lambda: B._cama_sample("2024", 2),
+            {"nothing": lambda off: None, "no identifier": lambda off: {"pin": ""}})
+    dc = (_dc_portal, lambda: B._dc_sample(2),
+          {"nothing": lambda off: None, "no identifier": lambda off: {"SSL": ""}})
+    for portal, build, answers in (cook, dc):
+        for kind, answer in answers.items():
+            with _fetching(portal(answer)):
+                msg = _refuses(build)
+            assert "never answered" in msg, (kind, msg)
+
+
+# --- a coordinate the harness never reads must not drop a good parcel ----------
+
+
+def test_a_parcel_with_no_coordinates_still_reaches_the_benchmark():
+    """lat/lon are carried for inspection only — the harness geocodes the address,
+    exactly as a visitor would. Requiring them dropped rows whose address and year
+    were fine, and the published note then reported those as records the assessor
+    never documented: a real row, blamed on the wrong party."""
+    body = {"features": [{"attributes": {
+        "PIN14": "1" * 14, "street_address": "1 MAIN ST",
+        "city_state_zip": "CHICAGO IL 60601", "latitude": None, "longitude": None}}]}
+    with _fetching(lambda url, params: body):
+        got, present = B._parcel_info(["1" * 14])
+    assert list(got) == ["1" * 14], got
+    assert got["1" * 14]["address"] == "1 MAIN ST, CHICAGO IL 60601"
+    assert got["1" * 14]["lat"] == "" and got["1" * 14]["lon"] == ""
+
+
+def test_a_parcel_with_no_address_is_still_dropped():
+    """The one legitimate absence: no address means nothing to geocode."""
+    body = {"features": [{"attributes": {"PIN14": "1" * 14, "street_address": ""}}]}
+    with _fetching(lambda url, params: body):
+        assert B._parcel_info(["1" * 14])[0] == {}
+
+
+def test_both_scripts_read_one_jurisdiction_registry():
+    """They kept the list twice, so a third adapter would be accepted by one script
+    and unknown to the other — and that only shows up in the measurement."""
+    import scripts.measure_accuracy as M
+    assert set(M.LABELS) == set(B.JURISDICTIONS)
+    for key, cfg in B.JURISDICTIONS.items():
+        assert M.LABELS[key] == cfg["label"]
+
+
+def test_a_registered_jurisdiction_with_no_sampler_fails_rather_than_drawing_dc():
+    """The CLI takes its choices from the registry, so a third entry is selectable
+    the moment it is added — before anyone writes its sampler. A bare `else` ran
+    DC's, writing DC parcels under the new name with the new name stamped on the
+    metadata: a fabricated benchmark, indistinguishable downstream from a real one.
+
+    Asserted on the source rather than by running main(), which needs network: the
+    dispatch must name each jurisdiction explicitly and end in a refusal.
+    """
+    src = pathlib.Path(B.__file__).read_text()
+    dispatch = src[src.index('    if juris == "cook":'):src.index('    log.info("Fetched')]
+    assert 'elif juris == "dc":' in dispatch, (
+        "the DC branch must be explicit; a bare `else` claims every future "
+        "jurisdiction and draws DC for it")
+    assert "raise SystemExit" in dispatch, (
+        "the dispatch must refuse a registered jurisdiction it has no sampler for")
+    for key in B.JURISDICTIONS:
+        assert f'juris == "{key}"' in dispatch, (
+            f"{key} is registered but the builder's dispatch does not name it, so "
+            f"it would fall through to the refusal or to another jurisdiction's draw")
+
+
+def test_a_card_lookup_that_omits_a_requested_pin_fails_the_build():
+    """Short answers are legitimate for the parcel-layer joins and not here. Every
+    PIN in the chunk was returned by this same table for this same year moments
+    ago, so each provably has a card; a missing one is a truncated response, and
+    it would vanish from the sample and publish as a house with no address."""
+    def fetch(url, params):
+        asked = __import__("re").findall(r"'([^']+)'", params.get("$where", ""))[1:]
+        return [{"pin": q, "card": "1"} for q in asked[:-1]]     # one short
+    with _fetching(fetch):
+        msg = _refuses(lambda: B._primary_cards("2024", ["1" * 14, "2" * 14]))
+    assert "truncated" in msg, msg
+
+
+def test_a_parcel_layer_gap_is_still_allowed_to_be_short():
+    """The complement, so the distinction is pinned rather than remembered: these
+    parcels really can be missing from the layer, and making that fatal would break
+    the build for an honest data gap."""
+    body = {"features": [{"attributes": {
+        "PIN14": "1" * 14, "street_address": "1 MAIN ST",
+        "city_state_zip": "CHICAGO IL 60601"}}]}
+    with _fetching(lambda url, params: body):
+        got, present = B._parcel_info(["1" * 14, "2" * 14])
+    assert list(got) == ["1" * 14], got
+
+
+def test_arcgis_saying_it_truncated_is_not_a_short_batch():
+    """`exceededTransferLimit` rides along with a well-formed, non-empty feature
+    list. It is the one truncation the portal actually announces, so accepting it
+    as a legitimately short batch was the cheapest possible miss."""
+    body = {"exceededTransferLimit": True,
+            "features": [{"attributes": {"SSL": "1234 0056", "PREMISEADD": "1 A ST"}}]}
+    with _fetching(lambda url, params: body):
+        _refuses(lambda: B._dc_place(["1234 0056", "1234 0057"]))
+
+
+def test_a_parcel_feature_with_no_join_key_stops_the_build():
+    """The query is keyed by the identifier, so a feature returned without one
+    cannot be joined. Skipping it made the parcel vanish and publish as a house the
+    assessor never documented — blamed for a malformed response."""
+    cook = {"features": [{"attributes": {"street_address": "1 MAIN ST"}}]}
+    with _fetching(lambda url, params: cook):
+        _refuses(lambda: B._parcel_info(["1" * 14]))
+    dc = {"features": [{"attributes": {"PREMISEADD": "1 A ST NW"}}]}
+    with _fetching(lambda url, params: dc):
+        _refuses(lambda: B._dc_place(["1234 0056"]))
+
+
+def test_a_parcel_with_a_key_but_no_address_is_still_a_plain_drop():
+    """The complement: a parcel that really has no address on file is a legitimate
+    `no_address`, not a malformed response. The two must not collapse together."""
+    dc = {"features": [{"attributes": {"SSL": "1234 0056", "PREMISEADD": ""}}]}
+    with _fetching(lambda url, params: dc):
+        assert B._dc_place(["1234 0056"])[0] == {}
+
+
+def test_a_parcel_identifier_outside_the_requested_batch_stops_the_build():
+    """The query is an IN over the chunk, so an identifier outside it means the
+    filter was ignored or a stale response was served. Storing it leaves every
+    requested parcel looking absent — a whole batch published as houses with no
+    address, from a response that never answered the question asked."""
+    cook = {"features": [{"attributes": {
+        "PIN14": "9" * 14, "street_address": "9 OTHER ST"}}]}
+    with _fetching(lambda url, params: cook):
+        msg = _refuses(lambda: B._parcel_info(["1" * 14]))
+    assert "not in the batch" in msg, msg
+    dc = {"features": [{"attributes": {"SSL": "9999 0001", "PREMISEADD": "9 X ST"}}]}
+    with _fetching(lambda url, params: dc):
+        msg = _refuses(lambda: B._dc_place(["1234 0056"]))
+    assert "not in the batch" in msg, msg
+
+
+def test_a_whitespace_only_address_is_not_an_address():
+    """Cook tested the raw field for truthiness while DC stripped first — the
+    fourth Cook/DC drift in this file. A whitespace address was written as a
+    sampled row the scorer cannot geocode, counted as neither kept nor dropped."""
+    body = {"features": [{"attributes": {
+        "PIN14": "1" * 14, "street_address": "   ",
+        "city_state_zip": "CHICAGO IL 60601"}}]}
+    with _fetching(lambda url, params: body):
+        assert B._parcel_info(["1" * 14])[0] == {}
+
+
+def test_a_paged_offset_read_is_not_a_truncated_batch():
+    """`exceededTransferLimit` means "more records match than were returned".
+
+    The offset sampler asks for ONE row on purpose — it is a paged read of a
+    109,273-row table — so ArcGIS sets that flag on every healthy response.
+    `_batch_or_die` gives no page size, expects the whole matching set, and there
+    the same flag really does mean a truncated answer.
+
+    The asymmetry is pinned because it does not look like one: adding the check to
+    the sampler "for consistency" rejected all six offsets of a live build, and the
+    next person to notice the difference will be tempted to make it uniform again.
+    """
+    body = {"exceededTransferLimit": True,
+            "features": [{"attributes": {"SSL": "1234 0056", "AYB": 1920}}]}
+
+    def fetch(url, params):
+        if params.get("returnCountOnly") == "true":
+            return {"count": 1000}
+        return body
+
+    with _fetching(fetch):
+        rows, draw = B._dc_sample(2)
+    assert draw["attempted"] == 1, draw
+
+    # ...while the batch helper must still refuse exactly that response.
+    with _fetching(lambda url, params: body):
+        _refuses(lambda: B._batch_or_die("u", {}, "parcel lookup", 40))
+
+
+def test_the_join_reports_which_parcels_the_layer_actually_held():
+    """"Absent from the layer" and "present with no address" are different facts
+    about the assessor, and both used to leave the same trace — no entry in the
+    returned map — so the build reported every addressless parcel as one the layer
+    had never heard of. Splitting the drop REASONS without making the DATA carry
+    the distinction only relabelled the misattribution, and left `no_address` a
+    branch that could never be taken.
+    """
+    body = {"features": [{"attributes": {
+        "PIN14": "1" * 14, "street_address": "",              # held, no address
+        "city_state_zip": "CHICAGO IL 60601"}}]}
+    with _fetching(lambda url, params: body):
+        out, present = B._parcel_info(["1" * 14, "2" * 14])
+    assert out == {}, "a parcel with no address is still not usable"
+    assert "1" * 14 in present, "the layer held it; the build must be able to say so"
+    assert "2" * 14 not in present, "the layer never returned this one"
+
+    dc = {"features": [{"attributes": {"SSL": "1234 0056", "PREMISEADD": "  "}}]}
+    with _fetching(lambda url, params: dc):
+        out, present = B._dc_place(["1234 0056", "9999 0001"])
+    assert out == {} and present == {"1234 0056"}
+
+
+def test_a_body_that_is_not_a_list_of_rows_is_not_a_batch():
+    """`{"features": "oops"}` made `rows` a non-empty string, which passed every
+    guard and reached the callers as characters to call .get() on — an
+    AttributeError deep inside a join instead of the stated refusal this helper
+    exists to give. A malformed body is a portal that did not answer."""
+    for bad in ({"features": "oops"}, {"features": [1, 2]}, "text", 7,
+                {"features": [{"ok": 1}, "not a row"]}):
+        with _fetching(lambda url, params, b=bad: b):
+            _refuses(lambda: B._batch_or_die("u", {}, "parcel lookup", 40))
+    # A well-formed batch still passes.
+    with _fetching(lambda url, params: {"features": [{"attributes": {}}]}):
+        assert B._batch_or_die("u", {}, "x", 1) == [{"attributes": {}}]
+
+
+def test_a_malformed_offset_body_is_a_failed_offset_not_a_crash():
+    """`{"features": "oops"}` made `feats` a non-empty string and feats[0].get()
+    raised AttributeError — an incidental crash where this sampler's whole design
+    is to retry an offset and then fail closed with a message about the draw."""
+    def fetch(url, params):
+        if params.get("returnCountOnly") == "true":
+            return {"count": 1000}
+        return {"features": "oops"}
+
+    with _fetching(fetch):
+        msg = _refuses(lambda: B._dc_sample(2))
+    assert "never answered" in msg, msg
+
+
+def test_an_unusable_rows_argument_costs_no_request_in_either_jurisdiction():
+    """Cook resolved the assessment year FIRST, so --rows 0 made a live portal
+    request before being told the argument was unusable — the docstring promised
+    otherwise and the DC path honoured it while Cook did not."""
+    calls = []
+
+    def fetch(url, params):
+        calls.append(url)
+        return None
+
+    for juris in sorted(B.JURISDICTIONS):
+        calls.clear()
+        argv = sys.argv
+        sys.argv = ["build_benchmark.py", "--jurisdiction", juris, "--rows", "0"]
+        try:
+            with _fetching(fetch):
+                B.main()
+        except SystemExit as exc:
+            assert "--rows must be at least 1" in str(exc), (juris, str(exc))
+        else:
+            raise AssertionError(f"{juris}: --rows 0 was accepted")
+        finally:
+            sys.argv = argv
+        assert not calls, f"{juris}: {len(calls)} request(s) made before rejecting"
+
+
+def test_every_parse_point_agrees_on_what_a_response_is():
+    """Each parse point had its own idea of a response shape, and each crashed on
+    one the others had already learned to reject: `(body or {}).get("features")`
+    raises on a JSON list, `got[0]` raises on an error object, and a feature whose
+    `attributes` is a string passes an isinstance check then raises one .get()
+    later. All of them promise to retry the offset and fail closed instead."""
+    malformed = ("text", 7, {"features": "oops"}, {"features": [1]},
+                 {"features": [{"attributes": "oops"}]}, ["not a row"], None)
+    for body in malformed:
+        assert B._rows_of(body) is None, body
+
+    # An EMPTY list is well-formed, not malformed: the portal answered with no
+    # rows. Whether that is acceptable is the caller's question, and each one
+    # already answers it — the batch helper refuses it, the samplers retry it.
+    assert B._rows_of([]) == []
+    assert B._rows_of({"features": []}) == []
+    assert B._rows_of([{"pin": "1"}]) == [{"pin": "1"}]
+    assert B._rows_of({"features": [{"attributes": {"SSL": "1"}}]}) == [
+        {"attributes": {"SSL": "1"}}]
+
+
+def test_a_malformed_body_is_a_failed_offset_in_both_samplers():
+    for body in ({"features": [{"attributes": "oops"}]}, ["not a row"], "text"):
+        def cook(url, params, b=body):
+            if params.get("$select") == "count(*)":
+                return [{"count": "1000"}]
+            return b
+
+        with _fetching(cook):
+            assert "never answered" in _refuses(lambda: B._cama_sample("2024", 2))
+
+        def dc(url, params, b=body):
+            if params.get("returnCountOnly") == "true":
+                return {"count": 1000}
+            return b
+
+        with _fetching(dc):
+            assert "never answered" in _refuses(lambda: B._dc_sample(2))
+
+
+def _run_all() -> int:
+    fns = [v for k, v in sorted(globals().items())
+           if k.startswith("test_") and callable(v)]
+    failed = 0
+    for fn in fns:
+        try:
+            fn()
+            print(f"  ok    {fn.__name__}")
+        except AssertionError as exc:
+            failed += 1
+            print(f"  FAIL  {fn.__name__}: {exc}")
+    print(f"\n{len(fns) - failed}/{len(fns)} passed")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(_run_all())

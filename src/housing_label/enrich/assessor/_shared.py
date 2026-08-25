@@ -195,8 +195,21 @@ def address_key(raw: str | None, locality: frozenset[str] = frozenset()):
     if not tokens or not tokens[0].isdigit():
         return None                       # no house number → nothing to anchor on
     number, rest = tokens[0], tokens[1:]
-    for i, t in enumerate(rest):          # unit, postal code and locality are noise
-        if t in UNIT_MARKERS or t in locality or _ZIP_RE.match(t):
+    # The city/state/ZIP tail is stripped FROM THE RIGHT, taking only the trailing
+    # run of such tokens. Cutting at the first one anywhere in the string was wrong
+    # for every street named after its own city: "401 WASHINGTON AVE SW WASHINGTON
+    # DC 20024" truncated at token zero, leaving nothing, so address_key returned
+    # None and no DC address on a Washington-named street could ever confirm a
+    # parcel. The comment above always said "every token AFTER the quadrant" — the
+    # code did not implement it. Real addresses: Washington Ave SW, Washington Cir
+    # NW. The same shape waits in any jurisdiction whose name is also a street name,
+    # which is most of them.
+    end = len(rest)
+    while end and (rest[end - 1] in locality or _ZIP_RE.match(rest[end - 1])):
+        end -= 1
+    rest = rest[:end]
+    for i, t in enumerate(rest):          # a unit marker is noise wherever it sits
+        if t in UNIT_MARKERS:
             rest = rest[:i]
             break
     # A source also writes the unit with no marker at all — "234 W STATION ST B12".

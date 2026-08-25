@@ -8,11 +8,20 @@ asserts the *output matches the world*, and every buyer conversation in
 ``research/monetization-research.md`` opens with that question. This script
 assembles the yardstick; ``scripts/measure_accuracy.py`` reads it.
 
-Ground truth comes from the Cook County Assessor, for the same reason the first
-adapter does: it is the only free source in the country publishing year built,
-floor area, exterior wall, basement type and condition for a real parcel. Each
-row is one address the scorer can be pointed at, plus what the county says is
-actually standing there.
+Ground truth comes from an assessor that publishes construction characteristics for
+a real parcel, free and keyless — the same sources the adapters read. Each row is one
+address the scorer can be pointed at, plus what that jurisdiction says is actually
+standing there.
+
+Two are supported, selected with ``--jurisdiction``:
+
+  cook   Cook County, IL — Socrata CAMA keyed by PIN, plus the county parcel layer.
+  dc     Washington, DC — ArcGIS residential CAMA keyed by SSL, plus the District's
+         parcel layer. Condominium units live in a separate table that no
+         coordinate can reach, so this covers non-condo homes; see JURISDICTIONS.
+
+Each writes its own ``benchmark-<jurisdiction>.csv``, so building one never
+replaces another.
 
 Why the output is NOT committed
 -------------------------------
@@ -35,8 +44,11 @@ rows. PINs are ordered by township, so the first N would all be one corner of th
 county and the "national" accuracy number would really be a statement about
 Barrington. Even offsets spread the sample across every township in Cook.
 
-Rows without a street address, coordinates, or a usable year built are dropped:
-they cannot be scored by address, or there is nothing to be right or wrong about.
+Rows without a street address or without a usable year built are dropped: there is
+nothing to geocode, or nothing to be right or wrong about. Coordinates are NOT
+required — nothing in the scoring path reads them, and DC's parcel source has no
+coordinate columns at all, so requiring them would drop good rows in one
+jurisdiction and describe a different population in the other.
 
 Run:  python scripts/build_benchmark.py --rows 200
 """
@@ -46,10 +58,13 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import io
 import json
 import logging
+import os
 import pathlib
 import sys
+import tempfile
 import time
 from datetime import date
 
@@ -59,8 +74,48 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(mes
 log = logging.getLogger("build_benchmark")
 
 _ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(_ROOT) not in sys.path:     # so the shared registry imports
+    sys.path.insert(0, str(_ROOT))
+
+from scripts.jurisdictions import JURISDICTIONS  # noqa: E402
+
 CACHE_DIR = _ROOT / ".accuracy_cache"
-BENCHMARK = CACHE_DIR / "benchmark.csv"
+BENCHMARK = CACHE_DIR / "benchmark.csv"          # legacy single-jurisdiction path
+
+# Each jurisdiction gets its own benchmark file, so building one never silently
+# replaces another's — the published page reports both side by side.
+
+
+def _write_atomic(path: pathlib.Path, data: str | bytes) -> None:
+    """Write via a unique temporary file and rename, so no reader sees a partial one.
+
+    The temp name must be UNIQUE, not merely temporary. A fixed `<name>.tmp` is one
+    path shared by every concurrent build of the same jurisdiction: two of them
+    interleave their bytes into it, or one renames it away while the other is still
+    filling it, and the rename that was supposed to make the write atomic delivers
+    a torn file instead. Builds are not otherwise serialised — they are long,
+    manual, and there is nothing to stop two.
+
+    Same directory as the target, because a rename is only atomic within a
+    filesystem.
+    """
+    fd, name = tempfile.mkstemp(dir=path.parent, prefix=path.name + ".", suffix=".tmp")
+    tmp = pathlib.Path(name)
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(data if isinstance(data, bytes) else data.encode())
+        tmp.replace(path)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+
+
+def benchmark_path(juris: str) -> pathlib.Path:
+    return CACHE_DIR / f"benchmark-{juris}.csv"
+
+
+def meta_path(juris: str) -> pathlib.Path:
+    return CACHE_DIR / f"benchmark-{juris}.meta.json"
 
 CAMA_URL = "https://datacatalog.cookcountyil.gov/resource/x54s-btds.json"
 PARCEL_URL = ("https://gis.cookcountyil.gov/traditional/rest/services"
@@ -99,15 +154,109 @@ def _fetch(url: str, params: dict, attempts: int = 4):
     return None
 
 
+def _rows_of(body):
+    """A list of row mappings from any portal answer, or None if it is not one.
+
+    Every parse point in this file had its own idea of what a response looks like,
+    and each one crashed on a shape the others had already learned to reject:
+    `(body or {}).get("features")` raises on a JSON list; `got[0]` raises on an
+    error object; `isinstance(r, dict)` passes a feature whose `attributes` is a
+    string, which then raises one `.get()` later. An incidental traceback where
+    the samplers all promise to retry the offset and then fail closed with a
+    message about the draw.
+
+    So the shape question is answered once. ArcGIS wraps rows in `features` with
+    the payload under `attributes`; Socrata returns the rows directly. Anything
+    else — including a well-formed envelope carrying a malformed row — is not an
+    answer, and every caller already knows what to do with that.
+    """
+    if isinstance(body, dict):
+        rows = body.get("features")
+        if not isinstance(rows, list):
+            return None
+        # An ArcGIS row is only usable through `attributes`, so a non-mapping there
+        # makes the whole response unusable rather than that one row.
+        for r in rows:
+            if not isinstance(r, dict):
+                return None
+            if "attributes" in r and not isinstance(r["attributes"], dict):
+                return None
+        return rows
+    if isinstance(body, list):
+        return body if all(isinstance(r, dict) for r in body) else None
+    return None
+
+
+def _batch_or_die(url: str, params: dict, what: str, n: int) -> list:
+    """The rows of a batch request, or the end of the build.
+
+    A batch that exhausts its retries is not "these parcels have no record" — it
+    is the portal being down for one slice of the draw. Returning nothing here
+    deletes that slice from an evenly spaced sample, and every count downstream
+    then attributes the absence to the assessor's own documentation rather than
+    to a request that never landed. Neither the written benchmark nor the
+    published page can show the difference: a draw with a batch missing from it
+    looks exactly like a smaller clean one.
+
+    That is the same failure the offset sampler above refuses, one layer down. It
+    is one function so the two cannot drift apart again, and so a third
+    jurisdiction inherits the rule instead of reimplementing it.
+
+    Socrata answers with a list and ArcGIS with a dict carrying ``features`` —
+    and ArcGIS reports failure inside a 200 body, so an ``error`` key counts as
+    no answer. A batch that comes back short is a different matter and is left
+    alone: those parcels really are absent from the layer, which is what the
+    drawn-versus-sampled gap is for.
+    """
+    body = _fetch(url, params)
+    rows = _rows_of(body)
+    truncated = isinstance(body, dict) and body.get("exceededTransferLimit")
+    # The SHAPE is checked, not just the truthiness. `{"features": "oops"}` made
+    # `rows` a non-empty string, which passed every guard here and then reached the
+    # callers as characters to call .get() on — an AttributeError deep in a join
+    # instead of the stated refusal this helper exists to give. A malformed body is
+    # a portal that did not answer, which is the case already handled.
+    if (body is None or (isinstance(body, dict) and body.get("error"))
+            or truncated or not rows):
+        # `exceededTransferLimit` is ArcGIS SAYING it truncated, and it rides along
+        # with a perfectly well-formed, non-empty feature list. Accepting that as a
+        # legitimately short batch is the one truncation case the portal actually
+        # announces, so not reading it was the cheapest possible miss.
+        #
+        # An empty answer is AMBIGUOUS here, and deliberately resolved as failure.
+        # A portal returning nothing because it is unwell and a portal returning
+        # nothing because an `IN` list genuinely matched no rows are byte-identical
+        # — there is no discriminator in the response. Guessing "no rows" makes a
+        # silent, invisible bias; guessing "outage" makes a loud, recoverable stop.
+        # Only one of those can be noticed, so the message names the ambiguity
+        # rather than asserting a cause.
+        raise SystemExit(
+            f"{what} returned nothing for a batch of {n}. Either the portal is "
+            f"unwell or none of those {n} exists in that layer, and the response "
+            f"cannot tell the two apart — so this refuses rather than write a "
+            f"benchmark that may be missing them invisibly. Retry; if it repeats "
+            f"identically, check whether those records are really absent.")
+    return rows
+
+
 def _latest_year() -> str:
-    got = _fetch(CAMA_URL, {"$select": "max(year)"})
-    if got is None:
-        raise SystemExit("could not reach the county portal to find the latest "
-                         "assessment year; try again later")
-    return str((got or [{}])[0].get("max_year", "")).split(".")[0]
+    """The newest assessment year, or the end of the build.
+
+    Shape-checked like every other parse point. A 200 error object raised
+    KeyError from `[0]`, and an EMPTY list quietly produced `""` — which then
+    queried `year=''`, matched nothing, and failed several steps later with a
+    message about the sample rather than about the portal.
+    """
+    rows = _rows_of(_fetch(CAMA_URL, {"$select": "max(year)"}))
+    year = str((rows or [{}])[0].get("max_year", "")).split(".")[0] if rows else ""
+    if not year.isdigit():
+        raise SystemExit(
+            "could not read the latest assessment year from the county portal "
+            f"(got {year!r}); try again later")
+    return year
 
 
-def _cama_sample(year: str, rows: int) -> list[dict]:
+def _cama_sample(year: str, rows: int) -> tuple[list[dict], dict]:
     """Evenly-spaced rows from the latest assessment year."""
     # Before the network call: an unusable argument should not cost a request.
     if rows < 1:
@@ -127,28 +276,52 @@ def _cama_sample(year: str, rows: int) -> list[dict]:
     # turns a "county-wide" sample into one corner of Cook.
     rows = min(rows, total)
     seen: list[str] = []
-    dropped = 0
-    for i in range(rows):
-        got = _fetch(CAMA_URL, {
-            "$select": "pin", "$where": f"year='{year}'",
-            "$order": "pin", "$limit": "1", "$offset": str(i * total // rows),
-        })
-        if got is None:
-            # One unreachable offset is a missing sample, not a failed build. It
-            # is counted and reported rather than silently absorbed, because a
-            # sample that quietly shrank is a different sample.
-            dropped += 1
-        else:
-            pin = (got[0].get("pin") if got else None)
-            if pin and pin not in seen:
+
+    def attempt(offsets: list[int]) -> list[int]:
+        """Read these offsets; return the ones that did not answer."""
+        failed = []
+        for n, i in enumerate(offsets, 1):
+            got = _fetch(CAMA_URL, {
+                "$select": "pin", "$where": f"year='{year}'",
+                "$order": "pin", "$limit": "1", "$offset": str(i * total // rows),
+            })
+            # `got == []` is the portal answering nothing for an offset inside a
+            # table it just sized — a failure, not an empty slot. The DC sampler
+            # treats it the same way; the two must agree or one jurisdiction's
+            # sample silently tolerates what the other rejects.
+            got = _rows_of(got)
+            pin = got[0].get("pin") if got else None
+            if not got or not pin:
+                # Two ways for an offset not to answer, and both are the portal:
+                # `[]` inside a table it just sized, and a row carrying no PIN,
+                # which cannot be looked up so cannot enter the draw. A PIN
+                # already seen is different — the table has a row per card, and
+                # collapsing duplicates is the point.
+                failed.append(i)
+            elif pin not in seen:
                 seen.append(pin)
-        if (i + 1) % 25 == 0:
-            log.info("  sampled %d/%d", i + 1, rows)
-        time.sleep(0.05)          # polite to a free public portal
-    if dropped:
-        log.warning("  %d of %d sample offsets were unreachable and skipped.",
-                    dropped, rows)
-    return _primary_cards(year, seen)
+            if n % 25 == 0:
+                log.info("  sampled %d/%d", n, len(offsets))
+            time.sleep(0.05)      # polite to a free public portal
+        return failed
+
+    missed = attempt(list(range(rows)))
+    if missed:
+        # See the DC sampler: a skipped offset shifts an evenly spaced draw toward
+        # the offsets that answered, and nothing downstream can see that it did.
+        log.warning("  %d offsets did not answer; retrying them.", len(missed))
+        missed = attempt(missed)
+    if missed:
+        raise SystemExit(
+            f"{len(missed)} of {rows} sample offsets never answered. Writing the "
+            f"benchmark anyway would bias it toward the offsets that worked, "
+            f"invisibly. Try again when the portal is healthy.")
+    # `attempted` is how many DISTINCT parcels the draw actually asked about, not
+    # how many offsets were read. Two offsets can land on one PIN (the table has a
+    # row per card), and `seen` collapses them — so counting offsets would make
+    # `drawn - sampled` positive for a parcel that was fine, and the page would
+    # report a duplicate as a house the assessor never documented.
+    return _primary_cards(year, seen), {"attempted": len(seen)}
 
 
 def _primary_cards(year: str, pins: list[str]) -> list[dict]:
@@ -168,43 +341,294 @@ def _primary_cards(year: str, pins: list[str]) -> list[dict]:
         chunk = pins[i:i + CAMA_BATCH]
         where = (f"year='{year}' AND pin IN ("
                  + ",".join(f"'{p}'" for p in chunk) + ")")
-        for row in _fetch(CAMA_URL, {
+        for row in _batch_or_die(CAMA_URL, {
             "$select": ("pin,card,char_yrblt,char_bldg_sf,char_ext_wall,char_bsmt,"
                         "char_repair_cnd,char_type_resd"),
             "$where": where, "$order": "pin, card", "$limit": "5000",
-        }) or []:
+        }, "card lookup", len(chunk)):
             out.setdefault(str(row.get("pin")), row)     # first = lowest card
+        # A SHORT answer is legitimate for the parcel-layer joins — those parcels
+        # really can be absent from the layer, which is what a `no_address` drop
+        # records. It is NOT legitimate here, and treating the two the same was a
+        # rule generalised past its evidence: every PIN in this chunk was returned
+        # by THIS table filtered to THIS year moments ago, so each provably has a
+        # card. A missing one is a truncated response (a `$limit` cut, a partial
+        # page), and it would vanish from the sample and be published as a house
+        # the assessor never gave an address for.
+        missing = [q for q in chunk if q not in out]
+        if missing:
+            raise SystemExit(
+                f"the card lookup returned no row for {len(missing)} of "
+                f"{len(chunk)} PINs that this same table listed for {year} "
+                f"(first: {missing[0]}). That is a truncated response, not a gap "
+                f"in the county's records, and dropping those parcels would bias "
+                f"the draw invisibly. Try again when the portal is healthy.")
         log.info("  primary card %d/%d", min(i + CAMA_BATCH, len(pins)), len(pins))
         time.sleep(0.05)
     return [out[p] for p in pins if p in out]
 
 
-def _parcel_info(pins: list[str]) -> dict[str, dict]:
-    """PIN → {street_address, lat, lon} from the parcel layer, in batches."""
+def _parcel_info(pins: list[str]) -> tuple[dict[str, dict], set[str]]:
+    """PIN → {street_address, lat, lon}, and the PINs the layer held a record for.
+
+    The second value exists because "absent from the layer" and "present with no
+    address" are different facts about the assessor, and both used to leave the
+    same trace: no entry in the returned map. The build reported every addressless
+    parcel as one the layer had never heard of — a stronger claim than the evidence
+    supports, and the very misattribution the split into separate drop reasons was
+    supposed to end. Splitting the REPORT without making the DATA carry the
+    distinction just relabelled it.
+    """
     out: dict[str, dict] = {}
+    present: set[str] = set()
     for i in range(0, len(pins), PARCEL_BATCH):
         chunk = pins[i:i + PARCEL_BATCH]
+        wanted = set(chunk)
         where = "PIN14 IN (" + ",".join(f"'{p}'" for p in chunk) + ")"
-        for f in (_fetch(PARCEL_URL, {
+        for f in _batch_or_die(PARCEL_URL, {
             "where": where,
             "outFields": "PIN14,street_address,city_state_zip,latitude,longitude",
             "returnGeometry": "false", "f": "json",
-        }) or {}).get("features") or []:
+        }, "parcel lookup", len(chunk)):
             a = f.get("attributes") or {}
+            if not (a.get("PIN14") or "").strip():
+                # The query is keyed BY PIN14, so a feature that comes back without
+                # one cannot be joined to anything. Skipping it makes the parcel
+                # vanish and publish as `no_address` — the assessor blamed for a
+                # malformed response. Same rule the offset samplers apply: a row
+                # with no identifier is the portal failing, not a record.
+                raise SystemExit(
+                    f"the parcel layer returned a feature with no PIN14 in a batch "
+                    f"of {len(chunk)}. It cannot be joined, and continuing would "
+                    f"drop a sampled parcel and report it as undocumented.")
             pin = str(a.get("PIN14") or "").zfill(14)
-            if pin and a.get("latitude") and a.get("longitude") and a.get("street_address"):
+            if pin not in wanted:
+                # The query is an IN over `chunk`, so a PIN outside it means the
+                # filter was ignored or a stale response was served. Storing it
+                # would leave every requested parcel looking absent — a whole
+                # batch published as houses with no address on file, from a
+                # response that never answered the question asked.
+                raise SystemExit(
+                    f"the parcel layer returned PIN {pin}, which was not in the "
+                    f"batch of {len(chunk)} requested. The response does not "
+                    f"answer the query, and continuing would report every parcel "
+                    f"in this batch as undocumented.")
+            # Coordinates are NOT required. Nothing in the scoring path reads them
+            # — the harness geocodes the address exactly as a visitor would, and
+            # scoring from the parcel centroid would measure the adapter under
+            # ideal geocoding — so they are carried for inspection only. Requiring
+            # them dropped rows whose address and year were perfectly good, and the
+            # published note then reported those as records the assessor never
+            # documented. DC already carried an empty point rather than dropping
+            # the row; this is the same rule.
+            present.add(pin)
+            street = (a.get("street_address") or "").strip()
+            if pin and street:
                 # Full mailing form, so the harness can geocode each row the way a
                 # visitor would. Scoring from the parcel centroid instead would put
                 # every point inside its own polygon and quietly measure the adapter
                 # under ideal geocoding — hiding the interpolation problem that is
                 # the single biggest obstacle to it working at all.
                 csz = (a.get("city_state_zip") or "").strip()
-                out[pin] = {"street_address": a["street_address"],
-                            "address": ", ".join(x for x in (a["street_address"], csz) if x),
-                            "lat": a["latitude"], "lon": a["longitude"]}
+                out[pin] = {"street_address": street,
+                            "address": ", ".join(x for x in (street, csz) if x),
+                            "lat": a.get("latitude") or "", "lon": a.get("longitude") or ""}
         log.info("  resolved %d/%d parcels", min(i + PARCEL_BATCH, len(pins)), len(pins))
         time.sleep(0.05)
-    return out
+    return out, present
+
+
+# --- Washington, DC ------------------------------------------------------------
+#
+# A second jurisdiction, so the harness measures the registry rather than one
+# county. DC's shape differs from Cook's in three ways that matter here:
+#
+#   * Its CAMA lives on ArcGIS, not Socrata, and is keyed by SSL (square-suffix-
+#     lot) rather than PIN. Row offsets work the same way, so the even-spacing
+#     rule carries over unchanged.
+#   * Its parcel layer publishes no latitude/longitude columns, so a representative
+#     point is computed from the polygon. Nothing in the scoring path uses it — the
+#     harness geocodes the address exactly as a visitor would — so it is carried for
+#     inspection only.
+#   * CONDOMINIUM units live in a SEPARATE CAMA table (61,329 rows against
+#     RESIDENTIAL's 109,273 — 36% of DC's CAMA stock). They cannot enter this
+#     benchmark: a unit-level SSL does not appear in the parcel polygon layer at
+#     all, so there is no way to resolve one to an address, and no coordinate can
+#     distinguish one unit from another in the same building. So this measures
+#     NON-CONDO DC homes, and the published page says so rather than letting a
+#     figure drawn from 64% of the stock read as the whole city.
+DC_BASE = ("https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA"
+           "/Property_and_Land_WebMercator/MapServer")
+DC_CAMA_URL = f"{DC_BASE}/25/query"          # RESIDENTIAL (CAMA)
+DC_PARCEL_URL = f"{DC_BASE}/40/query"        # Owner Polygons (Common Ownership)
+DC_BATCH = 40
+
+# Only what the benchmark needs. The parcel layer also carries OWNERNAME, owner
+# mailing addresses and tax balances; naming the fields keeps them unrequested.
+_DC_PARCEL_FIELDS = "SSL,PREMISEADD"
+_DC_CAMA_FIELDS = "SSL,AYB,GBA,STORIES,EXTWALL_D,CNDTN_D,NUM_UNITS"
+
+
+def _dc_sample(rows: int) -> tuple[list[dict], dict]:
+    """Evenly-spaced rows from DC's residential CAMA table."""
+    if rows < 1:
+        raise SystemExit(f"--rows must be at least 1 (got {rows})")
+    got = _fetch(DC_CAMA_URL, {"where": "1=1", "returnCountOnly": "true", "f": "json"})
+    # Shape first. `{"count": "oops"}` reached int() and raised ValueError, and a
+    # plain string body raised AttributeError from .get() — both escaping the
+    # stated "could not size" refusal for an incidental traceback. A portal
+    # changing shape should fail the same way as a portal not answering.
+    count = got.get("count") if isinstance(got, dict) else None
+    total = int(count) if isinstance(count, (int, float)) else 0
+    if total <= 0:
+        raise SystemExit("could not size DC's residential CAMA table; try again later")
+    log.info("DC residential CAMA has %d rows; sampling %d.", total, rows)
+
+    rows = min(rows, total)
+    out, seen = [], set()
+
+    def attempt(offsets: list[int]) -> list[int]:
+        """Read these offsets; return the ones that did not answer."""
+        failed = []
+        for n, i in enumerate(offsets, 1):
+            body = _fetch(DC_CAMA_URL, {
+                "where": "1=1", "outFields": _DC_CAMA_FIELDS, "orderByFields": "SSL",
+                "resultOffset": str(i * total // rows), "resultRecordCount": "1",
+                "returnGeometry": "false", "f": "json",
+            })
+            feats = _rows_of(body)
+            # An ArcGIS failure arrives in a 200 body, and an offset inside a table
+            # this size always has a row — so an empty answer is the portal failing
+            # quietly. Neither is "no row here".
+            a = (feats[0].get("attributes") or {}) if feats else {}
+            ssl = (a.get("SSL") or "").strip()
+            if (body is None or (isinstance(body, dict) and body.get("error"))
+                    or not feats or not ssl):
+                # `exceededTransferLimit` is deliberately NOT checked here, and
+                # the asymmetry with `_batch_or_die` is the point. The flag means
+                # "more records match than were returned". This query asks for
+                # ONE row on purpose — it is a paged read of a 109,273-row table —
+                # so the flag is set on every healthy response. In the batch
+                # lookups no page size is given, the whole matching set is
+                # expected, and the same flag really does mean a truncated answer.
+                #
+                # Adding the check here rejected all six offsets of a live build
+                # on the first run, which is how the difference was noticed: one
+                # more rule generalised past the evidence for it.
+                #
+                # A row with no SSL joins the empty and error cases: it cannot be
+                # resolved to an address, so it is an offset that did not answer.
+                # See the Cook sampler — the two must agree or one jurisdiction
+                # quietly tolerates what the other refuses.
+                failed.append(i)
+            elif ssl not in seen:
+                seen.add(ssl)
+                out.append(a)
+            if n % 25 == 0:
+                log.info("  sampled %d/%d", n, len(offsets))
+            time.sleep(0.05)
+        return failed
+
+    missed = attempt(list(range(rows)))
+    if missed:
+        # Retried rather than skipped. Dropping an offset shifts the draw toward
+        # whichever ones happened to answer, and a benchmark with holes in an
+        # evenly spaced sample still looks like a clean one — the bias is
+        # invisible in the output. _fetch already backs off four times, so these
+        # are offsets that failed repeatedly; one more pass separates a blip from
+        # an outage.
+        log.warning("  %d offsets did not answer; retrying them.", len(missed))
+        missed = attempt(missed)
+    if missed:
+        raise SystemExit(
+            f"{len(missed)} of {rows} sample offsets never answered. Writing the "
+            f"benchmark anyway would bias it toward the offsets that worked, "
+            f"invisibly. Try again when the portal is healthy.")
+    # Distinct parcels, not offsets read — see the Cook sampler for why.
+    return out, {"attempted": len(out)}
+
+
+def _ring_point(geom: dict) -> tuple[float, float] | None:
+    """A representative point inside a parcel polygon (mean of its outer ring)."""
+    ring = ((geom or {}).get("rings") or [[]])[0]
+    pts = [p for p in ring if isinstance(p, (list, tuple)) and len(p) >= 2]
+    if not pts:
+        return None
+    return (sum(p[1] for p in pts) / len(pts), sum(p[0] for p in pts) / len(pts))
+
+
+def _dc_place(ssls: list[str]) -> tuple[dict[str, dict], set[str]]:
+    """SSL → {address, lat, lon}, and the SSLs the layer held a record for.
+
+    See ``_parcel_info`` for why the second value exists.
+    """
+    out: dict[str, dict] = {}
+    present: set[str] = set()
+    for i in range(0, len(ssls), DC_BATCH):
+        chunk = ssls[i:i + DC_BATCH]
+        wanted = set(chunk)
+        where = "SSL IN (" + ",".join("'" + s.replace("'", "''") + "'" for s in chunk) + ")"
+        for f in _batch_or_die(DC_PARCEL_URL, {
+            "where": where, "outFields": _DC_PARCEL_FIELDS,
+            "returnGeometry": "true", "outSR": "4326", "f": "json",
+        }, "parcel lookup", len(chunk)):
+            a = f.get("attributes") or {}
+            ssl, addr = (a.get("SSL") or "").strip(), (a.get("PREMISEADD") or "").strip()
+            if not ssl:
+                # The join key, missing — see the Cook parcel lookup. A missing
+                # ADDRESS below is different and legitimate: that parcel really has
+                # none on file, which is what a `no_address` drop records.
+                raise SystemExit(
+                    f"the parcel layer returned a feature with no SSL in a batch of "
+                    f"{len(chunk)}. It cannot be joined, and continuing would drop "
+                    f"a sampled parcel and report it as undocumented.")
+            if ssl not in wanted:
+                # See the Cook parcel lookup: an SSL outside the requested batch
+                # means the response is not an answer to this query.
+                raise SystemExit(
+                    f"the parcel layer returned SSL {ssl!r}, which was not in the "
+                    f"batch of {len(chunk)} requested. The response does not "
+                    f"answer the query, and continuing would report every parcel "
+                    f"in this batch as undocumented.")
+            present.add(ssl)
+            if not addr:
+                continue
+            pt = _ring_point(f.get("geometry") or {})
+            # PREMISEADD is already the full mailing form ("3401 NEWARK ST NW
+            # WASHINGTON DC 20016"), so it is geocoded as a visitor would type it.
+            out[ssl] = {"address": addr,
+                        "lat": pt[0] if pt else "", "lon": pt[1] if pt else ""}
+        log.info("  resolved %d/%d parcels", min(i + DC_BATCH, len(ssls)), len(ssls))
+        time.sleep(0.05)
+    return out, present
+
+
+def _dc_truth(row: dict) -> dict | None:
+    """DC's record, in the label's vocabulary. None if ungradeable."""
+    from housing_label.enrich.assessor import dc
+
+    def num(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+
+    year = num(row.get("AYB"))
+    if not year or not (1800 <= year <= 2100):
+        return None
+    sqft = num(row.get("GBA"))
+    units = num(row.get("NUM_UNITS")) or 1
+    return {
+        "year_built": int(year),
+        # Same rule the adapter applies: GBA is the whole building's, the label's
+        # figure is per dwelling, so a multi-unit row contributes no floor area
+        # rather than a building total wearing a per-unit label.
+        "sqft": sqft if sqft and sqft > 0 and units <= 1 else "",
+        "stories": dc._stories(row.get("STORIES")) or "",
+        "construction": dc._EXT_WALL.get((row.get("EXTWALL_D") or "").strip(), ""),
+        "foundation": "",          # DC's residential CAMA has no basement column
+        "condition": dc._CONDITION.get((row.get("CNDTN_D") or "").strip(), ""),
+    }
 
 
 def _truth(row: dict) -> dict | None:
@@ -238,45 +662,139 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--rows", type=int, default=200, help="parcels to sample (default 200)")
+    ap.add_argument("--jurisdiction", choices=sorted(JURISDICTIONS), default="cook",
+                    help="which assessor to build a benchmark from (default cook)")
     args = ap.parse_args()
 
     sys.path.insert(0, str(_ROOT / "src"))
     CACHE_DIR.mkdir(exist_ok=True)
+    juris = args.jurisdiction
 
-    year = _latest_year()
-    sample = _cama_sample(year, args.rows)
+    # Before the branch, so it holds for every jurisdiction. `_cama_sample`
+    # checked it too, but Cook resolves the assessment year FIRST, so `--rows 0`
+    # made a live portal request before being told the argument was unusable —
+    # the docstring promised "an unusable argument should not cost a request" and
+    # the DC path honoured it while Cook did not.
+    if args.rows < 1:
+        raise SystemExit(f"--rows must be at least 1 (got {args.rows})")
+
+    if juris == "cook":
+        year = _latest_year()
+        sample, draw = _cama_sample(year, args.rows)
+        keys = [str(r["pin"]).zfill(14) for r in sample]
+        info, present = _parcel_info(keys)
+        truth_of, key_of = _truth, (lambda r: str(r["pin"]).zfill(14))
+    elif juris == "dc":
+        year = "current"
+        sample, draw = _dc_sample(args.rows)
+        keys = [(r.get("SSL") or "").strip() for r in sample]
+        info, present = _dc_place([k for k in keys if k])
+        truth_of, key_of = _dc_truth, (lambda r: (r.get("SSL") or "").strip())
+    else:
+        # The CLI takes its choices from the registry, so a third entry becomes
+        # selectable the moment it is added — before anyone writes its sampler. A
+        # bare `else` running DC's would have drawn DC parcels, written them to
+        # benchmark-<new>.csv and stamped the new jurisdiction on the metadata: a
+        # fabricated benchmark, indistinguishable from a real one downstream. This
+        # is the cross-jurisdiction fallback again, reached from the other end.
+        raise SystemExit(
+            f"{juris} is registered in scripts/jurisdictions.py but has no sampler "
+            f"in this script. Add one rather than letting another jurisdiction's "
+            f"draw be written under its name.")
+
     log.info("Fetched %d characteristics rows.", len(sample))
+    log.info("Resolved %d of them to an address.", len(info))
 
-    info = _parcel_info([str(r["pin"]).zfill(14) for r in sample])
-    log.info("Resolved %d of them to an address + coordinate.", len(info))
-
-    out_rows = []
+    # Counted, not inferred. The published note used to derive the cause of every
+    # dropped row from `drawn - sampled`, and review found it naming the wrong one
+    # four separate times — each fix reworded a guess. The builder is the only
+    # place that KNOWS why a row was dropped, so it records it and the page reports
+    # what happened rather than reconstructing it from two totals.
+    # Three reasons, not two. `_parcel_info`/`_dc_place` omit a parcel both when
+    # the layer holds no feature for it and when the feature it holds carries a
+    # blank address, and folding those together let the page say "had no address
+    # on file" about a parcel whose record was simply not there — a claim about
+    # the assessor's documentation that the build has no evidence for.
+    out_rows, dropped = [], {"no_parcel_record": 0, "no_address": 0,
+                             "no_year_built": 0}
     for row in sample:
-        pin = str(row["pin"]).zfill(14)
-        place = info.get(pin)
-        truth = _truth(row) if place else None
-        if place and truth:
-            out_rows.append({"pin": pin, "address": place["address"],
-                             "lat": place["lat"], "lon": place["lon"], **truth})
+        key = key_of(row)
+        place = info.get(key)
+        if not place:
+            # Which of the two it was is now knowable, so it is stated rather than
+            # guessed at: the layer either had no record for this parcel, or had
+            # one carrying no address.
+            dropped["no_address" if key in present else "no_parcel_record"] += 1
+            continue
+        truth = truth_of(row)
+        if not truth:
+            dropped["no_year_built"] += 1
+            continue
+        out_rows.append({"parcel_id": key, "address": place["address"],
+                         "lat": place["lat"], "lon": place["lon"], **truth})
 
     if not out_rows:
         raise SystemExit("no gradeable rows — refusing to write an empty benchmark")
 
-    with BENCHMARK.open("w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=["pin", "address", "lat", "lon"] + FIELDS)
-        w.writeheader()
-        w.writerows(out_rows)
+    # Every drawn parcel is either written or counted under a reason. This has
+    # been true since the card lookup stopped accepting a short batch, and it is
+    # asserted rather than reasoned about because it has been re-derived by hand in
+    # four review rounds and quietly stopped holding in three of them. A future
+    # path that drops a row without recording why now fails the build instead of
+    # publishing a disclosure that silently under-reports the gap.
+    unexplained = draw["attempted"] - len(out_rows) - sum(dropped.values())
+    if unexplained:
+        raise SystemExit(
+            f"{draw['attempted']} parcels drawn, {len(out_rows)} written, "
+            f"{sum(dropped.values())} dropped for a recorded reason — "
+            f"{unexplained} unaccounted for. The published note reports the "
+            f"recorded reasons, so writing this would under-report the gap. This "
+            f"is a bug in the builder, not a portal problem.")
 
-    digest = hashlib.sha256(BENCHMARK.read_bytes()).hexdigest()[:16]
-    (CACHE_DIR / "benchmark.meta.json").write_text(json.dumps({
-        "source": "Cook County Assessor (Open Data)",
+    # Built in memory and moved into place, rather than truncating the real file
+    # and filling it over several minutes of network. An interrupted build used to
+    # leave a half-written CSV beside the PREVIOUS run's metadata, and nothing
+    # downstream compared the two — so a partial draw could be scored and published
+    # wearing the complete run's row count and digest. The rename is atomic, so the
+    # file a reader opens is either wholly the old sample or wholly the new one.
+    buf = io.StringIO()
+    w = csv.DictWriter(buf, fieldnames=["parcel_id", "address", "lat", "lon"] + FIELDS)
+    w.writeheader()
+    w.writerows(out_rows)
+    payload = buf.getvalue().encode()
+    digest = hashlib.sha256(payload).hexdigest()[:16]
+
+    benchmark = benchmark_path(juris)
+    _write_atomic(benchmark, payload)
+
+    # Metadata second, and also atomically. Interrupted between the two, the pair
+    # is a new CSV beside stale metadata — which the consumer now REFUSES on the
+    # digest rather than scoring. Failing that way round is the point: the only
+    # states are "matched" and "refused", never "scored the wrong sample".
+    _write_atomic(meta_path(juris), json.dumps({
+        "jurisdiction": juris,
+        # What was actually asked of the assessor. NOT `args.rows`, which both
+        # samplers cap to the table's own size — a --rows larger than the source
+        # would otherwise claim a draw bigger than the whole table and report the
+        # excess as undocumented rows. And not len(sample), which excludes
+        # offsets that failed: that would read a portal outage as a smaller clean
+        # sample rather than a gap in a full one.
+        "drawn": draw["attempted"],
+        # And what reached the benchmark, after rows with no address or no usable
+        # year were dropped.
+        "sampled": len(out_rows),
+        # Why each of the others was dropped, so the page states the cause instead
+        # of deducing it from `drawn - sampled`.
+        "dropped": dropped,
+        "source": JURISDICTIONS[juris]["source"],
+        "scope": JURISDICTIONS[juris]["scope"],
         "assessment_year": year,
         "fetched": date.today().isoformat(),
         "rows": len(out_rows),
         "sha256_16": digest,
     }, indent=2) + "\n")
 
-    log.info("Wrote %s (%d rows, digest %s).", BENCHMARK, len(out_rows), digest)
+    log.info("Wrote %s (%d rows, digest %s).", benchmark, len(out_rows), digest)
     log.info("Not committed — see this script's docstring for why.")
     for fld in FIELDS:
         have = sum(1 for r in out_rows if r.get(fld) not in (None, ""))

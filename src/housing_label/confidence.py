@@ -53,24 +53,38 @@ CONFIDENCE_LEGEND = (
 # from the county's record of the building. That was an editorial judgement, and the
 # measurement says it was wrong.
 #
-# From research/accuracy/results.json (217 Cook County addresses, scored from the
-# address alone and compared against the county's own record) — how often the letter
-# a reader sees differs from the letter the true attributes produce:
+# From research/accuracy/results.json (217 Cook County and 218 Washington, DC
+# addresses, each scored from the address alone and compared against that
+# jurisdiction's own assessor record) — how often the letter a reader sees differs
+# from the letter the true attributes produce:
 #
-#                      inputs assumed      inputs observed
-#     durability            37.3%                6.9%
-#     energy                37.3%                7.4%
-#     environmental         26.7%                5.5%
-#     resilience             2.8%                0.5%
+#                        Cook County            Washington, DC
+#                    assumed   observed       assumed   observed
+#     durability       37.3%      6.9%          50.5%      5.0%
+#     energy           37.3%      7.4%          32.6%      4.1%
+#     environmental    26.7%      5.5%          23.4%      3.2%
+#     resilience        2.8%      0.5%           8.7%      0.5%
 #
-# So durability and energy are wrong better than one time in three when the
-# construction profile is a stand-in. That is not a High-confidence number by any
+# So on a stand-in construction profile, durability carries the wrong letter for
+# 37.3% of Cook addresses and 50.5% of DC ones, and energy for 37.3% and 32.6%.
+# A third to a half is not a High-confidence number by any
 # reading of this module's own rubric, and it is now capped.
 #
-# Resilience is deliberately NOT capped. Its grade moved on 2.8% of the same
-# addresses — the flood zone, seismic band and wildfire class do the work there, and
-# the vintage barely reaches the letter. Capping it would trade a measured fact for
-# a tidy rule and tell readers a real signal is weaker than it is.
+# Resilience is deliberately NOT capped, and this is the judgement most worth
+# revisiting. It moved on 2.8% of Cook addresses and 8.7% of DC ones — DC's rate is
+# roughly THREE TIMES Cook's, and Cook's was quoted alone, as though it were a
+# property of the dimension, when only Cook had been measured. One city is not a
+# constant. It is still four to six times below durability's 37-50% (not the order
+# of magnitude an earlier draft of this comment claimed — the ratio is 4.3x against
+# Cook's durability and 5.8x against DC's): the flood zone, seismic band and
+# wildfire class do the work there, and the vintage reaches the letter only at the
+# margin.
+#
+# So the exemption rests on a judgement about magnitude, not a bright line. Capping
+# resilience would tell readers a genuinely strong signal is weak; leaving it
+# uncapped accepts that roughly one DC label in eleven carries a resilience letter a
+# real year built would move. If a third jurisdiction lands nearer durability than
+# this, the exemption should go rather than be defended.
 #
 # The fields listed per dimension are its PRIMARY construction drivers, not every
 # input it touches: the ones whose provenance the measurement above actually varied.
@@ -114,16 +128,38 @@ def confidence_for_label(label: dict) -> dict:
         key = d.get("key")
         if key is None:
             continue
-        score = d.get("score")
-        if score is None or _is_unavailable(notes.get(key)):
-            tiers[key] = "low"          # unscored / N/A / placeholder
-        elif key in WIDE_BAND_DIMS:
-            tiers[key] = "moderate"     # documented wide or scenario band
-        elif _rests_on_a_standin(key, building):
-            tiers[key] = "moderate"     # measured: the letter is often wrong here
-        else:
-            tiers[key] = "high"
+        reason = _cap_reason(key, d.get("score"), notes.get(key), building)
+        tiers[key] = _TIER_FOR_REASON.get(reason, "high")
     return tiers
+
+
+# Why a dimension cannot carry the top tier. Ordered: the first that applies is
+# the one that actually caps it, and the later ones would be redundant.
+_TIER_FOR_REASON = {
+    "unscored": "low",        # unscored / N/A / placeholder
+    "wide_band": "moderate",  # documented wide or scenario band
+    "standin": "moderate",    # measured: the letter is often wrong here
+}
+
+
+def _cap_reason(key: str, score, note, building: dict) -> str | None:
+    """Which of the three caps applies to this dimension, or None for High.
+
+    One function rather than a branch in the tier and a separate condition in the
+    note, because the two have to agree about *why*. They did not: `environmental`
+    is in both WIDE_BAND_DIMS and _PROVENANCE_SENSITIVE, so the tier capped it for
+    its band while the note told the reader it was capped for a stand-in and that
+    correcting the building details would resolve it. It would not — environmental
+    is Moderate whatever the reader enters. A hover note that hands someone an
+    action that cannot work is worse than the uncaptioned dot it replaced.
+    """
+    if score is None or _is_unavailable(note):
+        return "unscored"
+    if key in WIDE_BAND_DIMS:
+        return "wide_band"
+    if _rests_on_a_standin(key, building):
+        return "standin"
+    return None
 
 
 def _rests_on_a_standin(key: str, building: dict) -> bool:
@@ -145,14 +181,23 @@ def _rests_on_a_standin(key: str, building: dict) -> bool:
     return False
 
 
-# Appended to a capped dimension's hover note. The dot changing colour without a
+# Appended to a dimension the STAND-IN capped. The dot changing colour without a
 # reason is worse than not capping at all: the reader sees a downgrade and cannot
 # tell whether the data source is weak in general or weak for THEIR address, and
 # the second is fixable by them in the panel directly above.
+#
+# The rate below spans the dimensions this note can reach — durability and energy,
+# the two _PROVENANCE_SENSITIVE dimensions that are not already capped for their
+# band. Measured on stand-in inputs: durability 37.3% (Cook) and 50.5% (DC),
+# energy 37.3% and 32.6%. So a third to a half is the real envelope, and it must
+# be re-read against research/accuracy/results.json when a jurisdiction is added.
+# Environmental's 26.7%/23.4% is deliberately NOT in that range: this note never
+# reaches it, because its band caps it first.
 STANDIN_NOTE = (" Confidence is held at Moderate here because this dimension is "
                 "being computed from a neighbourhood typical rather than a record "
-                "of this building — measured against county records, the letter "
-                "differs about a third of the time on such inputs. Correcting the "
+                "of this building. Measured against assessor records in the two "
+                "places that have been checked, the letter differs between about "
+                "a third and about half the time on such inputs. Correcting the "
                 "building details above resolves it.")
 
 
@@ -163,9 +208,15 @@ def confidence_notes_for_label(label: dict) -> dict:
     each dimension's sources, and the per-address part is added per address.
     """
     building = label.get("building") or {}
+    notes = label.get("location_notes", {}) or {}
+    scores = {d.get("key"): d.get("score") for d in label.get("dimensions", [])}
     out = dict(CONFIDENCE_NOTES)
     for key in _PROVENANCE_SENSITIVE:
-        if key in out and _rests_on_a_standin(key, building):
+        # Only where the stand-in is what actually capped it. A dimension capped
+        # for its band, or one with no score at all, is Moderate or Low for a
+        # different reason and correcting the building details will not move it.
+        if key in out and _cap_reason(key, scores.get(key), notes.get(key),
+                                      building) == "standin":
             out[key] = out[key] + STANDIN_NOTE
     return out
 

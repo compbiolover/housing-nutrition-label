@@ -19,7 +19,7 @@ for _p in (_ROOT, _ROOT / "src"):
 
 from housing_label.confidence import (  # noqa: E402
     confidence_for_label, bands_for_label, confidence_notes_for_label,
-    year_built_display,
+    year_built_display, WIDE_BAND_DIMS, _PROVENANCE_SENSITIVE,
 )
 
 _DIM_KEYS = ["resilience", "energy", "durability", "environmental",
@@ -110,10 +110,16 @@ def test_an_area_typical_caps_the_dimensions_it_measurably_moves():
 
 
 def test_resilience_is_not_capped_because_the_measurement_says_not_to():
-    """The deliberate exemption. Resilience moved on 2.8% of the same addresses —
-    flood zone, seismic band and wildfire class do the work, and the vintage barely
-    reaches the letter. Capping it would trade a measured fact for a tidy rule and
-    understate a signal that is genuinely strong."""
+    """The deliberate exemption, and the judgement most worth revisiting.
+
+    Resilience moved on 2.8% of Cook addresses and 8.7% of DC ones — the second
+    figure arrived only after a second jurisdiction was measured, and is three times
+    the first. It is still four to six times below durability's 37-50%, so the
+    exemption stands on magnitude rather than on a bright line. Pinned here so that
+    a later tidy-up has to argue with the measurement rather than quietly restore
+    symmetry — and so that a third jurisdiction landing nearer durability makes this
+    test the place the decision gets reopened.
+    """
     assert confidence_for_label(_with_building("assumed"))["resilience"] == "high"
 
 
@@ -153,6 +159,51 @@ def test_a_capped_dimension_says_why_on_the_dot():
     assert "Correcting the building details" in notes["durability"]
     # The base description must survive, not be replaced by the caveat.
     assert "Component-lifespan model" in notes["durability"]
+
+
+def test_the_note_only_goes_where_correcting_the_details_would_actually_help():
+    """The note's promise, tested as a promise.
+
+    It tells the reader that correcting the building details resolves the cap. So
+    for every dimension carrying it, doing exactly that must lift the tier — and
+    this is checked rather than reasoned about, because it was false in the
+    shipped version: `environmental` is in both WIDE_BAND_DIMS and
+    _PROVENANCE_SENSITIVE, its band capped it first, and the note still claimed
+    the stand-in was the cause and offered an action that could not work.
+    """
+    stood_in = confidence_notes_for_label(_with_building("assumed"))
+    before = confidence_for_label(_with_building("assumed"))
+    after = confidence_for_label(_with_building("observed"))
+    for key, note in stood_in.items():
+        if "neighbourhood typical" not in note:
+            continue
+        assert before[key] == "moderate", key
+        assert after[key] == "high", (
+            f"{key}'s note promises that correcting the building details resolves "
+            f"the cap, but with every driver observed it is still {after[key]}. "
+            f"Either the note does not belong on {key} or the tier is wrong.")
+
+
+def test_a_dimension_capped_for_its_band_does_not_claim_a_standin_caused_it():
+    """environmental is wide-band AND provenance-sensitive. The band caps it first,
+    so the stand-in explanation would be the wrong cause on a real address."""
+    notes = confidence_notes_for_label(_with_building("assumed"))
+    assert "environmental" in WIDE_BAND_DIMS and "environmental" in _PROVENANCE_SENSITIVE
+    assert "neighbourhood typical" not in notes["environmental"]
+    # The base description still has to be there — the dot still needs its note.
+    assert "eGRID2023" in notes["environmental"]
+
+
+def test_an_unscored_dimension_does_not_blame_a_standin():
+    """No score means no letter to be wrong about. The dot is Low because nothing
+    was computed, and saying otherwise sends the reader to fix the wrong thing."""
+    label = _with_building("assumed")
+    for d in label["dimensions"]:
+        if d["key"] == "durability":
+            d["score"] = None
+    notes = confidence_notes_for_label(label)
+    assert confidence_for_label(label)["durability"] == "low"
+    assert "neighbourhood typical" not in notes["durability"]
 
 
 def test_an_uncapped_dimension_note_is_left_alone():
