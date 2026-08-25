@@ -28,6 +28,7 @@ for _p in (_ROOT, _ROOT / "src"):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
+import scripts.jurisdictions as B  # noqa: E402
 import scripts.measure_accuracy as M  # noqa: E402
 
 
@@ -750,21 +751,28 @@ def test_a_failed_page_write_rolls_the_results_back():
     prevent, reached a different way."""
     with tempfile.TemporaryDirectory() as tmp:
         results_p = pathlib.Path(tmp) / "results.json"
-        page_p = pathlib.Path(tmp) / "sub" / "accuracy.html"     # dir absent
+        # The target is a NON-EMPTY DIRECTORY, so staging succeeds and the PAGE
+        # RENAME is what fails — which is the only path that reaches the rollback.
+        # A missing parent fails inside `_staged` before either rename, so this
+        # test would have passed with the rollback deleted. Exactly the mistake I
+        # already fixed in the temp-leak test and left standing here.
+        page_p = pathlib.Path(tmp) / "accuracy.html"
+        page_p.mkdir()
+        (page_p / "occupant").write_text("x")
         results_p.write_text('{"before": true}')
         orig = (M.RESULTS, M.PAGE, M._render)
         M.RESULTS, M.PAGE = results_p, page_p
         M._render = lambda _r: "<p>new</p>"
         try:
             M._publish({"after": True})
-        except (OSError, FileNotFoundError):
+        except OSError:
             pass
         else:
             raise AssertionError("a failed page write reported success")
         finally:
             M.RESULTS, M.PAGE, M._render = orig
         assert results_p.read_text() == '{"before": true}', (
-            "results.json kept its new content while the page was never written")
+            "the results rename was not rolled back after the page rename failed")
         assert not list(pathlib.Path(tmp).glob("*.tmp")), "temp files left behind"
 
 
@@ -891,14 +899,16 @@ def test_a_results_file_naming_an_unregistered_jurisdiction_is_refused():
     its bare key, and --check would then certify a page claiming a jurisdiction no
     adapter is registered for."""
     try:
-        M._readable_results({"jurisdictions": {"dcx": {}}}, "this merge", existed=True)
+        M._readable_results({"jurisdictions": {"dcx": {"benchmark": {}}}},
+                            "this merge", existed=True)
     except SystemExit as exc:
         assert "dcx" in str(exc)
     else:
         raise AssertionError("an unregistered jurisdiction section was accepted")
     # A registered one still passes.
-    assert set(M._readable_results({"jurisdictions": {"cook": {}}}, "x",
-                                   existed=True)) == {"cook"}
+    assert set(M._readable_results({"jurisdictions": {"cook": {"benchmark": {
+        "source": B.JURISDICTIONS["cook"]["source"]}}}},
+        "x", existed=True)) == {"cook"}
 
 
 def test_a_section_must_agree_with_the_key_it_sits_under():
@@ -908,8 +918,9 @@ def test_a_section_must_agree_with_the_key_it_sits_under():
     that would catch it was already in the file — the same oversight as the
     benchmark's stamp going unread for the first half of this change."""
     try:
-        M._readable_results({"jurisdictions": {"cook": {"benchmark":
-                            {"jurisdiction": "dc"}}}}, "x", existed=True)
+        M._readable_results({"jurisdictions": {"cook": {"benchmark": {
+            "jurisdiction": "dc",
+            "source": B.JURISDICTIONS["cook"]["source"]}}}}, "x", existed=True)
     except SystemExit as exc:
         assert "'dc'" in str(exc) and "cook" in str(exc)
     else:
@@ -917,11 +928,12 @@ def test_a_section_must_agree_with_the_key_it_sits_under():
 
     # Unstamped is allowed for cook alone: the pre-split measurement predates the
     # field and is genuinely Cook's.
-    assert set(M._readable_results({"jurisdictions": {"cook": {"benchmark": {}}}},
-                                   "x", existed=True)) == {"cook"}
+    assert set(M._readable_results({"jurisdictions": {"cook": {"benchmark": {
+        "source": B.JURISDICTIONS["cook"]["source"]}}}},
+        "x", existed=True)) == {"cook"}
     try:
-        M._readable_results({"jurisdictions": {"dc": {"benchmark": {}}}},
-                            "x", existed=True)
+        M._readable_results({"jurisdictions": {"dc": {"benchmark": {
+            "source": B.JURISDICTIONS["dc"]["source"]}}}}, "x", existed=True)
     except SystemExit as exc:
         assert "no jurisdiction" in str(exc)
     else:
@@ -1008,6 +1020,58 @@ def test_a_section_that_is_not_an_object_is_refused_either_way():
             raise AssertionError(f"section {value!r} crashed instead of refusing")
         else:
             raise AssertionError(f"section {value!r} was accepted")
+
+
+def test_the_legacy_benchmark_on_disk_is_still_scorable():
+    """The pre-split builder wrote `pin`, and `_parcel_matches` still reads it —
+    the legacy branch exists to keep that file usable. Requiring `parcel_id`
+    unconditionally refused the one benchmark that branch is FOR, so the
+    documented compatibility lasted exactly as long as it took to add a schema
+    check without looking at the file it had to accept."""
+    legacy_header = ("pin,address,lat,lon,year_built,sqft,stories,construction,"
+                     "foundation,condition\n1,A,0,0,1990,1000,1,brick,,good\n")
+    with tempfile.TemporaryDirectory() as tmp:
+        path, digest = _benchmark(tmp, legacy_header)
+        M._verify_benchmark(path, {"sha256_16": digest, "rows": 1,
+                                   "source": B.JURISDICTIONS["cook"]["source"]},
+                            "cook", legacy=True)
+    # ...and `pin` is NOT an acceptable identifier for a jurisdiction-specific
+    # file, which the current builder always writes as `parcel_id`.
+    with tempfile.TemporaryDirectory() as tmp:
+        path, digest = _benchmark(tmp, legacy_header)
+        try:
+            M._verify_benchmark(path, {"jurisdiction": "dc", "sha256_16": digest,
+                                       "rows": 1}, "dc")
+        except SystemExit as exc:
+            assert "parcel_id" in str(exc)
+        else:
+            raise AssertionError("a jurisdiction file with no parcel_id passed")
+
+
+def test_a_section_with_no_provenance_at_all_is_refused():
+    for section in ({}, {"benchmark": {}}, {"benchmark": {"source": ""}}):
+        try:
+            M._readable_results({"jurisdictions": {"cook": section}}, "x",
+                                existed=True)
+        except SystemExit:
+            pass
+        else:
+            raise AssertionError(f"{section!r} was published with no attribution")
+
+
+def test_a_benchmark_block_that_is_not_an_object_is_refused():
+    """Typed the section and not the thing inside it — a `benchmark` of "corrupt"
+    raised AttributeError from the very .get() meant to read its provenance."""
+    for bad in ("corrupt", [], 7):
+        try:
+            M._readable_results({"jurisdictions": {"dc": {"benchmark": bad}}},
+                                "x", existed=True)
+        except SystemExit:
+            pass
+        except AttributeError:
+            raise AssertionError(f"benchmark={bad!r} crashed instead of refusing")
+        else:
+            raise AssertionError(f"benchmark={bad!r} was accepted")
 
 
 def _run_all() -> int:

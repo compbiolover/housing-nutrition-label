@@ -734,9 +734,31 @@ def _readable_results(previous, where: str, *, existed: bool) -> dict:
                 f"{RESULTS.name} has a section keyed {key!r} holding "
                 f"{type(data).__name__}, not an object. {where} cannot read it. "
                 f"Inspect it (or move it aside) and re-run.")
-        source = (data.get("benchmark") or {}).get("source")
+        bench = data.get("benchmark")
+        if bench is not None and not isinstance(bench, dict):
+            # Typed the section and not the thing inside it — a `benchmark` of
+            # "corrupt" raised AttributeError from the very .get() meant to read
+            # its provenance. One level deeper than the guard I wrote last round.
+            raise SystemExit(
+                f"{RESULTS.name}'s {key!r} section has a benchmark holding "
+                f"{type(bench).__name__}, not an object. {where} cannot read its "
+                f"provenance. Inspect it (or move it aside) and re-run.")
+        if not bench:
+            # `_section` reads data["benchmark"] for the source, the assessment
+            # year and the sample size it prints. A section without one has no
+            # provenance to publish, and saying that is clearer than reporting its
+            # source as None.
+            raise SystemExit(
+                f"{RESULTS.name}'s {key!r} section has no benchmark block, so it "
+                f"records no provenance at all. {where} would publish a "
+                f"measurement nothing accounts for. Inspect it (or move it "
+                f"aside) and re-run.")
+        source = bench.get("source")
         expected = JURISDICTIONS.get(key, {}).get("source")
-        if source and expected and source != expected:
+        # Equality, not merely non-conflict: `"source": ""` passed the old
+        # condition and rendered with no assessor attribution at all, on a page
+        # whose whole claim is that each number came from a named record.
+        if expected and source != expected:
             # The page prints this line beneath the heading, so a section stamped
             # `dc` carrying Cook's source text renders a DC result attributed to
             # Cook — and every other guard here passes it.
@@ -744,7 +766,7 @@ def _readable_results(previous, where: str, *, existed: bool) -> dict:
                 f"{RESULTS.name}'s {key!r} section records source {source!r}, but "
                 f"scripts/jurisdictions.py says {key!r} is {expected!r}. {where} "
                 f"would publish a measurement attributed to the wrong assessor.")
-        stamped = (data.get("benchmark") or {}).get("jurisdiction")
+        stamped = bench.get("jurisdiction")
         if stamped == key or (stamped is None and key == "cook"):
             continue
         was = f"{stamped!r}" if stamped else "no jurisdiction"
@@ -838,7 +860,17 @@ def _verify_benchmark(path: pathlib.Path, meta: dict, juris: str,
     # computed against a synthetic default label instead of the assessor's record.
     # A measurement of nothing, rendered as a measurement.
     header = next(csv.reader(io.StringIO(payload.decode())), [])
-    absent = [f for f in ("parcel_id", "address", *FIELDS) if f not in header]
+    # The pre-split builder wrote `pin`, and `_parcel_matches` still reads it —
+    # this path exists to keep that file scorable. Requiring `parcel_id`
+    # unconditionally refused the one benchmark the legacy branch is FOR, so the
+    # compatibility the code documents lasted exactly as long as it took me to add
+    # a schema check without looking at the file it had to accept.
+    identifier = ("parcel_id", "pin") if legacy else ("parcel_id",)
+    absent = [f for f in FIELDS if f not in header]
+    if "address" not in header:
+        absent.insert(0, "address")
+    if not any(i in header for i in identifier):
+        absent.insert(0, " or ".join(identifier))
     if absent:
         raise SystemExit(
             f"{path.name} has no {', '.join(absent)} column(s), so there is "
