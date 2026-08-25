@@ -485,12 +485,38 @@ def test_every_parse_point_agrees_on_what_a_response_is():
         {"attributes": {"SSL": "1"}}]
 
 
+#: How each sampler asks for its table's row count, how a healthy portal answers,
+#: and the shapes an unhealthy one produces. The bad bodies are per jurisdiction on
+#: purpose: Socrata answers with a LIST of row dicts and ArcGIS with a single
+#: object, so feeding one shape to both tests a branch the other portal can never
+#: reach. That is exactly how [{"count": "oops"}] — the real Cook shape — went
+#: unexercised while the test appeared to cover Cook: it was handed {"count":
+#: "oops"}, which Cook rejects one branch earlier for not being a list at all.
+_SIZING = {
+    "cook": {
+        "is_count": lambda params: params.get("$select") == "count(*)",
+        "healthy": [{"count": "1000"}],
+        "unhealthy": ([{"count": "oops"}], [{"count": None}], [{"nope": 1}], [],
+                      [1], "text", None, {"error": {"code": 400}}),
+    },
+    "arcgis": {
+        "is_count": lambda params: params.get("returnCountOnly") == "true",
+        "healthy": {"count": 1000},
+        "unhealthy": ({"count": "oops"}, {"count": None}, {}, "text", None,
+                      {"error": {"code": 400}}, [{"count": 1000}]),
+    },
+}
+
+
 def _sizing(juris):
-    """How each sampler asks for its table's row count, and how to answer."""
-    if juris == "cook":
-        return (lambda params: params.get("$select") == "count(*)",
-                [{"count": "1000"}])
-    return (lambda params: params.get("returnCountOnly") == "true", {"count": 1000})
+    """The count-request predicate and a healthy count body for this sampler."""
+    cfg = _SIZING["cook" if juris == "cook" else "arcgis"]
+    return cfg["is_count"], cfg["healthy"]
+
+
+def _unhealthy(juris):
+    """Count bodies this jurisdiction's own portal could actually return."""
+    return _SIZING["cook" if juris == "cook" else "arcgis"]["unhealthy"]
 
 
 #: Every offset sampler, by name, so a fourth cannot quietly skip the rules below.
@@ -523,12 +549,29 @@ def test_a_malformed_body_is_a_failed_offset_in_every_sampler():
                 assert "never answered" in _refuses(lambda s=sample: s(2)), (juris, body)
 
 
+def test_a_genuinely_empty_table_is_reported_as_empty_not_as_a_failure():
+    """The complement, and the reason the check above is not simply "it refused":
+    a real zero IS an empty table, and must not be reported as a portal problem.
+
+    The two jurisdictions word this differently and that is recorded here rather
+    than smoothed over. Cook can plausibly be asked about an assessment year that
+    has no rows yet, so it says so. The DC tables are the whole city's stock and a
+    zero from them means the service answered with something unusable, so they
+    fold it into the sizing refusal. Both refuse; neither invents a fact about the
+    assessor's records, which is the property that matters."""
+    with _fetching(lambda url, params: [{"count": "0"}]):
+        assert "no rows" in _refuses(lambda: B._cama_sample("2024", 2))
+    for sample in (B._dc_sample, B._dc_condo_sample):
+        with _fetching(lambda url, params: {"count": 0}):
+            assert "could not size" in _refuses(lambda s=sample: s(2))
+
+
 def test_an_unsizeable_table_stops_every_sampler_before_it_draws():
     """A count that is not a number is the portal changing shape, not a table with
     no rows. Reaching int() on it raised ValueError past the stated refusal."""
     for juris, sample in SAMPLERS.items():
         is_count, _ = _sizing(juris)
-        for bad in ({"count": "oops"}, "text", None, {"error": {"code": 400}}):
+        for bad in _unhealthy(juris):
             def fetch(url, params, b=bad, ic=is_count):
                 return b if ic(params) else {"features": []}
 
@@ -536,8 +579,15 @@ def test_an_unsizeable_table_stops_every_sampler_before_it_draws():
             # than a KeyError or ValueError escaping from the parse. The wording
             # is each jurisdiction's own and is only checked loosely, so this
             # test stays about the refusal rather than about the sentence.
+            #
+            # But it must be a SIZING refusal. Cook reported [{"count": "oops"}]
+            # as "no rows for assessment year 2024" — a claim about the county's
+            # records drawn from a response that said nothing about them, and the
+            # one diagnosis that sends a reader looking in the wrong place.
             with _fetching(fetch):
-                assert "size" in _refuses(lambda s=sample: s(2)).lower(), (juris, bad)
+                message = _refuses(lambda s=sample: s(2)).lower()
+            assert "size" in message, (juris, bad, message)
+            assert "no rows" not in message, (juris, bad, message)
 
 
 # --- the condominium join -------------------------------------------------------

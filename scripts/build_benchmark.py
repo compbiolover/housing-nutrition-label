@@ -292,8 +292,13 @@ def _cama_sample(year: str, rows: int) -> tuple[list[dict], dict]:
     try:
         total = int(count)
     except (TypeError, ValueError):
-        total = 0
-    if got is None or first is None or count is None:
+        # An unparseable count is the portal changing shape, NOT an empty table.
+        # Falling through to `total = 0` reported [{"count": "oops"}] as "no rows
+        # for assessment year 2024" — a claim about the county's records made from
+        # a response that never said anything about them, and the one diagnosis
+        # that sends a reader looking in the wrong place entirely.
+        total = None
+    if total is None:
         raise SystemExit(f"could not reach the county portal to size assessment "
                          f"year {year}; try again later")
     if total <= 0:
