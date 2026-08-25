@@ -9,6 +9,15 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.2.10](https://github.com/compbiolover/housing-nutrition-label/compare/v0.2.9...v0.2.10) (2026-08-25)
+
+
+### Features
+
+* **accuracy:** measure the second adapter, not just the first ([#305](https://github.com/compbiolover/housing-nutrition-label/issues/305)) ([f7dce53](https://github.com/compbiolover/housing-nutrition-label/commit/f7dce5385dea507ed7faa2c3a3df0ebd1a0223fa))
+* **accuracy:** observed county assessor records and a measured accuracy harness ([#302](https://github.com/compbiolover/housing-nutrition-label/issues/302)) ([b25e51b](https://github.com/compbiolover/housing-nutrition-label/commit/b25e51bffd86ae47f681006a38b0a5ef1042e074))
+* confidence answers to the measurement, and a second assessor adapter ([#304](https://github.com/compbiolover/housing-nutrition-label/issues/304)) ([895d9b8](https://github.com/compbiolover/housing-nutrition-label/commit/895d9b8345342f6f65790f8aa93843b115c0cf4e))
+
 ## [0.2.9](https://github.com/compbiolover/housing-nutrition-label/compare/v0.2.8...v0.2.9) (2026-08-23)
 
 
