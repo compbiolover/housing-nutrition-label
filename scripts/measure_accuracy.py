@@ -164,7 +164,16 @@ def _parcel_matches(loc, row: dict) -> bool:
     return bool(got) and got == want
 
 
-def _score_arms(row: dict) -> dict | None:
+#: Jurisdictions whose ground-truth floor area is already per dwelling unit.
+#: Cook's `char_bldg_sf` and DC's residential `GBA` are the whole building's, so
+#: on a multi-unit parcel they are a different quantity from the label's sqft and
+#: are dropped below. DC's condominium `LIVING_GBA` is the unit's own area — the
+#: one field the condominium table gets righter than the residential one — and
+#: dropping it there discards the measurement instead of protecting it.
+PER_UNIT_AREA = frozenset({"dc-condo"})
+
+
+def _score_arms(row: dict, juris: str) -> dict | None:
     """Score one benchmark address three ways off a single location resolve."""
     from housing_label.simulate.house import build_label_parts, label_payload
     from housing_label.simulate.location import resolve_location
@@ -196,7 +205,16 @@ def _score_arms(row: dict) -> dict | None:
     # exactly as it would inflate a real label. The adapter drops the field for
     # the same reason (see _autofill_construction_from_nsi); truth follows it, so
     # both sides of the comparison hold the same rule.
-    if getattr(loc, "structure_type", None) == "multifamily":
+    #
+    # ...which is exactly why it is conditional. A condominium record's
+    # LIVING_GBA is ALREADY per unit, and the adapter deliberately keeps it. NSI
+    # calls a condo building multifamily, as it should, so applying this rule
+    # there discarded the truth for 188 of 211 units while the adapter went on
+    # reporting one — the two sides of the comparison holding different rules,
+    # which is the thing the paragraph above claims cannot happen. It measured
+    # sqft on the 23 rows NSI happened to misclassify, and called that the
+    # condominium floor-area accuracy.
+    if juris not in PER_UNIT_AREA and getattr(loc, "structure_type", None) == "multifamily":
         truth_fields.pop("sqft", None)
 
     def run(location, **fields):
@@ -1208,7 +1226,7 @@ def main() -> int:
 
     cases = []
     for i, row in enumerate(rows, 1):
-        case = _score_arms(row)
+        case = _score_arms(row, juris)
         if case is not None:
             cases.append(case)
         if i % 10 == 0 or i == len(rows):

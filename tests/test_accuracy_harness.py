@@ -978,7 +978,16 @@ def test_the_committed_results_still_pass_every_readability_guard():
     that would reject the committed measurement is a broken guard, not a strict
     one."""
     results = json.loads(M.RESULTS.read_text())
-    assert set(M._readable_results(results, "x", existed=True)) == {"cook", "dc"}
+    readable = set(M._readable_results(results, "x", existed=True))
+    # Every section in the file must survive the guards, and every section must be
+    # a jurisdiction the registry knows. Naming the pair that existed when this was
+    # written made adding a third jurisdiction fail a test about readability — the
+    # same hardcoded-roster shape the sampler tests were just moved off.
+    assert readable == set(results["jurisdictions"])
+    assert readable <= set(M.JURISDICTIONS), (
+        f"results hold {sorted(readable - set(M.JURISDICTIONS))}, which the "
+        f"registry does not name")
+    assert readable, "the committed measurement has no readable sections"
 
 
 _FULL_HEADER = ("parcel_id,address,year_built,sqft,stories,construction,"
