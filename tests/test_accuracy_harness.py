@@ -359,13 +359,30 @@ def test_a_held_lock_is_never_taken_automatically():
         M._LOCK_TIMEOUT_S = original
 
 
-def test_a_measurement_taken_before_the_rename_still_renders():
-    """`pin_mismatches` was named for Cook's identifier; DC's is an SSL. The key is
-    parcel-generic now, and the old one is still read so a committed measurement
-    does not need hand-editing to survive a rename — the same rule applied to the
-    single-jurisdiction results shape."""
+def test_a_measurement_taken_before_the_rename_is_refused_not_ignored():
+    """`pin_mismatches` was named for Cook's identifier; DC's is an SSL, so the key
+    is parcel-generic now. Every committed section carries the new one, so the
+    fallback reader is gone — but dropping it silently would render such a section
+    with NO mismatch sentence, losing the disclosure that some answers were wrong
+    for the address asked about. A cleaner-looking page than the data supports is
+    the failure this file exists to stop, so it refuses instead."""
     data = _juris("Cook County Assessor (Open Data)", "9999999999999999")
+    data.pop("parcel_mismatches", None)
     data["pin_mismatches"] = 3
+    try:
+        M._readable_results({"generated": "2026-08-24", "jurisdictions": {"cook": data}},
+                            "x", existed=True)
+    except SystemExit as exc:
+        assert "pin_mismatches" in str(exc) and "different parcel" in str(exc)
+    else:
+        raise AssertionError("a section using only the pre-rename key was accepted")
+
+
+def test_the_current_key_renders_the_mismatch_sentence():
+    """The complement: the refusal above must not be the only path — a section
+    using the current key still publishes the count."""
+    data = _juris("Cook County Assessor (Open Data)", "9999999999999999")
+    data["parcel_mismatches"] = 3
     page = M._render({"generated": "2026-08-24", "jurisdictions": {"cook": data}})
     assert "3 landed on a different parcel" in page
 

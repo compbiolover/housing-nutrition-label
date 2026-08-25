@@ -316,7 +316,7 @@ def _mismatch_note(results: dict) -> str:
     accuracy failure. They are a distinct defect, so they are counted unresolved
     and named here instead of disappearing.
     """
-    n = results.get("parcel_mismatches", results.get("pin_mismatches")) or 0
+    n = results.get("parcel_mismatches") or 0
     if not n:
         return ""
     return (f", of which {n} landed on a different parcel than the benchmark row "
@@ -798,6 +798,19 @@ def _readable_results(previous, where: str, *, existed: bool) -> dict:
                 f"records no provenance at all. {where} would publish a "
                 f"measurement nothing accounts for. Inspect it (or move it "
                 f"aside) and re-run.")
+        # The pre-rename key is refused rather than ignored. Dropping its reader
+        # without this would have been the quiet kind of removal: a section
+        # carrying only `pin_mismatches` would render with no mismatch sentence at
+        # all, silently losing a disclosure that says some answers were wrong for
+        # the address asked about. Refusing names the problem; ignoring it
+        # publishes a cleaner-looking page than the data supports.
+        if "pin_mismatches" in data and "parcel_mismatches" not in data:
+            raise SystemExit(
+                f"{RESULTS.name}'s {key!r} section records mismatches under "
+                f"'pin_mismatches', which is no longer read. Rendering it would "
+                f"drop the sentence saying how many answers landed on a different "
+                f"parcel. Re-measure that jurisdiction with "
+                f"scripts/measure_accuracy.py --jurisdiction {key}.")
         # Both provenance fields the page prints verbatim. `scope` is the sentence
         # limiting DC's numbers to non-condominium homes; edited to claim all
         # homes it publishes a figure drawn from 64% of the city as the city.
@@ -1285,8 +1298,11 @@ def main() -> int:
         "adapter_resolved_pct": round(100 * resolved / len(rows), 1),
         # Named for the parcel, not for Cook's PIN: DC's identifier is an SSL and
         # a Cook-specific key in a cross-jurisdiction schema misleads whoever reads
-        # it next. `pin_mismatches` is still accepted so a committed measurement
-        # taken before the rename keeps rendering.
+        # it next. The `pin_mismatches` fallback that let a pre-rename measurement
+        # keep rendering is gone: every committed section now carries this key, so
+        # the fallback could only have served a file that no longer exists — and a
+        # reader that silently accepts two names for one field is how a section
+        # gets published under a schema nothing checks.
         "parcel_mismatches": mismatched,
         "baseline": _summarise(cases, "baseline"),
         "adapter": _summarise(cases, "adapter"),
