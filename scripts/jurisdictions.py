@@ -25,9 +25,13 @@ JURISDICTIONS = {
     "dc": {
         "source": "DC Office of Tax and Revenue (Open Data)",
         "label": "Washington, DC",
-        # Named here, not buried: condominium units are a separate CAMA table and
-        # cannot be reached from a coordinate, so they are outside what this
-        # measures. 61,329 condo rows against 109,273 residential.
+        # Named here, not buried. The sample is drawn from the residential CAMA
+        # table, so condominium units — a separate table, 61,329 rows against
+        # 109,273 residential — are outside it. That is a statement about the
+        # benchmark, not about the adapter: the adapter does serve DC condos, by
+        # address rather than by coordinate. Until the sample covers them, the
+        # published DC figures describe the non-condominium path only, which
+        # errs toward understating coverage rather than overstating it.
         "scope": "non-condominium homes only (condos are ~36% of DC's CAMA stock)",
     },
 }

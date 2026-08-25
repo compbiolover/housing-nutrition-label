@@ -88,7 +88,7 @@ digest adea9ce0193c4007.</p>
 
 <p><strong>Method.</strong> 218 addresses sampled across
 DC Office of Tax and Revenue (Open Data) (assessment year current,
-fetched 2026-08-24). Scope: non-condominium homes only (condos are ~36% of DC&#x27;s CAMA stock). Each is scored
+fetched 2026-08-25). Scope: non-condominium homes only (condos are ~36% of DC&#x27;s CAMA stock). Drawn from 220 assessor rows; 2 were not in the parcel layer. Each is scored
 from the address alone, with no construction details supplied, and compared against
 that jurisdiction's own assessor record.</p>
 
@@ -98,31 +98,31 @@ that jurisdiction's own assessor record.</p>
 <th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
 <th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
 </tr></thead><tbody>
-<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>2.8%</td><td>88.1%</td><td>18.5</td><td>0.0</td><td>218</td></tr>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>2.8%</td><td>91.7%</td><td>18.5</td><td>0.0</td><td>218</td></tr>
 <tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>10.4%</td><td>92.5%</td><td>298.0</td><td>0.0</td><td>67</td></tr>
-<tr><td>stories</td><td>66.7%</td><td>94.4%</td><td>66.2%</td><td>99.5%</td><td>0.0</td><td>0.0</td><td>195</td></tr>
-<tr><td>construction</td><td>100.0%</td><td>100.0%</td><td>50.2%</td><td>91.9%</td><td>—</td><td>—</td><td>209</td></tr>
+<tr><td>stories</td><td>66.7%</td><td>95.4%</td><td>66.2%</td><td>100.0%</td><td>0.0</td><td>0.0</td><td>195</td></tr>
+<tr><td>construction</td><td>100.0%</td><td>100.0%</td><td>50.2%</td><td>93.8%</td><td>—</td><td>—</td><td>209</td></tr>
 <tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
-<tr><td>condition</td><td>100.0%</td><td>100.0%</td><td>40.4%</td><td>94.0%</td><td>—</td><td>—</td><td>218</td></tr>
+<tr><td>condition</td><td>100.0%</td><td>100.0%</td><td>40.4%</td><td>95.0%</td><td>—</td><td>—</td><td>218</td></tr>
 </tbody></table></div>
 
 <p><strong>Year built, by tolerance.</strong> The single field the rest of the
 construction profile leans on hardest, so the near-misses are worth seeing rather
-than collapsing into one median: within &plusmn;5 years 12.4% of the time at baseline and 90.4% with the assessor; within &plusmn;10 years 25.2% and 92.7%.</p>
+than collapsing into one median: within &plusmn;5 years 12.4% of the time at baseline and 92.7% with the assessor; within &plusmn;10 years 25.2% and 94.0%.</p>
 
 <h3>Does the reader see a different grade?</h3>
 <div class="table-scroll"><table class="data-table"><thead><tr>
 <th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
 </tr></thead><tbody>
-<tr><td>durability</td><td>50.5%</td><td>5.0%</td><td>218</td></tr>
-<tr><td>energy</td><td>32.6%</td><td>4.1%</td><td>218</td></tr>
-<tr><td>resilience</td><td>8.7%</td><td>0.5%</td><td>218</td></tr>
-<tr><td>environmental</td><td>23.4%</td><td>3.2%</td><td>218</td></tr>
-<tr><td>building_axis</td><td>60.6%</td><td>7.8%</td><td>218</td></tr>
+<tr><td>durability</td><td>50.5%</td><td>4.6%</td><td>218</td></tr>
+<tr><td>energy</td><td>32.6%</td><td>4.6%</td><td>218</td></tr>
+<tr><td>resilience</td><td>8.3%</td><td>0.9%</td><td>218</td></tr>
+<tr><td>environmental</td><td>23.4%</td><td>2.3%</td><td>218</td></tr>
+<tr><td>building_axis</td><td>60.6%</td><td>5.5%</td><td>218</td></tr>
 </tbody></table></div>
 
 <p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
-87.6% of the sample &middot; benchmark
+91.3% of the sample &middot; benchmark
 digest 37c36ab1949c3db2.</p>
 
 <h2>What this does and does not establish</h2>
@@ -181,7 +181,7 @@ distance between the arms rather than overstating it.</li>
 padding-top:0.9rem;">Informational purposes only. This label is a modeled estimate built from public data. It is not an inspection, appraisal, survey, or insurance quote, and it is not legal, financial, insurance, engineering, or real estate advice. It describes what the model expects of a home like this one at this location; it cannot tell you the condition, safety, value, or insurability of any particular property. Verify anything you would act on with a qualified professional. Provided as is, without warranty.</p>
 
 <p style="opacity:0.75;font-size:0.85rem;">Generated
-2026-08-24. Regenerate with
+2026-08-25. Regenerate with
 <code>python scripts/measure_accuracy.py --jurisdiction &lt;name&gt;</code>; each
 run replaces only its own section.</p>
 </main>
