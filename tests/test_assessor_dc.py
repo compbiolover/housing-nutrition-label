@@ -241,9 +241,13 @@ def test_the_city_named_street_fix_did_not_loosen_the_match():
 
 # --- condominiums ---------------------------------------------------------------
 #
-# The recorded shapes are the ones DC actually returns: 2123 California St NW is a
-# 1911 building whose units carry their own floor areas, verified against the live
-# service before these were written down.
+# _UNIT_ROW and _CONDO_CAMA are what DC actually returns for 2123 California St NW
+# unit D7, read from the live service. Its sibling D8 is SSL 2528    2030, AYB 1911,
+# LIVING_GBA 1262 — same building, different area, which is the point of the second
+# test. Rows built inline below (the 15th St one) are constructed to pose a case, not
+# read from the portal, and are marked where they appear. The distinction matters:
+# the first review of this file caught D8 carrying 1256, a neighbouring unit's area
+# recorded under D8's name.
 
 _UNIT_ROW = {"PRIMARY_ADDRESS": "2123 CALIFORNIA STREET NW",
              "UNIT_NUMBER": "D7", "CONDO_SSL": "2528    2029"}
@@ -270,8 +274,8 @@ def test_the_condo_table_reports_the_units_own_floor_area():
     rec = _lookup([], [], address="2123 California St NW #D8",
                   units=[_UNIT_ROW, sibling],
                   condo=[{"SSL": "2528    2030", "AYB": 1911.0,
-                          "LIVING_GBA": 1256.0}])
-    assert rec is not None and rec.sqft == 1256.0
+                          "LIVING_GBA": 1262.0}])
+    assert rec is not None and rec.sqft == 1262.0
 
 
 def test_a_condo_reports_only_what_its_table_records():
@@ -325,6 +329,7 @@ def test_a_matching_unit_on_a_different_street_is_refused():
     """The unit query is narrowed by house number, so 2123 15th St NW comes back
     alongside 2123 California St NW. Unit D7 exists in both; only one is the
     address that was asked about."""
+    # Constructed, not read from the portal — see the note above the fixtures.
     other = {"PRIMARY_ADDRESS": "2123 15TH STREET NW", "UNIT_NUMBER": "D7",
              "CONDO_SSL": "2666    2001"}
     assert _lookup([], [], address="2123 15th St NW #D7", units=[other],
