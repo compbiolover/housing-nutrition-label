@@ -359,13 +359,30 @@ def test_a_held_lock_is_never_taken_automatically():
         M._LOCK_TIMEOUT_S = original
 
 
-def test_a_measurement_taken_before_the_rename_still_renders():
-    """`pin_mismatches` was named for Cook's identifier; DC's is an SSL. The key is
-    parcel-generic now, and the old one is still read so a committed measurement
-    does not need hand-editing to survive a rename — the same rule applied to the
-    single-jurisdiction results shape."""
+def test_a_measurement_taken_before_the_rename_is_refused_not_ignored():
+    """`pin_mismatches` was named for Cook's identifier; DC's is an SSL, so the key
+    is parcel-generic now. Every committed section carries the new one, so the
+    fallback reader is gone — but dropping it silently would render such a section
+    with NO mismatch sentence, losing the disclosure that some answers were wrong
+    for the address asked about. A cleaner-looking page than the data supports is
+    the failure this file exists to stop, so it refuses instead."""
     data = _juris("Cook County Assessor (Open Data)", "9999999999999999")
+    data.pop("parcel_mismatches", None)
     data["pin_mismatches"] = 3
+    try:
+        M._readable_results({"generated": "2026-08-24", "jurisdictions": {"cook": data}},
+                            "x", existed=True)
+    except SystemExit as exc:
+        assert "pin_mismatches" in str(exc) and "different parcel" in str(exc)
+    else:
+        raise AssertionError("a section using only the pre-rename key was accepted")
+
+
+def test_the_current_key_renders_the_mismatch_sentence():
+    """The complement: the refusal above must not be the only path — a section
+    using the current key still publishes the count."""
+    data = _juris("Cook County Assessor (Open Data)", "9999999999999999")
+    data["parcel_mismatches"] = 3
     page = M._render({"generated": "2026-08-24", "jurisdictions": {"cook": data}})
     assert "3 landed on a different parcel" in page
 
@@ -978,7 +995,16 @@ def test_the_committed_results_still_pass_every_readability_guard():
     that would reject the committed measurement is a broken guard, not a strict
     one."""
     results = json.loads(M.RESULTS.read_text())
-    assert set(M._readable_results(results, "x", existed=True)) == {"cook", "dc"}
+    readable = set(M._readable_results(results, "x", existed=True))
+    # Every section in the file must survive the guards, and every section must be
+    # a jurisdiction the registry knows. Naming the pair that existed when this was
+    # written made adding a third jurisdiction fail a test about readability — the
+    # same hardcoded-roster shape the sampler tests were just moved off.
+    assert readable == set(results["jurisdictions"])
+    assert readable <= set(M.JURISDICTIONS), (
+        f"results hold {sorted(readable - set(M.JURISDICTIONS))}, which the "
+        f"registry does not name")
+    assert readable, "the committed measurement has no readable sections"
 
 
 _FULL_HEADER = ("parcel_id,address,year_built,sqft,stories,construction,"
@@ -1187,6 +1213,43 @@ def test_every_real_benchmark_on_disk_still_verifies():
         legacy = csv_path.name == "benchmark.csv"
         juris = meta.get("jurisdiction") or "cook"
         M._verify_benchmark(csv_path, meta, juris, legacy=legacy)
+
+
+def test_a_drop_reason_is_worded_for_the_join_that_produced_it():
+    """`no_parcel_record` counts different things in different jurisdictions. The
+    condominium path never asks the parcel layer anything — a unit's SSL is not in
+    it — so "were not in the parcel layer" states a fact about the District's map
+    that the build has no evidence for."""
+    m = {"jurisdiction": "dc-condo", "drawn": 220, "sampled": 212,
+         "dropped": {"no_parcel_record": 8, "no_address": 0, "no_year_built": 0}}
+    note = M._ungradeable_note(m)
+    assert "parcel layer" not in note, note
+    assert "unit record" in note, note
+    # The parcel-based jurisdictions keep the parcel wording, which is true there.
+    for juris in ("cook", "dc"):
+        assert "parcel layer" in M._ungradeable_note(dict(m, jurisdiction=juris))
+
+
+def test_wording_overrides_cannot_change_which_reasons_are_counted():
+    """The printed set and the summed set must stay identical, or the total can
+    balance while the sentence names a subset. An override adds wording, never a
+    reason — so it is built over the shared keys rather than merged into them."""
+    for juris in list(M._DROP_WORDING) + ["cook", "dc", None, "made-up"]:
+        assert set(M._drop_reasons(juris)) == set(M._DROP_REASONS), juris
+
+
+def test_every_registered_jurisdiction_gets_wording_that_names_its_own_join():
+    """A jurisdiction whose placement is not a parcel lookup must not inherit the
+    parcel sentence by default. This fails when a fourth is registered with a
+    different join and no wording, which is the moment to write one."""
+    parcel_placed = {"cook", "dc"}
+    for juris in M.JURISDICTIONS:
+        if juris in parcel_placed:
+            continue
+        assert juris in M._DROP_WORDING, (
+            f"{juris} is registered but has no drop-reason wording, so its rows "
+            f"would be reported as missing from a parcel layer its join never "
+            f"consults")
 
 
 def _run_all() -> int:

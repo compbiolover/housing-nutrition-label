@@ -433,8 +433,18 @@ def resolve_location(
         # inside a neighbour's lot. So the caller's own address string stands in.
         # It stays None for coordinate-only callers, who genuinely have nothing to
         # confirm against.
-        loc.assessor = assessor_for_point(loc.lat, loc.lon, loc.county_fips,
-                                          address=loc.matched_address or address)
+        #
+        # `with_unit` puts back the one thing the matched address cannot carry. The
+        # Census matcher answers with the address of a POINT, and a unit is not a
+        # point, so "2123 California St NW #D7" comes back as "2123 CALIFORNIA ST
+        # NW" — and preferring that canonical spelling, which is right for
+        # confirming a parcel, silently discarded the only token that identifies a
+        # condominium. Every DC condo then reached the adapter looking exactly like
+        # a reader who gave no unit, and the lookup correctly refused: no error, no
+        # log line, a third of the city reading as "no assessor record".
+        loc.assessor = assessor_for_point(
+            loc.lat, loc.lon, loc.county_fips,
+            address=assessor_address(loc.matched_address, address))
         if loc.assessor is not None:
             notes["assessor"] = (
                 f"construction details observed by the {loc.assessor.source}"
@@ -511,6 +521,18 @@ def resolve_location(
         notes["structure"] = "skipped (no network)"
 
     return loc
+
+
+def assessor_address(matched: str | None, typed: str | None) -> str | None:
+    """The address the assessor adapters should be asked about.
+
+    The geocoder's canonical spelling where there is one, because that is what
+    confirms a parcel — carrying the unit from what the reader typed, because that
+    is the one component the canonical form cannot have. Falls back to the typed
+    address entirely when the geocoder echoed nothing.
+    """
+    from housing_label.enrich.assessor._shared import with_unit
+    return with_unit(matched, typed) or typed
 
 
 def _apply_geo(loc: Location, geo: dict) -> None:

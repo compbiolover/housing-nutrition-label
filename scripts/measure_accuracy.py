@@ -164,7 +164,16 @@ def _parcel_matches(loc, row: dict) -> bool:
     return bool(got) and got == want
 
 
-def _score_arms(row: dict) -> dict | None:
+#: Jurisdictions whose ground-truth floor area is already per dwelling unit.
+#: Cook's `char_bldg_sf` and DC's residential `GBA` are the whole building's, so
+#: on a multi-unit parcel they are a different quantity from the label's sqft and
+#: are dropped below. DC's condominium `LIVING_GBA` is the unit's own area — the
+#: one field the condominium table gets righter than the residential one — and
+#: dropping it there discards the measurement instead of protecting it.
+PER_UNIT_AREA = frozenset({"dc-condo"})
+
+
+def _score_arms(row: dict, juris: str) -> dict | None:
     """Score one benchmark address three ways off a single location resolve."""
     from housing_label.simulate.house import build_label_parts, label_payload
     from housing_label.simulate.location import resolve_location
@@ -196,7 +205,16 @@ def _score_arms(row: dict) -> dict | None:
     # exactly as it would inflate a real label. The adapter drops the field for
     # the same reason (see _autofill_construction_from_nsi); truth follows it, so
     # both sides of the comparison hold the same rule.
-    if getattr(loc, "structure_type", None) == "multifamily":
+    #
+    # ...which is exactly why it is conditional. A condominium record's
+    # LIVING_GBA is ALREADY per unit, and the adapter deliberately keeps it. NSI
+    # calls a condo building multifamily, as it should, so applying this rule
+    # there discarded the truth for 188 of 211 units while the adapter went on
+    # reporting one — the two sides of the comparison holding different rules,
+    # which is the thing the paragraph above claims cannot happen. It measured
+    # sqft on the 23 rows NSI happened to misclassify, and called that the
+    # condominium floor-area accuracy.
+    if juris not in PER_UNIT_AREA and getattr(loc, "structure_type", None) == "multifamily":
         truth_fields.pop("sqft", None)
 
     def run(location, **fields):
@@ -298,7 +316,7 @@ def _mismatch_note(results: dict) -> str:
     accuracy failure. They are a distinct defect, so they are counted unresolved
     and named here instead of disappearing.
     """
-    n = results.get("parcel_mismatches", results.get("pin_mismatches")) or 0
+    n = results.get("parcel_mismatches") or 0
     if not n:
         return ""
     return (f", of which {n} landed on a different parcel than the benchmark row "
@@ -319,6 +337,33 @@ _DROP_REASONS = {
     "no_address": "{} had no address on file",
     "no_year_built": "{} had no usable year built",
 }
+
+#: The counters are shared; what they MEAN is not. Cook and DC's residential path
+#: place a row by looking for its parcel polygon, so `no_parcel_record` really is
+#: "not in the parcel layer". The condominium path never asks the parcel layer
+#: anything — a unit's SSL is not in it — and places a row through the District's
+#: unit index instead, where the same counter means "no active condominium unit
+#: row". Printing the parcel wording there states a fact about the District's map
+#: that this build has no evidence for, which is the failure this whole note
+#: exists to avoid, arriving through the one field that looked jurisdiction-free.
+_DROP_WORDING = {
+    "dc-condo": {
+        "no_parcel_record": "{} had no active unit record to place them",
+        "no_address": "{} had a unit record carrying no address or unit number",
+    },
+}
+
+
+def _drop_reasons(juris: str | None) -> dict[str, str]:
+    """The wording for this jurisdiction, over exactly the shared set of reasons.
+
+    Built from `_DROP_REASONS`' keys rather than merged into them, so an override
+    cannot add a reason. The printed set and the summed set have to stay the same
+    or the total can balance while the sentence names a subset — see the comment
+    on `named` below, which is the same trap from the other direction.
+    """
+    over = _DROP_WORDING.get(juris or "", {})
+    return {k: over.get(k, v) for k, v in _DROP_REASONS.items()}
 
 
 def _ungradeable_note(m: dict) -> str:
@@ -348,9 +393,9 @@ def _ungradeable_note(m: dict) -> str:
     # sentence named a subset. That is under-reporting produced by the check
     # written to prevent under-reporting, and it stays impossible only if the
     # rendered set and the summed set are the same object.
-    parts = [tmpl.format(n) for key, tmpl in _DROP_REASONS.items()
-             if (n := d.get(key))]
-    named = sum(n for key in _DROP_REASONS if isinstance(n := d.get(key), int))
+    reasons = _drop_reasons(m.get("jurisdiction"))
+    parts = [tmpl.format(n) for key, tmpl in reasons.items() if (n := d.get(key))]
+    named = sum(n for key in reasons if isinstance(n := d.get(key), int))
     if parts and named == gap:
         return f" Drawn from {drawn} assessor rows; {', '.join(parts)}."
     return (f" Drawn from {drawn} assessor rows; {gap} could not be graded from "
@@ -753,6 +798,19 @@ def _readable_results(previous, where: str, *, existed: bool) -> dict:
                 f"records no provenance at all. {where} would publish a "
                 f"measurement nothing accounts for. Inspect it (or move it "
                 f"aside) and re-run.")
+        # The pre-rename key is refused rather than ignored. Dropping its reader
+        # without this would have been the quiet kind of removal: a section
+        # carrying only `pin_mismatches` would render with no mismatch sentence at
+        # all, silently losing a disclosure that says some answers were wrong for
+        # the address asked about. Refusing names the problem; ignoring it
+        # publishes a cleaner-looking page than the data supports.
+        if "pin_mismatches" in data and "parcel_mismatches" not in data:
+            raise SystemExit(
+                f"{RESULTS.name}'s {key!r} section records mismatches under "
+                f"'pin_mismatches', which is no longer read. Rendering it would "
+                f"drop the sentence saying how many answers landed on a different "
+                f"parcel. Re-measure that jurisdiction with "
+                f"scripts/measure_accuracy.py --jurisdiction {key}.")
         # Both provenance fields the page prints verbatim. `scope` is the sentence
         # limiting DC's numbers to non-condominium homes; edited to claim all
         # homes it publishes a figure drawn from 64% of the city as the city.
@@ -1208,7 +1266,7 @@ def main() -> int:
 
     cases = []
     for i, row in enumerate(rows, 1):
-        case = _score_arms(row)
+        case = _score_arms(row, juris)
         if case is not None:
             cases.append(case)
         if i % 10 == 0 or i == len(rows):
@@ -1240,8 +1298,11 @@ def main() -> int:
         "adapter_resolved_pct": round(100 * resolved / len(rows), 1),
         # Named for the parcel, not for Cook's PIN: DC's identifier is an SSL and
         # a Cook-specific key in a cross-jurisdiction schema misleads whoever reads
-        # it next. `pin_mismatches` is still accepted so a committed measurement
-        # taken before the rename keeps rendering.
+        # it next. The `pin_mismatches` fallback that let a pre-rename measurement
+        # keep rendering is gone: every committed section now carries this key, so
+        # the fallback could only have served a file that no longer exists — and a
+        # reader that silently accepts two names for one field is how a section
+        # gets published under a schema nothing checks.
         "parcel_mismatches": mismatched,
         "baseline": _summarise(cases, "baseline"),
         "adapter": _summarise(cases, "adapter"),

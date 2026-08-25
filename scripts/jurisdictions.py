@@ -34,6 +34,18 @@ JURISDICTIONS = {
         # errs toward understating coverage rather than overstating it.
         "scope": "non-condominium homes only (condos are ~36% of DC's CAMA stock)",
     },
+    "dc-condo": {
+        "source": "DC Office of Tax and Revenue (Open Data)",
+        "label": "Washington, DC — condominiums",
+        # The other two thirds of the sentence above. Kept a separate jurisdiction
+        # rather than folded into `dc` because the two are not one population
+        # measured twice: they come from different CAMA tables, are reached by
+        # different lookups (address-and-unit versus point-in-polygon), and the
+        # condominium table carries no wall, storey or condition column at all.
+        # Averaging them would hide which half a number came from, and the halves
+        # do not answer for the same fields.
+        "scope": "condominium units only (61,329 of DC's 170,602 CAMA records)",
+    },
 }
 
 #: Display names, derived rather than restated — see the module docstring.
