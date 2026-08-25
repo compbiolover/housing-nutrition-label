@@ -433,6 +433,74 @@ def test_the_condo_fallback_spends_the_same_budget_not_a_second_one():
     assert len(seen) > 1
     assert len(set(seen)) == 1, seen
 
+# --- the unit has to survive the geocoder ---------------------------------------
+#
+# This is the seam the first version of the condominium path fell through. The
+# adapter worked when called directly and the feature was unreachable from the
+# product, because the address the product hands it is not the address the reader
+# typed.
+
+
+def test_the_geocoders_canonical_address_does_not_carry_a_unit():
+    """The Census matcher answers with the address of a POINT, and a unit is not a
+    point: it echoes "2123 California St NW #D7" back as "2123 CALIFORNIA ST NW".
+    Preferring that spelling — which is right, it is what confirms a parcel —
+    discarded the only token that identifies a condominium."""
+    from housing_label.enrich.assessor._shared import unit_of
+    assert unit_of("2123 CALIFORNIA ST NW, WASHINGTON, DC, 20008") is None
+    assert unit_of("2123 California St NW #D7, Washington, DC") == "D7"
+
+
+def test_the_address_handed_to_the_adapter_keeps_both_halves():
+    """The canonical street spelling from the geocoder, the unit from the reader.
+    This is the exact composition the location layer performs, called by name
+    rather than restated here, so the test cannot drift from production."""
+    from housing_label.simulate.location import assessor_address
+    merged = assessor_address("2123 CALIFORNIA ST NW, WASHINGTON, DC, 20008",
+                              "2123 California St NW #D7, Washington, DC")
+    assert dc._split_unit(merged)[1] == "D7"
+    # ...and the parcel path is unaffected, because a unit is noise to it.
+    assert address_key(merged, dc._LOCALITY) == \
+        address_key("2123 CALIFORNIA ST NW, WASHINGTON, DC, 20008", dc._LOCALITY)
+
+
+def test_a_reader_who_gave_no_unit_has_none_invented_for_them():
+    """Nothing is fabricated: with no unit typed, the canonical address is handed
+    over untouched and the condominium lookup refuses as it should."""
+    from housing_label.simulate.location import assessor_address
+    merged = assessor_address("3401 NEWARK ST NW, WASHINGTON, DC, 20016",
+                              "3401 Newark St NW, Washington, DC")
+    assert merged == "3401 NEWARK ST NW, WASHINGTON, DC, 20016"
+    assert dc._split_unit(merged)[1] is None
+
+
+def test_a_geocode_that_echoed_nothing_falls_back_to_what_was_typed():
+    """The matcher does not always return an address. The typed one then stands in
+    whole, unit included — losing it here would be the same silent gap."""
+    from housing_label.simulate.location import assessor_address
+    assert assessor_address(None, "2123 California St NW #D7, Washington, DC") == \
+        "2123 California St NW #D7, Washington, DC"
+
+
+def test_the_unit_is_found_before_the_city_not_only_at_the_end():
+    """"2123 California St NW #D7, Washington, DC" is how the label's own address
+    box produces it. Matching only at the end of the string read the unit in the
+    rarer trailing form and missed it in the common one."""
+    from housing_label.enrich.assessor._shared import unit_of
+    assert unit_of("2123 California St NW #D7, Washington, DC") == "D7"
+    assert unit_of("2123 California St NW, #D7, Washington DC") == "D7"
+    assert unit_of("2123 California St NW, Apt 3-B, Washington, DC 20008") == "3-B"
+
+
+def test_a_street_that_merely_contains_a_marker_word_is_not_a_unit():
+    """"Route 66" and "Suite Dreams Rd" are street names. Reading a unit out of
+    them would send a house down the condominium path with a fabricated one."""
+    from housing_label.enrich.assessor._shared import unit_of
+    assert unit_of("100 Route 66, Springfield, IL") is None
+    assert unit_of("1 Suite Dreams Rd, Springfield, IL") is None
+    assert unit_of("2123 California St NW, Washington, DC") is None
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]

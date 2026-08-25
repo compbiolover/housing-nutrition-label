@@ -77,7 +77,7 @@ from functools import lru_cache
 
 from housing_label.enrich.assessor._shared import (
     address_key, arcgis_parcels, cache_bucket, deadline_from, get_json, num,
-    same_address, select_parcel,
+    same_address, select_parcel, strip_unit, unit_of,
 )
 from housing_label.enrich.assessor.base import AssessorRecord
 
@@ -228,8 +228,10 @@ _CONDO_FIELDS = "SSL,AYB,LIVING_GBA"
 
 # "#305", "APT 305", "UNIT 305" — and a bare trailing token, which is how DC's own
 # unit table writes it ("2123 CALIFORNIA STREET NW D7").
-_UNIT_MARKER_RE = re.compile(
-    r"[\s,]+(?:#|apt\.?|unit|ste\.?|suite)\s*([A-Za-z0-9\-]+)\s*$", re.I)
+# The marked form ("#D7", "Apt D7") is parsed by ``_shared.unit_of``, which every
+# jurisdiction shares and which reads a unit written before the city as well as
+# after. Only the bare form below is DC's, and only because DC's own unit table
+# writes it that way.
 _BARE_UNIT_RE = re.compile(
     r"^(?P<base>.*\b(?:nw|ne|sw|se))\s+(?P<unit>[A-Za-z]?\d+[A-Za-z]?|[A-Za-z]\d*)\s*$",
     re.I)
@@ -245,9 +247,9 @@ def _split_unit(address: str | None) -> tuple[str, str | None]:
     text = " ".join(str(address or "").split())
     if not text:
         return "", None
-    m = _UNIT_MARKER_RE.search(text)
-    if m:
-        return text[:m.start()].strip(" ,"), m.group(1)
+    marked = unit_of(text)
+    if marked:
+        return strip_unit(text), marked
     m = _BARE_UNIT_RE.match(text)
     if m:
         return m.group("base").strip(), m.group("unit")

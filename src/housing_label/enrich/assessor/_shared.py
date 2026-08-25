@@ -164,6 +164,71 @@ SUFFIXES = {
 # two records describe the same building.
 UNIT_MARKERS = frozenset({"apt", "unit", "ste", "suite", "#", "fl", "floor", "rm"})
 
+#: The unit as a person writes it — "#305", "Apt 3-B", "Unit 12", "Suite 4". Only
+#: the marked form, because that is the only form that is unambiguous in an
+#: arbitrary jurisdiction: a bare trailing token is a unit in one city's records
+#: and part of the street's name in another's, so reading it here would guess.
+_TYPED_UNIT_RE = re.compile(
+    r"(?:^|\s)(?:#|apt\.?|unit|ste\.?|suite)\s*([A-Za-z0-9\-]+)\s*$", re.I)
+
+
+def unit_of(address: str | None) -> str | None:
+    """The unit designator a person wrote into this address, or None.
+
+    Each comma-separated part is examined, not just the end of the string. A
+    reader writes "2123 California St NW #D7, Washington, DC" far more often than
+    they leave the unit last, and matching only at the end found the unit in the
+    second form and missed it in the first — which is the form the label's own
+    address box produces.
+    """
+    for part in str(address or "").split(","):
+        m = _TYPED_UNIT_RE.search(" ".join(part.split()))
+        if m:
+            return m.group(1)
+    return None
+
+
+def strip_unit(address: str | None) -> str:
+    """``address`` with the marked unit removed, and nothing else changed."""
+    parts, out = str(address or "").split(","), []
+    for part in parts:
+        cleaned = _TYPED_UNIT_RE.sub("", " ".join(part.split()))
+        # A part that was ONLY the unit ("..., #D7, Washington") disappears
+        # entirely rather than leaving an empty segment behind.
+        if cleaned.strip():
+            out.append(cleaned.strip())
+    return ", ".join(out)
+
+
+def with_unit(canonical: str | None, typed: str | None) -> str | None:
+    """``canonical``, carrying the unit that only ``typed`` knows about.
+
+    The geocoder's matched address is preferred everywhere else in this layer: it
+    is the canonical spelling of the street, which is what confirms a parcel. But
+    it is an address of a POINT, and a unit is not a point — the Census matcher
+    drops "#D7" on the way through. So the one component the canonical form cannot
+    carry is taken from what the reader actually typed.
+
+    Without this the condominium path is unreachable from the product: every DC
+    condo address arrives at the adapter with its unit already discarded, which
+    looks exactly like a reader who never gave one, and the lookup correctly
+    refuses. Nothing errors, nothing is logged, and a third of the city silently
+    reads as "no assessor record".
+
+    Nothing is invented. If the reader gave no unit, or the canonical form already
+    carries one, it is returned untouched.
+    """
+    if not canonical:
+        return canonical
+    unit = unit_of(typed)
+    if not unit or unit_of(canonical):
+        return canonical
+    # Beside the street, not after the ZIP. Consumers split this on the comma and
+    # read the first part as the street; a unit tacked onto the end would sit in
+    # the locality tail where the street parser never looks.
+    head, sep, tail = canonical.partition(",")
+    return f"{head.strip()} #{unit}{sep}{tail}"
+
 # A trailing directional, which sits AFTER the street type in DC, Denver and every
 # other quadrant-addressed city. It is part of the street's identity — 1234 Main St
 # NW and 1234 Main St SE are different buildings — so it is never dropped, only
