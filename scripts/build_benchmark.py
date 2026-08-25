@@ -13,12 +13,22 @@ a real parcel, free and keyless — the same sources the adapters read. Each row
 address the scorer can be pointed at, plus what that jurisdiction says is actually
 standing there.
 
-Two are supported, selected with ``--jurisdiction``:
+Three are supported, selected with ``--jurisdiction``:
 
-  cook   Cook County, IL — Socrata CAMA keyed by PIN, plus the county parcel layer.
-  dc     Washington, DC — ArcGIS residential CAMA keyed by SSL, plus the District's
-         parcel layer. Condominium units live in a separate table that no
-         coordinate can reach, so this covers non-condo homes; see JURISDICTIONS.
+  cook      Cook County, IL — Socrata CAMA keyed by PIN, plus the county parcel
+            layer.
+  dc        Washington, DC — ArcGIS residential CAMA keyed by SSL, plus the
+            District's parcel layer. Houses only: a condominium unit's SSL is in
+            a different table and in no parcel polygon, so no coordinate reaches
+            it.
+  dc-condo  Washington, DC — the other table. Condominium CAMA keyed by unit SSL,
+            placed through the District's unit index, which holds the only
+            keyless address-and-unit edge. Two graded fields rather than six: that
+            table records no wall, storey, basement or condition.
+
+DC is two entries rather than one because they are not one population sampled
+twice — different tables, different lookups, different fields answered. A single
+average would hide which half a number came from.
 
 Each writes its own ``benchmark-<jurisdiction>.csv``, so building one never
 replaces another.
@@ -154,6 +164,14 @@ def _fetch(url: str, params: dict, attempts: int = 4):
     return None
 
 
+def _num(v):
+    """A float, or None. The same coercion the adapters use on portal values."""
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
 def _rows_of(body):
     """A list of row mappings from any portal answer, or None if it is not one.
 
@@ -262,10 +280,22 @@ def _cama_sample(year: str, rows: int) -> tuple[list[dict], dict]:
     if rows < 1:
         raise SystemExit(f"--rows must be at least 1 (got {rows})")
     got = _fetch(CAMA_URL, {"$select": "count(*)", "$where": f"year='{year}'"})
-    if got is None:
+    # Shape first, exactly as the two DC samplers do it. This branch was hardened
+    # there and not here: `(got or [{}])[0]` raises KeyError on an empty list —
+    # `or` does not catch `[]` from a subscript — and int() raises ValueError on
+    # {"count": "oops"}. Both escaped the stated "could not size" refusal for an
+    # incidental traceback, which reads as a bug in the builder rather than a
+    # portal that changed shape. A rule applied to two of three samplers is the
+    # shape this file keeps finding.
+    first = got[0] if isinstance(got, list) and got and isinstance(got[0], dict) else None
+    count = first.get("count") if first else None
+    try:
+        total = int(count)
+    except (TypeError, ValueError):
+        total = 0
+    if got is None or first is None or count is None:
         raise SystemExit(f"could not reach the county portal to size assessment "
                          f"year {year}; try again later")
-    total = int((got or [{}])[0].get("count", 0))
     if total <= 0:
         raise SystemExit(f"no rows for assessment year {year}")
     log.info("Assessment year %s has %d parcels; sampling %d.", year, total, rows)
@@ -603,21 +633,194 @@ def _dc_place(ssls: list[str]) -> tuple[dict[str, dict], set[str]]:
     return out, present
 
 
+# --- DC condominiums ------------------------------------------------------------
+#
+# A different table and a different join from the parcel path above, for the
+# reason the adapter gives: a condominium unit is not somewhere a coordinate can
+# land. Its SSL is in the CONDOMINIUM table and nowhere in the parcel polygons, so
+# the sample is drawn from that table and placed through the unit index, which
+# holds the only address-to-unit edge the District publishes without a key.
+#
+# Neither table carries geometry, so the rows have no lat/lon. That costs nothing:
+# the scorer geocodes the address, exactly as a visitor's browser does, and never
+# reads the coordinate columns. They are written blank rather than omitted so the
+# file keeps one schema across jurisdictions.
+DC_CONDO_CAMA_URL = f"{DC_BASE}/24/query"    # CONDOMINIUM (CAMA)
+DC_UNITS_URL = f"{DC_BASE}/68/query"         # RESIDENTIAL UNITS
+
+# LIVING_GBA is the unit's own area, not the building's — the one field where the
+# condominium record is better than the residential one, which has to drop floor
+# area on any multi-unit parcel.
+_DC_CONDO_FIELDS = "SSL,AYB,LIVING_GBA"
+# The unit index also carries MAR_ID, book and page. Naming the three fields the
+# join needs keeps the rest unrequested.
+_DC_UNITS_FIELDS = "CONDO_SSL,PRIMARY_ADDRESS,UNIT_NUMBER"
+
+
+def _dc_condo_sample(rows: int) -> tuple[list[dict], dict]:
+    """Evenly-spaced rows from DC's condominium CAMA table."""
+    if rows < 1:
+        raise SystemExit(f"--rows must be at least 1 (got {rows})")
+    got = _fetch(DC_CONDO_CAMA_URL,
+                 {"where": "1=1", "returnCountOnly": "true", "f": "json"})
+    count = got.get("count") if isinstance(got, dict) else None
+    total = int(count) if isinstance(count, (int, float)) else 0
+    if total <= 0:
+        raise SystemExit("could not size DC's condominium CAMA table; try again later")
+    log.info("DC condominium CAMA has %d rows; sampling %d.", total, rows)
+
+    rows = min(rows, total)
+    out, seen = [], set()
+
+    def attempt(offsets: list[int]) -> list[int]:
+        """Read these offsets; return the ones that did not answer."""
+        failed = []
+        for n, i in enumerate(offsets, 1):
+            body = _fetch(DC_CONDO_CAMA_URL, {
+                "where": "1=1", "outFields": _DC_CONDO_FIELDS, "orderByFields": "SSL",
+                "resultOffset": str(i * total // rows), "resultRecordCount": "1",
+                "returnGeometry": "false", "f": "json",
+            })
+            feats = _rows_of(body)
+            a = (feats[0].get("attributes") or {}) if feats else {}
+            ssl = (a.get("SSL") or "").strip()
+            # Same rule as the residential sampler, and deliberately the same:
+            # `exceededTransferLimit` is NOT consulted, because this is a paged
+            # one-row read of a 61,329-row table and the flag is set on every
+            # healthy response. An empty body, an error object or a row with no
+            # SSL is an offset that did not answer.
+            if (body is None or (isinstance(body, dict) and body.get("error"))
+                    or not feats or not ssl):
+                failed.append(i)
+            elif ssl not in seen:
+                seen.add(ssl)
+                out.append(a)
+            if n % 25 == 0:
+                log.info("  sampled %d/%d", n, len(offsets))
+            time.sleep(0.05)
+        return failed
+
+    missed = attempt(list(range(rows)))
+    if missed:
+        # Retried, then refused — the same two steps the other two samplers take,
+        # and for the same reason: a benchmark with holes in an evenly spaced draw
+        # is biased toward whichever offsets answered, and looks clean.
+        log.warning("  %d offsets did not answer; retrying them.", len(missed))
+        missed = attempt(missed)
+    if missed:
+        raise SystemExit(
+            f"{len(missed)} of {rows} sample offsets never answered. Writing the "
+            f"benchmark anyway would bias it toward the offsets that worked, "
+            f"invisibly. Try again when the portal is healthy.")
+    # Distinct units, not offsets read. `rows` would over-count whenever two
+    # offsets landed on one SSL, and main() asserts that every drawn row is either
+    # written or counted under a drop reason — so an inflated total fails the
+    # build with an accounting error that has nothing to do with the real cause.
+    return out, {"attempted": len(out)}
+
+
+def _dc_condo_place(ssls: list[str]) -> tuple[dict[str, dict], set[str]]:
+    """Condo SSL → {address, lat, lon}, and the SSLs the unit index knew.
+
+    The address is built the way a resident writes it, marker and all, because
+    that is the form the scorer feeds the geocoder and the adapter — and the unit
+    is the whole point: without it every unit in the building is the same address.
+
+    A single SSL answering to two different addresses is dropped rather than
+    resolved. That is the same refusal the adapter makes from the other direction,
+    and a benchmark row whose identity is ambiguous cannot grade anything.
+    """
+    out: dict[str, dict] = {}
+    present: set[str] = set()
+    conflicting: set[str] = set()
+    for i in range(0, len(ssls), DC_BATCH):
+        chunk = ssls[i:i + DC_BATCH]
+        wanted = set(chunk)
+        where = ("CONDO_SSL IN ("
+                 + ",".join("'" + s.replace("'", "''") + "'" for s in chunk)
+                 + ") AND UNIT_TYPE='CONDO' AND STATUS='ACTIVE'")
+        # NOT `_batch_or_die`: that helper refuses a response shorter than the
+        # batch, which is right where every key is expected to resolve. Here a
+        # condominium SSL legitimately has no ACTIVE unit row — the filter is part
+        # of the question — and those are counted as `no_parcel_record`, which is
+        # what they are.
+        body = _fetch(DC_UNITS_URL, {
+            "where": where, "outFields": _DC_UNITS_FIELDS,
+            "returnGeometry": "false", "f": "json",
+        })
+        if body is None or (isinstance(body, dict) and body.get("error")):
+            raise SystemExit(
+                f"the unit index did not answer for a batch of {len(chunk)} "
+                f"condominium SSLs. Continuing would report every one of them as "
+                f"undocumented, which is a claim about the District's records "
+                f"rather than about this request.")
+        for f in _rows_of(body):
+            a = f.get("attributes") or {}
+            ssl = (a.get("CONDO_SSL") or "").strip()
+            if not ssl:
+                raise SystemExit(
+                    f"the unit index returned a row with no CONDO_SSL in a batch "
+                    f"of {len(chunk)}. It cannot be joined, and continuing would "
+                    f"drop a sampled unit and report it as undocumented.")
+            if ssl not in wanted:
+                raise SystemExit(
+                    f"the unit index returned CONDO_SSL {ssl!r}, which was not in "
+                    f"the batch of {len(chunk)} requested. The response does not "
+                    f"answer the query.")
+            present.add(ssl)
+            addr = (a.get("PRIMARY_ADDRESS") or "").strip()
+            unit = (a.get("UNIT_NUMBER") or "").strip()
+            if not addr or not unit:
+                continue
+            full = f"{addr} #{unit}, Washington, DC"
+            if ssl in out and out[ssl]["address"] != full:
+                # Two live rows, two addresses, one SSL. Picking either would put a
+                # confident guess in the yardstick itself.
+                conflicting.add(ssl)
+                continue
+            out[ssl] = {"address": full, "lat": "", "lon": ""}
+        log.info("  resolved %d/%d units", min(i + DC_BATCH, len(ssls)), len(ssls))
+        time.sleep(0.05)
+    for ssl in conflicting:
+        out.pop(ssl, None)
+    if conflicting:
+        log.info("dropped %d SSLs the unit index gave more than one address for",
+                 len(conflicting))
+    return out, present
+
+
+def _dc_condo_truth(row: dict) -> dict | None:
+    """DC's condominium record, in the label's vocabulary. None if ungradeable.
+
+    Two fields, and four deliberately empty. The condominium table has no exterior
+    wall, no storey count, no basement and no condition column, so those are left
+    blank rather than borrowed from the building the unit sits in — that is a
+    different structure's record, and filling them from it would grade the adapter
+    against something the District never said about this home.
+    """
+    year = _num(row.get("AYB"))
+    if not year or not (1800 <= year <= 2100):
+        return None
+    sqft = _num(row.get("LIVING_GBA"))
+    return {
+        "year_built": int(year),
+        "sqft": sqft if sqft and sqft > 0 else "",
+        "stories": "",
+        "construction": "",
+        "foundation": "",
+        "condition": "",
+    }
+
+
 def _dc_truth(row: dict) -> dict | None:
     """DC's record, in the label's vocabulary. None if ungradeable."""
     from housing_label.enrich.assessor import dc
 
-    def num(v):
-        try:
-            return float(v)
-        except (TypeError, ValueError):
-            return None
-
-    year = num(row.get("AYB"))
+    year = _num(row.get("AYB"))
     if not year or not (1800 <= year <= 2100):
         return None
-    sqft = num(row.get("GBA"))
-    units = num(row.get("NUM_UNITS")) or 1
+    sqft = _num(row.get("GBA"))
+    units = _num(row.get("NUM_UNITS")) or 1
     return {
         "year_built": int(year),
         # Same rule the adapter applies: GBA is the whole building's, the label's
@@ -638,16 +841,10 @@ def _truth(row: dict) -> dict | None:
     # measuring the difference between two translations, not accuracy.
     from housing_label.enrich.assessor import cook_il
 
-    def num(v):
-        try:
-            return float(v)
-        except (TypeError, ValueError):
-            return None
-
-    year = num(row.get("char_yrblt"))
+    year = _num(row.get("char_yrblt"))
     if not year or not (1800 <= year <= 2100):
         return None               # nothing to be right or wrong about
-    sqft = num(row.get("char_bldg_sf"))
+    sqft = _num(row.get("char_bldg_sf"))
     return {
         "year_built": int(year),
         "sqft": sqft if sqft and sqft > 0 else "",
@@ -690,6 +887,12 @@ def main() -> int:
         keys = [(r.get("SSL") or "").strip() for r in sample]
         info, present = _dc_place([k for k in keys if k])
         truth_of, key_of = _dc_truth, (lambda r: (r.get("SSL") or "").strip())
+    elif juris == "dc-condo":
+        year = "current"
+        sample, draw = _dc_condo_sample(args.rows)
+        keys = [(r.get("SSL") or "").strip() for r in sample]
+        info, present = _dc_condo_place([k for k in keys if k])
+        truth_of, key_of = _dc_condo_truth, (lambda r: (r.get("SSL") or "").strip())
     else:
         # The CLI takes its choices from the registry, so a third entry becomes
         # selectable the moment it is added — before anyone writes its sampler. A

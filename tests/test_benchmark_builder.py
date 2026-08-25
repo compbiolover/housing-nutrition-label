@@ -485,23 +485,146 @@ def test_every_parse_point_agrees_on_what_a_response_is():
         {"attributes": {"SSL": "1"}}]
 
 
-def test_a_malformed_body_is_a_failed_offset_in_both_samplers():
+def _sizing(juris):
+    """How each sampler asks for its table's row count, and how to answer."""
+    if juris == "cook":
+        return (lambda params: params.get("$select") == "count(*)",
+                [{"count": "1000"}])
+    return (lambda params: params.get("returnCountOnly") == "true", {"count": 1000})
+
+
+#: Every offset sampler, by name, so a fourth cannot quietly skip the rules below.
+#: Naming two of the three was how the condominium sampler was written exempt from
+#: a refusal the other two had: the test said "both samplers" and meant the two
+#: that existed when it was written.
+SAMPLERS = {
+    "cook": lambda n: B._cama_sample("2024", n),
+    "dc": B._dc_sample,
+    "dc-condo": B._dc_condo_sample,
+}
+
+
+def test_every_sampler_is_covered_by_the_sampler_rules():
+    """The roster below must name every jurisdiction the registry offers. A
+    jurisdiction added to one and not the other is a sampler with no guards."""
+    assert set(SAMPLERS) == set(B.JURISDICTIONS), (
+        f"registry has {sorted(B.JURISDICTIONS)}, SAMPLERS has {sorted(SAMPLERS)}")
+
+
+def test_a_malformed_body_is_a_failed_offset_in_every_sampler():
     for body in ({"features": [{"attributes": "oops"}]}, ["not a row"], "text"):
-        def cook(url, params, b=body):
-            if params.get("$select") == "count(*)":
-                return [{"count": "1000"}]
-            return b
+        for juris, sample in SAMPLERS.items():
+            is_count, count_body = _sizing(juris)
 
-        with _fetching(cook):
-            assert "never answered" in _refuses(lambda: B._cama_sample("2024", 2))
+            def fetch(url, params, b=body, ic=is_count, cb=count_body):
+                return cb if ic(params) else b
 
-        def dc(url, params, b=body):
-            if params.get("returnCountOnly") == "true":
-                return {"count": 1000}
-            return b
+            with _fetching(fetch):
+                assert "never answered" in _refuses(lambda s=sample: s(2)), (juris, body)
 
-        with _fetching(dc):
-            assert "never answered" in _refuses(lambda: B._dc_sample(2))
+
+def test_an_unsizeable_table_stops_every_sampler_before_it_draws():
+    """A count that is not a number is the portal changing shape, not a table with
+    no rows. Reaching int() on it raised ValueError past the stated refusal."""
+    for juris, sample in SAMPLERS.items():
+        is_count, _ = _sizing(juris)
+        for bad in ({"count": "oops"}, "text", None, {"error": {"code": 400}}):
+            def fetch(url, params, b=bad, ic=is_count):
+                return b if ic(params) else {"features": []}
+
+            # `_refuses` already pins the important half — a SystemExit rather
+            # than a KeyError or ValueError escaping from the parse. The wording
+            # is each jurisdiction's own and is only checked loosely, so this
+            # test stays about the refusal rather than about the sentence.
+            with _fetching(fetch):
+                assert "size" in _refuses(lambda s=sample: s(2)).lower(), (juris, bad)
+
+
+# --- the condominium join -------------------------------------------------------
+#
+# A different join from the parcel one: the sample comes from the condominium CAMA
+# table and is placed through the unit index, which is the only keyless
+# address-and-unit edge the District publishes.
+
+
+def _unit_row(ssl, addr="2123 CALIFORNIA STREET NW", unit="D7"):
+    return {"attributes": {"CONDO_SSL": ssl, "PRIMARY_ADDRESS": addr,
+                           "UNIT_NUMBER": unit}}
+
+
+def test_a_condo_row_is_placed_at_its_own_unit_address():
+    """The unit is the whole point. Without it every unit in the building is the
+    same address, and the benchmark would grade eight homes against one."""
+    with _fetching(lambda url, params: {"features": [_unit_row("2528    2029")]}):
+        out, present = B._dc_condo_place(["2528    2029"])
+    assert present == {"2528    2029"}
+    assert out["2528    2029"]["address"] == \
+        "2123 CALIFORNIA STREET NW #D7, Washington, DC"
+
+
+def test_one_ssl_with_two_addresses_is_dropped_not_resolved():
+    """Two live rows, two addresses, one SSL. Picking either would put a confident
+    guess into the yardstick itself — the same refusal the adapter makes from the
+    other direction."""
+    rows = [_unit_row("2528    2029"),
+            _unit_row("2528    2029", addr="2125 CALIFORNIA STREET NW")]
+    with _fetching(lambda url, params: {"features": rows}):
+        out, present = B._dc_condo_place(["2528    2029"])
+    assert "2528    2029" in present      # the index did know it...
+    assert "2528    2029" not in out      # ...and it still cannot be placed
+
+
+def test_a_unit_index_row_with_no_unit_number_is_not_a_building_address():
+    """Dropping the marker would leave the bare street address, which resolves to
+    whichever unit the lookup happened to pick — the confident wrong answer."""
+    with _fetching(lambda url, params: {
+            "features": [_unit_row("2528    2029", unit="")]}):
+        out, _ = B._dc_condo_place(["2528    2029"])
+    assert out == {}
+
+
+def test_a_condo_ssl_the_index_does_not_carry_is_a_missing_record():
+    """A condominium SSL with no ACTIVE unit row is an honest gap, not a failure:
+    the ACTIVE filter is part of the question. It must not stop the build."""
+    with _fetching(lambda url, params: {"features": []}):
+        out, present = B._dc_condo_place(["2528    2029"])
+    assert out == {} and present == set()
+
+
+def test_the_unit_index_failing_is_not_a_city_with_no_records():
+    """A batch that errors would otherwise mark every SSL in it undocumented — a
+    claim about the District's records made from a failed request."""
+    for body in (None, {"error": {"code": 500}}):
+        with _fetching(lambda url, params, b=body: b):
+            assert "did not answer" in _refuses(
+                lambda: B._dc_condo_place(["2528    2029"]))
+
+
+def test_the_index_answering_about_a_different_unit_is_refused():
+    """A row outside the requested batch means the response is not an answer to
+    this query — the same guard the two parcel joins carry."""
+    with _fetching(lambda url, params: {"features": [_unit_row("9999    9999")]}):
+        assert "not in the batch" in _refuses(
+            lambda: B._dc_condo_place(["2528    2029"]))
+
+
+def test_the_condo_truth_leaves_blank_what_its_table_does_not_record():
+    """The condominium table has no wall, storey, basement or condition column.
+    Borrowing them from the building the unit sits in would grade the adapter
+    against a different structure's record."""
+    truth = B._dc_condo_truth({"SSL": "2528    2029", "AYB": 1911.0,
+                               "LIVING_GBA": 680.0})
+    assert truth["year_built"] == 1911
+    assert truth["sqft"] == 680.0
+    assert truth["stories"] == truth["construction"] == ""
+    assert truth["foundation"] == truth["condition"] == ""
+
+
+def test_a_condo_row_with_no_usable_year_is_ungradeable():
+    """Same rule as the other two jurisdictions: with no year there is nothing to
+    be right or wrong about, so the row is dropped and counted."""
+    for bad in ({"AYB": None}, {"AYB": 0}, {"AYB": 1200}, {"AYB": "oops"}, {}):
+        assert B._dc_condo_truth(dict(bad, LIVING_GBA=680.0)) is None, bad
 
 
 def _run_all() -> int:
