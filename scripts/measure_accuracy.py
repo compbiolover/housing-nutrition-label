@@ -338,6 +338,33 @@ _DROP_REASONS = {
     "no_year_built": "{} had no usable year built",
 }
 
+#: The counters are shared; what they MEAN is not. Cook and DC's residential path
+#: place a row by looking for its parcel polygon, so `no_parcel_record` really is
+#: "not in the parcel layer". The condominium path never asks the parcel layer
+#: anything — a unit's SSL is not in it — and places a row through the District's
+#: unit index instead, where the same counter means "no active condominium unit
+#: row". Printing the parcel wording there states a fact about the District's map
+#: that this build has no evidence for, which is the failure this whole note
+#: exists to avoid, arriving through the one field that looked jurisdiction-free.
+_DROP_WORDING = {
+    "dc-condo": {
+        "no_parcel_record": "{} had no active unit record to place them",
+        "no_address": "{} had a unit record carrying no address or unit number",
+    },
+}
+
+
+def _drop_reasons(juris: str | None) -> dict[str, str]:
+    """The wording for this jurisdiction, over exactly the shared set of reasons.
+
+    Built from `_DROP_REASONS`' keys rather than merged into them, so an override
+    cannot add a reason. The printed set and the summed set have to stay the same
+    or the total can balance while the sentence names a subset — see the comment
+    on `named` below, which is the same trap from the other direction.
+    """
+    over = _DROP_WORDING.get(juris or "", {})
+    return {k: over.get(k, v) for k, v in _DROP_REASONS.items()}
+
 
 def _ungradeable_note(m: dict) -> str:
     """Say how many drawn rows never reached the benchmark, and stay silent at zero.
@@ -366,9 +393,9 @@ def _ungradeable_note(m: dict) -> str:
     # sentence named a subset. That is under-reporting produced by the check
     # written to prevent under-reporting, and it stays impossible only if the
     # rendered set and the summed set are the same object.
-    parts = [tmpl.format(n) for key, tmpl in _DROP_REASONS.items()
-             if (n := d.get(key))]
-    named = sum(n for key in _DROP_REASONS if isinstance(n := d.get(key), int))
+    reasons = _drop_reasons(m.get("jurisdiction"))
+    parts = [tmpl.format(n) for key, tmpl in reasons.items() if (n := d.get(key))]
+    named = sum(n for key in reasons if isinstance(n := d.get(key), int))
     if parts and named == gap:
         return f" Drawn from {drawn} assessor rows; {', '.join(parts)}."
     return (f" Drawn from {drawn} assessor rows; {gap} could not be graded from "

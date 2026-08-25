@@ -1198,6 +1198,43 @@ def test_every_real_benchmark_on_disk_still_verifies():
         M._verify_benchmark(csv_path, meta, juris, legacy=legacy)
 
 
+def test_a_drop_reason_is_worded_for_the_join_that_produced_it():
+    """`no_parcel_record` counts different things in different jurisdictions. The
+    condominium path never asks the parcel layer anything — a unit's SSL is not in
+    it — so "were not in the parcel layer" states a fact about the District's map
+    that the build has no evidence for."""
+    m = {"jurisdiction": "dc-condo", "drawn": 220, "sampled": 212,
+         "dropped": {"no_parcel_record": 8, "no_address": 0, "no_year_built": 0}}
+    note = M._ungradeable_note(m)
+    assert "parcel layer" not in note, note
+    assert "unit record" in note, note
+    # The parcel-based jurisdictions keep the parcel wording, which is true there.
+    for juris in ("cook", "dc"):
+        assert "parcel layer" in M._ungradeable_note(dict(m, jurisdiction=juris))
+
+
+def test_wording_overrides_cannot_change_which_reasons_are_counted():
+    """The printed set and the summed set must stay identical, or the total can
+    balance while the sentence names a subset. An override adds wording, never a
+    reason — so it is built over the shared keys rather than merged into them."""
+    for juris in list(M._DROP_WORDING) + ["cook", "dc", None, "made-up"]:
+        assert set(M._drop_reasons(juris)) == set(M._DROP_REASONS), juris
+
+
+def test_every_registered_jurisdiction_gets_wording_that_names_its_own_join():
+    """A jurisdiction whose placement is not a parcel lookup must not inherit the
+    parcel sentence by default. This fails when a fourth is registered with a
+    different join and no wording, which is the moment to write one."""
+    parcel_placed = {"cook", "dc"}
+    for juris in M.JURISDICTIONS:
+        if juris in parcel_placed:
+            continue
+        assert juris in M._DROP_WORDING, (
+            f"{juris} is registered but has no drop-reason wording, so its rows "
+            f"would be reported as missing from a parcel layer its join never "
+            f"consults")
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]
