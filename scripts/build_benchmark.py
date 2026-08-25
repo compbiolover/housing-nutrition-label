@@ -240,11 +240,20 @@ def _batch_or_die(url: str, params: dict, what: str, n: int) -> list:
 
 
 def _latest_year() -> str:
-    got = _fetch(CAMA_URL, {"$select": "max(year)"})
-    if got is None:
-        raise SystemExit("could not reach the county portal to find the latest "
-                         "assessment year; try again later")
-    return str((got or [{}])[0].get("max_year", "")).split(".")[0]
+    """The newest assessment year, or the end of the build.
+
+    Shape-checked like every other parse point. A 200 error object raised
+    KeyError from `[0]`, and an EMPTY list quietly produced `""` — which then
+    queried `year=''`, matched nothing, and failed several steps later with a
+    message about the sample rather than about the portal.
+    """
+    rows = _rows_of(_fetch(CAMA_URL, {"$select": "max(year)"}))
+    year = str((rows or [{}])[0].get("max_year", "")).split(".")[0] if rows else ""
+    if not year.isdigit():
+        raise SystemExit(
+            "could not read the latest assessment year from the county portal "
+            f"(got {year!r}); try again later")
+    return year
 
 
 def _cama_sample(year: str, rows: int) -> tuple[list[dict], dict]:
@@ -465,7 +474,12 @@ def _dc_sample(rows: int) -> tuple[list[dict], dict]:
     if rows < 1:
         raise SystemExit(f"--rows must be at least 1 (got {rows})")
     got = _fetch(DC_CAMA_URL, {"where": "1=1", "returnCountOnly": "true", "f": "json"})
-    total = int((got or {}).get("count") or 0)
+    # Shape first. `{"count": "oops"}` reached int() and raised ValueError, and a
+    # plain string body raised AttributeError from .get() — both escaping the
+    # stated "could not size" refusal for an incidental traceback. A portal
+    # changing shape should fail the same way as a portal not answering.
+    count = got.get("count") if isinstance(got, dict) else None
+    total = int(count) if isinstance(count, (int, float)) else 0
     if total <= 0:
         raise SystemExit("could not size DC's residential CAMA table; try again later")
     log.info("DC residential CAMA has %d rows; sampling %d.", total, rows)

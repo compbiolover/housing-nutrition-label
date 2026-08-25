@@ -425,11 +425,46 @@ def _benchmark(tmp, text=_GRADEABLE):
     return path, hashlib.sha256(path.read_bytes()).hexdigest()[:16]
 
 
+def _meta(juris="dc", **over):
+    """Metadata a real build would write, so a test overrides only what it tests.
+
+    Each new provenance guard broke a handful of hand-built fixtures that were
+    missing a field they never meant to be about. A complete default keeps a test
+    failing for its own reason.
+    """
+    out = {"jurisdiction": juris, "rows": 2,
+           "source": B.JURISDICTIONS[juris]["source"],
+           "scope": B.JURISDICTIONS[juris]["scope"]}
+    out.update(over)
+    return {k: v for k, v in out.items() if v is not _OMIT}
+
+
+def _sect(key="dc", **over):
+    """A results section complete enough for the renderer to read."""
+    bench = {"jurisdiction": key, "rows": 2, "assessment_year": "2026",
+             "fetched": "2026-01-01", "sampled": 2,
+             "source": B.JURISDICTIONS[key]["source"],
+             "scope": B.JURISDICTIONS[key]["scope"]}
+    bench.update(over.pop("benchmark", {}))
+    out = {"benchmark": {k: v for k, v in bench.items() if v is not _OMIT},
+           "baseline": {}, "adapter": {}, "adapter_resolved_pct": 90.0,
+           "rows": 2, "unscored": 0}
+    out.update(over)
+    return {k: v for k, v in out.items() if v is not _OMIT}
+
+
+class _Omit:
+    def __repr__(self):
+        return "<omit>"
+
+
+_OMIT = _Omit()
+
+
 def test_a_benchmark_matching_its_metadata_is_accepted():
     with tempfile.TemporaryDirectory() as tmp:
         path, digest = _benchmark(tmp)
-        got = M._verify_benchmark(path, {"sha256_16": digest, "rows": 2,
-                                         "jurisdiction": "x"}, "x")
+        got = M._verify_benchmark(path, _meta(sha256_16=digest), "dc")
         assert got == path.read_bytes(), (
             "the validated bytes are what the caller parses; returning anything "
             "else reopens the window this check exists to close")
@@ -443,8 +478,7 @@ def test_a_benchmark_that_is_not_the_one_its_metadata_describes_is_refused():
     with tempfile.TemporaryDirectory() as tmp:
         path, _ = _benchmark(tmp)
         try:
-            M._verify_benchmark(path, {"sha256_16": "deadbeefdeadbeef",
-                                       "jurisdiction": "x"}, "x")
+            M._verify_benchmark(path, _meta(sha256_16="deadbeefdeadbeef"), "dc")
         except SystemExit as exc:
             assert "does not match" in str(exc)
         else:
@@ -455,8 +489,7 @@ def test_a_hand_edited_row_count_is_refused():
     with tempfile.TemporaryDirectory() as tmp:
         path, digest = _benchmark(tmp)
         try:
-            M._verify_benchmark(path, {"sha256_16": digest, "rows": 99,
-                                       "jurisdiction": "x"}, "x")
+            M._verify_benchmark(path, _meta(sha256_16=digest, rows=99), "dc")
         except SystemExit as exc:
             assert "99" in str(exc)
         else:
@@ -468,7 +501,8 @@ def test_a_benchmark_with_no_recorded_digest_still_runs():
     rather than catch one."""
     with tempfile.TemporaryDirectory() as tmp:
         path, _ = _benchmark(tmp)
-        M._verify_benchmark(path, {}, "cook", legacy=True)
+        M._verify_benchmark(path, _meta("cook", rows=_OMIT, jurisdiction=_OMIT,
+                                        scope=_OMIT), "cook", legacy=True)
 
 
 def test_a_benchmark_stamped_for_another_jurisdiction_is_refused():
@@ -478,8 +512,7 @@ def test_a_benchmark_stamped_for_another_jurisdiction_is_refused():
     with tempfile.TemporaryDirectory() as tmp:
         path, digest = _benchmark(tmp)
         try:
-            M._verify_benchmark(path, {"sha256_16": digest,
-                                       "jurisdiction": "cook"}, "dc")
+            M._verify_benchmark(path, _meta("cook", sha256_16=digest), "dc")
         except SystemExit as exc:
             assert "cook" in str(exc) and "dc" in str(exc)
         else:
@@ -493,7 +526,8 @@ def test_the_row_count_is_checked_even_with_no_digest_recorded():
     with tempfile.TemporaryDirectory() as tmp:
         path, _ = _benchmark(tmp)
         try:
-            M._verify_benchmark(path, {"rows": 99}, "cook", legacy=True)
+            M._verify_benchmark(path, _meta("cook", rows=99, jurisdiction=_OMIT,
+                                        scope=_OMIT), "cook", legacy=True)
         except SystemExit as exc:
             assert "99" in str(exc)
         else:
@@ -549,7 +583,7 @@ def test_an_unstamped_per_jurisdiction_benchmark_is_refused():
     with tempfile.TemporaryDirectory() as tmp:
         path, digest = _benchmark(tmp)
         try:
-            M._verify_benchmark(path, {"sha256_16": digest}, "dc")
+            M._verify_benchmark(path, _meta(sha256_16=digest, jurisdiction=_OMIT), "dc")
         except SystemExit as exc:
             assert "no jurisdiction recorded" in str(exc)
         else:
@@ -562,10 +596,12 @@ def test_only_the_legacy_path_may_go_unstamped():
     described Cook. Nothing else gets the exemption."""
     with tempfile.TemporaryDirectory() as tmp:
         path, digest = _benchmark(tmp)
-        M._verify_benchmark(path, {"sha256_16": digest}, "cook", legacy=True)
+        M._verify_benchmark(path, _meta("cook", sha256_16=digest, jurisdiction=_OMIT,
+                                        scope=_OMIT), "cook", legacy=True)
         try:
-            M._verify_benchmark(path, {"sha256_16": digest, "jurisdiction": "dc"},
-                                "cook", legacy=True)
+            M._verify_benchmark(path, _meta("cook", sha256_16=digest,
+                                        jurisdiction="dc", scope=_OMIT),
+                            "cook", legacy=True)
         except SystemExit:
             pass
         else:
@@ -598,7 +634,7 @@ def test_a_per_jurisdiction_benchmark_must_carry_a_digest():
     with tempfile.TemporaryDirectory() as tmp:
         path, _ = _benchmark(tmp)
         try:
-            M._verify_benchmark(path, {"jurisdiction": "dc"}, "dc")
+            M._verify_benchmark(path, _meta(sha256_16=_OMIT, rows=_OMIT), "dc")
         except SystemExit as exc:
             assert "sha256_16" in str(exc)
         else:
@@ -609,7 +645,8 @@ def test_a_per_jurisdiction_benchmark_must_carry_a_digest():
 def test_the_legacy_path_may_still_lack_a_digest():
     with tempfile.TemporaryDirectory() as tmp:
         path, _ = _benchmark(tmp)
-        M._verify_benchmark(path, {}, "cook", legacy=True)
+        M._verify_benchmark(path, _meta("cook", rows=_OMIT, jurisdiction=_OMIT,
+                                        scope=_OMIT), "cook", legacy=True)
 
 
 def test_the_gate_reads_the_results_and_page_together():
@@ -629,8 +666,7 @@ def test_the_published_sample_size_is_verified_against_the_file():
     with tempfile.TemporaryDirectory() as tmp:
         path, digest = _benchmark(tmp)               # two rows
         try:
-            M._verify_benchmark(path, {"sha256_16": digest, "rows": 2,
-                                       "sampled": 218, "jurisdiction": "dc"}, "dc")
+            M._verify_benchmark(path, _meta(sha256_16=digest, sampled=218), "dc")
         except SystemExit as exc:
             assert "sampled" in str(exc) and "218" in str(exc)
         else:
@@ -899,16 +935,15 @@ def test_a_results_file_naming_an_unregistered_jurisdiction_is_refused():
     its bare key, and --check would then certify a page claiming a jurisdiction no
     adapter is registered for."""
     try:
-        M._readable_results({"jurisdictions": {"dcx": {"benchmark": {}}}},
+        M._readable_results({"jurisdictions": {"dcx": _sect("dc")}},
                             "this merge", existed=True)
     except SystemExit as exc:
         assert "dcx" in str(exc)
     else:
         raise AssertionError("an unregistered jurisdiction section was accepted")
     # A registered one still passes.
-    assert set(M._readable_results({"jurisdictions": {"cook": {"benchmark": {
-        "source": B.JURISDICTIONS["cook"]["source"]}}}},
-        "x", existed=True)) == {"cook"}
+    assert set(M._readable_results({"jurisdictions": {"cook": _sect("cook")}},
+                                   "x", existed=True)) == {"cook"}
 
 
 def test_a_section_must_agree_with_the_key_it_sits_under():
@@ -918,9 +953,8 @@ def test_a_section_must_agree_with_the_key_it_sits_under():
     that would catch it was already in the file — the same oversight as the
     benchmark's stamp going unread for the first half of this change."""
     try:
-        M._readable_results({"jurisdictions": {"cook": {"benchmark": {
-            "jurisdiction": "dc",
-            "source": B.JURISDICTIONS["cook"]["source"]}}}}, "x", existed=True)
+        M._readable_results({"jurisdictions": {"cook": _sect(
+            "cook", benchmark={"jurisdiction": "dc"})}}, "x", existed=True)
     except SystemExit as exc:
         assert "'dc'" in str(exc) and "cook" in str(exc)
     else:
@@ -928,12 +962,11 @@ def test_a_section_must_agree_with_the_key_it_sits_under():
 
     # Unstamped is allowed for cook alone: the pre-split measurement predates the
     # field and is genuinely Cook's.
-    assert set(M._readable_results({"jurisdictions": {"cook": {"benchmark": {
-        "source": B.JURISDICTIONS["cook"]["source"]}}}},
-        "x", existed=True)) == {"cook"}
+    assert set(M._readable_results({"jurisdictions": {"cook": _sect("cook")}},
+                                   "x", existed=True)) == {"cook"}
     try:
-        M._readable_results({"jurisdictions": {"dc": {"benchmark": {
-            "source": B.JURISDICTIONS["dc"]["source"]}}}}, "x", existed=True)
+        M._readable_results({"jurisdictions": {"dc": _sect(
+            "dc", benchmark={"jurisdiction": _OMIT})}}, "x", existed=True)
     except SystemExit as exc:
         assert "no jurisdiction" in str(exc)
     else:
@@ -969,8 +1002,7 @@ def test_a_benchmark_with_no_truth_columns_cannot_be_scored():
     with tempfile.TemporaryDirectory() as tmp:
         path, digest = _graded(tmp, "parcel_id,address\n1,A\n")
         try:
-            M._verify_benchmark(path, {"jurisdiction": "dc", "sha256_16": digest,
-                                       "rows": 1}, "dc")
+            M._verify_benchmark(path, _meta(sha256_16=digest, rows=1), "dc")
         except SystemExit as exc:
             assert "year_built" in str(exc)
         else:
@@ -983,27 +1015,26 @@ def test_provenance_is_checked_against_the_registry_not_only_itself():
     source line the page prints has to agree with the registry too."""
     with tempfile.TemporaryDirectory() as tmp:
         path, digest = _graded(tmp)
-        base = {"jurisdiction": "dc", "sha256_16": digest, "rows": 1}
         try:
-            M._verify_benchmark(path, {**base, "source": "Cook County Assessor "
-                                       "(Open Data)"}, "dc")
+            M._verify_benchmark(path, _meta(sha256_16=digest, rows=1,
+                                          source="Cook County Assessor (Open Data)"),
+                                "dc")
         except SystemExit as exc:
             assert "jurisdictions.py" in str(exc)
         else:
             raise AssertionError("a DC benchmark citing Cook's assessor passed")
-        M._verify_benchmark(path, {**base, "source": "DC Office of Tax and "
-                                   "Revenue (Open Data)"}, "dc")
+        M._verify_benchmark(path, _meta(sha256_16=digest, rows=1), "dc")
 
 
 def test_a_section_citing_the_wrong_assessor_is_refused():
     """The page prints the source line beneath the heading, so a section stamped
     `dc` carrying Cook's source renders a DC result attributed to Cook."""
-    bad = {"jurisdictions": {"dc": {"benchmark": {
-        "jurisdiction": "dc", "source": "Cook County Assessor (Open Data)"}}}}
+    bad = {"jurisdictions": {"dc": _sect(
+        "dc", benchmark={"source": "Cook County Assessor (Open Data)"})}}
     try:
         M._readable_results(bad, "x", existed=True)
     except SystemExit as exc:
-        assert "wrong assessor" in str(exc)
+        assert "source" in str(exc) and "Cook County Assessor" in str(exc)
     else:
         raise AssertionError("a section attributed to the wrong assessor passed")
 
@@ -1032,16 +1063,15 @@ def test_the_legacy_benchmark_on_disk_is_still_scorable():
                      "foundation,condition\n1,A,0,0,1990,1000,1,brick,,good\n")
     with tempfile.TemporaryDirectory() as tmp:
         path, digest = _benchmark(tmp, legacy_header)
-        M._verify_benchmark(path, {"sha256_16": digest, "rows": 1,
-                                   "source": B.JURISDICTIONS["cook"]["source"]},
+        M._verify_benchmark(path, _meta("cook", sha256_16=digest, rows=1,
+                                        jurisdiction=_OMIT, scope=_OMIT),
                             "cook", legacy=True)
     # ...and `pin` is NOT an acceptable identifier for a jurisdiction-specific
     # file, which the current builder always writes as `parcel_id`.
     with tempfile.TemporaryDirectory() as tmp:
         path, digest = _benchmark(tmp, legacy_header)
         try:
-            M._verify_benchmark(path, {"jurisdiction": "dc", "sha256_16": digest,
-                                       "rows": 1}, "dc")
+            M._verify_benchmark(path, _meta(sha256_16=digest, rows=1), "dc")
         except SystemExit as exc:
             assert "parcel_id" in str(exc)
         else:
@@ -1072,6 +1102,91 @@ def test_a_benchmark_block_that_is_not_an_object_is_refused():
             raise AssertionError(f"benchmark={bad!r} crashed instead of refusing")
         else:
             raise AssertionError(f"benchmark={bad!r} was accepted")
+
+
+def test_the_scope_sentence_is_checked_against_the_registry():
+    """`scope` is printed verbatim as the sentence limiting DC's numbers to
+    non-condominium homes — 64% of the city's stock. Editing it to claim all homes
+    leaves the CSV, its digest and every other field untouched, so a figure drawn
+    from two thirds of DC publishes as DC. The fabrication this whole change is
+    about, through the one provenance field nothing read."""
+    with tempfile.TemporaryDirectory() as tmp:
+        path, digest = _benchmark(tmp)
+        base = {"jurisdiction": "dc", "sha256_16": digest, "rows": 2,
+                "source": B.JURISDICTIONS["dc"]["source"]}
+        M._verify_benchmark(path, {**base, "scope": B.JURISDICTIONS["dc"]["scope"]},
+                            "dc")
+        try:
+            M._verify_benchmark(path, {**base, "scope": "all homes"}, "dc")
+        except SystemExit as exc:
+            assert "scope" in str(exc)
+        else:
+            raise AssertionError("a widened scope claim was accepted")
+
+    results = json.loads(M.RESULTS.read_text())
+    import copy
+    widened = copy.deepcopy(results)
+    widened["jurisdictions"]["dc"]["benchmark"]["scope"] = "all homes"
+    try:
+        M._readable_results(widened, "x", existed=True)
+    except SystemExit as exc:
+        assert "scope" in str(exc)
+    else:
+        raise AssertionError("a widened scope claim was published")
+
+
+def test_a_truncated_section_refuses_rather_than_crashing_the_renderer():
+    """A benchmark block and nothing else passed every guard and then raised
+    KeyError from _section — --check and --render-only crashing where this
+    function promises a stated refusal."""
+    section = {"benchmark": {"jurisdiction": "dc",
+                             "source": B.JURISDICTIONS["dc"]["source"],
+                             "scope": B.JURISDICTIONS["dc"]["scope"]}}
+    try:
+        M._readable_results({"jurisdictions": {"dc": section}}, "x", existed=True)
+    except SystemExit as exc:
+        assert "baseline" in str(exc) or "benchmark.rows" in str(exc)
+    except KeyError:
+        raise AssertionError("a truncated section crashed instead of refusing")
+    else:
+        raise AssertionError("a section the page cannot render was accepted")
+
+
+def test_a_benchmark_whose_rows_carry_no_usable_year_is_refused():
+    """Headers prove the columns exist and say nothing about what is in them. A
+    blank year yields a case with no assessor truth; a non-numeric one aborts
+    _score_arms part-way through a run."""
+    header = ("parcel_id,address,year_built,sqft,stories,construction,"
+              "foundation,condition\n")
+    for body, why in ((f"{header}1,A,,1,1,brick,,good\n", "every year blank"),
+                      (f"{header}1,A,oops,1,1,brick,,good\n", "non-numeric"),
+                      (f"{header}1,A,3999,1,1,brick,,good\n", "implausible")):
+        with tempfile.TemporaryDirectory() as tmp:
+            path, digest = _benchmark(tmp, body)
+            try:
+                M._verify_benchmark(path, {
+                    "jurisdiction": "dc", "sha256_16": digest, "rows": 1,
+                    "source": B.JURISDICTIONS["dc"]["source"],
+                    "scope": B.JURISDICTIONS["dc"]["scope"]}, "dc")
+            except SystemExit:
+                pass
+            else:
+                raise AssertionError(f"{why}: an unscorable benchmark passed")
+
+
+def test_every_real_benchmark_on_disk_still_verifies():
+    """The guards are only worth having if the real files satisfy them. This
+    caught a shape check that rejected the committed measurement, and a schema
+    check that rejected the legacy benchmark the legacy branch exists for."""
+    cache = pathlib.Path(M.CACHE_DIR)
+    for csv_path in sorted(cache.glob("benchmark*.csv")):
+        meta_path = csv_path.with_suffix(".meta.json")
+        if not meta_path.exists():
+            continue
+        meta = json.loads(meta_path.read_text())
+        legacy = csv_path.name == "benchmark.csv"
+        juris = meta.get("jurisdiction") or "cook"
+        M._verify_benchmark(csv_path, meta, juris, legacy=legacy)
 
 
 def _run_all() -> int:

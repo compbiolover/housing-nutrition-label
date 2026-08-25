@@ -753,19 +753,38 @@ def _readable_results(previous, where: str, *, existed: bool) -> dict:
                 f"records no provenance at all. {where} would publish a "
                 f"measurement nothing accounts for. Inspect it (or move it "
                 f"aside) and re-run.")
-        source = bench.get("source")
-        expected = JURISDICTIONS.get(key, {}).get("source")
-        # Equality, not merely non-conflict: `"source": ""` passed the old
-        # condition and rendered with no assessor attribution at all, on a page
-        # whose whole claim is that each number came from a named record.
-        if expected and source != expected:
-            # The page prints this line beneath the heading, so a section stamped
-            # `dc` carrying Cook's source text renders a DC result attributed to
-            # Cook — and every other guard here passes it.
+        # Both provenance fields the page prints verbatim. `scope` is the sentence
+        # limiting DC's numbers to non-condominium homes; edited to claim all
+        # homes it publishes a figure drawn from 64% of the city as the city.
+        # Equality, not merely non-conflict: `""` passed the old condition and
+        # rendered with no attribution at all, on a page whose whole claim is that
+        # each number came from a named record of a stated population.
+        for field in ("source", "scope"):
+            recorded, want = bench.get(field), JURISDICTIONS.get(key, {}).get(field)
+            # The pre-split Cook measurement predates `scope`; nothing else may
+            # omit either field.
+            if not want or (key == "cook" and field == "scope" and not recorded):
+                continue
+            if recorded != want:
+                raise SystemExit(
+                    f"{RESULTS.name}'s {key!r} section records {field} "
+                    f"{recorded!r}, but scripts/jurisdictions.py says {key!r} is "
+                    f"{want!r}. {where} would publish a measurement described "
+                    f"wrongly.")
+        # The keys _section indexes directly. Without this a truncated section —
+        # a benchmark block and nothing else — passed every guard here and then
+        # raised KeyError from the renderer: --check and --render-only crashing
+        # where this function promises a stated refusal.
+        needed = [k for k in ("baseline", "adapter", "adapter_resolved_pct")
+                  if k not in data]
+        needed += [f"benchmark.{k}" for k in ("rows", "assessment_year", "fetched")
+                   if k not in bench]
+        if needed:
             raise SystemExit(
-                f"{RESULTS.name}'s {key!r} section records source {source!r}, but "
-                f"scripts/jurisdictions.py says {key!r} is {expected!r}. {where} "
-                f"would publish a measurement attributed to the wrong assessor.")
+                f"{RESULTS.name}'s {key!r} section is missing "
+                f"{', '.join(sorted(set(needed)))}, which the page reads directly. "
+                f"{where} would fail while rendering. Inspect it (or move it "
+                f"aside) and re-run.")
         stamped = bench.get("jurisdiction")
         if stamped == key or (stamped is None and key == "cook"):
             continue
@@ -826,13 +845,22 @@ def _verify_benchmark(path: pathlib.Path, meta: dict, juris: str,
     # source line the page prints is checked against the registry, which a forger
     # would then also have to edit — and doing that publishes Cook's source under
     # DC's heading, which the results guard refuses.
-    source = meta.get("source")
-    expected = JURISDICTIONS.get(juris, {}).get("source")
-    if source and expected and source != expected:
-        raise SystemExit(
-            f"{path.stem}.meta.json records source {source!r}, but "
-            f"scripts/jurisdictions.py says {juris!r} is {expected!r}. Rebuild "
-            f"with scripts/build_benchmark.py --jurisdiction {juris}.")
+    # `scope` is checked beside `source`, and it is the more dangerous of the two.
+    # The page prints it verbatim as the sentence limiting DC's numbers to
+    # non-condominium homes — 64% of the city's stock. Editing it to claim all
+    # homes leaves the CSV, its digest and every other field untouched, so a
+    # figure drawn from two thirds of DC publishes as DC. That is the fabrication
+    # this whole change is about, reached through the one field nothing read.
+    for field in ("source", "scope"):
+        recorded = meta.get(field)
+        expected = JURISDICTIONS.get(juris, {}).get(field)
+        # Absent is allowed only on the pre-split file, which predates `scope`
+        # entirely; present-and-different never is.
+        if expected and recorded != expected and not (legacy and not recorded):
+            raise SystemExit(
+                f"{path.stem}.meta.json records {field} {recorded!r}, but "
+                f"scripts/jurisdictions.py says {juris!r} is {expected!r}. "
+                f"Rebuild with scripts/build_benchmark.py --jurisdiction {juris}.")
     want = meta.get("sha256_16")
     if not want and not legacy:
         # Same exemption as the stamp above, and I granted it to one and not the
@@ -876,6 +904,33 @@ def _verify_benchmark(path: pathlib.Path, meta: dict, juris: str,
             f"{path.name} has no {', '.join(absent)} column(s), so there is "
             f"nothing to grade against. Rebuild with scripts/build_benchmark.py "
             f"--jurisdiction {juris}.")
+    # Headers prove the columns exist; they say nothing about what is in them. A
+    # blank `year_built` yields a case with no assessor truth at all, and a
+    # non-numeric one reaches int(_num(...)) in _score_arms and aborts a run
+    # mid-flight. Both are the same defect as the missing column, one layer in:
+    # a digest-valid CSV that cannot produce the measurement it is scored for.
+    gradeable = 0
+    for i, row in enumerate(csv.DictReader(io.StringIO(payload.decode())), 1):
+        year = (row.get("year_built") or "").strip()
+        if not year:
+            continue
+        try:
+            value = int(float(year))
+        except ValueError:
+            raise SystemExit(
+                f"{path.name} row {i} has year_built {year!r}, which is not a "
+                f"number. Scoring would abort part-way through. Rebuild it.")
+        if not 1600 <= value <= 2100:
+            raise SystemExit(
+                f"{path.name} row {i} has year_built {value}, outside any "
+                f"plausible range. Rebuild it.")
+        gradeable += 1
+    if not gradeable:
+        raise SystemExit(
+            f"{path.name} has a year_built column but no row carries a usable "
+            f"value, so every grade would be computed against a default rather "
+            f"than the assessor's record. Rebuild it.")
+
     # `sampled` is checked beside `rows` because main() publishes it as the
     # population and uses it as the denominator of the drop disclosure. Verifying
     # only `rows` left the number the page actually states unverified.
