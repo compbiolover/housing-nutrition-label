@@ -73,6 +73,7 @@ import json
 import logging
 import os
 import pathlib
+import random
 import sys
 import tempfile
 import time
@@ -162,6 +163,29 @@ def _fetch(url: str, params: dict, attempts: int = 4):
                 return None
             time.sleep(2 ** i)          # 1s, 2s, 4s
     return None
+
+
+def _draw_offsets(total: int, rows: int, seed: int) -> list[int]:
+    """`rows` distinct offsets drawn uniformly at random from [0, total).
+
+    Random, not evenly spaced. The old sampler walked a fixed stride, which is
+    systematic sampling over a list ordered by PIN or SSL — and both of those
+    orderings are geographic, so every draw hit the same townships and squares at
+    the same spacing. That is not a defect in coverage; it is a defect in what can
+    be SAID about the numbers. The confidence interval published beside a rate
+    assumes the rows were drawn independently, and a stride does not draw them
+    independently: two draws of the same size differ only in where the stride
+    starts, so repeated draws under-represent their own true spread.
+
+    Sorted before returning purely so the request log reads in table order; the
+    membership is what carries the randomness, not the visiting sequence.
+
+    The seed is recorded in the benchmark's metadata, so a published figure names
+    a draw anyone can reproduce exactly rather than "some 300 parcels".
+    """
+    if rows > total:
+        rows = total
+    return sorted(random.Random(seed).sample(range(total), rows))
 
 
 def _num(v):
@@ -274,7 +298,7 @@ def _latest_year() -> str:
     return year
 
 
-def _cama_sample(year: str, rows: int) -> tuple[list[dict], dict]:
+def _cama_sample(year: str, rows: int, seed: int) -> tuple[list[dict], dict]:
     """Evenly-spaced rows from the latest assessment year."""
     # Before the network call: an unusable argument should not cost a request.
     if rows < 1:
@@ -305,10 +329,7 @@ def _cama_sample(year: str, rows: int) -> tuple[list[dict], dict]:
         raise SystemExit(f"no rows for assessment year {year}")
     log.info("Assessment year %s has %d parcels; sampling %d.", year, total, rows)
 
-    # Spread the offsets across [0, total), rather than flooring a stride: with a
-    # stride, any request for more than half the population collapses to step 1 and
-    # silently reads the first N rows — which, since PINs are township-ordered,
-    # turns a "county-wide" sample into one corner of Cook.
+    # See `_draw_offsets` for why the draw is random rather than strided.
     rows = min(rows, total)
     seen: list[str] = []
 
@@ -318,7 +339,7 @@ def _cama_sample(year: str, rows: int) -> tuple[list[dict], dict]:
         for n, i in enumerate(offsets, 1):
             got = _fetch(CAMA_URL, {
                 "$select": "pin", "$where": f"year='{year}'",
-                "$order": "pin", "$limit": "1", "$offset": str(i * total // rows),
+                "$order": "pin", "$limit": "1", "$offset": str(i),
             })
             # `got == []` is the portal answering nothing for an offset inside a
             # table it just sized — a failure, not an empty slot. The DC sampler
@@ -340,7 +361,7 @@ def _cama_sample(year: str, rows: int) -> tuple[list[dict], dict]:
             time.sleep(0.05)      # polite to a free public portal
         return failed
 
-    missed = attempt(list(range(rows)))
+    missed = attempt(_draw_offsets(total, rows, seed))
     if missed:
         # See the DC sampler: a skipped offset shifts an evenly spaced draw toward
         # the offsets that answered, and nothing downstream can see that it did.
@@ -504,7 +525,7 @@ _DC_PARCEL_FIELDS = "SSL,PREMISEADD"
 _DC_CAMA_FIELDS = "SSL,AYB,GBA,STORIES,EXTWALL_D,CNDTN_D,NUM_UNITS"
 
 
-def _dc_sample(rows: int) -> tuple[list[dict], dict]:
+def _dc_sample(rows: int, seed: int) -> tuple[list[dict], dict]:
     """Evenly-spaced rows from DC's residential CAMA table."""
     if rows < 1:
         raise SystemExit(f"--rows must be at least 1 (got {rows})")
@@ -528,7 +549,7 @@ def _dc_sample(rows: int) -> tuple[list[dict], dict]:
         for n, i in enumerate(offsets, 1):
             body = _fetch(DC_CAMA_URL, {
                 "where": "1=1", "outFields": _DC_CAMA_FIELDS, "orderByFields": "SSL",
-                "resultOffset": str(i * total // rows), "resultRecordCount": "1",
+                "resultOffset": str(i), "resultRecordCount": "1",
                 "returnGeometry": "false", "f": "json",
             })
             feats = _rows_of(body)
@@ -564,7 +585,7 @@ def _dc_sample(rows: int) -> tuple[list[dict], dict]:
             time.sleep(0.05)
         return failed
 
-    missed = attempt(list(range(rows)))
+    missed = attempt(_draw_offsets(total, rows, seed))
     if missed:
         # Retried rather than skipped. Dropping an offset shifts the draw toward
         # whichever ones happened to answer, and a benchmark with holes in an
@@ -662,7 +683,7 @@ _DC_CONDO_FIELDS = "SSL,AYB,LIVING_GBA"
 _DC_UNITS_FIELDS = "CONDO_SSL,PRIMARY_ADDRESS,UNIT_NUMBER"
 
 
-def _dc_condo_sample(rows: int) -> tuple[list[dict], dict]:
+def _dc_condo_sample(rows: int, seed: int) -> tuple[list[dict], dict]:
     """Evenly-spaced rows from DC's condominium CAMA table."""
     if rows < 1:
         raise SystemExit(f"--rows must be at least 1 (got {rows})")
@@ -683,7 +704,7 @@ def _dc_condo_sample(rows: int) -> tuple[list[dict], dict]:
         for n, i in enumerate(offsets, 1):
             body = _fetch(DC_CONDO_CAMA_URL, {
                 "where": "1=1", "outFields": _DC_CONDO_FIELDS, "orderByFields": "SSL",
-                "resultOffset": str(i * total // rows), "resultRecordCount": "1",
+                "resultOffset": str(i), "resultRecordCount": "1",
                 "returnGeometry": "false", "f": "json",
             })
             feats = _rows_of(body)
@@ -705,7 +726,7 @@ def _dc_condo_sample(rows: int) -> tuple[list[dict], dict]:
             time.sleep(0.05)
         return failed
 
-    missed = attempt(list(range(rows)))
+    missed = attempt(_draw_offsets(total, rows, seed))
     if missed:
         # Retried, then refused — the same two steps the other two samplers take,
         # and for the same reason: a benchmark with holes in an evenly spaced draw
@@ -866,6 +887,14 @@ def main() -> int:
     ap.add_argument("--rows", type=int, default=200, help="parcels to sample (default 200)")
     ap.add_argument("--jurisdiction", choices=sorted(JURISDICTIONS), default="cook",
                     help="which assessor to build a benchmark from (default cook)")
+    # Required, not defaulted. A default seed makes every build the same draw
+    # while looking like a fresh one — and replicate draws that are secretly
+    # identical would report a spread of zero and call it stability. Naming it
+    # also makes the published figure reproducible: the metadata records which
+    # draw produced it.
+    ap.add_argument("--seed", type=int, required=True,
+                    help="random seed for the draw; recorded in the metadata so "
+                         "the sample can be reproduced exactly")
     args = ap.parse_args()
 
     sys.path.insert(0, str(_ROOT / "src"))
@@ -882,19 +911,19 @@ def main() -> int:
 
     if juris == "cook":
         year = _latest_year()
-        sample, draw = _cama_sample(year, args.rows)
+        sample, draw = _cama_sample(year, args.rows, args.seed)
         keys = [str(r["pin"]).zfill(14) for r in sample]
         info, present = _parcel_info(keys)
         truth_of, key_of = _truth, (lambda r: str(r["pin"]).zfill(14))
     elif juris == "dc":
         year = "current"
-        sample, draw = _dc_sample(args.rows)
+        sample, draw = _dc_sample(args.rows, args.seed)
         keys = [(r.get("SSL") or "").strip() for r in sample]
         info, present = _dc_place([k for k in keys if k])
         truth_of, key_of = _dc_truth, (lambda r: (r.get("SSL") or "").strip())
     elif juris == "dc-condo":
         year = "current"
-        sample, draw = _dc_condo_sample(args.rows)
+        sample, draw = _dc_condo_sample(args.rows, args.seed)
         keys = [(r.get("SSL") or "").strip() for r in sample]
         info, present = _dc_condo_place([k for k in keys if k])
         truth_of, key_of = _dc_condo_truth, (lambda r: (r.get("SSL") or "").strip())
@@ -981,6 +1010,11 @@ def main() -> int:
     # states are "matched" and "refused", never "scored the wrong sample".
     _write_atomic(meta_path(juris), json.dumps({
         "jurisdiction": juris,
+        # How the rows were chosen, recorded beside them. A rate published with a
+        # confidence interval is making a claim about the draw, so the draw has to
+        # be stated: uniform without replacement, and this seed.
+        "draw_method": "uniform random offsets without replacement",
+        "seed": args.seed,
         # What was actually asked of the assessor. NOT `args.rows`, which both
         # samplers cap to the table's own size — a --rows larger than the source
         # would otherwise claim a draw bigger than the whole table and report the

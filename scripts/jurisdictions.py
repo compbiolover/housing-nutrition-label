@@ -45,8 +45,40 @@ JURISDICTIONS = {
         # Averaging them would hide which half a number came from, and the halves
         # do not answer for the same fields.
         "scope": "condominium units only (61,329 of DC's 170,602 CAMA records)",
+        # Published beneath `dc` rather than beside it. The two are disjoint halves
+        # of one city's stock, and the condominium half is the narrower, more
+        # specific claim — a reader looking for "Washington, DC" should find the
+        # houses and then the condominiums under them, not two peers that look like
+        # two cities. They stay separate measurements because they answer for
+        # different fields from different tables; nesting is a statement about how
+        # to read them, not a licence to average them.
+        "parent": "dc",
     },
 }
+
+
+def ordered() -> list[str]:
+    """Registry keys, parents before their own children.
+
+    The page used to emit sections in plain sorted order, which put "dc-condo"
+    directly after "dc" by luck of the alphabet. Luck is not an ordering: a
+    jurisdiction named "dc-b..." would have landed between a parent and its child
+    and split the section in half.
+    """
+    tops = sorted(k for k, v in JURISDICTIONS.items() if not v.get("parent"))
+    out = []
+    for key in tops:
+        out.append(key)
+        out.extend(sorted(k for k, v in JURISDICTIONS.items()
+                          if v.get("parent") == key))
+    # Anything whose parent is not itself registered would vanish from the page
+    # entirely — a measured jurisdiction silently unpublished.
+    orphans = sorted(set(JURISDICTIONS) - set(out))
+    if orphans:
+        raise SystemExit(
+            f"{', '.join(orphans)} name a parent that is not registered, so they "
+            f"would be measured and never published.")
+    return out
 
 #: Display names, derived rather than restated — see the module docstring.
 LABELS = {key: cfg["label"] for key, cfg in JURISDICTIONS.items()}

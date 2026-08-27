@@ -1252,6 +1252,95 @@ def test_every_registered_jurisdiction_gets_wording_that_names_its_own_join():
             f"consults")
 
 
+# --- what the published interval is allowed to claim --------------------------------
+
+
+def test_the_interval_never_runs_past_a_hundred_percent():
+    """DC condominiums answer for about 97%. The textbook normal interval puts the
+    upper bound past 100 there, and a page printing 101% accuracy has discredited
+    itself before the number is read. Wilson stays inside the range a proportion
+    can occupy."""
+    lo, hi = M._wilson(205, 211)
+    assert 0 <= lo <= hi <= 100, (lo, hi)
+    assert M._wilson(200, 200)[1] <= 100
+
+
+def test_a_bigger_sample_narrows_the_interval():
+    """The whole reason n was computed rather than guessed."""
+    narrow = M._wilson(732, 1000)
+    wide = M._wilson(73, 100)
+    assert (narrow[1] - narrow[0]) < (wide[1] - wide[0])
+
+
+def test_an_empty_sample_has_no_interval_rather_than_a_wrong_one():
+    assert M._wilson(0, 0) is None
+
+
+def test_the_interval_brackets_the_rate_it_describes():
+    for hits, n in ((73, 100), (205, 211), (1, 50), (49, 50)):
+        lo, hi = M._wilson(hits, n)
+        assert lo <= 100 * hits / n <= hi, (hits, n, lo, hi)
+
+
+def test_a_single_run_reports_no_spread_at_all():
+    """One scoring cannot say how much scoring varies. Reporting the sampling
+    interval as though it covered run-to-run noise too would dress half the
+    uncertainty up as the whole — and it is the half that does NOT shrink when the
+    sample grows, so the dressing would point a reader at the wrong repair."""
+    assert M._spread([]) is None
+    one = M._spread([73.2])
+    assert one["runs"] == 1 and one["spread"] == 0.0
+
+
+def test_the_spread_reports_what_repeated_scorings_actually_did():
+    got = M._spread([68.2, 73.2, 70.1])
+    assert got["min"] == 68.2 and got["max"] == 73.2
+    assert got["spread"] == 5.0
+    assert got["median"] == 70.1
+
+
+def test_the_two_uncertainties_are_reported_separately():
+    """A reader told only their sum cannot tell which to attack: a wide sampling
+    interval is fixed by drawing more rows, a wide run-to-run range is fixed
+    upstream and by no amount of sampling."""
+    sentence = M._confidence_sentence(
+        {"resolved_ci95": [67.9, 77.8], "resolved_runs": M._spread([68.2, 73.2])})
+    assert "67.9" in sentence and "77.8" in sentence
+    assert "68.2" in sentence and "73.2" in sentence
+    assert "not sampling error" in sentence
+
+
+def test_no_confidence_sentence_when_nothing_was_measured():
+    assert M._confidence_sentence({}) == ""
+
+
+def test_a_nested_jurisdiction_renders_under_its_parent_not_beside_it():
+    """DC's condominiums are a narrower claim inside DC, not a second city. The
+    heading level is the statement; two <h2>s would read as two places."""
+    parent = _juris("DC Office of Tax and Revenue (Open Data)", "1234    5678")
+    parent["benchmark"]["scope"] = M.JURISDICTIONS["dc"]["scope"]
+    child = _juris("DC Office of Tax and Revenue (Open Data)", "2528    2029")
+    child["benchmark"]["scope"] = M.JURISDICTIONS["dc-condo"]["scope"]
+    page = M._render({"generated": "2026-08-27",
+                      "jurisdictions": {"dc": parent, "dc-condo": child}})
+    assert '<h2 id="dc">' in page
+    assert '<h3 id="dc-condo">' in page
+    assert '<h2 id="dc-condo">' not in page
+    # ...and the child must come after its parent, not before it by alphabet.
+    assert page.index('id="dc"') < page.index('id="dc-condo"')
+
+
+def test_the_publication_order_puts_every_parent_before_its_children():
+    from scripts.jurisdictions import JURISDICTIONS as J, ordered
+    order = ordered()
+    assert set(order) == set(J), (sorted(order), sorted(J))
+    for key, cfg in J.items():
+        parent = cfg.get("parent")
+        if parent:
+            assert order.index(parent) < order.index(key), key
+            assert parent in J, f"{key} names an unregistered parent {parent!r}"
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]
