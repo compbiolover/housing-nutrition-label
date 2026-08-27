@@ -49,10 +49,12 @@ rather than silent, which is the honest version of the trade.
 
 Sampling
 --------
-Evenly-spaced offsets through the latest assessment year rather than the first N
-rows. PINs are ordered by township, so the first N would all be one corner of the
-county and the "national" accuracy number would really be a statement about
-Barrington. Even offsets spread the sample across every township in Cook.
+Offsets drawn uniformly at random, with a seed the metadata records, rather than
+the first N rows or a fixed stride. The first N would be one corner of the county:
+PINs are ordered by township, so a "county-wide" number would really be a statement
+about Barrington. A stride fixes the coverage and not the statistics — an ordered
+table walked at a fixed interval is systematic sampling, and the confidence interval
+the page now publishes assumes rows were drawn independently. See `_draw_offsets`.
 
 Rows without a street address or without a usable year built are dropped: there is
 nothing to geocode, or nothing to be right or wrong about. Coordinates are NOT
@@ -234,7 +236,7 @@ def _batch_or_die(url: str, params: dict, what: str, n: int) -> list:
 
     A batch that exhausts its retries is not "these parcels have no record" — it
     is the portal being down for one slice of the draw. Returning nothing here
-    deletes that slice from an evenly spaced sample, and every count downstream
+    deletes that slice from the draw, and every count downstream
     then attributes the absence to the assessor's own documentation rather than
     to a request that never landed. Neither the written benchmark nor the
     published page can show the difference: a draw with a batch missing from it
@@ -299,7 +301,7 @@ def _latest_year() -> str:
 
 
 def _cama_sample(year: str, rows: int, seed: int) -> tuple[list[dict], dict]:
-    """Evenly-spaced rows from the latest assessment year."""
+    """A uniform random sample of rows from the latest assessment year."""
     # Before the network call: an unusable argument should not cost a request.
     if rows < 1:
         raise SystemExit(f"--rows must be at least 1 (got {rows})")
@@ -363,8 +365,8 @@ def _cama_sample(year: str, rows: int, seed: int) -> tuple[list[dict], dict]:
 
     missed = attempt(_draw_offsets(total, rows, seed))
     if missed:
-        # See the DC sampler: a skipped offset shifts an evenly spaced draw toward
-        # the offsets that answered, and nothing downstream can see that it did.
+        # See the DC sampler: a skipped offset shifts the draw toward the offsets
+        # that answered, and nothing downstream can see that it did.
         log.warning("  %d offsets did not answer; retrying them.", len(missed))
         missed = attempt(missed)
     if missed:
@@ -526,7 +528,7 @@ _DC_CAMA_FIELDS = "SSL,AYB,GBA,STORIES,EXTWALL_D,CNDTN_D,NUM_UNITS"
 
 
 def _dc_sample(rows: int, seed: int) -> tuple[list[dict], dict]:
-    """Evenly-spaced rows from DC's residential CAMA table."""
+    """A uniform random sample of rows from DC's residential CAMA table."""
     if rows < 1:
         raise SystemExit(f"--rows must be at least 1 (got {rows})")
     got = _fetch(DC_CAMA_URL, {"where": "1=1", "returnCountOnly": "true", "f": "json"})
@@ -588,9 +590,10 @@ def _dc_sample(rows: int, seed: int) -> tuple[list[dict], dict]:
     missed = attempt(_draw_offsets(total, rows, seed))
     if missed:
         # Retried rather than skipped. Dropping an offset shifts the draw toward
-        # whichever ones happened to answer, and a benchmark with holes in an
-        # evenly spaced sample still looks like a clean one — the bias is
-        # invisible in the output. _fetch already backs off four times, so these
+        # whichever ones happened to answer, and a benchmark with holes in it still
+        # looks like a clean one — the bias is invisible in the output, and the
+        # seed recorded beside it still describes the draw that was ASKED for
+        # rather than the one that answered. _fetch already backs off four times, so these
         # are offsets that failed repeatedly; one more pass separates a blip from
         # an outage.
         log.warning("  %d offsets did not answer; retrying them.", len(missed))
@@ -684,7 +687,7 @@ _DC_UNITS_FIELDS = "CONDO_SSL,PRIMARY_ADDRESS,UNIT_NUMBER"
 
 
 def _dc_condo_sample(rows: int, seed: int) -> tuple[list[dict], dict]:
-    """Evenly-spaced rows from DC's condominium CAMA table."""
+    """A uniform random sample of rows from DC's condominium CAMA table."""
     if rows < 1:
         raise SystemExit(f"--rows must be at least 1 (got {rows})")
     got = _fetch(DC_CONDO_CAMA_URL,
@@ -729,8 +732,8 @@ def _dc_condo_sample(rows: int, seed: int) -> tuple[list[dict], dict]:
     missed = attempt(_draw_offsets(total, rows, seed))
     if missed:
         # Retried, then refused — the same two steps the other two samplers take,
-        # and for the same reason: a benchmark with holes in an evenly spaced draw
-        # is biased toward whichever offsets answered, and looks clean.
+        # and for the same reason: a benchmark with holes in the draw is biased
+        # toward whichever offsets answered, and looks clean.
         log.warning("  %d offsets did not answer; retrying them.", len(missed))
         missed = attempt(missed)
     if missed:

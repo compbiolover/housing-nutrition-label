@@ -530,17 +530,22 @@ def _confidence_sentence(data: dict) -> str:
     if ci:
         parts.append(f"95% confidence interval {ci[0]}&ndash;{ci[1]}% for the draw")
     runs = data.get("resolved_runs")
-    if runs and runs.get("runs", 0) > 1:
+    # Whether the range was PRINTED, not whether the field exists. Keying the tail
+    # on the field alone explained a "second range" that a one-run section never
+    # showed — the sentence describing the evidence outliving the evidence, which
+    # is the failure mode this page keeps producing in new places.
+    showed_range = bool(runs and runs.get("runs", 0) > 1)
+    if showed_range:
         parts.append(
             f"and {runs['min']}&ndash;{runs['max']}% observed across "
             f"{runs['runs']} scorings of these same rows")
     if not parts:
         return ""
-    tail = ("" if not runs else
-            " The second range is not sampling error: it is the same addresses "
+    tail = (" The second range is not sampling error: it is the same addresses "
             "scored again. Every upstream failure here fails open, so a portal "
             "having a bad minute is indistinguishable from a county with no "
-            "record, and it removes rows from the numerator silently.")
+            "record, and it removes rows from the numerator silently."
+            if showed_range else "")
     return f" {', '.join(parts)}.{tail}"
 
 

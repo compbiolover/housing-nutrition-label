@@ -1314,6 +1314,32 @@ def test_no_confidence_sentence_when_nothing_was_measured():
     assert M._confidence_sentence({}) == ""
 
 
+def test_the_explanation_does_not_outlive_the_range_it_explains():
+    """The tail explaining "the second range" was keyed on the field existing
+    rather than on the range being printed, so a section holding a single run
+    rendered a sentence explaining a range the reader could not see. A sentence
+    describing evidence that is not there is the same defect as a number without
+    provenance, one layer out."""
+    one = M._confidence_sentence(
+        {"resolved_ci95": [67.9, 77.8], "resolved_runs": M._spread([73.2])})
+    assert "67.9" in one
+    assert "second range" not in one, one
+    many = M._confidence_sentence(
+        {"resolved_ci95": [67.9, 77.8], "resolved_runs": M._spread([68.2, 73.2])})
+    assert "second range" in many
+
+
+def test_the_sampler_docstrings_describe_the_draw_the_page_publishes():
+    """The page prints "drawn uniform random offsets without replacement" beside
+    every rate. A sampler whose own docstring says "evenly-spaced" contradicts a
+    published claim about how the number was made."""
+    import scripts.build_benchmark as B
+    for fn in (B._cama_sample, B._dc_sample, B._dc_condo_sample):
+        doc = (fn.__doc__ or "").lower()
+        assert "evenly" not in doc, f"{fn.__name__}: {doc!r}"
+        assert "random" in doc, f"{fn.__name__}: {doc!r}"
+
+
 def test_a_nested_jurisdiction_renders_under_its_parent_not_beside_it():
     """DC's condominiums are a narrower claim inside DC, not a second city. The
     heading level is the statement; two <h2>s would read as two places."""
