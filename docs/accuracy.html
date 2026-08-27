@@ -142,8 +142,8 @@ that jurisdiction's own assessor record.</p>
 <th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
 <th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
 </tr></thead><tbody>
-<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>2.1%</td><td>93.0%</td><td>22.0</td><td>0.0</td><td>187</td></tr>
-<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>0.0%</td><td>10.7%</td><td>402.1</td><td>250.8</td><td>187</td></tr>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>2.1%</td><td>99.5%</td><td>22.0</td><td>0.0</td><td>187</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>0.0%</td><td>11.8%</td><td>402.1</td><td>245.6</td><td>187</td></tr>
 <tr><td>stories</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
 <tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
 <tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
@@ -152,21 +152,21 @@ that jurisdiction's own assessor record.</p>
 
 <p><strong>Year built, by tolerance.</strong> The single field the rest of the
 construction profile leans on hardest, so the near-misses are worth seeing rather
-than collapsing into one median: within &plusmn;5 years 12.8% of the time at baseline and 94.7% with the assessor; within &plusmn;10 years 29.4% and 95.2%.</p>
+than collapsing into one median: within &plusmn;5 years 12.8% of the time at baseline and 99.5% with the assessor; within &plusmn;10 years 29.4% and 99.5%.</p>
 
 <h4>Does the reader see a different grade?</h4>
 <div class="table-scroll"><table class="data-table"><thead><tr>
 <th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
 </tr></thead><tbody>
-<tr><td>durability</td><td>40.6%</td><td>3.2%</td><td>187</td></tr>
-<tr><td>energy</td><td>44.9%</td><td>15.5%</td><td>187</td></tr>
-<tr><td>resilience</td><td>12.3%</td><td>0.5%</td><td>187</td></tr>
-<tr><td>environmental</td><td>42.8%</td><td>24.6%</td><td>187</td></tr>
-<tr><td>building_axis</td><td>65.8%</td><td>23.0%</td><td>187</td></tr>
+<tr><td>durability</td><td>40.6%</td><td>0.5%</td><td>187</td></tr>
+<tr><td>energy</td><td>44.9%</td><td>14.4%</td><td>187</td></tr>
+<tr><td>resilience</td><td>15.5%</td><td>0.0%</td><td>187</td></tr>
+<tr><td>environmental</td><td>42.8%</td><td>23.0%</td><td>187</td></tr>
+<tr><td>building_axis</td><td>65.8%</td><td>19.8%</td><td>187</td></tr>
 </tbody></table></div>
 
 <p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
-91.6% of the sample. 95% confidence interval 86.8&ndash;94.8% for the draw, and 46.3&ndash;96.3% observed across 3 scorings of these same rows. The second range is not sampling error: it is the same addresses scored again. Every upstream failure here fails open, so a portal having a bad minute is indistinguishable from a county with no record, and it removes rows from the numerator silently.
+97.4% of the sample. 95% confidence interval 94.0&ndash;98.9% for the draw, and 95.8&ndash;97.9% observed across 3 scorings of these same rows. The second range is not sampling error: it is the same addresses scored again. Every upstream failure here fails open, so a portal having a bad minute is indistinguishable from a county with no record, and it removes rows from the numerator silently.
 Drawn uniform random offsets without replacement, seed 20260827 &middot; Benchmark digest
 d00857703ef166cb.</p>
 
