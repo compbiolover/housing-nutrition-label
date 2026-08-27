@@ -1412,6 +1412,55 @@ def test_the_documented_invocations_carry_every_required_argument():
                 assert "--seed" in line, f"{mod.__name__}: {line.strip()!r}"
 
 
+def test_the_cache_walk_reaches_the_caches_that_make_requests():
+    """Replicates are only measurements if each one actually makes its requests.
+    The adapters and the geocoder memoise, so the second scoring of a row answers
+    from memory: the DC condominium benchmark took half an hour on the first run
+    and thirty-eight seconds on the second. A cache replay cannot fail the way a
+    live request can, so a range across such runs describes the cache — and reads
+    as reassuring stability, which is the worst way to be wrong about the number
+    this page exists to qualify."""
+    from housing_label.enrich.assessor import cook_il, dc
+    from housing_label.simulate import location as L
+
+    caches = (dc._lookup_cached, cook_il._lookup_cached, L._geocode_address_cached)
+    for c in caches:
+        c.cache_clear()
+    # Populate without network: lru_cache stores whatever the call returns, and a
+    # refusal is a perfectly good cache entry — which is the point, a cached miss
+    # replays as a miss.
+    dc._lookup_cached(0.0, 0.0, None)
+    cook_il._lookup_cached(0.0, 0.0, None)
+    assert any(c.cache_info().currsize for c in caches), "nothing cached to clear"
+
+    assert M._clear_caches() > 0
+    for c in caches:
+        assert c.cache_info().currsize == 0, c
+
+
+def test_replicates_that_plainly_replayed_a_cache_are_refused():
+    """The check of last resort behind the cache walk, and independent of it: it
+    needs no knowledge of where the caches are, so it still fires if a future one
+    escapes the walk. These are the real numbers from the run that exposed the
+    bug — half an hour, then thirty-eight seconds, then two."""
+    try:
+        M._refuse_cache_replay([1800.0, 38.0, 2.0])
+    except SystemExit as exc:
+        assert "did not repeat the work" in str(exc)
+    else:
+        raise AssertionError("a cache replay was accepted as a replicate")
+
+
+def test_honestly_varying_runtimes_are_not_refused():
+    """Portal latency moves real runs around. A threshold tight enough to catch
+    every replay would refuse honest runs on a slow afternoon — the failure this
+    exists for was three orders of magnitude, not a factor of two."""
+    M._refuse_cache_replay([1800.0, 2400.0, 2100.0])
+    M._refuse_cache_replay([600.0, 900.0])
+    M._refuse_cache_replay([1800.0])      # one run cannot be a replay of anything
+    M._refuse_cache_replay([])
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]

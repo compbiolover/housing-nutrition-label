@@ -258,6 +258,61 @@ def _score_arms(row: dict, juris: str) -> dict | None:
     }
 
 
+def _clear_caches() -> int:
+    """Empty every in-process cache under ``housing_label``. Returns how many.
+
+    Without this, replicates are not measurements. The adapters, the geocoder and
+    the enrichers all memoise on an ``lru_cache``, so the second scoring of a row
+    answers from memory and makes no request at all: the first run of the DC
+    condominium benchmark took half an hour and the second took thirty-eight
+    seconds. A cache replay cannot fail the way a live request can, so the range
+    across such runs measures how well the cache works and nothing else — and it
+    reads as reassuring stability, which is the worst possible way to be wrong
+    about the number this page exists to qualify.
+
+    Found by walking ``sys.modules`` rather than by listing the caches: there are
+    88 of them, a new one is added most rounds, and a list that missed one would
+    silently restore exactly the failure above. Data-file loaders get cleared too
+    and simply re-read from disk — a few seconds against a run measured in hours,
+    and the cost of not having to decide which caches count.
+    """
+    cleared = 0
+    for name, mod in list(sys.modules.items()):
+        if not name.startswith("housing_label"):
+            continue
+        for attr in vars(mod).values():
+            if callable(getattr(attr, "cache_clear", None)) and \
+                    getattr(attr, "cache_info", None):
+                attr.cache_clear()
+                cleared += 1
+    return cleared
+
+
+def _refuse_cache_replay(times: list[float]) -> None:
+    """Stop if the replicates plainly did not repeat the work.
+
+    The check of last resort behind `_clear_caches`, and deliberately independent
+    of it: it needs no knowledge of where the caches are, so it still fires if a
+    future one escapes the walk. A replicate finishing in a fraction of another's
+    time did not make the same requests, and the range across such runs would
+    describe memory rather than the measurement — while looking like unusually
+    good stability.
+
+    A quarter is loose on purpose. Genuine runs vary with portal latency and a
+    threshold tight enough to catch every replay would refuse honest runs on a
+    slow afternoon; the failure this exists for was three orders of magnitude, not
+    a factor of two.
+    """
+    if len(times) < 2 or not max(times):
+        return
+    if min(times) < 0.25 * max(times):
+        raise SystemExit(
+            f"replicate runtimes were {', '.join(f'{t:.0f}s' for t in times)}. A "
+            f"run that fast did not repeat the work, so the range across them "
+            f"would describe caching rather than the measurement. Refusing to "
+            f"publish it.")
+
+
 def _wilson(hits: int, n: int, z: float = 1.959963985) -> list[float] | None:
     """A 95% Wilson interval for a proportion, in percentage points.
 
@@ -1397,10 +1452,25 @@ def main() -> int:
     replicates = []
     for r in range(args.replicates):
         tag = f"[run {r + 1}/{args.replicates}] " if args.replicates > 1 else ""
+        # Before EVERY run, the first included, so the runs are comparable to each
+        # other rather than one cold run and N warm ones.
+        n_cleared = _clear_caches()
+        if args.replicates > 1 and not n_cleared:
+            raise SystemExit(
+                "found no in-process caches to clear, which means this build no "
+                "longer memoises where it used to — or that this walk stopped "
+                "finding them. Either way the replicates below would be cache "
+                "replays reported as independent runs, so the range would "
+                "describe the cache. Fix _clear_caches before publishing a range.")
+        log.debug("%scleared %d caches", tag, n_cleared)
+        started = time.monotonic()
         got = score_once(tag)
+        elapsed = time.monotonic() - started
         pct = round(100 * sum(1 for c in got if c["resolved"]) / len(rows), 1)
-        log.info("%sassessor answered for %.1f%%", tag, pct)
-        replicates.append((pct, got))
+        log.info("%sassessor answered for %.1f%% (%.0fs)", tag, pct, elapsed)
+        replicates.append((pct, got, elapsed))
+
+    _refuse_cache_replay([t for _, _, t in replicates])
 
     # The detailed tables come from ONE run — the median by resolution rate — and
     # the page says so. Averaging field-level rates across repeated scorings of the
@@ -1408,7 +1478,7 @@ def main() -> int:
     # would count each row once per replicate and shrink every interval by a factor
     # the sample never earned.
     replicates.sort(key=lambda t: t[0])
-    resolved_pcts = [pct for pct, _ in replicates]
+    resolved_pcts = [pct for pct, _, _ in replicates]
     cases = replicates[len(replicates) // 2][1]
 
     resolved = sum(1 for c in cases if c["resolved"])
