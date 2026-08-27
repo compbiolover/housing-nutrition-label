@@ -726,13 +726,30 @@ def test_asking_for_more_rows_than_the_table_holds_takes_the_table():
 def test_taking_the_whole_table_does_not_permute_it_first():
     """Asking for the whole table is not a sample. random.sample() would build a
     full permutation of 1.9M offsets and sort it straight back into order — minutes
-    and hundreds of megabytes to compute range(total)."""
-    import time
-    for rows in (500, 600):
-        assert B._draw_offsets(500, rows, 4) == list(range(500))
-    started = time.monotonic()
-    assert B._draw_offsets(1_900_000, 1_900_000, 1) == list(range(1_900_000))
-    assert time.monotonic() - started < 2.0, "the short-circuit is not being taken"
+    and hundreds of megabytes to compute range(total).
+
+    Asserted by forbidding the call rather than by timing it. A wall-clock
+    threshold is the wrong instrument twice over: it is flaky on a loaded runner,
+    and it does not test the property — a slow machine could fail a correct
+    short-circuit while a fast one passed a broken one."""
+    import random as _random
+
+    called, original = [], _random.Random.sample
+
+    def watched(self, population, k):
+        called.append(k)
+        return original(self, population, k)
+
+    _random.Random.sample = watched
+    try:
+        for rows in (500, 600):
+            assert B._draw_offsets(500, rows, 4) == list(range(500))
+        assert not called, f"sample() ran for a whole-table draw: k={called}"
+        # ...and the ordinary case must still go through sample().
+        assert len(B._draw_offsets(500, 40, 4)) == 40
+        assert called == [40], called
+    finally:
+        _random.Random.sample = original
 
 
 def test_a_real_draw_is_still_a_sample_not_the_whole_table():
