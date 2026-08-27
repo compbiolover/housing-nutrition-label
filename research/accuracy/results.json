@@ -1,11 +1,13 @@
 {
-  "generated": "2026-08-25",
+  "generated": "2026-08-27",
   "jurisdictions": {
     "cook": {
       "benchmark": {
         "jurisdiction": "cook",
-        "drawn": 220,
-        "sampled": 220,
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20260827,
+        "drawn": 300,
+        "sampled": 300,
         "dropped": {
           "no_parcel_record": 0,
           "no_address": 0,
@@ -14,134 +16,145 @@
         "source": "Cook County Assessor (Open Data)",
         "scope": "all residential improvement records",
         "assessment_year": "2026",
-        "fetched": "2026-08-25",
-        "rows": 215,
-        "sha256_16": "88604c464be53fb6"
+        "fetched": "2026-08-27",
+        "rows": 297,
+        "sha256_16": "7499209a5504c300"
       },
-      "unscored": 5,
-      "adapter_resolved_pct": 73.2,
+      "unscored": 3,
+      "adapter_resolved_pct": 76.7,
+      "resolved_ci95": [
+        71.6,
+        81.1
+      ],
+      "resolved_runs": {
+        "runs": 3,
+        "min": 75.3,
+        "max": 79.0,
+        "spread": 3.7,
+        "median": 76.7
+      },
       "parcel_mismatches": 0,
       "baseline": {
         "fields": {
           "year_built": {
-            "n": 215,
+            "n": 297,
             "coverage_pct": 100.0,
-            "median_abs_error": 12.0,
-            "exact_pct": 1.4,
-            "within_5yr_pct": 27.4,
-            "within_10yr_pct": 45.6
+            "median_abs_error": 15.0,
+            "exact_pct": 1.0,
+            "within_5yr_pct": 23.9,
+            "within_10yr_pct": 39.7
           },
           "sqft": {
-            "n": 104,
+            "n": 166,
             "coverage_pct": 100.0,
-            "median_abs_error": 234.5,
-            "exact_pct": 24.0,
-            "median_abs_pct_error": 15.8
+            "median_abs_error": 170.5,
+            "exact_pct": 25.9,
+            "median_abs_pct_error": 12.8
           },
           "stories": {
-            "n": 170,
-            "coverage_pct": 71.2,
+            "n": 225,
+            "coverage_pct": 77.8,
             "median_abs_error": 0.0,
-            "exact_pct": 62.0
+            "exact_pct": 61.7
           },
           "construction": {
-            "n": 214,
+            "n": 294,
             "coverage_pct": 100.0,
-            "exact_pct": 45.8
+            "exact_pct": 45.2
           },
           "foundation": {
-            "n": 215,
+            "n": 297,
             "coverage_pct": 100.0,
-            "exact_pct": 44.2
+            "exact_pct": 47.5
           },
           "condition": {
-            "n": 215,
+            "n": 297,
             "coverage_pct": 100.0,
-            "exact_pct": 98.6
+            "exact_pct": 99.7
           }
         },
         "grade_impact": {
           "durability": {
-            "n": 215,
-            "differs_pct": 36.3
+            "n": 297,
+            "differs_pct": 30.0
           },
           "energy": {
-            "n": 215,
-            "differs_pct": 28.4
+            "n": 297,
+            "differs_pct": 30.6
           },
           "resilience": {
-            "n": 215,
-            "differs_pct": 0.9
+            "n": 297,
+            "differs_pct": 1.7
           },
           "environmental": {
-            "n": 215,
-            "differs_pct": 23.3
+            "n": 297,
+            "differs_pct": 28.3
           },
           "building_axis": {
-            "n": 215,
-            "differs_pct": 29.8
+            "n": 297,
+            "differs_pct": 27.9
           }
         }
       },
       "adapter": {
         "fields": {
           "year_built": {
-            "n": 215,
+            "n": 297,
             "coverage_pct": 100.0,
             "median_abs_error": 0.0,
-            "exact_pct": 74.9,
-            "within_5yr_pct": 83.7,
-            "within_10yr_pct": 86.5
+            "exact_pct": 77.8,
+            "within_5yr_pct": 82.5,
+            "within_10yr_pct": 87.2
           },
           "sqft": {
-            "n": 104,
+            "n": 166,
             "coverage_pct": 100.0,
             "median_abs_error": 0.0,
-            "exact_pct": 78.8,
+            "exact_pct": 82.5,
             "median_abs_pct_error": 0.0
           },
           "stories": {
-            "n": 170,
-            "coverage_pct": 93.5,
+            "n": 225,
+            "coverage_pct": 95.1,
             "median_abs_error": 0.0,
-            "exact_pct": 93.1
+            "exact_pct": 93.5
           },
           "construction": {
-            "n": 214,
+            "n": 294,
             "coverage_pct": 100.0,
-            "exact_pct": 85.5
+            "exact_pct": 87.8
           },
           "foundation": {
-            "n": 215,
+            "n": 297,
             "coverage_pct": 100.0,
-            "exact_pct": 86.0
+            "exact_pct": 87.5
           },
           "condition": {
-            "n": 215,
+            "n": 297,
             "coverage_pct": 100.0,
             "exact_pct": 100.0
           }
         },
         "grade_impact": {
           "durability": {
-            "n": 215,
-            "differs_pct": 9.3
+            "n": 297,
+            "differs_pct": 5.7
           },
           "energy": {
-            "n": 215,
-            "differs_pct": 5.6
+            "n": 297,
+            "differs_pct": 5.7
           },
           "resilience": {
-            "n": 215,
-            "differs_pct": 0.9
+            "n": 297,
+            "differs_pct": 0.3
           },
           "environmental": {
-            "n": 215,
-            "differs_pct": 7.0
+            "n": 297,
+            "differs_pct": 7.4
           },
           "building_axis": {
-            "n": 215,
-            "differs_pct": 7.9
+            "n": 297,
+            "differs_pct": 7.1
           }
         }
       }
@@ -149,142 +162,155 @@
     "dc": {
       "benchmark": {
         "jurisdiction": "dc",
-        "drawn": 220,
-        "sampled": 218,
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20260827,
+        "drawn": 200,
+        "sampled": 198,
         "dropped": {
-          "no_parcel_record": 2,
-          "no_address": 0,
+          "no_parcel_record": 1,
+          "no_address": 1,
           "no_year_built": 0
         },
         "source": "DC Office of Tax and Revenue (Open Data)",
         "scope": "non-condominium homes only (condos are ~36% of DC's CAMA stock)",
         "assessment_year": "current",
-        "fetched": "2026-08-25",
-        "rows": 218,
-        "sha256_16": "37c36ab1949c3db2"
+        "fetched": "2026-08-27",
+        "rows": 195,
+        "sha256_16": "8a8d008b3dffaa70"
       },
-      "unscored": 0,
-      "adapter_resolved_pct": 91.3,
+      "unscored": 3,
+      "adapter_resolved_pct": 83.8,
+      "resolved_ci95": [
+        78.1,
+        88.3
+      ],
+      "resolved_runs": {
+        "runs": 3,
+        "min": 73.2,
+        "max": 84.8,
+        "spread": 11.6,
+        "median": 83.8
+      },
       "parcel_mismatches": 0,
       "baseline": {
         "fields": {
           "year_built": {
-            "n": 218,
+            "n": 195,
             "coverage_pct": 100.0,
-            "median_abs_error": 18.5,
-            "exact_pct": 2.8,
-            "within_5yr_pct": 12.4,
-            "within_10yr_pct": 25.2
+            "median_abs_error": 19.0,
+            "exact_pct": 1.5,
+            "within_5yr_pct": 16.9,
+            "within_10yr_pct": 29.2
           },
           "sqft": {
-            "n": 67,
+            "n": 50,
             "coverage_pct": 100.0,
-            "median_abs_error": 298.0,
-            "exact_pct": 10.4,
-            "median_abs_pct_error": 15.7
+            "median_abs_error": 337.0,
+            "exact_pct": 16.0,
+            "median_abs_pct_error": 21.6
           },
           "stories": {
-            "n": 195,
+            "n": 162,
             "coverage_pct": 66.7,
             "median_abs_error": 0.0,
-            "exact_pct": 66.2
+            "exact_pct": 55.6
           },
           "construction": {
-            "n": 209,
+            "n": 189,
             "coverage_pct": 100.0,
-            "exact_pct": 50.2
+            "exact_pct": 48.7
           },
           "foundation": {
             "n": 0,
             "coverage_pct": null
           },
           "condition": {
-            "n": 218,
+            "n": 195,
             "coverage_pct": 100.0,
-            "exact_pct": 40.4
+            "exact_pct": 40.5
           }
         },
         "grade_impact": {
           "durability": {
-            "n": 218,
-            "differs_pct": 50.5
+            "n": 195,
+            "differs_pct": 60.0
           },
           "energy": {
-            "n": 218,
-            "differs_pct": 32.6
+            "n": 195,
+            "differs_pct": 21.0
           },
           "resilience": {
-            "n": 218,
-            "differs_pct": 8.3
+            "n": 195,
+            "differs_pct": 5.1
           },
           "environmental": {
-            "n": 218,
-            "differs_pct": 23.4
+            "n": 195,
+            "differs_pct": 24.1
           },
           "building_axis": {
-            "n": 218,
-            "differs_pct": 60.6
+            "n": 195,
+            "differs_pct": 56.4
           }
         }
       },
       "adapter": {
         "fields": {
           "year_built": {
-            "n": 218,
+            "n": 195,
             "coverage_pct": 100.0,
             "median_abs_error": 0.0,
-            "exact_pct": 91.7,
-            "within_5yr_pct": 92.7,
-            "within_10yr_pct": 94.0
+            "exact_pct": 85.6,
+            "within_5yr_pct": 87.7,
+            "within_10yr_pct": 89.7
           },
           "sqft": {
-            "n": 67,
+            "n": 50,
             "coverage_pct": 100.0,
             "median_abs_error": 0.0,
-            "exact_pct": 92.5,
+            "exact_pct": 92.0,
             "median_abs_pct_error": 0.0
           },
           "stories": {
-            "n": 195,
-            "coverage_pct": 95.4,
+            "n": 162,
+            "coverage_pct": 95.1,
             "median_abs_error": 0.0,
-            "exact_pct": 100.0
+            "exact_pct": 94.2
           },
           "construction": {
-            "n": 209,
+            "n": 189,
             "coverage_pct": 100.0,
-            "exact_pct": 93.8
+            "exact_pct": 92.1
           },
           "foundation": {
             "n": 0,
             "coverage_pct": null
           },
           "condition": {
-            "n": 218,
+            "n": 195,
             "coverage_pct": 100.0,
-            "exact_pct": 95.0
+            "exact_pct": 90.8
           }
         },
         "grade_impact": {
           "durability": {
-            "n": 218,
-            "differs_pct": 4.6
+            "n": 195,
+            "differs_pct": 7.2
           },
           "energy": {
-            "n": 218,
-            "differs_pct": 4.6
+            "n": 195,
+            "differs_pct": 5.6
           },
           "resilience": {
-            "n": 218,
-            "differs_pct": 0.9
+            "n": 195,
+            "differs_pct": 1.0
           },
           "environmental": {
-            "n": 218,
-            "differs_pct": 2.3
+            "n": 195,
+            "differs_pct": 4.1
           },
           "building_axis": {
-            "n": 218,
-            "differs_pct": 5.5
+            "n": 195,
+            "differs_pct": 8.2
           }
         }
       }
@@ -292,39 +318,52 @@
     "dc-condo": {
       "benchmark": {
         "jurisdiction": "dc-condo",
-        "drawn": 220,
-        "sampled": 212,
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20260827,
+        "drawn": 200,
+        "sampled": 190,
         "dropped": {
-          "no_parcel_record": 8,
+          "no_parcel_record": 9,
           "no_address": 0,
-          "no_year_built": 0
+          "no_year_built": 1
         },
         "source": "DC Office of Tax and Revenue (Open Data)",
         "scope": "condominium units only (61,329 of DC's 170,602 CAMA records)",
         "assessment_year": "current",
-        "fetched": "2026-08-25",
-        "rows": 211,
-        "sha256_16": "a9e8366b11ebce95"
+        "fetched": "2026-08-27",
+        "rows": 187,
+        "sha256_16": "d00857703ef166cb"
       },
-      "unscored": 1,
-      "adapter_resolved_pct": 96.7,
+      "unscored": 3,
+      "adapter_resolved_pct": 91.6,
+      "resolved_ci95": [
+        86.8,
+        94.8
+      ],
+      "resolved_runs": {
+        "runs": 3,
+        "min": 46.3,
+        "max": 96.3,
+        "spread": 50.0,
+        "median": 91.6
+      },
       "parcel_mismatches": 0,
       "baseline": {
         "fields": {
           "year_built": {
-            "n": 211,
+            "n": 187,
             "coverage_pct": 100.0,
             "median_abs_error": 22.0,
-            "exact_pct": 1.9,
-            "within_5yr_pct": 17.1,
-            "within_10yr_pct": 28.9
+            "exact_pct": 2.1,
+            "within_5yr_pct": 12.8,
+            "within_10yr_pct": 29.4
           },
           "sqft": {
-            "n": 211,
+            "n": 187,
             "coverage_pct": 100.0,
-            "median_abs_error": 473.2,
+            "median_abs_error": 402.1,
             "exact_pct": 0.0,
-            "median_abs_pct_error": 52.4
+            "median_abs_pct_error": 44.2
           },
           "stories": {
             "n": 0,
@@ -345,43 +384,43 @@
         },
         "grade_impact": {
           "durability": {
-            "n": 211,
-            "differs_pct": 39.3
+            "n": 187,
+            "differs_pct": 40.6
           },
           "energy": {
-            "n": 211,
-            "differs_pct": 45.5
+            "n": 187,
+            "differs_pct": 44.9
           },
           "resilience": {
-            "n": 211,
-            "differs_pct": 14.2
+            "n": 187,
+            "differs_pct": 12.3
           },
           "environmental": {
-            "n": 211,
-            "differs_pct": 44.5
+            "n": 187,
+            "differs_pct": 42.8
           },
           "building_axis": {
-            "n": 211,
-            "differs_pct": 64.5
+            "n": 187,
+            "differs_pct": 65.8
           }
         }
       },
       "adapter": {
         "fields": {
           "year_built": {
-            "n": 211,
+            "n": 187,
             "coverage_pct": 100.0,
             "median_abs_error": 0.0,
-            "exact_pct": 97.6,
-            "within_5yr_pct": 97.6,
-            "within_10yr_pct": 97.6
+            "exact_pct": 93.0,
+            "within_5yr_pct": 94.7,
+            "within_10yr_pct": 95.2
           },
           "sqft": {
-            "n": 211,
+            "n": 187,
             "coverage_pct": 100.0,
-            "median_abs_error": 293.9,
-            "exact_pct": 10.4,
-            "median_abs_pct_error": 38.5
+            "median_abs_error": 250.8,
+            "exact_pct": 10.7,
+            "median_abs_pct_error": 33.8
           },
           "stories": {
             "n": 0,
@@ -402,24 +441,24 @@
         },
         "grade_impact": {
           "durability": {
-            "n": 211,
-            "differs_pct": 0.9
+            "n": 187,
+            "differs_pct": 3.2
           },
           "energy": {
-            "n": 211,
-            "differs_pct": 16.6
+            "n": 187,
+            "differs_pct": 15.5
           },
           "resilience": {
-            "n": 211,
-            "differs_pct": 0.0
+            "n": 187,
+            "differs_pct": 0.5
           },
           "environmental": {
-            "n": 211,
-            "differs_pct": 23.2
+            "n": 187,
+            "differs_pct": 24.6
           },
           "building_axis": {
-            "n": 211,
-            "differs_pct": 23.7
+            "n": 187,
+            "differs_pct": 23.0
           }
         }
       }
