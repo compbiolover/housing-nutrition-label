@@ -9,6 +9,16 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.2.11](https://github.com/compbiolover/housing-nutrition-label/compare/v0.2.10...v0.2.11) (2026-08-27)
+
+
+### Features
+
+* **accuracy:** draw the sample randomly, and publish what the number can claim ([#309](https://github.com/compbiolover/housing-nutrition-label/issues/309)) ([4bb2220](https://github.com/compbiolover/housing-nutrition-label/commit/4bb22202f69245b8242c6f077e250b6718de5456))
+* **accuracy:** measure the condominium path, re-measure Cook, drop the legacy key ([#308](https://github.com/compbiolover/housing-nutrition-label/issues/308)) ([f8167af](https://github.com/compbiolover/housing-nutrition-label/commit/f8167af2278c1ec85ce7d67c071f5268d457b426))
+* **accuracy:** re-measure condominiums under the 8-second ceiling ([#310](https://github.com/compbiolover/housing-nutrition-label/issues/310)) ([41a9bad](https://github.com/compbiolover/housing-nutrition-label/commit/41a9badb655f029537f1ea0c83b5074c0d1007d4))
+* **assessor:** reach DC condominiums, and fix the street type the quadrant hid ([#306](https://github.com/compbiolover/housing-nutrition-label/issues/306)) ([c825e98](https://github.com/compbiolover/housing-nutrition-label/commit/c825e98e9bb095964a0c0b9c91f0fb6811d50317))
+
 ## [0.2.10](https://github.com/compbiolover/housing-nutrition-label/compare/v0.2.9...v0.2.10) (2026-08-25)
 
 
