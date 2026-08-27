@@ -185,8 +185,11 @@ def _draw_offsets(total: int, rows: int, seed: int) -> list[int]:
     The seed is recorded in the benchmark's metadata, so a published figure names
     a draw anyone can reproduce exactly rather than "some 300 parcels".
     """
-    if rows > total:
-        rows = total
+    if rows >= total:
+        # Asking for the whole table is not a sample. random.sample() would build a
+        # full permutation of 1.9M offsets and sort it straight back into order —
+        # minutes and hundreds of megabytes to compute range(total).
+        return list(range(total))
     return sorted(random.Random(seed).sample(range(total), rows))
 
 

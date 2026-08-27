@@ -1449,6 +1449,17 @@ def main() -> int:
     # Replicates score the SAME rows again, which is the point: holding the draw
     # fixed separates run-to-run noise from sampling noise. A fresh draw each time
     # would confound the two and neither could be reported on its own.
+    # Import the scoring path BEFORE the first clear. `_score_arms` imports these
+    # lazily, so in a fresh process the first `_clear_caches()` walks a sys.modules
+    # that does not yet hold them: it clears nothing, reports zero, and the guard
+    # below refuses a run that was about to be perfectly valid. Nothing is cached
+    # yet either, so the clear is a no-op — but the COUNT has to mean what the
+    # guard reads it as. Weakening the guard to tolerate zero would have kept the
+    # symptom and lost the protection.
+    import housing_label.simulate.house  # noqa: F401
+    import housing_label.simulate.location  # noqa: F401
+    from housing_label.enrich.assessor import assessor_for_point  # noqa: F401
+
     replicates = []
     for r in range(args.replicates):
         tag = f"[run {r + 1}/{args.replicates}] " if args.replicates > 1 else ""

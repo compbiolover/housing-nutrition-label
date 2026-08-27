@@ -723,6 +723,24 @@ def test_asking_for_more_rows_than_the_table_holds_takes_the_table():
     assert len(B._draw_offsets(500, 600, 4)) == 500
 
 
+def test_taking_the_whole_table_does_not_permute_it_first():
+    """Asking for the whole table is not a sample. random.sample() would build a
+    full permutation of 1.9M offsets and sort it straight back into order — minutes
+    and hundreds of megabytes to compute range(total)."""
+    import time
+    for rows in (500, 600):
+        assert B._draw_offsets(500, rows, 4) == list(range(500))
+    started = time.monotonic()
+    assert B._draw_offsets(1_900_000, 1_900_000, 1) == list(range(1_900_000))
+    assert time.monotonic() - started < 2.0, "the short-circuit is not being taken"
+
+
+def test_a_real_draw_is_still_a_sample_not_the_whole_table():
+    """The short-circuit must not swallow the ordinary case."""
+    got = B._draw_offsets(1_000_000, 300, 1)
+    assert len(got) == 300 and got != list(range(300))
+
+
 def test_a_build_must_name_its_seed():
     """A default seed would make every build the same draw while looking like a
     fresh one, so replicate draws would be secretly identical."""
