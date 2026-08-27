@@ -45,7 +45,7 @@ verify the published page still matches the committed run (``--check``).
 Each jurisdiction is measured separately and its results merge into the published
 page, so running one never replaces another's numbers.
 
-Run:  python scripts/build_benchmark.py --jurisdiction dc --rows 200
+Run:  python scripts/build_benchmark.py --jurisdiction dc --rows 200 --seed 20260827
       ASSESSOR_ADAPTERS=1 python scripts/measure_accuracy.py --jurisdiction dc
       python scripts/measure_accuracy.py --check
 """
@@ -1239,8 +1239,21 @@ def main() -> int:
     # rewriting what it was asked to inspect.
     no_score = [n for n, on in (("--check", args.check),
                                 ("--render-only", args.render_only)) if on]
+    if args.replicates < 1:
+        # The same rule --rows already carries in the builder, applied to its
+        # neighbour here, and applied before anything is read or scored. Zero
+        # replicates scored nothing and then indexed the empty list for a median
+        # run: an IndexError traceback where this script otherwise states its
+        # refusals. A guard on one argument and not the one beside it is how most
+        # of the findings on this branch got in.
+        raise SystemExit(f"--replicates must be at least 1 (got {args.replicates})")
     scoring = [n for n, on in (("--dry-run", args.dry_run),
                                ("--limit", args.limit is not None),
+                               # A scoring flag like the rest: --check --replicates 3
+                               # would otherwise be accepted and silently ignored,
+                               # which is the failure the whole block exists for and
+                               # which the new flag walked straight past.
+                               ("--replicates", args.replicates != 1),
                                ("--jurisdiction", args.jurisdiction is not None)) if on]
     if len(no_score) > 1:
         raise SystemExit(

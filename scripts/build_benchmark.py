@@ -62,7 +62,7 @@ required — nothing in the scoring path reads them, and DC's parcel source has 
 coordinate columns at all, so requiring them would drop good rows in one
 jurisdiction and describe a different population in the other.
 
-Run:  python scripts/build_benchmark.py --rows 200
+Run:  python scripts/build_benchmark.py --rows 200 --seed 20260827
 """
 
 from __future__ import annotations

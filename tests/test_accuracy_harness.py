@@ -1367,6 +1367,51 @@ def test_the_publication_order_puts_every_parent_before_its_children():
             assert parent in J, f"{key} names an unregistered parent {parent!r}"
 
 
+def test_a_replicate_count_below_one_is_refused_not_crashed_on():
+    """Zero replicates scored nothing and then indexed the empty list for a median
+    run — an IndexError where this script otherwise states its refusals."""
+    for bad in (0, -1, -3):
+        argv = sys.argv
+        sys.argv = ["measure_accuracy.py", "--replicates", str(bad), "--dry-run"]
+        try:
+            M.main()
+        except SystemExit as exc:
+            assert "--replicates must be at least 1" in str(exc), (bad, str(exc))
+        except IndexError:  # pragma: no cover - the defect this pins
+            raise AssertionError(f"--replicates {bad} crashed instead of refusing")
+        else:
+            raise AssertionError(f"--replicates {bad} was accepted")
+        finally:
+            sys.argv = argv
+
+
+def test_every_scoring_flag_is_refused_beside_a_mode_that_scores_nothing():
+    """--check and --render-only score nothing, so a scoring flag beside either is
+    accepted and silently ignored — the caller believes it took effect. The rule
+    predates --replicates, and --replicates walked straight past it."""
+    for mode in ("--check", "--render-only"):
+        argv = sys.argv
+        sys.argv = ["measure_accuracy.py", mode, "--replicates", "3"]
+        try:
+            M.main()
+        except SystemExit as exc:
+            assert "--replicates" in str(exc) and "ignored" in str(exc), str(exc)
+        else:
+            raise AssertionError(f"{mode} --replicates 3 was accepted")
+        finally:
+            sys.argv = argv
+
+
+def test_the_documented_invocations_carry_every_required_argument():
+    """Both module docstrings print a Run: line to copy. The builder now requires a
+    seed, so a line without one fails at argparse for anyone following it."""
+    import scripts.build_benchmark as B
+    for mod in (B, M):
+        for line in (mod.__doc__ or "").splitlines():
+            if "build_benchmark.py" in line and "python" in line:
+                assert "--seed" in line, f"{mod.__name__}: {line.strip()!r}"
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items())
            if k.startswith("test_") and callable(v)]
