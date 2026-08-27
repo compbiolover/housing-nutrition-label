@@ -19,6 +19,7 @@ from __future__ import annotations
 import os
 import pathlib
 import sys
+import time
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
 for _p in (_ROOT, _ROOT / "src"):
@@ -410,14 +411,28 @@ def test_normalising_the_street_type_did_not_swallow_the_quadrant():
     assert address_key("2123 California St NW", dc._LOCALITY)[1][-1] == "nw"
 
 
-def test_the_condo_fallback_spends_the_same_budget_not_a_second_one():
-    """Four hops now sit behind one lookup. They share the parcel path's deadline, so
-    a condo address cannot cost twice the adapter's timeout on a host that allows
-    twelve seconds for the whole label."""
+def test_the_condo_fallback_extends_the_ceiling_rather_than_adding_a_second_one():
+    """Four hops behind one lookup, and the condominium half gets a later deadline
+    than the parcel half — measured from the SAME start, so a condo address is
+    bounded by CONDO_TIMEOUT and not by TIMEOUT plus CONDO_TIMEOUT.
+
+    The distinction is the whole safety property. Handing the fallback a fresh
+    budget would let a slow portal hold the label for twelve seconds on a host that
+    allows twelve for every upstream combined; extending the ceiling costs the
+    difference and nothing more."""
+    from housing_label.enrich.assessor._shared import TIMEOUT
     seen = []
+    # The parcel hops must COST something, or a budget that restarts the clock
+    # after them is indistinguishable from one that does not: with an instant stub
+    # both produce the same deadline, and the additive version passes. This is the
+    # difference the test exists to see, so it has to be larger than the tolerance
+    # below.
+    parcel_cost = 0.8
 
     def fake(url, params, deadline):
         seen.append(deadline)
+        if url in (dc.PARCEL_URL, dc.CAMA_URL):
+            time.sleep(parcel_cost)
         rows = {dc.PARCEL_URL: [], dc.CAMA_URL: [], dc.UNITS_URL: [_UNIT_ROW],
                 dc.CONDO_CAMA_URL: [_CONDO_CAMA]}[url]
         return {"features": [{"attributes": a} for a in rows]}
@@ -431,7 +446,45 @@ def test_the_condo_fallback_spends_the_same_budget_not_a_second_one():
         dc.get_json, _shared.get_json = saved
         dc._lookup_cached.cache_clear()
     assert len(seen) > 1
-    assert len(set(seen)) == 1, seen
+    # Two distinct deadlines: the parcel hops, then the condominium hops.
+    assert len(set(seen)) == 2, seen
+    parcel, condo = min(seen), max(seen)
+    # Tolerance well under `parcel_cost`, so a budget restarted after the parcel
+    # path shows up as a violation rather than as slack.
+    tol = parcel_cost / 2
+    span = condo - parcel
+    assert abs(span - (dc.CONDO_TIMEOUT - TIMEOUT)) < tol, span
+    # The ceiling, not a second budget: everything finishes within CONDO_TIMEOUT of
+    # the parcel path's own start, which is `parcel - TIMEOUT`.
+    assert (condo - (parcel - TIMEOUT)) <= dc.CONDO_TIMEOUT + tol
+    assert dc.CONDO_TIMEOUT < 12, "must stay under the host's per-call allowance"
+
+
+def test_a_house_still_gets_the_ordinary_budget():
+    """The longer ceiling is for the path that needs it. A house answers from the
+    parcel record and returns before the fallback, so it must never see the
+    condominium deadline — this buys the condo path headroom without spending
+    anyone else's."""
+    from housing_label.enrich.assessor._shared import TIMEOUT
+    seen = []
+
+    def fake(url, params, deadline):
+        seen.append(deadline)
+        rows = {dc.PARCEL_URL: [_PARCEL], dc.CAMA_URL: [_CAMA],
+                dc.UNITS_URL: [], dc.CONDO_CAMA_URL: []}[url]
+        return {"features": [{"attributes": a} for a in rows]}
+
+    dc._lookup_cached.cache_clear()
+    saved = (dc.get_json, _shared.get_json)
+    dc.get_json, _shared.get_json = fake, fake
+    try:
+        started = time.monotonic()
+        assert dc.lookup(38.9347, -77.0665, "3401 Newark St NW") is not None
+    finally:
+        dc.get_json, _shared.get_json = saved
+        dc._lookup_cached.cache_clear()
+    assert seen, "no request was made"
+    assert max(seen) - started <= TIMEOUT + 0.5, (max(seen) - started, TIMEOUT)
 
 # --- the unit has to survive the geocoder ---------------------------------------
 #

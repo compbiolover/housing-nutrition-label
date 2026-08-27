@@ -73,11 +73,12 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from functools import lru_cache
 
 from housing_label.enrich.assessor._shared import (
-    address_key, arcgis_parcels, cache_bucket, deadline_from, get_json, num,
-    same_address, select_parcel, strip_unit, unit_of,
+    TIMEOUT, address_key, arcgis_parcels, cache_bucket, deadline_from, get_json,
+    num, same_address, select_parcel, strip_unit, unit_of,
 )
 from housing_label.enrich.assessor.base import AssessorRecord
 
@@ -218,6 +219,30 @@ def _characteristics(ssl: str, *, deadline: float | None = None) -> dict | None:
 # unit's own CONDO_SSL. So the lookup is address-driven rather than point-driven —
 # the unit number the reader typed is the only thing that can identify their home,
 # and it has to come from them.
+#: The ceiling for a lookup that falls through to the condominium tables, measured
+#: from the same start as the parcel path rather than added to it — so a condo
+#: address is bounded by this number, not by TIMEOUT plus this number.
+#:
+#: Four hops where a house makes two, and the first two go to the parcel polygons,
+#: which cannot hold a unit's SSL: 1.24 s per lookup, spent proving the address is
+#: not a house. Under the shared 4 s that left the condominium half working inside
+#: what remained, and the deadline — not the District's records — decided the
+#: answer. Every overrun fails open, so a portal having a slow minute reads as a
+#: unit DC has no record for, silently. It is what put a 46.3% run beside a 96.3%
+#: one in the published range.
+#:
+#: 8 s from a measured distribution rather than a guess. With the cap lifted, 80
+#: condominium lookups resolved 80/80: median 2.63 s, p95 3.36 s, slowest 6.71 s.
+#: A 4 s budget cuts off 2 of those 80; 7 s cuts off none. 8 s clears the observed
+#: worst case with room and still sits a third under the host's 12 s allowance for
+#: a single upstream call.
+#:
+#: Only a condominium address can reach it. A house answers from the parcel path
+#: and returns before the fallback, so the houses and Cook keep the 4 s budget
+#: exactly — this buys the condominium path headroom without spending anyone
+#: else's.
+CONDO_TIMEOUT = 8.0
+
 UNITS_URL = f"{_BASE}/68/query"
 CONDO_CAMA_URL = f"{_BASE}/24/query"
 _UNITS_FIELDS = "PRIMARY_ADDRESS,UNIT_NUMBER,CONDO_SSL"
@@ -389,11 +414,11 @@ def _lookup_cached(lat: float, lon: float, address: str | None,
     condo address looks like from the parcel layer. Nothing an existing caller
     already gets can change shape.
     """
-    deadline = deadline_from(None)
-    record = _residential_record(lat, lon, address, deadline=deadline)
+    started = time.monotonic()
+    record = _residential_record(lat, lon, address, deadline=started + TIMEOUT)
     if record is not None:
         return record
-    return _condo_record(address, deadline=deadline)
+    return _condo_record(address, deadline=started + CONDO_TIMEOUT)
 
 
 def lookup(lat: float, lon: float, address: str | None = None) -> AssessorRecord | None:

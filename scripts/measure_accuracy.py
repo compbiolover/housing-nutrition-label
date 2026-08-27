@@ -45,7 +45,7 @@ verify the published page still matches the committed run (``--check``).
 Each jurisdiction is measured separately and its results merge into the published
 page, so running one never replaces another's numbers.
 
-Run:  python scripts/build_benchmark.py --jurisdiction dc --rows 200
+Run:  python scripts/build_benchmark.py --jurisdiction dc --rows 200 --seed 20260827
       ASSESSOR_ADAPTERS=1 python scripts/measure_accuracy.py --jurisdiction dc
       python scripts/measure_accuracy.py --check
 """
@@ -61,6 +61,7 @@ import dataclasses
 import html
 import json
 import logging
+import math
 import os
 import pathlib
 import statistics
@@ -84,7 +85,7 @@ for _p in (_ROOT, _ROOT / "src"):
 from housing_label.legal import DISCLAIMER  # noqa: E402
 # The display names, derived from the registry build_benchmark.py draws from,
 # so a third adapter cannot be accepted by one script and unknown to the other.
-from scripts.jurisdictions import JURISDICTIONS, LABELS  # noqa: E402
+from scripts.jurisdictions import JURISDICTIONS, LABELS, ordered  # noqa: E402
 # The brand navy, read from the constant the favicons are actually drawn from
 # rather than copied as a literal — test_icons already pins that constant against
 # the CSS variable, so importing it puts this page inside the same guard instead
@@ -257,6 +258,102 @@ def _score_arms(row: dict, juris: str) -> dict | None:
     }
 
 
+def _clear_caches() -> int:
+    """Empty every in-process cache under ``housing_label``. Returns how many.
+
+    Without this, replicates are not measurements. The adapters, the geocoder and
+    the enrichers all memoise on an ``lru_cache``, so the second scoring of a row
+    answers from memory and makes no request at all: the first run of the DC
+    condominium benchmark took half an hour and the second took thirty-eight
+    seconds. A cache replay cannot fail the way a live request can, so the range
+    across such runs measures how well the cache works and nothing else — and it
+    reads as reassuring stability, which is the worst possible way to be wrong
+    about the number this page exists to qualify.
+
+    Found by walking ``sys.modules`` rather than by listing the caches: there are
+    88 of them, a new one is added most rounds, and a list that missed one would
+    silently restore exactly the failure above. Data-file loaders get cleared too
+    and simply re-read from disk — a few seconds against a run measured in hours,
+    and the cost of not having to decide which caches count.
+    """
+    cleared = 0
+    for name, mod in list(sys.modules.items()):
+        if not name.startswith("housing_label"):
+            continue
+        for attr in vars(mod).values():
+            if callable(getattr(attr, "cache_clear", None)) and \
+                    getattr(attr, "cache_info", None):
+                attr.cache_clear()
+                cleared += 1
+    return cleared
+
+
+def _refuse_cache_replay(times: list[float]) -> None:
+    """Stop if the replicates plainly did not repeat the work.
+
+    The check of last resort behind `_clear_caches`, and deliberately independent
+    of it: it needs no knowledge of where the caches are, so it still fires if a
+    future one escapes the walk. A replicate finishing in a fraction of another's
+    time did not make the same requests, and the range across such runs would
+    describe memory rather than the measurement — while looking like unusually
+    good stability.
+
+    A quarter is loose on purpose. Genuine runs vary with portal latency and a
+    threshold tight enough to catch every replay would refuse honest runs on a
+    slow afternoon; the failure this exists for was three orders of magnitude, not
+    a factor of two.
+    """
+    if len(times) < 2 or not max(times):
+        return
+    if min(times) < 0.25 * max(times):
+        raise SystemExit(
+            f"replicate runtimes were {', '.join(f'{t:.0f}s' for t in times)}. A "
+            f"run that fast did not repeat the work, so the range across them "
+            f"would describe caching rather than the measurement. Refusing to "
+            f"publish it.")
+
+
+def _wilson(hits: int, n: int, z: float = 1.959963985) -> list[float] | None:
+    """A 95% Wilson interval for a proportion, in percentage points.
+
+    Wilson rather than the textbook normal interval: at the rates these adapters
+    reach — DC condominiums answer for about 97% — the normal interval runs past
+    100%, and an accuracy page that prints an upper bound of 101% has discredited
+    itself before anyone reads the number.
+
+    This covers the SAMPLING half of the uncertainty only: how much the rate could
+    move because these particular rows were drawn rather than others. It assumes
+    each row is an independent draw, which the random sampler now makes true. It
+    says nothing about the run-to-run half — see `_spread`.
+    """
+    if n <= 0:
+        return None
+    p, z2 = hits / n, z * z
+    centre = (p + z2 / (2 * n)) / (1 + z2 / n)
+    half = (z / (1 + z2 / n)) * math.sqrt(p * (1 - p) / n + z2 / (4 * n * n))
+    return [round(100 * max(0.0, centre - half), 1), round(100 * min(1.0, centre + half), 1)]
+
+
+def _spread(values: list[float]) -> dict | None:
+    """What repeated scorings of the SAME rows actually did.
+
+    The other half of the uncertainty, and the half no formula produces. Every
+    upstream failure in this pipeline fails open — a timeout is indistinguishable
+    from a county with no record — so a portal having a bad minute removes rows
+    from the numerator and nothing says so. Scoring one benchmark twice moved the
+    Cook rate five points, which is far more than an independent per-request
+    failure rate could produce, so the misses arrive in bursts rather than one
+    roll per row. Bursts do not shrink when the sample grows, which is exactly why
+    this is measured by repetition instead of derived from n.
+    """
+    if not values:
+        return None
+    lo, hi = min(values), max(values)
+    return {"runs": len(values), "min": round(lo, 1), "max": round(hi, 1),
+            "spread": round(hi - lo, 1),
+            "median": round(statistics.median(values), 1)}
+
+
 def _summarise(cases: list[dict], arm: str) -> dict:
     """Field error and grade impact for one arm."""
     out: dict = {"fields": {}, "grade_impact": {}}
@@ -332,10 +429,19 @@ def _mismatch_note(results: dict) -> str:
 #: "were not in the parcel layer" is deliberately weaker than "had no address on
 #: file": the layer held no record at all, so what the assessor documents about
 #: those parcels was never observed by this build.
+#: (singular, plural) for each reason. Two forms rather than one, because the page
+#: prints whatever the count happens to be and "1 were not in the parcel layer"
+#: went out on it. A template with no singular is not a wording preference; it is a
+#: sentence that is wrong for every count of one, and one is the commonest count
+#: above zero. Both forms are stored for every reason so a new one cannot inherit
+#: the plural alone.
 _DROP_REASONS = {
-    "no_parcel_record": "{} were not in the parcel layer",
-    "no_address": "{} had no address on file",
-    "no_year_built": "{} had no usable year built",
+    "no_parcel_record": ("{} was not in the parcel layer",
+                         "{} were not in the parcel layer"),
+    "no_address": ("{} had no address on file",
+                   "{} had no address on file"),
+    "no_year_built": ("{} had no usable year built",
+                      "{} had no usable year built"),
 }
 
 #: The counters are shared; what they MEAN is not. Cook and DC's residential path
@@ -348,13 +454,15 @@ _DROP_REASONS = {
 #: exists to avoid, arriving through the one field that looked jurisdiction-free.
 _DROP_WORDING = {
     "dc-condo": {
-        "no_parcel_record": "{} had no active unit record to place them",
-        "no_address": "{} had a unit record carrying no address or unit number",
+        "no_parcel_record": ("{} had no active unit record to place it",
+                             "{} had no active unit record to place them"),
+        "no_address": ("{} had a unit record carrying no address or unit number",
+                       "{} had unit records carrying no address or unit number"),
     },
 }
 
 
-def _drop_reasons(juris: str | None) -> dict[str, str]:
+def _drop_reasons(juris: str | None) -> dict[str, tuple[str, str]]:
     """The wording for this jurisdiction, over exactly the shared set of reasons.
 
     Built from `_DROP_REASONS`' keys rather than merged into them, so an override
@@ -394,7 +502,8 @@ def _ungradeable_note(m: dict) -> str:
     # written to prevent under-reporting, and it stays impossible only if the
     # rendered set and the summed set are the same object.
     reasons = _drop_reasons(m.get("jurisdiction"))
-    parts = [tmpl.format(n) for key, tmpl in reasons.items() if (n := d.get(key))]
+    parts = [forms[0 if n == 1 else 1].format(n)
+             for key, forms in reasons.items() if (n := d.get(key))]
     named = sum(n for key in reasons if isinstance(n := d.get(key), int))
     if parts and named == gap:
         return f" Drawn from {drawn} assessor rows; {', '.join(parts)}."
@@ -461,8 +570,61 @@ can pick one unit out of a building. The DC figures therefore describe non-condo
 homes, and the adapter returns nothing for a condo rather than guessing.</li>"""
 
 
-def _section(key: str, data: dict) -> str:
-    """One jurisdiction's numbers. The page carries one of these per adapter."""
+def _draw_sentence(m: dict) -> str:
+    """How the rows were chosen, when the builder recorded it.
+
+    Silent rather than "unrecorded" when it did not. A benchmark built before the
+    sampler took a seed genuinely has nothing to say here, and printing the word
+    twice in one sentence reads as a rendering fault rather than as a fact about
+    the file.
+    """
+    method, seed = m.get("draw_method"), m.get("seed")
+    if not method or seed is None:
+        return ""
+    return f"Drawn {html.escape(str(method))}, seed {html.escape(str(seed))} &middot; "
+
+
+def _confidence_sentence(data: dict) -> str:
+    """How far the headline rate could move, from both causes, or "" if unmeasured.
+
+    Two intervals, never merged into one. They answer different questions and a
+    reader who is told only their sum cannot tell which one to attack: a wide
+    sampling interval is fixed by drawing more rows, a wide run-to-run range is
+    fixed upstream and not by any amount of sampling.
+    """
+    parts = []
+    ci = data.get("resolved_ci95")
+    if ci:
+        parts.append(f"95% confidence interval {ci[0]}&ndash;{ci[1]}% for the draw")
+    runs = data.get("resolved_runs")
+    # Whether the range was PRINTED, not whether the field exists. Keying the tail
+    # on the field alone explained a "second range" that a one-run section never
+    # showed — the sentence describing the evidence outliving the evidence, which
+    # is the failure mode this page keeps producing in new places.
+    showed_range = bool(runs and runs.get("runs", 0) > 1)
+    if showed_range:
+        parts.append(
+            f"and {runs['min']}&ndash;{runs['max']}% observed across "
+            f"{runs['runs']} scorings of these same rows")
+    if not parts:
+        return ""
+    tail = (" The second range is not sampling error: it is the same addresses "
+            "scored again. Every upstream failure here fails open, so a portal "
+            "having a bad minute is indistinguishable from a county with no "
+            "record, and it removes rows from the numerator silently."
+            if showed_range else "")
+    return f" {', '.join(parts)}.{tail}"
+
+
+def _section(key: str, data: dict, *, depth: int = 0) -> str:
+    """One jurisdiction's numbers.
+
+    `depth` nests a jurisdiction under its parent — DC's condominiums are a
+    narrower claim inside DC, not a second city — by shifting every heading down
+    one level rather than by rendering a different template. One template means the
+    two cannot drift apart, which matters more here than the markup does.
+    """
+    h_top, h_sub = f"h{2 + depth}", f"h{3 + depth}"
     m = data["benchmark"]
     rows_f, rows_g = [], []
     for f in FIELDS:
@@ -486,7 +648,7 @@ def _section(key: str, data: dict) -> str:
     scope = m.get("scope")
     scope_html = (f" Scope: {html.escape(scope)}." if scope else "")
     return f"""
-<h2 id="{html.escape(key)}">{html.escape(LABELS.get(key, key))}</h2>
+<{h_top} id="{html.escape(key)}">{html.escape(LABELS.get(key, key))}</{h_top}>
 
 <p><strong>Method.</strong> {m.get('sampled', m['rows'])} addresses sampled across
 {html.escape(m['source'])} (assessment year {html.escape(str(m['assessment_year']))},
@@ -494,7 +656,7 @@ fetched {html.escape(m['fetched'])}){_unscored_note(data)}.{scope_html}{_ungrade
 from the address alone, with no construction details supplied, and compared against
 that jurisdiction's own assessor record.</p>
 
-<h3>Field accuracy</h3>
+<{h_sub}>Field accuracy</{h_sub}>
 <div class="table-scroll"><table class="data-table"><thead><tr>
 <th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
 <th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
@@ -507,7 +669,7 @@ that jurisdiction's own assessor record.</p>
 construction profile leans on hardest, so the near-misses are worth seeing rather
 than collapsing into one median: {_tolerance_sentence(data)}</p>
 
-<h3>Does the reader see a different grade?</h3>
+<{h_sub}>Does the reader see a different grade?</{h_sub}>
 <div class="table-scroll"><table class="data-table"><thead><tr>
 <th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
 </tr></thead><tbody>
@@ -515,14 +677,17 @@ than collapsing into one median: {_tolerance_sentence(data)}</p>
 </tbody></table></div>
 
 <p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
-{data['adapter_resolved_pct']}% of the sample{_mismatch_note(data)} &middot; benchmark
-digest {html.escape(m.get('sha256_16') or 'unrecorded')}.</p>
+{data['adapter_resolved_pct']}% of the sample{_mismatch_note(data)}.{_confidence_sentence(data)}
+{_draw_sentence(m)}Benchmark digest
+{html.escape(m.get('sha256_16') or 'unrecorded')}.</p>
 """
 
 
 def _render(results: dict) -> str:
     juris = as_jurisdictions(results)
-    sections = "\n".join(_section(k, juris[k]) for k in sorted(juris))
+    sections = "\n".join(
+        _section(k, juris[k], depth=1 if JURISDICTIONS.get(k, {}).get("parent") else 0)
+        for k in ordered() if k in juris)
     measured = ", ".join(LABELS.get(k, k) for k in sorted(juris))
 
     # The site-wide head block and the disclaimer are not decoration: two tests
@@ -1123,6 +1288,9 @@ def main() -> int:
     # accepted-and-ignored list: --check --jurisdiction dc reads exactly the same
     # committed results as --check, and reports success as though it had checked
     # something narrower.
+    ap.add_argument("--replicates", type=int, default=1, metavar="N",
+                    help="score the benchmark N times and publish the observed "
+                         "range as well as the point estimate (default 1)")
     ap.add_argument("--jurisdiction", choices=sorted(LABELS), default=None,
                     help="which benchmark to score (default cook)")
     args = ap.parse_args()
@@ -1138,8 +1306,21 @@ def main() -> int:
     # rewriting what it was asked to inspect.
     no_score = [n for n, on in (("--check", args.check),
                                 ("--render-only", args.render_only)) if on]
+    if args.replicates < 1:
+        # The same rule --rows already carries in the builder, applied to its
+        # neighbour here, and applied before anything is read or scored. Zero
+        # replicates scored nothing and then indexed the empty list for a median
+        # run: an IndexError traceback where this script otherwise states its
+        # refusals. A guard on one argument and not the one beside it is how most
+        # of the findings on this branch got in.
+        raise SystemExit(f"--replicates must be at least 1 (got {args.replicates})")
     scoring = [n for n, on in (("--dry-run", args.dry_run),
                                ("--limit", args.limit is not None),
+                               # A scoring flag like the rest: --check --replicates 3
+                               # would otherwise be accepted and silently ignored,
+                               # which is the failure the whole block exists for and
+                               # which the new flag walked straight past.
+                               ("--replicates", args.replicates != 1),
                                ("--jurisdiction", args.jurisdiction is not None)) if on]
     if len(no_score) > 1:
         raise SystemExit(
@@ -1264,15 +1445,64 @@ def main() -> int:
                 "result without writing.")
         rows = rows[:args.limit]
 
-    cases = []
-    for i, row in enumerate(rows, 1):
-        case = _score_arms(row, juris)
-        if case is not None:
-            cases.append(case)
-        if i % 10 == 0 or i == len(rows):
-            log.info("scored %d/%d (%d usable)", i, len(rows), len(cases))
-    if not cases:
-        raise SystemExit("no address scored — refusing to publish an empty measurement")
+    def score_once(label: str) -> list[dict]:
+        out = []
+        for i, row in enumerate(rows, 1):
+            case = _score_arms(row, juris)
+            if case is not None:
+                out.append(case)
+            if i % 10 == 0 or i == len(rows):
+                log.info("%sscored %d/%d (%d usable)", label, i, len(rows), len(out))
+        if not out:
+            raise SystemExit(
+                "no address scored — refusing to publish an empty measurement")
+        return out
+
+    # Replicates score the SAME rows again, which is the point: holding the draw
+    # fixed separates run-to-run noise from sampling noise. A fresh draw each time
+    # would confound the two and neither could be reported on its own.
+    # Import the scoring path BEFORE the first clear. `_score_arms` imports these
+    # lazily, so in a fresh process the first `_clear_caches()` walks a sys.modules
+    # that does not yet hold them: it clears nothing, reports zero, and the guard
+    # below refuses a run that was about to be perfectly valid. Nothing is cached
+    # yet either, so the clear is a no-op — but the COUNT has to mean what the
+    # guard reads it as. Weakening the guard to tolerate zero would have kept the
+    # symptom and lost the protection.
+    import housing_label.simulate.house  # noqa: F401
+    import housing_label.simulate.location  # noqa: F401
+    from housing_label.enrich.assessor import assessor_for_point  # noqa: F401
+
+    replicates = []
+    for r in range(args.replicates):
+        tag = f"[run {r + 1}/{args.replicates}] " if args.replicates > 1 else ""
+        # Before EVERY run, the first included, so the runs are comparable to each
+        # other rather than one cold run and N warm ones.
+        n_cleared = _clear_caches()
+        if args.replicates > 1 and not n_cleared:
+            raise SystemExit(
+                "found no in-process caches to clear, which means this build no "
+                "longer memoises where it used to — or that this walk stopped "
+                "finding them. Either way the replicates below would be cache "
+                "replays reported as independent runs, so the range would "
+                "describe the cache. Fix _clear_caches before publishing a range.")
+        log.debug("%scleared %d caches", tag, n_cleared)
+        started = time.monotonic()
+        got = score_once(tag)
+        elapsed = time.monotonic() - started
+        pct = round(100 * sum(1 for c in got if c["resolved"]) / len(rows), 1)
+        log.info("%sassessor answered for %.1f%% (%.0fs)", tag, pct, elapsed)
+        replicates.append((pct, got, elapsed))
+
+    _refuse_cache_replay([t for _, _, t in replicates])
+
+    # The detailed tables come from ONE run — the median by resolution rate — and
+    # the page says so. Averaging field-level rates across repeated scorings of the
+    # same rows would present a number no single run produced, and pooling them
+    # would count each row once per replicate and shrink every interval by a factor
+    # the sample never earned.
+    replicates.sort(key=lambda t: t[0])
+    resolved_pcts = [pct for pct, _, _ in replicates]
+    cases = replicates[len(replicates) // 2][1]
 
     resolved = sum(1 for c in cases if c["resolved"])
     mismatched = sum(1 for c in cases if c.get("parcel_mismatch"))
@@ -1296,6 +1526,14 @@ def main() -> int:
         # raise it. It is published as end-to-end coverage, so it is measured
         # that way.
         "adapter_resolved_pct": round(100 * resolved / len(rows), 1),
+        # The sampling half: how far the rate could move because these rows were
+        # drawn rather than others. Valid only because the draw is random — see
+        # `_draw_offsets` in the builder.
+        "resolved_ci95": _wilson(resolved, len(rows)),
+        # The run-to-run half, present only when it was actually measured. A
+        # single run cannot report a spread, and inventing one from the interval
+        # above would dress the sampling half up as the whole.
+        "resolved_runs": _spread(resolved_pcts) if len(resolved_pcts) > 1 else None,
         # Named for the parcel, not for Cook's PIN: DC's identifier is an SSL and
         # a Cook-specific key in a cross-jurisdiction schema misleads whoever reads
         # it next. The `pin_mismatches` fallback that let a pre-rename measurement

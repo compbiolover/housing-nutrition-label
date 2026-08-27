@@ -45,6 +45,9 @@ for _p in (_ROOT, _ROOT / "src"):
 
 import scripts.build_benchmark as B  # noqa: E402
 
+#: Any fixed value. These tests assert refusals and shapes, never the draw.
+SEED = 20260825
+
 
 @contextlib.contextmanager
 def _fetching(fn):
@@ -152,7 +155,7 @@ def test_a_cook_row_with_no_pin_is_an_offset_that_did_not_answer():
     """A PIN is how a sampled row is looked up. A row without one cannot enter
     the draw, so it is the portal failing — not a parcel that has no PIN."""
     with _fetching(_cook_portal(lambda off: {"pin": ""})):
-        msg = _refuses(lambda: B._cama_sample("2024", 3))
+        msg = _refuses(lambda: B._cama_sample("2024", 3, SEED))
     assert "never answered" in msg, msg
 
 
@@ -165,7 +168,7 @@ def test_a_cook_offset_that_recovers_on_retry_is_not_fatal():
         return None if tries[off] == 1 else {"pin": str(off).zfill(14)}
 
     with _fetching(_cook_portal(pin)):
-        cards, draw = B._cama_sample("2024", 3)
+        cards, draw = B._cama_sample("2024", 3, SEED)
     assert draw["attempted"] == 3, draw
     assert all(n == 2 for n in tries.values()), tries
 
@@ -174,7 +177,7 @@ def test_a_repeated_cook_pin_is_deduplicated_not_retried():
     """The table has a row per card, so two offsets can land on one parcel. That
     is the intended collapse, and must not read as an offset that failed."""
     with _fetching(_cook_portal(lambda off: {"pin": "1" * 14})):
-        cards, draw = B._cama_sample("2024", 3)
+        cards, draw = B._cama_sample("2024", 3, SEED)
     assert draw["attempted"] == 1, draw
 
 
@@ -189,7 +192,7 @@ def _dc_portal(attrs_for_offset):
 
 def test_a_dc_row_with_no_ssl_is_an_offset_that_did_not_answer():
     with _fetching(_dc_portal(lambda off: {"SSL": "  ", "AYB": 1920})):
-        msg = _refuses(lambda: B._dc_sample(3))
+        msg = _refuses(lambda: B._dc_sample(3, SEED))
     assert "never answered" in msg, msg
 
 
@@ -201,7 +204,7 @@ def test_a_dc_offset_that_recovers_on_retry_is_not_fatal():
         return None if tries[off] == 1 else {"SSL": f"{off} 0001", "AYB": 1920}
 
     with _fetching(_dc_portal(attrs)):
-        rows, draw = B._dc_sample(3)
+        rows, draw = B._dc_sample(3, SEED)
     assert draw["attempted"] == 3, draw
 
 
@@ -209,9 +212,9 @@ def test_both_samplers_refuse_the_same_answers():
     """The two have drifted apart twice — once on an empty 200, once on a row
     with no identifier — and each time one jurisdiction quietly tolerated what
     the other rejected. Pin the parity rather than the two behaviours."""
-    cook = (_cook_portal, lambda: B._cama_sample("2024", 2),
+    cook = (_cook_portal, lambda: B._cama_sample("2024", 2, SEED),
             {"nothing": lambda off: None, "no identifier": lambda off: {"pin": ""}})
-    dc = (_dc_portal, lambda: B._dc_sample(2),
+    dc = (_dc_portal, lambda: B._dc_sample(2, SEED),
           {"nothing": lambda off: None, "no identifier": lambda off: {"SSL": ""}})
     for portal, build, answers in (cook, dc):
         for kind, answer in answers.items():
@@ -379,7 +382,7 @@ def test_a_paged_offset_read_is_not_a_truncated_batch():
         return body
 
     with _fetching(fetch):
-        rows, draw = B._dc_sample(2)
+        rows, draw = B._dc_sample(2, SEED)
     assert draw["attempted"] == 1, draw
 
     # ...while the batch helper must still refuse exactly that response.
@@ -434,7 +437,7 @@ def test_a_malformed_offset_body_is_a_failed_offset_not_a_crash():
         return {"features": "oops"}
 
     with _fetching(fetch):
-        msg = _refuses(lambda: B._dc_sample(2))
+        msg = _refuses(lambda: B._dc_sample(2, SEED))
     assert "never answered" in msg, msg
 
 
@@ -451,7 +454,8 @@ def test_an_unusable_rows_argument_costs_no_request_in_either_jurisdiction():
     for juris in sorted(B.JURISDICTIONS):
         calls.clear()
         argv = sys.argv
-        sys.argv = ["build_benchmark.py", "--jurisdiction", juris, "--rows", "0"]
+        sys.argv = ["build_benchmark.py", "--jurisdiction", juris,
+                    "--rows", "0", "--seed", str(SEED)]
         try:
             with _fetching(fetch):
                 B.main()
@@ -524,9 +528,9 @@ def _unhealthy(juris):
 #: a refusal the other two had: the test said "both samplers" and meant the two
 #: that existed when it was written.
 SAMPLERS = {
-    "cook": lambda n: B._cama_sample("2024", n),
-    "dc": B._dc_sample,
-    "dc-condo": B._dc_condo_sample,
+    "cook": lambda n: B._cama_sample("2024", n, SEED),
+    "dc": lambda n: B._dc_sample(n, SEED),
+    "dc-condo": lambda n: B._dc_condo_sample(n, SEED),
 }
 
 
@@ -560,10 +564,10 @@ def test_a_genuinely_empty_table_is_reported_as_empty_not_as_a_failure():
     fold it into the sizing refusal. Both refuse; neither invents a fact about the
     assessor's records, which is the property that matters."""
     with _fetching(lambda url, params: [{"count": "0"}]):
-        assert "no rows" in _refuses(lambda: B._cama_sample("2024", 2))
+        assert "no rows" in _refuses(lambda: B._cama_sample("2024", 2, SEED))
     for sample in (B._dc_sample, B._dc_condo_sample):
         with _fetching(lambda url, params: {"count": 0}):
-            assert "could not size" in _refuses(lambda s=sample: s(2))
+            assert "could not size" in _refuses(lambda s=sample: s(2, SEED))
 
 
 def test_an_unsizeable_table_stops_every_sampler_before_it_draws():
@@ -675,6 +679,102 @@ def test_a_condo_row_with_no_usable_year_is_ungradeable():
     be right or wrong about, so the row is dropped and counted."""
     for bad in ({"AYB": None}, {"AYB": 0}, {"AYB": 1200}, {"AYB": "oops"}, {}):
         assert B._dc_condo_truth(dict(bad, LIVING_GBA=680.0)) is None, bad
+
+
+# --- the draw --------------------------------------------------------------------
+#
+# The published rates carry confidence intervals, and an interval is a claim about
+# how the rows were chosen. These pin that claim.
+
+
+def test_the_draw_is_random_not_a_stride():
+    """The old sampler walked a fixed stride over a PIN- or SSL-ordered table. Both
+    orderings are geographic, so repeated draws differed only in where the stride
+    began and under-represented their own spread — while a binomial interval was
+    published beside them, which assumes independent draws."""
+    off = B._draw_offsets(100_000, 40, 7)
+    gaps = {off[i + 1] - off[i] for i in range(len(off) - 1)}
+    assert len(gaps) > 1, f"offsets are evenly spaced: {sorted(gaps)}"
+
+
+def test_the_same_seed_draws_the_same_sample():
+    """A rate is published beside the seed that produced it, so the seed has to be
+    enough to reproduce the draw exactly."""
+    assert B._draw_offsets(50_000, 30, 99) == B._draw_offsets(50_000, 30, 99)
+
+
+def test_different_seeds_draw_different_samples():
+    """Replicates exist to expose run-to-run spread. Two replicates that quietly
+    drew the same rows would report a spread of zero and call it stability."""
+    assert B._draw_offsets(50_000, 30, 1) != B._draw_offsets(50_000, 30, 2)
+
+
+def test_the_draw_stays_inside_the_table_and_repeats_no_row():
+    """An offset past the end reads nothing and is scored as a portal failure; a
+    repeated offset silently shrinks the sample below the size published for it."""
+    off = B._draw_offsets(500, 120, 4)
+    assert len(off) == len(set(off)) == 120
+    assert min(off) >= 0 and max(off) < 500
+
+
+def test_asking_for_more_rows_than_the_table_holds_takes_the_table():
+    """Sampling without replacement cannot draw 600 from 500. Raising here would
+    fail the build for asking a reasonable question at the edge."""
+    assert len(B._draw_offsets(500, 600, 4)) == 500
+
+
+def test_taking_the_whole_table_does_not_permute_it_first():
+    """Asking for the whole table is not a sample. random.sample() would build a
+    full permutation of 1.9M offsets and sort it straight back into order — minutes
+    and hundreds of megabytes to compute range(total).
+
+    Asserted by forbidding the call rather than by timing it. A wall-clock
+    threshold is the wrong instrument twice over: it is flaky on a loaded runner,
+    and it does not test the property — a slow machine could fail a correct
+    short-circuit while a fast one passed a broken one."""
+    import random as _random
+
+    called, original = [], _random.Random.sample
+
+    def watched(self, population, k):
+        called.append(k)
+        return original(self, population, k)
+
+    _random.Random.sample = watched
+    try:
+        for rows in (500, 600):
+            assert B._draw_offsets(500, rows, 4) == list(range(500))
+        assert not called, f"sample() ran for a whole-table draw: k={called}"
+        # ...and the ordinary case must still go through sample().
+        assert len(B._draw_offsets(500, 40, 4)) == 40
+        assert called == [40], called
+    finally:
+        _random.Random.sample = original
+
+
+def test_a_real_draw_is_still_a_sample_not_the_whole_table():
+    """The short-circuit must not swallow the ordinary case."""
+    got = B._draw_offsets(1_000_000, 300, 1)
+    assert len(got) == 300 and got != list(range(300))
+
+
+def test_a_build_must_name_its_seed():
+    """A default seed would make every build the same draw while looking like a
+    fresh one, so replicate draws would be secretly identical."""
+    import io
+    argv, err = sys.argv, io.StringIO()
+    sys.argv = ["build_benchmark.py", "--jurisdiction", "dc", "--rows", "5"]
+    try:
+        # argparse reports a missing required argument on stderr and exits 2, so
+        # the reason is in the stream rather than in the exception.
+        with contextlib.redirect_stderr(err), _fetching(lambda url, params: None):
+            B.main()
+    except SystemExit:
+        assert "--seed" in err.getvalue(), err.getvalue()
+    else:
+        raise AssertionError("a build with no seed was accepted")
+    finally:
+        sys.argv = argv
 
 
 def _run_all() -> int:

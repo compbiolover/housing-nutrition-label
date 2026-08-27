@@ -1230,6 +1230,32 @@ def test_a_drop_reason_is_worded_for_the_join_that_produced_it():
         assert "parcel layer" in M._ungradeable_note(dict(m, jurisdiction=juris))
 
 
+def test_a_count_of_one_reads_as_one():
+    """"1 were not in the parcel layer" went out on the published page. A template
+    with only a plural is not a wording preference — it is a sentence that is wrong
+    for every count of one, and one is the commonest count above zero."""
+    for juris in ("cook", "dc", "dc-condo"):
+        note = M._ungradeable_note(
+            {"jurisdiction": juris, "drawn": 200, "sampled": 199,
+             "dropped": {"no_parcel_record": 1, "no_address": 0, "no_year_built": 0}})
+        assert "1 were" not in note, (juris, note)
+        assert "them" not in note, (juris, note)
+        plural = M._ungradeable_note(
+            {"jurisdiction": juris, "drawn": 200, "sampled": 191,
+             "dropped": {"no_parcel_record": 9, "no_address": 0, "no_year_built": 0}})
+        assert "9 was" not in plural, (juris, plural)
+
+
+def test_every_reason_carries_both_forms_for_every_jurisdiction():
+    """A new reason, or a new jurisdiction's override, must not be able to ship the
+    plural alone — which is how the published sentence got it wrong the first
+    time."""
+    for juris in (None, "cook", "dc", "dc-condo"):
+        for key, forms in M._drop_reasons(juris).items():
+            assert isinstance(forms, tuple) and len(forms) == 2, (juris, key, forms)
+            assert all("{}" in f for f in forms), (juris, key, forms)
+
+
 def test_wording_overrides_cannot_change_which_reasons_are_counted():
     """The printed set and the summed set must stay identical, or the total can
     balance while the sentence names a subset. An override adds wording, never a
@@ -1250,6 +1276,215 @@ def test_every_registered_jurisdiction_gets_wording_that_names_its_own_join():
             f"{juris} is registered but has no drop-reason wording, so its rows "
             f"would be reported as missing from a parcel layer its join never "
             f"consults")
+
+
+# --- what the published interval is allowed to claim --------------------------------
+
+
+def test_the_interval_never_runs_past_a_hundred_percent():
+    """DC condominiums answer for about 97%. The textbook normal interval puts the
+    upper bound past 100 there, and a page printing 101% accuracy has discredited
+    itself before the number is read. Wilson stays inside the range a proportion
+    can occupy."""
+    lo, hi = M._wilson(205, 211)
+    assert 0 <= lo <= hi <= 100, (lo, hi)
+    assert M._wilson(200, 200)[1] <= 100
+
+
+def test_a_bigger_sample_narrows_the_interval():
+    """The whole reason n was computed rather than guessed."""
+    narrow = M._wilson(732, 1000)
+    wide = M._wilson(73, 100)
+    assert (narrow[1] - narrow[0]) < (wide[1] - wide[0])
+
+
+def test_an_empty_sample_has_no_interval_rather_than_a_wrong_one():
+    assert M._wilson(0, 0) is None
+
+
+def test_the_interval_brackets_the_rate_it_describes():
+    for hits, n in ((73, 100), (205, 211), (1, 50), (49, 50)):
+        lo, hi = M._wilson(hits, n)
+        assert lo <= 100 * hits / n <= hi, (hits, n, lo, hi)
+
+
+def test_a_single_run_reports_no_spread_at_all():
+    """One scoring cannot say how much scoring varies. Reporting the sampling
+    interval as though it covered run-to-run noise too would dress half the
+    uncertainty up as the whole — and it is the half that does NOT shrink when the
+    sample grows, so the dressing would point a reader at the wrong repair."""
+    assert M._spread([]) is None
+    one = M._spread([73.2])
+    assert one["runs"] == 1 and one["spread"] == 0.0
+
+
+def test_the_spread_reports_what_repeated_scorings_actually_did():
+    got = M._spread([68.2, 73.2, 70.1])
+    assert got["min"] == 68.2 and got["max"] == 73.2
+    assert got["spread"] == 5.0
+    assert got["median"] == 70.1
+
+
+def test_the_two_uncertainties_are_reported_separately():
+    """A reader told only their sum cannot tell which to attack: a wide sampling
+    interval is fixed by drawing more rows, a wide run-to-run range is fixed
+    upstream and by no amount of sampling."""
+    sentence = M._confidence_sentence(
+        {"resolved_ci95": [67.9, 77.8], "resolved_runs": M._spread([68.2, 73.2])})
+    assert "67.9" in sentence and "77.8" in sentence
+    assert "68.2" in sentence and "73.2" in sentence
+    assert "not sampling error" in sentence
+
+
+def test_no_confidence_sentence_when_nothing_was_measured():
+    assert M._confidence_sentence({}) == ""
+
+
+def test_the_explanation_does_not_outlive_the_range_it_explains():
+    """The tail explaining "the second range" was keyed on the field existing
+    rather than on the range being printed, so a section holding a single run
+    rendered a sentence explaining a range the reader could not see. A sentence
+    describing evidence that is not there is the same defect as a number without
+    provenance, one layer out."""
+    one = M._confidence_sentence(
+        {"resolved_ci95": [67.9, 77.8], "resolved_runs": M._spread([73.2])})
+    assert "67.9" in one
+    assert "second range" not in one, one
+    many = M._confidence_sentence(
+        {"resolved_ci95": [67.9, 77.8], "resolved_runs": M._spread([68.2, 73.2])})
+    assert "second range" in many
+
+
+def test_the_sampler_docstrings_describe_the_draw_the_page_publishes():
+    """The page prints "drawn uniform random offsets without replacement" beside
+    every rate. A sampler whose own docstring says "evenly-spaced" contradicts a
+    published claim about how the number was made."""
+    import scripts.build_benchmark as B
+    for fn in (B._cama_sample, B._dc_sample, B._dc_condo_sample):
+        doc = (fn.__doc__ or "").lower()
+        assert "evenly" not in doc, f"{fn.__name__}: {doc!r}"
+        assert "random" in doc, f"{fn.__name__}: {doc!r}"
+
+
+def test_a_nested_jurisdiction_renders_under_its_parent_not_beside_it():
+    """DC's condominiums are a narrower claim inside DC, not a second city. The
+    heading level is the statement; two <h2>s would read as two places."""
+    parent = _juris("DC Office of Tax and Revenue (Open Data)", "1234    5678")
+    parent["benchmark"]["scope"] = M.JURISDICTIONS["dc"]["scope"]
+    child = _juris("DC Office of Tax and Revenue (Open Data)", "2528    2029")
+    child["benchmark"]["scope"] = M.JURISDICTIONS["dc-condo"]["scope"]
+    page = M._render({"generated": "2026-08-27",
+                      "jurisdictions": {"dc": parent, "dc-condo": child}})
+    assert '<h2 id="dc">' in page
+    assert '<h3 id="dc-condo">' in page
+    assert '<h2 id="dc-condo">' not in page
+    # ...and the child must come after its parent, not before it by alphabet.
+    assert page.index('id="dc"') < page.index('id="dc-condo"')
+
+
+def test_the_publication_order_puts_every_parent_before_its_children():
+    from scripts.jurisdictions import JURISDICTIONS as J, ordered
+    order = ordered()
+    assert set(order) == set(J), (sorted(order), sorted(J))
+    for key, cfg in J.items():
+        parent = cfg.get("parent")
+        if parent:
+            assert order.index(parent) < order.index(key), key
+            assert parent in J, f"{key} names an unregistered parent {parent!r}"
+
+
+def test_a_replicate_count_below_one_is_refused_not_crashed_on():
+    """Zero replicates scored nothing and then indexed the empty list for a median
+    run — an IndexError where this script otherwise states its refusals."""
+    for bad in (0, -1, -3):
+        argv = sys.argv
+        sys.argv = ["measure_accuracy.py", "--replicates", str(bad), "--dry-run"]
+        try:
+            M.main()
+        except SystemExit as exc:
+            assert "--replicates must be at least 1" in str(exc), (bad, str(exc))
+        except IndexError:  # pragma: no cover - the defect this pins
+            raise AssertionError(f"--replicates {bad} crashed instead of refusing")
+        else:
+            raise AssertionError(f"--replicates {bad} was accepted")
+        finally:
+            sys.argv = argv
+
+
+def test_every_scoring_flag_is_refused_beside_a_mode_that_scores_nothing():
+    """--check and --render-only score nothing, so a scoring flag beside either is
+    accepted and silently ignored — the caller believes it took effect. The rule
+    predates --replicates, and --replicates walked straight past it."""
+    for mode in ("--check", "--render-only"):
+        argv = sys.argv
+        sys.argv = ["measure_accuracy.py", mode, "--replicates", "3"]
+        try:
+            M.main()
+        except SystemExit as exc:
+            assert "--replicates" in str(exc) and "ignored" in str(exc), str(exc)
+        else:
+            raise AssertionError(f"{mode} --replicates 3 was accepted")
+        finally:
+            sys.argv = argv
+
+
+def test_the_documented_invocations_carry_every_required_argument():
+    """Both module docstrings print a Run: line to copy. The builder now requires a
+    seed, so a line without one fails at argparse for anyone following it."""
+    import scripts.build_benchmark as B
+    for mod in (B, M):
+        for line in (mod.__doc__ or "").splitlines():
+            if "build_benchmark.py" in line and "python" in line:
+                assert "--seed" in line, f"{mod.__name__}: {line.strip()!r}"
+
+
+def test_the_cache_walk_reaches_the_caches_that_make_requests():
+    """Replicates are only measurements if each one actually makes its requests.
+    The adapters and the geocoder memoise, so the second scoring of a row answers
+    from memory: the DC condominium benchmark took half an hour on the first run
+    and thirty-eight seconds on the second. A cache replay cannot fail the way a
+    live request can, so a range across such runs describes the cache — and reads
+    as reassuring stability, which is the worst way to be wrong about the number
+    this page exists to qualify."""
+    from housing_label.enrich.assessor import cook_il, dc
+    from housing_label.simulate import location as L
+
+    caches = (dc._lookup_cached, cook_il._lookup_cached, L._geocode_address_cached)
+    for c in caches:
+        c.cache_clear()
+    # Populate without network: lru_cache stores whatever the call returns, and a
+    # refusal is a perfectly good cache entry — which is the point, a cached miss
+    # replays as a miss.
+    dc._lookup_cached(0.0, 0.0, None)
+    cook_il._lookup_cached(0.0, 0.0, None)
+    assert any(c.cache_info().currsize for c in caches), "nothing cached to clear"
+
+    assert M._clear_caches() > 0
+    for c in caches:
+        assert c.cache_info().currsize == 0, c
+
+
+def test_replicates_that_plainly_replayed_a_cache_are_refused():
+    """The check of last resort behind the cache walk, and independent of it: it
+    needs no knowledge of where the caches are, so it still fires if a future one
+    escapes the walk. These are the real numbers from the run that exposed the
+    bug — half an hour, then thirty-eight seconds, then two."""
+    try:
+        M._refuse_cache_replay([1800.0, 38.0, 2.0])
+    except SystemExit as exc:
+        assert "did not repeat the work" in str(exc)
+    else:
+        raise AssertionError("a cache replay was accepted as a replicate")
+
+
+def test_honestly_varying_runtimes_are_not_refused():
+    """Portal latency moves real runs around. A threshold tight enough to catch
+    every replay would refuse honest runs on a slow afternoon — the failure this
+    exists for was three orders of magnitude, not a factor of two."""
+    M._refuse_cache_replay([1800.0, 2400.0, 2100.0])
+    M._refuse_cache_replay([600.0, 900.0])
+    M._refuse_cache_replay([1800.0])      # one run cannot be a replay of anything
+    M._refuse_cache_replay([])
 
 
 def _run_all() -> int:
