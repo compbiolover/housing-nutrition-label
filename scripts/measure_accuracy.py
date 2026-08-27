@@ -429,10 +429,19 @@ def _mismatch_note(results: dict) -> str:
 #: "were not in the parcel layer" is deliberately weaker than "had no address on
 #: file": the layer held no record at all, so what the assessor documents about
 #: those parcels was never observed by this build.
+#: (singular, plural) for each reason. Two forms rather than one, because the page
+#: prints whatever the count happens to be and "1 were not in the parcel layer"
+#: went out on it. A template with no singular is not a wording preference; it is a
+#: sentence that is wrong for every count of one, and one is the commonest count
+#: above zero. Both forms are stored for every reason so a new one cannot inherit
+#: the plural alone.
 _DROP_REASONS = {
-    "no_parcel_record": "{} were not in the parcel layer",
-    "no_address": "{} had no address on file",
-    "no_year_built": "{} had no usable year built",
+    "no_parcel_record": ("{} was not in the parcel layer",
+                         "{} were not in the parcel layer"),
+    "no_address": ("{} had no address on file",
+                   "{} had no address on file"),
+    "no_year_built": ("{} had no usable year built",
+                      "{} had no usable year built"),
 }
 
 #: The counters are shared; what they MEAN is not. Cook and DC's residential path
@@ -445,13 +454,15 @@ _DROP_REASONS = {
 #: exists to avoid, arriving through the one field that looked jurisdiction-free.
 _DROP_WORDING = {
     "dc-condo": {
-        "no_parcel_record": "{} had no active unit record to place them",
-        "no_address": "{} had a unit record carrying no address or unit number",
+        "no_parcel_record": ("{} had no active unit record to place it",
+                             "{} had no active unit record to place them"),
+        "no_address": ("{} had a unit record carrying no address or unit number",
+                       "{} had unit records carrying no address or unit number"),
     },
 }
 
 
-def _drop_reasons(juris: str | None) -> dict[str, str]:
+def _drop_reasons(juris: str | None) -> dict[str, tuple[str, str]]:
     """The wording for this jurisdiction, over exactly the shared set of reasons.
 
     Built from `_DROP_REASONS`' keys rather than merged into them, so an override
@@ -491,7 +502,8 @@ def _ungradeable_note(m: dict) -> str:
     # written to prevent under-reporting, and it stays impossible only if the
     # rendered set and the summed set are the same object.
     reasons = _drop_reasons(m.get("jurisdiction"))
-    parts = [tmpl.format(n) for key, tmpl in reasons.items() if (n := d.get(key))]
+    parts = [forms[0 if n == 1 else 1].format(n)
+             for key, forms in reasons.items() if (n := d.get(key))]
     named = sum(n for key in reasons if isinstance(n := d.get(key), int))
     if parts and named == gap:
         return f" Drawn from {drawn} assessor rows; {', '.join(parts)}."

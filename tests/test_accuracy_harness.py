@@ -1230,6 +1230,32 @@ def test_a_drop_reason_is_worded_for_the_join_that_produced_it():
         assert "parcel layer" in M._ungradeable_note(dict(m, jurisdiction=juris))
 
 
+def test_a_count_of_one_reads_as_one():
+    """"1 were not in the parcel layer" went out on the published page. A template
+    with only a plural is not a wording preference — it is a sentence that is wrong
+    for every count of one, and one is the commonest count above zero."""
+    for juris in ("cook", "dc", "dc-condo"):
+        note = M._ungradeable_note(
+            {"jurisdiction": juris, "drawn": 200, "sampled": 199,
+             "dropped": {"no_parcel_record": 1, "no_address": 0, "no_year_built": 0}})
+        assert "1 were" not in note, (juris, note)
+        assert "them" not in note, (juris, note)
+        plural = M._ungradeable_note(
+            {"jurisdiction": juris, "drawn": 200, "sampled": 191,
+             "dropped": {"no_parcel_record": 9, "no_address": 0, "no_year_built": 0}})
+        assert "9 was" not in plural, (juris, plural)
+
+
+def test_every_reason_carries_both_forms_for_every_jurisdiction():
+    """A new reason, or a new jurisdiction's override, must not be able to ship the
+    plural alone — which is how the published sentence got it wrong the first
+    time."""
+    for juris in (None, "cook", "dc", "dc-condo"):
+        for key, forms in M._drop_reasons(juris).items():
+            assert isinstance(forms, tuple) and len(forms) == 2, (juris, key, forms)
+            assert all("{}" in f for f in forms), (juris, key, forms)
+
+
 def test_wording_overrides_cannot_change_which_reasons_are_counted():
     """The printed set and the summed set must stay identical, or the total can
     balance while the sentence names a subset. An override adds wording, never a
