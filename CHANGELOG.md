@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.2.12](https://github.com/compbiolover/housing-nutrition-label/compare/v0.2.11...v0.2.12) (2026-08-28)
+
+
+### Features
+
+* **assessor:** add the Florida statewide adapter, all 67 counties ([#311](https://github.com/compbiolover/housing-nutrition-label/issues/311)) ([e65fa39](https://github.com/compbiolover/housing-nutrition-label/commit/e65fa39b95aa8f6839709aaac8ddba9a8554b8a7))
+
 ## [0.2.11](https://github.com/compbiolover/housing-nutrition-label/compare/v0.2.10...v0.2.11) (2026-08-27)
 
 
