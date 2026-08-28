@@ -154,10 +154,11 @@ window.LabelForm = (function () {
   }
 
   // The panel used to assert one sourcing story for every label. Which one is true
-  // depends on whether a county adapter answered for this address — adapters are
-  // off unless deployed with ASSESSOR_ADAPTERS, and cover one county when they are
-  // — so promising a "county parcel record" to every reader describes something
-  // most of them are not getting. The line is chosen per label instead.
+  // depends on whether an assessor adapter answered for this address — adapters
+  // are off unless deployed with ASSESSOR_ADAPTERS, and even on they cover two
+  // counties and one state — so promising a "county parcel record" to every reader
+  // describes something most of them are not getting. The line is chosen per label
+  // instead.
   var HINT_ESTIMATED = "We estimate these from public data (USACE structure records "
     + "+ Census) and score with them.";
   var HINT_OBSERVED = "Some of these are your county's own parcel record; the rest we "

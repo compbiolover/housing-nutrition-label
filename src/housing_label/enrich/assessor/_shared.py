@@ -48,6 +48,14 @@ HEADERS = {"User-Agent": "housing-nutrition-label (assessor adapter)"}
 
 # The longest a single socket read may block, and so the most the whole lookup can
 # overshoot its deadline. See get_json for why this is not simply `remaining`.
+#
+# This is a DEFAULT, not a law, because it is a fact about an upstream rather than
+# about this code: it says how long a portal may go quiet before the silence is
+# read as a stall. One second is right for a portal that answers a single parcel in
+# well under that, which Cook's and the District's both do. A statewide service
+# searching ten million parcels does not, and measuring rather than assuming is the
+# point — see ``fl.READ_SLICE_S``, where a one-second slice was silently discarding
+# most of a state.
 _READ_SLICE_S = 1.0
 _CHUNK_BYTES = 8192
 _MAX_BYTES = 4 * 1024 * 1024
@@ -63,11 +71,17 @@ def cache_bucket() -> int:
     return int(time.time() // CACHE_TTL_S)
 
 
-def deadline_from(given: float | None) -> float:
-    """The shared budget's end instant. A caller that did not pass one gets a fresh
-    full budget, which is right for a single direct call and is why the argument is
-    optional rather than required."""
-    return given if given is not None else time.monotonic() + TIMEOUT
+def deadline_from(given: float | None, timeout: float = TIMEOUT) -> float:
+    """A budget's end instant. A caller that did not pass one gets a fresh full
+    budget, which is right for a single direct call and is why the argument is
+    optional rather than required.
+
+    ``timeout`` is the same kind of per-upstream number as ``get_json``'s
+    ``read_slice``, and is a parameter for the same reason: an adapter whose
+    service is slower than the shared budget assumes needs its own value, and
+    copying this function into that adapter would fork it. Florida passes
+    ``fl.LOOKUP_TIMEOUT``; Cook and the District take the default."""
+    return given if given is not None else time.monotonic() + timeout
 
 
 def num(v):
@@ -77,7 +91,8 @@ def num(v):
         return None
 
 
-def get_json(url: str, params: dict, deadline: float):
+def get_json(url: str, params: dict, deadline: float,
+             read_slice: float = _READ_SLICE_S):
     """One request against the shared budget. Raises if the budget is spent.
 
     ``requests``' timeout bounds the connect and the gap BETWEEN reads, not the
@@ -89,20 +104,23 @@ def get_json(url: str, params: dict, deadline: float):
     run once a chunk has ARRIVED: a gap shorter than the read timeout but longer
     than what is left would still be waited out in full, overshooting by nearly the
     whole budget. So the read timeout is also capped to a slice, which bounds any
-    single stall — and therefore the overshoot — to ``_READ_SLICE_S`` rather than to
+    single stall — and therefore the overshoot — to ``read_slice`` rather than to
     the budget. The connect timeout keeps the full remainder: a slow handshake is
     the one wait that cannot be broken into slices.
 
-    The slice is a deliberate trade. Too small and an ordinarily slow portal is cut
-    off mid-body; at one second, against responses that are a single row and
-    complete in well under that, a gap this long is already a stall rather than
-    slowness.
+    The slice is a deliberate trade, and it is the caller's to make because only the
+    caller knows its upstream. Too small and an ordinarily slow portal is cut off
+    before it has answered — which does not look like a timeout to anyone reading
+    the label, it looks like a county with no record. Too large and a genuinely
+    hung connection holds the label for that long. One second is right for a portal
+    that returns a single row in well under it; a service that takes seconds to
+    think before it says anything needs its own number, sized from a measurement.
     """
     remaining = deadline - time.monotonic()
     if remaining <= 0:
         raise TimeoutError("assessor lookup budget exhausted")
     r = requests.get(url, params=params, headers=HEADERS, stream=True,
-                     timeout=(remaining, min(remaining, _READ_SLICE_S)))
+                     timeout=(remaining, min(remaining, read_slice)))
     try:
         r.raise_for_status()
         chunks, size = [], 0
@@ -341,7 +359,8 @@ def same_address(a: str | None, b: str | None,
 
 
 def arcgis_parcels(url: str, lat: float, lon: float, out_fields: str,
-                   distance_m: float = 0, *, deadline: float) -> list[dict]:
+                   distance_m: float = 0, *, deadline: float,
+                   read_slice: float = _READ_SLICE_S) -> list[dict]:
     """Parcel attributes at (or within ``distance_m`` of) a point.
 
     ``out_fields`` is always an explicit list and never ``*``. Some parcel layers
@@ -356,7 +375,7 @@ def arcgis_parcels(url: str, lat: float, lon: float, out_fields: str,
     if distance_m:
         params["distance"] = str(distance_m)
         params["units"] = "esriSRUnit_Meter"
-    body = get_json(url, params, deadline)
+    body = get_json(url, params, deadline, read_slice)
     return [(f or {}).get("attributes") or {}
             for f in ((body or {}).get("features") or [])]
 
@@ -366,6 +385,15 @@ def select_parcel(fetch, address: str | None, address_of, locality=frozenset()):
 
     ``fetch(distance_m)`` returns candidate attribute dicts; ``address_of(attrs)``
     reads that source's address field.
+
+    ``fetch`` must return only rows that could be an answer. Some parcel layers
+    ship placeholder geometry — rights-of-way, water, unmapped remainders — with no
+    identifier and no values, and a placeholder overlapping a real parcel would be
+    counted here as a second candidate and make the real one ambiguous. Dropping
+    non-records inside ``fetch`` is the sanctioned fix, and the safe one: it can
+    only turn "ambiguous" into "one real parcel", and leaves the address
+    confirmation below untouched. Loosening the more-than-one rule instead would
+    give up the protection this function exists to provide.
 
     Point-in-polygon first: it is the only unambiguous answer and is used wherever
     it exists. It frequently does not. The Census geocoder interpolates a large
