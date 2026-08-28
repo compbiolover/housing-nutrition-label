@@ -741,10 +741,13 @@ housing stock, different record-keeping, different sample.</p>
 {sections}
 <h2>What this does and does not establish</h2>
 <ul>
-<li><strong>These are the jurisdictions with an adapter, not a national sample.</strong>
+<li><strong>These are measured jurisdictions, not a national sample, and not every
+jurisdiction served.</strong>
 Each figure describes one place's housing stock and record-keeping.
-Nothing here supports a claim about anywhere else, and the two sections should not
-be averaged into one.</li>
+Nothing here supports a claim about anywhere else, and the sections should not
+be averaged into one. An adapter can serve a jurisdiction that carries no figure
+here: Florida's statewide adapter covers all 67 counties and is unmeasured, so
+these numbers say nothing about it. Serving is not measuring.</li>
 {_dc_caveat(juris)}
 <li>The assessor's own record is treated as truth. It can be stale or wrong; it is
 the best available reference, not a survey.</li>

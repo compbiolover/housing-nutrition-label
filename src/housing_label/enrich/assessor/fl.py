@@ -97,12 +97,20 @@ has already shipped once: the District's condominium path spent a release report
 the deadline's answer rather than the District's.
 
 So ``READ_SLICE_S`` is 4 seconds, which clears the containment distribution
-entirely and all but 3 of 40 buffered queries, and ``TIMEOUT`` is 8 seconds, which
-is exactly two slices because a lookup makes at most two requests. That is the same
-ceiling the District's condominium path already carries, and a third under the
-host's 12-second allowance for a single upstream. Neither number is what a typical
-lookup costs: a ceiling is not a cost, and the measured typical is containment plus
-buffer, around 2.9 seconds.
+entirely and all but 3 of 40 buffered queries, and ``LOOKUP_TIMEOUT`` is 7 seconds, which
+covers the p90 of both requests together (2.69 + 3.49) with room to spare. Neither
+number is what a typical lookup costs: a ceiling is not a cost, and the measured
+typical is containment plus buffer, around 2.9 seconds.
+
+Seven rather than eight because of how the two halves of a socket timeout add up.
+The connect half keeps the whole remaining budget on purpose — a slow handshake is
+the one wait that cannot be broken into slices — so the true worst case for a
+single request is the budget spent connecting *plus* one read slice: 7 + 4 = 11 s,
+inside the 12 s the host allows any one service on a single score
+(``config.UPSTREAM_HOST_BUDGET``). At a budget of 8 that sum is 12 s exactly,
+sitting on the limit rather than under it. A test pins the sum against that
+constant rather than against a literal. Raising the slice from 1 s to 4 s is what made this worth
+counting: at the shared 1 s it was 5 s and nowhere near anything.
 
 What the clock was worth, end to end: 26 real Florida addresses in three counties,
 geocoded through the Census matcher exactly as the product does, then looked up.
@@ -152,11 +160,10 @@ repository.
 from __future__ import annotations
 
 import logging
-import time
 from functools import lru_cache
 
 from housing_label.enrich.assessor._shared import (
-    arcgis_parcels, cache_bucket, num, select_parcel,
+    arcgis_parcels, cache_bucket, deadline_from, num, select_parcel,
 )
 from housing_label.enrich.assessor.base import AssessorRecord
 
@@ -188,16 +195,14 @@ PARCEL_URL = ("https://services9.arcgis.com/Gh9awoU677aKree0/arcgis/rest/service
 #: measured rather than chosen — see "Why this service needs its own clock" in the
 #: module docstring for the distribution they come from.
 #:
-#: The budget is exactly two read slices because a lookup makes at most two
-#: requests: the containment query every lookup makes, and the buffered query an
-#: off-parcel geocode falls through to.
+#: A lookup makes at most two requests: the containment query every lookup makes,
+#: and the buffered query an off-parcel geocode falls through to.
+#:
+#: Named LOOKUP_TIMEOUT rather than TIMEOUT so it cannot be mistaken for, or
+#: collide with, the shared four-second budget of the same name — the District
+#: names its own deviation CONDO_TIMEOUT for the same reason.
 READ_SLICE_S = 4.0
-TIMEOUT = 8.0
-
-
-def _deadline(given: float | None) -> float:
-    """The end of this lookup's budget. Florida's, not the shared one."""
-    return given if given is not None else time.monotonic() + TIMEOUT
+LOOKUP_TIMEOUT = 7.0
 
 # Only what the label scores, plus the two counts that decide whether the floor
 # area describes one home. See "Privacy" in the module docstring for what the other
@@ -247,7 +252,7 @@ def _parcel_at(lat: float, lon: float, address: str | None = None,
     in its own ``PHY_CITY`` column, leaving ``PHY_ADDR1`` as just the street
     address — "740 W SOUTH ST" — which is already the form the comparison wants.
     """
-    deadline = _deadline(deadline)
+    deadline = deadline_from(deadline, LOOKUP_TIMEOUT)
     return select_parcel(
         lambda d: _parcels(lat, lon, d, deadline=deadline),
         address, lambda a: a.get("PHY_ADDR1"))
@@ -268,6 +273,27 @@ def _vintage(row: dict) -> str:
     return DATA_VINTAGE
 
 
+def _says_a_home_is_here(row: dict) -> bool:
+    """Whether the roll records at least one dwelling on this parcel.
+
+    ``NO_RES_UNT`` is the county's count of residential units. A recorded **0** is
+    a statement — a shop, a warehouse, a county garage — and the label is scoring
+    somebody's home, so a year built taken from that parcel would describe a
+    building nobody lives in while carrying the ``observed`` tag. The floor area
+    already refuses those; the year has to refuse them for the same reason.
+
+    A *missing* count is not the same thing, and is allowed through. An explicit
+    zero is the county saying "no dwelling here"; an absent field is the county
+    saying nothing, and refusing on silence would cost a whole county's coverage
+    the day one appraiser stopped filling the column. Measured across eight
+    counties and 1,321 single-family parcels carrying a year built, the count was
+    never zero and never missing — so this turns away commercial parcels without
+    costing homes.
+    """
+    homes = num(row.get("NO_RES_UNT"))
+    return homes is None or homes >= 1
+
+
 def _area_of_one_home(row: dict) -> float | None:
     """``TOT_LVG_AR`` when it describes a single dwelling, otherwise None.
 
@@ -277,7 +303,7 @@ def _area_of_one_home(row: dict) -> float | None:
     home being scored.
     """
     area = num(row.get("TOT_LVG_AR"))
-    if not area or area <= 0:
+    if area is None or area <= 0:
         return None
     homes = num(row.get("NO_RES_UNT"))
     buildings = num(row.get("NO_BULDNG"))
@@ -289,20 +315,30 @@ def _area_of_one_home(row: dict) -> float | None:
 @lru_cache(maxsize=4096)
 def _lookup_cached(lat: float, lon: float, address: str | None,
                    _bucket: int = 0) -> AssessorRecord | None:
-    row = _parcel_at(lat, lon, address, deadline=_deadline(None))
+    row = _parcel_at(lat, lon, address)
     if not row:
         return None
 
     year = num(row.get("ACT_YR_BLT"))
+    # A year of 0 is the county's "not recorded", not the year zero; without this
+    # it would reach the scorer as a fact and age the building by two thousand
+    # years. The dwelling check is the same rule the floor area applies — see
+    # _says_a_home_is_here.
+    year_is_a_homes = bool(year and 1800 <= year <= 2100
+                           and _says_a_home_is_here(row))
+    year_built = int(year) if year_is_a_homes else None
+    sqft = _area_of_one_home(row)
+    # A parcel that matched but recorded neither fact contributed nothing. Saying
+    # so here costs one comparison and keeps a fact-free record out of the cache;
+    # the registry drops it either way, so behaviour is unchanged.
+    if year_built is None and sqft is None:
+        return None
     return AssessorRecord(
         source=ATTRIBUTION,
         data_vintage=_vintage(row),
         parcel_id=_parcel_id(row),
-        # A year of 0 is the county's "not recorded", not the year zero. Without
-        # this guard it would reach the scorer as a fact and age every such
-        # building by two thousand years.
-        year_built=int(year) if year and 1800 <= year <= 2100 else None,
-        sqft=_area_of_one_home(row),
+        year_built=year_built,
+        sqft=sqft,
         # The state roll carries no wall material, storey count, foundation or
         # condition. Left empty on purpose, which lets the label fall back to its
         # modelled estimate for those four rather than to a guess dressed up as an

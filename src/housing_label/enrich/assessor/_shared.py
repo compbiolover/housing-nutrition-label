@@ -71,11 +71,17 @@ def cache_bucket() -> int:
     return int(time.time() // CACHE_TTL_S)
 
 
-def deadline_from(given: float | None) -> float:
-    """The shared budget's end instant. A caller that did not pass one gets a fresh
-    full budget, which is right for a single direct call and is why the argument is
-    optional rather than required."""
-    return given if given is not None else time.monotonic() + TIMEOUT
+def deadline_from(given: float | None, timeout: float = TIMEOUT) -> float:
+    """A budget's end instant. A caller that did not pass one gets a fresh full
+    budget, which is right for a single direct call and is why the argument is
+    optional rather than required.
+
+    ``timeout`` is the same kind of per-upstream number as ``get_json``'s
+    ``read_slice``, and is a parameter for the same reason: an adapter whose
+    service is slower than the shared budget assumes needs its own value, and
+    copying this function into that adapter would fork it. Florida passes
+    ``fl.LOOKUP_TIMEOUT``; Cook and the District take the default."""
+    return given if given is not None else time.monotonic() + timeout
 
 
 def num(v):
@@ -379,6 +385,15 @@ def select_parcel(fetch, address: str | None, address_of, locality=frozenset()):
 
     ``fetch(distance_m)`` returns candidate attribute dicts; ``address_of(attrs)``
     reads that source's address field.
+
+    ``fetch`` must return only rows that could be an answer. Some parcel layers
+    ship placeholder geometry — rights-of-way, water, unmapped remainders — with no
+    identifier and no values, and a placeholder overlapping a real parcel would be
+    counted here as a second candidate and make the real one ambiguous. Dropping
+    non-records inside ``fetch`` is the sanctioned fix, and the safe one: it can
+    only turn "ambiguous" into "one real parcel", and leaves the address
+    confirmation below untouched. Loosening the more-than-one rule instead would
+    give up the protection this function exists to provide.
 
     Point-in-polygon first: it is the only unambiguous answer and is used wherever
     it exists. It frequently does not. The Census geocoder interpolates a large

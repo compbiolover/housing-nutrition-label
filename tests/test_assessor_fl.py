@@ -58,8 +58,12 @@ _BLANK = {"PARCEL_ID": " ", "PHY_ADDR1": " ", "ASMNT_YR": 0.0,
           "ACT_YR_BLT": 0.0, "TOT_LVG_AR": 0.0, "NO_RES_UNT": 0.0,
           "NO_BULDNG": 0.0}
 
+#: A point in Orlando. Every test uses the same one: which parcel a coordinate
+#: lands in is decided here by the stubbed rows, not by the coordinate.
+_POINT = (28.54, -81.40)
 
-def _lookup(exact, near=(), address=None, lat=28.5400, lon=-81.4000, slices=None):
+
+def _lookup(exact, near=(), address=None, slices=None):
     """Drive ``fl.lookup()`` over recorded rows.
 
     ``exact`` is what the point lands inside; ``near`` is what a buffered search
@@ -81,7 +85,7 @@ def _lookup(exact, near=(), address=None, lat=28.5400, lon=-81.4000, slices=None
     saved = _shared.get_json
     _shared.get_json = fake
     try:
-        return fl.lookup(lat, lon, address)
+        return fl.lookup(*_POINT, address)
     finally:
         _shared.get_json = saved
         fl._lookup_cached.cache_clear()
@@ -154,11 +158,61 @@ def test_both_counts_have_to_say_one():
         assert got.year_built == 1986, "the year survives; only the area is refused"
 
 
-def test_an_unrecorded_count_is_not_a_count_of_one():
-    """Florida writes 0 where a count is not recorded. Treating "not recorded" as
-    "one home" would report a shopping centre's floor area as a house's."""
-    got = _lookup([dict(_HOUSE, NO_RES_UNT=0.0, NO_BULDNG=0.0, TOT_LVG_AR=62104.0)])
-    assert got is not None and got.sqft is None
+def test_an_unrecorded_building_count_is_not_a_count_of_one():
+    """Florida writes 0 where a count is not recorded, and "not recorded" is not
+    "one". Read as one, a parcel whose buildings were never counted would report
+    their combined floor area as a single home's.
+
+    Isolated to the building count on purpose: one recorded dwelling, so the
+    dwelling gate passes and the year survives, leaving only the area rule under
+    test. A row with both counts zero is refused outright and would pass this
+    assertion without exercising anything."""
+    got = _lookup([dict(_HOUSE, NO_RES_UNT=1.0, NO_BULDNG=0.0, TOT_LVG_AR=62104.0)])
+    assert got is not None, "one recorded dwelling is still an answer"
+    assert got.year_built == 1986
+    assert got.sqft is None
+
+
+# ── a year built has to belong to somebody's home ──────────────────────────────
+
+
+def test_a_parcel_the_roll_says_holds_no_dwelling_reports_no_year():
+    """The floor area already refuses a commercial parcel. The year has to refuse
+    it for the same reason: a shop's or a county garage's year built is not the
+    year the reader's home went up, and it would carry the ``observed`` tag that
+    tells them not to doubt it.
+
+    Recorded live — a Gainesville parcel with three buildings, 62,104 sq ft and no
+    residential units, which the adapter used to answer with "built 1958"."""
+    civic = dict(_HOUSE, PARCEL_ID="14621-000-000", PHY_ADDR1="12 SE 1ST ST",
+                 ACT_YR_BLT=1958.0, TOT_LVG_AR=62104.0, NO_RES_UNT=0.0,
+                 NO_BULDNG=3.0)
+    assert _lookup([civic]) is None, "a parcel with no dwelling is not an answer"
+
+
+def test_the_gate_is_at_least_one_dwelling_not_exactly_one():
+    """The boundary the tower case does not reach. A duplex — two homes in one
+    building — is refused its floor area, because the total covers both, and keeps
+    its year, because the building went up when it went up.
+
+    "Exactly one" is the easy rule to write here and would silently drop the year
+    for every home in a building holding more than one, which in Florida is every
+    condominium."""
+    duplex = dict(_HOUSE, NO_RES_UNT=2.0, TOT_LVG_AR=2400.0)
+    got = _lookup([duplex])
+    assert got is not None and got.year_built == 1986
+    assert got.sqft is None
+
+
+def test_a_county_that_stops_filling_the_column_does_not_lose_its_year():
+    """An explicit 0 is the county saying "no dwelling here". A missing field is
+    the county saying nothing, and refusing on silence would cost a whole county's
+    coverage the day one appraiser stopped filling the column — a far larger loss
+    than the commercial parcels the gate exists to turn away."""
+    silent = {k: v for k, v in _HOUSE.items() if k != "NO_RES_UNT"}
+    got = _lookup([silent])
+    assert got is not None and got.year_built == 1986
+    assert got.sqft is None, "the area still needs the count it is built on"
 
 
 # ── the two year-built columns ──────────────────────────────────────────────────
@@ -204,16 +258,16 @@ def test_a_parcel_that_records_nothing_at_all_is_not_an_answer():
     private shape rather than about what reaches a reader — the mistake that once
     let the whole DC condominium path ship unreachable from the product."""
     empty = dict(_HOUSE, ACT_YR_BLT=0.0, TOT_LVG_AR=0.0)
-    assert not _lookup([empty]).fields(), "the adapter found a parcel but no facts"
+    assert _lookup([empty]) is None, "a parcel that recorded nothing is not an answer"
 
-    def fake(url, params, deadline):
+    def fake(url, params, deadline, read_slice=None):
         return {"features": [{"attributes": empty}]}
 
     fl._lookup_cached.cache_clear()
     saved_get, saved_env = _shared.get_json, os.environ.get(A.ENABLE_ENV)
     _shared.get_json, os.environ[A.ENABLE_ENV] = fake, "1"
     try:
-        assert A.assessor_for_point(28.54, -81.40, "12095") is None
+        assert A.assessor_for_point(*_POINT, "12095") is None
     finally:
         _shared.get_json = saved_get
         os.environ.pop(A.ENABLE_ENV, None)
@@ -313,13 +367,25 @@ def test_the_other_adapters_keep_the_shared_slice():
     assert _shared._READ_SLICE_S == 1.0
 
 
-def test_the_budget_holds_two_requests_and_is_not_the_shared_one():
-    """A lookup makes at most two requests — the containment query every lookup
-    makes, and the buffered query an off-parcel geocode falls through to. A budget
-    smaller than two slices would cut the second one off by arithmetic, whatever
-    the service did."""
-    assert fl.TIMEOUT >= 2 * fl.READ_SLICE_S
-    assert fl.TIMEOUT > _shared.TIMEOUT
+def test_the_whole_budget_fits_inside_what_the_host_allows_one_service():
+    """The two halves of a socket timeout add up, and it is the SUM that has to
+    fit. The connect half keeps the whole remaining budget on purpose — a slow
+    handshake cannot be broken into slices — so one request can cost the budget
+    spent connecting plus one read slice.
+
+    At the shared 1 s slice that sum was 5 s and nowhere near anything. Raising
+    Florida's slice to 4 s is what made it worth counting, and a budget of 8 would
+    put the sum at 12 s exactly: sitting on the host's limit rather than under it.
+
+    Pinned against the host constant rather than a literal, so the day the host's
+    allowance changes this fails instead of quietly going over."""
+    from housing_label import config
+    # Strictly under, not equal: a sum that lands exactly on the allowance is
+    # sitting on the limit, which is the state this budget was lowered to leave.
+    assert fl.LOOKUP_TIMEOUT + fl.READ_SLICE_S < config.UPSTREAM_HOST_BUDGET, (
+        f"worst case {fl.LOOKUP_TIMEOUT + fl.READ_SLICE_S}s is not under the "
+        f"{config.UPSTREAM_HOST_BUDGET}s this host allows one service")
+    assert fl.LOOKUP_TIMEOUT > _shared.TIMEOUT, "Florida needs more than the shared budget"
 
 
 def test_both_requests_share_one_clock_started_once():
@@ -342,14 +408,21 @@ def test_both_requests_share_one_clock_started_once():
     _shared.get_json = note
     try:
         started = time.monotonic()
-        fl.lookup(28.54, -81.40, "740 W SOUTH ST, ORLANDO, FL")
+        fl.lookup(*_POINT, "740 W SOUTH ST, ORLANDO, FL")
     finally:
         _shared.get_json = saved
         fl._lookup_cached.cache_clear()
 
     assert len(seen) == 2, f"expected a containment and a buffered request, got {len(seen)}"
     assert seen[0] == seen[1], "each request was handed its own budget"
-    assert started < seen[0] <= started + fl.TIMEOUT + 0.5
+    # Bounded on BOTH sides. An upper bound alone passes just as happily on the
+    # shared four-second budget, so dropping the LOOKUP_TIMEOUT argument from the
+    # deadline_from call — the one-token slip this refactor made possible — would
+    # revert Florida to the clock that was discarding most of the state, silently.
+    budget = seen[0] - started
+    assert abs(budget - fl.LOOKUP_TIMEOUT) < 0.5, (
+        f"the lookup ran on a {budget:.1f}s budget, not Florida's "
+        f"{fl.LOOKUP_TIMEOUT}s (the shared default is {_shared.TIMEOUT}s)")
 
 
 def test_a_request_that_starts_with_no_budget_left_is_refused():
@@ -379,7 +452,7 @@ def test_the_portal_falling_over_is_not_evidence_of_absence():
     saved = _shared.get_json
     _shared.get_json = boom
     try:
-        assert fl.lookup(28.54, -81.40, "740 W SOUTH ST, ORLANDO, FL") is None
+        assert fl.lookup(*_POINT, "740 W SOUTH ST, ORLANDO, FL") is None
     finally:
         _shared.get_json = saved
         fl._lookup_cached.cache_clear()
