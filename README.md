@@ -210,10 +210,15 @@ not a defect anyone can see, and a small one that crosses a code-era boundary is
 
 Published at [housinglabel.dev/accuracy.html](https://housinglabel.dev/accuracy.html)
 and regenerated from a committed measurement run, which CI verifies the page still
-matches. Both jurisdictions with an adapter are measured — **Cook County, Illinois**
-and **Washington, DC** — each against its own assessor. They are real measurements of
-two housing stocks, not a national accuracy figure, and they are not comparable to
-each other: different stock, different record-keeping, different sample.
+matches. Two of the three jurisdictions with an adapter are measured — **Cook County,
+Illinois** and **Washington, DC** — each against its own assessor. They are real
+measurements of two housing stocks, not a national accuracy figure, and they are not
+comparable to each other: different stock, different record-keeping, different sample.
+
+**Florida is served but not yet measured.** The statewide adapter covers all 67
+counties and is the widest in the registry, and serving a jurisdiction is not the
+same as having measured it — so it carries no published figure until it is drawn and
+scored the same way the other two were.
 
 DC's figures cover **non-condominium homes only**. Condominium units are about a
 third of its assessor's residential stock and live in a separate table keyed by
@@ -261,6 +266,7 @@ taken from them live in this repository.
 | [Census ACS 5-yr Summary File](https://www.census.gov/programs-surveys/acs/data/summary-file.html) | Tract year-built distribution — B25034 quartiles + B25035 median (the vintage stand-in and its spread, when nobody supplies the real year) | Free, no key (bundled) |
 | [Cook County Assessor](https://datacatalog.cookcountyil.gov/) (Open Data) | **Observed** parcel construction: year built, living area, exterior wall, basement type, condition, stories — Cook County, IL only, queried live and never bundled | Free, no key (off unless `ASSESSOR_ADAPTERS=1`) |
 | [DC Office of Tax and Revenue](https://opendata.dc.gov/) (Open Data DC) | **Observed** parcel construction: year built, gross floor area, stories, exterior wall, condition — Washington, DC only, queried live and never bundled | Free, no key (off unless `ASSESSOR_ADAPTERS=1`) |
+| [Florida Dept. of Revenue](https://services9.arcgis.com/Gh9awoU677aKree0/arcgis/rest/services/Florida_Statewide_Cadastral/FeatureServer) (statewide cadastral) | **Observed** parcel construction: year built, and living area where the parcel holds a single home — all **67 Florida counties**, queried live and never bundled | Free, no key (off unless `ASSESSOR_ADAPTERS=1`) |
 | [EPA National Walkability Index](https://www.epa.gov/smartgrowth/national-walkability-index-user-guide-and-methodology) | Walkability (block-group index, aggregated to tract) | Free, public domain (bundled) |
 
 > Tract geocoding for the health and socioeconomic joins uses the free [FCC Area API](https://geo.fcc.gov/api/census/) (no key).

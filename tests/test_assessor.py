@@ -485,7 +485,7 @@ def test_a_preset_build_does_not_pay_for_an_assessor_lookup():
 
 def _stub_transport(monkey_target, parcels, cama):
     """Replace cook_il._get with one that answers from recorded bodies."""
-    def fake(url, params, deadline):
+    def fake(url, params, deadline, read_slice=None):
         if url == cook_il.PARCEL_URL:
             return {"features": [{"attributes": a} for a in parcels]}
         return cama

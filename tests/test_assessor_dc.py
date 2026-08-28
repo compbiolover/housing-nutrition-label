@@ -46,7 +46,7 @@ def _lookup(parcels, cama, lat=38.9347, lon=-77.0665, address=None,
     """
     asked = []
 
-    def fake(url, params, deadline):
+    def fake(url, params, deadline, read_slice=None):
         asked.append(url)
         rows = {dc.PARCEL_URL: parcels, dc.CAMA_URL: cama,
                 dc.UNITS_URL: units, dc.CONDO_CAMA_URL: condo}[url]
@@ -429,7 +429,7 @@ def test_the_condo_fallback_extends_the_ceiling_rather_than_adding_a_second_one(
     # below.
     parcel_cost = 0.8
 
-    def fake(url, params, deadline):
+    def fake(url, params, deadline, read_slice=None):
         seen.append(deadline)
         if url in (dc.PARCEL_URL, dc.CAMA_URL):
             time.sleep(parcel_cost)
@@ -468,7 +468,7 @@ def test_a_house_still_gets_the_ordinary_budget():
     from housing_label.enrich.assessor._shared import TIMEOUT
     seen = []
 
-    def fake(url, params, deadline):
+    def fake(url, params, deadline, read_slice=None):
         seen.append(deadline)
         rows = {dc.PARCEL_URL: [_PARCEL], dc.CAMA_URL: [_CAMA],
                 dc.UNITS_URL: [], dc.CONDO_CAMA_URL: []}[url]
