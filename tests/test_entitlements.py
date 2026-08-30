@@ -247,3 +247,55 @@ def test_anonymous_and_keyed_rows_do_not_collide():
     led.charge("same", 9, 10, anonymous=True)
     assert led.used("same") == 4
     assert led.used("same", anonymous=True) == 9
+
+
+def test_the_deployment_lets_uvicorn_see_the_real_caller():
+    """Rate limiting and the ledger's "ip:" rows both key on request.client.host,
+    and uvicorn only fills that from X-Forwarded-For when the immediate peer is in
+    forwarded_allow_ips — default 127.0.0.1. Render's router is not on loopback,
+    so without FORWARDED_ALLOW_IPS every anonymous visitor arrives as the router:
+    one 30/minute bucket for the whole internet. This is config, and config
+    regresses silently, so pin it.
+
+    The Dockerfile must NOT set it: that image can be run with the port published
+    directly, where trusting the header would let any caller spoof their address.
+    """
+    import pathlib as _p
+    root = _p.Path(__file__).resolve().parent.parent
+
+    render = (root / "render.yaml").read_text(encoding="utf-8")
+    assert "FORWARDED_ALLOW_IPS" in render, "Render deploy must trust its router's XFF"
+
+    dockerfile = (root / "Dockerfile").read_text(encoding="utf-8")
+    assert "ENV FORWARDED_ALLOW_IPS" not in dockerfile, (
+        "a generic image must not trust XFF by default")
+    assert "FORWARDED_ALLOW_IPS" in dockerfile, "…but it should say why not"
+
+
+def test_proxy_headers_actually_gate_the_observed_client():
+    """The mechanism the test above depends on, pinned against uvicorn itself so a
+    version bump that changes the default cannot pass unnoticed."""
+    import asyncio
+
+    from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+
+    async def app(scope, _receive, send):
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        await send({"type": "http.response.body", "body": scope["client"][0].encode()})
+
+    def seen_by_app(trusted, peer):
+        out = []
+
+        async def send(m):
+            if m["type"] == "http.response.body":
+                out.append(m["body"].decode())
+
+        scope = {"type": "http", "client": (peer, 1234),
+                 "headers": [(b"x-forwarded-for", b"203.0.113.9")]}
+        asyncio.run(ProxyHeadersMiddleware(app, trusted_hosts=trusted)(scope, None, send))
+        return out[0]
+
+    # A proxy off loopback with the default trust list: the app sees the PROXY.
+    assert seen_by_app("127.0.0.1", "10.0.0.7") == "10.0.0.7"
+    # Same proxy, once the deployment says to trust it: the app sees the caller.
+    assert seen_by_app("*", "10.0.0.7") == "203.0.113.9"

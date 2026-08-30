@@ -364,6 +364,13 @@ def _bucket(request: Request) -> str:
     fresh bucket per guess, and the request is about to be refused by ``_caller``
     anyway. Must never raise — the middleware calls this before any endpoint
     runs, so an exception here would be a 500 on every request.
+
+    The address half of this only works if the deployment lets uvicorn read
+    ``X-Forwarded-For``: it trusts that header only from a peer listed in
+    ``forwarded_allow_ips`` (default ``127.0.0.1``). Behind a proxy that is not on
+    loopback — Render's router, for one — every caller otherwise arrives as the
+    proxy, and the whole internet shares one bucket. ``render.yaml`` sets
+    ``FORWARDED_ALLOW_IPS``; the Dockerfile explains why it must not be a default.
     """
     try:
         raw = request.headers.get("X-API-Key") or request.query_params.get("key")
