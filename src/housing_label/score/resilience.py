@@ -264,20 +264,6 @@ def eal_rate_to_score(eal_rate: float) -> float:
     return 0.0  # fallback (should not reach here)
 
 
-def score_to_grade(score: float) -> str:
-    """Convert 0-100 score to letter grade (A/B/C/D/F)."""
-    if score >= 80:
-        return "A"
-    elif score >= 60:
-        return "B"
-    elif score >= 40:
-        return "C"
-    elif score >= 20:
-        return "D"
-    else:
-        return "F"
-
-
 # ---------------------------------------------------------------------------
 # DUAL-GRADING RATIONALE
 # ---------------------------------------------------------------------------
@@ -305,29 +291,6 @@ def score_to_grade(score: float) -> str:
 #   • Homebuyers / lenders / insurers → local_grade (intra-market comparison)
 #   • Nutrition label UI → show both with clear labels explaining the context
 # ---------------------------------------------------------------------------
-
-def percentile_to_local_grade(pct: float) -> str:
-    """
-    Convert a 0-100 percentile rank to a local letter grade.
-    Breakpoints distribute grades across five bands:
-        A = top 10%     (≥90th percentile)
-        B = next 25%    (≥65th percentile)
-        C = middle 30%  (≥35th percentile)
-        D = next 25%    (≥10th percentile)
-        F = bottom 10%  (<10th percentile)
-    """
-    if pct >= 90:
-        return "A"
-    elif pct >= 65:
-        return "B"
-    elif pct >= 35:
-        return "C"
-    elif pct >= 10:
-        return "D"
-    else:
-        return "F"
-
-
 # ---------------------------------------------------------------------------
 # 6. BUILDING RESILIENCE MODIFIER (BRM)
 # ---------------------------------------------------------------------------
@@ -721,15 +684,17 @@ def eal_rate_to_score_vec(rate):
 
 
 def score_to_grade_vec(score):
-    """Column-wise score_to_grade (NaN → 'F', matching the scalar else-branch)."""
+    """Column-wise all_dimensions.score_to_grade (NaN → '—', as the scalar guard does)."""
     s = np.asarray(score, dtype=float)
-    return np.select([s >= 80, s >= 60, s >= 40, s >= 20], ["A", "B", "C", "D"], default="F")
+    return np.select([np.isnan(s), s >= 80, s >= 60, s >= 40, s >= 20],
+                     ["—", "A", "B", "C", "D"], default="F")
 
 
 def percentile_to_local_grade_vec(pct):
-    """Column-wise percentile_to_local_grade (NaN → 'F')."""
+    """Column-wise all_dimensions.percentile_to_local_grade (NaN → '—')."""
     p = np.asarray(pct, dtype=float)
-    return np.select([p >= 90, p >= 65, p >= 35, p >= 10], ["A", "B", "C", "D"], default="F")
+    return np.select([np.isnan(p), p >= 90, p >= 65, p >= 35, p >= 10],
+                     ["—", "A", "B", "C", "D"], default="F")
 
 
 def brm_columns_vec(df):

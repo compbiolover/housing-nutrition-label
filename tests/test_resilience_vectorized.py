@@ -17,6 +17,7 @@ Runs directly too:  ``python tests/test_resilience_vectorized.py``.
 import numpy as np
 import pandas as pd
 
+from housing_label.score import all_dimensions as A
 from housing_label.score import resilience as R
 
 
@@ -87,9 +88,9 @@ def test_score_and_grade_helpers_match_scalar():
     assert np.allclose(got, expected, rtol=1e-12, atol=1e-9, equal_nan=True)
 
     scores = np.linspace(-5, 105, 223)
-    assert list(R.score_to_grade_vec(scores)) == [R.score_to_grade(s) for s in scores]
+    assert list(R.score_to_grade_vec(scores)) == [A.score_to_grade(s) for s in scores]
     assert (list(R.percentile_to_local_grade_vec(scores))
-            == [R.percentile_to_local_grade(s) for s in scores])
+            == [A.percentile_to_local_grade(s) for s in scores])
 
 
 def test_brm_columns_match_scalar():
