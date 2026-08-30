@@ -1,5 +1,5 @@
-"""
-score_resilience.py — Housing Nutrition Label: Disaster Resilience Scoring
+"""Disaster-resilience scoring: the Expected Annual Loss model behind the label.
+
 Methodology: Expected Annual Loss Rate (EAL Rate = EAL / property value)
 EAL Rate is dimensionless (fraction of property value lost per year, on average).
 
@@ -19,37 +19,33 @@ interpolation, then translated to a letter grade. Per-hazard sub-scores use
 the same mapping.
 
 Sources / rationale are cited at each threshold.
+
+Importable functions only. The Shelby County batch scorer that used to drive
+these over a parcel CSV was retired along with the enrichment stages that fed
+it; simulate/house.py and simulate/dimensions.py are the callers now.
 """
 
-import argparse
 import logging
-import pathlib
-import sys
 
 import numpy as np
-import pandas as pd
+
+from housing_label.utils import isna
 
 # NOTE: no logging.basicConfig at import time — this module is imported by the
 # live simulator/API (simulate/house.py pulls in the shared BRM factors), and
-# reconfiguring the root logger on import would leak the CLI's formatting into
-# that process. basicConfig lives in main() (the batch-scorer CLI entrypoint).
+# reconfiguring the root logger on import would leak into that process. The
+# application boundary that configures logging is api.serve().
 log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Module-level configuration
 # ---------------------------------------------------------------------------
-SCRIPT_DIR = pathlib.Path(__file__).resolve().parents[3]   # repo root; data lives here
 
 # Default input is the LAST enrichment in the chain (fire). The chained file
 # already carries the CAMA columns forward from clean_parcels plus all
 # hazard/energy/infra/health/wildfire columns.
-DEFAULT_INPUT = "shelby_parcels_fire.csv"
-DEFAULT_SAMPLE = "shelby_parcels_sample.csv"
-DEFAULT_OUTPUT = "shelby_parcels_scored.csv"
 
 # CAMA construction columns (PARCELID is the join key; the rest are values).
-CAMA_COLS = ["PARCELID", "YRBLT", "EXTWALL", "BSMT", "COND",
-             "GRADE", "SFLA", "RTOTAPR", "APRBLDG"]
 
 # ---------------------------------------------------------------------------
 # 1. FLOOD EAL RATE
@@ -340,7 +336,7 @@ def code_era_factor(yrblt) -> float:
     Linearly interpolated between the CODE_ERA anchors (1940->1.60 ... 2010->0.85)
     and clamped beyond them. This is the single implementation; simulate/house.py
     imports it rather than defining its own."""
-    if pd.isna(yrblt):
+    if isna(yrblt):
         return 1.0  # neutral if unknown
     return float(np.interp(int(yrblt), CODE_ERA_ANCHOR_YEARS, CODE_ERA_ANCHOR_FACTORS))
 
@@ -394,7 +390,7 @@ ICF_FLOOD_CONSTRUCTION_FACTOR = 0.45
 
 def construction_type_factor(extwall) -> float:
     """Return construction-type vulnerability multiplier based on EXTWALL code."""
-    if pd.isna(extwall):
+    if isna(extwall):
         return 1.0  # neutral if unknown
     return EXTWALL_FACTOR.get(int(extwall), 1.0)  # default 1.0 for unlisted codes
 
@@ -424,7 +420,7 @@ BSMT_FLOOD_FACTOR = {
 
 def foundation_factor(bsmt) -> float:
     """Return foundation flood-vulnerability multiplier based on BSMT code."""
-    if pd.isna(bsmt):
+    if isna(bsmt):
         return 1.0  # neutral if unknown
     return BSMT_FLOOD_FACTOR.get(int(bsmt), 1.0)
 
@@ -454,7 +450,7 @@ COND_FACTOR = {
 
 def condition_factor(cond) -> float:
     """Return condition vulnerability multiplier based on COND code."""
-    if pd.isna(cond):
+    if isna(cond):
         return 1.0  # neutral if unknown
     return COND_FACTOR.get(int(cond), 1.0)
 
@@ -531,14 +527,14 @@ def fire_age_factor(yrblt) -> float:
     risk; the 2002 NEC (AFCI / tamper-resistant) era lowers it. Linearly
     interpolated between the FIRE_AGE anchors and clamped beyond them.
     """
-    if pd.isna(yrblt):
+    if isna(yrblt):
         return 1.0
     return float(np.interp(int(yrblt), FIRE_AGE_ANCHOR_YEARS, FIRE_AGE_ANCHOR_FACTORS))
 
 
 def fire_construction_factor(extwall) -> float:
     """Return wall-material fire-combustibility multiplier based on EXTWALL code."""
-    if pd.isna(extwall):
+    if isna(extwall):
         return 1.0
     return FIRE_EXTWALL_FACTOR.get(int(extwall), 1.0)
 
@@ -548,7 +544,7 @@ def calc_brm_row(row):
     Compute BRM components and both flood and wind/seismic BRM for one row.
     Returns a dict of factor columns plus the two BRM values and source flag.
     """
-    has_cama = not pd.isna(row.get("YRBLT"))  # YRBLT as sentinel for CAMA presence
+    has_cama = not isna(row.get("YRBLT"))  # YRBLT as sentinel for CAMA presence
 
     if not has_cama:
         return {
@@ -567,7 +563,7 @@ def calc_brm_row(row):
     ff  = foundation_factor(row.get("BSMT"))
     cf  = condition_factor(row.get("COND"))
 
-    extwall_code = int(row.get("EXTWALL")) if not pd.isna(row.get("EXTWALL")) else None
+    extwall_code = int(row.get("EXTWALL")) if not isna(row.get("EXTWALL")) else None
     brm_floor = EXTWALL_BRM_FLOOR.get(extwall_code, DEFAULT_BRM_FLOOR)
 
     # Floor only, no upper ceiling: vulnerability compounds above the baseline.
@@ -601,463 +597,38 @@ def calc_brm_row(row):
 # tests/test_resilience_vectorized.py asserts the two paths agree on random
 # parcels, so any divergence fails the suite rather than silently shifting scores.
 
-_SCORE_LOG_EALS = np.log([e for _, e in SCORE_BREAKPOINTS])          # ascending in EAL
-_SCORE_VALUES   = np.array([s for s, _ in SCORE_BREAKPOINTS], float)  # descending score
-_SCORE_EAL_LO   = SCORE_BREAKPOINTS[0][1]    # ≤ this EAL → score 100
-_SCORE_EAL_HI   = SCORE_BREAKPOINTS[-1][1]   # ≥ this EAL → score 0
 
 
-def _code_factor_vec(col, table, default=1.0):
-    """Vectorized ``table.get(int(x), default)`` with NaN → default (matches the
-    scalar *_factor helpers, which return the neutral default for missing/unknown)."""
-    xi = np.trunc(pd.to_numeric(col, errors="coerce").to_numpy())  # int() truncation
-    result = np.full(len(xi), float(default))
-    for k, v in table.items():
-        result[xi == k] = v   # NaN == k is False, so unknown/NaN keep the default
-    return result
 
 
-def _year_interp_vec(col, years, factors):
-    """Vectorized continuous year-built factor: ``np.interp(int(yr), years,
-    factors)`` with NaN → 1.0, exactly matching the scalar code_era_factor /
-    fire_age_factor (which share the same anchors). np.interp clamps beyond the
-    endpoints just like the scalar path."""
-    xt = np.trunc(pd.to_numeric(col, errors="coerce").to_numpy())  # int(yr)
-    result = np.interp(xt, years, factors)       # NaN xt → NaN result
-    result[np.isnan(xt)] = 1.0                    # scalar pd.isna(yrblt) → 1.0
-    return result
 
 
-def _pga_damage_ratio_vec(pga):
-    """Vectorized pga_to_damage_ratio (NaN → 0.50, matching the scalar else-branch)."""
-    pga = np.asarray(pga, dtype=float)
-    return np.select(
-        [pga < 0.10, pga < 0.20, pga < 0.40, pga < 0.60],
-        [0.005, 0.03, 0.10, 0.25],
-        default=0.50,
-    )
 
 
-def flood_eal_vec(df):
-    """Column-wise calc_flood_eal."""
-    return df["flood_risk"].map(FLOOD_EAL).fillna(FLOOD_EAL["minimal"])
 
 
-def tornado_eal_vec(df):
-    """Column-wise calc_tornado_eal (clean NRI tornado rate, 0.0 if absent)."""
-    if "tornado_nri_eal_rate" in df.columns:
-        r = pd.to_numeric(df["tornado_nri_eal_rate"], errors="coerce")
-        return r.where(np.isfinite(r) & (r >= 0), 0.0)
-    return pd.Series(0.0, index=df.index)   # length-matched, never a bare scalar
 
 
-def seismic_eal_vec(df):
-    """Column-wise calc_seismic_eal."""
-    dr_rare     = _pga_damage_ratio_vec(df["pga_2pct_50yr"])
-    dr_moderate = _pga_damage_ratio_vec(df["pga_10pct_50yr"])
-    return LAMBDA_2 * dr_rare + (LAMBDA_10 - LAMBDA_2) * dr_moderate
 
 
-def fire_eal_vec(df):
-    """Column-wise calc_fire_eal (structural baseline + clean wildfire rate)."""
-    if "wildfire_eal_rate" in df.columns:
-        w = pd.to_numeric(df["wildfire_eal_rate"], errors="coerce")
-        w = w.where(np.isfinite(w) & (w >= 0), 0.0)
-    else:
-        w = pd.Series(0.0, index=df.index)   # length-matched, never a bare scalar
-    return STRUCTURAL_FIRE_EAL_BASE + w
 
 
-def eal_rate_to_score_vec(rate):
-    """Column-wise eal_rate_to_score via log-linear interpolation (clamped at ends).
-
-    Matches the scalar exactly for every input: clamping into the breakpoint
-    domain before the log reproduces its ``≤ lowest → 100`` / ``≥ highest → 0``
-    guards (and folds negatives into the ``≤ lowest`` case), while NaN rates map to
-    0.0 — the scalar's fall-through when all its comparisons fail — rather than
-    propagating NaN into resilience_score/percentile_rank."""
-    rate = np.asarray(rate, dtype=float)
-    lo, hi = _SCORE_EAL_LO, _SCORE_EAL_HI
-    clamped = np.clip(rate, lo, hi)        # NaN stays NaN through clip
-    scores = np.interp(np.log(clamped), _SCORE_LOG_EALS, _SCORE_VALUES)
-    return np.where(np.isnan(rate), 0.0, scores)
 
 
-def score_to_grade_vec(score):
-    """Column-wise all_dimensions.score_to_grade (NaN → '—', as the scalar guard does)."""
-    s = np.asarray(score, dtype=float)
-    return np.select([np.isnan(s), s >= 80, s >= 60, s >= 40, s >= 20],
-                     ["—", "A", "B", "C", "D"], default="F")
 
 
-def percentile_to_local_grade_vec(pct):
-    """Column-wise all_dimensions.percentile_to_local_grade (NaN → '—')."""
-    p = np.asarray(pct, dtype=float)
-    return np.select([np.isnan(p), p >= 90, p >= 65, p >= 35, p >= 10],
-                     ["—", "A", "B", "C", "D"], default="F")
 
 
-def brm_columns_vec(df):
-    """Column-wise calc_brm_row → DataFrame with the same eight columns.
-
-    Non-CAMA rows (no YRBLT) get all factors 1.0 and brm_source 'default', exactly
-    as the scalar early-return does."""
-    idx = df.index
-    nan = pd.Series(np.nan, index=idx)
-    yrblt   = df["YRBLT"]   if "YRBLT"   in df.columns else nan
-    extwall = df["EXTWALL"] if "EXTWALL" in df.columns else nan
-    bsmt    = df["BSMT"]    if "BSMT"    in df.columns else nan
-    cond    = df["COND"]    if "COND"    in df.columns else nan
-    has_cama = pd.to_numeric(yrblt, errors="coerce").notna().to_numpy()
-
-    cef      = _year_interp_vec(yrblt, CODE_ERA_ANCHOR_YEARS, CODE_ERA_ANCHOR_FACTORS)
-    ctf      = _code_factor_vec(extwall, EXTWALL_FACTOR)
-    ff       = _code_factor_vec(bsmt, BSMT_FLOOD_FACTOR)
-    cf       = _code_factor_vec(cond, COND_FACTOR)
-    fire_age = _year_interp_vec(yrblt, FIRE_AGE_ANCHOR_YEARS, FIRE_AGE_ANCHOR_FACTORS)
-    fire_ctf = _code_factor_vec(extwall, FIRE_EXTWALL_FACTOR)
-
-    ew = np.trunc(pd.to_numeric(extwall, errors="coerce").to_numpy())
-    brm_floor = np.full(len(df), float(DEFAULT_BRM_FLOOR))
-    for k, v in EXTWALL_BRM_FLOOR.items():
-        brm_floor[ew == k] = v
-
-    # Floor only, no upper ceiling (matches the scalar calc_brm_row).
-    flood_brm        = np.maximum(cef * ctf * ff * cf, brm_floor)
-    wind_seismic_brm = np.maximum(cef * ctf * cf,      brm_floor)
-    fire_brm         = np.maximum(fire_age * fire_ctf * cf, FIRE_BRM_FLOOR)
-
-    out = pd.DataFrame(index=idx)
-    out["code_era_factor"]     = np.where(has_cama, cef, 1.0)
-    out["construction_factor"] = np.where(has_cama, ctf, 1.0)
-    out["foundation_factor"]   = np.where(has_cama, ff, 1.0)
-    out["condition_factor"]    = np.where(has_cama, cf, 1.0)
-    out["flood_brm"]           = np.where(has_cama, flood_brm, 1.0)
-    out["wind_seismic_brm"]    = np.where(has_cama, wind_seismic_brm, 1.0)
-    out["fire_brm"]            = np.where(has_cama, fire_brm, 1.0)
-    out["brm_source"]          = np.where(has_cama, "cama", "default")
-    return out
 
 
 # ---------------------------------------------------------------------------
 # 7. MAIN — apply to all parcels, save output
 # ---------------------------------------------------------------------------
 
-def _resolve_path(path_str: str) -> pathlib.Path:
-    """Resolve a bare path relative to SCRIPT_DIR; absolute paths pass through."""
-    p = pathlib.Path(path_str)
-    return p if p.is_absolute() else (SCRIPT_DIR / p)
 
 
-def main() -> None:
-    # Configure root logging here (the CLI entrypoint), not at import time, so
-    # importing this module into the simulator/API never reconfigures logging.
-    logging.basicConfig(level=logging.INFO,
-                        format="%(asctime)s %(levelname)s  %(message)s")
-    parser = argparse.ArgumentParser(
-        description="Compute EAL-based disaster resilience scores and grades "
-                    "for Shelby County parcels."
-    )
-    parser.add_argument("--input", default=DEFAULT_INPUT,
-                        help="Input parcels CSV (default: %(default)s, the last "
-                             "enrichment in the pipeline chain).")
-    parser.add_argument("--output", default=DEFAULT_OUTPUT,
-                        help="Output scored CSV (default: %(default)s).")
-    parser.add_argument("--sample-file", default=DEFAULT_SAMPLE,
-                        help="Sample CSV used only for the conditional CAMA "
-                             "fallback join (default: %(default)s).")
-    parser.add_argument("--limit", type=int, default=None,
-                        help="If set, process only the first N rows (for "
-                             "testing; percentile ranks then reflect the subset).")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Validate input and log the plan without scoring "
-                             "or writing output.")
-    args = parser.parse_args()
-
-    input_path  = _resolve_path(args.input)
-    output_path = _resolve_path(args.output)
-    sample_path = _resolve_path(args.sample_file)
-
-    # --- Input validation ---
-    if not input_path.exists():
-        log.error("Input file does not exist: %s", input_path)
-        sys.exit(1)
-
-    # --- Load pipeline output ---
-    df = pd.read_csv(input_path, low_memory=False)
-    log.info("Loaded %s parcels from %s", f"{len(df):,}", input_path)
-
-    if args.limit is not None:
-        df = df.head(args.limit)
-        log.info("Limited to first %s rows for testing", f"{len(df):,}")
-
-    # --- Determine whether a CAMA re-join is needed ---
-    # The chained input already carries CAMA columns forward. Re-merging them
-    # would create duplicate _x/_y columns, so only fall back to the sample
-    # file for value columns that are genuinely missing from df.
-    cama_value_cols = [c for c in CAMA_COLS if c != "PARCELID"]
-    missing_cama = [c for c in cama_value_cols if c not in df.columns]
-    needs_rejoin = bool(missing_cama)
-
-    # --- Dry-run: log the plan and exit before any scoring/writing ---
-    if args.dry_run:
-        log.info("DRY RUN — no scoring performed, no output written")
-        log.info("  input:  %s", input_path)
-        log.info("  output: %s", output_path)
-        log.info("  rows:   %s", f"{len(df):,}")
-        if needs_rejoin:
-            log.info("  CAMA re-join needed for missing columns: %s",
-                     ", ".join(missing_cama))
-        else:
-            log.info("  CAMA columns already present — no re-join needed")
-        return
-
-    # --- Conditional CAMA join ---
-    if not needs_rejoin:
-        log.info("CAMA columns already present from pipeline — skipping sample re-join")
-    else:
-        log.info("CAMA columns missing from input: %s — joining from sample file",
-                 ", ".join(missing_cama))
-        if not sample_path.exists():
-            log.warning("Sample file not found (%s); continuing — BRM falls back "
-                        "to 1.0 for parcels lacking CAMA data", sample_path)
-        else:
-            sample = pd.read_csv(sample_path, usecols=["PARCELID"] + missing_cama,
-                                 low_memory=False)
-            sample = sample.drop_duplicates(subset="PARCELID")
-            df = df.merge(sample, on="PARCELID", how="left")
-
-    if "YRBLT" in df.columns:
-        cama_present = df["YRBLT"].notna().sum()
-        log.info("CAMA data: %s parcels have CAMA records (%.1f%%); "
-                 "%s will use BRM=1.0 default",
-                 f"{cama_present:,}", cama_present / len(df) * 100,
-                 f"{len(df) - cama_present:,}")
-
-    # --- RTOTAPR: use for dollar-denominated EAL reporting ---
-    # EAL Rate is dimensionless (fraction/year); multiply by appraised value
-    # to obtain expected annual dollar loss. For parcels missing RTOTAPR, use
-    # the sample median so that dollar estimates remain meaningful.
-    # Source: Shelby County Assessor CAMA data; median from 1,000-parcel sample.
-    rtotapr_median = df["RTOTAPR"].median()
-    df["property_value"] = df["RTOTAPR"].fillna(rtotapr_median)
-    log.info("Property value: median $%s; %s parcels using median fallback",
-             f"{rtotapr_median:,.0f}", df["RTOTAPR"].isna().sum())
-
-    # --- Compute raw per-hazard EAL rates (before BRM) ---
-    df["flood_eal_rate_raw"]   = flood_eal_vec(df)
-    df["tornado_eal_rate_raw"] = tornado_eal_vec(df)
-    df["seismic_eal_rate_raw"] = seismic_eal_vec(df)
-    df["fire_eal_rate_raw"]    = fire_eal_vec(df)
-
-    # --- Compute BRM for every parcel ---
-    df = pd.concat([df, brm_columns_vec(df)], axis=1)
-
-    # --- Apply BRM: adjusted_eal = raw_eal × BRM ---
-    df["flood_eal_rate"]   = df["flood_eal_rate_raw"]   * df["flood_brm"]
-    df["tornado_eal_rate"] = df["tornado_eal_rate_raw"] * df["wind_seismic_brm"]
-    df["seismic_eal_rate"] = df["seismic_eal_rate_raw"] * df["wind_seismic_brm"]
-    df["fire_eal_rate"]    = df["fire_eal_rate_raw"]    * df["fire_brm"]
-
-    # Independent-hazard assumption: total EAL = sum of individual EALs.
-    df["total_eal_rate"] = (
-        df["flood_eal_rate"] + df["tornado_eal_rate"]
-        + df["seismic_eal_rate"] + df["fire_eal_rate"]
-    )
-
-    # --- Dollar-denominated EAL (informational, not used in scoring) ---
-    df["flood_eal_dollars"]   = df["flood_eal_rate"]   * df["property_value"]
-    df["tornado_eal_dollars"] = df["tornado_eal_rate"] * df["property_value"]
-    df["seismic_eal_dollars"] = df["seismic_eal_rate"] * df["property_value"]
-    df["fire_eal_dollars"]    = df["fire_eal_rate"]    * df["property_value"]
-    df["total_eal_dollars"]   = df["total_eal_rate"]   * df["property_value"]
-
-    # --- Map adjusted EAL rates to 0-100 scores ---
-    df["flood_score"]      = eal_rate_to_score_vec(df["flood_eal_rate"])
-    df["tornado_score"]    = eal_rate_to_score_vec(df["tornado_eal_rate"])
-    df["seismic_score"]    = eal_rate_to_score_vec(df["seismic_eal_rate"])
-    df["fire_score"]       = eal_rate_to_score_vec(df["fire_eal_rate"])
-    df["resilience_score"] = eal_rate_to_score_vec(df["total_eal_rate"])
-
-    # --- National absolute grade (cross-city comparison) ---
-    df["national_grade"] = score_to_grade_vec(df["resilience_score"])
-
-    # --- Percentile rank within Shelby County dataset (0-100) ---
-    df["percentile_rank"] = df["resilience_score"].rank(pct=True) * 100
-
-    # --- Local percentile-based grade (within-market comparison) ---
-    df["local_grade"] = percentile_to_local_grade_vec(df["percentile_rank"])
-
-    # --- Per-hazard local grades (same percentile bands applied per sub-score) ---
-    for h in ("flood", "tornado", "seismic", "fire"):
-        df[f"{h}_local_grade"] = percentile_to_local_grade_vec(
-            df[f"{h}_score"].rank(pct=True) * 100)
-
-    # --- Save ---
-    df.to_csv(output_path, index=False)
-    log.info("wrote %s rows × %s cols to %s",
-             f"{len(df):,}", f"{df.shape[1]:,}", output_path)
-
-    # -----------------------------------------------------------------------
-    # SUMMARY REPORT
-    # -----------------------------------------------------------------------
-    pd.set_option("display.float_format", "{:.5f}".format)
-    pd.set_option("display.max_columns", 25)
-    pd.set_option("display.width", 160)
-
-    print("\n" + "=" * 70)
-    print("BRM SUMMARY")
-    print("=" * 70)
-    brm_cols = ["code_era_factor", "construction_factor",
-                "foundation_factor", "condition_factor",
-                "flood_brm", "wind_seismic_brm", "fire_brm"]
-    print(df[brm_cols].describe().map(lambda x: f"{x:.4f}").to_string())
-    print("\nBRM source breakdown:")
-    print(df["brm_source"].value_counts().to_string())
-
-    print("\n" + "=" * 70)
-    print("EAL RATE SUMMARY — ADJUSTED (fraction/year × 100 = %/yr)")
-    print("=" * 70)
-    eal_cols = ["flood_eal_rate", "tornado_eal_rate",
-                "seismic_eal_rate", "fire_eal_rate", "total_eal_rate"]
-    print(df[eal_cols].describe().map(lambda x: f"{x:.6f}").to_string())
-
-    print("\n" + "=" * 70)
-    print("SCORE SUMMARY — ADJUSTED (0–100, higher = more resilient)")
-    print("=" * 70)
-    score_cols = ["flood_score", "tornado_score", "seismic_score",
-                  "fire_score", "resilience_score"]
-    print(df[score_cols].describe().map(lambda x: f"{x:.1f}").to_string())
-
-    print("\n" + "=" * 70)
-    print("GRADE DISTRIBUTION — NATIONAL (absolute) vs LOCAL (percentile)")
-    print("=" * 70)
-    national_counts = df["national_grade"].value_counts().sort_index()
-    local_counts    = df["local_grade"].value_counts().sort_index()
-    all_grades = sorted(set(national_counts.index) | set(local_counts.index))
-    print(f"  {'Grade':<6} {'National':>8}  {'Local':>8}")
-    print(f"  {'-'*5:<6} {'-'*8:>8}  {'-'*8:>8}")
-    for g in all_grades:
-        n = national_counts.get(g, 0)
-        l = local_counts.get(g, 0)
-        print(f"  {g:<6} {n:>8,}  {l:>8,}")
-
-    print("\n  Per-hazard local grade distributions:")
-    for hazard, col in [("Flood", "flood_local_grade"),
-                        ("Tornado", "tornado_local_grade"),
-                        ("Seismic", "seismic_local_grade"),
-                        ("Fire", "fire_local_grade")]:
-        counts = df[col].value_counts().sort_index()
-        row_str = "  ".join(f"{g}:{counts.get(g,0):,}" for g in ["A","B","C","D","F"])
-        print(f"  {hazard:<8}: {row_str}")
-
-    print("\n" + "=" * 70)
-    print("SCORE DISTRIBUTION (resilience_score, BRM-adjusted)")
-    print("=" * 70)
-    bins   = [0, 20, 40, 60, 80, 100]
-    labels = ["0-20 (F)", "20-40 (D)", "40-60 (C)", "60-80 (B)", "80-100 (A)"]
-    df["_band"] = pd.cut(df["resilience_score"], bins=bins,
-                         labels=labels, include_lowest=True)
-    for band, cnt in df["_band"].value_counts().sort_index().items():
-        bar = "#" * (cnt // 10)
-        print(f"  {band}: {cnt:>5}  {bar}")
-    df.drop(columns=["_band"], inplace=True)
-
-    # --- BRM effect: score shift ---
-    # Compute pre-BRM scores for comparison (using raw EAL rates)
-    df["_score_pre_brm"] = (
-        df["flood_eal_rate_raw"] + df["tornado_eal_rate_raw"]
-        + df["seismic_eal_rate_raw"] + df["fire_eal_rate_raw"]
-    ).apply(eal_rate_to_score)
-    df["_score_shift"] = df["resilience_score"] - df["_score_pre_brm"]
-
-    print("\n" + "=" * 70)
-    print("BRM SCORE SHIFT (adjusted − pre-BRM, positive = more resilient)")
-    print("=" * 70)
-    shift = df["_score_shift"]
-    print(f"  Mean shift:   {shift.mean():+.2f} points")
-    print(f"  Std dev:      {shift.std():.2f} points")
-    print(f"  Range:        {shift.min():+.2f} to {shift.max():+.2f}")
-    print(f"  Improved (↑): {(shift > 0).sum():,} parcels")
-    print(f"  Worsened (↓): {(shift < 0).sum():,} parcels")
-    print(f"  Unchanged:    {(shift == 0).sum():,} parcels")
-
-    df.drop(columns=["_score_pre_brm", "_score_shift"], inplace=True)
-
-    # --- 5 examples: extreme BRM values ---
-    print("\n" + "=" * 70)
-    print("EXAMPLE ROWS — HIGH & LOW BRM (illustrating modifier effect)")
-    print("=" * 70)
-    # Pick 2 with highest flood_brm (most vulnerable) + 2 with lowest + 1 median
-    examples = pd.concat([
-        df.nlargest(2, "flood_brm"),
-        df.nsmallest(2, "flood_brm"),
-        df.iloc[[(df["flood_brm"] - df["flood_brm"].median()).abs().idxmin()]],
-    ]).drop_duplicates()
-
-    ex_cols = [
-        "flood_risk", "YRBLT", "EXTWALL", "BSMT", "COND",
-        "code_era_factor", "construction_factor", "foundation_factor",
-        "condition_factor", "flood_brm", "wind_seismic_brm",
-        "flood_eal_rate", "total_eal_rate", "resilience_score",
-        "national_grade", "local_grade", "percentile_rank", "brm_source",
-    ]
-    print(examples[ex_cols].to_string(index=False))
-
-    # --- 5 examples: national vs local grade divergence ---
-    print("\n" + "=" * 70)
-    print("EXAMPLE ROWS — NATIONAL vs LOCAL GRADE DIVERGENCE")
-    print("=" * 70)
-    # Find parcels where the two grades differ and pick the most extreme splits
-    df["_grade_diff"] = (df["national_grade"] != df["local_grade"]).astype(int)
-    # Sort by how far apart the scores and percentile are (large percentile, mid score)
-    df["_divergence"] = (df["percentile_rank"] - 50).abs()
-    divergent = df[df["_grade_diff"] == 1].nlargest(5, "_divergence")
-    if len(divergent) < 5:
-        # Pad with any differing rows
-        divergent = df[df["_grade_diff"] == 1].head(5)
-
-    div_cols = [
-        "PARCELID", "flood_risk", "YRBLT", "COND",
-        "resilience_score", "percentile_rank",
-        "national_grade", "local_grade",
-        "flood_local_grade", "tornado_local_grade", "seismic_local_grade",
-    ]
-    print(divergent[div_cols].to_string(index=False))
-
-    # --- Grade shift summary ---
-    print("\n" + "=" * 70)
-    print("GRADE SHIFT SUMMARY (national → local)")
-    print("=" * 70)
-    total_different = df["_grade_diff"].sum()
-    total_same      = len(df) - total_different
-    print(f"  Same grade (national = local): {total_same:,} parcels "
-          f"({total_same/len(df)*100:.1f}%)")
-    print(f"  Different grade:               {total_different:,} parcels "
-          f"({total_different/len(df)*100:.1f}%)")
-
-    print(f"\n  Local grade A-F all populated: "
-          f"{sorted(df['local_grade'].unique())}")
-
-    df.drop(columns=["_grade_diff", "_divergence"], inplace=True)
-
-    print("\n" + "=" * 70)
-    print("DOLLAR EAL SUMMARY (expected annual loss in $, using RTOTAPR)")
-    print("=" * 70)
-    dollar_cols = ["flood_eal_dollars", "tornado_eal_dollars",
-                   "seismic_eal_dollars", "fire_eal_dollars", "total_eal_dollars"]
-    print(df[dollar_cols].describe().map(lambda x: f"${x:,.0f}").to_string())
 
 
-if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        log.info("Interrupted by user")
-        sys.exit(0)
-    except Exception:
-        log.error("Unhandled error during scoring", exc_info=True)
-        sys.exit(1)
 
 
 # ── Decomposing resilience into its site and building legs ───────────────────

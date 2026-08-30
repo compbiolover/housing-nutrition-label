@@ -1,1 +1,1 @@
-"""Scoring stages — turn enriched dimensions into 0-100 scores and grades."""
+"""Scoring — the EAL hazard model and the score/grade breakpoints behind a label."""

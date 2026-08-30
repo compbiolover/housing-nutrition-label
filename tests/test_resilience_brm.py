@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 from housing_label.score.resilience import (
-    code_era_factor, fire_age_factor, calc_brm_row, brm_columns_vec,
+    code_era_factor, fire_age_factor, calc_brm_row,
     CODE_ERA_ANCHOR_YEARS, CODE_ERA_ANCHOR_FACTORS,
     FIRE_AGE_ANCHOR_YEARS, FIRE_AGE_ANCHOR_FACTORS,
     EXTWALL_BRM_FLOOR, FIRE_BRM_FLOOR,
@@ -110,21 +110,26 @@ def test_non_cama_row_is_neutral():
         assert b[k] == 1.0
 
 
-# --- Scalar and vectorized paths agree (incl. the uncapped regime) ----------
+# --- The uncapped regime -----------------------------------------------------
 
-def test_vectorized_matches_scalar_uncapped():
-    rows = [
-        _row(1935, 1, 4, 0),   # extreme: compounds well above 1.5
-        _row(1965, 4, 3, 1),   # interpolated era, vinyl, partial basement, poor
-        _row(2005, 8, 1, 5),   # modern stone, floor-governed
-        _row(float("nan"), float("nan"), float("nan"), float("nan")),  # non-CAMA
-    ]
-    df = pd.DataFrame(rows).reset_index(drop=True)
-    vec = brm_columns_vec(df)
-    for i, row in enumerate(rows):
-        scal = calc_brm_row(row)
+def test_the_uncapped_regime_holds_across_representative_rows():
+    """These four rows used to exist to pin the vectorized batch scorer against
+    this scalar one; the batch scorer is gone and the rows are worth keeping on
+    their own. Every BRM must be finite and positive, and the deliberately
+    extreme row must compound well past the old 1.5 cap rather than clamp."""
+    extreme = calc_brm_row(_row(1935, 1, 4, 0))
+    interpolated = calc_brm_row(_row(1965, 4, 3, 1))   # vinyl, partial basement, poor
+    modern = calc_brm_row(_row(2005, 8, 1, 5))         # stone, floor-governed
+    non_cama = calc_brm_row(_row(float("nan"), float("nan"), float("nan"), float("nan")))
+
+    for name, brm in (("extreme", extreme), ("interpolated", interpolated),
+                      ("modern", modern), ("non_cama", non_cama)):
         for k in ("flood_brm", "wind_seismic_brm", "fire_brm"):
-            assert np.isclose(vec[k].iloc[i], scal[k]), (i, k)
+            assert np.isfinite(brm[k]) and brm[k] > 0, (name, k)
+
+    assert extreme["flood_brm"] > 1.5, "the uncapped regime must not clamp at 1.5"
+    assert modern["flood_brm"] < extreme["flood_brm"]
+    assert all(non_cama[k] == 1.0 for k in ("flood_brm", "wind_seismic_brm", "fire_brm"))
 
 
 def test_simulator_shares_one_implementation():

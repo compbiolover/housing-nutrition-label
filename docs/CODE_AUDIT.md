@@ -332,3 +332,12 @@ reference on random parcels).
   retires the byte-for-byte `_clean_tract` / `get_census_tract` duplication between
   `health.py` and `socioeconomic.py` that **S1** flagged, so the sections above
   citing those files describe code that no longer exists.
+- **Offline batch scoring removed** — `score/resilience.py` and
+  `score/all_dimensions.py` lose their `main()` CLIs and everything only those
+  drove: the vectorized column engine (**P2 / P6**'s subject), the DataFrame
+  dimension registry, `print_summary`, `merge_walkscore`. Their inputs were the
+  pilot enrichment stages deleted above, so the pipeline had not been runnable
+  end to end for some time; `shelby_parcels_scored.csv` is no longer produced.
+  What remains in both modules is what the live label path imports — the scalar
+  EAL functions, the BRM, and the score/grade breakpoints — so the sections
+  above about the batch scorer describe code that no longer exists.
