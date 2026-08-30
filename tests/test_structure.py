@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Tests for the NSI building-structure lookup (enrich/structure.py).
 
-Runs without network — the NSI HTTP call is monkeypatched. Execute directly
-(python tests/test_structure.py) or via pytest.
+Runs without network — the NSI HTTP call is monkeypatched. This file alone: ``pytest tests/test_structure.py``.
 """
 
 from __future__ import annotations

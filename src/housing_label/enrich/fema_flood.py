@@ -48,8 +48,6 @@ MAX_RETRIES = 3
 BACKOFF     = 2       # exponential back-off multiplier
 CHECKPOINT  = 50      # save every N rows
 
-FLOOD_COLS  = ["flood_zone", "flood_risk"]
-
 # Zones that constitute Special Flood Hazard Areas (high risk)
 SFHA_ZONES  = {
     "A", "AE", "AO", "AH", "AR", "A99",
@@ -133,7 +131,3 @@ def _flood_zone_at(lat: float, lon: float) -> dict:
         }
 
     return {"flood_zone": None, "flood_risk": "unknown"}
-
-
-def already_enriched(row: pd.Series) -> bool:
-    return all(pd.notna(row.get(c)) for c in FLOOD_COLS)

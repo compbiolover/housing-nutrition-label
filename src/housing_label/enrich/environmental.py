@@ -97,7 +97,6 @@ Columns added
 """
 
 import numpy as np
-import pandas as pd
 
 # ── Emission factors (verified — see research doc) ────────────────────────────
 EF_GRID_KG_PER_KWH   = 0.4097  # EPA eGRID2023 Rev 2 SRTV: 903.306 lb CO2e/MWh (matches data/egrid.py)
@@ -146,6 +145,7 @@ EMB_REF_PERIOD_YR = 60.0
 # data/embodied_carbon.py for the model and research/embodied-carbon-research.md
 # for the factor-by-factor provenance. EC_INTENSITY_DEFAULT (unknown wall +
 # unknown foundation) is re-exported so callers/tests keep a stable name.
+from housing_label.utils import isna   # noqa: E402
 from housing_label.data.embodied_carbon import (   # noqa: E402
     EC_INTENSITY_DEFAULT as EC_INTENSITY_DEFAULT,   # re-exported for callers/tests
     embodied_intensity_kgm2,
@@ -243,7 +243,7 @@ def _data_source(grid_factor: float, grid_marginal_factor: float | None,
 # ── Helpers ──────────────────────────────────────────────────────────────────
 def _num(v):
     """Coerce to float or return None for missing/non-numeric."""
-    if v is None or pd.isna(v):
+    if v is None or isna(v):
         return None
     try:
         return float(v)
@@ -326,7 +326,7 @@ def water_use_gal_yr(rmbed, fixbath, sfla, stories, calc_acre, acre_outlier,
 
 
 # ── Per-parcel model ──────────────────────────────────────────────────────────
-def model_parcel_environment(row: pd.Series,
+def model_parcel_environment(row: dict,
                              grid_factor: float = EF_GRID_KG_PER_KWH,
                              water_embedded_kwh_per_kgal: float = WATER_EMBEDDED_KWH_PER_KGAL,
                              is_multifamily: bool = False,

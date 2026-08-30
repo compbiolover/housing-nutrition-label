@@ -9,25 +9,20 @@ SDWIS record instead, and the county becomes the fallback.
 The behaviour worth pinning is the fallback boundary: a system EPA maps a service
 area for but SDWIS has no active record of must NOT score as clean.
 
-Runs without network (the parcel→PWSID lookup is injected). Execute directly
-(python tests/test_water_pwsid.py) or via pytest.
+Runs without network (the parcel→PWSID lookup is injected). This file alone: ``pytest tests/test_water_pwsid.py``.
 """
 
 from __future__ import annotations
 
 import csv
 import pathlib
-import sys
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.data.water_system import (                        # noqa: E402
+from housing_label.data.water_system import (
     water_for_pwsid, _SCORE_BY_YEARS, _CSV, RECENT_YEARS)
-from housing_label.simulate.location import Location                  # noqa: E402
-from housing_label.simulate.house import build_label_parts            # noqa: E402
+from housing_label.simulate.location import Location
+from housing_label.simulate.house import build_label_parts
 
 
 def _rows():

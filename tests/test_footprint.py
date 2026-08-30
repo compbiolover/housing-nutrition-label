@@ -2,7 +2,7 @@
 """Tests for the USA Structures footprint lookup (enrich/footprint.py).
 
 Pure/offline — the geodesic helpers are exercised directly and the network path is
-only checked for its graceful fallbacks (no live call). Run directly or via pytest.
+only checked for its graceful fallbacks (no live call). This file alone: ``pytest tests/test_footprint.py``..
 """
 
 from __future__ import annotations
@@ -81,16 +81,3 @@ def test_bad_coords_return_none():
     assert fp.footprint_for_point(None, None) is None
     assert fp.footprint_for_point(float("nan"), -77.0) is None
     assert fp.footprint_for_point(float("inf"), -77.0) is None
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items())
-             if k.startswith("test_") and callable(v)]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

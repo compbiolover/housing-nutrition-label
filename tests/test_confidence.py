@@ -6,18 +6,14 @@ No network — exercises the provenance → tier rubric
 parser against a mock label dict (the shape produced by
 simulate_all_dimensions and consumed by both the API payload and the generator).
 
-Run directly:  python tests/test_confidence.py
+This file alone:  pytest tests/test_confidence.py
 """
 
 import pathlib
-import sys
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.confidence import (  # noqa: E402
+from housing_label.confidence import (
     confidence_for_label, bands_for_label, confidence_notes_for_label,
     year_built_display, WIDE_BAND_DIMS, _PROVENANCE_SENSITIVE,
 )
@@ -266,15 +262,3 @@ def test_bands_parse_climate_interval():
 
 def test_bands_absent_without_climate_metric():
     assert bands_for_label(_mock_label(metrics={})) == {}
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

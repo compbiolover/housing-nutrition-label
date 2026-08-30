@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Tests for the Cambium LRMER marginal grid factor lookup (data/cambium.py).
 
-Offline — reads the bundled cambium_lrmer.csv only. Execute directly
-(python tests/test_cambium.py) or via pytest.
+Offline — reads the bundled cambium_lrmer.csv only. This file alone: ``pytest tests/test_cambium.py``.
 """
 
 from __future__ import annotations
@@ -53,15 +52,3 @@ def test_bundled_csv_is_well_formed():
             assert float(row["lrmer_kgco2e_kwh"]) > 0
             seen += 1
     assert seen > 3000   # ~3,100 CONUS counties
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

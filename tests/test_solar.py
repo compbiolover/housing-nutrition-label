@@ -1,22 +1,17 @@
 #!/usr/bin/env python3
 """Tests for the Solar Potential lookup + scoring (data/solar.py).
 
-Offline — reads the bundled solar_yield_county.csv only. Execute directly
-(python tests/test_solar.py) or via pytest.
+Offline — reads the bundled solar_yield_county.csv only. This file alone: ``pytest tests/test_solar.py``.
 """
 
 from __future__ import annotations
 
 import csv
 import pathlib
-import sys
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.data import solar as S  # noqa: E402
+from housing_label.data import solar as S
 
 
 def test_known_counties_resolve_and_rank():
@@ -60,15 +55,3 @@ def test_bundled_csv_is_well_formed():
             assert float(row["irradiation_kwh_m2"]) > 0
             seen += 1
     assert seen > 3000   # ~3,200 US counties within PVGIS coverage
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

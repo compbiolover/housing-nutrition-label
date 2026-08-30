@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Offline tests for the infrastructure cost curve (continuous, density-extended).
 
-Runs without network access and without pytest — execute directly:
-  python tests/test_infrastructure.py
+Runs without network access. This file alone:
+  pytest tests/test_infrastructure.py
 """
 
 import pandas as pd
@@ -171,15 +171,3 @@ def test_rural_parcel_costs_more_to_serve_than_a_suburban_one():
     """The direction the sprawl literature actually claims, now expressed instead of
     flattened away by the clamp."""
     assert _total(1, lot=10.0)["est_annual_infra_cost"] > _total(1, lot=0.25)["est_annual_infra_cost"]
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

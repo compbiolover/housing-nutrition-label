@@ -11,7 +11,7 @@ that nobody would see in review — a page that silently grew to two, a grade th
 exists only as a colour, a letter invented for a dimension that was never
 scored, and caller text reaching markup unescaped.
 
-Run directly:  python tests/test_label_svg.py
+This file alone:  pytest tests/test_label_svg.py
 """
 
 from __future__ import annotations
@@ -410,15 +410,3 @@ def test_the_export_buttons_wait_for_a_label_before_offering_one():
     assert "label-actions" not in form
     css = (_ROOT / "docs" / "label-core.css").read_text(encoding="utf-8")
     assert ".label-actions" not in css
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

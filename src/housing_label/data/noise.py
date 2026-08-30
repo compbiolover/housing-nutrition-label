@@ -40,7 +40,7 @@ import csv
 import pathlib
 from functools import lru_cache
 
-from housing_label.data._util import num as _num
+from housing_label.data._util import interp as _interp, num as _num
 
 NOISE_VINTAGE = "BTS National Transportation Noise Exposure Map (2023, tract-level)"
 
@@ -74,18 +74,6 @@ MEDIAN_TRACT_PCT = _PCT_XS[3]        # 1.85% of residents at >=60 dB
 # TIGER carries no traffic volumes.
 QUIET_FLOOR_SCORE = _PCT_YS[1]       # 90.0
 
-
-def _interp(x: float, xs: list[float], ys: list[float]) -> float:
-    """Piecewise-linear interpolation, flat outside the anchor range."""
-    if x <= xs[0]:
-        return ys[0]
-    if x >= xs[-1]:
-        return ys[-1]
-    for i in range(1, len(xs)):
-        if x <= xs[i]:
-            x0, x1, y0, y1 = xs[i - 1], xs[i], ys[i - 1], ys[i]
-            return y0 if x1 == x0 else y0 + (y1 - y0) * (x - x0) / (x1 - x0)
-    return ys[-1]
 
 
 @lru_cache(maxsize=1)

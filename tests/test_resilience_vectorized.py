@@ -11,12 +11,13 @@ tornado frequency, out-of-range PGA, garbage wildfire values) and assert the
 vectorized output matches the apply output element-for-element. A separate case
 drops the wildfire column entirely.
 
-Runs directly too:  ``python tests/test_resilience_vectorized.py``.
+This file alone: ``pytest tests/test_resilience_vectorized.py``.
 """
 
 import numpy as np
 import pandas as pd
 
+from housing_label.score import all_dimensions as A
 from housing_label.score import resilience as R
 
 
@@ -87,9 +88,9 @@ def test_score_and_grade_helpers_match_scalar():
     assert np.allclose(got, expected, rtol=1e-12, atol=1e-9, equal_nan=True)
 
     scores = np.linspace(-5, 105, 223)
-    assert list(R.score_to_grade_vec(scores)) == [R.score_to_grade(s) for s in scores]
+    assert list(R.score_to_grade_vec(scores)) == [A.score_to_grade(s) for s in scores]
     assert (list(R.percentile_to_local_grade_vec(scores))
-            == [R.percentile_to_local_grade(s) for s in scores])
+            == [A.percentile_to_local_grade(s) for s in scores])
 
 
 def test_brm_columns_match_scalar():
@@ -104,16 +105,3 @@ def test_brm_columns_match_scalar():
             assert np.allclose(got[col].to_numpy(dtype=float),
                                expected[col].to_numpy(dtype=float),
                                rtol=1e-12, atol=0), f"{col} mismatch"
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items())
-             if k.startswith("test_") and callable(v)]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

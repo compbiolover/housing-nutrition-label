@@ -18,7 +18,7 @@ reader has no reason to doubt it.
 So the buffer never decides anything; the house number does. Most of this file is
 that rule.
 
-Run standalone: ``python tests/test_assessor.py``
+This file alone: ``pytest tests/test_assessor.py``
 """
 
 from __future__ import annotations
@@ -26,19 +26,15 @@ from __future__ import annotations
 import os
 import pathlib
 import time
-import sys
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.enrich import assessor as A  # noqa: E402
-from housing_label.enrich.assessor import _shared, cook_il  # noqa: E402
-from housing_label.enrich.assessor._shared import (  # noqa: E402
+from housing_label.enrich import assessor as A
+from housing_label.enrich.assessor import _shared, cook_il
+from housing_label.enrich.assessor._shared import (
     address_key, same_address,
 )
-from housing_label.enrich.assessor.base import (  # noqa: E402
+from housing_label.enrich.assessor.base import (
     CONDITION_VALUES, CONSTRUCTION_VALUES, FOUNDATION_VALUES, AssessorRecord,
 )
 
@@ -777,22 +773,3 @@ def test_an_implausibly_large_body_is_refused_rather_than_read_to_the_end():
         assert raised is not None and "exceeded" in str(raised)
     finally:
         restore()
-
-
-def _run_all() -> int:
-    fns = [v for k, v in sorted(globals().items())
-           if k.startswith("test_") and callable(v)]
-    failed = 0
-    for fn in fns:
-        try:
-            fn()
-            print(f"  ok    {fn.__name__}")
-        except AssertionError as exc:
-            failed += 1
-            print(f"  FAIL  {fn.__name__}: {exc}")
-    print(f"\n{len(fns) - failed}/{len(fns)} passed")
-    return 1 if failed else 0
-
-
-if __name__ == "__main__":
-    sys.exit(_run_all())

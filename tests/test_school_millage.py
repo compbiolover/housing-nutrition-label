@@ -16,29 +16,24 @@ pin three things a future reader could easily break —
   3. the Texas homestead exemption reaches the DEBT levy as well as operating, which
      secondary sources deny and the source data establishes.
 
-Pure logic, no network. Runs standalone (``python tests/test_school_millage.py``) or via
-pytest.
+Pure logic, no network. This file alone: ``pytest tests/test_school_millage.py``.
 """
 
 from __future__ import annotations
 
 import csv
 import pathlib
-import sys
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.data.govfinance import govfinance_for_county  # noqa: E402
-from housing_label.data.propertytax import (  # noqa: E402
+from housing_label.data.govfinance import govfinance_for_county
+from housing_label.data.propertytax import (
     median_home_value_for_county, property_tax_for_county,
 )
-from housing_label.data.school_millage import (  # noqa: E402
+from housing_label.data.school_millage import (
     covered_states, millage_for_county, owner_school_rate,
 )
-from housing_label.enrich.region_context import (  # noqa: E402
+from housing_label.enrich.region_context import (
     BASIS_MEASURED, BASIS_SHARE, municipal_tax_rate,
 )
 
@@ -269,16 +264,3 @@ def test_shelby_still_opts_out():
     """The pilot county keeps its statutory Memphis basis on both accessors."""
     assert municipal_tax_rate("47157") == (None, None)
     assert municipal_tax_rate(None) == (None, None)
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items())
-             if k.startswith("test_") and callable(v)]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

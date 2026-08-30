@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Offline tests for the climate-projection lookup (no network, no pytest).
 
-Run directly:  python tests/test_climate_projections.py
+This file alone:  pytest tests/test_climate_projections.py
 """
 
 import csv
@@ -204,15 +204,3 @@ def test_pipeline_scorer_handles_numeric_geoid_columns():
     # Same for a numeric 11-digit tract column.
     out = score_climate(pd.DataFrame({"tract": [47157000100, None]}))
     assert out.iloc[0] == cp.climate_projection_for_tract("47157000100")["score"]
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

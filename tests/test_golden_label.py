@@ -25,10 +25,10 @@ not make those live; it only removes the one dependency that had no fallback.
 Any intended recalibration must regenerate the snapshot, turning a would-be silent
 drift into a reviewable diff:
 
-    UPDATE_GOLDEN=1 python -m pytest tests/test_golden_label.py     # rewrite
-    python -m pytest tests/test_golden_label.py                      # verify
+    UPDATE_GOLDEN=1 pytest tests/test_golden_label.py     # rewrite
+    pytest tests/test_golden_label.py                      # verify
 
-Runs directly too:  ``python tests/test_golden_label.py``.
+This file alone: ``pytest tests/test_golden_label.py``.
 """
 
 import json
@@ -151,7 +151,7 @@ def test_label_payload_matches_golden():
 
     assert GOLDEN.exists(), (
         f"missing golden snapshot {GOLDEN} — generate it once with "
-        "UPDATE_GOLDEN=1 python -m pytest tests/test_golden_label.py")
+        "UPDATE_GOLDEN=1 pytest tests/test_golden_label.py")
     expected = json.loads(GOLDEN.read_text())
 
     # Per-case diff so a failure names exactly what moved, not "big dict != dict".
@@ -192,16 +192,3 @@ def test_the_two_locations_actually_score_differently():
     location_driven = {"health", "air_quality", "noise", "socioeconomic",
                        "walkability", "climate", "solar", "water", "infrastructure"}
     assert location_driven <= differing, sorted(location_driven - differing)
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items())
-             if k.startswith("test_") and callable(v)]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

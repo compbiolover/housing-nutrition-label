@@ -141,18 +141,6 @@ _LEGS: dict[str, list[str]] = {
 }
 
 
-def _interp(x: float, xs: list[float], ys: list[float]) -> float:
-    """Clamped piecewise-linear interpolation (no log; hazard counts hit 0)."""
-    if x <= xs[0]:
-        return ys[0]
-    if x >= xs[-1]:
-        return ys[-1]
-    for i in range(1, len(xs)):
-        if x <= xs[i]:
-            x0, x1, y0, y1 = xs[i - 1], xs[i], ys[i - 1], ys[i]
-            return y0 + (y1 - y0) * (x - x0) / (x1 - x0)
-    return ys[-1]
-
 
 def _metric_score(metric: str, value: float | None) -> float | None:
     if value is None:
@@ -240,7 +228,7 @@ def band_trajectory(row: dict, from_band: str, to_band: str) -> tuple | None:
     return mean(a), mean(b), tuple(common)
 
 
-from housing_label.data._util import num as _num  # shared CSV-cell float coercion
+from housing_label.data._util import interp as _interp, num as _num  # shared CSV-cell float coercion
 
 
 def _load_rows(path: pathlib.Path, width: int):

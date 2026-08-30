@@ -11,24 +11,19 @@ Deliberately NOT extended to PM2.5 and ozone: those are outdoor pollutants whose
 source model runs at ~12 km, and the building does not move them. That asymmetry
 is the point, so it is pinned here.
 
-Runs without network. Execute directly (python tests/test_radon_foundation.py) or
-via pytest.
+Runs without network. This file alone: ``pytest tests/test_radon_foundation.py``.
 """
 
 from __future__ import annotations
 
 import pathlib
-import sys
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.data.air_quality import (                            # noqa: E402
+from housing_label.data.air_quality import (
     radon_adjusted_reading, _RADON_FOUNDATION_FACTOR, _RADON_SCORE, _reading)
-from housing_label.simulate.location import Location                     # noqa: E402
-from housing_label.simulate.house import build_label_parts, BONUS_FLAGS  # noqa: E402
+from housing_label.simulate.location import Location
+from housing_label.simulate.house import build_label_parts, BONUS_FLAGS
 
 # A Zone 1 reading (worst geology), mid-range pollutants.
 _Z1 = _reading(8.0, 38.0, 1, "tract")

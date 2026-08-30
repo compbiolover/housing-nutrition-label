@@ -88,7 +88,7 @@ Columns added
 
 from __future__ import annotations
 
-import pandas as pd
+from housing_label.utils import isna
 
 # ── Reference year for effective-age computation ──────────────────────────────
 # Fixed constant (not the wall clock) so a re-run produces identical scores and the
@@ -206,7 +206,7 @@ def _valid_year(yr) -> bool:
     number for a building that hadn't been built. ``model_parcel_durability`` handles
     the as-of case explicitly instead, by declining to score it.
     """
-    return not pd.isna(yr) and 1800 <= int(yr) <= REFERENCE_YEAR
+    return not isna(yr) and 1800 <= int(yr) <= REFERENCE_YEAR
 
 
 def effective_year(yrblt, effyr) -> float | None:
@@ -243,7 +243,7 @@ def condition_score(cdu, cond) -> tuple[float | None, str | None]:
         key = cdu.strip().upper()
         if key in CDU_SCORE:
             return CDU_SCORE[key], CDU_LABEL[key]
-    if not pd.isna(cond):
+    if not isna(cond):
         code = int(cond)
         if code in COND_SCORE:
             return COND_SCORE[code], COND_LABEL[code]
@@ -252,21 +252,21 @@ def condition_score(cdu, cond) -> tuple[float | None, str | None]:
 
 def wall_class_factor(extwall) -> tuple[str | None, float]:
     """Return (durability class label, multiplicative factor) for an EXTWALL code."""
-    if pd.isna(extwall):
+    if isna(extwall):
         return None, 1.0
     return WALL_FACTOR.get(int(extwall), ("other", 1.00))
 
 
 def grade_factor(grade) -> float:
     """Construction-quality grade → clamped multiplicative factor (~1.0 at avg)."""
-    if pd.isna(grade):
+    if isna(grade):
         return 1.0
     f = 1.0 + (float(grade) - GRADE_MIDPOINT) * GRADE_SLOPE
     return min(GRADE_MAX_F, max(GRADE_MIN_F, f))
 
 
 # ── Per-parcel durability model ───────────────────────────────────────────────
-def model_parcel_durability(row: pd.Series, mf_material: str | None = None,
+def model_parcel_durability(row: dict, mf_material: str | None = None,
                             *, reference_year: int | float = REFERENCE_YEAR) -> dict:
     """Compute durability metrics for a single parcel.
 

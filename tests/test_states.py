@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Offline tests for the shared state-code crosswalk (data/states.py).
 
-Runs without network access and without pytest — execute directly:
-  python tests/test_states.py
+Runs without network access. This file alone:
+  pytest tests/test_states.py
 """
 
 from __future__ import annotations
@@ -79,15 +79,3 @@ def test_utility_rates_postal_codes_agree():
         assert STATE_FIPS_TO_USPS[fips] == postal, f"{fips}: {postal} vs table"
     # EIA publishes the 50 states + DC only, so it is the mapping minus Puerto Rico.
     assert set(_STATE_RATES) == set(STATE_FIPS_TO_USPS) - {"72"}
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

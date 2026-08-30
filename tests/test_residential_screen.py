@@ -9,22 +9,17 @@ match) is never blocked, and a "Residential" USA Structures footprint at the poi
 vetoes an NSI non-residential call.
 
 Runs without network — a pre-resolved ``Location`` is injected and the location
-dimensions are left unscored (``allow_network=False``). Execute directly
-(python tests/test_residential_screen.py) or via pytest.
+dimensions are left unscored (``allow_network=False``). This file alone: ``pytest tests/test_residential_screen.py``.
 """
 
 from __future__ import annotations
 
 import pathlib
-import sys
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.simulate.location import Location  # noqa: E402
-from housing_label.simulate.house import (  # noqa: E402
+from housing_label.simulate.location import Location
+from housing_label.simulate.house import (
     build_label_parts, NonResidentialProperty)
 
 

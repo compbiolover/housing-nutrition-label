@@ -3,22 +3,18 @@
 
 Covers the NSI field mappings (structure.py) and the build_label_parts provenance
 helpers (_autofill_construction_from_nsi, _building_block). Pure logic — no
-network. Runs standalone (``python tests/test_autofill.py``) or via pytest.
+network. This file alone: ``pytest tests/test_autofill.py``.
 """
 
 from __future__ import annotations
 
 import pathlib
-import sys
 from types import SimpleNamespace
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.enrich import structure as S  # noqa: E402
-from housing_label.simulate import house as H  # noqa: E402
+from housing_label.enrich import structure as S
+from housing_label.simulate import house as H
 
 
 def _loc(**kw) -> SimpleNamespace:
@@ -373,16 +369,3 @@ def test_building_block_units_detected_not_confirmed():
                                   {"num_units": 12, "stories": 3, "bldg_material": "concrete"},
                                   explicit={"units"}, autofilled={}, location=loc)
     assert confirmed["units"]["status"] == "confirmed" and confirmed["units"]["value"] == 12
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items())
-             if k.startswith("test_") and callable(v)]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

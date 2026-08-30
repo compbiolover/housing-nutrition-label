@@ -178,13 +178,3 @@ POINT_IN_TIME: dict[str, str] = {
              "five-year violation window, and the per-year detail is collapsed to a "
              "count when the reference table is built.",
 }
-
-
-def series_for(dimension: str) -> SeriesSpec | None:
-    """The SeriesSpec for a dimension, or None when it is point-in-time."""
-    return TRAJECTORY.get(dimension)
-
-
-def why_no_series(dimension: str) -> str | None:
-    """The reader-facing sentence explaining why a dimension has no series."""
-    return POINT_IN_TIME.get(dimension)

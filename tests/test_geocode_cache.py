@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Offline tests for the geocode cache (no network, no pytest).
 
-Run directly:  python tests/test_geocode_cache.py
+This file alone:  pytest tests/test_geocode_cache.py
 """
 
 import tempfile
@@ -257,15 +257,3 @@ def test_results_are_committed_per_chunk_so_a_dead_run_keeps_them():
             assert c.stats()["rows"] == 2
     finally:
         G._request_chunk = real
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

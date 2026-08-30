@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Offline tests for the dense-housing value-per-door lookup.
 
-Runs without network access and without pytest — execute directly:
-  python tests/test_multifamily_value.py
+Runs without network access. This file alone:
+  pytest tests/test_multifamily_value.py
 """
 
 from __future__ import annotations
@@ -88,15 +88,3 @@ def test_rent_clamp_bounds_outliers():
     """A wildly high override rent is clamped to the sanity ceiling."""
     capped = value_per_door_for_county("47157", monthly_rent=99_999)
     assert _approx(capped["monthly_rent"], mv.RENT_CEIL)
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

@@ -1,1 +1,2 @@
-"""Enrichment stages — append hazard, energy, infrastructure, health, and socioeconomic dimensions."""
+"""Enrichment — point lookups and per-parcel models behind the hazard, energy,
+infrastructure, structure, and health dimensions."""

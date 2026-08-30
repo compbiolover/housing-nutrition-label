@@ -12,25 +12,20 @@ users: Infrastructure Burden (a COUNTY fiscal ratio) was dragging new builds' bu
 quality down, and Disaster Resilience was rendered under "The building itself"
 because it was in neither set and took the `else`.
 
-Runs without network. Execute directly (python tests/test_subscores.py) or via
-pytest.
+Runs without network. This file alone: ``pytest tests/test_subscores.py``.
 """
 
 from __future__ import annotations
 
 import pathlib
-import sys
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.simulate.dimensions import (                          # noqa: E402
+from housing_label.simulate.dimensions import (
     DIMENSIONS, CONSTRUCTION_DRIVEN, LOCATION_DRIVEN, CONTEXT_ONLY,
     HYBRID_DIMENSIONS, AGGREGATED_LOCATION)
-from housing_label.simulate.location import resolve_location             # noqa: E402
-from housing_label.simulate.house import build_label_parts, label_payload  # noqa: E402
+from housing_label.simulate.location import resolve_location
+from housing_label.simulate.house import build_label_parts, label_payload
 
 LA_GEO = {"county_fips": "06037", "county_name": "Los Angeles County",
           "state_fips": "06", "tract": "06037206202",

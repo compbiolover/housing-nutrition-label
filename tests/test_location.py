@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Offline tests for national location generalization (no network, no pytest).
 
-Run directly:  python tests/test_location.py
+This file alone:  pytest tests/test_location.py
 """
 
 import pandas as pd
@@ -307,15 +307,3 @@ def test_offline_without_geography_leaves_the_geography_unknown():
     loc = resolve_location(lat=35.13, lon=-89.99, allow_network=False)
     assert loc.county_fips is None and loc.tract is None
     assert "no network" in (loc.notes or {}).get("geocoder", "")
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

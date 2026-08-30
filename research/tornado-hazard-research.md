@@ -1,7 +1,6 @@
 # Tornado Hazard — FEMA National Risk Index EAL (consolidation)
 
-> **What this backs:** `src/housing_label/data/tornado.py`,
-> `src/housing_label/enrich/tornado.py`, and the tornado leg of
+> **What this backs:** `src/housing_label/data/tornado.py` and the tornado leg of
 > `src/housing_label/score/resilience.py` + `src/housing_label/simulate/house.py`.
 > Retires the NOAA SPC touchdown-count tornado model in favour of the FEMA
 > National Risk Index tornado EAL rate — the same shape already used for wildfire.
@@ -87,21 +86,18 @@ a `geo_level` (`tract`/`county`/`us`) and `resolved` flag; it always returns a
 dict, never None. Loaded through the shared columnar `TractStore` (memory-lean on
 the 512 MB instance).
 
-## Wiring (both scoring paths, like wildfire)
+## Wiring
 
-- **Path B — live simulator / API** (`simulate/location.py` → `house.py`):
+- **The live simulator / API** (`simulate/location.py` → `house.py`):
   `location.tornado` resolves tract→county→US; `build_label_parts` passes its
   `eal_rate` into the resilience model as `cfg["tornado_eal_base"]`. No lat/lon
   frequency scan, no download, no EF distribution.
-- **Path A — batch parcel pipeline** (`enrich/tornado.py` → `score/resilience.py`):
-  `enrich/tornado.py` now mirrors `enrich/fire.py` — resolves each parcel
-  tract→county→US and writes `tornado_nri_eal_rate` (+ `tornado_risk_rating`,
-  `tornado_geo_level`). `score/resilience.py`'s `calc_tornado_eal` reads that rate
-  directly (mirroring `calc_fire_eal`); the EF distribution / path-area / damage-
-  ratio constants and the frequency→EAL math are removed. In the Shelby pipeline
-  the tornado stage runs before the tract is attached, so every parcel resolves at
-  the **county** level (Shelby = 47157) — uniform and correct for a single-county
-  batch.
+- **The batch scorer** (`score/resilience.py`): `calc_tornado_eal` reads a
+  `tornado_nri_eal_rate` column straight off the input parcels (mirroring
+  `calc_fire_eal`); the EF distribution / path-area / damage-ratio constants and
+  the frequency→EAL math are removed. The `enrich/tornado.py` stage that used to
+  write that column for the Shelby pilot was deleted once the pilot's batch
+  runners were retired — the column is now an input the caller supplies.
 
 The BRM (Building Resilience Modifier) and all above-code wind/tornado bonuses
 (FEMA P-361 safe room, IBHS FORTIFIED, hurricane straps, hip roof, …) are

@@ -11,25 +11,20 @@ road, secondary road or railroad. What these tests defend is the discipline arou
 using it — the refinement may only ever IMPROVE a score, only on positive
 evidence, and never on the strength of an outage.
 
-Runs without network (the road lookup is stubbed). Execute directly
-(python tests/test_point_noise.py) or via pytest.
+Runs without network (the road lookup is stubbed). This file alone: ``pytest tests/test_point_noise.py``.
 """
 
 from __future__ import annotations
 
 import pathlib
-import sys
 from unittest import mock
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.enrich import road_noise as rn                     # noqa: E402
-from housing_label.data import noise as noise_data                     # noqa: E402
-from housing_label.simulate.location import Location                   # noqa: E402
-from housing_label.simulate.house import build_label_parts             # noqa: E402
+from housing_label.enrich import road_noise as rn
+from housing_label.data import noise as noise_data
+from housing_label.simulate.location import Location
+from housing_label.simulate.house import build_label_parts
 
 # A quiet rural tract (below the national median) and a noisy one (above it).
 QUIET_TRACT = "47123925302"      # 0.87% exposed -> scores 68.1 unrefined

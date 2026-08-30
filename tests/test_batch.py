@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Offline tests for bulk scoring (no network, no pytest).
 
-Run directly:  python tests/test_batch.py
+This file alone:  pytest tests/test_batch.py
 """
 
 import io
@@ -504,15 +504,3 @@ def test_the_run_summary_counts_defaulted_and_partial_separately():
     assert summary["scored"] == 3
     assert summary["defaulted_building"] == 1
     assert summary["partial_building"] == 1
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

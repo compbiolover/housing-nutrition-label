@@ -11,22 +11,17 @@ variation the tract file exists to capture, and consecutive dry days are both
 extreme and dense in California and the Southwest, so the county p95 landed at 56.8
 days and pinned 15% of US households at a flat drought score of 0.
 
-Runs without network. Execute directly (python tests/test_climate_percentiles.py)
-or via pytest.
+Runs without network. This file alone: ``pytest tests/test_climate_percentiles.py``.
 """
 
 from __future__ import annotations
 
 import pathlib
-import sys
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.data import climate_projections as cp                 # noqa: E402
-from scripts import calibrate_climate_breakpoints as cal                 # noqa: E402
+from housing_label.data import climate_projections as cp
+from scripts import calibrate_climate_breakpoints as cal
 
 _CLIMATE, _WEIGHTS = cal.load()
 

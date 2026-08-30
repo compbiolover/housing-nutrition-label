@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Tests for the Health Impact dimension (enrich/health.py).
 
-Pure computation over synthetic PLACES records — no network, no CSV. Execute
-directly (python tests/test_health.py) or via pytest.
+Pure computation over synthetic PLACES records — no network, no CSV. This file alone: ``pytest tests/test_health.py``.
 """
 
 from __future__ import annotations
@@ -80,15 +79,3 @@ def test_compute_health_index_empty_list_raises():
     except RuntimeError:
         return
     raise AssertionError("expected RuntimeError on an empty records list")
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

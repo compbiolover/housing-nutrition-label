@@ -73,8 +73,7 @@ ruff check .                           # lint (pyflakes: unused imports/vars, un
 
 The `[api]` extra lets the API tests run (they self-skip when FastAPI is absent);
 `[dev]` pulls in pytest, ruff, and httpx2 (which Starlette's `TestClient` needs.)
-Every test file also keeps a `_run_all()` runner, so an individual stage stays
-runnable as a plain script (`python tests/test_dimensions.py`) with no pytest.
+To run one stage on its own, name the file: `pytest tests/test_dimensions.py`.
 
 **CI** (`.github/workflows/ci.yml`) runs `ruff check` + `pytest` on every push and
 pull request across Python 3.10 and 3.12, so regressions are caught before merge.

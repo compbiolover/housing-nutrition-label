@@ -39,8 +39,8 @@ from __future__ import annotations
 from functools import lru_cache
 
 import numpy as np
-import pandas as pd
 
+from housing_label.utils import isna
 from housing_label.score.all_dimensions import (
     ENERGY_XS, ENERGY_YS, INFRA_XS, INFRA_YS, score_to_grade,
 )
@@ -360,7 +360,7 @@ def _feet_to_m(feet) -> float:
         return np.nan
 
 
-def build_parcel_row(cfg: dict) -> pd.Series:
+def build_parcel_row(cfg: dict) -> dict:
     """Translate a simulator config dict into a one-parcel CAMA-style Series.
 
     Per-unit framing: lot area is divided by the unit count (land is shared), so the
@@ -377,7 +377,7 @@ def build_parcel_row(cfg: dict) -> pd.Series:
     per_unit_acres = float(cfg.get("lot_acres", 0.25)) / units
     per_unit_value = per_unit_home_value(cfg)
 
-    return pd.Series({
+    return {
         "YRBLT":     cfg["year_built"],
         "EFFYR":     np.nan,
         "SFLA":      cfg.get("sqft", 2000),          # per unit
@@ -406,10 +406,10 @@ def build_parcel_row(cfg: dict) -> pd.Series:
         "RTOTAPR":   per_unit_value,
         "latitude":  cfg["lat"],
         "longitude": cfg["lon"],
-    })
+    }
 
 
-def _adjusted_energy(cfg: dict, row: pd.Series, climate_zone: str | None = None,
+def _adjusted_energy(cfg: dict, row: dict, climate_zone: str | None = None,
                      elec_rate: float | None = None, gas_rate: float | None = None,
                      building_type: str = "sf_detached") -> dict:
     """Run the energy model, then apply the high-performance feature factors.
@@ -575,13 +575,13 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
     fr = infra.get("fiscal_ratio")
     infrastructure_score = (
         round(_loglin(fr, INFRA_XS, INFRA_YS), 1)
-        if fr is not None and not pd.isna(fr) else None
+        if fr is not None and not isna(fr) else None
     )
 
     metrics = {
         "eui_kbtu_sqft_yr": eui,
         "est_monthly_energy_cost": energy.get("est_monthly_energy_cost"),
-        "fiscal_ratio": None if fr is None or pd.isna(fr) else round(float(fr), 2),
+        "fiscal_ratio": None if fr is None or isna(fr) else round(float(fr), 2),
         "est_annual_infra_cost": infra.get("est_annual_infra_cost"),
         "est_property_tax": infra.get("est_property_tax"),
         "est_fee_revenue": infra.get("est_fee_revenue"),

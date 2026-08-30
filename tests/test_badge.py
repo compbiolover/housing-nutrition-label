@@ -10,7 +10,7 @@ towards the failures a third-party page can't fix and we might never see: a grad
 coloured differently from the same grade on our own site, a fabricated letter
 where the truth is "not scored", and caller text reaching markup unescaped.
 
-Run directly:  python tests/test_badge.py
+This file alone:  pytest tests/test_badge.py
 """
 
 from __future__ import annotations
@@ -179,15 +179,3 @@ def test_compact_drops_the_address_from_the_face_but_not_from_the_name():
     assert addr not in _drawn_text(compact)
     assert addr in (ET.fromstring(compact).get("aria-label") or "")
     assert addr in _drawn_text(badge.render_badge(_SCORED, style="full", address=addr))
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

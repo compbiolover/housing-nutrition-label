@@ -6,7 +6,7 @@ always runs. The xarray-backed NetCDF reader is tested against a tiny synthetic
 file and is skipped when the build-only dependency (xarray) is absent — the same
 graceful-skip pattern as test_api.py with fastapi.
 
-Run directly:  python tests/test_build_loca2.py
+This file alone:  pytest tests/test_build_loca2.py
 """
 
 import pathlib
@@ -210,15 +210,3 @@ def test_fwi_band_mapping_is_single_scenario():
     # Mid-century (RCP8.5) feeds BOTH the low and high output bands; hist→hist.
     assert b.FWI_BANDS == [("hist", "hist"), ("mid", "low"), ("mid", "high")]
     assert set(b.FWI_HORIZON_COL) == {"hist", "mid"}
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

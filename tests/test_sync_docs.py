@@ -8,22 +8,18 @@ display metadata must cover exactly the code's dimensions / walls / conditions /
 foundations / upgrade flags / presets (drift in either direction fails here — the
 same assertion CI runs with --check). No network.
 
-Run directly:  python tests/test_sync_docs.py
+This file alone:  pytest tests/test_sync_docs.py
 """
 
 from __future__ import annotations
 
 import importlib.util
 import pathlib
-import sys
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.simulate.dimensions import DIMENSIONS  # noqa: E402
-from housing_label.simulate.house import (  # noqa: E402
+from housing_label.simulate.dimensions import DIMENSIONS
+from housing_label.simulate.house import (
     CONSTRUCTION_FACTOR, CONDITION_FACTOR, FOUNDATION_FACTOR, PRESETS, BONUS_FLAGS,
 )
 
@@ -98,16 +94,3 @@ def test_apply_is_idempotent():
     block = mod._block(rid, gen)
     once = mod._apply(text, rid, block)
     assert mod._apply(once, rid, block) == once
-
-
-def _run_all():
-    test_metadata_covers_the_code_exactly()
-    test_every_dimension_and_preset_is_rendered()
-    test_upgrade_and_flag_tables_cover_every_flag()
-    test_pages_are_in_sync_with_code()
-    test_apply_is_idempotent()
-    print("sync_docs tests passed")
-
-
-if __name__ == "__main__":
-    _run_all()

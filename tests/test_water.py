@@ -1,22 +1,17 @@
 #!/usr/bin/env python3
 """Tests for the Water Quality lookup + scoring (data/water.py).
 
-Offline — reads the bundled water_county.csv only. Execute directly
-(python tests/test_water.py) or via pytest.
+Offline — reads the bundled water_county.csv only. This file alone: ``pytest tests/test_water.py``.
 """
 
 from __future__ import annotations
 
 import csv
 import pathlib
-import sys
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.data import water as W  # noqa: E402
+from housing_label.data import water as W
 
 
 def test_county_resolves_and_cleaner_scores_higher():
@@ -98,15 +93,3 @@ def test_bundled_table_well_formed():
             assert int(row["cws_pop"]) > 0 and int(row["n_cws"]) > 0
             seen += 1
     assert seen > 2500     # ~3.1k US counties with a community water system
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

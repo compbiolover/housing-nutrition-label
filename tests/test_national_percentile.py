@@ -2,20 +2,16 @@
 """Tests for per-dimension national percentiles (data/national_percentile.py) and
 their surfacing on the label payload.
 
-Runs standalone (``python tests/test_national_percentile.py``) or via pytest.
+This file alone: ``pytest tests/test_national_percentile.py``.
 """
 
 from __future__ import annotations
 
 import pathlib
-import sys
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.data import national_percentile as NP  # noqa: E402
+from housing_label.data import national_percentile as NP
 
 
 def test_construction_curve_monotonic_and_bounded():
@@ -93,16 +89,3 @@ def test_every_dimension_has_a_percentile_route():
     routed = set(CONSTRUCTION_DIMS) | set(IDENTITY_DIMS) | {"walkability"}
     assert roster - routed == set(), f"no percentile route: {sorted(roster - routed)}"
     assert routed - roster == set(), f"routed but not a dimension: {sorted(routed - roster)}"
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items())
-             if k.startswith("test_") and callable(v)]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

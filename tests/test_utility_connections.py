@@ -14,22 +14,17 @@ dimensions were reading it as if it were:
 The per-component cost/fee arithmetic is covered in tests/test_infrastructure.py;
 these tests pin the behaviour a visitor actually sees on the label.
 
-Runs without network (a pre-resolved Location is injected). Execute directly
-(python tests/test_utility_connections.py) or via pytest.
+Runs without network (a pre-resolved Location is injected). This file alone: ``pytest tests/test_utility_connections.py``.
 """
 
 from __future__ import annotations
 
 import pathlib
-import sys
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.simulate.location import Location   # noqa: E402
-from housing_label.simulate.house import (              # noqa: E402
+from housing_label.simulate.location import Location
+from housing_label.simulate.house import (
     build_label_parts, WATER_SOURCES, SEWER_TYPES)
 
 

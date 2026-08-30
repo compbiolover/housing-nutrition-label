@@ -2,7 +2,7 @@
 """Tests for the Air Quality lookup + scoring (data/air_quality.py).
 
 Offline — reads the bundled air_quality.csv (county) and air_quality_tracts.csv.gz
-(tract) only. Execute directly (python tests/test_air_quality.py) or via pytest.
+(tract) only. This file alone: ``pytest tests/test_air_quality.py``..
 """
 
 from __future__ import annotations
@@ -111,15 +111,3 @@ def test_bundled_csv_is_well_formed():
                 assert int(row["radon_zone"]) in (1, 2, 3)
             seen += 1
     assert seen > 3000   # ~3,000 US counties
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

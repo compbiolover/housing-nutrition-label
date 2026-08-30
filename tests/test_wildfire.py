@@ -2,9 +2,8 @@
 """Offline tests for the FEMA NRI wildfire hazard: lookup, enrichment, resilience
 EAL, and the live-path injection into the simulator.
 
-Runs without network access and without pytest — execute directly:
-  python tests/test_wildfire.py
-(pytest will also collect the test_* functions if it is installed.)
+Runs without network access. This file alone:
+  pytest tests/test_wildfire.py
 """
 
 from __future__ import annotations
@@ -60,18 +59,6 @@ def test_unknown_geo_falls_back_to_national_average():
     assert _approx(us["eal_rate"], wf._national_average())
     # A non-existent county FIPS also falls back to US.
     assert wf.wildfire_for_county("99999")["geo_level"] == "us"
-
-
-
-
-def test_norm_tract_handles_float_and_leading_zeros():
-    """_norm_tract strips a decimal suffix and restores leading-zero GEOIDs."""
-    from housing_label.enrich.fire import _norm_tract
-    assert _norm_tract(47157006300.0) == "47157006300"     # numpy/py float
-    assert _norm_tract("47157006300.0") == "47157006300"   # stringified float
-    assert _norm_tract(6037139000.0) == "06037139000"      # leading zero restored
-    assert _norm_tract(None) is None
-    assert _norm_tract(float("nan")) is None
 
 
 # ── Resilience scoring (score/resilience.py) ────────────────────────────────────
@@ -178,15 +165,3 @@ def test_simulate_coerces_invalid_wildfire_base():
     c["wildfire_eal_base"] = "not-a-number"
     r = simulate(c)
     assert _approx(r["fire_raw"], FIRE_EAL_BASE)
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

@@ -2,8 +2,8 @@
 """Tests for the EPA National Walkability Index dimension: the bundled loader
 (data/walkability.py) and the build scaling (scripts/build_walkability).
 
-Pure computation over the bundled crosswalk — no network. Runs without pytest
-(``python tests/test_walkability_national.py``) or via pytest, matching the
+Pure computation over the bundled crosswalk — no network. Runs as one file
+(``pytest tests/test_walkability_national.py``), matching the
 convention of the other test modules in this repo.
 """
 
@@ -54,16 +54,3 @@ def test_resolution_levels():
 def test_manhattan_more_walkable_than_national_median():
     assert wref.walkability_for_county("36061")["walkability_score"] > \
         wref.walkability_for_county(None)["walkability_score"]
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items())
-             if k.startswith("test_") and callable(v)]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

@@ -25,14 +25,13 @@ pathlib. The parser raises rather than returning empty if it cannot find the
 list, so a reformatted pyproject fails loudly instead of turning this into a test
 that silently checks nothing.
 
-Run standalone: ``python tests/test_packaging.py``
+This file alone: ``pytest tests/test_packaging.py``
 """
 
 from __future__ import annotations
 
 import pathlib
 import re
-import sys
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
 _SRC = _ROOT / "src"
@@ -86,22 +85,3 @@ def test_every_source_package_is_declared_for_distribution():
         f"{missing} exist under src/ but are not in pyproject's package list, so a "
         f"wheel would omit them and importing them would fail for anyone who did "
         f"not install editable. Add them to [tool.setuptools] packages.")
-
-
-def _run_all() -> int:
-    fns = [v for k, v in sorted(globals().items())
-           if k.startswith("test_") and callable(v)]
-    failed = 0
-    for fn in fns:
-        try:
-            fn()
-            print(f"  ok    {fn.__name__}")
-        except AssertionError as exc:
-            failed += 1
-            print(f"  FAIL  {fn.__name__}: {exc}")
-    print(f"\n{len(fns) - failed}/{len(fns)} passed")
-    return 1 if failed else 0
-
-
-if __name__ == "__main__":
-    sys.exit(_run_all())

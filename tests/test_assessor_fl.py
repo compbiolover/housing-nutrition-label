@@ -22,23 +22,19 @@ Florida's own three:
 3. The county roll carries **two year-built columns**, and the more prominent one
    is the wrong one.
 
-Run standalone: ``python tests/test_assessor_fl.py``
+This file alone: ``pytest tests/test_assessor_fl.py``
 """
 
 from __future__ import annotations
 
 import os
 import pathlib
-import sys
 import time
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.enrich import assessor as A  # noqa: E402
-from housing_label.enrich.assessor import _shared, fl  # noqa: E402
+from housing_label.enrich import assessor as A
+from housing_label.enrich.assessor import _shared, fl
 
 # Recorded live from FDOR Cadastral 2025. A single-family house in Orlando: one
 # home, one building, so its floor area is that home's.
@@ -460,22 +456,3 @@ def test_the_portal_falling_over_is_not_evidence_of_absence():
 
 def test_no_parcel_at_the_point_is_simply_no_answer():
     assert _lookup([]) is None
-
-
-def _run_all() -> int:
-    fns = [v for k, v in sorted(globals().items())
-           if k.startswith("test_") and callable(v)]
-    failed = 0
-    for fn in fns:
-        try:
-            fn()
-            print(f"  ok    {fn.__name__}")
-        except AssertionError as exc:
-            failed += 1
-            print(f"  FAIL  {fn.__name__}: {exc}")
-    print(f"\n{len(fns) - failed}/{len(fns)} passed")
-    return 1 if failed else 0
-
-
-if __name__ == "__main__":
-    sys.exit(_run_all())

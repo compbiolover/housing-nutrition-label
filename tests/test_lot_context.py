@@ -10,24 +10,19 @@ Also pins the reference distribution's rural roster, since INFRA_XS is anchored 
 it: adding or reweighting an archetype without re-running the calibrator would
 leave the yardstick measuring a different population than the labels.
 
-Runs without network (a pre-resolved Location is injected). Execute directly
-(python tests/test_lot_context.py) or via pytest.
+Runs without network (a pre-resolved Location is injected). This file alone: ``pytest tests/test_lot_context.py``.
 """
 
 from __future__ import annotations
 
 import pathlib
-import sys
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src", _ROOT / "scripts"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.simulate.location import Location          # noqa: E402
-from housing_label.simulate.house import (                     # noqa: E402
+from housing_label.simulate.location import Location
+from housing_label.simulate.house import (
     build_label_parts, LOT_CONTEXTS)
-from housing_label.simulate.dimensions import LOT_CONTEXT_URBAN  # noqa: E402
+from housing_label.simulate.dimensions import LOT_CONTEXT_URBAN
 
 
 def _loc(in_urban_area):
@@ -104,7 +99,7 @@ def test_valid_vocabulary_values_are_accepted():
 
 # ── Reference-distribution roster ─────────────────────────────────────────────
 def test_archetype_shares_still_sum_to_one():
-    from calibrate_infra_breakpoints import DENSITY_ARCHETYPES
+    from scripts.calibrate_infra_breakpoints import DENSITY_ARCHETYPES
     total = sum(a[2] for a in DENSITY_ARCHETYPES)
     assert abs(total - 1.0) < 1e-9, f"household shares sum to {total}"
 
@@ -113,7 +108,7 @@ def test_reference_distribution_contains_genuinely_rural_housing():
     """The sparsest archetype used to be a two-acre lot, so every large-lot home in
     the country was ranked against a population whose biggest lot was two acres.
     Census/CoreLogic put 4.6% of US housing on five acres or more."""
-    from calibrate_infra_breakpoints import DENSITY_ARCHETYPES
+    from scripts.calibrate_infra_breakpoints import DENSITY_ARCHETYPES
     big = [a for a in DENSITY_ARCHETYPES if a[1] <= 0.2]      # <= 0.2 DU/acre = 5+ acres
     assert big, "no archetype at five acres or more"
     share = sum(a[2] for a in big)
@@ -122,7 +117,7 @@ def test_reference_distribution_contains_genuinely_rural_housing():
 
 
 def test_rural_archetypes_are_all_single_family_and_non_urban():
-    from calibrate_infra_breakpoints import DENSITY_ARCHETYPES
+    from scripts.calibrate_infra_breakpoints import DENSITY_ARCHETYPES
     for label, du_acre, _share, urban, units, _renter in DENSITY_ARCHETYPES:
         if du_acre <= 0.5:
             assert urban is False, f"{label} flagged urban"

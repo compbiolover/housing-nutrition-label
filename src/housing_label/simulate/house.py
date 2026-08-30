@@ -51,10 +51,10 @@ from housing_label.data.vintages import (
 )
 # Year-built vulnerability curves live in the batch scorer so the offline
 # pipeline and this live simulator apply one identical (continuous) model.
+from housing_label.score.all_dimensions import score_to_grade as score_to_national_grade
 from housing_label.score.resilience import (
     code_era_factor, fire_age_factor,
     FLOOD_EAL, LAMBDA_10, LAMBDA_2, pga_to_damage_ratio, eal_rate_to_score,
-    score_to_grade as score_to_national_grade,
 )
 from housing_label.enrich.seismic_lookup import get_pga
 from housing_label.utils import haversine_miles

@@ -10,22 +10,17 @@ These tests pin the weighted curve to the bundled data it was derived from, so t
 constants in ``data/solar.py`` cannot drift away from the CSVs when either is
 rebuilt, and pin the reconciliation that keeps a whole state from being dropped.
 
-Runs without network. Execute directly (python tests/test_solar_percentiles.py) or
-via pytest.
+Runs without network. This file alone: ``pytest tests/test_solar_percentiles.py``.
 """
 
 from __future__ import annotations
 
 import pathlib
-import sys
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.data import solar as solar_data                       # noqa: E402
-from scripts import calibrate_solar_percentiles as cal                   # noqa: E402
+from housing_label.data import solar as solar_data
+from scripts import calibrate_solar_percentiles as cal
 
 
 def _weights():
