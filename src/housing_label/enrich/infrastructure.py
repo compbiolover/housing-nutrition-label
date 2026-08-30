@@ -80,10 +80,8 @@ from __future__ import annotations
 
 import math
 
-import pandas as pd
-
 from housing_label.data.assessment import classification_multiplier, classified_assess_ratio
-from housing_label.utils import haversine_miles
+from housing_label.utils import haversine_miles, isna
 
 REQUIRED_COLUMNS = ["latitude", "longitude", "CALC_ACRE"]
 
@@ -469,7 +467,7 @@ def _fire_dist_multiplier(dist_mi: float) -> float:
 # Row-level enrichment
 # ══════════════════════════════════════════════════════════════════════════════
 
-def enrich_row(row: pd.Series, *,
+def enrich_row(row: dict, *,
                core_lat: float = MEMPHIS_CORE_LAT,
                core_lon: float = MEMPHIS_CORE_LON,
                assess_ratio: float = RESIDENTIAL_ASSESS_RATIO,
@@ -486,7 +484,7 @@ def enrich_row(row: pd.Series, *,
                separately_parceled: bool | None = None,
                classification_state: str | None = CLASSIFICATION_STATE,
                classification_rate_state: str | None = None,
-               classification_county_fips: str | None = None) -> pd.Series:
+               classification_county_fips: str | None = None) -> dict:
     """Compute all infrastructure cost and revenue fields for a single parcel row.
 
     Memphis defaults reproduce the Shelby pilot. For other locations the simulator
@@ -568,7 +566,7 @@ def enrich_row(row: pd.Series, *,
     # ── Density metric ─────────────────────────────────────────────────────────
     acres = row["CALC_ACRE"]
     # Guard against zero/negative acres (data error); treat as very small lot
-    if pd.isna(acres) or acres <= 0:
+    if isna(acres) or acres <= 0:
         acres = 0.01
     # Assuming 1 dwelling unit per parcel (single-family / DWELDAT record)
     lot_density = 1.0 / acres   # DU/acre
@@ -579,7 +577,7 @@ def enrich_row(row: pd.Series, *,
         fire_mult = FIRE_DIST_MULTIPLIER_MID if in_urban_area else FIRE_DIST_MULTIPLIER_OUTER
     else:
         lat, lon = row["latitude"], row["longitude"]
-        dist_mi = (5.0 if pd.isna(lat) or pd.isna(lon)
+        dist_mi = (5.0 if isna(lat) or isna(lon)
                    else haversine_miles(lat, lon, core_lat, core_lon))
         fire_mult = _fire_dist_multiplier(dist_mi)
 
@@ -623,7 +621,7 @@ def enrich_row(row: pd.Series, *,
 
     # ── Property tax revenue estimate ──────────────────────────────────────────
     appraised = row["RTOTAPR"]
-    if pd.isna(appraised) or appraised <= 0:
+    if isna(appraised) or appraised <= 0:
         appraised = 0.0
     # Classification, by whichever path the caller is on.
     #
@@ -653,7 +651,7 @@ def enrich_row(row: pd.Series, *,
 
     rating = fiscal_rating(ratio) if not math.isnan(ratio) else "unknown"
 
-    return pd.Series({
+    return {
         "lot_density_du_acre":   round(lot_density, 4),
         "distance_to_core_mi":   round(dist_mi, 3),
         "infra_cost_roads":      round(cost_roads, 2),
@@ -671,7 +669,7 @@ def enrich_row(row: pd.Series, *,
         "fiscal_balance":        round(fiscal_bal, 2),
         "fiscal_ratio":          round(ratio, 4),
         "infra_burden_rating":   rating,
-    })
+    }
 
 
 # ══════════════════════════════════════════════════════════════════════════════

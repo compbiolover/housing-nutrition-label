@@ -70,7 +70,7 @@ Columns added
 
 from __future__ import annotations
 
-import pandas as pd
+from housing_label.utils import isna
 
 # ── Utility rates (MLGW / TVA territory, ~2024) ───────────────────────────────
 ELEC_RATE_PER_KWH  = 0.105   # $/kWh
@@ -144,7 +144,7 @@ def base_eui(climate_zone: str | None, vintage_bin: str,
 # ── Vintage bin assignment ─────────────────────────────────────────────────────
 def vintage_bin(yrblt) -> str:
     """Map a year-built float to a ResStock-style vintage bin."""
-    if pd.isna(yrblt):
+    if isna(yrblt):
         return "unknown"
     yr = int(yrblt)
     if yr < 1950:
@@ -163,7 +163,7 @@ _SFLA_MEDIAN = 2044.0   # empirical median from shelby_parcels_sample.csv
 
 def size_bin(sfla) -> tuple[str, float]:
     """Return (size_bin_label, sfla_to_use) — substitutes median for NaN."""
-    area = _SFLA_MEDIAN if pd.isna(sfla) else float(sfla)
+    area = _SFLA_MEDIAN if isna(sfla) else float(sfla)
     if area < 1000:
         label = "small"
     elif area < 2000:
@@ -191,7 +191,7 @@ def _size_factor(size_label: str) -> float:
 
 def _wall_factor(extwall) -> tuple[str, float]:
     """Exterior-wall construction type → (label, EUI factor)."""
-    code = int(extwall) if not pd.isna(extwall) else None
+    code = int(extwall) if not isna(extwall) else None
     mapping = {
         1:  ("brick",         0.95),  # solid brick — good thermal mass
         3:  ("concrete_block",0.97),  # CMU — moderate thermal mass
@@ -234,7 +234,7 @@ def _foundation_factor(bsmt) -> tuple[str, float]:
     """Foundation type → (label, EUI factor). The factor is the ResStock-derived,
     climate-controlled within-cell multiplier, falling back to a bundled exact copy
     of the shipped factor when the ResStock factor table is unavailable."""
-    code = int(bsmt) if not pd.isna(bsmt) else None
+    code = int(bsmt) if not isna(bsmt) else None
     label, fallback = _FOUNDATION_FALLBACK.get(code, ("unknown", 1.00))
     if label == "unknown":
         return label, 1.00
@@ -249,7 +249,7 @@ def _hvac_factor(heat, fuel) -> tuple[str, float]:
     This is already partially captured in the base EUIs; the adjustment
     accounts for within-vintage variation.
     """
-    heat_code = int(heat) if not pd.isna(heat) else None
+    heat_code = int(heat) if not isna(heat) else None
     # Fallbacks used only when the ResStock factor table is unavailable; EXACT copies
     # of the shipped resstock_factors.csv values (within-cell median-EUI ratios vs.
     # the mixed-stock cell median), so the degraded path matches the normal one.
@@ -280,7 +280,7 @@ def _fuel_split(heat_label: str, fuel) -> tuple[float, float]:
       Electric resist.  : elec 90%  gas 10%
       Gas furnace       : elec 38%  gas 62%
     """
-    fuel_code = int(fuel) if not pd.isna(fuel) else None
+    fuel_code = int(fuel) if not isna(fuel) else None
     has_gas = fuel_code == 2
 
     if heat_label == "heat_pump":
@@ -308,7 +308,7 @@ ENERGY_COLS = [
 
 
 def model_parcel_energy(
-    row: pd.Series,
+    row: dict,
     climate_zone: str | None = DEFAULT_CLIMATE_ZONE,
     elec_rate: float = ELEC_RATE_PER_KWH,
     gas_rate: float = GAS_RATE_PER_THERM,

@@ -75,6 +75,7 @@ import sys
 import numpy as np
 import pandas as pd
 
+from housing_label.utils import isna
 from housing_label.data import climate_projections as climate_proj_data
 
 # NOTE: no logging.basicConfig() at import time — this module is imported by the
@@ -103,7 +104,7 @@ SHELBY_COUNTY_FIPS  = "47157"  # the single-county pilot; per-row county FIPS wh
 # ---------------------------------------------------------------------------
 def score_to_grade(score: float) -> str:
     """Absolute 0–100 score → letter grade (national grade)."""
-    if pd.isna(score):
+    if isna(score):
         return "—"
     if score >= 80:
         return "A"
@@ -122,7 +123,7 @@ def percentile_to_local_grade(pct: float) -> str:
     A = top 10%   (≥90th)   B = next 25% (≥65th)   C = middle 30% (≥35th)
     D = next 25%  (≥10th)   F = bottom 10% (<10th)
     """
-    if pd.isna(pct):
+    if isna(pct):
         return "—"
     if pct >= 90:
         return "A"

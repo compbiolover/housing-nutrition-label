@@ -32,6 +32,19 @@ from . import config
 log = logging.getLogger(__name__)
 
 
+def isna(v) -> bool:
+    """True for a missing scalar: ``None`` or a NaN float.
+
+    The scalar half of ``pandas.isna``, which the parcel-row models used to reach
+    for. The rows they read are plain dicts of Python/numpy scalars built by
+    ``simulate.dimensions.build_parcel_row`` (or supplied by a caller), so the
+    container half was never needed — and importing pandas for it cost more than
+    the whole rest of a scoring pass. ``pd.NaT`` / ``pd.NA`` are NOT handled: no
+    datetime or masked-integer value reaches these paths.
+    """
+    return v is None or v != v
+
+
 # ── Which upstream was slow ──────────────────────────────────────────────────────
 # A label is a dozen live fetches against federal services, and when one of them
 # starts answering in minutes the only visible symptom is a spinner: the request
