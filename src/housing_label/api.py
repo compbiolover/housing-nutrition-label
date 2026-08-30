@@ -99,6 +99,7 @@ import functools
 import hashlib
 import logging
 import os
+import re
 import threading
 import time
 import urllib.parse
@@ -873,7 +874,8 @@ def _google_details_request(place_id: str, session: str | None):
     """GET Place Details for a place_id; returns the requests.Response (may raise)."""
     params = {"sessionToken": session} if session else None
     return requests.get(
-        GOOGLE_PLACES_DETAILS_URL.rstrip("/") + "/" + place_id, params=params,
+        GOOGLE_PLACES_DETAILS_URL.rstrip("/") + "/"
+        + urllib.parse.quote(place_id, safe=""), params=params,
         headers={
             **HEADERS,
             "X-Goog-Api-Key": GOOGLE_PLACES_API_KEY,
@@ -927,6 +929,16 @@ def _google_probe(text: str, session: str | None = None) -> dict:
 
 
 _SESSION_MAX_CHARS = 128            # a client UUID session token; bound the input
+
+# A Google place_id goes into a URL *path segment*, so it decides which endpoint
+# the server's own API key is spent on. `requests` resolves ".." the way any URL
+# client does, which turns a place_id of "../../../v1/places:searchText" into a
+# request to a different Places endpoint carrying X-Goog-Api-Key. The host is
+# fixed, so this is not open SSRF — it is the caller choosing what the operator's
+# billed credential is used for, which is enough. Google's ids are URL-safe
+# base64-ish, so an allowlist is both exact and cheap; anything else is a 400
+# rather than a quietly rewritten upstream call.
+_PLACE_ID_RE = re.compile(r"\A[A-Za-z0-9_-]{1,512}\Z")
 
 
 @app.get("/suggest")
@@ -997,6 +1009,8 @@ def place(place_id: str | None = None, session: str | None = None) -> dict:
     pid = (place_id or "").strip()
     if not pid:
         raise HTTPException(400, "place_id is required")
+    if not _PLACE_ID_RE.match(pid):
+        raise HTTPException(400, "malformed place_id")
     if not GOOGLE_PLACES_API_KEY:
         raise HTTPException(503, "Place lookup is unavailable (no Google Places key configured).")
     session = (session or "").strip()[:_SESSION_MAX_CHARS] or None

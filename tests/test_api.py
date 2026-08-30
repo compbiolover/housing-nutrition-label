@@ -263,6 +263,40 @@ def test_place_endpoint_validation():
     assert client.get("/place", params={"place_id": "ChIJabc"}).status_code == 503
 
 
+def test_place_id_cannot_retarget_the_upstream_url():
+    """A place_id lands in a URL *path segment*, so an unvalidated one lets the
+    caller pick which Google endpoint the server's own API key is spent on:
+    `requests` resolves ".." like any URL client, and
+    "../../../v1/places:searchText" becomes a request to a different endpoint
+    still carrying X-Goog-Api-Key. Two layers must hold — the endpoint refuses
+    it, and the request builder percent-encodes so a future caller of the helper
+    cannot reintroduce the traversal."""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        print("  skip test_place_id_cannot_retarget_the_upstream_url (fastapi not installed)")
+        return
+    import urllib.parse
+
+    import housing_label.api as api
+    client = TestClient(api.app)
+
+    # Layer 1: rejected at the edge, ahead of the no-key 503 a valid id gets.
+    for bad in ("../../../v1/places:searchText", "..%2f..%2fx", "a/b", "a?k=v",
+                "a#frag", "has space", "x" * 513):
+        assert client.get("/place", params={"place_id": bad}).status_code == 400, bad
+    # A real Google id still passes the guard and reaches the no-key branch.
+    assert client.get("/place",
+                      params={"place_id": "ChIJN1t_tDeuEmsRUsoyG83frY4"}).status_code == 503
+
+    # Layer 2: even handed the traversal directly, the built URL stays on the
+    # Place Details path — the segment is encoded, not resolved away.
+    base = api.GOOGLE_PLACES_DETAILS_URL.rstrip("/")
+    built = base + "/" + urllib.parse.quote("../../../v1/places:searchText", safe="")
+    assert built.startswith(base + "/")
+    assert "places:searchText" not in built
+
+
 def test_label_nonresidential_flag_screens():
     """?nonresidential=1 (the geocoder said this is a stadium/office/store) refuses
     with 422 before any network call, and allow_non_residential overrides it."""
