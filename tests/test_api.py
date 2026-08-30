@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Offline tests for the HTTP API (skipped if FastAPI isn't installed).
 
-Run directly:  python tests/test_api.py
+This file alone:  pytest tests/test_api.py
 """
 
 
@@ -1335,15 +1335,3 @@ def test_label_sheet_is_an_svg_scored_like_the_label():
     finally:
         api.build_label_parts = real
         api._result_cache.clear()
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

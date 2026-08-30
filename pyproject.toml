@@ -63,8 +63,6 @@ packages = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# Each test file also keeps its own `_run_all()` runner so a stage stays runnable
-# as a plain script (`python tests/test_x.py`); pytest just collects them all.
 
 [tool.ruff.lint]
 # Scoped deliberately narrow: the codebase leans on compact one-line idioms

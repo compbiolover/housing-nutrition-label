@@ -2,8 +2,8 @@
 """Offline tests for the Census-of-Governments infrastructure cost calibration:
 the per-county multiplier lookup, the infra cost scaling, and the caveat wiring.
 
-Runs without network access and without pytest — execute directly:
-  python tests/test_govfinance.py
+Runs without network access. This file alone:
+  pytest tests/test_govfinance.py
 """
 
 from __future__ import annotations
@@ -156,15 +156,3 @@ def test_multi_unit_caveat_fires_only_above_one_unit():
                                                 "stories": 4})).lower()
     assert "single-family" not in full
     assert "value-per-door" in full
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

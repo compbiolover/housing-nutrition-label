@@ -15,24 +15,20 @@ function is tested against hand-computed cases where a sign error is not surviva
 a distribution entirely inside one bucket, one split across two, and an asymmetric one
 whose quartiles sit on opposite sides of its median.
 
-Run standalone: ``python tests/test_year_built.py``
+This file alone: ``pytest tests/test_year_built.py``
 """
 
 from __future__ import annotations
 
 import pathlib
-import sys
 
-# Standalone runs (`python tests/test_year_built.py`) get no package on the path in
+# Standalone runs (`pytest tests/test_year_built.py`) get no package on the path in
 # a fresh checkout — and this file imports both `housing_label` and `scripts`, so it
 # needs the repo root as well as src/. Same bootstrap as tests/test_home_value.py.
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-import scripts.build_year_built as yb_build  # noqa: E402
-from housing_label.data import year_built as yb  # noqa: E402
+import scripts.build_year_built as yb_build
+from housing_label.data import year_built as yb
 
 # A tract and county that must exist in any real build of the crosswalk: Shelby
 # County, TN (the pilot county) and one of its tracts.
@@ -214,22 +210,3 @@ def test_national_spread_is_wide_enough_to_matter():
     """
     got = yb.year_built_distribution_for("99999999999")
     assert got["spread"] >= 20, f"national interquartile spread is only {got['spread']} yr"
-
-
-def _run_all() -> int:
-    fns = [v for k, v in sorted(globals().items())
-           if k.startswith("test_") and callable(v)]
-    failed = 0
-    for fn in fns:
-        try:
-            fn()
-            print(f"  ok    {fn.__name__}")
-        except AssertionError as exc:
-            failed += 1
-            print(f"  FAIL  {fn.__name__}: {exc}")
-    print(f"\n{len(fns) - failed}/{len(fns)} passed")
-    return 1 if failed else 0
-
-
-if __name__ == "__main__":
-    sys.exit(_run_all())

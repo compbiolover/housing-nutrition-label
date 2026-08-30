@@ -6,8 +6,8 @@ through utility bills and a monthly fee rather than property tax. The revenue si
 therefore counts modeled fee income alongside property tax, using each county's
 actual current-charges-to-expenditure ratio from the Census of Governments.
 
-Runs without network access and without pytest — execute directly:
-  python tests/test_fee_revenue.py
+Runs without network access. This file alone:
+  pytest tests/test_fee_revenue.py
 """
 
 from __future__ import annotations
@@ -108,15 +108,3 @@ def test_fee_revenue_amortizes_with_density():
     sprawl = enrich_row(_row(units=1, lot_acres=2.0))
     tower = enrich_row(_row(units=157, lot_acres=1.0), units=157)
     assert float(sprawl["est_fee_revenue"]) > float(tower["est_fee_revenue"])
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

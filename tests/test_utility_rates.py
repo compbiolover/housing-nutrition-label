@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Tests for the state utility-rate lookup and its effect on energy cost.
 
-Runs without network. Execute directly (python tests/test_utility_rates.py) or
-via pytest.
+Runs without network. This file alone: ``pytest tests/test_utility_rates.py``.
 """
 
 import pandas as pd

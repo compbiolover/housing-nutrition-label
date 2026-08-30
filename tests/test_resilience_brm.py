@@ -210,15 +210,3 @@ def test_seismic_tiers_supersede_and_degrade_gracefully():
     assert np.isclose(both["seismic_adj"], plain * BONUS_SEISMIC_RET)
     assert both["seismic_retrofit_note"] is None
     assert "Cripple wall bracing" in both["seismic_applicability_note"]
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Tests for the batch scorer's dimension activation (score/all_dimensions.py).
 
-Focus: a missing source column must never become a fabricated score. Execute
-directly (python tests/test_all_dimensions.py) or via pytest.
+Focus: a missing source column must never become a fabricated score. This file alone: ``pytest tests/test_all_dimensions.py``.
 """
 
 from __future__ import annotations
@@ -52,15 +51,3 @@ def test_present_socioeconomic_feeds_composite():
     active = A.resolve_active_dimensions(cols)
     socio = next(d for d in active if d.key == "socioeconomic")
     assert socio.composite is True and socio.requires == "socioeconomic_index"
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

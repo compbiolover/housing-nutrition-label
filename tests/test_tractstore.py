@@ -1,22 +1,18 @@
 #!/usr/bin/env python3
 """Tests for the compact columnar crosswalk store (data/_tractstore.py).
 
-Runs standalone (``python tests/test_tractstore.py``) or via pytest.
+This file alone: ``pytest tests/test_tractstore.py``.
 """
 
 from __future__ import annotations
 
 import gzip
 import pathlib
-import sys
 import tempfile
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.data._tractstore import load_tract_store  # noqa: E402
+from housing_label.data._tractstore import load_tract_store
 
 
 def _store(rows_csv: str, width: int, gz: bool = False):
@@ -61,17 +57,3 @@ def test_zero_pads_and_reads_gzip():
     s = _store("geoid,val\n6037,3\n", 5, gz=True)   # 4-digit → zero-padded to 5
     assert s.get("06037")["val"] == 3
     assert list(s) == ["06037"] and [r["val"] for r in s.values()] == [3]
-
-
-def _run_all():
-    import types
-    tests = [v for k, v in sorted(globals().items())
-             if k.startswith("test_") and isinstance(v, types.FunctionType)]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

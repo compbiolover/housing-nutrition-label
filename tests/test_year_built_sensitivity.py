@@ -15,21 +15,17 @@ independent re-score at that year produces. A test pins that against the real
 scoring path rather than trusting the shortcut.
 
 No network: every case supplies a Census geography, so the bundled crosswalks do all
-the work. Run standalone: ``python tests/test_year_built_sensitivity.py``
+the work. This file alone: ``pytest tests/test_year_built_sensitivity.py``
 """
 
 from __future__ import annotations
 
 import pathlib
-import sys
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label import batch as B  # noqa: E402
-from housing_label.simulate.house import (  # noqa: E402
+from housing_label import batch as B
+from housing_label.simulate.house import (
     YEAR_BUILT_DRIVEN, build_label_parts, label_payload,
 )
 
@@ -194,22 +190,3 @@ def test_environmental_is_not_claimed_to_move():
     different vintage does not move it. Pinned because quietly adding it to
     YEAR_BUILT_DRIVEN would make the prompt promise a change that never comes."""
     assert "environmental" not in YEAR_BUILT_DRIVEN
-
-
-def _run_all() -> int:
-    fns = [v for k, v in sorted(globals().items())
-           if k.startswith("test_") and callable(v)]
-    failed = 0
-    for fn in fns:
-        try:
-            fn()
-            print(f"  ok    {fn.__name__}")
-        except AssertionError as exc:
-            failed += 1
-            print(f"  FAIL  {fn.__name__}: {exc}")
-    print(f"\n{len(fns) - failed}/{len(fns)} passed")
-    return 1 if failed else 0
-
-
-if __name__ == "__main__":
-    sys.exit(_run_all())

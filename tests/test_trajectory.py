@@ -6,7 +6,7 @@ Everything else checks shape; those two check the two properties the feature is
 actually promising — that no dimension can silently go missing from the view, and
 that asking for a timeline costs no extra upstream calls.
 
-Run directly:  python tests/test_trajectory.py
+This file alone:  pytest tests/test_trajectory.py
 """
 
 import pandas as pd
@@ -294,15 +294,3 @@ def test_no_point_in_time_reason_promises_a_value_this_view_lacks():
     for key, why in out["point_in_time"].items():
         assert "current value is shown" not in why, key
         assert "shown below" not in why, key
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

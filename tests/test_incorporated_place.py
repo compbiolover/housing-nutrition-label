@@ -11,22 +11,17 @@ statistical convenience with no government, and Silver Spring, MD is a CDP of
 80,000 people that has never been incorporated. "Has a place name" is therefore
 exactly the wrong test, and it is the obvious one to reach for.
 
-The parsing tests run offline against captured geocoder shapes. Execute directly
-(python tests/test_incorporated_place.py) or via pytest.
+The parsing tests run offline against captured geocoder shapes. This file alone: ``pytest tests/test_incorporated_place.py``.
 """
 
 from __future__ import annotations
 
 import pathlib
-import sys
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.simulate.location import Location, _parse_geographies   # noqa: E402
-from housing_label.simulate.house import build_label_parts                  # noqa: E402
+from housing_label.simulate.location import Location, _parse_geographies
+from housing_label.simulate.house import build_label_parts
 
 
 # Real geocoder response shapes, captured 2026-08-03 from

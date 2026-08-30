@@ -14,7 +14,7 @@ instead of losing all of it to the one service having a bad afternoon.
 
 No network.
 
-Run directly:  python tests/test_slow_upstreams.py
+This file alone:  pytest tests/test_slow_upstreams.py
 """
 
 from __future__ import annotations
@@ -580,15 +580,3 @@ def test_the_page_says_it_in_a_sentence():
     for source in ("state.detected", "state.presetsSlow", "densityCache()", "state.timeline"):
         assert source in note, f"the note never looks at {source}"
     assert "state.mode" not in note, "the note is gated on the mode again"
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

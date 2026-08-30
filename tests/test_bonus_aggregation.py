@@ -14,7 +14,7 @@ certification supersede those very features, and Gold's number is the
 best-evidenced one in the file (IBHS Hurricane Sally, n~40,000). A pile of
 self-reported checkboxes outscored the engineer-stamped, inspected composite.
 
-Run directly:  python tests/test_bonus_aggregation.py
+This file alone:  pytest tests/test_bonus_aggregation.py
 """
 
 from __future__ import annotations
@@ -144,15 +144,3 @@ def test_floor_binds_only_when_the_stack_would_pass_it():
 
     assert combine_bonuses({k: True for k in FLOOD_BONUS_MODIFIERS},
                            "flood", FLOOD_BONUS_MODIFIERS) >= BONUS_ELEVATION_3FT
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

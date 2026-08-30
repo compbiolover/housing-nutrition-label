@@ -5,18 +5,14 @@ Confirms label_payload (used by both the CLI --json and the HTTP API) carries
 the data-quality confidence channel and the lifetime-cost flows, so the live
 label can render dots, the climate whisker, and the cost strip. No network.
 
-Run directly:  python tests/test_label_payload.py
+This file alone:  pytest tests/test_label_payload.py
 """
 
 import pathlib
-import sys
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.simulate.house import (  # noqa: E402
+from housing_label.simulate.house import (
     label_payload, cost_flows, dimension_details)
 
 
@@ -158,15 +154,3 @@ def test_details_drop_non_finite_values():
     assert "Expected annual loss" not in flat
     # A sibling finite row on the same dimension still renders.
     assert flat.get("Est. public cost to serve (per unit)") == "$1,875/yr"
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Offline tests for the per-parcel density comparison (fixed lot, vary units).
 
-Runs without network access and without pytest — execute directly:
-  python tests/test_density.py
-(pytest will also collect the test_* functions if it is installed.)
+Runs without network access. This file alone:
+  pytest tests/test_density.py
 """
 
 from housing_label.simulate.house import density_comparison, DENSITY_UNIT_COUNTS
@@ -200,15 +199,3 @@ def test_empty_unit_counts_raises():
     except ValueError:
         return
     raise AssertionError("expected ValueError for empty unit_counts")
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

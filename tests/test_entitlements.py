@@ -4,7 +4,7 @@
 No network and no FastAPI — this module is deliberately importable on its own,
 so these run everywhere.
 
-Run directly:  python tests/test_entitlements.py
+This file alone:  pytest tests/test_entitlements.py
 """
 
 import contextlib
@@ -209,15 +209,3 @@ def test_the_day_rolls_over_and_drops_yesterday():
         assert led.charge("caller", 10, 10) == (True, 10, 0)
     finally:
         ent._utc_day = real
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

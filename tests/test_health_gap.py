@@ -15,24 +15,19 @@ gap that is statewide and upstream, and reads as a bad tract id.
 They also pin which states are affected, so a later PLACES release that restores
 them shows up as a failure here rather than going unnoticed.
 
-Runs without network. Execute directly (python tests/test_health_gap.py) or via
-pytest.
+Runs without network. This file alone: ``pytest tests/test_health_gap.py``.
 """
 
 from __future__ import annotations
 
 import pathlib
-import sys
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.data import health as health_data                     # noqa: E402
-from housing_label.data.states import usps_for_fips                      # noqa: E402
-from housing_label.simulate.location import Location                     # noqa: E402
-from housing_label.simulate.house import build_label_parts               # noqa: E402
+from housing_label.data import health as health_data
+from housing_label.data.states import usps_for_fips
+from housing_label.simulate.location import Location
+from housing_label.simulate.house import build_label_parts
 
 KY, PA, TN = "21", "42", "47"
 

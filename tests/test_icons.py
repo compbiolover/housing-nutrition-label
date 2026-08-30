@@ -12,7 +12,7 @@ not, and nothing failed. Two directions are checked here —
     mirror, so editing docs/style.css alone fails rather than silently leaving
     the icons a shade behind.
 
-Run directly:  python tests/test_icons.py
+This file alone:  pytest tests/test_icons.py
 """
 
 from __future__ import annotations
@@ -109,15 +109,3 @@ def test_pages_reference_the_icons_and_theme_colour():
         for ref in ("favicon.svg", "favicon.ico", "apple-touch-icon.png"):
             assert ref in html, f"{page.name} does not reference {ref}"
         assert f'name="theme-color" content="{navy}"' in html, page.name
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

@@ -12,25 +12,20 @@ obtained under different assumptions than the table would be scored on a curve
 built for a quantity it is not. So the query and the response parse have exactly one
 definition, and these tests pin that.
 
-Runs without network (the PVGIS call is stubbed). Execute directly
-(python tests/test_point_solar.py) or via pytest.
+Runs without network (the PVGIS call is stubbed). This file alone: ``pytest tests/test_point_solar.py``.
 """
 
 from __future__ import annotations
 
 import pathlib
-import sys
 from unittest import mock
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.enrich import solar_point as sp                      # noqa: E402
-from housing_label.data import solar as solar_data                      # noqa: E402
-from housing_label.simulate.location import Location                    # noqa: E402
-from housing_label.simulate.house import build_label_parts              # noqa: E402
+from housing_label.enrich import solar_point as sp
+from housing_label.data import solar as solar_data
+from housing_label.simulate.location import Location
+from housing_label.simulate.house import build_label_parts
 
 # Monroe County TN — the bundled county figure this parcel would otherwise inherit.
 COUNTY = "47123"

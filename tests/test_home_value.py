@@ -2,20 +2,16 @@
 """Tests for the tract → county → national median-home-value crosswalk
 (data/home_value.py) and its use in the single-family value auto-fill.
 
-Runs standalone (``python tests/test_home_value.py``) or via pytest.
+This file alone: ``pytest tests/test_home_value.py``.
 """
 
 from __future__ import annotations
 
 import pathlib
-import sys
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.data import home_value as HV  # noqa: E402
+from housing_label.data import home_value as HV
 
 
 def _with_table(fake: dict, fn):
@@ -89,17 +85,3 @@ def test_autofill_uses_tract_value_and_source():
     cfg = _with_table(fake, run)
     assert cfg["value"] == 1_700_000.0                       # the tract median, not county
     assert cfg["value_source"] == HOME_VALUE_SOURCE["tract"]
-
-
-def _run_all():
-    import types
-    tests = [v for k, v in sorted(globals().items())
-             if k.startswith("test_") and isinstance(v, types.FunctionType)]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

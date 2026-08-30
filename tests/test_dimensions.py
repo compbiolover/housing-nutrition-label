@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """Offline tests for the all-dimension house simulation.
 
-Runs without network access (location dimensions are skipped) and without
-pytest — execute directly:  python tests/test_dimensions.py
-(pytest will also collect the test_* functions if it is installed.)
+Runs without network access (location dimensions are skipped). This file alone: ``pytest tests/test_dimensions.py``.
 """
 
 from argparse import Namespace
@@ -631,15 +629,3 @@ def test_density_comparison_threads_material_and_stories():
     # 4-unit scenario improves with a concrete shell; the 1-unit scenario is unchanged.
     assert conc_r[4] > plain_r[4]
     assert conc_r[1] == plain_r[1]
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

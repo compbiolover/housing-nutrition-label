@@ -2,8 +2,8 @@
 """Offline tests for the Census-ACS per-county effective-property-tax-rate layer:
 the lookup, the revenue-side scaling in the infra model, and the caveat wiring.
 
-Runs without network access and without pytest — execute directly:
-  python tests/test_propertytax.py
+Runs without network access. This file alone:
+  pytest tests/test_propertytax.py
 """
 
 from __future__ import annotations
@@ -90,15 +90,3 @@ def test_caveat_mentions_acs_revenue_for_mapped_county():
     loc = SimpleNamespace(county_fips="06037", egrid_subregion="CAMX")
     msg = " ".join(_approx_caveats(loc))
     assert "Census ACS" in msg and "revenue side" in msg
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

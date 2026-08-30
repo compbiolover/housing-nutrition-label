@@ -2,7 +2,7 @@
 """Tests for the Durability dimension (enrich/durability.py).
 
 Pure functions over a synthetic parcel ``pd.Series`` — no network, no CSV.
-Execute directly (python tests/test_durability.py) or via pytest.
+This file alone: ``pytest tests/test_durability.py``..
 """
 
 from __future__ import annotations
@@ -99,15 +99,3 @@ def test_model_parcel_durability_masonry_beats_frame():
     frame = D.model_parcel_durability(_row(YRBLT=1990, CDU="AV", EXTWALL=7))
     stone = D.model_parcel_durability(_row(YRBLT=1990, CDU="AV", EXTWALL=4))
     assert stone["durability_score"] > frame["durability_score"]
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

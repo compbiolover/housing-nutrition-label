@@ -11,25 +11,20 @@ The behaviour these tests pin is mostly about what happens when the answer is
 *not* clean: an unreachable service must not read as "this house is on a well",
 and a stated source must always beat a detected one.
 
-Runs without network (the lookup is stubbed). Execute directly
-(python tests/test_water_system.py) or via pytest.
+Runs without network (the lookup is stubbed). This file alone: ``pytest tests/test_water_system.py``.
 """
 
 from __future__ import annotations
 
 import pathlib
-import sys
 from unittest import mock
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.enrich import water_system as ws_mod                  # noqa: E402
-from housing_label.simulate.location import Location                      # noqa: E402
-from housing_label.simulate.dimensions import resolve_water_source        # noqa: E402
-from housing_label.simulate.house import build_label_parts                # noqa: E402
+from housing_label.enrich import water_system as ws_mod
+from housing_label.simulate.location import Location
+from housing_label.simulate.dimensions import resolve_water_source
+from housing_label.simulate.house import build_label_parts
 
 _SERVED = {"status": "served", "pwsid": "TN0000450",
            "name": "MEMPHIS LIGHT, GAS, & WATER", "population_served": 659500,

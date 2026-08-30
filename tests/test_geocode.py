@@ -6,7 +6,7 @@ The response fixtures below are real bytes captured from
 tested against the endpoint's actual output rather than an idealised version of
 it. Nothing here goes out to the network.
 
-Run directly:  python tests/test_geocode.py
+This file alone:  pytest tests/test_geocode.py
 """
 
 import io
@@ -267,15 +267,3 @@ def test_run_batch_geocode_end_to_end():
     import csv as _csv
     row = next(_csv.DictReader(io.StringIO(out.getvalue())))
     assert row["tract"] == "47157003100" and row["n_scored"] == "13"
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

@@ -2,7 +2,7 @@
 """Tests for the Environmental Footprint dimension (enrich/environmental.py).
 
 Pure functions over a synthetic parcel ``pd.Series`` — no network, no CSV.
-Execute directly (python tests/test_environmental.py) or via pytest.
+This file alone: ``pytest tests/test_environmental.py``..
 """
 
 from __future__ import annotations
@@ -117,15 +117,3 @@ def test_marginal_credit_matches_formula():
     avg_only = E.model_parcel_environment(_row(), grid_factor=avg)
     assert out["env_operational_co2e_kg_yr"] > avg_only["env_operational_co2e_kg_yr"]
     assert "Cambium" in out["env_data_source"]
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

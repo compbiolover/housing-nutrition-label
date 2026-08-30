@@ -2,7 +2,7 @@
 """Tests for the Noise lookup + scoring (data/noise.py).
 
 Offline — reads the bundled noise_tracts.csv.gz (tract) and noise_county.csv
-(county) only. Execute directly (python tests/test_noise.py) or via pytest.
+(county) only. This file alone: ``pytest tests/test_noise.py``..
 """
 
 from __future__ import annotations
@@ -10,14 +10,10 @@ from __future__ import annotations
 import csv
 import gzip
 import pathlib
-import sys
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.data import noise as N  # noqa: E402
+from housing_label.data import noise as N
 
 
 def test_tract_resolves_and_quieter_scores_higher():
@@ -68,15 +64,3 @@ def test_bundled_tables_well_formed():
         for row in csv.DictReader(f):
             assert len(row["county_fips"]) == 5 and row["county_fips"].isdigit()
             assert 0.0 <= float(row["pct_ge60db"]) <= 100.0
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

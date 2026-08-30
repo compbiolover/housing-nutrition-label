@@ -15,26 +15,21 @@ so the ratio means something. Gross county density — households over every acr
 dry land — is dominated by how much forest a county contains and is not the same
 quantity as a parcel's lot size.
 
-Runs without network. Execute directly (python tests/test_density_normalizer.py)
-or via pytest.
+Runs without network. This file alone: ``pytest tests/test_density_normalizer.py``.
 """
 
 from __future__ import annotations
 
 import pathlib
-import sys
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src", _ROOT / "scripts"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-import pandas as pd                                                    # noqa: E402
+import pandas as pd
 
-from housing_label.enrich.infrastructure import (                       # noqa: E402
+from housing_label.enrich.infrastructure import (
     density_normalizer, enrich_row, SHELBY_LOT_DU_ACRE,
     DENSITY_NORM_MIN, DENSITY_NORM_MAX)
-from housing_label.data.county_lot_density import (                     # noqa: E402
+from housing_label.data.county_lot_density import (
     county_lot_density_for_county)
 
 SHELBY, MONROE, MANHATTAN = "47157", "47123", "36061"
@@ -138,7 +133,7 @@ def test_omitting_the_density_reproduces_the_old_model_exactly():
 def test_every_archetype_declares_a_utility_mix():
     """Keyed by label so a new archetype fails loudly rather than silently
     defaulting to all-public — which is the bug this mix exists to fix."""
-    from calibrate_infra_breakpoints import DENSITY_ARCHETYPES, UTILITY_MIX
+    from scripts.calibrate_infra_breakpoints import DENSITY_ARCHETYPES, UTILITY_MIX
     for label, *_ in DENSITY_ARCHETYPES:
         assert label in UTILITY_MIX, label
         assert abs(sum(s for _w, _s, s in UTILITY_MIX[label]) - 1.0) < 1e-9, label
@@ -148,7 +143,7 @@ def test_the_utility_mix_matches_the_national_shares():
     """The yardstick has to contain the connections the housing stock has. EPA puts
     private wells at 14.1% of housing units and septic at ~20% of households;
     Hernandez et al. (2023) put BOTH at 9.1%."""
-    from calibrate_infra_breakpoints import DENSITY_ARCHETYPES, UTILITY_MIX
+    from scripts.calibrate_infra_breakpoints import DENSITY_ARCHETYPES, UTILITY_MIX
     well = septic = both = 0.0
     for label, _du, share, *_ in DENSITY_ARCHETYPES:
         for pub_water, pub_sewer, s in UTILITY_MIX[label]:
@@ -167,7 +162,7 @@ def test_the_utility_mix_matches_the_national_shares():
 def test_off_network_households_are_concentrated_where_they_actually_are():
     """A well/septic mix spread evenly would be worse than none — it would put
     private wells in high-rise apartments."""
-    from calibrate_infra_breakpoints import DENSITY_ARCHETYPES, UTILITY_MIX
+    from scripts.calibrate_infra_breakpoints import DENSITY_ARCHETYPES, UTILITY_MIX
 
     def off_share(label):
         return sum(s for w, sw, s in UTILITY_MIX[label] if not (w and sw))

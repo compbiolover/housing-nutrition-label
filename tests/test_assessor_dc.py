@@ -11,23 +11,19 @@ No network. The transport is stubbed with recorded response shapes, for the reas
 the Cook file gives: the adapter fails open, so a renamed column or a broken join
 reads as "this county has no record here" and would never announce itself.
 
-Run standalone: ``python tests/test_assessor_dc.py``
+This file alone: ``pytest tests/test_assessor_dc.py``
 """
 
 from __future__ import annotations
 
 import os
 import pathlib
-import sys
 import time
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.enrich.assessor import _shared, dc  # noqa: E402
-from housing_label.enrich.assessor._shared import address_key, same_address  # noqa: E402
+from housing_label.enrich.assessor import _shared, dc
+from housing_label.enrich.assessor._shared import address_key, same_address
 
 _PARCEL = {"SSL": "2076    0099",
            "PREMISEADD": "3401 NEWARK ST NW WASHINGTON DC 20016"}
@@ -552,22 +548,3 @@ def test_a_street_that_merely_contains_a_marker_word_is_not_a_unit():
     assert unit_of("100 Route 66, Springfield, IL") is None
     assert unit_of("1 Suite Dreams Rd, Springfield, IL") is None
     assert unit_of("2123 California St NW, Washington, DC") is None
-
-
-def _run_all() -> int:
-    fns = [v for k, v in sorted(globals().items())
-           if k.startswith("test_") and callable(v)]
-    failed = 0
-    for fn in fns:
-        try:
-            fn()
-            print(f"  ok    {fn.__name__}")
-        except AssertionError as exc:
-            failed += 1
-            print(f"  FAIL  {fn.__name__}: {exc}")
-    print(f"\n{len(fns) - failed}/{len(fns)} passed")
-    return 1 if failed else 0
-
-
-if __name__ == "__main__":
-    sys.exit(_run_all())

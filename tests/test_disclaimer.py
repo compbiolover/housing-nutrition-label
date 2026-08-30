@@ -7,24 +7,20 @@ are the enforcement: a new renderer that forgets the notice, or a second copy of
 the text that drifts from the first, fails here rather than shipping. No
 network.
 
-Run directly:  python tests/test_disclaimer.py
+This file alone:  pytest tests/test_disclaimer.py
 """
 
 from __future__ import annotations
 
 import pathlib
 import re
-import sys
 import xml.etree.ElementTree as ET
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label import badge, label_svg  # noqa: E402
-from housing_label.legal import DISCLAIMER, DISCLAIMER_SHORT  # noqa: E402
-from housing_label.simulate.house import label_payload  # noqa: E402
+from housing_label import badge, label_svg
+from housing_label.legal import DISCLAIMER, DISCLAIMER_SHORT
+from housing_label.simulate.house import label_payload
 
 _DOCS = _ROOT / "docs"
 _LABEL_CORE = _DOCS / "label-core.js"
@@ -200,15 +196,3 @@ def test_the_embed_snippet_tells_the_embedder_too():
     """Most embedders paste this verbatim, and the alt text is the copy a reader
     with images off gets."""
     assert "not advice" in badge.EMBED_SNIPPET.lower()
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

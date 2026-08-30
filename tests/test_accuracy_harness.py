@@ -12,7 +12,7 @@ claim.
 
 So these tests feed hand-built cases with known answers.
 
-Run standalone: ``python tests/test_accuracy_harness.py``
+This file alone: ``pytest tests/test_accuracy_harness.py``
 """
 
 from __future__ import annotations
@@ -24,12 +24,9 @@ import sys
 import tempfile
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-import scripts.jurisdictions as B  # noqa: E402
-import scripts.measure_accuracy as M  # noqa: E402
+import scripts.jurisdictions as B
+import scripts.measure_accuracy as M
 
 
 def _case(truth, inferred, truth_grades, arm_grades, resolved=True):
@@ -1485,22 +1482,3 @@ def test_honestly_varying_runtimes_are_not_refused():
     M._refuse_cache_replay([600.0, 900.0])
     M._refuse_cache_replay([1800.0])      # one run cannot be a replay of anything
     M._refuse_cache_replay([])
-
-
-def _run_all() -> int:
-    fns = [v for k, v in sorted(globals().items())
-           if k.startswith("test_") and callable(v)]
-    failed = 0
-    for fn in fns:
-        try:
-            fn()
-            print(f"  ok    {fn.__name__}")
-        except AssertionError as exc:
-            failed += 1
-            print(f"  FAIL  {fn.__name__}: {exc}")
-    print(f"\n{len(fns) - failed}/{len(fns)} passed")
-    return 1 if failed else 0
-
-
-if __name__ == "__main__":
-    sys.exit(_run_all())

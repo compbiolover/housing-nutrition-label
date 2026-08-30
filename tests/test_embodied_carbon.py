@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Tests for the geometry-aware embodied-carbon model (data/embodied_carbon.py).
 
-Pure functions over codes + geometry — no network, no CSV. Execute directly
-(``python tests/test_embodied_carbon.py``) or via pytest.
+Pure functions over codes + geometry — no network, no CSV. This file alone: ``pytest tests/test_embodied_carbon.py``.
 """
 
 from __future__ import annotations
@@ -90,16 +89,3 @@ def test_all_typical_combos_land_in_empirical_band():
                 for st in (1, 2):
                     v = ec.embodied_intensity_kgm2(w, b, sqft * _M2, st)
                     assert 38.0 <= v <= 260.0, (w, b, sqft, st, v)
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items())
-             if k.startswith("test_") and callable(v)]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

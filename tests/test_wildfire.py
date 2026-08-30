@@ -2,9 +2,8 @@
 """Offline tests for the FEMA NRI wildfire hazard: lookup, enrichment, resilience
 EAL, and the live-path injection into the simulator.
 
-Runs without network access and without pytest — execute directly:
-  python tests/test_wildfire.py
-(pytest will also collect the test_* functions if it is installed.)
+Runs without network access. This file alone:
+  pytest tests/test_wildfire.py
 """
 
 from __future__ import annotations
@@ -166,15 +165,3 @@ def test_simulate_coerces_invalid_wildfire_base():
     c["wildfire_eal_base"] = "not-a-number"
     r = simulate(c)
     assert _approx(r["fire_raw"], FIRE_EAL_BASE)
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

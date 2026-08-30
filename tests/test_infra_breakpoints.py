@@ -2,8 +2,8 @@
 """Offline tests for the nationally-anchored Infrastructure Burden fiscal-ratio
 score breakpoints.
 
-Runs without network access and without pytest — execute directly:
-  python tests/test_infra_breakpoints.py
+Runs without network access. This file alone:
+  pytest tests/test_infra_breakpoints.py
 """
 
 from __future__ import annotations
@@ -92,15 +92,3 @@ def test_infra_xs_basis_matches_the_rules_table():
     assert INFRA_XS_BASIS == active_basis(), (
         "classification table changed without recalibrating INFRA_XS — "
         f"basis records {INFRA_XS_BASIS}, table now has {active_basis()}")
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

@@ -6,8 +6,8 @@ industrial and commercial, assessed at 40% rather than 25% (Tenn. Const. art. II
 § 28; Tenn. Code Ann. § 67-5-501(11), § 67-5-801). The cases below track the
 controlling authority, including Tenn. Att'y Gen. Op. No. 25-016 (Aug. 25, 2025).
 
-Runs without network access and without pytest — execute directly:
-  python tests/test_assessment.py
+Runs without network access. This file alone:
+  pytest tests/test_assessment.py
 """
 
 from __future__ import annotations
@@ -1364,15 +1364,3 @@ def test_law_as_of_is_at_least_the_newest_verified_date():
     assert as_of >= newest, (
         f"LAW_AS_OF is {LAW_AS_OF} but the newest record was verified {newest} — "
         "bump LAW_AS_OF when adding jurisdictions")
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()

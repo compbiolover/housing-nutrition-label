@@ -8,31 +8,26 @@ models. These tests pin the option's presence end to end and, more importantly,
 that it is not merely an alias for frame: it must move each dimension in the
 direction the material actually differs.
 
-Runs without network (a pre-resolved Location is injected). Execute directly
-(python tests/test_steel_construction.py) or via pytest.
+Runs without network (a pre-resolved Location is injected). This file alone: ``pytest tests/test_steel_construction.py``.
 """
 
 from __future__ import annotations
 
 import pathlib
-import sys
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-for _p in (_ROOT, _ROOT / "src"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from housing_label.simulate.location import Location            # noqa: E402
-from housing_label.simulate.house import (                       # noqa: E402
+from housing_label.simulate.location import Location
+from housing_label.simulate.house import (
     build_label_parts, BRM_FLOOR, CONSTRUCTION_FACTOR,
     FLOOD_CONSTRUCTION_FACTOR, FIRE_CONSTRUCTION_FACTOR)
-from housing_label.simulate.dimensions import (                  # noqa: E402
+from housing_label.simulate.dimensions import (
     EXTWALL_CODE, GRADE_BY_CONSTRUCTION)
-from housing_label.enrich.structure import _CONSTRUCTION          # noqa: E402
-from housing_label.enrich.durability import WALL_FACTOR           # noqa: E402
-from housing_label.enrich.energy import _wall_factor              # noqa: E402
-from housing_label.enrich.environmental import SERVICE_LIFE_BY_WALL  # noqa: E402
-from housing_label.data.embodied_carbon import _ENV_KG_PER_M2WALL    # noqa: E402
+from housing_label.enrich.structure import _CONSTRUCTION
+from housing_label.enrich.durability import WALL_FACTOR
+from housing_label.enrich.energy import _wall_factor
+from housing_label.enrich.environmental import SERVICE_LIFE_BY_WALL
+from housing_label.data.embodied_carbon import _ENV_KG_PER_M2WALL
 
 STEEL_CODE = 6
 

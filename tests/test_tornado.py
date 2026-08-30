@@ -4,9 +4,8 @@ EAL, and the live-path injection into the simulator.
 
 These cover the consolidation that retires the NOAA SPC touchdown-count model in
 favour of the FEMA National Risk Index tornado EAL rate (mirroring the wildfire
-consolidation). Runs without network access and without pytest — execute directly:
-  python tests/test_tornado.py
-(pytest will also collect the test_* functions if it is installed.)
+consolidation). Runs without network access. This file alone:
+  pytest tests/test_tornado.py
 """
 
 from __future__ import annotations
@@ -159,15 +158,3 @@ def test_simulate_coerces_invalid_tornado_base():
     c["tornado_eal_base"] = "not-a-number"
     r = simulate(c)
     assert _approx(r["tornado_raw"], 0.0)
-
-
-def _run_all():
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for t in tests:
-        t()
-        print(f"  ok  {t.__name__}")
-    print(f"\n{len(tests)} tests passed.")
-
-
-if __name__ == "__main__":
-    _run_all()
