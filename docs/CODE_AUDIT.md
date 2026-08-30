@@ -324,3 +324,11 @@ reference on random parcels).
   were equivalent). The `footprint`/`environmental` copies are kept: they
   deliberately reject non-finite floats (NaN/inf from live services), which
   `data/_util.num` (built for CSV strings) passes through.
+- **Pilot enrichment libraries removed** — `enrich/{fire,tornado,seismic,socioeconomic,
+  noaa_climate}.py`. Stripping their CLI runners (above) left five importable
+  libraries with no caller anywhere in `src/`: the live path reaches the same data
+  through `data/{wildfire,tornado}.py` and `simulate/location.py`, and
+  `enrich/seismic_lookup.py` supersedes `enrich/seismic.py` entirely. This also
+  retires the byte-for-byte `_clean_tract` / `get_census_tract` duplication between
+  `health.py` and `socioeconomic.py` that **S1** flagged, so the sections above
+  citing those files describe code that no longer exists.

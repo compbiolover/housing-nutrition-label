@@ -62,18 +62,6 @@ def test_unknown_geo_falls_back_to_national_average():
     assert wf.wildfire_for_county("99999")["geo_level"] == "us"
 
 
-
-
-def test_norm_tract_handles_float_and_leading_zeros():
-    """_norm_tract strips a decimal suffix and restores leading-zero GEOIDs."""
-    from housing_label.enrich.fire import _norm_tract
-    assert _norm_tract(47157006300.0) == "47157006300"     # numpy/py float
-    assert _norm_tract("47157006300.0") == "47157006300"   # stringified float
-    assert _norm_tract(6037139000.0) == "06037139000"      # leading zero restored
-    assert _norm_tract(None) is None
-    assert _norm_tract(float("nan")) is None
-
-
 # ── Resilience scoring (score/resilience.py) ────────────────────────────────────
 _BASE_ROW = {
     "flood_risk": "minimal", "tornado_nri_eal_rate": 0.00015,
