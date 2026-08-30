@@ -22,6 +22,7 @@ simulator falls back to the legacy New Madrid model).
 from __future__ import annotations
 
 import csv
+import logging
 import math
 import pathlib
 from functools import lru_cache
@@ -31,6 +32,8 @@ import requests
 from housing_label.config import TIMEOUT, RETRIES, BACKOFF, HEADERS
 from housing_label import utils
 from housing_label.utils import haversine_miles
+
+log = logging.getLogger(__name__)
 
 # USGS 2023 NSHM hazard-curve service (keyless; path form, longitude first). vs30=760
 # m/s is the BC-boundary reference site condition used by the national hazard maps.
@@ -74,7 +77,17 @@ def _in_conus(lat: float, lon: float) -> bool:
 def _gm_at_rate(xs: list, ys: list, lam: float) -> float | None:
     """Interpolate the ground motion (g) at annual exceedance rate ``lam`` from a
     hazard curve — ``xs`` ground motion ascending, ``ys`` annual rate descending —
-    in log-log space. Clamps to the curve ends if ``lam`` falls outside its range."""
+    in log-log space. Clamps to the curve ends if ``lam`` falls outside its range.
+
+    ``xs`` and ``ys`` arrive straight out of the USGS NSHM JSON, and ``zip``
+    truncates silently: mismatched lengths would pair each ground motion with
+    the wrong exceedance rate and return a confidently wrong PGA into the
+    seismic EAL, with no error anywhere. They are two halves of one curve, so a
+    length mismatch is not a curve — say so and let the caller fall through to
+    the design-maps tier."""
+    if len(xs) != len(ys):
+        log.warning("NSHM curve arrays disagree: %d xs vs %d ys", len(xs), len(ys))
+        return None
     pts = [(float(x), float(y)) for x, y in zip(xs, ys) if y and float(y) > 0]
     if len(pts) < 2:
         return None

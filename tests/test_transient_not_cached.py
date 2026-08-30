@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
-"""One invariant, across every memoized point lookup: a transient upstream
-failure must not become a permanent answer.
+"""Silent wrong answers from upstream data the code did not check.
+
+Two defects of the same shape. The first, and most of this file: across every
+memoized point lookup, a transient upstream failure must not become a permanent
+answer. The second, at the bottom: two halves of one curve must not be zipped
+without checking they are the same length.
 
 Each lookup below is wrapped in ``lru_cache`` for the life of the process, and
 each used to signal "the service did not answer" with the same value it uses for
@@ -224,3 +228,41 @@ def test_tract_lookup_no_tract_here_is_memoized(monkeypatch):
     spent = len(calls)
     assert dim._tract_for(0.0, 0.0) is None
     assert len(calls) == spent, "a real 'no tract' should not be re-fetched"
+
+
+# ── Two halves of one curve, zipped without a length check ────────────────────
+# Different defect from the memoization above, same root shape: a silent wrong
+# answer from data the code did not check. zip() truncates to the shorter side,
+# so mismatched arrays pair each value with the wrong partner and the result is
+# confidently wrong rather than absent.
+def test_seismic_curve_with_mismatched_arrays_is_refused():
+    """xs and ys come straight out of the USGS JSON. Unequal lengths are not a
+    curve, and must not silently become a shorter one."""
+    from housing_label.enrich import seismic_lookup as sl
+
+    xs = [0.1, 0.3, 0.6, 1.0]
+    ys = [0.01, 0.001, 0.0001]                 # one short — a shape change upstream
+    assert sl._gm_at_rate(xs, ys, sl.LAMBDA_2PCT_50) is None
+    # The matching pair still interpolates, so the guard is not just refusing work.
+    assert sl._gm_at_rate(xs[:3], ys, sl.LAMBDA_2PCT_50) is not None
+
+
+def test_construction_curve_row_shorter_than_its_header_is_skipped(tmp_path, monkeypatch):
+    """A short row would build a percentile curve out of whichever columns
+    happened to line up — a wrong percentile for every score on that dimension."""
+    from housing_label.data import national_percentile as npc
+
+    csv_path = tmp_path / "construction_percentiles.csv"
+    csv_path.write_text(
+        "dimension,p10,p50,p90\n"
+        "energy,10,50,90\n"
+        "durability,10,50\n"                  # short by one
+    )
+    monkeypatch.setattr(npc, "_CURVE_CSV", csv_path)
+    npc._construction_curves.cache_clear()
+    try:
+        curves = npc._construction_curves()
+        assert "energy" in curves, "a well-formed row must still load"
+        assert "durability" not in curves, "a short row must be skipped, not truncated"
+    finally:
+        npc._construction_curves.cache_clear()

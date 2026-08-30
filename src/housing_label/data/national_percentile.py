@@ -45,11 +45,14 @@ percentile is an honest estimate, versioned by its build.
 from __future__ import annotations
 
 import csv
+import logging
 import math
 import pathlib
 from functools import lru_cache
 
 from housing_label.data._util import num as _num
+
+log = logging.getLogger(__name__)
 
 _DIR = pathlib.Path(__file__).resolve().parent
 _CURVE_CSV = _DIR / "construction_percentiles.csv"
@@ -185,6 +188,14 @@ def _construction_curves() -> dict[str, tuple[list[float], list[float]]]:
                 continue
             dim = row[0]
             scores = [_num(v) for v in row[1:]]
+            if len(scores) != len(pcts):
+                # zip would truncate to the shorter side and build a curve out of
+                # the percentiles that happened to line up — a silently wrong
+                # percentile for every score on this dimension. Skip the row; the
+                # dimension then falls back to its raw score, which is visible.
+                log.warning("%s: %s has %d scores for %d percentile columns; skipping",
+                            _CURVE_CSV.name, dim, len(scores), len(pcts))
+                continue
             pairs = sorted((s, p) for s, p in zip(scores, pcts) if s is not None)
             if pairs:
                 out[dim] = ([s for s, _ in pairs], [p for _, p in pairs])
