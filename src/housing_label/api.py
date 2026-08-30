@@ -632,7 +632,7 @@ _NONRES_BUILDING_VALUES = frozenset({
     "chapel", "mosque", "temple", "synagogue", "hotel", "motel", "supermarket",
     "civic", "government", "public", "train_station", "transportation",
     "kindergarten", "sports_centre", "sports_hall", "grandstand", "hangar",
-    "parking", "garage", "garages", "fire_station", "hospital",
+    "parking", "garage", "garages", "fire_station",
 })
 
 
@@ -769,7 +769,7 @@ _GOOGLE_NONRES_TYPES = frozenset({
     "secondary_school", "hospital", "doctor", "pharmacy", "airport", "train_station",
     "transit_station", "bus_station", "subway_station", "light_rail_station",
     "church", "mosque", "synagogue", "hindu_temple", "place_of_worship", "restaurant",
-    "cafe", "bar", "gym", "stadium", "museum", "library", "city_hall",
+    "cafe", "bar", "gym", "museum", "library", "city_hall",
     "local_government_office", "courthouse", "police", "fire_station", "post_office",
     "warehouse", "storage", "car_dealer", "car_repair", "gas_station", "parking",
     "corporate_office", "insurance_agency", "accounting", "lawyer", "real_estate_agency",
