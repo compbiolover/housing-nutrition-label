@@ -48,6 +48,17 @@ MAX_RETRIES = 3
 BACKOFF     = 2       # exponential back-off multiplier
 CHECKPOINT  = 50      # save every N rows
 
+class FloodDataUnavailable(RuntimeError):
+    """FEMA did not answer. NOT the same as "no flood polygon at this point".
+
+    The distinction is the whole point of this class: ``_flood_zone_at`` is
+    memoized for the life of the process, and ``lru_cache`` does not memoize a
+    raise. Returning the unknown dict for an outage would pin "we don't know"
+    onto this coordinate forever — which is exactly what api._may_cache refuses
+    to do for six hours one layer up.
+    """
+
+
 # Zones that constitute Special Flood Hazard Areas (high risk)
 SFHA_ZONES  = {
     "A", "AE", "AO", "AH", "AR", "A99",
@@ -85,6 +96,10 @@ def fetch_flood_zone(lat: float, lon: float) -> dict:
     sweep) asks the same question of FEMA each time, and the answer is a static
     polygon layer. 6 dp ≈ 0.1 m, far finer than the zone polygons. The dict is
     copied out so a caller can't mutate the shared entry.
+
+    Raises :class:`FloodDataUnavailable` when FEMA could not be reached, so the
+    outage is not what gets memoized. A point genuinely outside the mapped area
+    still returns the unknown dict — that answer is real and worth keeping.
     """
     return dict(_flood_zone_at(round(float(lat), 6), round(float(lon), 6)))
 
@@ -109,13 +124,15 @@ def _flood_zone_at(lat: float, lon: float) -> dict:
         except Exception as exc:
             log.warning("HTTP error (attempt %d/%d): %s", attempt, MAX_RETRIES, exc)
             if attempt == MAX_RETRIES:
-                return {"flood_zone": None, "flood_risk": "unknown"}
+                raise FloodDataUnavailable(
+                    f"FEMA NFHL failed after {MAX_RETRIES} attempts: {exc}") from exc
             utils.retry_wait(attempt, BACKOFF)
             continue
 
         if "error" in data:
+            # A service-side error, not a verdict about this point.
             log.warning("FEMA API error: %s", data["error"])
-            return {"flood_zone": None, "flood_risk": "unknown"}
+            raise FloodDataUnavailable(f"FEMA NFHL error: {data['error']}")
 
         features = data.get("features", [])
         if not features:

@@ -235,11 +235,21 @@ def compute_health_index(records: list, county_fips: str | None = None) -> pd.Da
 
 
 # ── Census Geocoder ────────────────────────────────────────────────────────────
+class TractLookupUnavailable(RuntimeError):
+    """The Census geocoder did not answer. NOT "this point has no tract".
+
+    simulate.dimensions._tract_for memoizes this lookup for the life of the
+    process, and lru_cache does not memoize a raise. A cached failure would leave
+    every tract-keyed dimension unscored at that coordinate until restart.
+    """
+
+
 def get_census_tract(lat: float, lon: float) -> str | None:
     """Return the 2020 census tract GEOID (11-digit string) for a lat/lon point.
 
-    Uses the U.S. Census Bureau's public geocoder.  Returns None on any
-    failure or when the point falls outside a mapped tract.
+    Uses the U.S. Census Bureau's public geocoder. None when the point falls
+    outside a mapped tract — a real answer. Raises
+    :class:`TractLookupUnavailable` when the geocoder could not be reached.
     """
     params = {
         "x":         lon,
@@ -256,7 +266,8 @@ def get_census_tract(lat: float, lon: float) -> str | None:
         except Exception as exc:
             log.warning("Geocoder attempt %d/%d: %s", attempt, MAX_RETRIES, exc)
             if attempt == MAX_RETRIES:
-                return None
+                raise TractLookupUnavailable(
+                    f"Census geocoder failed after {MAX_RETRIES} attempts: {exc}") from exc
             utils.retry_wait(attempt, BACKOFF)
             continue
 
@@ -268,4 +279,4 @@ def get_census_tract(lat: float, lon: float) -> str | None:
         except (KeyError, IndexError, TypeError):
             return None
 
-    return None
+    raise TractLookupUnavailable("Census geocoder retries exhausted")   # unreachable

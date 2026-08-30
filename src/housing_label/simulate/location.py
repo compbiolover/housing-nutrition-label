@@ -21,6 +21,7 @@ caller can still score the dimensions that don't need them.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from functools import lru_cache
 
@@ -35,6 +36,8 @@ from housing_label.data import cambium as cambium_data
 from housing_label.data import wildfire as wildfire_data
 from housing_label.data import year_built as year_built_data
 from housing_label.data import tornado as tornado_data
+
+log = logging.getLogger(__name__)
 
 GEOCODER_ONELINE = "https://geocoding.geo.census.gov/geocoder/geographies/onelineaddress"
 GEOCODER_COORDS = "https://geocoding.geo.census.gov/geocoder/geographies/coordinates"
@@ -121,18 +124,36 @@ class Location:
 
 
 # ── Census geocoder ─────────────────────────────────────────────────────────────
-def _get(url: str, params: dict) -> dict | None:
-    """GET with retry/back-off; returns parsed JSON or None on failure."""
+class GeocoderUnavailable(RuntimeError):
+    """The Census geocoder did not answer. NOT "no such address / no geography".
+
+    The lookups below are memoized for the life of the process, and ``lru_cache``
+    does not memoize a raise. A cached failure here is the most expensive one in
+    the codebase: no county and no tract means eight tract-keyed dimensions come
+    back unscored, and they would stay unscored at that coordinate until the
+    process restarted. The public wrappers still return None, so callers are
+    unchanged — only the memo is.
+    """
+
+
+def _get(url: str, params: dict) -> dict:
+    """GET with retry/back-off.
+
+    Raises :class:`GeocoderUnavailable` when the service could not be reached;
+    a parsed body — including one that says the address matched nothing — comes
+    back as itself, because that is an answer.
+    """
     for attempt in range(1, RETRIES + 1):
         try:
             r = requests.get(url, params=params, headers=HEADERS, timeout=TIMEOUT)
             r.raise_for_status()
             return r.json()
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
             if attempt == RETRIES:
-                return None
+                raise GeocoderUnavailable(
+                    f"Census geocoder failed after {RETRIES} attempts: {exc}") from exc
             utils.retry_wait(attempt, BACKOFF)
-    return None
+    raise GeocoderUnavailable("Census geocoder retries exhausted")   # unreachable
 
 
 def _parse_geographies(geo: dict) -> dict:
@@ -211,17 +232,19 @@ def geocode_address(address: str) -> dict | None:
     key = " ".join(str(address or "").split()).casefold()
     if not key:
         return None
-    # Hand out a copy: the cached dict is shared by every caller for the life of
-    # the process, so one caller mutating it would poison the rest.
-    return _copy(_geocode_address_cached(key))
+    try:
+        # Hand out a copy: the cached dict is shared by every caller for the life
+        # of the process, so one caller mutating it would poison the rest.
+        return _copy(_geocode_address_cached(key))
+    except GeocoderUnavailable:
+        log.warning("Census geocoder unreachable; not caching the miss for %r", key)
+        return None
 
 
 def _geocode_address_uncached(address: str) -> dict | None:
     data = _get(GEOCODER_ONELINE, {
         "address": address, "benchmark": BENCHMARK, "vintage": VINTAGE, "format": "json",
     })
-    if not data:
-        return None
     matches = (data.get("result") or {}).get("addressMatches") or []
     if not matches:
         return None
@@ -244,7 +267,11 @@ def geographies_for_coords(lat: float, lon: float) -> dict | None:
     """Lat/lon → geographies dict (county/state FIPS, tract, place, urban)."""
     # 6 dp ≈ 0.1 m — the same rounding the point enrichers use, and far finer than
     # the tract/county/place geography this returns.
-    return _copy(_geographies_cached(round(float(lat), 6), round(float(lon), 6)))
+    try:
+        return _copy(_geographies_cached(round(float(lat), 6), round(float(lon), 6)))
+    except GeocoderUnavailable:
+        log.warning("Census geocoder unreachable; not caching the miss for %s,%s", lat, lon)
+        return None
 
 
 @lru_cache(maxsize=4096)
@@ -252,8 +279,6 @@ def _geographies_cached(lat: float, lon: float) -> dict | None:
     data = _get(GEOCODER_COORDS, {
         "x": lon, "y": lat, "benchmark": BENCHMARK, "vintage": VINTAGE, "format": "json",
     })
-    if not data:
-        return None
     geo = (data.get("result") or {}).get("geographies")
     return _parse_geographies(geo) if geo else None
 

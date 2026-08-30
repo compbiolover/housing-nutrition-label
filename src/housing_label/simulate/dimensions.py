@@ -36,6 +36,7 @@ condition="excellent"); the enrichment models speak Shelby County CAMA codes
 
 from __future__ import annotations
 
+import logging
 from functools import lru_cache
 
 import numpy as np
@@ -52,6 +53,8 @@ from housing_label.data import health as health_data
 from housing_label.data import socioeconomic as socio_data
 from housing_label.data import walkability as walk_data
 from housing_label.data.water_system import RECENT_YEARS as WATER_RECENT_YEARS
+
+log = logging.getLogger(__name__)
 
 
 # Markers set on cfg["value_source"] when the home value is an auto-filled *per-unit*
@@ -628,9 +631,25 @@ def compute_construction_dimensions(cfg: dict, climate_zone: str | None = None,
 # comparable across locations. The only network access left is geocoding the tract
 # (when one isn't supplied by the resolved location).
 @lru_cache(maxsize=256)
-def _tract_for(lat: float, lon: float) -> str | None:
+def _tract_for_cached(lat: float, lon: float) -> str | None:
     from housing_label.enrich import health as health_mod
     return health_mod.get_census_tract(lat, lon)
+
+
+def _tract_for(lat: float, lon: float) -> str | None:
+    """Tract GEOID for a point, memoized — but only when the geocoder answered.
+
+    A point with no tract is a real answer and is kept. An unreachable geocoder
+    raises past the memo (lru_cache does not store a raise) and is retried on the
+    next request, instead of leaving every tract-keyed dimension unscored here
+    for the life of the process.
+    """
+    from housing_label.enrich.health import TractLookupUnavailable
+    try:
+        return _tract_for_cached(lat, lon)
+    except TractLookupUnavailable:
+        log.warning("Census geocoder unreachable; not caching the miss for %s,%s", lat, lon)
+        return None
 
 
 def fetch_location_dimensions(

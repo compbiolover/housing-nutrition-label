@@ -55,6 +55,16 @@ PGA_10_2_RATIO = 0.43
 _GRID_CSV = pathlib.Path(__file__).resolve().parents[1] / "data" / "seismic_pga_grid.csv"
 
 
+class SeismicDataUnavailable(RuntimeError):
+    """A USGS service did not answer. NOT "no hazard data for this point".
+
+    Both lookups below are memoized for the life of the process and ``lru_cache``
+    does not memoize a raise, so an outage must leave by this door rather than as
+    a ``None``. A cached ``None`` would silently drop this coordinate to the
+    coarser fallback tier forever, long after USGS came back.
+    """
+
+
 # ── Primary: USGS 2023 NSHM hazard curve (true 2%/50yr AND 10%/50yr) ────────────
 def _in_conus(lat: float, lon: float) -> bool:
     lo_min, la_min, lo_max, la_max = _CONUS_BOUNDS
@@ -77,8 +87,11 @@ def _gm_at_rate(xs: list, ys: list, lam: float) -> float | None:
 
 @lru_cache(maxsize=2048)
 def _nshm_hazard_pga(lat: float, lon: float) -> tuple[float, float] | None:
-    """True (pga_2pct, pga_10pct) in g from the USGS 2023 NSHM PGA hazard curve, or
-    None outside CONUS / on failure."""
+    """True (pga_2pct, pga_10pct) in g from the USGS 2023 NSHM PGA hazard curve.
+
+    None outside CONUS — a real verdict, worth memoizing. Raises
+    :class:`SeismicDataUnavailable` when the service itself did not answer.
+    """
     if not _in_conus(lat, lon):
         return None
     url = NSHM_URL.format(model=NSHM_MODEL, lon=lon, lat=lat, vs30=NSHM_VS30)
@@ -88,7 +101,7 @@ def _nshm_hazard_pga(lat: float, lon: float) -> tuple[float, float] | None:
             r.raise_for_status()
             payload = r.json() or {}
             if payload.get("status") == "error":
-                return None
+                raise SeismicDataUnavailable(f"NSHM error for {lat},{lon}")
             resp = payload.get("response") or payload
             curves = resp.get("hazardCurves") or []
             pga = next((c for c in curves if (c.get("imt") or {}).get("value") == "PGA"), None)
@@ -97,23 +110,30 @@ def _nshm_hazard_pga(lat: float, lon: float) -> tuple[float, float] | None:
             vals = (total or {}).get("values") or {}
             xs, ys = vals.get("xs"), vals.get("ys")
             if not xs or not ys:
-                return None
+                raise SeismicDataUnavailable(f"NSHM returned no PGA curve for {lat},{lon}")
             p2 = _gm_at_rate(xs, ys, LAMBDA_2PCT_50)
             p10 = _gm_at_rate(xs, ys, LAMBDA_10PCT_50)
             if p2 is None or p10 is None:
-                return None
+                raise SeismicDataUnavailable(f"NSHM curve unreadable for {lat},{lon}")
             return round(p2, 3), round(p10, 3)
-        except Exception:  # noqa: BLE001
+        except SeismicDataUnavailable:
+            raise                       # a verdict about the service, not a transport blip
+        except Exception as exc:  # noqa: BLE001
             if attempt == RETRIES:
-                return None
+                raise SeismicDataUnavailable(
+                    f"NSHM failed after {RETRIES} attempts: {exc}") from exc
             utils.retry_wait(attempt, BACKOFF)
-    return None
+    raise SeismicDataUnavailable("NSHM retries exhausted")   # unreachable
 
 
 # ── Fallback: USGS ASCE7 design-maps 2%/50yr (× national ratio) ─────────────────
 @lru_cache(maxsize=2048)
 def _usgs_pga(lat: float, lon: float) -> float | None:
-    """2%/50yr PGA (g, site class B) from USGS design maps. None on failure."""
+    """2%/50yr PGA (g, site class B) from USGS design maps.
+
+    None when the response carries no PGA for this point (a real verdict). Raises
+    :class:`SeismicDataUnavailable` when the service did not answer.
+    """
     params = {"latitude": lat, "longitude": lon,
               "riskCategory": "II", "siteClass": "B", "title": "hnl"}
     for attempt in range(1, RETRIES + 1):
@@ -123,11 +143,12 @@ def _usgs_pga(lat: float, lon: float) -> float | None:
             data = (r.json().get("response") or {}).get("data") or {}
             pga = data.get("pga")
             return float(pga) if pga is not None else None
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
             if attempt == RETRIES:
-                return None
+                raise SeismicDataUnavailable(
+                    f"USGS design maps failed after {RETRIES} attempts: {exc}") from exc
             utils.retry_wait(attempt, BACKOFF)
-    return None
+    raise SeismicDataUnavailable("USGS design maps retries exhausted")   # unreachable
 
 
 # ── Bundled fallback grid ───────────────────────────────────────────────────────
@@ -174,10 +195,18 @@ def get_pga(lat: float, lon: float,
     """
     lat, lon = round(float(lat), 3), round(float(lon), 3)
     if allow_network:
-        hz = _nshm_hazard_pga(lat, lon)
+        # An unreachable service drops to the next tier for THIS call only; the
+        # raise is what keeps the outage out of the memo (see SeismicDataUnavailable).
+        try:
+            hz = _nshm_hazard_pga(lat, lon)
+        except SeismicDataUnavailable:
+            hz = None
         if hz is not None:
             return hz[0], hz[1], "USGS 2023 NSHM hazard curve (2%/50yr + 10%/50yr)"
-        pga2 = _usgs_pga(lat, lon)
+        try:
+            pga2 = _usgs_pga(lat, lon)
+        except SeismicDataUnavailable:
+            pga2 = None
         if pga2 is not None:
             return round(pga2, 3), round(pga2 * PGA_10_2_RATIO, 3), "USGS ASCE7 (2%/50yr) × ratio"
     pga2 = _grid_pga(lat, lon)
