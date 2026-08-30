@@ -3,7 +3,7 @@
 Returns a tract's (or county's) **Socioeconomic index**: 0-100 where 100 = least
 economic stress. Like Health, the score is a **national** percentile, not a
 within-county rank, so it is comparable across locations — the fix for the old
-within-county ``rank(pct=True)`` in ``enrich/socioeconomic.py`` that re-baselined
+within-county ``rank(pct=True)`` of the retired ``enrich/socioeconomic.py`` that re-baselined
 every county to a median of ~50. It also removes the runtime ``CENSUS_API_KEY``
 dependency: the value is a bundled offline lookup, not a live ACS API call.
 

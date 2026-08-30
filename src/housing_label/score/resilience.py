@@ -185,7 +185,7 @@ def calc_seismic_eal(row) -> float:
 #
 #   • Wildfire — the FEMA National Risk Index wildfire EAL rate for the parcel's
 #     census tract (county/national fallback), attached upstream by
-#     enrich/fire.py as ``wildfire_eal_rate``. This is what makes "fire"
+#     the input parcels as ``wildfire_eal_rate``. This is what makes "fire"
 #     location-aware: near-zero in Memphis, materially higher in the fire-prone
 #     West. Absent (e.g. fire enrichment not run) → treated as 0.0.
 #

@@ -5,7 +5,7 @@ enrichment stages.
 The Shelby pilot hardcoded Memphis fiscal + climate constants into the batch
 enrichers. This module resolves the same values from the bundled national
 crosswalks for *any* county FIPS, so the live path (``simulate/dimensions.py``)
-and the batch stages (``enrich/infrastructure.py``, ``enrich/noaa_climate.py``)
+and the batch stage ``enrich/infrastructure.py``
 share one implementation instead of each carrying its own copy.
 
 For Shelby (or an unknown/None county) the helpers return ``None`` / the Memphis

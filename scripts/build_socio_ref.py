@@ -18,7 +18,7 @@ geography, so we filter the **tract** rows (GEO_ID ``1400000US<11-digit>``) plus
 the county (``0500000US``) and national (``0100000US``) rows.
 
   1. Derive five headline metrics per tract. The first three use the same formulas
-     as enrich/socioeconomic.py; the last two are standard ACS ratios added here:
+     as the retired enrich/socioeconomic.py; the last two are standard ACS ratios added here:
      - poverty_rate_pct              = B17001_E002 / B17001_E001 * 100
      - median_household_income       = B19013_E001
      - housing_cost_burden_pct       = (owner 30%+ + renter 30%+) / occupied-with-ratio (B25106)
