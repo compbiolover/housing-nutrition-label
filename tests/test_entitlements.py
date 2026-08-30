@@ -209,3 +209,41 @@ def test_the_day_rolls_over_and_drops_yesterday():
         assert led.charge("caller", 10, 10) == (True, 10, 0)
     finally:
         ent._utc_day = real
+
+
+def test_anonymous_rows_are_bounded_and_keyed_rows_are_not_evicted():
+    """An anonymous row is keyed on api._anon_ident — the Referer host, which the
+    caller supplies. Unbounded, one caller varying it per request grows the ledger
+    without limit on a 512 MB instance. The cap must hold, and it must never cost
+    a keyed caller their count: those are bounded by the registry and evicting one
+    would hand a paying tier a fresh allowance."""
+    from housing_label.entitlements import UsageLedger
+
+    led = UsageLedger()
+    cap = 64
+    import housing_label.entitlements as ent
+    real_cap, ent.MAX_ANON_ROWS = ent.MAX_ANON_ROWS, cap
+    try:
+        keyed = "a" * 64                      # a key digest, not a site:/ip: row
+        led.charge(keyed, 7, 100)
+        for i in range(cap * 3):              # a flood of forged Referer hosts
+            led.charge(f"site:{i}.example", 1, 10, anonymous=True)
+        assert len(led._anon) == cap, "anonymous rows must stay bounded"
+        assert led.used(keyed) == 7, "a keyed caller's count must survive the flood"
+        # The most recent anonymous rows are the ones kept.
+        assert led.used(f"site:{cap * 3 - 1}.example", anonymous=True) == 1
+        assert led.used("site:0.example", anonymous=True) == 0
+    finally:
+        ent.MAX_ANON_ROWS = real_cap
+
+
+def test_anonymous_and_keyed_rows_do_not_collide():
+    """The two stores are separate, so an anonymous ident can never read or spend
+    a keyed caller's allowance even if the strings matched."""
+    from housing_label.entitlements import UsageLedger
+
+    led = UsageLedger()
+    led.charge("same", 4, 10)
+    led.charge("same", 9, 10, anonymous=True)
+    assert led.used("same") == 4
+    assert led.used("same", anonymous=True) == 9

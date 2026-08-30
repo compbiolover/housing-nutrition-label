@@ -460,7 +460,7 @@ def _meter(caller: Caller, response: Response, cost: int) -> None:
     around.
     """
     allowed, used, remaining = entitlements.ledger.charge(
-        caller.ident, cost, caller.plan.daily_scores)
+        caller.ident, cost, caller.plan.daily_scores, anonymous=caller.anonymous)
     headers = {"X-Plan": caller.plan.name}
     if caller.plan.metered:
         headers["X-Quota-Limit"] = str(caller.plan.daily_scores)
@@ -1588,7 +1588,7 @@ def usage(caller: Caller = Depends(_caller)) -> dict:
     Explicitly ``no-store`` (see _CACHE_CONTROL_BY_PATH): it is the one number
     here that changes on every request.
     """
-    used = entitlements.ledger.used(caller.ident)
+    used = entitlements.ledger.used(caller.ident, anonymous=caller.anonymous)
     allowance = caller.plan.daily_scores
     return {
         "plan": caller.plan.name,

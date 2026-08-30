@@ -85,6 +85,7 @@ import hashlib
 import logging
 import os
 import threading
+from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -253,48 +254,87 @@ def _utc_day() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
+# How many anonymous rows the ledger will hold at once.
+#
+# An anonymous row is keyed on api._anon_ident — the embedding site's Referer
+# host, else the remote address — and a Referer is caller-supplied. Left
+# unbounded, one caller varying it per request mints a row per request and grows
+# this dict until the 512 MB instance render.yaml already worries about runs out.
+# So anonymous rows live in a bounded LRU and the oldest is dropped past the cap.
+#
+# What this does NOT fix: the same forged Referer also mints a fresh daily
+# allowance, so ANON_DAILY_SCORES does not bind an uncooperative caller. That is
+# inherent to attribution by Referer, which the module docstring is already
+# candid about — it counts cooperative callers correctly and does not stop an
+# uncooperative one. Closing it needs authentication, i.e. a key. What is fixed
+# here is the part that is not a metering question at all: an anonymous caller
+# must not be able to exhaust the host's memory.
+#
+# 100k rows is far above any real embedder count and still only a few MB.
+MAX_ANON_ROWS = 100_000
+
+
 class UsageLedger:
     """Scoring passes charged per caller, for the current UTC day.
 
     In this process's memory, and gone when it restarts (see the module
     docstring). Rolls over on the UTC date rather than a per-key sliding window
     so a caller can be told plainly when their allowance resets.
+
+    Keyed and anonymous rows are held separately. Keyed rows are bounded by the
+    registry — you cannot have more of them than the operator issued keys — so
+    they are never evicted. Anonymous rows are keyed on caller-supplied data and
+    are bounded by :data:`MAX_ANON_ROWS`; evicting one hands that caller a fresh
+    allowance, which is the right trade against unbounded growth and cannot
+    touch a paying caller's count.
     """
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._day = _utc_day()
-        self._counts: dict[str, int] = {}
+        self._counts: dict[str, int] = {}                       # keyed callers
+        self._anon: OrderedDict[str, int] = OrderedDict()       # bounded LRU
 
     def _roll(self) -> None:
         """Drop yesterday wholesale. Caller holds the lock."""
         today = _utc_day()
         if today != self._day:
-            self._day, self._counts = today, {}
+            self._day, self._counts, self._anon = today, {}, OrderedDict()
 
-    def charge(self, caller: str, cost: int, allowance: int) -> tuple[bool, int, int | None]:
+    def _store(self, anonymous: bool):
+        """The dict a caller's row lives in. Caller holds the lock."""
+        return self._anon if anonymous else self._counts
+
+    def charge(self, caller: str, cost: int, allowance: int,
+               *, anonymous: bool = False) -> tuple[bool, int, int | None]:
         """Charge ``cost`` passes, returning (allowed, used, remaining).
 
         ``remaining`` is None when the plan is unmetered. A refused charge does
         **not** increment: a caller who asks for six scenarios with four left
         should be able to come back and ask for four, not discover that the
         refusal ate them.
+
+        ``anonymous`` routes the row into the bounded LRU — see MAX_ANON_ROWS.
         """
         with self._lock:
             self._roll()
-            used = self._counts.get(caller, 0)
-            if allowance <= 0:                       # unmetered
-                self._counts[caller] = used + cost
-                return True, used + cost, None
-            if used + cost > allowance:
+            store = self._store(anonymous)
+            used = store.get(caller, 0)
+            if allowance > 0 and used + cost > allowance:
                 return False, used, allowance - used
-            self._counts[caller] = used + cost
+            store[caller] = used + cost
+            if anonymous:
+                self._anon.move_to_end(caller)
+                while len(self._anon) > MAX_ANON_ROWS:
+                    self._anon.popitem(last=False)      # evict least-recently-charged
+            if allowance <= 0:                          # unmetered
+                return True, used + cost, None
             return True, used + cost, allowance - (used + cost)
 
-    def used(self, caller: str) -> int:
+    def used(self, caller: str, *, anonymous: bool = False) -> int:
         with self._lock:
             self._roll()
-            return self._counts.get(caller, 0)
+            return self._store(anonymous).get(caller, 0)
 
     @property
     def day(self) -> str:
@@ -305,6 +345,7 @@ class UsageLedger:
     def clear(self) -> None:
         with self._lock:
             self._counts = {}
+            self._anon = OrderedDict()
 
 
 ledger = UsageLedger()
