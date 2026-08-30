@@ -56,7 +56,7 @@ import csv
 import pathlib
 from functools import lru_cache
 
-from housing_label.data._util import num as _num
+from housing_label.data._util import interp as _interp, num as _num
 
 WATER_VINTAGE = "EPA SDWIS federal reporting (community water systems, health-based violations, 5-yr window)"
 
@@ -87,18 +87,6 @@ _CSV = pathlib.Path(__file__).resolve().parent / "water_county.csv"
 _EXPOSED_XS = [0.001, 0.2, 0.5, 1.0, 2.0, 5.0, 11.83, 25.0, 52.72, 76.16, 100.0]
 _EXPOSED_YS = [100.0, 89.0, 82.6, 77.5, 67.6, 49.0, 33.7, 23.1, 14.0, 6.9, 0.0]
 
-
-def _interp(x: float, xs: list[float], ys: list[float]) -> float:
-    """Piecewise-linear interpolation, flat outside the anchor range."""
-    if x <= xs[0]:
-        return ys[0]
-    if x >= xs[-1]:
-        return ys[-1]
-    for i in range(1, len(xs)):
-        if x <= xs[i]:
-            x0, x1, y0, y1 = xs[i - 1], xs[i], ys[i - 1], ys[i]
-            return y0 if x1 == x0 else y0 + (y1 - y0) * (x - x0) / (x1 - x0)
-    return ys[-1]
 
 
 @lru_cache(maxsize=1)

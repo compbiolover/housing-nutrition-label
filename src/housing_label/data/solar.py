@@ -48,7 +48,7 @@ import csv
 import pathlib
 from functools import lru_cache
 
-from housing_label.data._util import num as _num
+from housing_label.data._util import interp as _interp, num as _num
 
 SOLAR_VINTAGE = "PVGIS-NSRDB v5.2 (optimal-tilt 1 kWp rooftop, 14% losses)"
 
@@ -82,18 +82,6 @@ _CSV = pathlib.Path(__file__).resolve().parent / "solar_yield_county.csv"
 _YIELD_XS = [485.2, 958.3, 1161.4, 1210.0, 1281.2, 1368.2, 1469.7, 1584.8, 1712.8, 1774.9, 1850.9]
 _YIELD_YS = [0.0, 1.0, 5.0, 10.0, 25.0, 50.0, 75.0, 90.0, 95.0, 99.0, 100.0]
 
-
-def _interp(x: float, xs: list[float], ys: list[float]) -> float:
-    """Piecewise-linear interpolation, flat outside the anchor range."""
-    if x <= xs[0]:
-        return ys[0]
-    if x >= xs[-1]:
-        return ys[-1]
-    for i in range(1, len(xs)):
-        if x <= xs[i]:
-            x0, x1, y0, y1 = xs[i - 1], xs[i], ys[i - 1], ys[i]
-            return y0 if x1 == x0 else y0 + (y1 - y0) * (x - x0) / (x1 - x0)
-    return ys[-1]
 
 
 @lru_cache(maxsize=1)
