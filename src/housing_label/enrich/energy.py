@@ -286,7 +286,15 @@ def _fuel_split(heat_label: str, fuel) -> tuple[float, float]:
     if heat_label == "heat_pump":
         return (0.80, 0.20) if has_gas else (0.95, 0.05)
     if heat_label == "electric_resistance":
-        return (0.90, 0.10) if has_gas else (0.90, 0.10)
+        # One figure regardless of the gas code, as the table above states. Note
+        # the asymmetry with heat pump, which splits 20% / 5% on the same test:
+        # an electric-resistance home WITH a gas connection is credited the same
+        # gas share as one without. That may well be right (the 10% is water
+        # heating and cooking, and the heating itself is electric either way) but
+        # it is the one row of this table that does not vary, so it is worth a
+        # second look next time the RECS/DOE-BA numbers are refreshed. The test
+        # was there before and did nothing — both arms returned this.
+        return (0.90, 0.10)
     if heat_label == "gas_furnace":
         return (0.38, 0.62)
     # Default: heat pump without gas
@@ -360,7 +368,10 @@ def model_parcel_energy(
     # --- Archetype label (building type + climate zone + vintage + size + wall + hvac) ---
     zone_tok = "cz" + str(climate_zone or DEFAULT_CLIMATE_ZONE).strip().lower()
     bt_tok = str(building_type or DEFAULT_BUILDING_TYPE).strip().lower()
-    archetype = f"{bt_tok}_{zone_tok}_{vbin}_{sbin}_{wall_label}_{hvac_label}"
+    # fnd_label belongs here: _foundation_factor's ff is applied to the EUI above,
+    # so leaving it out gave two homes with different eui_kbtu_sqft_yr (slab vs
+    # conditioned basement, all else equal) the same archetype string.
+    archetype = f"{bt_tok}_{zone_tok}_{vbin}_{sbin}_{wall_label}_{fnd_label}_{hvac_label}"
 
     return {
         "energy_vintage_bin":      vbin,

@@ -36,6 +36,20 @@ services:
       # The caller is the remote address, or the API key when one is recognised.
       - key: RATE_LIMIT
         value: "30/minute"
+      # …and the remote address is only a caller if the app can see it. uvicorn
+      # honours X-Forwarded-For only when the immediate peer is in
+      # forwarded_allow_ips, which defaults to 127.0.0.1. Render's router is not
+      # on loopback, so without this every anonymous visitor arrived as the
+      # router's address: one shared 30/minute bucket for the whole internet, and
+      # one shared "ip:" row in the usage ledger.
+      #
+      # "*" is safe HERE and only here, because the container is reachable
+      # exclusively through Render's router — nothing else can set the header. Do
+      # NOT copy this to a host that publishes the container's port directly: it
+      # would let any caller spoof their own address and step out of the bucket.
+      # (The Dockerfile therefore leaves it unset; see the note there.)
+      - key: FORWARDED_ALLOW_IPS
+        value: "*"
       # Interactive HTTP budget for the upstream datasets. The library defaults
       # (60 s × 3 attempts, ~3 min for one stuck upstream) are tuned for batch
       # enrichment; a visitor watching a spinner would rather have one dimension

@@ -8,16 +8,17 @@ Runs without network access. This file alone:
 
 from __future__ import annotations
 
-import pandas as pd
 
 from housing_label.data.assessment import active_basis
 from housing_label.score.all_dimensions import (
-    INFRA_XS, INFRA_XS_BASIS, INFRA_YS, score_infrastructure, score_to_grade,
+    INFRA_XS, INFRA_XS_BASIS, INFRA_YS, score_to_grade,
 )
+from housing_label.simulate.dimensions import _loglin
 
 
 def _score(ratio: float) -> float:
-    return float(score_infrastructure(pd.DataFrame({"fiscal_ratio": [ratio]})).iloc[0])
+    """The interpolation simulate/dimensions.py runs to score Infrastructure."""
+    return round(_loglin(ratio, INFRA_XS, INFRA_YS), 1)
 
 
 def test_breakpoints_well_formed():

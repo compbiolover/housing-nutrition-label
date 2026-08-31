@@ -1,82 +1,29 @@
-#!/usr/bin/env python3
-"""score_all_dimensions.py — multi-dimension scoring & grading for the Housing
-Nutrition Label.
+"""Score breakpoints and the letter-grade tables, shared by every scoring path.
 
-Until now only *disaster resilience* carried a full 0–100 score with national and
-local A–F grades (score_resilience.py).  Every other dimension lived in the data
-as a raw metric (EUI, fiscal ratio, health index, socioeconomic index) without a
-grade.  This script reads the fully-enriched, already-resilience-scored CSV and
-extends the same dual-grading treatment to **all** dimensions, then rolls them up
-into a single composite score.
+What is left here after the Shelby batch scorer was retired: the two breakpoint
+curves that are not owned by a data module (energy EUI and the infrastructure
+fiscal ratio), the calibration basis behind the infrastructure one, and the two
+grade functions.
 
-Dimensions
-----------
-  resilience      EAL-based disaster-resilience score from score_resilience.py
-                  (already 0–100; carried through unchanged).
-  energy          EUI (kBTU/sqft/yr) → 0–100, log-linear between breakpoints.
-  durability      Component-lifespan / effective-age durability score from
-                  enrich/durability.py (already 0–100; used directly). NaN for
-                  parcels with no CAMA building data (vacant/non-residential).
-  environmental   Environmental-footprint score from enrich/environmental.py
-                  (embodied carbon + operational emissions + water use; already
-                  0–100; used directly). NaN for vacant/non-residential parcels.
-  infrastructure  Municipal fiscal ratio → 0–100, log-linear between breakpoints.
-  health          CDC PLACES health_index (already 0–100; used directly).
-  socioeconomic   Census ACS socioeconomic_index (already 0–100, higher = less
-                  economic stress; used directly).
-  walkability     EPA National Walkability Index (bundled, keyless, national —
-                  data/walkability.py), resolved per parcel by census tract. This
-                  is the storable, quota-free default (the Walk Score API's Terms
-                  of Use prohibit storing scores). An optional Walk Score
-                  enrichment (walk_score in shelby_parcels_enriched.csv, merged on
-                  PARID) is still honoured when present — 60% walk + 25% transit +
-                  15% bike.
-  climate         Climate Projections: sub-county downscaled climate-hazard
-                  score (CMIP6-LOCA2 heat/precip/drought + Argonne ClimRR Fire
-                  Weather Index fire leg, SSP2-4.5 mid-century) from
-                  data/climate_projections.py.  Sampled at the tract's internal
-                  point (county = mean of its tracts), a real value included in
-                  the composite.
+  score_to_grade              absolute 0-100 -> A/B/C/D/F (A>=80 ... F<20)
+  percentile_to_local_grade   0-100 percentile rank -> A/B/C/D/F
+                              (A = top 10%, B = next 25%, C = next 30%,
+                               D = next 25%, F = bottom 10%)
 
-For every dimension X this writes four columns:
-  X_score            raw 0–100 score
-  X_national_grade   absolute thresholds  (A≥80, B≥60, C≥40, D≥20, F<20)
-  X_local_grade      percentile bands within this dataset
-                     (A=top 10%, B=next 25%, C=next 30%, D=next 25%, F=bottom 10%)
-  X_percentile       0–100 percentile rank within this dataset
+Both map a missing value to an em dash rather than "F": an unscored dimension is
+not a failing one, and printing a grade for something we do not know would be a
+claim about somebody's house that the data does not support.
 
-Composite
----------
-  composite_score            simple mean of the dimension scores (skipping any
-                             dimension that is missing for a given parcel).
-  composite_national_grade   national grade of composite_score.
-  composite_local_grade      local (percentile) grade of composite_score.
-  composite_percentile       composite percentile rank within this dataset.
-
-The national/local grade thresholds intentionally match score_resilience.py so a
-parcel's resilience grade means exactly the same thing whether it is read from
-the resilience dimension or any other.
-
-Usage
------
-  python score_all_dimensions.py                       # default in/out
-  python score_all_dimensions.py --input X --output Y
-  python score_all_dimensions.py --limit 50            # quick subset (ranks reflect subset)
-  python score_all_dimensions.py --dry-run             # validate + plan, write nothing
+One definition each, deliberately. simulate/dimensions.py and batch.py both
+import from here, so a grade means exactly the same thing wherever it is read.
 """
 
 from __future__ import annotations
 
-import argparse
 import logging
-import pathlib
-import sys
 
-import numpy as np
-import pandas as pd
 
 from housing_label.utils import isna
-from housing_label.data import climate_projections as climate_proj_data
 
 # NOTE: no logging.basicConfig() at import time — this module is imported by the
 # live scorer (simulate/dimensions.py pulls in its breakpoints + score_to_grade),
@@ -84,18 +31,11 @@ from housing_label.data import climate_projections as climate_proj_data
 # API/simulator. main() configures logging at the CLI entrypoint instead.
 log = logging.getLogger("score_all")
 
-SCRIPT_DIR = pathlib.Path(__file__).resolve().parents[3]   # repo root; data lives here
 
-DEFAULT_INPUT  = "shelby_parcels_scored.csv"   # last enrichment + resilience scores
-DEFAULT_OUTPUT = "shelby_parcels_final.csv"
-DEFAULT_WALKSCORE = "shelby_parcels_enriched.csv"  # Walk Score enrichment (API-gated, run separately)
 
 # Walk Score columns and the composite weighting (walk dominates, then transit,
 # then bike) used when all three sub-scores are present for a parcel.
-WALK_COLS    = ["walk_score", "transit_score", "bike_score"]
-WALK_WEIGHTS = {"walk_score": 0.60, "transit_score": 0.25, "bike_score": 0.15}
 
-SHELBY_COUNTY_FIPS  = "47157"  # the single-county pilot; per-row county FIPS when present
 
 
 # ---------------------------------------------------------------------------
@@ -136,20 +76,6 @@ def percentile_to_local_grade(pct: float) -> str:
     return "F"
 
 
-def _loglinear(values: pd.Series, xs: list[float], ys: list[float]) -> pd.Series:
-    """Piecewise-linear interpolation of `values` in log10(x) space.
-
-    `xs` must be strictly increasing; `ys` are the matching 0–100 scores.
-    Values below xs[0] / above xs[-1] clamp to ys[0] / ys[-1] (numpy.interp
-    default).  Inputs ≤ 0 are floored to a tiny positive number before the log
-    so they clamp cleanly to the bottom breakpoint rather than producing -inf.
-    """
-    v = pd.to_numeric(values, errors="coerce")
-    log_x = np.log10(np.clip(v.to_numpy(dtype="float64"), 1e-9, None))
-    scored = np.interp(log_x, np.log10(xs), ys)
-    out = pd.Series(scored, index=values.index)
-    out[v.isna()] = np.nan          # preserve missing inputs as missing scores
-    return out.round(1)
 
 
 # ---------------------------------------------------------------------------
@@ -255,392 +181,52 @@ INFRA_XS_BASIS = ("AL:2.00", "MN:1.25", "MS:1.50", "ND:1.11",
                   "NY/36081:1.81", "NY/36085:1.81", "SC:1.50", "TN:1.60", "WV:2.00")
 
 
-def score_energy(df: pd.DataFrame) -> pd.Series:
-    return _loglinear(df["eui_kbtu_sqft_yr"], ENERGY_XS, ENERGY_YS)
 
 
-def score_infrastructure(df: pd.DataFrame) -> pd.Series:
-    return _loglinear(df["fiscal_ratio"], INFRA_XS, INFRA_YS)
 
 
-def score_passthrough(col: str):
-    """A scorer that uses an existing 0–100 column directly (clipped to range)."""
-    def _fn(df: pd.DataFrame) -> pd.Series:
-        return pd.to_numeric(df[col], errors="coerce").clip(0, 100).round(1)
-    return _fn
 
 
-def _geoid_series(col: pd.Series, width: int) -> pd.Series:
-    """Normalize a county/tract GEOID column to zero-padded string keys.
-
-    A numeric GEOID column (especially one with NaNs, which forces float dtype)
-    stringifies as ``"47157.0"``; strip a trailing ``.0`` before zero-padding so
-    the value matches the crosswalk keys instead of silently hitting the US
-    fallback. Already-correct string GEOIDs (no dot) are unchanged.
-    """
-    return (col.astype("string").str.strip()
-            .str.replace(r"\.0$", "", regex=True).str.zfill(width))
 
 
-def score_climate(df: pd.DataFrame) -> pd.Series:
-    """Resolution-aware Climate Projections score (CMIP6-LOCA2 heat/precip/drought +
-    Argonne ClimRR Fire Weather Index fire leg, SSP2-4.5 mid-century headline).
-
-    Resolves each parcel at the finest geography a column provides: an 11-digit
-    ``tract``/``tract_geoid`` column (tract→county→US fallback) takes precedence,
-    else a ``county_fips``/``geoid`` column (county→US), else the single-county
-    pilot default (Shelby). The score is the bundled climate-hazard lookup's
-    headline (low-band) value — a real, defensible sub-county projection for the
-    resolved geography (see data/climate_projections.py)."""
-    tract_col = next((c for c in ("tract", "tract_geoid") if c in df.columns), None)
-    if tract_col is not None:
-        def _score_for_tract(g: str | None) -> float:
-            return climate_proj_data.climate_projection_for_tract(g)["score"]
-        geo = _geoid_series(df[tract_col], 11)
-        cache = {g: _score_for_tract(g) for g in geo.dropna().unique()}
-        return geo.map(cache).fillna(_score_for_tract(None)).astype(float).round(1)
-
-    fips_col = next((c for c in ("county_fips", "geoid", "GEOID") if c in df.columns), None)
-
-    def _score_for(fips: str | None) -> float:
-        return climate_proj_data.climate_projection_for_county(fips)["score"]
-
-    if fips_col is None:
-        return pd.Series(_score_for(SHELBY_COUNTY_FIPS), index=df.index).round(1)
-    fips = _geoid_series(df[fips_col], 5)
-    cache = {f: _score_for(f) for f in fips.dropna().unique()}
-    return fips.map(cache).fillna(_score_for(None)).astype(float).round(1)
 
 
-def score_walkability(df: pd.DataFrame) -> pd.Series:
-    """0–100 walkability score (higher = more walkable).
-
-    Default source is the bundled **EPA National Walkability Index** (keyless,
-    storable, national — data/walkability.py), resolved per parcel by census tract
-    (tract -> county -> national). If an optional Walk Score enrichment was merged
-    in (``walk_score`` present), it is used instead — 60% walk + 25% transit + 15%
-    bike where the sub-scores exist — so an existing Walk Score run is honoured,
-    but no Walk Score API call (or its cache-prohibiting Terms of Use) is required
-    by default."""
-    walk = pd.to_numeric(df.get("walk_score"), errors="coerce").clip(0, 100)
-    if walk.notna().any():
-        transit = pd.to_numeric(df.get("transit_score"), errors="coerce").clip(0, 100)
-        bike    = pd.to_numeric(df.get("bike_score"),    errors="coerce").clip(0, 100)
-        composite = (WALK_WEIGHTS["walk_score"]     * walk
-                     + WALK_WEIGHTS["transit_score"] * transit
-                     + WALK_WEIGHTS["bike_score"]    * bike)
-        have_all = transit.notna() & bike.notna()
-        out = np.where(have_all, composite, walk)
-        return pd.Series(out, index=df.index).round(1)
-
-    # EPA National Walkability Index by census tract (the keyless default).
-    from housing_label.data import walkability as walk_ref
-    tcol = next((c for c in ("census_tract", "tract", "tract_geoid") if c in df.columns), None)
-    if tcol is None:
-        return pd.Series(float("nan"), index=df.index)
-    geo = _geoid_series(df[tcol], 11)
-
-    def _score(g: str) -> float:
-        r = walk_ref.walkability_for_tract(g)
-        return r["walkability_score"] if r["resolved"] \
-            and r["walkability_score"] is not None else float("nan")
-
-    cache = {g: _score(g) for g in geo.dropna().unique()}
-    return geo.map(cache).astype("float64").round(1)
 
 
-def unscored_scorer(df: pd.DataFrame) -> pd.Series:
-    """A scorer that leaves every parcel unscored (NaN) — used when a dimension's
-    source is absent but we still want it *present and honestly blank* (grade
-    "—", excluded from the composite) rather than dropped or faked."""
-    return pd.Series(float("nan"), index=df.index)
 
 
 # ---------------------------------------------------------------------------
 # Dimension registry.  `requires` is the source column that must be present;
 # `composite` flags whether the dimension feeds the composite average.
 # ---------------------------------------------------------------------------
-class Dimension:
-    def __init__(self, key, label, scorer, requires, composite=True,
-                 unscored_if_missing=False):
-        self.key = key
-        self.label = label
-        self.scorer = scorer
-        self.requires = requires        # source column that must exist, or None
-        self.composite = composite      # whether it feeds the composite average
-        # When `requires` is absent: True → keep the dimension but report it
-        # unscored ("—", excluded from the composite); False → skip it entirely.
-        # Never a fabricated constant — a missing input must not read as a score.
-        self.unscored_if_missing = unscored_if_missing
 
 
-DIMENSIONS: list[Dimension] = [
-    Dimension("resilience",     "Disaster Resilience",  score_passthrough("resilience_score"),   "resilience_score"),
-    Dimension("energy",         "Energy Efficiency",    score_energy,                            "eui_kbtu_sqft_yr"),
-    Dimension("durability",     "Durability",           score_passthrough("durability_score"),   "durability_score"),
-    Dimension("environmental",  "Environmental Footprint", score_passthrough("environmental_score"), "environmental_score"),
-    Dimension("infrastructure", "Infrastructure Burden", score_infrastructure,                   "fiscal_ratio"),
-    Dimension("health",         "Health Impact",        score_passthrough("health_index"),       "health_index"),
-    # Socioeconomic needs the Census ACS join (socioeconomic_index). When it's
-    # absent (e.g. no CENSUS_API_KEY), report it unscored rather than a uniform
-    # 50 — matching the live API path, which returns None and excludes it from
-    # the composite (research/uncertainty-confidence-research.md: a missing input
-    # must never masquerade as a middling score).
-    Dimension("socioeconomic",  "Socioeconomic",        score_passthrough("socioeconomic_index"), "socioeconomic_index",
-              unscored_if_missing=True),
-    # No single required column: score_walkability sources from an optional Walk
-    # Score enrichment (walk_score) OR the bundled EPA NWI by census tract, so it
-    # stays scoreable whenever either is present (and is honestly blank otherwise).
-    Dimension("walkability",    "Walkability",          score_walkability,                       None),
-    Dimension("climate",        "Climate Projections",  score_climate,                           None),
-]
 
 
-def resolve_active_dimensions(columns) -> list[Dimension]:
-    """Select the dimensions scoreable against the available `columns`.
-
-    A dimension whose required source column is missing is either kept but
-    reported unscored (``unscored_if_missing``) or skipped entirely — never
-    filled with a placeholder constant. Split out of ``main`` so the
-    missing-source policy is unit-testable without a CSV.
-    """
-    active: list[Dimension] = []
-    for dim in DIMENSIONS:
-        if dim.requires is not None and dim.requires not in columns:
-            if dim.unscored_if_missing:
-                log.warning("Dimension '%s' source column '%s' missing — reported "
-                            "unscored (—), excluded from the composite (no fabricated "
-                            "value).", dim.key, dim.requires)
-                active.append(Dimension(dim.key, dim.label, unscored_scorer,
-                                        requires=None, composite=False))
-            else:
-                log.warning("Dimension '%s' skipped — missing source column '%s'.",
-                            dim.key, dim.requires)
-            continue
-        active.append(dim)
-    return active
 
 
 # ---------------------------------------------------------------------------
 # Scoring
 # ---------------------------------------------------------------------------
-def add_dimension_columns(df: pd.DataFrame, dim: Dimension) -> None:
-    """Score a single dimension in place: <key>_score / _national_grade /
-    _local_grade / _percentile."""
-    score = dim.scorer(df).astype("float64")
-    df[f"{dim.key}_score"] = score
-    df[f"{dim.key}_national_grade"] = score.apply(score_to_grade)
-    pct = score.rank(pct=True) * 100.0
-    df[f"{dim.key}_percentile"] = pct.round(1)
-    df[f"{dim.key}_local_grade"] = pct.apply(percentile_to_local_grade)
 
 
-def add_composite(df: pd.DataFrame, composite_keys: list[str]) -> None:
-    """Composite = mean of the composite dimensions' scores (NaN-skipping),
-    plus its national grade, percentile, and local grade."""
-    score_cols = [f"{k}_score" for k in composite_keys]
-    df["composite_score"] = df[score_cols].mean(axis=1, skipna=True).round(1)
-    df["composite_national_grade"] = df["composite_score"].apply(score_to_grade)
-    pct = df["composite_score"].rank(pct=True) * 100.0
-    df["composite_percentile"] = pct.round(1)
-    df["composite_local_grade"] = pct.apply(percentile_to_local_grade)
 
 
 # ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
-GRADES = ["A", "B", "C", "D", "F"]
 
 
-def _grade_row(counts: pd.Series, total: int) -> str:
-    cells = []
-    for g in GRADES:
-        n = int(counts.get(g, 0))
-        cells.append(f"{g}:{n:>4} ({n / total * 100:4.1f}%)")
-    return "  ".join(cells)
 
 
-def print_summary(df: pd.DataFrame, dims: list[Dimension], composite_keys: list[str]) -> None:
-    total = len(df)
-
-    print("\n" + "═" * 86)
-    print("MULTI-DIMENSION SCORING SUMMARY")
-    print("═" * 86)
-    print(f"Parcels scored: {total:,}")
-    print(f"Composite = mean of {len(composite_keys)} dimensions "
-          f"({', '.join(composite_keys)}).\n")
-
-    # --- Grade distribution per dimension (national vs local) ---
-    print("GRADE DISTRIBUTION PER DIMENSION")
-    print("─" * 86)
-    for dim in dims:
-        score = df[f"{dim.key}_score"]
-        scored_n = int(score.notna().sum())
-        constant = scored_n > 0 and int(score.nunique(dropna=True)) <= 1
-        tag = ("  (placeholder)" if not dim.composite
-               else "  (county-uniform)" if constant else "")
-        mean_s = score.mean(skipna=True)
-        print(f"\n{dim.label} [{dim.key}_score]  mean={mean_s:5.1f}  scored={scored_n}/{total}{tag}")
-        nat = df[f"{dim.key}_national_grade"].value_counts()
-        loc = df[f"{dim.key}_local_grade"].value_counts()
-        print(f"  national  {_grade_row(nat, total)}")
-        print(f"  local     {_grade_row(loc, total)}")
-
-    # --- Composite distribution ---
-    print("\n" + "─" * 86)
-    print("COMPOSITE GRADE DISTRIBUTION")
-    print("─" * 86)
-    cs = df["composite_score"]
-    print(f"composite_score  min={cs.min():.1f}  median={cs.median():.1f}  "
-          f"mean={cs.mean():.1f}  max={cs.max():.1f}")
-    print(f"  national  {_grade_row(df['composite_national_grade'].value_counts(), total)}")
-    print(f"  local     {_grade_row(df['composite_local_grade'].value_counts(), total)}")
-
-    # --- 5 example parcels spanning the composite range ---
-    print("\n" + "─" * 86)
-    print("EXAMPLE PARCELS — spanning the composite range (0/25/50/75/100th pct)")
-    print("─" * 86)
-    id_col = next((c for c in ("PARCELID", "parcel_id", "PARID") if c in df.columns), None)
-    ordered = df.sort_values("composite_score").reset_index(drop=True)
-    positions = [0, int(0.25 * (total - 1)), int(0.50 * (total - 1)),
-                 int(0.75 * (total - 1)), total - 1]
-    dim_score_cols = [f"{d.key}_score" for d in dims]
-    cols = ([id_col] if id_col else []) + dim_score_cols + \
-           ["composite_score", "composite_national_grade", "composite_local_grade"]
-    example = ordered.loc[positions, cols]
-    with pd.option_context("display.max_columns", None, "display.width", 200,
-                           "display.float_format", "{:.1f}".format):
-        print(example.to_string(index=False))
-
-    # --- Correlation matrix between dimension scores ---
-    print("\n" + "─" * 86)
-    print("CORRELATION MATRIX — dimension scores (Pearson)")
-    print("─" * 86)
-    # Only non-constant scored dimensions: a county-uniform column (e.g. climate
-    # in the single-county pilot) has zero variance → undefined correlation.
-    corr_cols = [f"{d.key}_score" for d in dims
-                 if d.composite and int(df[f"{d.key}_score"].nunique(dropna=True)) > 1]
-    corr = df[corr_cols].corr()
-    corr.index = [c.replace("_score", "") for c in corr.index]
-    corr.columns = [c.replace("_score", "") for c in corr.columns]
-    with pd.option_context("display.width", 200, "display.float_format", "{:+.2f}".format):
-        print(corr.to_string())
-    print("═" * 86 + "\n")
 
 
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
-def _resolve(path_str: str) -> pathlib.Path:
-    p = pathlib.Path(path_str)
-    return p if p.is_absolute() else (SCRIPT_DIR / p)
 
 
-def merge_walkscore(df: pd.DataFrame, ws_path: pathlib.Path) -> pd.DataFrame:
-    """Merge Walk Score columns into ``df`` on PARID.
-
-    Walk scores come from a separate, API-gated enrichment
-    (shelby_parcels_enriched.csv) rather than the chained pipeline, so they are
-    joined in here on the parcel id.  No-ops (with a warning) if the file or join
-    key is absent, or if the columns are already present in ``df``."""
-    if all(c in df.columns for c in WALK_COLS):
-        return df  # already carried in the input
-    if not ws_path.exists():
-        log.warning("Walk Score file not found (%s) — walkability will be skipped.", ws_path)
-        return df
-    if "PARID" not in df.columns:
-        log.warning("No PARID column to join Walk Score on — walkability skipped.")
-        return df
-
-    ws = pd.read_csv(ws_path, low_memory=False)
-    if "PARID" not in ws.columns:
-        log.warning("Walk Score file has no PARID column — walkability skipped.")
-        return df
-
-    keep = ["PARID"] + [c for c in WALK_COLS if c in ws.columns]
-    ws = ws[keep].drop_duplicates(subset="PARID")
-    merged = df.merge(ws, on="PARID", how="left")
-    n = int(merged["walk_score"].notna().sum()) if "walk_score" in merged.columns else 0
-    log.info("Merged Walk Score for %s/%s parcels from %s", f"{n:,}", f"{len(df):,}", ws_path.name)
-    return merged
 
 
-def main() -> None:
-    # Configure root logging here (the CLI entrypoint), not at import time, so
-    # importing this module into the simulator/API never reconfigures logging.
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s  %(message)s")
-    parser = argparse.ArgumentParser(
-        description="Score and grade every dimension (0–100, national + local "
-                    "A–F grades) and compute a composite for Shelby County parcels."
-    )
-    parser.add_argument("--input", default=DEFAULT_INPUT,
-                        help=f"Input CSV (default: {DEFAULT_INPUT}).")
-    parser.add_argument("--output", default=DEFAULT_OUTPUT,
-                        help=f"Output CSV (default: {DEFAULT_OUTPUT}).")
-    parser.add_argument("--walkscore-file", default=DEFAULT_WALKSCORE,
-                        help=f"Walk Score enrichment CSV to merge on PARID "
-                             f"(default: {DEFAULT_WALKSCORE}).")
-    parser.add_argument("--limit", type=int, default=None,
-                        help="Score only the first N rows (ranks reflect the subset).")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Validate input and report the plan; write nothing.")
-    args = parser.parse_args()
-
-    in_path  = _resolve(args.input)
-    out_path = _resolve(args.output)
-
-    if not in_path.exists():
-        log.error("Input file not found: %s", in_path)
-        sys.exit(1)
-
-    df = pd.read_csv(in_path, low_memory=False)
-    log.info("Loaded %s rows × %d cols from %s", f"{len(df):,}", df.shape[1], in_path)
-
-    # Walk scores live in a separate, API-gated enrichment; merge them on PARID
-    # so the walkability dimension has its source columns.
-    df = merge_walkscore(df, _resolve(args.walkscore_file))
-
-    if args.limit is not None:
-        df = df.head(args.limit).copy()
-        log.info("Limited to first %s rows.", f"{len(df):,}")
-
-    # --- Validate required source columns. A dimension whose source is missing
-    #     is either reported unscored (socioeconomic with no Census API key) or
-    #     skipped entirely — never filled with a fabricated placeholder. --------
-    active = resolve_active_dimensions(df.columns)
-
-    composite_keys = [d.key for d in active if d.composite]
-    if not composite_keys:
-        log.error("No composite dimensions available — cannot score.")
-        sys.exit(1)
-
-    if args.dry_run:
-        log.info("DRY RUN — no output written.")
-        log.info("  input : %s", in_path)
-        log.info("  output: %s", out_path)
-        log.info("  dimensions: %s", ", ".join(d.key for d in active))
-        log.info("  composite : %s", ", ".join(composite_keys))
-        return
-
-    # --- Score every active dimension, then the composite ---
-    for dim in active:
-        add_dimension_columns(df, dim)
-        log.info("Scored dimension '%s'.", dim.key)
-    add_composite(df, composite_keys)
-    log.info("Computed composite from %d dimensions.", len(composite_keys))
-
-    df.to_csv(out_path, index=False)
-    log.info("Saved → %s (%s rows × %d cols)", out_path, f"{len(df):,}", df.shape[1])
-
-    print_summary(df, active, composite_keys)
 
 
-if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        log.info("Interrupted by user.")
-        sys.exit(130)
-    except Exception as exc:  # noqa: BLE001
-        log.error("Fatal: %s", exc, exc_info=True)
-        sys.exit(1)

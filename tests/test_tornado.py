@@ -10,11 +10,7 @@ consolidation). Runs without network access. This file alone:
 
 from __future__ import annotations
 
-import sys
-import tempfile
-import unittest.mock as mock
 from argparse import Namespace
-from pathlib import Path
 
 import pandas as pd
 
@@ -90,30 +86,42 @@ _BASE_ROW = {
 }
 
 
-def _score(rows: list[dict]) -> pd.DataFrame:
-    from housing_label.score import resilience
-    with tempfile.TemporaryDirectory() as d:
-        src, out = Path(d) / "in.csv", Path(d) / "out.csv"
-        pd.DataFrame(rows).to_csv(src, index=False)
-        with mock.patch.object(sys, "argv",
-                               ["resilience", "--input", str(src), "--output", str(out)]):
-            resilience.main()
-        return pd.read_csv(out)
+def _legs(row: dict) -> dict:
+    """The four raw EAL legs, their BRM-adjusted rates and scores, for one row.
 
+    This used to run score/resilience.py's CLI over a temp CSV. That batch scorer
+    is gone; the scalar functions it wrapped are the ones the live label path
+    uses, so these assertions now exercise those directly.
+    """
+    from housing_label.score.resilience import (
+        calc_brm_row, calc_fire_eal, calc_flood_eal, calc_seismic_eal,
+        calc_tornado_eal, eal_rate_to_score,
+    )
+    brm = calc_brm_row(row)
+    raw = {"flood": calc_flood_eal(row), "tornado": calc_tornado_eal(row),
+           "seismic": calc_seismic_eal(row), "fire": calc_fire_eal(row)}
+    adj = {"flood": raw["flood"] * brm["flood_brm"],
+           "tornado": raw["tornado"] * brm["wind_seismic_brm"],
+           "seismic": raw["seismic"] * brm["wind_seismic_brm"],
+           "fire": raw["fire"] * brm["fire_brm"]}
+    out = {f"{k}_eal_rate_raw": v for k, v in raw.items()}
+    out |= {f"{k}_eal_rate": v for k, v in adj.items()}
+    out |= {f"{k}_score": eal_rate_to_score(v) for k, v in adj.items()}
+    out |= brm
+    out["total_eal_rate"] = sum(adj.values())
+    return out
 
 def test_resilience_tornado_term_tracks_nri_rate():
     """Higher NRI tornado rate → higher tornado EAL and lower tornado score; the
     total EAL is still the exact sum of the four perils."""
-    df = _score([
-        {**_BASE_ROW, "PARCELID": "LO", "tornado_nri_eal_rate": 7.6e-6},   # LA-like
-        {**_BASE_ROW, "PARCELID": "HI", "tornado_nri_eal_rate": 2.4e-4},   # Plains-like
-    ])
-    recomputed = (df["flood_eal_rate"] + df["tornado_eal_rate"]
-                  + df["seismic_eal_rate"] + df["fire_eal_rate"])
-    assert (df["total_eal_rate"] - recomputed).abs().max() < 1e-12
+    lo = _legs({**_BASE_ROW, "tornado_nri_eal_rate": 7.6e-6})   # LA-like
+    hi = _legs({**_BASE_ROW, "tornado_nri_eal_rate": 2.4e-4})   # Plains-like
 
-    hi = df[df["PARCELID"] == "HI"].iloc[0]
-    lo = df[df["PARCELID"] == "LO"].iloc[0]
+    for legs in (lo, hi):
+        recomputed = (legs["flood_eal_rate"] + legs["tornado_eal_rate"]
+                      + legs["seismic_eal_rate"] + legs["fire_eal_rate"])
+        assert abs(legs["total_eal_rate"] - recomputed) < 1e-12
+
     assert hi["tornado_eal_rate"] > lo["tornado_eal_rate"]
     assert hi["tornado_score"] <= lo["tornado_score"]
 

@@ -92,12 +92,12 @@ the 512 MB instance).
   `location.tornado` resolves tract→county→US; `build_label_parts` passes its
   `eal_rate` into the resilience model as `cfg["tornado_eal_base"]`. No lat/lon
   frequency scan, no download, no EF distribution.
-- **The batch scorer** (`score/resilience.py`): `calc_tornado_eal` reads a
-  `tornado_nri_eal_rate` column straight off the input parcels (mirroring
-  `calc_fire_eal`); the EF distribution / path-area / damage-ratio constants and
-  the frequency→EAL math are removed. The `enrich/tornado.py` stage that used to
-  write that column for the Shelby pilot was deleted once the pilot's batch
-  runners were retired — the column is now an input the caller supplies.
+`score/resilience.py`'s `calc_tornado_eal` reads the rate the resolved location
+carries (mirroring `calc_fire_eal`); the EF distribution / path-area /
+damage-ratio constants and the frequency→EAL math are removed. The Shelby batch
+pipeline that used to feed the same function from a `tornado_nri_eal_rate`
+column — `enrich/tornado.py` into `score/resilience.py`'s CLI — is gone; both
+were pilot-era and neither had a runner left.
 
 The BRM (Building Resilience Modifier) and all above-code wind/tornado bonuses
 (FEMA P-361 safe room, IBHS FORTIFIED, hurricane straps, hip roof, …) are

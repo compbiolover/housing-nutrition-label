@@ -9,8 +9,6 @@ import gzip
 import statistics
 
 from housing_label.data import climate_projections as cp
-from housing_label.score.all_dimensions import score_climate
-import pandas as pd
 
 
 def _read_tract_csv() -> list[dict]:
@@ -170,37 +168,3 @@ def test_county_is_mean_of_its_tracts():
                   if r["geoid"].startswith(cfips) and r["heat_days95_low"]]
     county_row = next(r for r in csv.DictReader(cp._CSV.open()) if r["geoid"] == cfips)
     assert abs(float(county_row["heat_days95_low"]) - statistics.mean(tract_vals)) < 0.5
-
-
-def test_pipeline_scorer_maps_counties():
-    # No county column → single-county pilot default (Shelby).
-    out = score_climate(pd.DataFrame({"x": [1, 2]}))
-    assert out.tolist() == [cp.climate_projection_for_county("47157")["score"]] * 2
-    # With a county column → per-row mapping incl. national-average fallback.
-    out = score_climate(pd.DataFrame({"county_fips": ["47157", "06037", "99999"]}))
-    assert out.tolist() == [
-        cp.climate_projection_for_county("47157")["score"],
-        cp.climate_projection_for_county("06037")["score"],
-        cp.climate_projection_for_county(None)["score"],
-    ]
-
-
-def test_pipeline_scorer_maps_tracts():
-    # A tract column takes precedence and resolves tract→county→US.
-    out = score_climate(pd.DataFrame({"tract": ["47157000100", "06037000100", "99999000100"]}))
-    assert out.tolist() == [
-        cp.climate_projection_for_tract("47157000100")["score"],
-        cp.climate_projection_for_tract("06037000100")["score"],
-        cp.climate_projection_for_tract("99999000100")["score"],
-    ]
-
-
-def test_pipeline_scorer_handles_numeric_geoid_columns():
-    # A numeric county column with a NaN forces float dtype, so GEOIDs stringify
-    # as "47157.0" — must still resolve to the county, not the US fallback.
-    out = score_climate(pd.DataFrame({"county_fips": [47157, None]}))
-    assert out.iloc[0] == cp.climate_projection_for_county("47157")["score"]
-    assert out.iloc[1] == cp.climate_projection_for_county(None)["score"]
-    # Same for a numeric 11-digit tract column.
-    out = score_climate(pd.DataFrame({"tract": [47157000100, None]}))
-    assert out.iloc[0] == cp.climate_projection_for_tract("47157000100")["score"]

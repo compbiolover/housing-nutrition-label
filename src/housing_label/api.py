@@ -99,6 +99,7 @@ import functools
 import hashlib
 import logging
 import os
+import re
 import threading
 import time
 import urllib.parse
@@ -363,6 +364,13 @@ def _bucket(request: Request) -> str:
     fresh bucket per guess, and the request is about to be refused by ``_caller``
     anyway. Must never raise — the middleware calls this before any endpoint
     runs, so an exception here would be a 500 on every request.
+
+    The address half of this only works if the deployment lets uvicorn read
+    ``X-Forwarded-For``: it trusts that header only from a peer listed in
+    ``forwarded_allow_ips`` (default ``127.0.0.1``). Behind a proxy that is not on
+    loopback — Render's router, for one — every caller otherwise arrives as the
+    proxy, and the whole internet shares one bucket. ``render.yaml`` sets
+    ``FORWARDED_ALLOW_IPS``; the Dockerfile explains why it must not be a default.
     """
     try:
         raw = request.headers.get("X-API-Key") or request.query_params.get("key")
@@ -459,7 +467,7 @@ def _meter(caller: Caller, response: Response, cost: int) -> None:
     around.
     """
     allowed, used, remaining = entitlements.ledger.charge(
-        caller.ident, cost, caller.plan.daily_scores)
+        caller.ident, cost, caller.plan.daily_scores, anonymous=caller.anonymous)
     headers = {"X-Plan": caller.plan.name}
     if caller.plan.metered:
         headers["X-Quota-Limit"] = str(caller.plan.daily_scores)
@@ -624,7 +632,7 @@ _NONRES_BUILDING_VALUES = frozenset({
     "chapel", "mosque", "temple", "synagogue", "hotel", "motel", "supermarket",
     "civic", "government", "public", "train_station", "transportation",
     "kindergarten", "sports_centre", "sports_hall", "grandstand", "hangar",
-    "parking", "garage", "garages", "fire_station", "hospital",
+    "parking", "garage", "garages", "fire_station",
 })
 
 
@@ -761,7 +769,7 @@ _GOOGLE_NONRES_TYPES = frozenset({
     "secondary_school", "hospital", "doctor", "pharmacy", "airport", "train_station",
     "transit_station", "bus_station", "subway_station", "light_rail_station",
     "church", "mosque", "synagogue", "hindu_temple", "place_of_worship", "restaurant",
-    "cafe", "bar", "gym", "stadium", "museum", "library", "city_hall",
+    "cafe", "bar", "gym", "museum", "library", "city_hall",
     "local_government_office", "courthouse", "police", "fire_station", "post_office",
     "warehouse", "storage", "car_dealer", "car_repair", "gas_station", "parking",
     "corporate_office", "insurance_agency", "accounting", "lawyer", "real_estate_agency",
@@ -873,7 +881,8 @@ def _google_details_request(place_id: str, session: str | None):
     """GET Place Details for a place_id; returns the requests.Response (may raise)."""
     params = {"sessionToken": session} if session else None
     return requests.get(
-        GOOGLE_PLACES_DETAILS_URL.rstrip("/") + "/" + place_id, params=params,
+        GOOGLE_PLACES_DETAILS_URL.rstrip("/") + "/"
+        + urllib.parse.quote(place_id, safe=""), params=params,
         headers={
             **HEADERS,
             "X-Goog-Api-Key": GOOGLE_PLACES_API_KEY,
@@ -927,6 +936,16 @@ def _google_probe(text: str, session: str | None = None) -> dict:
 
 
 _SESSION_MAX_CHARS = 128            # a client UUID session token; bound the input
+
+# A Google place_id goes into a URL *path segment*, so it decides which endpoint
+# the server's own API key is spent on. `requests` resolves ".." the way any URL
+# client does, which turns a place_id of "../../../v1/places:searchText" into a
+# request to a different Places endpoint carrying X-Goog-Api-Key. The host is
+# fixed, so this is not open SSRF — it is the caller choosing what the operator's
+# billed credential is used for, which is enough. Google's ids are URL-safe
+# base64-ish, so an allowlist is both exact and cheap; anything else is a 400
+# rather than a quietly rewritten upstream call.
+_PLACE_ID_RE = re.compile(r"\A[A-Za-z0-9_-]{1,512}\Z")
 
 
 @app.get("/suggest")
@@ -997,6 +1016,8 @@ def place(place_id: str | None = None, session: str | None = None) -> dict:
     pid = (place_id or "").strip()
     if not pid:
         raise HTTPException(400, "place_id is required")
+    if not _PLACE_ID_RE.match(pid):
+        raise HTTPException(400, "malformed place_id")
     if not GOOGLE_PLACES_API_KEY:
         raise HTTPException(503, "Place lookup is unavailable (no Google Places key configured).")
     session = (session or "").strip()[:_SESSION_MAX_CHARS] or None
@@ -1574,7 +1595,7 @@ def usage(caller: Caller = Depends(_caller)) -> dict:
     Explicitly ``no-store`` (see _CACHE_CONTROL_BY_PATH): it is the one number
     here that changes on every request.
     """
-    used = entitlements.ledger.used(caller.ident)
+    used = entitlements.ledger.used(caller.ident, anonymous=caller.anonymous)
     allowance = caller.plan.daily_scores
     return {
         "plan": caller.plan.name,

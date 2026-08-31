@@ -8,11 +8,7 @@ Runs without network access. This file alone:
 
 from __future__ import annotations
 
-import sys
-import tempfile
-import unittest.mock as mock
 from argparse import Namespace
-from pathlib import Path
 
 import pandas as pd
 
@@ -70,35 +66,42 @@ _BASE_ROW = {
 }
 
 
-def _score(rows: list[dict]) -> pd.DataFrame:
-    """Run score/resilience.py on a small synthetic parcel set and return output."""
-    from housing_label.score import resilience
-    with tempfile.TemporaryDirectory() as d:
-        src, out = Path(d) / "in.csv", Path(d) / "out.csv"
-        pd.DataFrame(rows).to_csv(src, index=False)
-        with mock.patch.object(sys, "argv",
-                               ["resilience", "--input", str(src), "--output", str(out)]):
-            resilience.main()
-        return pd.read_csv(out)
+def _legs(row: dict) -> dict:
+    """The four raw EAL legs, their BRM-adjusted rates and scores, for one row.
 
+    This used to run score/resilience.py's CLI over a temp CSV. That batch scorer
+    is gone; the scalar functions it wrapped are the ones the live label path
+    uses, so these assertions now exercise those directly.
+    """
+    from housing_label.score.resilience import (
+        calc_brm_row, calc_fire_eal, calc_flood_eal, calc_seismic_eal,
+        calc_tornado_eal, eal_rate_to_score,
+    )
+    brm = calc_brm_row(row)
+    raw = {"flood": calc_flood_eal(row), "tornado": calc_tornado_eal(row),
+           "seismic": calc_seismic_eal(row), "fire": calc_fire_eal(row)}
+    adj = {"flood": raw["flood"] * brm["flood_brm"],
+           "tornado": raw["tornado"] * brm["wind_seismic_brm"],
+           "seismic": raw["seismic"] * brm["wind_seismic_brm"],
+           "fire": raw["fire"] * brm["fire_brm"]}
+    out = {f"{k}_eal_rate_raw": v for k, v in raw.items()}
+    out |= {f"{k}_eal_rate": v for k, v in adj.items()}
+    out |= {f"{k}_score": eal_rate_to_score(v) for k, v in adj.items()}
+    out |= brm
+    out["total_eal_rate"] = sum(adj.values())
+    return out
 
 def test_resilience_includes_fire_term():
     """Fire is a real summed hazard: total = flood+tornado+seismic+fire, and the
     fire columns/score/grade are produced. Higher wildfire → lower fire score."""
-    df = _score([
-        {**_BASE_ROW, "PARCELID": "LO", "wildfire_eal_rate": 0.000001},   # Memphis-like
-        {**_BASE_ROW, "PARCELID": "HI", "wildfire_eal_rate": 0.0025},     # LA-like
-    ])
-    for col in ("fire_eal_rate_raw", "fire_brm", "fire_eal_rate",
-                "fire_eal_dollars", "fire_score", "fire_local_grade"):
-        assert col in df.columns
+    lo = _legs({**_BASE_ROW, "wildfire_eal_rate": 0.000001})   # Memphis-like
+    hi = _legs({**_BASE_ROW, "wildfire_eal_rate": 0.0025})     # LA-like
 
-    recomputed = (df["flood_eal_rate"] + df["tornado_eal_rate"]
-                  + df["seismic_eal_rate"] + df["fire_eal_rate"])
-    assert (df["total_eal_rate"] - recomputed).abs().max() < 1e-12
+    for legs in (lo, hi):
+        recomputed = (legs["flood_eal_rate"] + legs["tornado_eal_rate"]
+                      + legs["seismic_eal_rate"] + legs["fire_eal_rate"])
+        assert abs(legs["total_eal_rate"] - recomputed) < 1e-12
 
-    hi = df[df["PARCELID"] == "HI"].iloc[0]
-    lo = df[df["PARCELID"] == "LO"].iloc[0]
     assert hi["fire_eal_rate"] > lo["fire_eal_rate"]
     assert hi["fire_score"] < lo["fire_score"]
 
@@ -106,14 +109,10 @@ def test_resilience_includes_fire_term():
 def test_fire_brm_combustibility():
     """Non-combustible masonry + good condition + modern wiring lowers the fire
     BRM (and fire EAL) vs old combustible frame, at identical wildfire exposure."""
-    df = _score([
-        {**_BASE_ROW, "PARCELID": "FRAME", "wildfire_eal_rate": 0.0025,
-         "EXTWALL": 1, "YRBLT": 1945, "COND": 1},          # frame, knob-and-tube, poor
-        {**_BASE_ROW, "PARCELID": "BLOCK", "wildfire_eal_rate": 0.0025,
-         "EXTWALL": 2, "YRBLT": 2015, "COND": 5},          # block, modern, excellent
-    ])
-    frame = df[df["PARCELID"] == "FRAME"].iloc[0]
-    block = df[df["PARCELID"] == "BLOCK"].iloc[0]
+    frame = _legs({**_BASE_ROW, "wildfire_eal_rate": 0.0025,
+                   "EXTWALL": 1, "YRBLT": 1945, "COND": 1})   # knob-and-tube, poor
+    block = _legs({**_BASE_ROW, "wildfire_eal_rate": 0.0025,
+                   "EXTWALL": 2, "YRBLT": 2015, "COND": 5})   # block, modern, excellent
     assert block["fire_brm"] < frame["fire_brm"]
     assert block["fire_eal_rate"] < frame["fire_eal_rate"]
 
