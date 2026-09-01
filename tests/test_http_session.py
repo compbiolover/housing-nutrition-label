@@ -16,6 +16,7 @@ This file alone: ``pytest tests/test_http_session.py``.
 
 from __future__ import annotations
 
+import contextlib
 import http.server
 import socketserver
 import threading
@@ -56,17 +57,29 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         pass
 
 
+@contextlib.contextmanager
 def _server():
+    """A running loopback server, torn down completely on exit.
+
+    A context manager rather than a pair of calls because shutdown() alone is not
+    teardown: it stops serve_forever() and leaves the listening socket open, so a
+    test that only calls it leaks a file descriptor and holds its port. Only
+    server_close() releases the socket, and having one place that does both means
+    the next test to want a server cannot forget.
+    """
     srv = _KeepAliveServer(("127.0.0.1", 0), _Handler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
-    return srv, f"http://127.0.0.1:{srv.server_address[1]}/x"
+    try:
+        yield srv, f"http://127.0.0.1:{srv.server_address[1]}/x"
+    finally:
+        srv.shutdown()
+        srv.server_close()
 
 
 def test_the_session_reuses_one_connection_across_a_labels_worth_of_calls():
     """The whole point, measured rather than asserted: fourteen calls to one host
     open fourteen connections through requests.get() and one through the session."""
-    srv, url = _server()
-    try:
+    with _server() as (srv, url):
         calls = 14                            # about what one label fans out to
         srv.accepts = 0
         for _ in range(calls):
@@ -78,8 +91,6 @@ def test_the_session_reuses_one_connection_across_a_labels_worth_of_calls():
         for _ in range(calls):
             session.get(url, timeout=5)
         pooled = srv.accepts
-    finally:
-        srv.shutdown()
 
     assert per_call == calls, "a Session per call should open one connection each"
     assert pooled == 1, f"the pooled session opened {pooled} connections, not 1"
@@ -143,12 +154,9 @@ def test_the_timing_seam_still_sees_session_calls():
     install_timing() is called here because the *application* installs the seam
     (api.serve does), not an import; it is idempotent."""
     utils.install_timing()
-    srv, url = _server()
-    try:
+    with _server() as (_srv, url):
         utils.begin(budget=30, per_host=12)
         utils.http_session().get(url, timeout=5)
         recorded = [name for name, _secs in utils.drain()]
-    finally:
-        srv.shutdown()
     assert "127.0.0.1" in recorded, (
         f"the seam did not record the session's call by host: {recorded}")
