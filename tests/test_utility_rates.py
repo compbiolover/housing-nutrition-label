@@ -32,7 +32,7 @@ def test_unknown_state_falls_back_to_us_average():
 
 def test_energy_cost_scales_with_rate():
     row = pd.Series({"YRBLT": 2000, "SFLA": 2000, "EXTWALL": None,
-                     "BSMT": None, "HEAT": None, "FUEL": None})
+                     "BSMT": None})
     tn = utility_rates_for_state("47")
     ca = utility_rates_for_state("06")
     tn_cost = model_parcel_energy(row, elec_rate=tn["elec_per_kwh"],

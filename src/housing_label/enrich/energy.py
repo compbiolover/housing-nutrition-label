@@ -48,10 +48,6 @@ CAMA field decoding (Shelby County assessor codes)
             1 = Brick        3 = Block/Concrete   4 = Stone
             5 = Alum/Vinyl   6 = Metal/Steel       7 = Frame/Wood
             8 = Stucco       9 = Brick veneer     10 = EIFS
-  HEAT    Heating system:
-            2 = Electric resistance   3 = Gas furnace   4 = Heat pump
-  FUEL    Primary fuel:
-            0 = None/all-electric     2 = Natural gas    3 = Other/propane
   BSMT    Foundation / basement:
             1 = Crawlspace or slab    2 = Partial basement   3 = Full basement
 
@@ -241,32 +237,38 @@ def _foundation_factor(bsmt) -> tuple[str, float]:
     return label, _resstock_factor("foundation", label, fallback)
 
 
-def _hvac_factor(heat, fuel) -> tuple[str, float]:
-    """Heating system → (label, EUI factor).
+# Both functions below used to branch on the CAMA ``HEAT`` and ``FUEL`` codes.
+# Nothing supplies them any more — the Shelby parcel pipeline that did was retired
+# with the batch scorer, and ``simulate.dimensions.build_parcel_row`` is the only
+# caller left. So every branch but one was unreachable, including a ``has_gas``
+# test in ``_fuel_split`` whose two arms had drifted to the same value. What both
+# encode now is the single assumption the label actually makes: an all-electric
+# heat-pump home, which is also what the pilot's own defaults resolved to.
+#
+# Restoring the other archetypes means giving the caller a way to say which one it
+# is, not resurrecting these constants: the numbers a heating input would need
+# should be sourced against the RECS/DOE-BA release current at that point, not
+# read back out of a 4A pilot.
+HVAC_LABEL = "heat_pump"
 
-    Heat pumps deliver ~3× more heat per kWh than resistance heating
-    (COP 2.5–4.0 vs COP 1.0), so site EUI is lower for heat-pump homes.
-    This is already partially captured in the base EUIs; the adjustment
-    accounts for within-vintage variation.
+
+def _hvac_factor() -> tuple[str, float]:
+    """The heating system's (label, EUI factor).
+
+    Heat pumps deliver ~3× more heat per kWh than resistance heating (COP 2.5–4.0
+    vs COP 1.0), so site EUI is lower for heat-pump homes. That is already partly
+    captured in the base EUIs; this adjustment accounts for within-vintage
+    variation.
+
+    The 0.782 fallback is an EXACT copy of the shipped resstock_factors.csv value
+    (a within-cell median-EUI ratio vs. the mixed-stock cell median), used only
+    when that table is unavailable, so the degraded path matches the normal one.
     """
-    heat_code = int(heat) if not isna(heat) else None
-    # Fallbacks used only when the ResStock factor table is unavailable; EXACT copies
-    # of the shipped resstock_factors.csv values (within-cell median-EUI ratios vs.
-    # the mixed-stock cell median), so the degraded path matches the normal one.
-    fallback = {
-        4: ("heat_pump",           0.782),  # efficient — well below the cell median
-        2: ("electric_resistance", 0.959),  # COP 1
-        3: ("gas_furnace",         1.043),  # gas combustion counted at the site meter
-    }
-    # Memphis is predominantly heat-pump territory; default to heat pump — using
-    # the heat-pump fallback value too, so the degraded (no-table) path matches the
-    # normal one for an unknown/blank heat code.
-    label, fb = fallback.get(heat_code, fallback[4])
-    return label, _resstock_factor("hvac", label, fb)
+    return HVAC_LABEL, _resstock_factor("hvac", HVAC_LABEL, 0.782)
 
 
 # ── Fuel split: electricity vs natural gas fraction of total site energy ───────
-def _fuel_split(heat_label: str, fuel) -> tuple[float, float]:
+def _fuel_split() -> tuple[float, float]:
     """Return (elec_fraction, gas_fraction) summing to 1.0.
 
     Split accounts for:
@@ -274,30 +276,10 @@ def _fuel_split(heat_label: str, fuel) -> tuple[float, float]:
       • Water heating (often gas even in heat-pump homes)
       • Plug loads / lighting (always electric)
 
-    Approximate CZ 4A residential end-use split (RECS 2020, DOE BA):
-      Heat pump, no gas : elec 95%  gas  5% (mainly cooking if applicable)
-      Heat pump + gas   : elec 80%  gas 20% (gas water heater, range)
-      Electric resist.  : elec 90%  gas 10%
-      Gas furnace       : elec 38%  gas 62%
+    Approximate CZ 4A residential end-use split (RECS 2020, DOE BA) for a heat
+    pump with no gas service: elec 95% / gas 5%, the 5% being cooking where there
+    is any.
     """
-    fuel_code = int(fuel) if not isna(fuel) else None
-    has_gas = fuel_code == 2
-
-    if heat_label == "heat_pump":
-        return (0.80, 0.20) if has_gas else (0.95, 0.05)
-    if heat_label == "electric_resistance":
-        # One figure regardless of the gas code, as the table above states. Note
-        # the asymmetry with heat pump, which splits 20% / 5% on the same test:
-        # an electric-resistance home WITH a gas connection is credited the same
-        # gas share as one without. That may well be right (the 10% is water
-        # heating and cooking, and the heating itself is electric either way) but
-        # it is the one row of this table that does not vary, so it is worth a
-        # second look next time the RECS/DOE-BA numbers are refreshed. The test
-        # was there before and did nothing — both arms returned this.
-        return (0.90, 0.10)
-    if heat_label == "gas_furnace":
-        return (0.38, 0.62)
-    # Default: heat pump without gas
     return (0.95, 0.05)
 
 
@@ -350,14 +332,14 @@ def model_parcel_energy(
     sf  = _size_factor(sbin)
     wall_label, wf  = _wall_factor(row.get("EXTWALL"))
     fnd_label, ff   = _foundation_factor(row.get("BSMT"))
-    hvac_label, hf  = _hvac_factor(row.get("HEAT"), row.get("FUEL"))
+    hvac_label, hf  = _hvac_factor()
 
     # --- Adjusted EUI (ResStock base × within-cell deviations) ---
     adj_eui = round(base * sf * wf * ff * hf, 2)
 
     # --- Annual totals ---
     annual_kbtu = round(adj_eui * area, 1)
-    elec_frac, gas_frac = _fuel_split(hvac_label, row.get("FUEL"))
+    elec_frac, gas_frac = _fuel_split()
     annual_kwh    = round(annual_kbtu * elec_frac / KBTU_PER_KWH, 1)
     annual_therms = round(annual_kbtu * gas_frac  / KBTU_PER_THERM, 1)
 

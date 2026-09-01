@@ -111,6 +111,7 @@ def resstock_factor(axis: str, key: str) -> float | None:
     """Within-cell EUI multiplier for a (axis, key), or None if not tabulated.
 
     Axes: "foundation" (keys crawlspace_slab / partial_basement / full_basement),
-    "hvac" (keys heat_pump / electric_resistance / gas_furnace).
+    "hvac" (keys heat_pump / electric_resistance / gas_furnace — the table carries
+    all three; enrich/energy only asks for heat_pump today).
     """
     return _factors().get((str(axis).strip(), str(key).strip()))

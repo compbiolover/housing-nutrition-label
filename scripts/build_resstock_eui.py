@@ -109,8 +109,10 @@ FOUNDATION_TO_LABEL = {
 }
 FOUNDATION_ORDER = ["crawlspace_slab", "partial_basement", "full_basement"]
 
-# ResStock (hvac_heating_type, heating_fuel) → the model's HVAC label
-# (enrich/energy._hvac_factor: heat_pump / electric_resistance / gas_furnace).
+# ResStock (hvac_heating_type, heating_fuel) → the model's HVAC label. All three
+# stay in the built table even though enrich/energy._hvac_factor only reads
+# heat_pump today: the table is reference data, and a caller that later gains a
+# way to state its heating system should not need the crosswalk rebuilt.
 HEAT_PUMP_TYPES = {"Ducted Heat Pump", "Non-Ducted Heat Pump"}
 DUCTED_HEATING_TYPES = {"Ducted Heating", "Non-Ducted Heating"}
 HVAC_ORDER = ["heat_pump", "electric_resistance", "gas_furnace"]
