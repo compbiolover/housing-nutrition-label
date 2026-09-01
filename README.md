@@ -210,15 +210,19 @@ not a defect anyone can see, and a small one that crosses a code-era boundary is
 
 Published at [housinglabel.dev/accuracy.html](https://housinglabel.dev/accuracy.html)
 and regenerated from a committed measurement run, which CI verifies the page still
-matches. Two of the three jurisdictions with an adapter are measured — **Cook County,
+matches. Two of the four jurisdictions with an adapter are measured — **Cook County,
 Illinois** and **Washington, DC** — each against its own assessor. They are real
 measurements of two housing stocks, not a national accuracy figure, and they are not
 comparable to each other: different stock, different record-keeping, different sample.
 
-**Florida is served but not yet measured.** The statewide adapter covers all 67
-counties and is the widest in the registry, and serving a jurisdiction is not the
-same as having measured it — so it carries no published figure until it is drawn and
-scored the same way the other two were.
+**Florida and Connecticut are served but not yet measured.** Between them the two
+statewide adapters cover 67 Florida counties and all 169 Connecticut municipalities,
+and serving a jurisdiction is not the same as having measured it — so neither carries
+a published figure until it is drawn and scored the same way the other two were. What
+is known about the Connecticut adapter is narrower and is stated where it is claimed:
+of 103 homes drawn at random from the state roll and geocoded exactly as the product
+does, 64 resolved to their own parcel and none resolved to the wrong one. That is a
+reachability check, not a grade-impact measurement.
 
 DC's figures cover **non-condominium homes only**. Condominium units are about a
 third of its assessor's residential stock and live in a separate table keyed by
@@ -242,7 +246,7 @@ taken from them live in this repository.
 ## Data Sources
 
 <details>
-<summary><strong>All sources & API-key requirements</strong> (21 datasets, all free)</summary>
+<summary><strong>All sources & API-key requirements</strong> (22 datasets, all free)</summary>
 
 | Source | Provides | API key |
 |---|---|---|
@@ -267,6 +271,7 @@ taken from them live in this repository.
 | [Cook County Assessor](https://datacatalog.cookcountyil.gov/) (Open Data) | **Observed** parcel construction: year built, living area, exterior wall, basement type, condition, stories — Cook County, IL only, queried live and never bundled | Free, no key (off unless `ASSESSOR_ADAPTERS=1`) |
 | [DC Office of Tax and Revenue](https://opendata.dc.gov/) (Open Data DC) | **Observed** parcel construction: year built, gross floor area, stories, exterior wall, condition — Washington, DC only, queried live and never bundled | Free, no key (off unless `ASSESSOR_ADAPTERS=1`) |
 | [Florida Dept. of Revenue](https://services9.arcgis.com/Gh9awoU677aKree0/arcgis/rest/services/Florida_Statewide_Cadastral/FeatureServer) (statewide cadastral) | **Observed** parcel construction: year built, and living area where the parcel holds a single home — all **67 Florida counties**, queried live and never bundled | Free, no key (off unless `ASSESSOR_ADAPTERS=1`) |
+| [Connecticut GIS Office](https://services3.arcgis.com/3FL1kr7L4LvwA2Kb/arcgis/rest/services/Connecticut_CAMA_and_Parcel_Layer/FeatureServer) (statewide CAMA + parcel layer) | **Observed** parcel construction: year built, and living area where the parcel holds a single home and is not a condominium unit — all **169 Connecticut municipalities**, queried live and never bundled | Free, no key (off unless `ASSESSOR_ADAPTERS=1`) |
 | [EPA National Walkability Index](https://www.epa.gov/smartgrowth/national-walkability-index-user-guide-and-methodology) | Walkability (block-group index, aggregated to tract) | Free, public domain (bundled) |
 
 > Tract geocoding for the health and socioeconomic joins uses the free [FCC Area API](https://geo.fcc.gov/api/census/) (no key).

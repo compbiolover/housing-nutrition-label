@@ -69,10 +69,11 @@ the strict rule keeps 87%.
 
 Why this service needs its own clock
 ------------------------------------
-Every other adapter runs on the shared budget: four seconds for a whole lookup, and
-at most one second of silence from the portal before that silence is read as a
-stall. Both numbers were sized against portals that answer a single parcel almost
-instantly, which Cook's and the District's do.
+Cook County and the District run on the shared budget: four seconds for a whole
+lookup, and at most one second of silence from the portal before that silence is
+read as a stall. Both numbers were sized against portals that answer a single
+parcel almost instantly, which those two do. (Connecticut, added later, sizes its
+own for the same reason this one does.)
 
 Florida's does not. It is searching ten million parcels, and it thinks before it
 speaks. Measured over 40 requests to real Florida rooftops spread across eight

@@ -168,8 +168,17 @@ def get_json(url: str, params: dict, deadline: float,
 # they are different streets outright. They stay ordinary name tokens, which
 # preserves them wherever they appear — leading, as Chicago writes them, or
 # trailing, as Washington does.
+#
+# "av" is here for the same reason "street" is: it is a spelling of a type this
+# table already knows, and a source that uses it cannot otherwise be joined to one
+# that does not. Bridgeport, New Haven and several other Connecticut towns write
+# "350 GROVERS AV" where the Census matcher returns "350 GROVERS AVE" — 17,766 of
+# the state's residential parcels — and without the entry those two parse as
+# different streets and the parcel is refused. It stays a canonicalisation rather
+# than a deletion: "213 MAIN AV" now matches "213 MAIN AVE" and still does not
+# match "213 MAIN ST".
 SUFFIXES = {
-    "st": "st", "street": "st", "ave": "ave", "avenue": "ave", "rd": "rd",
+    "st": "st", "street": "st", "ave": "ave", "av": "ave", "avenue": "ave", "rd": "rd",
     "road": "rd", "dr": "dr", "drive": "dr", "ln": "ln", "lane": "ln",
     "ct": "ct", "court": "ct", "blvd": "blvd", "boulevard": "blvd",
     "pl": "pl", "place": "pl", "way": "way", "ter": "ter", "terrace": "ter",
@@ -367,9 +376,18 @@ def arcgis_parcels(url: str, lat: float, lon: float, out_fields: str,
     carry owner names, mailing addresses and tax balances alongside the geometry;
     this label has no use for any of that and must not fetch it.
     """
+    # ``outSR`` is sent even though no geometry is returned, because for at least
+    # one service it is not optional: Connecticut's statewide layer rejects a
+    # BUFFERED query without it — "24204: The spatial reference identifier (SRID)
+    # is not valid" — while answering the containment query in 4326 quite happily.
+    # That would have looked like a state whose off-parcel geocodes never resolve,
+    # since every adapter fails open. It is inert for the other three, verified
+    # live against Cook, the District and Florida: identical results with and
+    # without it.
     params = {
         "geometry": f"{lon},{lat}", "geometryType": "esriGeometryPoint",
-        "inSR": "4326", "spatialRel": "esriSpatialRelIntersects",
+        "inSR": "4326", "outSR": "4326",
+        "spatialRel": "esriSpatialRelIntersects",
         "outFields": out_fields, "returnGeometry": "false", "f": "json",
     }
     if distance_m:
