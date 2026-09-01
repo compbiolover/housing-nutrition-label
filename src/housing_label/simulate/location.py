@@ -25,7 +25,6 @@ import logging
 from dataclasses import dataclass, field
 from functools import lru_cache
 
-
 from housing_label import utils
 from housing_label.config import TIMEOUT, RETRIES, BACKOFF, HEADERS
 from housing_label.data import climate as climate_data

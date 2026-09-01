@@ -35,7 +35,6 @@ import json
 import math
 from functools import lru_cache
 
-
 from housing_label import utils
 from housing_label.config import BACKOFF, HEADERS, RETRIES, TIMEOUT
 

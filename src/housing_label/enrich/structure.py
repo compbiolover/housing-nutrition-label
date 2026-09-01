@@ -28,7 +28,6 @@ import math
 from collections import Counter
 from functools import lru_cache
 
-
 from housing_label import utils
 from housing_label.config import TIMEOUT, RETRIES, BACKOFF, HEADERS
 from housing_label.data._util import num as _num
@@ -186,7 +185,7 @@ def _nsi_query(lat: float, lon: float, half: float) -> list[dict]:
     for attempt in range(1, RETRIES + 1):
         try:
             r = utils.http_session().get(NSI_URL, params={"fmt": "fc", "bbox": bbox},
-                             headers=HEADERS, timeout=TIMEOUT)
+                                         headers=HEADERS, timeout=TIMEOUT)
             r.raise_for_status()
             feats = (r.json() or {}).get("features") or []
             return [f.get("properties") or {} for f in feats]

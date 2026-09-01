@@ -384,12 +384,22 @@ def log_upstreams(context: str, total: float, slow_after: float = 5.0) -> None:
 #
 # The timing/budget seam (see ``timed`` above) patches ``Session.send`` at class
 # level, so it sees these sessions unchanged.
+#
+# What it costs: a live thread holds one idle connection per host it has talked
+# to, so the ceiling is (threadpool size) x (roster size). Measured against 40
+# loopback hosts and anyio's default 40-thread pool, that is ~760 client sockets —
+# comfortably inside the fd limit, and only reached if every worker touches every
+# dataset, but worth knowing next to render.yaml's paragraph about this instance's
+# memory. A thread that dies releases its session with its thread-local, so the
+# figure is bounded by live threads rather than by threads ever created.
 _thread_state = threading.local()
 
-# Room for every distinct upstream host to keep its own warm pool (there are ~19),
-# with a few connections each for the redirect-following fetchers.
+# One pool slot per distinct upstream host (~19 today), so a label walking the
+# roster does not evict and re-handshake its way around it. maxsize is per host
+# and only bounds CONCURRENT connections: a thread issues one request at a time,
+# so two is slack, not a target.
 _POOL_CONNECTIONS = 32
-_POOL_MAXSIZE = 8
+_POOL_MAXSIZE = 2
 
 
 def http_session():

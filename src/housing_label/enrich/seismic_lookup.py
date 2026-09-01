@@ -27,7 +27,6 @@ import math
 import pathlib
 from functools import lru_cache
 
-
 from housing_label.config import TIMEOUT, RETRIES, BACKOFF, HEADERS
 from housing_label import utils
 from housing_label.utils import haversine_miles

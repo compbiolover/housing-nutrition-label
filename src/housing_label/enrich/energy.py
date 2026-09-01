@@ -249,7 +249,7 @@ def _foundation_factor(bsmt) -> tuple[str, float]:
 # is, not resurrecting these constants: the numbers a heating input would need
 # should be sourced against the RECS/DOE-BA release current at that point, not
 # read back out of a 4A pilot.
-HVAC_LABEL = "heat_pump"
+_HVAC_LABEL = "heat_pump"
 
 
 def _hvac_factor() -> tuple[str, float]:
@@ -264,7 +264,7 @@ def _hvac_factor() -> tuple[str, float]:
     (a within-cell median-EUI ratio vs. the mixed-stock cell median), used only
     when that table is unavailable, so the degraded path matches the normal one.
     """
-    return HVAC_LABEL, _resstock_factor("hvac", HVAC_LABEL, 0.782)
+    return _HVAC_LABEL, _resstock_factor("hvac", _HVAC_LABEL, 0.782)
 
 
 # ── Fuel split: electricity vs natural gas fraction of total site energy ───────

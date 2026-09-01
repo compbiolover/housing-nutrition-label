@@ -30,7 +30,6 @@ import logging
 import re
 import time
 
-
 from housing_label import utils
 
 log = logging.getLogger(__name__)
@@ -121,7 +120,7 @@ def get_json(url: str, params: dict, deadline: float,
     if remaining <= 0:
         raise TimeoutError("assessor lookup budget exhausted")
     r = utils.http_session().get(url, params=params, headers=HEADERS, stream=True,
-                     timeout=(remaining, min(remaining, read_slice)))
+                                 timeout=(remaining, min(remaining, read_slice)))
     try:
         r.raise_for_status()
         chunks, size = [], 0

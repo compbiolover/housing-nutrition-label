@@ -139,10 +139,14 @@ def test_the_session_keeps_no_cookies():
 
 def test_every_upstream_host_can_hold_its_own_warm_pool():
     """~19 distinct hosts are queried. If the adapter cached fewer host-pools than
-    that, each label would evict and re-handshake its way around the roster."""
+    that, each label would evict and re-handshake its way around the roster —
+    which is the cost this whole change exists to remove."""
     adapter = utils.http_session().get_adapter("https://example.gov")
     assert adapter._pool_connections >= 19, "too few host-pools for the roster"
-    assert adapter._pool_maxsize >= 2, "a redirect-following fetcher wants more than one"
+    # maxsize is per host and bounds CONCURRENT connections. A thread issues one
+    # request at a time (redirects included — they reuse the connection rather
+    # than opening a second), so one would do and this is slack.
+    assert adapter._pool_maxsize >= 1
 
 
 def test_the_timing_seam_still_sees_session_calls():
