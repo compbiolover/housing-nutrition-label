@@ -9,6 +9,13 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.2.14](https://github.com/compbiolover/housing-nutrition-label/compare/v0.2.13...v0.2.14) (2026-09-01)
+
+
+### Performance Improvements
+
+* reuse upstream connections, and drop the unreachable heating branches ([#316](https://github.com/compbiolover/housing-nutrition-label/issues/316)) ([5e82684](https://github.com/compbiolover/housing-nutrition-label/commit/5e826847246185fa8006b69b83b957bcb3a8d50e))
+
 ## [0.2.13](https://github.com/compbiolover/housing-nutrition-label/compare/v0.2.12...v0.2.13) (2026-08-31)
 
 
