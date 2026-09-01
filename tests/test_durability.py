@@ -7,6 +7,8 @@ This file alone: ``pytest tests/test_durability.py``..
 
 from __future__ import annotations
 
+import pathlib
+
 import pandas as pd
 
 from housing_label.enrich import durability as D
@@ -40,6 +42,37 @@ def test_a_colonial_year_is_a_year_not_a_typo():
     for year in (1600, 1641, 1725, 1776, 1799):
         assert D._valid_year(year), year
         assert D.effective_year(year, None) == float(year)
+
+
+def test_the_form_year_input_offers_exactly_what_the_scorer_accepts():
+    """The refine panel's year field and this module have to agree at BOTH ends.
+
+    Neither mismatch announces itself. Too narrow and the panel marks a year the
+    scorer is happy with as invalid — which is how it shipped, at min="1850",
+    rejecting the very colonial years it was pre-filling into the field. Too wide
+    and the form accepts a year the scorer drops, and the reader gets a
+    condition-only score with nothing saying so — which is how it shipped at
+    max="2030", four years past the dataset's own "now".
+
+    The maximum tracks REFERENCE_YEAR, so it moves when the data is refreshed.
+    This test is what makes that a loud failure rather than a field that quietly
+    stops accepting this year's new builds.
+    """
+    import re
+
+    form = (pathlib.Path(__file__).resolve().parent.parent
+            / "docs" / "label-form.js").read_text(encoding="utf-8")
+    m = re.search(r'key:\s*"year_built".*?attrs:\s*\'([^\']*)\'', form, re.S)
+    assert m, "could not find the year_built field definition in docs/label-form.js"
+    attrs = m.group(1)
+    lo = re.search(r'min="(\d+)"', attrs)
+    hi = re.search(r'max="(\d+)"', attrs)
+    assert lo and hi, attrs
+    assert int(lo.group(1)) == D.EARLIEST_PLAUSIBLE_YEAR, (
+        f'form min={lo.group(1)} but the scorer accepts from '
+        f'{D.EARLIEST_PLAUSIBLE_YEAR}')
+    assert int(hi.group(1)) == D.REFERENCE_YEAR, (
+        f'form max={hi.group(1)} but the scorer accepts to {D.REFERENCE_YEAR}')
 
 
 def test_a_year_below_the_floor_is_still_refused():
