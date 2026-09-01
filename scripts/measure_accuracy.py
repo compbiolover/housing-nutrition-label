@@ -746,8 +746,9 @@ jurisdiction served.</strong>
 Each figure describes one place's housing stock and record-keeping.
 Nothing here supports a claim about anywhere else, and the sections should not
 be averaged into one. An adapter can serve a jurisdiction that carries no figure
-here: Florida's statewide adapter covers all 67 counties and is unmeasured, so
-these numbers say nothing about it. Serving is not measuring.</li>
+here: Florida's statewide adapter covers all 67 counties and Connecticut's covers
+all 169 municipalities, and both are unmeasured, so these numbers say nothing about
+either. Serving is not measuring.</li>
 {_dc_caveat(juris)}
 <li>The assessor's own record is treated as truth. It can be stale or wrong; it is
 the best available reference, not a survey.</li>

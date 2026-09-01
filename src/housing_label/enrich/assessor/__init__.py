@@ -43,7 +43,7 @@ from __future__ import annotations
 import logging
 import os
 
-from housing_label.enrich.assessor import cook_il, dc, fl
+from housing_label.enrich.assessor import cook_il, ct, dc, fl
 from housing_label.enrich.assessor.base import (  # noqa: F401  (re-exported)
     CONDITION_VALUES, CONSTRUCTION_VALUES, FOUNDATION_VALUES, AssessorRecord,
 )
@@ -55,7 +55,7 @@ ENABLE_ENV = "ASSESSOR_ADAPTERS"
 # county FIPS → the module that answers for it. One entry per county an adapter
 # covers, so resolution is a dict lookup rather than a scan.
 ADAPTERS = {fips: mod
-            for mod in (cook_il, dc, fl)
+            for mod in (cook_il, ct, dc, fl)
             for fips in mod.COUNTY_FIPS}
 
 

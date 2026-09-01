@@ -156,7 +156,7 @@ window.LabelForm = (function () {
   // The panel used to assert one sourcing story for every label. Which one is true
   // depends on whether an assessor adapter answered for this address — adapters
   // are off unless deployed with ASSESSOR_ADAPTERS, and even on they cover two
-  // counties and one state — so promising a "county parcel record" to every reader
+  // counties and two states — so promising a "county parcel record" to every reader
   // describes something most of them are not getting. The line is chosen per label
   // instead.
   var HINT_ESTIMATED = "We estimate these from public data (USACE structure records "
