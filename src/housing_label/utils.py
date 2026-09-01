@@ -21,6 +21,7 @@ import math
 import threading
 import time
 import urllib.parse
+from http import cookiejar
 
 try:  # requests is only needed for the HTTP helpers
     import requests
@@ -366,6 +367,64 @@ def log_upstreams(context: str, total: float, slow_after: float = 5.0) -> None:
 
 
 # ── HTTP ─────────────────────────────────────────────────────────────────────────
+# One pooled Session per thread, instead of a throwaway one per call.
+#
+# Every fetcher in the tree called ``requests.get()``, and that helper builds a
+# fresh Session for the single call and closes it. So one label — a dozen-plus
+# datasets, each its own host — paid a full TCP + TLS handshake per dataset,
+# inside a 12 s per-host and 30 s whole-request budget (see render.yaml). A
+# Session keeps the connection warm, so a repeat call to the same host skips the
+# handshake entirely: the geocoder alone is hit two or three times per scoring
+# request, and /presets scores five profiles at one address.
+#
+# Per THREAD rather than one global, because the API serves its sync endpoints on
+# a threadpool and ``requests.Session`` is not documented as thread-safe. That
+# costs nothing here: a scoring request runs on one thread and makes all of its
+# calls from it, which is exactly where the repeated handshakes were.
+#
+# The timing/budget seam (see ``timed`` above) patches ``Session.send`` at class
+# level, so it sees these sessions unchanged.
+#
+# What it costs: a live thread holds one idle connection per host it has talked
+# to, so the ceiling is (threadpool size) x (roster size). Measured against 40
+# loopback hosts and anyio's default 40-thread pool, that is ~760 client sockets —
+# comfortably inside the fd limit, and only reached if every worker touches every
+# dataset, but worth knowing next to render.yaml's paragraph about this instance's
+# memory. A thread that dies releases its session with its thread-local, so the
+# figure is bounded by live threads rather than by threads ever created.
+_thread_state = threading.local()
+
+# One pool slot per distinct upstream host (~19 today), so a label walking the
+# roster does not evict and re-handshake its way around it. maxsize is per host
+# and only bounds CONCURRENT connections: a thread issues one request at a time,
+# so two is slack, not a target.
+_POOL_CONNECTIONS = 32
+_POOL_MAXSIZE = 2
+
+
+def http_session():
+    """The pooled ``requests.Session`` for the calling thread, created on first use.
+
+    Cookies are dropped rather than persisted: a session that outlives one call
+    would otherwise carry an upstream's ``Set-Cookie`` into every later request
+    this thread makes to it, which is state none of these fetchers asks for and
+    the per-call ``requests.get()`` never had.
+    """
+    if requests is None:  # pragma: no cover
+        raise RuntimeError("The 'requests' package is required for http_session().")
+    session = getattr(_thread_state, "session", None)
+    if session is None:
+        session = requests.Session()
+        session.cookies.set_policy(
+            cookiejar.DefaultCookiePolicy(allowed_domains=[]))   # accept none
+        adapter = requests.adapters.HTTPAdapter(
+            pool_connections=_POOL_CONNECTIONS, pool_maxsize=_POOL_MAXSIZE)
+        session.mount("https://", adapter)
+        session.mount("http://", adapter)
+        _thread_state.session = session
+    return session
+
+
 def http_get(url: str, params: dict | None = None) -> dict:
     """GET ``url`` as JSON with retries, timeout, and ArcGIS error checking."""
     if requests is None:  # pragma: no cover
@@ -373,7 +432,7 @@ def http_get(url: str, params: dict | None = None) -> dict:
     last_exc: Exception | None = None
     for attempt in range(1, config.RETRIES + 1):
         try:
-            r = requests.get(
+            r = http_session().get(
                 url,
                 params={**(params or {}), "f": "json"},
                 timeout=config.TIMEOUT,
@@ -402,7 +461,7 @@ def http_post(url: str, data: dict | None = None) -> dict:
     last_exc: Exception | None = None
     for attempt in range(1, config.RETRIES + 1):
         try:
-            r = requests.post(
+            r = http_session().post(
                 url,
                 data={**(data or {}), "f": "json"},
                 timeout=config.TIMEOUT,

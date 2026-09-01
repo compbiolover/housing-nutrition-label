@@ -30,7 +30,7 @@ from __future__ import annotations
 import json, logging
 from functools import lru_cache
 
-import requests, pandas as pd
+import pandas as pd
 
 from housing_label import utils
 
@@ -118,7 +118,7 @@ def _flood_zone_at(lat: float, lon: float) -> dict:
     }
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            r = requests.get(FEMA_URL, params=params, timeout=TIMEOUT)
+            r = utils.http_session().get(FEMA_URL, params=params, timeout=TIMEOUT)
             r.raise_for_status()
             data = r.json()
         except Exception as exc:

@@ -27,6 +27,8 @@ This file alone: ``pytest tests/test_transient_not_cached.py``.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 
@@ -46,7 +48,7 @@ class _Resp:
 
 
 def _flaky(monkeypatch, module, payloads):
-    """Patch module.requests.get to walk `payloads`; a RuntimeError entry raises.
+    """Stub the module's HTTP session to walk `payloads`; a RuntimeError entry raises.
 
     Returns a list that records one entry per call, so a test can assert the
     second call actually re-hit the network rather than being served from a memo.
@@ -63,7 +65,8 @@ def _flaky(monkeypatch, module, payloads):
 
     seq_last = payloads[-1]
     monkeypatch.setattr(module.utils, "retry_wait", lambda *a, **k: None)
-    monkeypatch.setattr(module.requests, "get", fake_get)
+    monkeypatch.setattr(module.utils, "http_session",
+                        lambda: SimpleNamespace(get=fake_get, post=fake_get))
     return calls
 
 

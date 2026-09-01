@@ -27,8 +27,6 @@ import math
 import pathlib
 from functools import lru_cache
 
-import requests
-
 from housing_label.config import TIMEOUT, RETRIES, BACKOFF, HEADERS
 from housing_label import utils
 from housing_label.utils import haversine_miles
@@ -110,7 +108,7 @@ def _nshm_hazard_pga(lat: float, lon: float) -> tuple[float, float] | None:
     url = NSHM_URL.format(model=NSHM_MODEL, lon=lon, lat=lat, vs30=NSHM_VS30)
     for attempt in range(1, RETRIES + 1):
         try:
-            r = requests.get(url, headers=HEADERS, timeout=TIMEOUT)  # follows redirects
+            r = utils.http_session().get(url, headers=HEADERS, timeout=TIMEOUT)  # follows redirects
             r.raise_for_status()
             payload = r.json() or {}
             if payload.get("status") == "error":
@@ -151,7 +149,7 @@ def _usgs_pga(lat: float, lon: float) -> float | None:
               "riskCategory": "II", "siteClass": "B", "title": "hnl"}
     for attempt in range(1, RETRIES + 1):
         try:
-            r = requests.get(USGS_URL, params=params, headers=HEADERS, timeout=TIMEOUT)
+            r = utils.http_session().get(USGS_URL, params=params, headers=HEADERS, timeout=TIMEOUT)
             r.raise_for_status()
             data = (r.json().get("response") or {}).get("data") or {}
             pga = data.get("pga")

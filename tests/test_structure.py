@@ -6,6 +6,10 @@ Runs without network — the NSI HTTP call is monkeypatched. This file alone: ``
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
+import requests
+
 from housing_label.enrich import structure as S
 
 
@@ -40,9 +44,9 @@ class _FakeResp:
 
 def _patch_nsi(monkeypatch, features):
     S._structure_at.cache_clear()
-    monkeypatch.setattr(S.requests, "get",
-                        lambda *a, **k: _FakeResp({"type": "FeatureCollection",
-                                                   "features": features}))
+    monkeypatch.setattr(S.utils, "http_session", lambda: SimpleNamespace(
+        get=lambda *a, **k: _FakeResp({"type": "FeatureCollection",
+                                       "features": features})))
 
 
 def _feat(occ, resunits, story, x, y, sqft=1500, bt="W", yr=1990):
@@ -144,9 +148,9 @@ def test_nsi_unavailable_raises_distinct_from_empty(monkeypatch):
     monkeypatch.setattr(S.utils, "retry_wait", lambda *a, **k: None)  # no back-off waits
 
     def boom(*a, **k):
-        raise S.requests.exceptions.ConnectionError("nsi down")
+        raise requests.exceptions.ConnectionError("nsi down")
 
-    monkeypatch.setattr(S.requests, "get", boom)
+    monkeypatch.setattr(S.utils, "http_session", lambda: SimpleNamespace(get=boom))
     with pytest.raises(S.NSIUnavailable):
         S.structure_for_point(41.9436, -87.6531)
 

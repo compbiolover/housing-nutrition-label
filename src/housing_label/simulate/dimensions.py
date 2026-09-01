@@ -389,8 +389,6 @@ def build_parcel_row(cfg: dict) -> dict:
         "COND":      COND_CODE.get(cfg["condition"], 3),
         "CDU":       np.nan,                          # let COND drive condition
         "GRADE":     GRADE_BY_CONSTRUCTION.get(construction, 40),
-        "HEAT":      np.nan,                          # → energy model defaults (heat pump)
-        "FUEL":      np.nan,                          # → all-electric default
         "RMBED":     np.nan,
         "FIXBATH":   np.nan,
         # Stories drives the embodied-carbon footprint (a 1-story home spreads more

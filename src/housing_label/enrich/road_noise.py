@@ -46,8 +46,6 @@ from __future__ import annotations
 import math
 from functools import lru_cache
 
-import requests
-
 from housing_label import utils
 from housing_label.config import BACKOFF, HEADERS, RETRIES, TIMEOUT
 
@@ -99,8 +97,8 @@ def _query(lat: float, lon: float, layer: int) -> list[dict]:
     }
     for attempt in range(1, RETRIES + 1):
         try:
-            r = requests.get(_URL.format(layer=layer), params=params,
-                             headers=HEADERS, timeout=TIMEOUT)
+            r = utils.http_session().get(_URL.format(layer=layer), params=params,
+                                         headers=HEADERS, timeout=TIMEOUT)
             r.raise_for_status()
             data = r.json() or {}
             if "error" in data:
