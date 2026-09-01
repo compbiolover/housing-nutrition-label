@@ -9,6 +9,18 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.2.15](https://github.com/compbiolover/housing-nutrition-label/compare/v0.2.14...v0.2.15) (2026-09-01)
+
+
+### Features
+
+* **assessor:** add the Connecticut statewide adapter, all 169 municipalities ([#318](https://github.com/compbiolover/housing-nutrition-label/issues/318)) ([b5a270c](https://github.com/compbiolover/housing-nutrition-label/commit/b5a270ceb7fa419c71889e6a0cc0c629aabdc86d))
+
+
+### Bug Fixes
+
+* **durability:** score colonial homes on their age instead of exempting them ([#320](https://github.com/compbiolover/housing-nutrition-label/issues/320)) ([7b78104](https://github.com/compbiolover/housing-nutrition-label/commit/7b78104fe851e333a04a0bdbf506c019bbe3573a))
+
 ## [0.2.14](https://github.com/compbiolover/housing-nutrition-label/compare/v0.2.13...v0.2.14) (2026-09-01)
 
 
