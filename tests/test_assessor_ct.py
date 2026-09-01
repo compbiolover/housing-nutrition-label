@@ -62,6 +62,13 @@ _CONDO = {"Parcel_ID": "116-2", "Location": "350 GROVERS AV #01A",
           "Location_1": "350 GROVERS AV #11C", "AYB": 1975.0,
           "Living_Area": 1284.0, "Occupancy": 1.0, "Collection_year": "2025"}
 
+# Recorded live. Easton parcel 3771 27, whose two columns name two different
+# streets — the parcel-map filing and the CAMA filing joined to each other wrongly.
+_CONTRADICTORY = {"Parcel_ID": "3771 27", "Location": "80 SUNNY RIDGE ROAD",
+                  "Location_1": "545 NORTH PARK AVENUE", "AYB": 1725.0,
+                  "Living_Area": 2816.0, "Occupancy": 2.0,
+                  "Collection_year": "2025"}
+
 #: A point in West Hartford. Every test uses the same one: which parcel a
 #: coordinate lands in is decided here by the stubbed rows, not by the coordinate.
 _POINT = (41.7535, -72.7614)
@@ -140,6 +147,40 @@ def test_a_row_with_no_usable_address_in_either_column_offers_none():
     assert ct._address_of({"Location": "93", "Location_1": None}) is None
 
 
+def test_a_row_whose_two_columns_name_different_buildings_has_no_address():
+    """The two columns are two filings joined per town, and the join is sometimes
+    wrong: Easton parcel 3771 27 reads "80 SUNNY RIDGE ROAD" against "545 NORTH
+    PARK AVENUE".
+
+    Preferring either would let ``select_parcel`` confirm the parcel against an
+    address it does not have — a stranger's house reported as observed fact, which
+    is precisely what the selection policy exists to prevent, arriving through the
+    field accessor rather than through the geometry. So the row has no address and
+    cannot be confirmed at all."""
+    assert ct._address_of(_CONTRADICTORY) is None
+    assert _lookup([_CONTRADICTORY],
+                   address="545 NORTH PARK AVE, EASTON, CT") is None
+    assert _lookup([], near=[_CONTRADICTORY],
+                   address="80 SUNNY RIDGE RD, EASTON, CT") is None
+
+
+def test_a_contradictory_row_is_refused_rather_than_reported_unconfirmed():
+    """The containment-with-no-address path is the one place a parcel is accepted
+    without an address check, and it must not become a way back in for a row that
+    was rejected for contradicting itself."""
+    assert _lookup([_CONTRADICTORY]) is None
+
+
+def test_two_columns_that_differ_only_in_spelling_are_not_a_disagreement():
+    """The rule is about which BUILDING the row names, not about which string. A
+    town that abbreviates in one filing and spells out in the other is agreeing,
+    and refusing it would cost most of the state."""
+    spelled = dict(_HOUSE, Location="70 FOXCROFT RD", Location_1="70 FOXCROFT ROAD")
+    assert ct._address_of(spelled) == "70 FOXCROFT ROAD"
+    got = _lookup([spelled])
+    assert got is not None and got.year_built == 1941
+
+
 # ── the condominium unit that is its own parcel ────────────────────────────────
 
 
@@ -156,6 +197,21 @@ def test_a_condominium_unit_reports_its_year_but_not_its_floor_area():
     assert got is not None
     assert got.year_built == 1975
     assert got.sqft is None
+
+
+def test_two_spellings_of_a_unit_are_not_two_buildings():
+    """The unit disagreement and the building disagreement are separate faults with
+    separate answers, and conflating them would break one of the two.
+
+    ``address_key`` drops the unit before comparing, so 116-2's "#01A" and "#11C"
+    parse alike: the row still names 350 Grovers Avenue, which is the building the
+    coordinate is in, so it stays confirmable and its year comes through. Only its
+    floor area is refused. A row differing in the house number too — 106-35K's
+    "120 BEACHVIEW AV" against "110 BEACHVIEW AV" — is refused outright instead."""
+    assert ct._address_of(_CONDO) == "350 GROVERS AV #11C"
+    two_buildings = dict(_CONDO, Location="120 BEACHVIEW AV #244",
+                         Location_1="110 BEACHVIEW AV #202")
+    assert ct._address_of(two_buildings) is None
 
 
 def test_an_avenue_abbreviated_av_is_the_same_street_as_ave():

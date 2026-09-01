@@ -66,6 +66,16 @@ near-universal one. That is one rule rather than a per-town table, and it is
 checked with the same ``address_key`` the comparison itself uses, so a column that
 would not have matched anything is never offered as the parcel's address.
 
+And where both parse but name *different buildings*, neither is offered and the
+row is left unconfirmable. The two columns are two filings joined per town, and
+the join is occasionally wrong: parcel ``3771 27`` in Easton carries
+``"80 SUNNY RIDGE ROAD"`` against ``"545 NORTH PARK AVENUE"``. Preferring one
+would let ``select_parcel`` confirm a parcel against an address it does not have,
+which is the wrong-house failure the selection policy exists to prevent, reached
+through the field accessor rather than through the geometry. It is rare — 8 of
+10,914 sampled parcels where both columns parse, 2 of them without a unit
+designator to explain it — so refusing costs about 0.07% of the state.
+
 Condominiums, and the floor area that has to be refused
 -------------------------------------------------------
 Florida files a condominium *building* as one parcel. Connecticut files each
@@ -77,15 +87,22 @@ That makes a condo stack many overlapping records at one coordinate, which
 ambiguous here, and this is the part worth spelling out: on a condominium record
 the two address columns can disagree *with each other* about which home the row
 describes. Parcel ``116-2`` in Bridgeport carries ``Location`` of
-``"350 GROVERS AV #01A"`` and ``Location_CAMA`` of ``"350 GROVERS AV #11C"``;
-parcel ``106-35K`` carries ``"120 BEACHVIEW AV #244"`` against
-``"110 BEACHVIEW AV #202"`` — not merely a different unit, a different building.
+``"350 GROVERS AV #01A"`` and ``Location_CAMA`` of ``"350 GROVERS AV #11C"``.
 
 So where the roll's own address carries a unit designator, the floor area is not
 reported. ``Occupancy == 1`` is true of every condominium record in the state and
 does not catch them; this does. The year built still comes through, because the
 year the building went up is the same for every unit inside it — the same split
 Florida makes for the opposite reason.
+
+That is the *unit* disagreement, and it is a different fault from the *building*
+disagreement above, which is why the two have different answers. ``address_key``
+drops the unit before comparing, so 116-2's two spellings parse alike and the row
+stays confirmable as 350 Grovers Avenue — correctly, since that is the building
+the coordinate is in. Parcel ``106-35K``, whose columns read
+``"120 BEACHVIEW AV #244"`` against ``"110 BEACHVIEW AV #202"``, differs in the
+house number too, so it is refused outright by the rule above rather than merely
+losing its area.
 
 26,101 of the 1,029,326 residential records carry a unit designator.
 
@@ -128,15 +145,20 @@ cut-off does not look like a timeout to anyone reading the label. It looks like 
 town with no records.
 
 So ``READ_SLICE_S`` is 3.5 seconds, which clears every one of the 86 measured
-requests, and ``LOOKUP_TIMEOUT`` is 5 seconds, which covers the p90 of both
-requests together (0.53 + 2.74) with room to spare and exceeds the shared
-four-second budget that the worst observed pair (1.65 + 3.40 = 5.05 s) does not
-fit inside. Neither is what a typical lookup costs: a ceiling is not a cost, and
-the measured typical is containment plus buffer, around 0.8 seconds.
+requests, and ``LOOKUP_TIMEOUT`` is 6 seconds, which covers the p90 of both
+requests together (0.53 + 2.74) with room to spare and — the number that actually
+sets it — leaves the worst *observed* pair inside the budget rather than 0.05 s
+outside it: the slowest containment and the slowest buffered query measured here
+sum to 1.65 + 3.40 = 5.05 s, which the shared four-second budget does not fit and
+a five-second one fits only by rounding. A lookup cut off at its ceiling does not
+look like a timeout to anyone reading the label; it looks like a town with no
+records, so the ceiling is set above what was measured rather than at it. Neither
+number is what a typical lookup costs: a ceiling is not a cost, and the measured
+typical is containment plus buffer, around 0.8 seconds.
 
 The two halves of a socket timeout add up, so the number that has to fit the
 host's allowance is the budget spent connecting plus one read slice:
-5 + 3.5 = 8.5 s, inside the 12 s the host allows any one service on a single
+6 + 3.5 = 9.5 s, inside the 12 s the host allows any one service on a single
 score (``config.UPSTREAM_HOST_BUDGET``). A test pins that sum against the
 constant rather than against a literal.
 
@@ -216,7 +238,7 @@ PARCEL_URL = ("https://services3.arcgis.com/3FL1kr7L4LvwA2Kb/arcgis/rest/service
 #: collide with, the shared four-second budget of the same name — Florida names
 #: its own deviation the same way, and the District names its CONDO_TIMEOUT.
 READ_SLICE_S = 3.5
-LOOKUP_TIMEOUT = 5.0
+LOOKUP_TIMEOUT = 6.0
 
 # Only what the label scores, plus the dwelling count that decides whether the
 # floor area describes one home and the year the roll was collected. See "Privacy"
@@ -245,19 +267,45 @@ def _parcel_id(attrs: dict) -> str | None:
 
 
 def _address_of(attrs: dict) -> str | None:
-    """The parcel's street address, from whichever column carries a usable one.
+    """The parcel's street address, or None where the row does not agree on one.
 
     Checked with ``address_key`` — the same parse the comparison itself runs — so
     a column holding something that could never match is skipped rather than
     offered. That is what rescues Greenwich, whose Location_CAMA is written
     inverted ("OLD MILL ROAD 0200") and does not parse, and New Haven, whose
     parcel-map column holds the bare string "93".
+
+    **A row that contradicts itself has no address.** Where both columns parse and
+    they name different buildings, neither is offered. This is the difference
+    between "which column do we prefer" and "which building is this", and only the
+    second question is safe to answer: the parcel-map filing and the CAMA filing
+    are joined per town, and the join is occasionally wrong. Parcel ``3771 27`` in
+    Easton carries "80 SUNNY RIDGE ROAD" against "545 NORTH PARK AVENUE"; two
+    Fairfield parcels do the same. Returning either would let ``select_parcel``
+    confirm the parcel against an address it does not have and report a stranger's
+    house as observed fact — the one failure the whole selection policy exists to
+    prevent, arriving through the field accessor instead of through the geometry.
+
+    Measured on 12,000 residential parcels drawn from across the state: 10,914
+    have both columns parsing, 8 of those disagree, and 2 disagree without a unit
+    designator to explain it. So refusing them costs about 0.07% of the state and
+    removes the only way this adapter can name the wrong building.
+
+    A condominium's two spellings are NOT a disagreement here — ``address_key``
+    drops the unit, so "#01A" and "#11C" at one street address parse alike and the
+    row is still confirmable. It is ``_is_a_unit_record`` that then refuses its
+    floor area. Two columns naming different units of one building and two columns
+    naming two different buildings are separate faults with separate answers.
     """
+    parsed = []
     for column in _ADDRESS_COLUMNS:
         raw = (attrs.get(column) or "").strip()
-        if address_key(raw):
-            return raw
-    return None
+        key = address_key(raw)
+        if key:
+            parsed.append((key, raw))
+    if not parsed or len({key for key, _ in parsed}) > 1:
+        return None
+    return parsed[0][1]
 
 
 def _is_a_unit_record(attrs: dict) -> bool:
