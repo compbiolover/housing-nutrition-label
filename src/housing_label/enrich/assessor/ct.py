@@ -297,15 +297,27 @@ def _address_of(attrs: dict) -> str | None:
     floor area. Two columns naming different units of one building and two columns
     naming two different buildings are separate faults with separate answers.
     """
-    parsed = []
+    if not _names_one_building(attrs):
+        return None
     for column in _ADDRESS_COLUMNS:
         raw = (attrs.get(column) or "").strip()
-        key = address_key(raw)
-        if key:
-            parsed.append((key, raw))
-    if not parsed or len({key for key, _ in parsed}) > 1:
-        return None
-    return parsed[0][1]
+        if address_key(raw):
+            return raw
+    return None
+
+
+def _names_one_building(attrs: dict) -> bool:
+    """Whether the row's address columns agree about which building this is.
+
+    True when they parse alike, and also when only one of them parses or neither
+    does — "this row says nothing about its address" is not a contradiction, and a
+    row with no address at all is still a legitimate answer to a lookup that had
+    no address to confirm against.
+    """
+    keys = {address_key((attrs.get(column) or "").strip())
+            for column in _ADDRESS_COLUMNS}
+    keys.discard(None)
+    return len(keys) <= 1
 
 
 def _is_a_unit_record(attrs: dict) -> bool:
@@ -321,9 +333,26 @@ def _is_a_unit_record(attrs: dict) -> bool:
 
 def _parcels(lat: float, lon: float, distance_m: float = 0,
              *, deadline: float) -> list[dict]:
-    """Parcel records at (or within ``distance_m`` of) a point."""
-    return arcgis_parcels(PARCEL_URL, lat, lon, _FIELDS, distance_m,
+    """Parcel records at (or within ``distance_m`` of) a point.
+
+    A row whose two address columns name different buildings is dropped here,
+    before the parcel is chosen, and not only inside ``_address_of``. Refusing it
+    there covers a lookup that HAS an address to confirm against; it does not
+    cover one that does not. ``select_parcel`` returns a sole containing parcel
+    without consulting the address at all when the caller passed none — which is
+    right, since containment is then all there is — and the label is scored from
+    bare coordinates whenever the geocoder echoes no address, so that path is
+    reached in production. A mis-joined row sitting under such a point would be
+    emitted as observed fact with nothing to catch it.
+
+    Dropping it in ``fetch`` is the sanctioned shape for this (see
+    ``select_parcel``) and the safe one: removing rows that could never be an
+    answer can only turn "ambiguous" into "one real parcel", never let a wrong
+    parcel through, because the address confirmation that follows is untouched.
+    """
+    rows = arcgis_parcels(PARCEL_URL, lat, lon, _FIELDS, distance_m,
                           deadline=deadline, read_slice=READ_SLICE_S)
+    return [r for r in rows if _names_one_building(r)]
 
 
 def _parcel_at(lat: float, lon: float, address: str | None = None,

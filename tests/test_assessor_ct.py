@@ -62,11 +62,19 @@ _CONDO = {"Parcel_ID": "116-2", "Location": "350 GROVERS AV #01A",
           "Location_1": "350 GROVERS AV #11C", "AYB": 1975.0,
           "Living_Area": 1284.0, "Occupancy": 1.0, "Collection_year": "2025"}
 
-# Recorded live. Easton parcel 3771 27, whose two columns name two different
-# streets — the parcel-map filing and the CAMA filing joined to each other wrongly.
+# Easton parcel 3771 27, whose two columns name two different streets — the
+# parcel-map filing and the CAMA filing joined to each other wrongly. The address
+# pair is exactly as recorded live; the year and occupancy are not.
+#
+# Its own are AYB 1725 and Occupancy 2, and BOTH would stop this row contributing
+# a fact for reasons that have nothing to do with the contradiction — the year
+# falls under the 1800 floor and the dwelling count refuses the area — so a
+# fixture carrying them would make every assertion below pass without the
+# contradiction rule existing at all. What is under test is the contradiction, so
+# the row is given a year and a count that would otherwise answer.
 _CONTRADICTORY = {"Parcel_ID": "3771 27", "Location": "80 SUNNY RIDGE ROAD",
-                  "Location_1": "545 NORTH PARK AVENUE", "AYB": 1725.0,
-                  "Living_Area": 2816.0, "Occupancy": 2.0,
+                  "Location_1": "545 NORTH PARK AVENUE", "AYB": 1941.0,
+                  "Living_Area": 2816.0, "Occupancy": 1.0,
                   "Collection_year": "2025"}
 
 #: A point in West Hartford. Every test uses the same one: which parcel a
@@ -164,11 +172,29 @@ def test_a_row_whose_two_columns_name_different_buildings_has_no_address():
                    address="80 SUNNY RIDGE RD, EASTON, CT") is None
 
 
-def test_a_contradictory_row_is_refused_rather_than_reported_unconfirmed():
-    """The containment-with-no-address path is the one place a parcel is accepted
-    without an address check, and it must not become a way back in for a row that
-    was rejected for contradicting itself."""
+def test_a_contradictory_row_is_refused_with_no_address_to_confirm_against():
+    """The hole that refusing inside ``_address_of`` alone does not close.
+
+    ``select_parcel`` returns a sole containing parcel WITHOUT consulting the
+    address when the caller passed none — correctly, since containment is then all
+    there is — and the label is scored from bare coordinates whenever the geocoder
+    echoes no address, so this path runs in production. A mis-joined row under such
+    a point would be emitted as observed fact with nothing to catch it, which is
+    why the row is dropped in ``_parcels`` as well.
+
+    The fixture deliberately carries a year and a dwelling count that WOULD answer;
+    see its definition."""
     assert _lookup([_CONTRADICTORY]) is None
+    assert _lookup([_CONTRADICTORY], address=None) is None
+
+
+def test_the_fixture_would_answer_if_its_addresses_agreed():
+    """Guards the test above from passing vacuously. If the contradictory row were
+    refused for its year or its dwelling count rather than for its addresses, every
+    assertion about the contradiction would hold with the rule deleted."""
+    agreeing = dict(_CONTRADICTORY, Location_1="80 SUNNY RIDGE ROAD")
+    got = _lookup([agreeing])
+    assert got is not None and got.year_built == 1941 and got.sqft == 2816.0
 
 
 def test_two_columns_that_differ_only_in_spelling_are_not_a_disagreement():
