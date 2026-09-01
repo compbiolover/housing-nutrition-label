@@ -59,14 +59,36 @@ def test_the_floor_does_not_hand_out_a_bonus_for_being_older():
     same house built in 1800 scored 33.0, a 27-point bonus for being older, on the
     dimension whose whole subject is age.
 
+    A CONDITION RATING IS REQUIRED to reproduce this, and that is the whole
+    mechanism: the fallback the rejected year drops into is condition-only
+    scoring, so with no condition to fall back to there is nothing to invert and
+    every year in this range returns the same 0.0. An earlier draft of this test
+    omitted it and compared identical zeros — passing while exercising nothing.
+
     Pinned as a property rather than as two numbers: no year in this range may
     score better than the year after it."""
-    scores = [D.model_parcel_durability(_row(YRBLT=y))["durability_score"]
-              for y in (1725, 1780, 1799, 1800, 1850, 1900)]
+    years = (1725, 1780, 1799, 1800, 1850, 1900)
+    scores = [D.model_parcel_durability(_row(YRBLT=y, COND=3))["durability_score"]
+              for y in years]
     assert all(a <= b for a, b in zip(scores, scores[1:])), scores
     assert len(set(scores)) == 1, (
         f"every year here predates the 100-year structural shell, so all should "
         f"land on the same saturated figure, got {scores}")
+
+    # And the guard that keeps the assertion above meaningful: put the floor back
+    # where it was and the same six rows must NOT come out flat. Without this a
+    # regression that re-narrowed the floor would still satisfy the monotonicity
+    # check, since a flat run is monotonic.
+    saved = D.EARLIEST_PLAUSIBLE_YEAR
+    D.EARLIEST_PLAUSIBLE_YEAR = 1800
+    try:
+        regressed = [D.model_parcel_durability(_row(YRBLT=y, COND=3))["durability_score"]
+                     for y in years]
+    finally:
+        D.EARLIEST_PLAUSIBLE_YEAR = saved
+    assert not all(a <= b for a, b in zip(regressed, regressed[1:])), (
+        f"the old floor was supposed to invert this curve, got {regressed} — if "
+        f"this passes, the test above is no longer testing anything")
 
 
 def test_widening_the_floor_added_no_new_regime_below_it():

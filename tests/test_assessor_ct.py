@@ -66,12 +66,15 @@ _CONDO = {"Parcel_ID": "116-2", "Location": "350 GROVERS AV #01A",
 # parcel-map filing and the CAMA filing joined to each other wrongly. The address
 # pair is exactly as recorded live; the year and occupancy are not.
 #
-# Its own are AYB 1725 and Occupancy 2, and BOTH would stop this row contributing
-# a fact for reasons that have nothing to do with the contradiction — the year
-# falls under the 1800 floor and the dwelling count refuses the area — so a
-# fixture carrying them would make every assertion below pass without the
-# contradiction rule existing at all. What is under test is the contradiction, so
-# the row is given a year and a count that would otherwise answer.
+# Its own are AYB 1725 and Occupancy 2. The occupancy alone would stop this row
+# contributing a floor area for a reason that has nothing to do with the
+# contradiction, so a fixture carrying it would weaken every assertion below.
+# What is under test is the contradiction, so the row is given a dwelling count
+# that would otherwise answer.
+#
+# The year is left as a plain 1941 for the same reason and not because 1725 is
+# implausible: 1725 is a real construction year and the adapter now reports it —
+# see test_a_colonial_year_survives_the_adapter.
 _CONTRADICTORY = {"Parcel_ID": "3771 27", "Location": "80 SUNNY RIDGE ROAD",
                   "Location_1": "545 NORTH PARK AVENUE", "AYB": 1941.0,
                   "Living_Area": 2816.0, "Occupancy": 1.0,

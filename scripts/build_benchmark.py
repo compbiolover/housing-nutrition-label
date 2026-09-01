@@ -91,6 +91,11 @@ if str(_ROOT) not in sys.path:     # so the shared registry imports
     sys.path.insert(0, str(_ROOT))
 
 from scripts.jurisdictions import JURISDICTIONS  # noqa: E402
+# The same construction-year floor the scorer applies, imported rather than
+# repeated. Ground truth stricter than the adapter it grades would drop real
+# homes — the 29 Washington dwellings dated 1776 to 1797 among them — and
+# publish them as a gap in the county's records rather than in this filter.
+from housing_label.enrich.durability import EARLIEST_PLAUSIBLE_YEAR  # noqa: E402
 
 CACHE_DIR = _ROOT / ".accuracy_cache"
 BENCHMARK = CACHE_DIR / "benchmark.csv"          # legacy single-jurisdiction path
@@ -831,7 +836,7 @@ def _dc_condo_truth(row: dict) -> dict | None:
     against something the District never said about this home.
     """
     year = _num(row.get("AYB"))
-    if not year or not (1800 <= year <= 2100):
+    if not year or not (EARLIEST_PLAUSIBLE_YEAR <= year <= 2100):
         return None
     sqft = _num(row.get("LIVING_GBA"))
     return {
@@ -849,7 +854,7 @@ def _dc_truth(row: dict) -> dict | None:
     from housing_label.enrich.assessor import dc
 
     year = _num(row.get("AYB"))
-    if not year or not (1800 <= year <= 2100):
+    if not year or not (EARLIEST_PLAUSIBLE_YEAR <= year <= 2100):
         return None
     sqft = _num(row.get("GBA"))
     units = _num(row.get("NUM_UNITS")) or 1
@@ -874,7 +879,7 @@ def _truth(row: dict) -> dict | None:
     from housing_label.enrich.assessor import cook_il
 
     year = _num(row.get("char_yrblt"))
-    if not year or not (1800 <= year <= 2100):
+    if not year or not (EARLIEST_PLAUSIBLE_YEAR <= year <= 2100):
         return None               # nothing to be right or wrong about
     sqft = _num(row.get("char_bldg_sf"))
     return {
