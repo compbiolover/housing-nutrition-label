@@ -7,6 +7,8 @@ This file alone: ``pytest tests/test_durability.py``..
 
 from __future__ import annotations
 
+import pathlib
+
 import pandas as pd
 
 from housing_label.enrich import durability as D
@@ -24,9 +26,119 @@ def test_effective_year_prefers_effyr_then_yrblt():
     assert D.effective_year(1990, 2010) == 2010.0     # EFFYR wins when valid
     assert D.effective_year(1990, None) == 1990.0     # falls back to YRBLT
     assert D.effective_year(None, None) is None       # neither → None
-    # Out-of-range effective year is rejected, YRBLT used instead.
-    assert D.effective_year(1990, 1700) == 1990.0
+    # Out-of-range effective year is rejected, YRBLT used instead. The low stand-in
+    # is below EARLIEST_PLAUSIBLE_YEAR on purpose: 1700 used to sit here and is a
+    # real construction year in the rolls this project reads, so it stopped being
+    # an example of an implausible one when the floor moved to 1600.
+    assert D.effective_year(1990, 1500) == 1990.0
     assert D.effective_year(1990, D.REFERENCE_YEAR + 5) == 1990.0
+
+
+def test_a_colonial_year_is_a_year_not_a_typo():
+    """1600 is a plausibility floor, and the rolls this project reads are full of
+    real years beneath the old one: 8,375 Connecticut dwellings are recorded as
+    built between 1600 and 1800, and Washington's residential CAMA holds 29 dated
+    1776 to 1797."""
+    for year in (1600, 1641, 1725, 1776, 1799):
+        assert D._valid_year(year), year
+        assert D.effective_year(year, None) == float(year)
+
+
+def test_the_form_year_input_offers_exactly_what_the_scorer_accepts():
+    """The refine panel's year field and this module have to agree at BOTH ends.
+
+    Neither mismatch announces itself. Too narrow and the panel marks a year the
+    scorer is happy with as invalid — which is how it shipped, at min="1850",
+    rejecting the very colonial years it was pre-filling into the field. Too wide
+    and the form accepts a year the scorer drops, and the reader gets a
+    condition-only score with nothing saying so — which is how it shipped at
+    max="2030", four years past the dataset's own "now".
+
+    The maximum tracks REFERENCE_YEAR, so it moves when the data is refreshed.
+    This test is what makes that a loud failure rather than a field that quietly
+    stops accepting this year's new builds.
+    """
+    import re
+
+    form = (pathlib.Path(__file__).resolve().parent.parent
+            / "docs" / "label-form.js").read_text(encoding="utf-8")
+    m = re.search(r'key:\s*"year_built".*?attrs:\s*\'([^\']*)\'', form, re.S)
+    assert m, "could not find the year_built field definition in docs/label-form.js"
+    attrs = m.group(1)
+    lo = re.search(r'min="(\d+)"', attrs)
+    hi = re.search(r'max="(\d+)"', attrs)
+    assert lo and hi, attrs
+    assert int(lo.group(1)) == D.EARLIEST_PLAUSIBLE_YEAR, (
+        f'form min={lo.group(1)} but the scorer accepts from '
+        f'{D.EARLIEST_PLAUSIBLE_YEAR}')
+    assert int(hi.group(1)) == D.REFERENCE_YEAR, (
+        f'form max={hi.group(1)} but the scorer accepts to {D.REFERENCE_YEAR}')
+
+
+def test_a_year_below_the_floor_is_still_refused():
+    """What the floor is actually for. Every one of these is a real value sitting
+    in Connecticut's statewide roll today, and none of them is a building."""
+    for junk in (1, 2, 15, 203, 630, 1020, 1500):
+        assert not D._valid_year(junk), junk
+    assert D.effective_year(1500, None) is None
+
+
+def test_the_floor_does_not_hand_out_a_bonus_for_being_older():
+    """The bug the floor used to be.
+
+    A rejected year is not scored as old — it is dropped, ``effective_year``
+    returns None, and the model falls back to the condition rating alone. So the
+    boundary inverted the dimension: a house built in 1799 scored 60.0 where the
+    same house built in 1800 scored 33.0, a 27-point bonus for being older, on the
+    dimension whose whole subject is age.
+
+    A CONDITION RATING IS REQUIRED to reproduce this, and that is the whole
+    mechanism: the fallback the rejected year drops into is condition-only
+    scoring, so with no condition to fall back to there is nothing to invert and
+    every year in this range returns the same 0.0. An earlier draft of this test
+    omitted it and compared identical zeros — passing while exercising nothing.
+
+    Pinned as a property rather than as two numbers: no year in this range may
+    score better than the year after it."""
+    years = (1725, 1780, 1799, 1800, 1850, 1900)
+    scores = [D.model_parcel_durability(_row(YRBLT=y, COND=3))["durability_score"]
+              for y in years]
+    assert all(a <= b for a, b in zip(scores, scores[1:])), scores
+    assert len(set(scores)) == 1, (
+        f"every year here predates the 100-year structural shell, so all should "
+        f"land on the same saturated figure, got {scores}")
+
+    # And the guard that keeps the assertion above meaningful: put the floor back
+    # where it was and the same six rows must NOT come out flat. Without this a
+    # regression that re-narrowed the floor would still satisfy the monotonicity
+    # check, since a flat run is monotonic.
+    saved = D.EARLIEST_PLAUSIBLE_YEAR
+    D.EARLIEST_PLAUSIBLE_YEAR = 1800
+    try:
+        regressed = [D.model_parcel_durability(_row(YRBLT=y, COND=3))["durability_score"]
+                     for y in years]
+    finally:
+        D.EARLIEST_PLAUSIBLE_YEAR = saved
+    assert not all(a <= b for a, b in zip(regressed, regressed[1:])), (
+        f"the old floor was supposed to invert this curve, got {regressed} — if "
+        f"this passes, the test above is no longer testing anything")
+
+
+def test_widening_the_floor_added_no_new_regime_below_it():
+    """The component basket saturates at the longest service life — 100 years for
+    the structural shell — so every building from 1926 back already reported 0%
+    remaining life and all 8 components past life.
+
+    A 1725 house therefore lands on exactly the figures a 1900 one does. That is
+    what makes the wider floor a removal of a discontinuity rather than an
+    extrapolation into years the model was never fitted for."""
+    old = D.model_parcel_durability(_row(YRBLT=1725))
+    ref = D.model_parcel_durability(_row(YRBLT=1900))
+    assert old["durability_remaining_life_pct"] == ref["durability_remaining_life_pct"] == 0.0
+    assert old["durability_components_past_life"] == ref["durability_components_past_life"] == len(D.COMPONENTS)
+    assert old["durability_score"] == ref["durability_score"]
+    # The one figure that legitimately differs is the age itself.
+    assert old["durability_effective_age"] > ref["durability_effective_age"]
 
 
 def test_age_basket_monotonic_and_bounded():

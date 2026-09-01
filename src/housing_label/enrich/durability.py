@@ -195,6 +195,22 @@ DATA_SOURCE = (
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
+#: The earliest year this model will treat as a construction date rather than as a
+#: data-entry accident. It is a *plausibility* floor, not a modelling one: the
+#: component basket saturates long before it (see below), so the number only has to
+#: separate real colonial stock from sentinels.
+#:
+#: 1600 does that. Connecticut's statewide roll — the oldest housing any adapter
+#: reaches — records 8,375 dwellings built between 1600 and 1800, rising smoothly
+#: (14 in 1600–49, 234 in 1650–99, 2,344 in 1700–49, 6,397 in 1750–99) exactly as
+#: colonial settlement did; Washington's residential CAMA holds 29, dated 1776 to
+#: 1797. Everything the same rolls record BELOW 1600 is junk — years of 1, 2, 15,
+#: 203, 630, 1020, 1500 — and stays refused. The oldest surviving houses in the
+#: United States date from around 1640, so a floor here cannot be cutting off real
+#: buildings.
+EARLIEST_PLAUSIBLE_YEAR = 1600
+
+
 def _valid_year(yr) -> bool:
     """Is this a plausible construction year at all?
 
@@ -205,8 +221,23 @@ def _valid_year(yr) -> bool:
     which silently downgrades it to condition-only scoring and reports a durability
     number for a building that hadn't been built. ``model_parcel_durability`` handles
     the as-of case explicitly instead, by declining to score it.
+
+    The floor was 1800 until it was measured, and it was not merely losing coverage
+    — it inverted the model at the boundary. A year this function rejects is not
+    scored as old; it is dropped, ``effective_year`` returns None, and
+    ``model_parcel_durability`` falls back to scoring on the condition rating alone.
+    So a house built in 1799 came out at 60.0 where the same house built in 1800
+    came out at 33.0: a 27-point bonus for being *older*, at an arbitrary line, on
+    the dimension whose entire subject is age.
+
+    Widening the floor introduces no new behaviour below it. The longest-lived
+    component in ``COMPONENTS`` is the 100-year structural shell, so every building
+    from 1926 back already reports 0% remaining life and all 8 components past
+    life; a 1725 house lands on exactly the figures a 1900 one does. What changes
+    is only that its age is admitted into the blend at all, which is what removes
+    the cliff.
     """
-    return not isna(yr) and 1800 <= int(yr) <= REFERENCE_YEAR
+    return not isna(yr) and EARLIEST_PLAUSIBLE_YEAR <= int(yr) <= REFERENCE_YEAR
 
 
 def effective_year(yrblt, effyr) -> float | None:

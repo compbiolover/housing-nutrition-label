@@ -66,12 +66,15 @@ _CONDO = {"Parcel_ID": "116-2", "Location": "350 GROVERS AV #01A",
 # parcel-map filing and the CAMA filing joined to each other wrongly. The address
 # pair is exactly as recorded live; the year and occupancy are not.
 #
-# Its own are AYB 1725 and Occupancy 2, and BOTH would stop this row contributing
-# a fact for reasons that have nothing to do with the contradiction — the year
-# falls under the 1800 floor and the dwelling count refuses the area — so a
-# fixture carrying them would make every assertion below pass without the
-# contradiction rule existing at all. What is under test is the contradiction, so
-# the row is given a year and a count that would otherwise answer.
+# Its own are AYB 1725 and Occupancy 2. The occupancy alone would stop this row
+# contributing a floor area for a reason that has nothing to do with the
+# contradiction, so a fixture carrying it would weaken every assertion below.
+# What is under test is the contradiction, so the row is given a dwelling count
+# that would otherwise answer.
+#
+# The year is left as a plain 1941 for the same reason and not because 1725 is
+# implausible: 1725 is a real construction year and the adapter now reports it —
+# see test_a_colonial_year_survives_the_adapter.
 _CONTRADICTORY = {"Parcel_ID": "3771 27", "Location": "80 SUNNY RIDGE ROAD",
                   "Location_1": "545 NORTH PARK AVENUE", "AYB": 1941.0,
                   "Living_Area": 2816.0, "Occupancy": 1.0,
@@ -351,6 +354,36 @@ def test_a_year_of_zero_is_not_the_year_zero():
     got = _lookup([dict(_HOUSE, AYB=0.0)])
     assert got is not None and got.year_built is None
     assert got.sqft == 3152.0, "the area survives; only the year is missing"
+
+
+def test_a_colonial_year_survives_the_adapter():
+    """Connecticut is why the plausibility floor moved: 8,375 of its dwellings are
+    recorded as built between 1600 and 1800, rising smoothly through the period
+    exactly as colonial settlement did.
+
+    An adapter refusing a year the scorer would accept is the same silent loss as a
+    missing registry entry — the parcel matches, the fact is thrown away, and the
+    label falls back to a tract quantile without anything saying so."""
+    for year in (1660.0, 1725.0, 1799.0):
+        got = _lookup([dict(_HOUSE, AYB=year)])
+        assert got is not None and got.year_built == int(year), year
+
+
+def test_the_adapter_floor_is_the_scorer_floor():
+    """The two used to be separate literals that happened to agree, which is how
+    they came to disagree. Pinned on behaviour at the boundary, in both directions,
+    so neither can move without the other."""
+    from housing_label.enrich.durability import EARLIEST_PLAUSIBLE_YEAR, _valid_year
+
+    floor = EARLIEST_PLAUSIBLE_YEAR
+    at_floor = _lookup([dict(_HOUSE, AYB=float(floor))])
+    assert at_floor is not None and at_floor.year_built == floor
+    assert _valid_year(floor)
+
+    below = _lookup([dict(_HOUSE, AYB=float(floor - 1))])
+    assert below is not None, "the row still carries a floor area"
+    assert below.year_built is None, "a year under the floor is not a year"
+    assert not _valid_year(floor - 1)
 
 
 def test_a_parcel_that_records_nothing_at_all_is_not_an_answer():

@@ -60,6 +60,7 @@ from housing_label.enrich.assessor._shared import (
     arcgis_parcels, cache_bucket, deadline_from, get_json, num, select_parcel,
 )
 from housing_label.enrich.assessor.base import AssessorRecord
+from housing_label.enrich.durability import EARLIEST_PLAUSIBLE_YEAR
 
 log = logging.getLogger(__name__)
 
@@ -188,7 +189,7 @@ def _lookup_cached(lat: float, lon: float, address: str | None,
         data_vintage=(f"{DATA_VINTAGE}, {_roll}" if (_roll := _assessment_year(row))
                       else DATA_VINTAGE),
         parcel_id=pin,
-        year_built=int(year) if year and 1800 <= year <= 2100 else None,
+        year_built=int(year) if year and EARLIEST_PLAUSIBLE_YEAR <= year <= 2100 else None,
         sqft=sqft if sqft and sqft > 0 else None,
         stories=_STORIES.get((row.get("char_type_resd") or "").strip()),
         construction=_EXT_WALL.get((row.get("char_ext_wall") or "").strip()),

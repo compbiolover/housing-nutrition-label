@@ -42,8 +42,22 @@ window.LabelForm = (function () {
   // param; the input carries data-field="<key>" so the controller can read/write
   // it without global IDs (multiple widgets never collide).
   var FIELDS = [
+    // Both bounds are the scorer's own, and a test pins them there.
+    //
+    // min is housing_label.enrich.durability.EARLIEST_PLAUSIBLE_YEAR. It was 1850,
+    // stricter than anything the scorer applies and not something a reader could
+    // talk their way past: the panel writes an OBSERVED year straight into this
+    // field, so a colonial home — Connecticut alone records 8,375 built before
+    // 1800 — arrived pre-filled and marked :invalid, with a stepper that could not
+    // reach its own value.
+    //
+    // max is REFERENCE_YEAR, the dataset's own "now". It was 2030, which let the
+    // form accept four years the scorer then silently dropped into condition-only
+    // scoring — the same mismatch as the min, in the other direction. This number
+    // advances when REFERENCE_YEAR does; the test is what makes that fail loudly
+    // rather than quietly narrow the field.
     { key: "year_built", label: "Year built", type: "number",
-      attrs: 'min="1850" max="2030" step="1" placeholder="e.g. 1998"' },
+      attrs: 'min="1600" max="2026" step="1" placeholder="e.g. 1998"' },
     { key: "construction", label: "Wall type", type: "select", options: [
       ["", "(unknown)"], ["frame", "Wood frame"], ["brick", "Brick (masonry)"],
       ["brick-frame", "Brick veneer / frame"], ["block", "Concrete block (CMU)"],

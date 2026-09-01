@@ -167,6 +167,7 @@ from housing_label.enrich.assessor._shared import (
     arcgis_parcels, cache_bucket, deadline_from, num, select_parcel,
 )
 from housing_label.enrich.assessor.base import AssessorRecord
+from housing_label.enrich.durability import EARLIEST_PLAUSIBLE_YEAR
 
 log = logging.getLogger(__name__)
 
@@ -325,7 +326,7 @@ def _lookup_cached(lat: float, lon: float, address: str | None,
     # it would reach the scorer as a fact and age the building by two thousand
     # years. The dwelling check is the same rule the floor area applies — see
     # _says_a_home_is_here.
-    year_is_a_homes = bool(year and 1800 <= year <= 2100
+    year_is_a_homes = bool(year and EARLIEST_PLAUSIBLE_YEAR <= year <= 2100
                            and _says_a_home_is_here(row))
     year_built = int(year) if year_is_a_homes else None
     sqft = _area_of_one_home(row)
