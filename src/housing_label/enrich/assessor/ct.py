@@ -192,6 +192,7 @@ from housing_label.enrich.assessor._shared import (
     unit_of,
 )
 from housing_label.enrich.assessor.base import AssessorRecord
+from housing_label.enrich.durability import EARLIEST_PLAUSIBLE_YEAR
 
 log = logging.getLogger(__name__)
 
@@ -439,7 +440,7 @@ def _lookup_cached(lat: float, lon: float, address: str | None,
     # carry it — and without this it would reach the scorer as a fact and age the
     # building by two thousand years. The dwelling check is the same rule the floor
     # area applies; see _says_a_home_is_here.
-    year_built = int(year) if (year and 1800 <= year <= 2100
+    year_built = int(year) if (year and EARLIEST_PLAUSIBLE_YEAR <= year <= 2100
                                and _says_a_home_is_here(row)) else None
     sqft = _area_of_one_home(row)
     # A parcel that matched but recorded neither fact contributed nothing. Saying

@@ -353,6 +353,36 @@ def test_a_year_of_zero_is_not_the_year_zero():
     assert got.sqft == 3152.0, "the area survives; only the year is missing"
 
 
+def test_a_colonial_year_survives_the_adapter():
+    """Connecticut is why the plausibility floor moved: 8,375 of its dwellings are
+    recorded as built between 1600 and 1800, rising smoothly through the period
+    exactly as colonial settlement did.
+
+    An adapter refusing a year the scorer would accept is the same silent loss as a
+    missing registry entry — the parcel matches, the fact is thrown away, and the
+    label falls back to a tract quantile without anything saying so."""
+    for year in (1660.0, 1725.0, 1799.0):
+        got = _lookup([dict(_HOUSE, AYB=year)])
+        assert got is not None and got.year_built == int(year), year
+
+
+def test_the_adapter_floor_is_the_scorer_floor():
+    """The two used to be separate literals that happened to agree, which is how
+    they came to disagree. Pinned on behaviour at the boundary, in both directions,
+    so neither can move without the other."""
+    from housing_label.enrich.durability import EARLIEST_PLAUSIBLE_YEAR, _valid_year
+
+    floor = EARLIEST_PLAUSIBLE_YEAR
+    at_floor = _lookup([dict(_HOUSE, AYB=float(floor))])
+    assert at_floor is not None and at_floor.year_built == floor
+    assert _valid_year(floor)
+
+    below = _lookup([dict(_HOUSE, AYB=float(floor - 1))])
+    assert below is not None, "the row still carries a floor area"
+    assert below.year_built is None, "a year under the floor is not a year"
+    assert not _valid_year(floor - 1)
+
+
 def test_a_parcel_that_records_nothing_at_all_is_not_an_answer():
     """A real parcel with no year and no area contributed no fact. Passing it on
     would count as "the assessor answered" in both the reader's tag and the

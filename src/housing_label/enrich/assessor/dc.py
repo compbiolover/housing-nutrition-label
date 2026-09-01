@@ -81,6 +81,7 @@ from housing_label.enrich.assessor._shared import (
     num, same_address, select_parcel, strip_unit, unit_of,
 )
 from housing_label.enrich.assessor.base import AssessorRecord
+from housing_label.enrich.durability import EARLIEST_PLAUSIBLE_YEAR
 
 log = logging.getLogger(__name__)
 
@@ -351,7 +352,7 @@ def _condo_record(address: str | None, *, deadline: float | None = None):
         source=ATTRIBUTION,
         data_vintage=CONDO_VINTAGE,
         parcel_id=ssl,
-        year_built=int(year) if year and 1800 <= year <= 2100 else None,
+        year_built=int(year) if year and EARLIEST_PLAUSIBLE_YEAR <= year <= 2100 else None,
         sqft=area if area and area > 0 else None,
     )
 
@@ -394,7 +395,7 @@ def _residential_record(lat: float, lon: float, address: str | None,
         # depreciation — it moves when a property is improved, so it is a statement
         # about condition, not about when the building went up. The label asks for
         # the second.
-        year_built=int(year) if year and 1800 <= year <= 2100 else None,
+        year_built=int(year) if year and EARLIEST_PLAUSIBLE_YEAR <= year <= 2100 else None,
         sqft=gba if gba and gba > 0 else None,
         stories=_stories(row.get("STORIES")),
         construction=_EXT_WALL.get((row.get("EXTWALL_D") or "").strip()),

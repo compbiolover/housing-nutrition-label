@@ -24,9 +24,66 @@ def test_effective_year_prefers_effyr_then_yrblt():
     assert D.effective_year(1990, 2010) == 2010.0     # EFFYR wins when valid
     assert D.effective_year(1990, None) == 1990.0     # falls back to YRBLT
     assert D.effective_year(None, None) is None       # neither → None
-    # Out-of-range effective year is rejected, YRBLT used instead.
-    assert D.effective_year(1990, 1700) == 1990.0
+    # Out-of-range effective year is rejected, YRBLT used instead. The low stand-in
+    # is below EARLIEST_PLAUSIBLE_YEAR on purpose: 1700 used to sit here and is a
+    # real construction year in the rolls this project reads, so it stopped being
+    # an example of an implausible one when the floor moved to 1600.
+    assert D.effective_year(1990, 1500) == 1990.0
     assert D.effective_year(1990, D.REFERENCE_YEAR + 5) == 1990.0
+
+
+def test_a_colonial_year_is_a_year_not_a_typo():
+    """1600 is a plausibility floor, and the rolls this project reads are full of
+    real years beneath the old one: 8,375 Connecticut dwellings are recorded as
+    built between 1600 and 1800, and Washington's residential CAMA holds 29 dated
+    1776 to 1797."""
+    for year in (1600, 1641, 1725, 1776, 1799):
+        assert D._valid_year(year), year
+        assert D.effective_year(year, None) == float(year)
+
+
+def test_a_year_below_the_floor_is_still_refused():
+    """What the floor is actually for. Every one of these is a real value sitting
+    in Connecticut's statewide roll today, and none of them is a building."""
+    for junk in (1, 2, 15, 203, 630, 1020, 1500):
+        assert not D._valid_year(junk), junk
+    assert D.effective_year(1500, None) is None
+
+
+def test_the_floor_does_not_hand_out_a_bonus_for_being_older():
+    """The bug the floor used to be.
+
+    A rejected year is not scored as old — it is dropped, ``effective_year``
+    returns None, and the model falls back to the condition rating alone. So the
+    boundary inverted the dimension: a house built in 1799 scored 60.0 where the
+    same house built in 1800 scored 33.0, a 27-point bonus for being older, on the
+    dimension whose whole subject is age.
+
+    Pinned as a property rather than as two numbers: no year in this range may
+    score better than the year after it."""
+    scores = [D.model_parcel_durability(_row(YRBLT=y))["durability_score"]
+              for y in (1725, 1780, 1799, 1800, 1850, 1900)]
+    assert all(a <= b for a, b in zip(scores, scores[1:])), scores
+    assert len(set(scores)) == 1, (
+        f"every year here predates the 100-year structural shell, so all should "
+        f"land on the same saturated figure, got {scores}")
+
+
+def test_widening_the_floor_added_no_new_regime_below_it():
+    """The component basket saturates at the longest service life — 100 years for
+    the structural shell — so every building from 1926 back already reported 0%
+    remaining life and all 8 components past life.
+
+    A 1725 house therefore lands on exactly the figures a 1900 one does. That is
+    what makes the wider floor a removal of a discontinuity rather than an
+    extrapolation into years the model was never fitted for."""
+    old = D.model_parcel_durability(_row(YRBLT=1725))
+    ref = D.model_parcel_durability(_row(YRBLT=1900))
+    assert old["durability_remaining_life_pct"] == ref["durability_remaining_life_pct"] == 0.0
+    assert old["durability_components_past_life"] == ref["durability_components_past_life"] == len(D.COMPONENTS)
+    assert old["durability_score"] == ref["durability_score"]
+    # The one figure that legitimately differs is the age itself.
+    assert old["durability_effective_age"] > ref["durability_effective_age"]
 
 
 def test_age_basket_monotonic_and_bounded():
