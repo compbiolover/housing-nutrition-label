@@ -105,7 +105,6 @@ import time
 import urllib.parse
 from collections import OrderedDict
 
-import requests
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import Response as RawResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -593,7 +592,7 @@ def _suggest_get(url: str, params: dict) -> dict | None:
     bad API key) must fail fast so the page falls back quickly, not after minutes.
     """
     try:
-        r = requests.get(url, params=params, headers=HEADERS, timeout=_SUGGEST_TIMEOUT)
+        r = utils.http_session().get(url, params=params, headers=HEADERS, timeout=_SUGGEST_TIMEOUT)
         r.raise_for_status()
         return r.json()
     except Exception:  # noqa: BLE001 — any failure → quietly fall back / empty
@@ -866,7 +865,7 @@ def _google_autocomplete_request(text: str, session: str | None):
     body = {"input": text, "includedRegionCodes": ["us"], "languageCode": "en"}
     if session:
         body["sessionToken"] = session
-    return requests.post(
+    return utils.http_session().post(
         GOOGLE_PLACES_AUTOCOMPLETE_URL, json=body,
         headers={
             **HEADERS, "Content-Type": "application/json",
@@ -880,7 +879,7 @@ def _google_autocomplete_request(text: str, session: str | None):
 def _google_details_request(place_id: str, session: str | None):
     """GET Place Details for a place_id; returns the requests.Response (may raise)."""
     params = {"sessionToken": session} if session else None
-    return requests.get(
+    return utils.http_session().get(
         GOOGLE_PLACES_DETAILS_URL.rstrip("/") + "/"
         + urllib.parse.quote(place_id, safe=""), params=params,
         headers={

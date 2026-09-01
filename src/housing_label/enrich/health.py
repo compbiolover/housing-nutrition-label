@@ -58,7 +58,7 @@ Columns added
 from __future__ import annotations
 
 import logging
-import requests, pandas as pd
+import pandas as pd
 
 from housing_label import utils
 
@@ -139,7 +139,7 @@ def fetch_places_data(county_fips: str = COUNTY_FIPS) -> pd.DataFrame:
     records = None
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            r = requests.get(PLACES_URL, params=params, timeout=TIMEOUT)
+            r = utils.http_session().get(PLACES_URL, params=params, timeout=TIMEOUT)
             r.raise_for_status()
             records = r.json()
             break
@@ -260,7 +260,7 @@ def get_census_tract(lat: float, lon: float) -> str | None:
     }
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            r = requests.get(GEOCODER_URL, params=params, timeout=TIMEOUT)
+            r = utils.http_session().get(GEOCODER_URL, params=params, timeout=TIMEOUT)
             r.raise_for_status()
             data = r.json()
         except Exception as exc:

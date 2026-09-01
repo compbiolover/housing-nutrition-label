@@ -94,8 +94,8 @@ def test_outside_coverage_is_a_definitive_answer_not_a_failure():
     a permanent property of the location, so it must not be retried and must not
     raise — the caller simply keeps the county figure."""
     sp._yield_at.cache_clear()
-    with mock.patch.object(sp.requests, "get",
-                           return_value=_Resp(status=400)) as g:
+    g = mock.Mock(return_value=_Resp(status=400))
+    with mock.patch.object(sp.utils, "http_session", return_value=mock.Mock(get=g)):
         assert sp.solar_yield_near(71.29, -156.79) is None
         assert g.call_count == 1, "a 400 must not be retried"
 
@@ -105,7 +105,8 @@ def test_an_outage_raises_rather_than_returning_none():
     the caller from outside-coverage. An outage is a different fact and the label
     says so, so it cannot be flattened into the same return value."""
     sp._yield_at.cache_clear()
-    with mock.patch.object(sp.requests, "get", side_effect=RuntimeError("down")), \
+    with mock.patch.object(sp.utils, "http_session",
+                           return_value=mock.Mock(get=mock.Mock(side_effect=RuntimeError("down")))), \
          mock.patch.object(sp.utils, "retry_wait"):
         try:
             sp.solar_yield_near(35.5, -84.4)
@@ -116,8 +117,9 @@ def test_an_outage_raises_rather_than_returning_none():
 
 def test_a_successful_lookup_reports_the_yield_and_its_provenance():
     sp._yield_at.cache_clear()
-    with mock.patch.object(sp.requests, "get",
-                           return_value=_Resp(_payload(1502.3, 1899.1))):
+    with mock.patch.object(sp.utils, "http_session",
+                           return_value=mock.Mock(get=mock.Mock(
+                               return_value=_Resp(_payload(1502.3, 1899.1))))):
         got = sp.solar_yield_near(35.5, -84.4)
     assert got["yield_kwh_kwp"] == 1502.3
     assert got["irradiation"] == 1899.1
@@ -189,8 +191,12 @@ def test_an_outage_keeps_the_county_figure_and_says_so():
 
 
 def test_off_network_runs_never_reach_for_the_network():
-    """The batch path and --no-network runs must not acquire a live dependency."""
-    with mock.patch.object(sp.requests, "get",
+    """The batch path and --no-network runs must not acquire a live dependency.
+
+    Patching the shared session rather than one module's requests.get makes this
+    stricter than it was: ANY fetcher reaching for the network fails it, not just
+    the solar one."""
+    with mock.patch.object(sp.utils, "http_session",
                            side_effect=AssertionError("network!")):
         _cfg, _r, lbl = build_label_parts(location=_loc(), allow_network=False,
                                           value=250_000)

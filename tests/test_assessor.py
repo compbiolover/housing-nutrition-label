@@ -637,14 +637,18 @@ class _FakeResponse:
 
 
 def _with_fake_get(response):
-    """Swap cook_il's requests for one returning `response`. Returns a restorer."""
+    """Swap the shared HTTP session for one returning `response`. Returns a restorer.
+
+    The fetchers reach the network through utils.http_session() now — a pooled,
+    per-thread Session — so that is the seam to stub rather than a module's
+    `requests`."""
     class _Stub:
         @staticmethod
         def get(*_a, **_k):
             return response
-    original = _shared.requests
-    _shared.requests = _Stub
-    return lambda: setattr(_shared, "requests", original)
+    original = _shared.utils.http_session
+    _shared.utils.http_session = lambda: _Stub
+    return lambda: setattr(_shared.utils, "http_session", original)
 
 
 def test_a_dribbling_response_cannot_outlive_the_budget():
@@ -701,12 +705,12 @@ def test_no_single_read_may_block_longer_than_the_slice():
             seen["timeout"] = kw.get("timeout")
             return _FakeResponse([b"[]"])
 
-    original = _shared.requests
-    _shared.requests = _Stub
+    original = _shared.utils.http_session
+    _shared.utils.http_session = lambda: _Stub
     try:
         _shared.get_json("http://x", {}, time.monotonic() + 30)
     finally:
-        _shared.requests = original
+        _shared.utils.http_session = original
 
     timeout = seen["timeout"]
     assert isinstance(timeout, tuple), "a scalar timeout applies to reads too"
@@ -729,12 +733,12 @@ def test_the_slice_never_outlives_what_is_left_of_the_budget():
             seen["timeout"] = kw.get("timeout")
             return _FakeResponse([b"[]"])
 
-    original = _shared.requests
-    _shared.requests = _Stub
+    original = _shared.utils.http_session
+    _shared.utils.http_session = lambda: _Stub
     try:
         _shared.get_json("http://x", {}, time.monotonic() + 0.2)
     finally:
-        _shared.requests = original
+        _shared.utils.http_session = original
 
     connect, read = seen["timeout"]
     assert read <= 0.2 and connect <= 0.2

@@ -38,7 +38,6 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-import requests
 
 from housing_label import utils
 from housing_label.config import BACKOFF, HEADERS, RETRIES, TIMEOUT
@@ -89,7 +88,7 @@ def _yield_at(lat: float, lon: float, allow_network: bool) -> dict | None:
     params = dict(PVGIS_PARAMS, lat=f"{lat:.4f}", lon=f"{lon:.4f}")
     for attempt in range(1, RETRIES + 1):
         try:
-            r = requests.get(PVGIS_URL, params=params, headers=HEADERS,
+            r = utils.http_session().get(PVGIS_URL, params=params, headers=HEADERS,
                              timeout=TIMEOUT)
             # PVGIS answers 400 for a point outside the selected radiation
             # database. That is a definitive "no data here", not a failure, so it

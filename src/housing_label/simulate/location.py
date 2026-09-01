@@ -25,7 +25,6 @@ import logging
 from dataclasses import dataclass, field
 from functools import lru_cache
 
-import requests
 
 from housing_label import utils
 from housing_label.config import TIMEOUT, RETRIES, BACKOFF, HEADERS
@@ -145,7 +144,7 @@ def _get(url: str, params: dict) -> dict:
     """
     for attempt in range(1, RETRIES + 1):
         try:
-            r = requests.get(url, params=params, headers=HEADERS, timeout=TIMEOUT)
+            r = utils.http_session().get(url, params=params, headers=HEADERS, timeout=TIMEOUT)
             r.raise_for_status()
             return r.json()
         except Exception as exc:  # noqa: BLE001
