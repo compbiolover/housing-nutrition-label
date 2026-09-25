@@ -31,7 +31,8 @@ Shipped since the monetization memo:
   Together they cover roughly **14M homes, about 10% of US housing**.
 - **A measured accuracy harness** (`scripts/measure_accuracy.py`,
   `research/accuracy/results.json`). With the adapter on, year built within 10 years goes
-  from 39.7% to 77.8% in Cook and from 29.2% to 85.6% in DC. Construction-type exact match
+  from 39.7% to 87.2% in Cook and from 29.2% to 89.7% in DC, and exact year built from
+  1.0% to 77.8% in Cook and from 1.5% to 85.6% in DC. Construction-type exact match
   goes from 45.2% to 87.8% in Cook. That kind of evidence is what a paying buyer asks for.
 
 Still missing, from the memo's own list: payments, a pricing page, a durable usage ledger
@@ -66,12 +67,12 @@ adapters taught:
 
 | # | Jurisdiction | Endpoint | Homes (≈) | Fields beyond year built | Shape | Watch-outs |
 |---|---|---|---|---|---|---|
-| 1 | **Massachusetts** (statewide, MassGIS L3) | `services1.arcgis.com/hGdibHYSPO59RG1h/.../Massachusetts_Property_Tax_Parcels/FeatureServer/0` | 3.0M | `RES_AREA`, `STORIES`, `STYLE`, `UNITS`, `FY` | One request, like Florida | `RES_AREA` is null on multi-unit records; condo units appear as stacked records on one footprint, so DC-style unit matching is needed. `FY` gives the vintage. |
+| 1 | **Massachusetts** (statewide, MassGIS L3) | `services1.arcgis.com/hGdibHYSPO59RG1h/arcgis/rest/services/Massachusetts_Property_Tax_Parcels/FeatureServer/0` | 3.0M | `RES_AREA`, `STORIES`, `STYLE`, `UNITS`, `FY` | One request, like Florida | `RES_AREA` is null on multi-unit records; condo units appear as stacked records on one footprint, so DC-style unit matching is needed. `FY` gives the vintage. |
 | 2 | **North Carolina** (statewide, NC OneMap, all 100 counties) | `services.nconemap.gov/secure/rest/services/NC1Map_Parcels/FeatureServer/1` | 4.9M | `structyear`, `struct` (Y/N), `parusedesc` | One request | Year built only, no floor area or materials. **`structyear = 0` means missing**; map it to None, never to year 0. Fill varies by county, so measure before claiming coverage. |
-| 3 | **Utah** (UGRC LIR, 29 per-county layers) | `services1.arcgis.com/99lidPhWCzftIe9K/.../Parcels_<County>_LIR/FeatureServer/0` | 1.2M | `BUILT_YR`, `EFFBUILT_YR`, `BLDG_SQFT`, `FLOORS_CNT`, `CONST_MATERIAL`, `CURRENT_ASOF` | One request; 29 URLs from one template | Condo trap confirmed live: Salt Lake condos report `FLOORS_CNT = 27`, the tower's floor count. `CONST_MATERIAL` is coded (e.g. `MT`) and needs a mapping table; translate only unambiguous codes. `EFFBUILT_YR` is a useful durability input the other adapters lack. |
+| 3 | **Utah** (UGRC LIR, 29 per-county layers) | `services1.arcgis.com/99lidPhWCzftIe9K/arcgis/rest/services/Parcels_<County>_LIR/FeatureServer/0` | 1.2M | `BUILT_YR`, `EFFBUILT_YR`, `BLDG_SQFT`, `FLOORS_CNT`, `CONST_MATERIAL`, `CURRENT_ASOF` | One request; 29 URLs from one template | Condo trap confirmed live: Salt Lake condos report `FLOORS_CNT = 27`, the tower's floor count. `CONST_MATERIAL` is coded (e.g. `MT`) and needs a mapping table; translate only unambiguous codes. `EFFBUILT_YR` (effective age) has no slot in `AssessorRecord` today; adding one would be a contract change like #6's. |
 | 4 | **Los Angeles County** | `public.gis.lacounty.gov/public/rest/services/LACounty_Cache/LACounty_Parcel/MapServer/0` | 3.6M | `YearBuilt1..5`, `EffectiveYear1..5`, `SQFTmain1..5`, `Units1..5`, `QualityClass1..5`, `Roll_Year` | One request | Up to five buildings per parcel in numbered columns. Pick the residential one, or return nothing when it is ambiguous. `YearBuilt1` is a string. The largest single county in the US. |
 | 5 | **New York City** (PLUTO, Socrata `64uk-42ks`) | `data.cityofnewyork.us/resource/64uk-42ks.json` | 3.7M | `yearbuilt`, `yearalter1/2`, `numfloors`, `bldgarea`, `resarea`, `unitsres`, `bsmtcode`, `bldgclass` | Needs a BBL: point-to-lot via MapPLUTO, then the row | `bldgarea` is lot-level, so apply the one-home rule to `unitsres`. PLUTO carries `ownername`; drop it at ingest as the base contract requires. |
-| 6 | **New York State** (NYS ITS public parcels) | `gisservices.its.ny.gov/arcgis/rest/services/NYS_Tax_Parcels_Public/MapServer/1` | ~3–5M (opt-in counties only) | `YR_BLT`, `SQFT_LIVING`, `BLDG_STYLE_DESC`, **`HEAT_TYPE_DESC`, `FUEL_TYPE_DESC`, `SEWER_DESC`, `WATER_DESC`** | One request | Only counties that opted in to public release are present, so the `COUNTY_FIPS` list must be taken from the data, not the state. It is the only candidate with heating fuel, sewer and water supply, which feed Energy, Environmental and Water Quality directly. NYC is not in it (see #5). Albany's sample had `SQFT_LIVING` null. |
+| 6 | **New York State** (NYS ITS public parcels) | `gisservices.its.ny.gov/arcgis/rest/services/NYS_Tax_Parcels_Public/MapServer/1` | ~3–5M (opt-in counties only) | `YR_BLT`, `SQFT_LIVING`, `BLDG_STYLE_DESC`, **`HEAT_TYPE_DESC`, `FUEL_TYPE_DESC`, `SEWER_DESC`, `WATER_DESC`** | One request | Only counties that opted in to public release are present, so the `COUNTY_FIPS` list must be taken from the data, not the state. It is the only candidate with heating fuel, sewer and water supply. These are **future** inputs: `AssessorRecord` carries only year built, area, stories, construction, foundation and condition, so feeding them to Energy, Environmental or Water Quality means extending that contract and plumbing the fields through the scoring paths first. Ship the year-built/area adapter, then that as its own change. NYC is not in it (see #5). Albany's sample had `SQFT_LIVING` null. |
 | 7 | **Philadelphia** (OPA, Carto SQL) | `phl.carto.com/api/v2/sql` on `opa_properties_public` | 0.7M | `year_built`, `total_livable_area`, `number_stories`, `exterior_condition`, `interior_condition` | Two hops (point → parcel → OPA row), or one SQL query with `ST_Contains` | Condition is a 1–7 code; map it the way DC's CNDTN is mapped. Small, but full condition data. |
 | 8 | **Maryland** (MDP statewide CAMA) | `mdgeodata.md.gov/imap/rest/services/PlanningCadastre/MD_ComputerAssistedMassAppraisal/MapServer/0,1` | 2.6M | `BL_YEARBLT`, `BL_ENCSQFT`, `BL_BLDSTYL`, `BL_BLDGRAD`, `CM_BLDUNTS` | Point layers keyed on `ACCTID`; needs a parcel→account hop via `MD_ParcelBoundaries` | `geodata.md.gov` returned a maintenance page during this check; `mdgeodata.md.gov` answered. The CAMA layers have `minScale 10000`, so check that attribute queries are not scale-gated. |
 
@@ -82,7 +83,7 @@ Suggested build order: **MA → NC → Utah → LA → NYC → NYS → Philadelp
 MA, NC and Utah are one-request statewide layers like Florida's, so each is about a
 one-PR job on top of `_shared.arcgis_parcels`. LA is a single county but the largest. NYC
 and NYS are worth their extra work: NYC for its density, NYS because it is the only source
-with fuel, sewer and water fields.
+with fuel, sewer and water fields (usable once the record contract is extended; see #6).
 
 ### 1.3 Excluded, and why
 
