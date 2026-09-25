@@ -38,9 +38,10 @@ Still missing, from the memo's own list: payments, a pricing page, a durable usa
 (`entitlements.py` keeps usage in memory), terms of service, a USPTO filing, fair-housing
 counsel and outcome validation.
 
-**The adapters are off in production by default.** Until `ASSESSOR_ADAPTERS` is on for the
-hosted API, none of the accuracy gain reaches a user. Turning it on is the cheapest
-improvement available (step 1 in §3).
+**The adapters were off in production until this change.** Until `ASSESSOR_ADAPTERS` was
+set for the hosted API, none of the accuracy gain reached a user. This PR sets it in
+`render.yaml`, after measuring the cost: about +0.7 s per label in Cook, DC and CT, about
++3 s in Florida, and nothing elsewhere.
 
 ---
 
@@ -175,9 +176,9 @@ nothing in §2 should take money before they are done.
 
 **Engineering, ordered by value per effort**
 
-1. **Turn `ASSESSOR_ADAPTERS` on in production** after one latency check on the Render
-   instance. The accuracy gains are already built and measured but reach no user while the
-   flag is off.
+1. ~~**Turn `ASSESSOR_ADAPTERS` on in production.**~~ Done in this PR (`render.yaml`). It
+   takes effect when the Render blueprint is synced, or when the variable is set in the
+   dashboard, because `autoDeploy` is off.
 2. **Durable usage ledger plus Stripe.** `entitlements.py` explains why the in-memory
    ledger cannot bill. A managed Postgres, or SQLite on a Render disk, plus Stripe metered
    billing keyed on the existing SHA-256 key digests, closes the gap. Add the "observed"
@@ -200,6 +201,6 @@ nothing in §2 should take money before they are done.
    schedule, not a live query). Decide on it once 1–6 are done.
 
 **What would change this plan:** a counsel opinion that rules out a segment; a discovery
-call that turns up a buyer segment not listed here; or the production latency check in
-engineering step 1 failing, which would push the adapter work toward cached extracts
+call that turns up a buyer segment not listed here; or production latency after the switch-on
+turning out worse than measured, which would push the adapter work toward cached extracts
 sooner.
