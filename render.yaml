@@ -90,9 +90,10 @@ services:
       # critical path; on here because the cost was measured before switching it
       # on (2026-09-25, same four jurisdictions, adapters off vs on): about +0.7 s
       # per label in Cook, DC and CT, about +3 s in Florida, nothing elsewhere.
-      # Each adapter carries its own hard deadline (4 s; CT 6 s; FL 7 s) inside
-      # UPSTREAM_BUDGET, and every failure falls back to the modelled value. Set
-      # to "0" from the dashboard to switch off without a code change.
+      # Each adapter carries its own hard deadline (4 s; CT 6 s; FL 7 s; DC condo
+      # units 8 s) inside UPSTREAM_BUDGET, and every failure falls back to the
+      # modelled value. Set to "0" from the dashboard to switch off without a
+      # code change.
       - key: ASSESSOR_ADAPTERS
         value: "1"
       # Optional address-autocomplete upgrades (else the keyless Photon geocoder).
