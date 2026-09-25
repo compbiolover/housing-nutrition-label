@@ -777,3 +777,106 @@ def test_an_implausibly_large_body_is_refused_rather_than_read_to_the_end():
         assert raised is not None and "exceeded" in str(raised)
     finally:
         restore()
+
+
+# ── A failed lookup must not be cached as the label's answer ─────────────────────
+#
+# The adapters fail open, so a county portal's bad minute produces a label built
+# from modelled values. That label is right for the reader in front of it and wrong
+# to keep: the API caches a scored label on its coordinate for hours. These pin the
+# signal that stops it — the failing host recorded as a dataset the request went
+# without, which is what api._may_cache already refuses to cache.
+
+def test_a_failed_request_is_recorded_as_a_dataset_the_label_went_without():
+    from housing_label import utils
+    restore = _with_fake_get(_FakeResponse([b""]))       # a portal glitch
+    utils.begin()
+    try:
+        try:
+            _shared.get_json("https://portal.example.gov/q", {}, time.monotonic() + 5)
+        except RuntimeError:
+            pass
+        else:
+            raise AssertionError("an empty body was treated as an answer")
+        assert utils.starved() == ["portal.example.gov"]
+    finally:
+        utils.drain()
+        restore()
+
+
+def test_an_answer_is_not_recorded_even_when_it_is_empty():
+    """"No parcel here" is an answer and cacheable; only a failure is not."""
+    from housing_label import utils
+    restore = _with_fake_get(_FakeResponse([b'{"features": []}']))
+    utils.begin()
+    try:
+        assert _shared.get_json("https://portal.example.gov/q", {},
+                                time.monotonic() + 5) == {"features": []}
+        assert utils.starved() == []
+    finally:
+        utils.drain()
+        restore()
+
+
+def test_outside_a_request_a_failure_records_nothing():
+    """The CLI and batch jobs open no window; recording there would grow a list on
+    a reused thread for the life of the process."""
+    from housing_label import utils
+    utils.drain()
+    restore = _with_fake_get(_FakeResponse([b""]))
+    try:
+        try:
+            _shared.get_json("https://portal.example.gov/q", {}, time.monotonic() + 5)
+        except RuntimeError:
+            pass
+        assert utils.starved() == []
+    finally:
+        restore()
+
+
+def test_a_county_outage_reaches_the_cache_decision():
+    """End to end through the gate: the adapter still fails open to None, and the
+    API's cache check now sees the outage."""
+    from housing_label import api, utils
+    restore = _with_fake_get(_FakeResponse([b""]))
+    saved_env = os.environ.get(A.ENABLE_ENV)
+    os.environ[A.ENABLE_ENV] = "1"
+    cook_il._lookup_cached.cache_clear()
+    utils.begin()
+    try:
+        assert A.assessor_for_point(41.9484, -87.6553, "17031") is None
+        assert utils.starved() == ["gis.cookcountyil.gov"]
+        assert utils.dataset_name("gis.cookcountyil.gov") == "the Cook County Assessor records"
+        assert api._may_cache(False) is False
+    finally:
+        utils.drain()
+        restore()
+        cook_il._lookup_cached.cache_clear()
+        if saved_env is None:
+            os.environ.pop(A.ENABLE_ENV, None)
+        else:
+            os.environ[A.ENABLE_ENV] = saved_env
+
+
+def test_every_adapter_host_has_a_readable_name():
+    """The payload names the dataset a label went without; a bare hostname would
+    tell a reader nothing."""
+    from urllib.parse import urlsplit
+
+    from housing_label import utils
+    from housing_label.enrich.assessor import ct, dc, fl
+    urls = [cook_il.PARCEL_URL, cook_il.CAMA_URL, dc.PARCEL_URL, dc.CAMA_URL,
+            dc.UNITS_URL, dc.CONDO_CAMA_URL, fl.PARCEL_URL, ct.PARCEL_URL]
+    for url in urls:
+        host = urlsplit(url).hostname
+        assert utils.dataset_name(host) != host, f"{host} has no readable name"
+
+
+def test_the_hosted_api_declares_the_adapters_on():
+    """The production switch lives in render.yaml. A blueprint re-sync that lost it
+    would quietly put every label back on modelled construction data."""
+    import re
+    render = (_ROOT / "render.yaml").read_text(encoding="utf-8")
+    # No YAML parser in the dependency set; the entry's two lines are the contract.
+    assert re.search(r'- key: %s\n\s+value: "1"' % A.ENABLE_ENV, render), (
+        "render.yaml no longer switches the assessor adapters on")

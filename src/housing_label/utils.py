@@ -185,6 +185,15 @@ def _note_starved(host: str) -> None:
         seen.append(host)
 
 
+def note_dropped(host: str) -> None:
+    """Record ``host`` as a dataset this request went without, for a reason of its
+    own rather than this module's budget: a caller that enforces its own deadline
+    (the county assessor adapters do) and fails open. Same consequences as a
+    refusal here — named in the payload, and the label is not cached. A no-op
+    outside a request window, so the CLI and batch jobs are unaffected."""
+    _note_starved(host)
+
+
 def starved() -> list[str]:
     """Hosts this request refused to wait for, in the order they ran out.
 
@@ -315,6 +324,14 @@ DATASET_NAMES = {
     "tigerweb.geo.census.gov": "the Census TIGERweb road network",
     "api.census.gov": "the Census ACS API",
     "re.jrc.ec.europa.eu": "the PVGIS solar-yield service",
+    # County assessor adapters (enrich/assessor). Keyed on the host each adapter
+    # queries; services3/services9 are ArcGIS Online shards that only the
+    # Connecticut and Florida adapters use today.
+    "gis.cookcountyil.gov": "the Cook County Assessor records",
+    "datacatalog.cookcountyil.gov": "the Cook County Assessor records",
+    "maps2.dcgis.dc.gov": "the DC Office of Tax and Revenue records",
+    "services9.arcgis.com": "the Florida statewide parcel records",
+    "services3.arcgis.com": "the Connecticut statewide parcel records",
 }
 
 
