@@ -29,6 +29,7 @@ import json
 import logging
 import re
 import time
+from urllib.parse import urlsplit
 
 from housing_label import utils
 
@@ -94,6 +95,27 @@ def num(v):
 def get_json(url: str, params: dict, deadline: float,
              read_slice: float = _READ_SLICE_S):
     """One request against the shared budget. Raises if the budget is spent.
+
+    A raise here is, by this module's own rules, transient: a timeout, a 5xx, an
+    ArcGIS error in a 200 body, an empty body. The adapter swallows it and the
+    label falls back to its modelled values, which is right for the reader in
+    front of it — and wrong to *keep*. The API caches a scored label on its
+    coordinate for hours, and a label built while a county portal was having a
+    bad minute would pin that minute's fallback onto the address. So the failing
+    host is recorded as a dataset this request went without
+    (``utils.note_dropped``): the label is then not cached, and the payload names
+    the county source among its slow datasets. A lookup that *answers* "no record
+    here" does not raise and is not recorded; that is an answer, and cacheable.
+    """
+    try:
+        return _fetch_json(url, params, deadline, read_slice)
+    except Exception:
+        utils.note_dropped(urlsplit(url).hostname or url)
+        raise
+
+
+def _fetch_json(url: str, params: dict, deadline: float, read_slice: float):
+    """The request itself; see :func:`get_json`, which is the only caller.
 
     ``requests``' timeout bounds the connect and the gap BETWEEN reads, not the
     total time spent reading — a portal dribbling one byte inside every window
