@@ -218,11 +218,22 @@ def _capped(timeout, allow: float):
         return allow
 
 
+# The dropped-host list is shared by every thread working for one label (see
+# fan_out), and "not already listed, then append" is two steps: three TIGERweb
+# workers refused at once could each find the host absent and each add it, naming
+# one dataset three times in the payload. The lock makes the check and the append
+# one step.
+_starved_lock = threading.Lock()
+
+
 def _note_starved(host: str) -> None:
     """Note that ``host`` was refused, for the caller that reports the label."""
     seen = getattr(_timings, "starved", None)
-    if seen is not None and host not in seen and len(seen) < _MAX_RECORDED:
-        seen.append(host)
+    if seen is None:
+        return
+    with _starved_lock:
+        if host not in seen and len(seen) < _MAX_RECORDED:
+            seen.append(host)
 
 
 def note_dropped(host: str) -> None:

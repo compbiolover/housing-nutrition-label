@@ -435,3 +435,19 @@ def test_calls_started_together_still_run_together():
         assert len(offered) == 3 and min(offered) > 11.5
     finally:
         utils.drain()
+
+
+def test_a_host_dropped_by_several_workers_is_named_once():
+    """Three TIGERweb workers refused at the same moment must not list the
+    dataset three times in the payload."""
+    utils.begin(budget=30, per_host=12)
+    try:
+        go = threading.Barrier(8)
+
+        def drop():
+            go.wait(2)
+            utils.note_dropped("tigerweb.example.gov")
+        utils.gather(utils.fan_out(*[drop] * 8))
+        assert utils.starved() == ["tigerweb.example.gov"]
+    finally:
+        utils.drain()
