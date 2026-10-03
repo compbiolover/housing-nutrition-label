@@ -429,6 +429,7 @@ DATASET_NAMES = {
     "gis.cccounty.us": "the Contra Costa County, CA Assessor parcels",
     "services2.arcgis.com/GQhSReJEO6f7tsvy": "the San Joaquin County, CA Assessor parcels",
     "gis.countyofriverside.us": "the Riverside County, CA Assessor records",
+    "data.sf.gov": "the San Francisco Assessor-Recorder secured roll (DataSF)",
 }
 
 
