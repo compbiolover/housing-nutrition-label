@@ -9,6 +9,24 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.2.16](https://github.com/compbiolover/housing-nutrition-label/compare/v0.2.15...v0.2.16) (2026-10-03)
+
+
+### Features
+
+* **assessor:** add the eight planned adapters, and a coverage page ([#325](https://github.com/compbiolover/housing-nutrition-label/issues/325)) ([af1aed0](https://github.com/compbiolover/housing-nutrition-label/commit/af1aed060d6b18c61af18965b2a0da9e57dc0ed7))
+* **assessor:** switch the adapters on in production, and plan the next ones ([#322](https://github.com/compbiolover/housing-nutrition-label/issues/322)) ([6506428](https://github.com/compbiolover/housing-nutrition-label/commit/6506428a7c9b3d5b3300b6bc66934ef154d88927))
+
+
+### Code Refactoring
+
+* **assessor:** one shared set of address spellings, one parcel request ([#326](https://github.com/compbiolover/housing-nutrition-label/issues/326)) ([21c0976](https://github.com/compbiolover/housing-nutrition-label/commit/21c09763a5dce07d07eedef6c4d527209371781b))
+
+
+### Performance Improvements
+
+* ask a label's upstreams at the same time, and start scoring at the pick ([#324](https://github.com/compbiolover/housing-nutrition-label/issues/324)) ([abe5ce3](https://github.com/compbiolover/housing-nutrition-label/commit/abe5ce3fe7754038cd7b2df68dd2cce5ff0207d0))
+
 ## [0.2.15](https://github.com/compbiolover/housing-nutrition-label/compare/v0.2.14...v0.2.15) (2026-09-01)
 
 
