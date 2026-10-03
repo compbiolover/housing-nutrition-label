@@ -715,6 +715,7 @@ def _render(results: dict) -> str:
     <li><a href="methodology.html">Methodology</a></li>
     <li><a href="examples.html">Examples</a></li>
     <li><a href="label.html">Label</a></li>
+    <li><a href="coverage.html">Coverage</a></li>
     <li><a href="setup.html">Setup</a></li>
     <li><a href="reference.html">Reference</a></li>
     <li><a href="https://github.com/compbiolover/housing-nutrition-label">GitHub</a></li>
@@ -746,9 +747,11 @@ jurisdiction served.</strong>
 Each figure describes one place's housing stock and record-keeping.
 Nothing here supports a claim about anywhere else, and the sections should not
 be averaged into one. An adapter can serve a jurisdiction that carries no figure
-here: Florida's statewide adapter covers all 67 counties and Connecticut's covers
-all 169 municipalities, and both are unmeasured, so these numbers say nothing about
-either. Serving is not measuring.</li>
+here — Florida, Connecticut, Los Angeles County, New York City and State,
+Philadelphia, North Carolina, Maryland, Massachusetts and Utah are all served and none
+is measured, so these numbers say nothing about any of them. Each carries a
+wrong-parcel verification instead, listed on the <a href="coverage.html">coverage
+page</a>. Serving is not measuring.</li>
 {_dc_caveat(juris)}
 <li>The assessor's own record is treated as truth. It can be stale or wrong; it is
 the best available reference, not a survey.</li>

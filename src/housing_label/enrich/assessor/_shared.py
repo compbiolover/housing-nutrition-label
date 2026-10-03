@@ -108,10 +108,28 @@ def get_json(url: str, params: dict, deadline: float,
     here" does not raise and is not recorded; that is an answer, and cacheable.
     """
     try:
-        return _fetch_json(url, params, deadline, read_slice)
+        body = _fetch_json(url, params, deadline, read_slice)
     except Exception:
         utils.note_dropped(urlsplit(url).hostname or url)
         raise
+    # A layer caps how many features one response may carry (1,000 or 2,000 on
+    # these services) and says so with ``exceededTransferLimit`` rather than by
+    # failing. A truncated page is not "these are the parcels here": the rows it
+    # dropped can include a second parcel at the same address, so a match that
+    # looks unique on the page may not be. Refused HERE, in the one function every
+    # adapter's requests pass through, rather than in each caller — three adapters
+    # had already written their own request and two of them had missed it.
+    # Raised outside the block above on purpose: this is the service answering
+    # "too many to list", not an outage, so it is not recorded as a dropped
+    # dataset. It stays uncached all the same, because the lookup fails open.
+    if isinstance(body, dict) and body.get("exceededTransferLimit"):
+        raise TruncatedResponse(f"{urlsplit(url).hostname}: response truncated at the "
+                                f"service's transfer limit")
+    return body
+
+
+class TruncatedResponse(RuntimeError):
+    """The service returned only part of what matched the query."""
 
 
 def _fetch_json(url: str, params: dict, deadline: float, read_slice: float):
@@ -206,7 +224,30 @@ SUFFIXES = {
     "pl": "pl", "place": "pl", "way": "way", "ter": "ter", "terrace": "ter",
     "pkwy": "pkwy", "parkway": "pkwy", "cir": "cir", "circle": "cir",
     "hwy": "hwy", "highway": "hwy", "trl": "trl", "trail": "trl",
+    "wy": "way",
 }
+
+# Street types that also LEAD a street's name: "AVENUE L8" in Lancaster, "AVENUE J"
+# in Brooklyn, "HIGHWAY 66". In that position — first in the name, or after only a
+# directional — a digit-bearing token that follows is the street's own name, not a
+# unit, so the unmarked-unit rule in address_key must not strip it: doing so made
+# "45 E AVENUE L8" and "45 E AVENUE L10" the same street. In the ordinary trailing
+# position ("234 W STATION AVE B12") the type ends the name and the token after it
+# is still a unit, exactly as after ST.
+LEADING_TYPES = frozenset({"ave", "av", "avenue", "hwy", "highway"})
+# Only the ABBREVIATED directionals, and at most one. A spelled-out "NORTH" before
+# AVE is the street's name, not a directional — "1600 W NORTH AVE B12" is North
+# Avenue, whose type ends the name and whose B12 is still a unit.
+_DIRECTIONALS = frozenset({"n", "s", "e", "w", "ne", "nw", "se", "sw"})
+
+
+def _leads_the_name(rest: list[str]) -> bool:
+    """Whether ``rest[-2]`` is a leading street type: AVENUE/HIGHWAY first in the
+    name, or after a single abbreviated directional."""
+    if rest[-2] not in LEADING_TYPES:
+        return False
+    before = rest[:-2]
+    return not before or (len(before) == 1 and before[0] in _DIRECTIONALS)
 
 # Everything from a unit marker onwards is dropped: a parcel layer writes
 # "234 W STATION ST B12" for one condo, and a unit number must not decide whether
@@ -342,7 +383,12 @@ def address_key(raw: str | None, locality: frozenset[str] = frozenset()):
     # "234 W STATION ST B12" and "234 W STATION ST" would parse differently and
     # fail to match. Inverting these two is a silent coverage loss, so the order
     # is pinned by a test.
-    if len(rest) >= 2 and rest[-2] in SUFFIXES and any(c.isdigit() for c in rest[-1]):
+    if len(rest) >= 2 and _leads_the_name(rest):
+        # A leading type is part of the name, so it is spelled one way for
+        # comparison: the roll writes "AVENUE L8", the geocoder "AVE L8".
+        rest = rest[:-2] + [SUFFIXES[rest[-2]], rest[-1]]
+    elif (len(rest) >= 2 and rest[-2] in SUFFIXES
+            and any(c.isdigit() for c in rest[-1])):
         rest = rest[:-1]
     # Only a TERMINAL street type is a street type. Consuming the token wherever it
     # appeared collapsed "213 ST JOHN ST" onto "213 JOHN ST" and "100 PARK PLACE DR"
@@ -391,8 +437,13 @@ def same_address(a: str | None, b: str | None,
 
 def arcgis_parcels(url: str, lat: float, lon: float, out_fields: str,
                    distance_m: float = 0, *, deadline: float,
-                   read_slice: float = _READ_SLICE_S) -> list[dict]:
+                   read_slice: float = _READ_SLICE_S,
+                   where: str | None = None) -> list[dict]:
     """Parcel attributes at (or within ``distance_m`` of) a point.
+
+    ``where`` is an optional attribute predicate, for a layer that mixes rows the
+    adapter must never read (Maryland's owner-mailing-address rows) with the ones
+    it can.
 
     ``out_fields`` is always an explicit list and never ``*``. Some parcel layers
     carry owner names, mailing addresses and tax balances alongside the geometry;
@@ -415,6 +466,9 @@ def arcgis_parcels(url: str, lat: float, lon: float, out_fields: str,
     if distance_m:
         params["distance"] = str(distance_m)
         params["units"] = "esriSRUnit_Meter"
+    if where:
+        params["where"] = where
+    # A truncated page raises inside get_json; see TruncatedResponse there.
     body = get_json(url, params, deadline, read_slice)
     return [(f or {}).get("attributes") or {}
             for f in ((body or {}).get("features") or [])]

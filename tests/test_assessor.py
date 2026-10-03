@@ -183,8 +183,20 @@ def test_fields_omits_what_the_county_does_not_say():
 def test_cook_county_resolves_and_pads():
     assert A.adapter_for_county("17031") is cook_il
     assert A.adapter_for_county(17031) is cook_il          # int, unpadded
-    assert A.adapter_for_county("06037") is None           # LA — no adapter
+    assert A.adapter_for_county("06001") is None           # Alameda — no adapter
     assert A.adapter_for_county(None) is None
+
+
+def test_the_2026_10_adapters_are_reachable():
+    """Registered, not just written: an adapter missing from ADAPTERS fails open
+    for its whole jurisdiction, silently, exactly like a county with no record."""
+    from housing_label.enrich.assessor import la, ma, md, nc, nyc, nys, phl, ut
+    for fips, mod in (("06037", la), ("25025", ma), ("24510", md), ("37183", nc),
+                      ("36061", nyc), ("36029", nys), ("42101", phl), ("49035", ut)):
+        assert A.adapter_for_county(fips) is mod, fips
+    # New York City and New York State are disjoint: the five boroughs belong to
+    # the city's PLUTO adapter, never to the state's opt-in layer.
+    assert not set(nyc.COUNTY_FIPS) & set(nys.COUNTY_FIPS)
 
 
 def test_the_gate_is_off_unless_switched_on(monkeypatch=None):
@@ -864,9 +876,11 @@ def test_every_adapter_host_has_a_readable_name():
     from urllib.parse import urlsplit
 
     from housing_label import utils
-    from housing_label.enrich.assessor import ct, dc, fl
-    urls = [cook_il.PARCEL_URL, cook_il.CAMA_URL, dc.PARCEL_URL, dc.CAMA_URL,
-            dc.UNITS_URL, dc.CONDO_CAMA_URL, fl.PARCEL_URL, ct.PARCEL_URL]
+    # Every *_URL every registered adapter defines, so a new adapter's host is
+    # checked the day it is registered rather than when someone remembers.
+    urls = sorted({v for mod in set(A.ADAPTERS.values()) for k, v in vars(mod).items()
+                   if k.endswith("_URL") and isinstance(v, str) and v.startswith("http")})
+    assert len(urls) >= 8
     for url in urls:
         host = urlsplit(url).hostname
         assert utils.dataset_name(host) != host, f"{host} has no readable name"
@@ -880,3 +894,135 @@ def test_the_hosted_api_declares_the_adapters_on():
     # No YAML parser in the dependency set; the entry's two lines are the contract.
     assert re.search(r'- key: %s\n\s+value: "1"' % A.ENABLE_ENV, render), (
         "render.yaml no longer switches the assessor adapters on")
+
+
+# --- shared safeguards raised while building the 2026-10 adapters ----------------
+
+
+def test_a_geocoder_substituted_street_is_not_what_the_parcel_is_confirmed_against():
+    """The Census matcher turned 123 Finlay St into 123 Finlay Ave; confirming the
+    parcel against its answer named the wrong house as observed fact."""
+    from housing_label.simulate.location import assessor_address
+    typed = "123 Finlay St, Staten Island, NY 10307"
+    assert assessor_address("123 FINLAY AVE, STATEN ISLAND, NY, 10309", typed) == typed
+    # A different house number is the same failure, lettered half-lots included.
+    assert assessor_address("125 FINLAY ST, STATEN ISLAND, NY, 10307", typed) == typed
+    lettered = "770A Greene Ave, Brooklyn, NY 11221"
+    assert assessor_address("770 GREENE AVE, BROOKLYN, NY, 11221", lettered) == lettered
+
+
+def test_a_geocoder_substituted_street_name_is_caught_too():
+    """The Census matcher turned 21 Longwood Ave, Wareham into 21 Linwood Ave,
+    3 km away — the Massachusetts adapter's only wrong parcel in verification."""
+    from housing_label.simulate.location import assessor_address
+    typed = "21 Longwood Ave, Wareham, MA"
+    assert assessor_address("21 LINWOOD AVE, WAREHAM, MA, 02571", typed) == typed
+
+
+def test_the_matchers_formatting_still_wins():
+    """Case, spelled-out street types and directionals, ordinals, and an omitted
+    street type all mean the same street; none of them is a substitution."""
+    from housing_label.simulate.location import assessor_address
+    m = "123 FINLAY ST, STATEN ISLAND, NY, 10307"
+    assert assessor_address(m, "123 finlay street") == m
+    assert assessor_address(m, "123 Finlay, Staten Island") == m
+    assert assessor_address(m, "Some Place Name") == m
+    n = "40 N 5TH AVE, MOUNT VERNON, NY, 10550"
+    assert assessor_address(n, "40 North Fifth Avenue, Mount Vernon, NY") == n
+    s = "9 ST JAMES PL, BROOKLYN, NY, 11205"
+    assert assessor_address(s, "9 Saint James Place, Brooklyn") == s
+
+
+def test_a_street_named_avenue_l8_is_not_avenue_l10():
+    """A digit token after a LEADING street type is the street's name, not a
+    unit. Stripping it made two Lancaster streets compare equal."""
+    from housing_label.enrich.assessor._shared import same_address
+    assert not same_address("45 E AVENUE L8", "45 E AVENUE L10")
+    assert not same_address("100 HIGHWAY 66", "100 HIGHWAY 61")
+    # The unmarked-unit rule still works after an ordinary trailing type —
+    # including AVENUE and HIGHWAY when they end the name rather than lead it.
+    assert same_address("234 W STATION ST B12", "234 W STATION ST")
+    assert same_address("234 W STATION AVE B12", "234 W STATION AVE")
+    assert same_address("9 OLD COUNTY HWY 4B", "9 OLD COUNTY HWY")
+
+
+def test_a_truncated_page_is_not_an_answer(monkeypatch):
+    """A response cut at the service's transfer limit may have dropped the second
+    parcel that would make a match ambiguous, so it must not be used as one."""
+    import pytest
+    from housing_label import utils
+    monkeypatch.setattr(_shared, "_fetch_json", lambda *a, **k: {
+        "features": [{"attributes": {"PIN": "1"}}], "exceededTransferLimit": True})
+    utils.begin(budget=30, per_host=12)
+    try:
+        # Through the shared parcel query, and through get_json directly — the
+        # path an adapter's own request takes (Maryland's, New York State's).
+        with pytest.raises(_shared.TruncatedResponse):
+            _shared.arcgis_parcels("https://example.gov/q", 41.0, -87.0, "PIN", 80,
+                                   deadline=time.monotonic() + 4)
+        with pytest.raises(_shared.TruncatedResponse):
+            _shared.get_json("https://example.gov/q", {}, time.monotonic() + 4)
+        # "Too many to list" is an answer, not an outage: not a dropped dataset.
+        assert utils.starved() == []
+    finally:
+        utils.drain()
+
+
+def test_way_abbreviated_wy_is_way():
+    from housing_label.enrich.assessor._shared import same_address
+    assert same_address("10 SUNSET WY", "10 SUNSET WAY")
+    assert not same_address("10 SUNSET WY", "10 SUNSET ST")
+
+
+def test_an_adapter_that_takes_the_county_is_given_it(monkeypatch):
+    """Utah keeps one layer per county; handing it the county the geocoder already
+    resolved saves a boundary request on every lookup."""
+    import os
+    from housing_label.enrich import assessor as reg
+    from housing_label.enrich.assessor import ut
+    seen = {}
+
+    def lookup(lat, lon, address=None, county_fips=None):
+        seen["county"] = county_fips
+        return None
+    monkeypatch.setattr(ut, "lookup", lookup)
+    reg._takes_county.cache_clear()
+    monkeypatch.setenv(reg.ENABLE_ENV, "1")
+    try:
+        reg.assessor_for_point(40.76, -111.89, "49035", "1 MAIN ST")
+    finally:
+        reg._takes_county.cache_clear()
+    assert seen["county"] == "49035"
+    assert os.environ.get(reg.ENABLE_ENV) == "1"
+
+
+def test_saying_more_is_not_a_substitution():
+    """A typed address that omits the quadrant, keeps its city in the street part,
+    or spells a type or ordinal out, names the same street as the matcher's
+    canonical form — the canonical form must still be what confirms the parcel,
+    or Cook and the District lose matches they make every day."""
+    from housing_label.simulate.location import assessor_address
+    for matched, typed in (
+            ("2123 CALIFORNIA ST NW, WASHINGTON, DC, 20008", "2123 California St, Washington, DC"),
+            ("1234 W MAIN ST, CHICAGO, IL, 60607", "1234 Main St, Chicago"),
+            ("123 MAIN ST, BROOKLYN, NY, 11201", "123 Main St Brooklyn NY 11201"),
+            ("10 WASHINGTON SQ, NEW YORK, NY, 10012", "10 Washington Square, New York"),
+            ("2123 CALIFORNIA ST NW, WASHINGTON, DC", "2123 California Street Northwest"),
+            ("50 13TH ST, BROOKLYN, NY", "50 Thirteenth St, Brooklyn")):
+        assert assessor_address(matched, typed) == matched, typed
+
+
+def test_conflicting_directionals_are_a_substitution():
+    from housing_label.simulate.location import assessor_address
+    typed = "123 E Main St, Springfield, IL"
+    assert assessor_address("123 W MAIN ST, SPRINGFIELD, IL, 62701", typed) == typed
+
+
+def test_north_avenue_keeps_its_unit_rule_and_leading_types_fold():
+    """Spelled-out NORTH before AVE is the street's name, so B12 is still a unit;
+    and a leading AVENUE/HIGHWAY is spelled one way for comparison."""
+    from housing_label.enrich.assessor._shared import same_address
+    assert same_address("1600 W NORTH AVE B12", "1600 W NORTH AVE")
+    assert same_address("45 E AVENUE L8", "45 E AVE L8")
+    assert same_address("100 HIGHWAY 66", "100 HWY 66")
+    assert not same_address("45 E AVE L8", "45 E AVE L10")

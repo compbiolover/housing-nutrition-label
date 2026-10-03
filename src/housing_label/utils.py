@@ -383,6 +383,16 @@ DATASET_NAMES = {
     "maps2.dcgis.dc.gov": "the DC Office of Tax and Revenue records",
     "services9.arcgis.com": "the Florida statewide parcel records",
     "services3.arcgis.com": "the Connecticut statewide parcel records",
+    # The 2026-10 adapters. services1 is one ArcGIS Online shard serving two
+    # different organisations' layers; a label is only ever in one of the two
+    # states, so naming both tells the reader which records were missing.
+    "public.gis.lacounty.gov": "the Los Angeles County Assessor records",
+    "services5.arcgis.com": "the NYC City Planning MapPLUTO tax lots",
+    "phl.carto.com": "the Philadelphia Office of Property Assessment records",
+    "services.nconemap.gov": "the NC OneMap statewide parcel records",
+    "mdgeodata.md.gov": "the Maryland SDAT assessment records",
+    "nysgeohub.ny.gov": "the New York State tax parcel records",
+    "services1.arcgis.com": "the Massachusetts or Utah statewide parcel records",
 }
 
 

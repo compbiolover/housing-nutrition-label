@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import functools
 import logging
+import re
 from dataclasses import dataclass, field
 from functools import lru_cache
 
@@ -672,9 +673,107 @@ def assessor_address(matched: str | None, typed: str | None) -> str | None:
     confirms a parcel — carrying the unit from what the reader typed, because that
     is the one component the canonical form cannot have. Falls back to the typed
     address entirely when the geocoder echoed nothing.
+
+    **Except when the geocoder answered for a different house.** The Census
+    matcher will substitute a near neighbour it can find for one it cannot:
+    "123 FINLAY ST 10307" came back as "123 FINLAY AVE 10309" in the New York City
+    adapter's verification run, the point was placed on Finlay Avenue, and the
+    adapter then confirmed — correctly, against what it was given — the parcel of
+    123 Finlay Avenue. No adapter can see that substitution; only this function
+    holds both strings. So where the house number differs, or both name a street
+    type and the types differ, the reader's own words are what the parcel must
+    agree with. The parcel under the substituted point will not, and the lookup
+    declines instead of reporting a stranger's house as observed fact.
+
+    A differing street *name* counts too, once spellings that mean the same
+    street are folded together; see ``_another_house`` for the measurement that
+    decided it.
     """
     from housing_label.enrich.assessor._shared import with_unit
+    if matched and typed and _another_house(matched, typed):
+        return typed
     return with_unit(matched, typed) or typed
+
+
+def _another_house(matched: str, typed: str) -> bool:
+    """Whether the geocoder's matched address names a different building from
+    the typed one, by house number or by an explicit, different street type."""
+    from housing_label.enrich.assessor._shared import address_key, strip_unit
+    # The house number is compared on its own first, lettered half-lots included:
+    # address_key will not parse "770A" (its number must be all digits), and the
+    # New York City adapter matches 770A and 770 as different lots — so a matcher
+    # that turned 770A GREENE AVE into 770 GREENE AVE would otherwise pass here
+    # unseen and let the neighbouring lot be confirmed.
+    nm, nt = _house_number(matched), _house_number(typed)
+    if nm and nt and nm != nt:
+        return True
+    km, kt = address_key(strip_unit(matched)), address_key(strip_unit(typed))
+    if km is None or kt is None:
+        return False
+    if km[0] != kt[0]:
+        return True
+    if km[2] is not None and kt[2] is not None and km[2] != kt[2]:
+        return True
+    # A different street NAME is a different house too — but only where the two
+    # CONTRADICT, never where one simply says more. This was first left out, on
+    # the theory that correcting a misspelt name is the matcher's job; then added
+    # as plain token equality, which was wrong the other way: "2123 California St"
+    # typed against the matcher's "2123 CALIFORNIA ST NW", or a comma-less "123
+    # Main St Brooklyn NY" with its city still in the tokens, read as different
+    # streets and cost Cook and the District matches they make every day.
+    #
+    # What verification actually showed is a substituted WORD: the only wrong
+    # parcels any of the 2026-10 adapters returned were geocoder substitutions,
+    # one of which changed the name — "21 LONGWOOD AVE, Wareham" came back as "21
+    # LINWOOD AVE", 3 km away. So the test is: does every word of the matcher's
+    # street name have a counterpart in what was typed (the same word, or an
+    # abbreviation of it either way, after folding spellings like Fifth/5th), and
+    # do any directionals both sides name agree? Extra typed words — a city, a
+    # ZIP, a missing quadrant — are not a contradiction.
+    return _contradicts(km[1], kt[1])
+
+
+_NAME_FORMS = {
+    "north": "n", "south": "s", "east": "e", "west": "w", "northeast": "ne",
+    "northwest": "nw", "southeast": "se", "southwest": "sw",
+    "saint": "st", "mount": "mt", "fort": "ft",
+    "first": "1st", "second": "2nd", "third": "3rd", "fourth": "4th", "fifth": "5th",
+    "sixth": "6th", "seventh": "7th", "eighth": "8th", "ninth": "9th", "tenth": "10th",
+    "eleventh": "11th", "twelfth": "12th", "thirteenth": "13th",
+    "fourteenth": "14th", "fifteenth": "15th", "sixteenth": "16th",
+    "seventeenth": "17th", "eighteenth": "18th", "nineteenth": "19th",
+    "twentieth": "20th",
+}
+_DIRECTIONS = frozenset({"n", "s", "e", "w", "ne", "nw", "se", "sw"})
+
+
+def _fold(tokens) -> list[str]:
+    from housing_label.enrich.assessor._shared import SUFFIXES
+    return [SUFFIXES.get(_NAME_FORMS.get(t, t), _NAME_FORMS.get(t, t)) for t in tokens]
+
+
+def _contradicts(matched_tokens, typed_tokens) -> bool:
+    """Whether the matcher's street-name words contradict the typed ones."""
+    m, t = _fold(matched_tokens), _fold(typed_tokens)
+    md = {w for w in m if w in _DIRECTIONS}
+    td = {w for w in t if w in _DIRECTIONS}
+    if md and td and md != td:
+        return True                     # 123 E MAIN is not 123 W MAIN
+    typed_words = [w for w in t if w not in _DIRECTIONS]
+    for word in (w for w in m if w not in _DIRECTIONS):
+        if not any(word == u or u.startswith(word) or word.startswith(u)
+                   for u in typed_words):
+            return True                 # LINWOOD has no counterpart in LONGWOOD
+    return False
+
+
+_HOUSE_NUMBER_RE = re.compile(r"^\s*(\d+[A-Za-z]?)\b")
+
+
+def _house_number(address: str | None) -> str | None:
+    """The leading house number, with a half-lot letter if it has one, upper-cased."""
+    m = _HOUSE_NUMBER_RE.match(str(address or ""))
+    return m.group(1).upper() if m else None
 
 
 def _apply_geo(loc: Location, geo: dict) -> None:

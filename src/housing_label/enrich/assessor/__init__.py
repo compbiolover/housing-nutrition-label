@@ -40,10 +40,14 @@ only modelled source.
 
 from __future__ import annotations
 
+import functools
+import inspect
 import logging
 import os
 
-from housing_label.enrich.assessor import cook_il, ct, dc, fl
+from housing_label.enrich.assessor import (
+    cook_il, ct, dc, fl, la, ma, md, nc, nyc, nys, phl, ut,
+)
 from housing_label.enrich.assessor.base import (  # noqa: F401  (re-exported)
     CONDITION_VALUES, CONSTRUCTION_VALUES, FOUNDATION_VALUES, AssessorRecord,
 )
@@ -55,8 +59,14 @@ ENABLE_ENV = "ASSESSOR_ADAPTERS"
 # county FIPS → the module that answers for it. One entry per county an adapter
 # covers, so resolution is a dict lookup rather than a scan.
 ADAPTERS = {fips: mod
-            for mod in (cook_il, ct, dc, fl)
+            for mod in (cook_il, ct, dc, fl, la, ma, md, nc, nyc, nys, phl, ut)
             for fips in mod.COUNTY_FIPS}
+
+
+@functools.lru_cache(maxsize=None)
+def _takes_county(adapter) -> bool:
+    """Whether this adapter's ``lookup`` accepts ``county_fips``."""
+    return "county_fips" in inspect.signature(adapter.lookup).parameters
 
 
 def enabled() -> bool:
@@ -90,7 +100,14 @@ def assessor_for_point(lat: float | None, lon: float | None,
     if adapter is None:
         return None
     try:
-        record = adapter.lookup(float(lat), float(lon), address)
+        # An adapter that serves several counties from different layers (Utah's
+        # 28 county services) can take the county the geocoder already resolved,
+        # and skip asking a boundary service which county the point is in.
+        if _takes_county(adapter):
+            record = adapter.lookup(float(lat), float(lon), address,
+                                    county_fips=str(county_fips).strip().zfill(5))
+        else:
+            record = adapter.lookup(float(lat), float(lon), address)
         # A parcel can match and still tell us nothing: an unrecorded year and
         # area, with every category outside the label's vocabulary. Returning the
         # empty record would be read as "the assessor answered" by both the UI tag
