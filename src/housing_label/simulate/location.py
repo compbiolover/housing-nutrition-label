@@ -566,8 +566,9 @@ def assessor_address(matched: str | None, typed: str | None) -> str | None:
     agree with. The parcel under the substituted point will not, and the lookup
     declines instead of reporting a stranger's house as observed fact.
 
-    Deliberately narrow: a differing street *name* is not treated as a
-    substitution, because the matcher's ordinary job is correcting a misspelt one.
+    A differing street *name* counts too, once spellings that mean the same
+    street are folded together; see ``_another_house`` for the measurement that
+    decided it.
     """
     from housing_label.enrich.assessor._shared import with_unit
     if matched and typed and _another_house(matched, typed):
@@ -592,7 +593,35 @@ def _another_house(matched: str, typed: str) -> bool:
         return False
     if km[0] != kt[0]:
         return True
-    return km[2] is not None and kt[2] is not None and km[2] != kt[2]
+    if km[2] is not None and kt[2] is not None and km[2] != kt[2]:
+        return True
+    # A different street NAME is a different house too. This was first left out,
+    # on the theory that the matcher's job includes correcting a misspelt name and
+    # treating that as a substitution would cost real matches. Verification said
+    # otherwise: of the eight adapters added in 2026-10, the only wrong parcels any
+    # of them returned were geocoder substitutions, and one of the two changed the
+    # name — "21 LONGWOOD AVE, Wareham" came back as "21 LINWOOD AVE", 3 km away,
+    # and the Massachusetts adapter correctly confirmed 21 Linwood Avenue. Addresses
+    # reach this function mostly from the site's autocomplete, already spelled the
+    # way a geocoder spells them, so the cost is small; and the cost is a missed
+    # match, never a wrong one. Spellings that mean the same street (North/N,
+    # Fifth/5th, Saint/St, Mount/Mt) are folded first so formatting alone is not
+    # read as a different street.
+    return _name_form(km[1]) != _name_form(kt[1])
+
+
+_NAME_FORMS = {
+    "north": "n", "south": "s", "east": "e", "west": "w", "northeast": "ne",
+    "northwest": "nw", "southeast": "se", "southwest": "sw",
+    "saint": "st", "mount": "mt", "fort": "ft",
+    "first": "1st", "second": "2nd", "third": "3rd", "fourth": "4th", "fifth": "5th",
+    "sixth": "6th", "seventh": "7th", "eighth": "8th", "ninth": "9th", "tenth": "10th",
+    "eleventh": "11th", "twelfth": "12th",
+}
+
+
+def _name_form(tokens) -> tuple:
+    return tuple(_NAME_FORMS.get(t, t) for t in tokens)
 
 
 _HOUSE_NUMBER_RE = re.compile(r"^\s*(\d+[A-Za-z]?)\b")

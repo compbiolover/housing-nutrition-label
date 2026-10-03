@@ -235,7 +235,7 @@ where the record has one — geocoded through the Census matcher exactly as the
 product does, then looked up:
 
 * 240 geocoded, all 240 routed to a Massachusetts county code.
-* **197 resolved**: 196 with the exact year built, and all 155 floor areas and
+* **196 resolved**: 195 with the exact year built, and all 155 floor areas and
   all 106 storey counts reported exactly equal to the record's.
 * **1 named a different parcel, and it is the geocoder's**: the matcher turned
   "21 LONGWOOD AVE, WAREHAM" into "21 LINWOOD AVE" — another street, 3 km
@@ -252,14 +252,15 @@ The stacked-record path is the reason condominiums resolve at all: **17 of the
 polygon**, which ``select_parcel`` alone refuses — 11 with the unit's own area,
 4 with only the building's year. So it is worth its code, measured.
 
-The 43 that did not resolve: 31 where the geocoder put the point more than 80 m
+The 44 that did not resolve: 31 where the geocoder put the point more than 80 m
 from the home's parcel (large rural lots, mostly), 9 whose roll address the
 comparison cannot join to the matcher's ("162 -1 MYRTLE ST", "SEA MEADOW" against
 "SEAMEADOW", "MYSTIC VLLY PY", "200 202 SOUTH ST"), 2 where two polygons carry
 the same address (a Weymouth house and a vacant Holbrook lot across the town
 line; two Cambridge parcels at 132 Hampshire St) and 1 where the only agreeing
-record had a range number that does not parse. The shared chooser declining to
-guess in every case.
+record had a range number that does not parse — the shared chooser declining to
+guess — and 1 Dartmouth buffer that ran past the read slice (5.1 s; it resolved
+in an identical earlier run at 3.7 s), the clock tail described above.
 
 Privacy, and why the field list is short
 ----------------------------------------

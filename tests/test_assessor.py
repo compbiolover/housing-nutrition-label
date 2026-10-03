@@ -897,15 +897,26 @@ def test_a_geocoder_substituted_street_is_not_what_the_parcel_is_confirmed_again
     assert assessor_address("770 GREENE AVE, BROOKLYN, NY, 11221", lettered) == lettered
 
 
-def test_the_matchers_ordinary_corrections_still_win():
-    """Spelling, case and an omitted street type are what the canonical form is
-    for; none of them is a substitution."""
+def test_a_geocoder_substituted_street_name_is_caught_too():
+    """The Census matcher turned 21 Longwood Ave, Wareham into 21 Linwood Ave,
+    3 km away — the Massachusetts adapter's only wrong parcel in verification."""
+    from housing_label.simulate.location import assessor_address
+    typed = "21 Longwood Ave, Wareham, MA"
+    assert assessor_address("21 LINWOOD AVE, WAREHAM, MA, 02571", typed) == typed
+
+
+def test_the_matchers_formatting_still_wins():
+    """Case, spelled-out street types and directionals, ordinals, and an omitted
+    street type all mean the same street; none of them is a substitution."""
     from housing_label.simulate.location import assessor_address
     m = "123 FINLAY ST, STATEN ISLAND, NY, 10307"
-    assert assessor_address(m, "123 Finaly St, Staten Island NY") == m
     assert assessor_address(m, "123 finlay street") == m
     assert assessor_address(m, "123 Finlay, Staten Island") == m
     assert assessor_address(m, "Some Place Name") == m
+    n = "40 N 5TH AVE, MOUNT VERNON, NY, 10550"
+    assert assessor_address(n, "40 North Fifth Avenue, Mount Vernon, NY") == n
+    s = "9 ST JAMES PL, BROOKLYN, NY, 11205"
+    assert assessor_address(s, "9 Saint James Place, Brooklyn") == s
 
 
 def test_a_street_named_avenue_l8_is_not_avenue_l10():
