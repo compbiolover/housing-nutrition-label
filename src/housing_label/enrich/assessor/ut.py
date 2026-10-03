@@ -101,10 +101,6 @@ _BUILDING_COLUMNS = ("BUILT_YR", "BLDG_SQFT", "BLDG_SQFT_INFO", "FLOORS_CNT",
                      "CONST_MATERIAL")
 
 
-class _Truncated(Exception):
-    """The service returned only part of what matched (``exceededTransferLimit``)."""
-
-
 def _norm(value) -> str:
     """Case- and whitespace-insensitive form of a county's free-text category."""
     return " ".join(str(value or "").split()).lower()
@@ -373,34 +369,6 @@ def _parcel_of(pid: str, rows: list[dict]) -> dict | None:
             "buildings": buildings}
 
 
-def _query(url: str, lat: float, lon: float, distance_m: float,
-           *, deadline: float) -> list[dict]:
-    """Rows at (or within ``distance_m`` of) a point, refusing a partial answer.
-
-    The same request ``_shared.arcgis_parcels`` makes, through the same shared
-    transport, with one addition that helper cannot provide: it reads
-    ``exceededTransferLimit``. These layers cap a response at 2,000 rows and write
-    one row per building per polygon part — Weber has a parcel with 527 building
-    rows — so an 80 m buffer downtown can be cut short. A cut-short candidate list
-    is worse than an empty one: if it drops the second of two parcels sharing a
-    street address, the survivor looks unique and is confirmed. So a truncated
-    answer is no answer.
-    """
-    params = {
-        "geometry": f"{lon},{lat}", "geometryType": "esriGeometryPoint",
-        "inSR": "4326", "outSR": "4326",
-        "spatialRel": "esriSpatialRelIntersects",
-        "outFields": _FIELDS, "returnGeometry": "false", "f": "json",
-    }
-    if distance_m:
-        params["distance"] = str(distance_m)
-        params["units"] = "esriSRUnit_Meter"
-    body = _shared.get_json(url, params, deadline, READ_SLICE_S) or {}
-    if body.get("exceededTransferLimit"):
-        raise _Truncated(url)
-    return [(f or {}).get("attributes") or {} for f in (body.get("features") or [])]
-
-
 def _parcels(url: str, lat: float, lon: float, distance_m: float = 0,
              *, deadline: float) -> list[dict]:
     """Candidate parcels at (or within ``distance_m`` of) a point.
@@ -414,7 +382,15 @@ def _parcels(url: str, lat: float, lon: float, distance_m: float = 0,
     that follows is untouched. Rows with no id are records of nothing and dropped.
     """
     by_id: dict[str, list[dict]] = {}
-    for row in _query(url, lat, lon, distance_m, deadline=deadline):
+    # The shared helper refuses a truncated page (``exceededTransferLimit``) by
+    # raising ``_shared.TruncatedResponse``. That matters more here than for most
+    # layers: rows are per building per polygon part, the cap is 2,000, and Weber
+    # has one parcel with 527 building rows — so a dense 80 m buffer can be cut
+    # short, and a cut-short list that drops the second of two parcels sharing an
+    # address would make the survivor look unique.
+    rows = _shared.arcgis_parcels(url, lat, lon, _FIELDS, distance_m,
+                                  deadline=deadline, read_slice=READ_SLICE_S)
+    for row in rows:
         pid = _parcel_id(row)
         if pid is not None:
             by_id.setdefault(pid, []).append(row)
@@ -453,6 +429,50 @@ def _grid_form(address: str | None) -> str | None:
         if word in _GRID_WORDS and tokens[i - 1].isdigit():
             tokens[i] = _GRID_WORDS[word].upper()
     return " ".join(tokens) + sep + tail
+
+
+def _directionless(address: str | None):
+    """(house number, street tokens minus directionals), or None if unparseable."""
+    key = address_key(_grid_form(address))
+    if key is None:
+        return None
+    return key[0], tuple(sorted(t for t in key[1] if t not in _GRID_LETTERS))
+
+
+_GRID_LETTERS = frozenset({"n", "s", "e", "w"})
+
+
+def _has_a_confusable_twin(query: str, chosen: dict, nearby: list[dict]) -> bool:
+    """Whether a parcel near the point differs from the query only in directionals.
+
+    Utah's grid addresses come in near-twins the Census matcher is measured to
+    confuse. Typed "325 E 300 N, Kanab", it returned "325 N 300 E" — a different,
+    real house 45 m from the point, while the house the reader meant stood 55 m
+    away. Every step after the geocoder then worked as designed and named the
+    wrong home: the matched address agreed with exactly one parcel. The same run
+    turned "333 S 300 E" into "333 E 300 S", "1652 S 1100 W" into "1652 N 1100 E",
+    and dropped leading directionals outright (see _grid_form).
+
+    The adapter is handed only the matched address, so it cannot see the swap.
+    What it can see is whether the confusion is POSSIBLE here: another parcel in
+    the 80 m neighbourhood with the same house number and the same street once
+    directionals are set aside — order and side included — but a different full
+    address. Where one exists the answer is refused, because which of the two
+    the reader meant is exactly what the geocoder has shown it cannot be trusted
+    to say. Where none exists nearby, a swapped geocode would have nothing to
+    land on but the reader's own street, and the ordinary rules stand.
+    """
+    want = _directionless(query)
+    if want is None:
+        return False
+    for other in nearby:
+        if other.get("PARCEL_ID") == chosen.get("PARCEL_ID"):
+            continue
+        add = other.get("PARCEL_ADD")
+        if _directionless(add) == want and not _shared.same_address(
+                query, _grid_form(add)):
+            return True
+    return False
 
 
 def _same_unit_or_none(parcel: dict, unit: str) -> bool:
@@ -497,9 +517,12 @@ def _parcel_at(lat: float, lon: float, address: str | None = None,
         return None
     url = PARCEL_URL.format(service=COUNTY_SERVICES[fips])
     unit = unit_of(address)
+    fetched: dict[float, list[dict]] = {}
 
     def fetch(distance_m):
-        found = _parcels(url, lat, lon, distance_m, deadline=deadline)
+        if distance_m not in fetched:
+            fetched[distance_m] = _parcels(url, lat, lon, distance_m, deadline=deadline)
+        found = fetched[distance_m]
         # A reader who typed a unit cannot live in a parcel that names a DIFFERENT
         # unit. Condominium units are separate parcels stacked on one footprint, all
         # sharing the street address the comparison reads, so without this a
@@ -509,8 +532,16 @@ def _parcel_at(lat: float, lon: float, address: str | None = None,
         # the address check would not.
         return [p for p in found if _same_unit_or_none(p, unit)] if unit else found
 
-    return select_parcel(fetch, _grid_form(address),
-                         lambda p: _grid_form(p.get("PARCEL_ADD")))
+    query = _grid_form(address)
+    chosen = select_parcel(fetch, query, lambda p: _grid_form(p.get("PARCEL_ADD")))
+    if chosen is None or not address:
+        return chosen
+    # The confusable-twin guard; see _has_a_confusable_twin. It needs the 80 m
+    # neighbourhood even when containment already answered, which costs one more
+    # request (measured median 0.14 s) on exactly those lookups.
+    if _has_a_confusable_twin(query, chosen, fetch(_shared.SEARCH_RADIUS_M)):
+        return None
+    return chosen
 
 
 def _vintage(parcel: dict) -> str:
@@ -536,12 +567,7 @@ def _vintage(parcel: dict) -> str:
 def _lookup_cached(lat: float, lon: float, address: str | None,
                    county_fips: str | None = None,
                    _bucket: int = 0) -> AssessorRecord | None:
-    try:
-        parcel = _parcel_at(lat, lon, address, county_fips)
-    except _Truncated:
-        # Too many rows to see them all: an answer ("cannot tell which"), not an
-        # outage, so it is neither noted as dropped nor kept out of the cache.
-        return None
+    parcel = _parcel_at(lat, lon, address, county_fips)
     if not parcel:
         return None
     building = _the_dwelling(parcel["buildings"])

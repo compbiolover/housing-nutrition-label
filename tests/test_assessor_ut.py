@@ -122,11 +122,11 @@ def _lookup(exact, near=(), address=None, county=_UTAH_COUNTY, slices=None,
         if url == ut.COUNTY_URL:
             feats = [{"attributes": {"FIPS_STR": county_answer}}] if county_answer else []
             return {"features": feats}
-        rows = list(near) if request.get("distance") else list(exact)
-        body = {"features": [{"attributes": a} for a in rows]}
         if exceeded:
-            body["exceededTransferLimit"] = True
-        return body
+            # What the real get_json raises on ``exceededTransferLimit``.
+            raise _shared.TruncatedResponse("services1.arcgis.com: truncated")
+        rows = list(near) if request.get("distance") else list(exact)
+        return {"features": [{"attributes": a} for a in rows]}
 
     ut._lookup_cached.cache_clear()
     saved = _shared.get_json
@@ -271,13 +271,55 @@ def test_a_typed_unit_does_not_discard_a_parcel_that_names_no_unit():
     assert got is not None and got.parcel_id == "140350270"
 
 
-def test_a_truncated_buffer_is_no_answer():
+def test_a_truncated_response_is_no_answer():
     """These layers cap a response at 2,000 rows and write one per building per
     polygon part. A cut-short buffer can drop the second of two parcels sharing an
-    address and make the survivor look unique, so a truncated answer is refused —
-    and not counted as an outage."""
+    address and make the survivor look unique; the shared transport raises on it
+    and the adapter fails open."""
     assert _lookup([], near=[_HOUSE], address="924 E 100 N, PROVO, UT",
                    exceeded=True) is None
+
+
+# Recorded live from Parcels_Kane_LIR: two real Kanab houses whose addresses
+# differ only in the order of the grid directions, 45 m and 55 m from one point.
+_KANAB_MATCHED = {"PARCEL_ID": "U-C-15", "PARCEL_ADD": "325 N 300 E",
+                  "PROP_CLASS": "Residential", "BUILT_YR": 1975, "BLDG_SQFT": 2204,
+                  "BLDG_SQFT_INFO": None, "FLOORS_CNT": 1,
+                  "CONST_MATERIAL": "Frame:  Synth Plaster (Eifs)",
+                  "CURRENT_ASOF": 1761177600000}
+_KANAB_TYPED = dict(_KANAB_MATCHED, PARCEL_ID="U-B-11", PARCEL_ADD="325 E 300 N",
+                    BUILT_YR=1972, BLDG_SQFT=1808,
+                    CONST_MATERIAL="Frame:  Plywood Hardboard")
+
+
+def test_a_grid_twin_near_the_point_refuses_the_answer():
+    """The one wrong parcel the end-to-end run found. Typed "325 E 300 N, Kanab",
+    the Census matcher returned "325 N 300 E" — a different real house — and the
+    adapter, handed only the matched address, confirmed it. Both houses sit within
+    80 m of the point, and the geocoder has shown it cannot say which one is meant,
+    so neither is named. Checked for containment and buffer alike."""
+    matched = "325 N 300 E, KANAB, UT, 84741"
+    assert _lookup([], near=[_KANAB_MATCHED, _KANAB_TYPED], address=matched,
+                   county="49025") is None
+    assert _lookup([_KANAB_MATCHED], near=[_KANAB_MATCHED, _KANAB_TYPED],
+                   address=matched, county="49025") is None
+
+
+def test_without_a_twin_nearby_the_grid_address_still_answers():
+    """Guards the test above from passing vacuously: the same parcel, with only an
+    ordinary neighbour in the buffer, resolves."""
+    neighbour = dict(_KANAB_TYPED, PARCEL_ID="U-C-16", PARCEL_ADD="345 N 300 E")
+    got = _lookup([_KANAB_MATCHED], near=[_KANAB_MATCHED, neighbour],
+                  address="325 N 300 E, KANAB, UT, 84741", county="49025")
+    assert got is not None and got.parcel_id == "U-C-15" and got.year_built == 1975
+
+
+def test_twins_are_the_same_number_and_street_with_only_directionals_differing():
+    assert ut._directionless("325 N 300 E") == ut._directionless("325 E 300 N")
+    assert ut._directionless("1652 S 1100 W") == ut._directionless("1652 N 1100 E")
+    assert ut._directionless("1526 E DOWNINGTON AVE") == ut._directionless("1526 DOWNINGTON AVE")
+    assert ut._directionless("325 N 300 E") != ut._directionless("345 N 300 E")
+    assert ut._directionless("325 N 300 E") != ut._directionless("325 N 400 E")
 
 
 # ── HOUSE_CNT, and what may say "one dwelling" ─────────────────────────────────
@@ -531,7 +573,7 @@ def test_a_county_this_adapter_does_not_claim_is_located_rather_than_trusted():
 # ── the clock ──────────────────────────────────────────────────────────────────
 
 
-def test_utah_asks_for_its_own_read_slice():
+def test_every_request_passes_the_modules_read_slice():
     slices = []
     assert _lookup([_HOUSE], slices=slices, county=None) is not None
     assert slices and all(s == ut.READ_SLICE_S for s in slices), slices
