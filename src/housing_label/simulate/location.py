@@ -592,8 +592,9 @@ def resolve_location(
         else:
             notes["structure"] = "building type unknown (no NSI match)"
 
+        from housing_label.enrich import water_system as _water
         loc.water_system, water_unavailable = _outcome(water, (None, True),
-                                                       "services.arcgis.com")
+                                                       utils.host_of(_water._URL))
         if water_unavailable:
             notes["water_system"] = ("EPA service-area layer unavailable; water "
                                      "source not detected")
@@ -657,13 +658,24 @@ def _outcome(future, fallback, host: str):
 
 
 def _assessor_host(county_fips: str | None) -> str:
-    """The host the county's assessor adapter queries, to name it if it is dropped."""
-    from urllib.parse import urlsplit
+    """The dataset the county's assessor adapter queries, to name it if it is
+    dropped — keyed as ``utils.host_of`` keys every upstream.
+
+    An adapter serving several counties from different publishers says which one
+    answers for this county through ``url_for(county_fips)``; for the rest, every
+    URL constant names the same publisher and the first is as good as any.
+    """
     from housing_label.enrich.assessor import adapter_for_county
     mod = adapter_for_county(county_fips)
-    urls = [v for k, v in vars(mod).items()
-            if k.endswith("_URL") and isinstance(v, str)] if mod else []
-    return (urlsplit(urls[0]).hostname if urls else None) or "county assessor records"
+    if mod is None:
+        return "county assessor records"
+    url_for = getattr(mod, "url_for", None)
+    if callable(url_for):
+        url = url_for(str(county_fips).strip().zfill(5))
+    else:
+        url = next((v for k, v in vars(mod).items()
+                    if k.endswith("_URL") and isinstance(v, str)), None)
+    return utils.host_of(url) if url else "county assessor records"
 
 
 def assessor_address(matched: str | None, typed: str | None) -> str | None:

@@ -18,6 +18,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import math
+import re
 import threading
 import time
 import urllib.parse
@@ -353,9 +354,23 @@ def host_of(url: str) -> str:
     scanners, and gets masked in code review, which hides the very point.)
     """
     try:
-        return urllib.parse.urlsplit(url).hostname or url or "unknown"
+        parts = urllib.parse.urlsplit(url)
+        host = parts.hostname
+        if host and _SHARED_HOST_RE.match(host):
+            # ArcGIS Online serves every subscriber's layers from a handful of
+            # shared hosts, so the host alone does not name a dataset: one shard
+            # carries Esri's USA Structures footprints and three counties' parcel
+            # layers. The first path segment is the publishing organization's id,
+            # and host plus organization is one publisher's data — the unit a
+            # reader is told is missing and the unit that gets its own time budget.
+            org = parts.path.strip("/").split("/", 1)[0]
+            return f"{host}/{org}" if org else host
+        return host or url or "unknown"
     except Exception:  # noqa: BLE001
         return url or "unknown"
+
+
+_SHARED_HOST_RE = re.compile(r"^services\d*\.arcgis\.com$")
 
 
 # The public datasets behind a label, by the host that serves each one. A host is
@@ -367,32 +382,62 @@ def host_of(url: str) -> str:
 DATASET_NAMES = {
     "nsi.sec.usace.army.mil": "the USACE National Structure Inventory",
     "hazards.fema.gov": "the FEMA National Flood Hazard Layer",
-    "services2.arcgis.com": "the USA Structures building footprints",
-    "services.arcgis.com": "the EPA water-system service areas",
     "earthquake.usgs.gov": "the USGS seismic hazard service",
     "chronicdata.cdc.gov": "CDC PLACES",
     "geocoding.geo.census.gov": "the Census geocoder",
-    "tigerweb.geo.census.gov": "the Census TIGERweb road network",
+    "tigerweb.geo.census.gov": "the Census TIGERweb map service",
     "api.census.gov": "the Census ACS API",
     "re.jrc.ec.europa.eu": "the PVGIS solar-yield service",
-    # County assessor adapters (enrich/assessor). Keyed on the host each adapter
-    # queries; services3/services9 are ArcGIS Online shards that only the
-    # Connecticut and Florida adapters use today.
+    # ArcGIS Online's shared hosts are keyed by host AND publishing organization
+    # (see ``host_of``): one shard serves several unrelated publishers.
+    "services2.arcgis.com/FiaPA4ga0iQKduv3": "the USA Structures building footprints",
+    "services.arcgis.com/cJ9YHowT8TU7DUyn": "the EPA water-system service areas",
+    # County assessor adapters (enrich/assessor), keyed on what each one queries.
     "gis.cookcountyil.gov": "the Cook County Assessor records",
     "datacatalog.cookcountyil.gov": "the Cook County Assessor records",
     "maps2.dcgis.dc.gov": "the DC Office of Tax and Revenue records",
-    "services9.arcgis.com": "the Florida statewide parcel records",
-    "services3.arcgis.com": "the Connecticut statewide parcel records",
-    # The 2026-10 adapters. services1 is one ArcGIS Online shard serving two
-    # different organisations' layers; a label is only ever in one of the two
-    # states, so naming both tells the reader which records were missing.
+    "services9.arcgis.com/Gh9awoU677aKree0": "the Florida statewide parcel records",
+    "services3.arcgis.com/3FL1kr7L4LvwA2Kb": "the Connecticut statewide parcel records",
     "public.gis.lacounty.gov": "the Los Angeles County Assessor records",
-    "services5.arcgis.com": "the NYC City Planning MapPLUTO tax lots",
+    "services5.arcgis.com/GfwWNkhOj9bNBqoJ": "the NYC City Planning MapPLUTO tax lots",
     "phl.carto.com": "the Philadelphia Office of Property Assessment records",
     "services.nconemap.gov": "the NC OneMap statewide parcel records",
     "mdgeodata.md.gov": "the Maryland SDAT assessment records",
     "nysgeohub.ny.gov": "the New York State tax parcel records",
-    "services1.arcgis.com": "the Massachusetts or Utah statewide parcel records",
+    "services1.arcgis.com/hGdibHYSPO59RG1h": "the Massachusetts statewide parcel records",
+    "services1.arcgis.com/99lidPhWCzftIe9K": "the Utah county parcel records (UGRC)",
+    # The top-ten-states adapters (2026-10).
+    "services1.arcgis.com/AQDHTHDrZzfsFsB5": "the Fulton County, GA tax parcel records",
+    "gis.claytoncountyga.gov": "the Clayton County, GA tax assessor records",
+    "pub.sagis.org": "the Chatham County, GA (SAGIS) parcel records",
+    "services2.arcgis.com/StQaZGYzUARPnrpL": "the Forsyth County, GA parcel records",
+    "gismap.augustaga.gov": "the Augusta-Richmond County, GA parcel records",
+    "gis.semcog.org": "the SEMCOG building inventory (Southeast Michigan)",
+    "gis.franklincountyohio.gov": "the Franklin County, OH Auditor parcel records",
+    "gis.cuyahogacounty.gov": "the Cuyahoga County, OH Fiscal Office parcel records",
+    "services3.arcgis.com/3Ukh5HzAdI6WZ3KP": "the Summit County, OH Fiscal Office parcel records",
+    "gis.mcohio.org": "the Montgomery County, OH Auditor parcel records",
+    "services2.arcgis.com/ziXVKVy3BiopMCCU": "the Delaware County, OH Auditor parcel records",
+    "maps.butlercountyauditor.org": "the Butler County, OH Auditor parcel records",
+    "services1.arcgis.com/vGBb7WYV10mOJRNM": "the Lorain County, OH Auditor parcel records",
+    "maps.columbus.gov": "the City of Columbus parcel records (Fairfield and Licking counties, OH)",
+    "gisdata.alleghenycounty.us": "the Allegheny County, PA parcel map",
+    "data.wprdc.org": "the Allegheny County, PA assessment records (WPRDC)",
+    "services1.arcgis.com/kOChldNuKsox8qZD": "the Montgomery County, PA parcel records",
+    "arcweb1.ycpc.org": "the York County, PA parcel records",
+    "gis.northamptoncounty.org": "the Northampton County, PA assessment records",
+    "services1.arcgis.com/1Cfo0re3un0w6a30": "the Cumberland County, PA parcel records",
+    "gis.cccounty.us": "the Contra Costa County, CA Assessor parcels",
+    "services2.arcgis.com/GQhSReJEO6f7tsvy": "the San Joaquin County, CA Assessor parcels",
+    "gis.countyofriverside.us": "the Riverside County, CA Assessor records",
+    "data.sf.gov": "the San Francisco Assessor-Recorder secured roll (DataSF)",
+    "geohwp.houstontx.gov": "the City of Houston copy of the Harris and Montgomery "
+                            "County, TX appraisal rolls",
+    "gisweb.fbcad.org": "the Fort Bend Central Appraisal District roll",
+    "maps.dcad.org": "the Dallas Central Appraisal District roll",
+    "tad.newedgeservices.com": "the Tarrant Appraisal District roll",
+    "maps.bexar.org": "the Bexar County, TX appraisal roll",
+    "taxmaps.traviscountytx.gov": "the Travis County, TX appraisal roll",
 }
 
 

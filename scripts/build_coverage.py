@@ -161,6 +161,61 @@ CURATED: dict[str, dict] = {
                              "as 21 Linwood Ave, 3 km away), now caught before "
                              "lookup."},
     },
+    # The top-ten-states adapters (2026-10). Same sampling as above.
+    "ga": {
+        "name": "Georgia (Fulton, Clayton, Chatham and Forsyth counties)",
+        "short": "Georgia (4 counties)",
+        "since": "2026-10-03",
+        "fields": ("year_built", "sqft", "stories"),
+        "verified": {"sample": 210, "resolved": 177, "wrong": 0},
+    },
+    "mi": {
+        "name": "Southeast Michigan (7 counties, SEMCOG)", "short": "Southeast Michigan",
+        "since": "2026-10-03",
+        "fields": ("year_built", "sqft", "stories"),
+        "verified": {"sample": 350, "resolved": 305, "wrong": 0},
+    },
+    "oh": {
+        "name": "Ohio (9 counties)", "short": "Ohio (9 counties)",
+        "since": "2026-10-03",
+        "fields": ("year_built", "sqft", "stories", "construction", "condition"),
+        "verified": {"sample": 394, "resolved": 319, "wrong": 0},
+    },
+    "allegheny": {
+        "name": "Allegheny County, Pennsylvania", "short": "Allegheny County, PA",
+        "since": "2026-10-03",
+        "fields": ("year_built", "sqft", "stories", "construction", "foundation",
+                   "condition"),
+        "verified": {"sample": 525, "resolved": 419, "wrong": 0},
+    },
+    "pa": {
+        "name": "Pennsylvania (Montgomery, York, Northampton and Cumberland counties)",
+        "short": "Pennsylvania (4 counties)",
+        "since": "2026-10-03",
+        "fields": ("year_built", "sqft", "stories", "construction"),
+        "verified": {"sample": 220, "resolved": 164, "wrong": 0},
+    },
+    "ca": {
+        "name": "California (Riverside, Contra Costa and San Joaquin counties)",
+        "short": "Riverside, Contra Costa, San Joaquin",
+        "since": "2026-10-03",
+        "fields": ("year_built", "sqft", "stories"),
+        "verified": {"sample": 414, "resolved": 344, "wrong": 0},
+    },
+    "sf": {
+        "name": "San Francisco, California", "short": "San Francisco",
+        "since": "2026-10-03",
+        "fields": ("year_built", "sqft", "stories"),
+        "verified": {"sample": 320, "resolved": 314, "wrong": 0},
+    },
+    "tx": {
+        "name": "Texas (Harris, Dallas, Tarrant, Bexar, Travis, Fort Bend and "
+                "Montgomery counties)",
+        "short": "Texas (7 counties)",
+        "since": "2026-10-03",
+        "fields": ("year_built", "sqft", "stories"),
+        "verified": {"sample": 315, "resolved": 268, "wrong": 0},
+    },
 }
 
 
