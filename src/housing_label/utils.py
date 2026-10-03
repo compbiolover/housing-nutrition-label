@@ -98,6 +98,7 @@ def begin(budget: float | None = None, per_host: float | None = None) -> None:
     want: there, a slow upstream is worth waiting out.
     """
     _timings.calls = []
+    _timings.inflight = {}
     _timings.deadline = None if not budget else time.monotonic() + float(budget)
     _timings.host_budget = float(per_host) if per_host else None
     _timings.starved = []
@@ -153,8 +154,47 @@ def remaining(host: str) -> tuple[float | None, float | None]:
         # The record is the meter: what this host has already cost this request.
         # It holds one entry per logical call — see the seam's redirect note, which
         # is what keeps a redirecting host from being billed twice for one answer.
-        host_left = per_host - sum(t for n, t in calls if n == host)
+        host_left = per_host - sum(t for n, t in calls if n == host) - _active_span(host)
     return (total_left, host_left)
+
+
+# Calls to a host that are still running, by start time — shared through the
+# window like ``calls``, because a label now asks one host from several threads at
+# once (TIGERweb's three layers). The completed-call meter alone cannot see work
+# in flight: a call starting ten seconds into a sibling's twelve would be handed
+# the host's whole share again and hold the label to twenty-two. Charging the span
+# the host has been busy keeps every call to it inside the share, measured from
+# the first one still running, while calls that start together still run together.
+_inflight_lock = threading.Lock()
+
+
+def _active_span(host: str) -> float:
+    """Seconds since the earliest still-running call to ``host`` began, else 0."""
+    inflight = getattr(_timings, "inflight", None)
+    if not inflight:
+        return 0.0
+    with _inflight_lock:
+        starts = inflight.get(host)
+        return time.monotonic() - min(starts) if starts else 0.0
+
+
+@contextlib.contextmanager
+def _running(host: str):
+    """Mark a call to ``host`` as in flight for the life of the block."""
+    inflight = getattr(_timings, "inflight", None)
+    if inflight is None:
+        yield
+        return
+    start = time.monotonic()
+    with _inflight_lock:
+        inflight.setdefault(host, []).append(start)
+    try:
+        yield
+    finally:
+        with _inflight_lock:
+            starts = inflight.get(host) or []
+            if start in starts:
+                starts.remove(start)
 
 
 def allowance(host: str) -> float | None:
@@ -282,7 +322,7 @@ def install_timing() -> None:
             kwargs["timeout"] = _capped(kwargs.get("timeout"), allow)
         _timings.depth = 1
         try:
-            with timed(host):
+            with _running(host), timed(host):
                 return original(self, request, **kwargs)
         finally:
             _timings.depth = 0
@@ -357,6 +397,7 @@ def drain() -> list[tuple[str, float]]:
     _timings.deadline = None
     _timings.host_budget = None
     _timings.starved = None
+    _timings.inflight = None
     _timings.last = None
     _timings.depth = 0
     return sorted(calls, key=lambda c: -c[1])
@@ -411,7 +452,8 @@ def _window() -> dict | None:
         return None
     return {"calls": calls, "deadline": getattr(_timings, "deadline", None),
             "host_budget": getattr(_timings, "host_budget", None),
-            "starved": getattr(_timings, "starved", None)}
+            "starved": getattr(_timings, "starved", None),
+            "inflight": getattr(_timings, "inflight", None)}
 
 
 def _adopt(window: dict | None) -> None:
@@ -420,6 +462,7 @@ def _adopt(window: dict | None) -> None:
     _timings.deadline = window.get("deadline")
     _timings.host_budget = window.get("host_budget")
     _timings.starved = window.get("starved")
+    _timings.inflight = window.get("inflight")
     # Per-thread by nature: which host THIS thread is about to retry, and whether
     # it is inside a redirect. Never inherited.
     _timings.last = None

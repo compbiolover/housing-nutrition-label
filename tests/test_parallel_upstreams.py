@@ -290,10 +290,12 @@ def test_a_waiter_does_not_inherit_its_leaders_failure():
     from housing_label import api
     attempts = []
     gate = threading.Event()
+    leading = threading.Event()
 
     def flaky():
         attempts.append(1)
         if len(attempts) == 1:
+            leading.set()          # the leader is inside _single_flight now
             gate.wait(2)
             raise RuntimeError("the leader's bad minute")
         return "fine"
@@ -308,7 +310,7 @@ def test_a_waiter_does_not_inherit_its_leaders_failure():
 
     leader = threading.Thread(target=lead)
     leader.start()
-    time.sleep(0.05)
+    assert leading.wait(2), "the leader never started computing"
     waiter = threading.Thread(target=lambda: out.update(
         waiter=api._single_flight(("label", "f"), flaky)))
     waiter.start()
@@ -393,3 +395,43 @@ def test_queued_warmers_are_cancelled_when_the_window_runs_out(monkeypatch):
     monkeypatch.setattr(L, "geographies_for_coords", lambda lat, lon: None)
     L.resolve_location(lat=41.0, lon=-87.0, also_fetch=(lambda la, lo: None,))
     assert made and all(f.cancelled() for f in made)
+
+
+def test_a_call_joining_a_busy_host_gets_only_what_is_left_of_its_share():
+    """A call that starts while a sibling to the same host is still running must
+    not be handed the host's whole share again — that let one dataset hold the
+    label for share + head start."""
+    utils.begin(budget=30, per_host=1.0)
+    try:
+        release = threading.Event()
+
+        def first():
+            with utils._running("usgs.example.gov"):
+                release.wait(2)
+        (f,) = utils.fan_out(first)
+        time.sleep(0.6)
+        left = utils.allowance("usgs.example.gov")
+        assert left is not None and left < 0.5, (
+            f"a joining call was offered {left:.2f}s of a 1s share already 0.6s busy")
+        release.set()
+        utils.gather([f])
+    finally:
+        utils.drain()
+
+
+def test_calls_started_together_still_run_together():
+    """The in-flight charge starts from the earliest running call; siblings
+    launched at the same moment each still get (nearly) the whole share."""
+    utils.begin(budget=30, per_host=12)
+    try:
+        offered, ready = [], threading.Barrier(3)
+
+        def call():
+            ready.wait(2)
+            offered.append(utils.allowance("tigerweb.example.gov"))
+            with utils._running("tigerweb.example.gov"):
+                time.sleep(0.05)
+        utils.gather(utils.fan_out(call, call, call))
+        assert len(offered) == 3 and min(offered) > 11.5
+    finally:
+        utils.drain()
