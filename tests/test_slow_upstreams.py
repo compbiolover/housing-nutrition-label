@@ -509,7 +509,7 @@ def test_the_label_says_which_dataset_it_gave_up_on():
     """An N/A with no explanation reads as 'we know nothing about your address'.
     What happened is that one public service was slow for a minute, and the same
     address scores completely on the next try — so the payload carries the name a
-    reader would recognise, and the host an operator would search for."""
+    reader would recognize, and the host an operator would search for."""
     try:
         import fastapi  # noqa: F401
     except ImportError:

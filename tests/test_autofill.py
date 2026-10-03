@@ -286,7 +286,7 @@ def test_building_block_carries_the_year_built_interval():
     assert assumed["typical_range"] == [1985, 2004]
     assert assumed["range_geo_level"] == "tract"
 
-    # Once the reader confirms the real year, what the neighbours did stops bearing
+    # Once the reader confirms the real year, what the neighbors did stops bearing
     # on it — the range must not linger next to a value we were told.
     confirmed = H._building_block(cfg, struct, {"year_built"}, {}, loc)["year_built"]
     assert confirmed["status"] == "confirmed"

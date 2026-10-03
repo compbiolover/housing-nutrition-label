@@ -21,7 +21,7 @@ Because they say the same thing, one hop later. ``YEARBLT`` and ``SQFTSTRC`` on 
 parcel polygon are copied from the same SDAT CAMA extract as ``BL_YEARBLT`` and
 ``BL_ENCSQFT`` on ``MD_ComputerAssistedMassAppraisal/MapServer/0``. Checked on 14
 random single-family and townhouse accounts in 11 jurisdictions: the year built was
-identical on all 14, and ``SQFTSTRC`` equalled both the principal building's
+identical on all 14, and ``SQFTSTRC`` equaled both the principal building's
 ``BL_ENCSQFT`` and the property total ``PR_ENCSQFT`` on all 14. The CAMA service
 would add only ``CM_BLDTOTL`` (the number of buildings on the property), and that is
 not worth a second request: on 400 random single-family and townhouse parcels whose
@@ -104,7 +104,7 @@ That shape has three consequences, and each has its own rule:
 
 1. **A square a geocode happens to land in says nothing about which unit is the
    reader's.** The squares are symbols, not floor plans. So the floor area and the
-   storey count of a unit record are reported only when the reader typed a unit and
+   story count of a unit record are reported only when the reader typed a unit and
    the record's own unit matches it. The year built is reported either way: the
    building went up when it went up. Same split Connecticut makes. Such a record is
    also not attributed to the unit's account — it is evidence about the building,
@@ -119,14 +119,14 @@ That shape has three consequences, and each has its own rule:
    street address are, to the shared chooser, seven candidates and therefore
    ambiguous. They are seven records of one building, so before the choice they are
    folded into one candidate that carries the year *if every unit that records one
-   agrees on it* — and nothing else: no account, no floor area, no storey count, no
+   agrees on it* — and nothing else: no account, no floor area, no story count, no
    wall. Units that disagree fold into a candidate with no year, which then answers
    nothing. Folding can only turn "ambiguous" into "one building"; the address
    confirmation that follows is untouched.
 
 Both narrowings happen inside the fetch handed to ``_shared.select_parcel``, which is
 the sanctioned place to remove non-answers. The parcel-choosing policy itself is not
-reimplemented. The two passes share one memoised fetch, so the unit pass costs no
+reimplemented. The two passes share one memoized fetch, so the unit pass costs no
 extra request.
 
 Units written into the house number — Howard County's ``7434B SAINT MARGARETS
@@ -150,7 +150,7 @@ shared chooser's buffered search is the only way in: a point is never inside
 anything, so the containment half is answered empty without a request. A typed unit
 is looked for among the polygons and then among the points *before* either is asked
 about the building, because some polygons stand for a whole building while carrying
-one unit's account: 1 Ginford Pl in Catonsville is a single polygon labelled
+one unit's account: 1 Ginford Pl in Catonsville is a single polygon labeled
 ``UNIT 202``, with unit 102 present only among the points, and asking about the
 building first would answer every reader there with unit 202's record. Otherwise the
 points are asked only where the polygons chose nothing — never instead of a
@@ -166,8 +166,8 @@ The 2016 User's Guide defines ``SQFTSTRC`` as "Foundation square footage of the
 principal structure". The live values are not that. On every one of the 14 accounts
 above it equals ``BL_ENCSQFT``, which the same Guide defines as "enclosed square
 feet ... multiplied by the story height of each section", and which the subarea table
-confirms: 7007 Plymouth Rd is a 770 ft² two-storey footprint and reports 1,320 —
-two storeys less a 220 ft² built-in garage, not 770. It is the dwelling's enclosed
+confirms: 7007 Plymouth Rd is a 770 ft² two-story footprint and reports 1,320 —
+two stories less a 220 ft² built-in garage, not 770. It is the dwelling's enclosed
 living area, which is the label's ``sqft``.
 
 On a property with more than one building it is the *total*: 401 Naylor St in
@@ -180,10 +180,10 @@ What the roll carries, and what is translated
 * **Year built** — ``YEARBLT``, "Year the structure was built", the actual year; the
   roll has no effective year to confuse it with. ``0000`` and blank are "not
   recorded".
-* **Storeys** — from the building-style description (Appendix J, keyword ``STRY``):
+* **Stories** — from the building-style description (Appendix J, keyword ``STRY``):
   ``STRY 2 Story With Basement``, ``STRY Townhouse-End Unit 3 Story No Basement``.
   Whole numbers only. ``1.5 Story``, ``2.5 Story`` and ``Split Foyer`` are not a
-  whole-number storey count and stay empty, the same call Cook makes for "1.5
+  whole-number story count and stay empty, the same call Cook makes for "1.5
   Story" and "Split Level". The numeric ``BLDG_STORY`` column is blank on all but
   296 of 1,745,940 single-family and townhouse records and is not used.
 * **Construction** — from the type-of-construction description (Appendix J, keyword
@@ -206,7 +206,7 @@ liability, and "The Data can be freely distributed as long as the metadata entry
 not modified or deleted. Any data derived from the Data must acknowledge the State
 of Maryland in the metadata." The service names its sources as "MD iMAP, MDP, SDAT".
 Nothing there restricts querying, caching or commercial use; the one obligation is
-acknowledgement, which ``ATTRIBUTION`` carries onto the label. This adapter takes the
+acknowledgment, which ``ATTRIBUTION`` carries onto the label. This adapter takes the
 same posture as every other — queried live, cached in process, nothing written into
 the repository — although these terms would permit more.
 
@@ -348,7 +348,7 @@ _CONSTRUCTION = {
     # Siding, shingles, hardboard and plain wood are claddings hung on a framed wall,
     # so the wall system is frame — the reading the District's adapter makes for its
     # own siding types. Plain "Siding" is NOT read as `vinyl`: the label's vinyl means
-    # vinyl or aluminium cladding specifically, and the roll's word does not say which
+    # vinyl or aluminum cladding specifically, and the roll's word does not say which
     # siding it is. Frame is also the reading that claims less (its resilience factor
     # is the higher of the two).
     "CNST Siding": "frame",
@@ -396,7 +396,7 @@ _NOT_DWELLINGS = frozenset({"DWEL Boat Slip", "DWEL Storage Unit", "DWEL Parking
 _ROW_UNIT_RE = re.compile(r"^(?:UNIT|APT|APARTMENT|STE|SUITE|#)\s*([A-Z0-9]+(?:-[A-Z0-9]+)?)$")
 _RANGE_RE = re.compile(r"^\d+-\d+$")
 
-# A whole storey count in the style description. The space before the digit is what
+# A whole story count in the style description. The space before the digit is what
 # keeps "1.5 Story" from reading as 5.
 _STORIES_RE = re.compile(r"(?:^|\s)([1-9]) Story\b")
 
@@ -523,7 +523,7 @@ def _fold_units(rows: list[dict]) -> list[dict]:
     See consequence 3 under "Condominiums" in the module docstring. The folded row
     carries the address and — only where every unit that records a year agrees on
     it — the year. Nothing else: no account (it is no one account), no area, no
-    storeys, no wall. A group of one is left as it is.
+    stories, no wall. A group of one is left as it is.
     """
     groups: dict[tuple, list[dict]] = {}
     out: list[dict] = []
@@ -572,7 +572,7 @@ def _record(row: dict, unit_confirmed: bool) -> AssessorRecord | None:
         # A building folded from its units: the year all of them agree on, only.
         return AssessorRecord(source=ATTRIBUTION, data_vintage=_vintage(row),
                               year_built=year) if year else None
-    # The area and the storeys describe the reader's home only where the record is
+    # The area and the stories describe the reader's home only where the record is
     # one unit and — for a condominium unit — the unit the reader typed.
     # A unit record nobody confirmed is evidence about the BUILDING — its year and
     # its walls — and not about any one account in it, so it is not attributed to
@@ -612,7 +612,7 @@ def _choose_building(fetch, asked: str | None) -> dict | None:
 
 
 def _memo(source, lat: float, lon: float, deadline: float):
-    """``source`` memoised per radius, so every pass over it shares one request."""
+    """``source`` memoized per radius, so every pass over it shares one request."""
     seen: dict[float, list[dict]] = {}
 
     def fetch(distance_m: float) -> list[dict]:
@@ -634,7 +634,7 @@ def _record_at(lat: float, lon: float, address: str | None,
 
     The unit is looked for in both sources before either is asked about the
     building, because a polygon can stand for a whole building while carrying one
-    unit's account: 1 Ginford Pl in Catonsville is one polygon labelled ``UNIT 202``,
+    unit's account: 1 Ginford Pl in Catonsville is one polygon labeled ``UNIT 202``,
     with unit 102 present only among the points. Asking the polygons about the
     building first would answer every reader in it with unit 202's account.
 

@@ -160,9 +160,9 @@ LA (31), MI (27), AK (20), SD (14), VA (14)**.
 1. **Lot geometry is free-ish and complete; building attributes are not.** The 100%
    figures are all *geometry-derived* (Regrid computes acreage from the polygon). The
    county-*reported* fields are the ones with holes.
-2. **Coverage is strongly population-weighted in our favour.** Median year-built
+2. **Coverage is strongly population-weighted in our favor.** Median year-built
    coverage in the 100 largest counties is 87%, versus 67% nationally. A
-   population-prioritised build reaches most *people* long before it reaches most
+   population-prioritized build reaches most *people* long before it reaches most
    *counties*.
 3. **Actual tax paid is a dead end.** 15% nationally, and a **median of 0% across the
    100 largest counties** — the big counties specifically do not publish it. The
@@ -186,7 +186,7 @@ These all pass the project's constraints outright. Recommended for immediate ado
 - **Coverage:** **over 44,000 community water systems**, all 50 states + DC +
   territories + tribal systems, covering **~99% of the population served by community
   water systems**. Plus **78,000+ non-community** system areas (84% of ~93,500 systems).
-- **Provenance (important for honesty labelling):** ~60% of CWS boundaries come from
+- **Provenance (important for honesty labeling):** ~60% of CWS boundaries come from
   authoritative state/utility sources; **~40% are EPA-modeled** from building
   footprints, population density and service-connection counts. Non-community areas are
   nearly all EPA-delineated.
@@ -344,7 +344,7 @@ before ingest, not after.
   available**, otherwise assigned from **EIA / AHS / HAZUS / USACE survey regional
   assumptions**. Its `med_yr_blt` is a tract median. Both are legitimate **priors**;
   neither is a parcel fact. Public domain, keyless — no licensing problem, only a
-  labelling problem.
+  labeling problem.
 - **FEMA/ORNL USA Structures** — every structure >450 sq ft, with occupancy and primary
   occupancy type. Built from Census housing-unit data, HIFLD, **LightBox parcel data**,
   and a modeled approach. Useful as a footprint + occupancy prior. Public access;
@@ -352,7 +352,7 @@ before ingest, not after.
   flagging if the project ever needs a clean provenance chain.
 - **NREL ResStock / DOE LEAD** — already in the stack, Apache-2.0 / public domain.
   These are the correct home for foundation/heating **priors** when the user does not
-  supply the real value. Keep them explicitly labelled as archetype distributions.
+  supply the real value. Keep them explicitly labeled as archetype distributions.
 
 ---
 
@@ -395,7 +395,7 @@ open-source pipeline at `github.com/ccao-data`.
 | **Washington DC** | CAMA-Residential / Condominium / Commercial on Open Data DC | Includes heat type, AC, exterior wall, roof type, stories, rooms |
 | **New York City** | PLUTO / MapPLUTO | Exact year built, lot area, building area, stories, land use |
 
-⚠️ **Do not assume "open data portal" means "permissive licence".** Terms vary and some
+⚠️ **Do not assume "open data portal" means "permissive license".** Terms vary and some
 are hostile:
 - Whitman County WA grants a *revocable* license and forbids making data available to
   third parties "in any format revealing Whitman County as the source of the data."
@@ -415,7 +415,7 @@ Not an adapter candidate.**
 
 Colorado Springs looks like a candidate from the outside — a city ArcGIS server, a
 county ArcGIS server, a Socrata portal, a quarter-million parcels, all keyless. It
-is not one, and the reason generalises: *a parcel layer is a map of boundaries, not
+is not one, and the reason generalizes: *a parcel layer is a map of boundaries, not
 a record of buildings.* Cook and DC qualify because each publishes a separate
 characteristics table keyed to the parcel id. El Paso County publishes no such table
 anywhere public.
@@ -442,7 +442,7 @@ What is not there, checked rather than assumed:
   airport traffic, bus routes, trees, sidewalks, budget ledgers.
 - **The assessor's property search is Spatialest-hosted HTML**
   (`property.spatialest.com/co/elpaso/`) — a rendered page per parcel, not an API.
-  Scraping it is a licence and a load question, not a keyless data source.
+  Scraping it is a license and a load question, not a keyless data source.
 - `gis.elpasoco.com` and `data.elpasoco.com` are unreachable through this
   environment's proxy, so they are unexamined rather than ruled out.
 
@@ -477,7 +477,7 @@ of the table above or in no column at all. Parcel geometry alone is never the an
 ### 5.2 Regrid — the only realistic commercial option, quoted verbatim
 
 Regrid's Data Store License Agreement (fetched in full 2026-08-03,
-<https://app.regrid.com/store/license>) is unusually explicit, and unusually favourable
+<https://app.regrid.com/store/license>) is unusually explicit, and unusually favorable
 to *scoring* use. The relevant clauses:
 
 > "LICENSEE shall not, and shall not permit any third party to, use the Data for the
@@ -657,7 +657,7 @@ publishing a work derived from it?**
 |---|---|---|
 | **Public domain / CC0 / CC BY / Apache / CDLA-Permissive** | Census (TIGER, ACS, geocoder), EPA (SAB, sewersheds, SDWIS, walkability), NREL/DOE (ResStock, LEAD, Cambium, utility-rate zip file), USGS, HIFLD (usa.gov gov-works), FEMA (NRI, USA Structures), DOT NAD, USGWD (CC BY), Overture `addresses` (CDLA-Permissive-2.0) | **Bundle it.** This is the existing model and it stays. Attribution where required. |
 | **Copyleft-ish (ODbL)** | Microsoft building footprints, Overture `buildings`, OpenStreetMap | **Produced Work only.** Use to render a number; do **not** merge into a bundled derived database committed under MIT. If a bundled join is unavoidable, that artifact must ship under ODbL and the repo needs a per-artifact license map. |
-| **Commercial (all of them)** | Regrid, ATTOM, ReportAll, Realie, CoreLogic, First American, LightBox | **Runtime lookup, server-side, never committed.** Cache in a local DB the repo does not ship; publish scores, not records; honour term limits and attribution. |
+| **Commercial (all of them)** | Regrid, ATTOM, ReportAll, Realie, CoreLogic, First American, LightBox | **Runtime lookup, server-side, never committed.** Cache in a local DB the repo does not ship; publish scores, not records; honor term limits and attribution. |
 
 **Blunt exclusions:**
 
@@ -763,7 +763,7 @@ label should ask for them rather than pretend:
 
 **Design implication:** the simulator already takes a house configuration. The right
 product move is a **progressive-disclosure form** where auto-detected facts arrive
-pre-filled and labelled `from county assessor` / `estimated`, the user can correct any
+pre-filled and labeled `from county assessor` / `estimated`, the user can correct any
 of them, and each correction visibly raises that dimension's confidence. That converts
 the irreducible gap from a weakness into the interaction model.
 

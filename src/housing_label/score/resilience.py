@@ -681,7 +681,7 @@ def resilience_legs(r: dict) -> dict:
     except (KeyError, TypeError, ValueError):
         return {"site": None, "building": None, "multiplier": None}
     if not (raw > 0.0):
-        # No modelled hazard at all: the site leg is the top of the scale, and the
+        # No modeled hazard at all: the site leg is the top of the scale, and the
         # building's multiplier is undefined rather than 1.0 — dividing by zero
         # hazard would report every building as neutral, which is not a measurement.
         return {"site": round(eal_rate_to_score(0.0), 1),

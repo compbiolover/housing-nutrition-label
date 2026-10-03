@@ -19,7 +19,7 @@
   --bg: #f6f4f0;              /* warm paper */
   --card: #fffdf9;           /* warm card */
   --text: #22262e;
-  --muted: #6b6960;          /* warm grey, 4.8:1 on --bg */
+  --muted: #6b6960;          /* warm gray, 4.8:1 on --bg */
   --border: #e8e3da;
   --link: #15618c;           /* Harbor accent on light (5.8:1); brightened for dark below */
   --radius: 8px;
@@ -303,13 +303,13 @@ p code, li code { overflow-wrap: anywhere; }
 footer { background: var(--navy); color: #94a3b8; text-align: center; padding: 2rem; margin-top: 3rem; }
 footer a { color: var(--accent-on-dark); }
 /* The footer runs on the navy in both themes, so the inline-code chip's light
-   page treatment (near-white fill) put grey-on-white at 2.34:1 there. Tint it
+   page treatment (near-white fill) put gray-on-white at 2.34:1 there. Tint it
    from the footer's own surface instead. */
 footer code { background: rgba(255, 255, 255, 0.1); color: #cbd5e1; }
 /* Trademark notice: legal fine print, so it sits a step back from the footer's
    own #94a3b8 (6.1:1) rather than competing with it — but "quiet" must not mean
    "unreadable". #8b98ac on --navy measures 5.4:1, comfortably past the 4.5:1 AA
-   floor for text this size. A darker grey read better as hierarchy and landed at
+   floor for text this size. A darker gray read better as hierarchy and landed at
    4.55:1, which is passing by 0.05 on text people are actually meant to read.
    block, not inline-block: inline-block does honor margin-top, but inside an
    inline formatting context the line box absorbs most of it — measured, forcing
@@ -319,8 +319,8 @@ footer code { background: rgba(255, 255, 255, 0.1); color: #cbd5e1; }
 .tm-notice { display: block; margin-top: 0.5rem; font-size: 0.78rem; color: #8b98ac; }
 /* Disclaimer. Same fine-print treatment and the same 5.4:1 as the trademark
    notice above, but measured to a readable line length and left-aligned rather
-   than centred: it is three sentences someone may actually have to read, and
-   centred prose at this size is a wall. Every page carries it because every page
+   than centered: it is three sentences someone may actually have to read, and
+   centered prose at this size is a wall. Every page carries it because every page
    either shows a score or explains how to get one. */
 .legal-notice { max-width: 60ch; margin: 1rem auto 0; text-align: left; font-size: 0.78rem;
   line-height: 1.6; color: #8b98ac; }
@@ -364,7 +364,7 @@ footer code { background: rgba(255, 255, 255, 0.1); color: #cbd5e1; }
     --bg:     #0f1522;   /* deep blue-black page background */
     --card:   #18202e;   /* raised surfaces */
     --text:   #e8e6e0;   /* warm off-white body text */
-    --muted:  #9b988e;   /* warm grey secondary text (5.8:1 on --bg) */
+    --muted:  #9b988e;   /* warm gray secondary text (5.8:1 on --bg) */
     --border: #29313f;   /* borders / bar tracks */
     --link:   #4fb3d9;   /* Harbor accent brightened for the dark ground (7:1) */
     /* semantic hazard/grade colors stay the same — they read fine on dark */

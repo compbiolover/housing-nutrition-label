@@ -49,6 +49,15 @@ A workflow (`.github/workflows/pr-title.yml`) lints every PR title. Allowed type
 Examples: `feat(climate): add ClimRR fire-weather leg` · `fix: handle 0–360 longitude grids`
 · `docs: expand methodology caveats`. Keep the summary lowercase and imperative.
 
+## Spelling
+
+Write **US English** everywhere — code, comments, docs, the site and test names:
+"story/stories" (a building's floors), "neighbor", "color", "modeled", "license",
+"center", "meter". `tests/test_us_spelling.py` fails on the common British forms.
+Proper names keep their own spelling (Centre County, PA; Bal Harbour, FL), and so do
+identifiers owned by someone else (Python's `Future.cancelled()`, OSM's
+`amenity=sports_centre`).
+
 ## Releases (automated)
 
 Releases are handled by **[release-please](https://github.com/googleapis/release-please)** —

@@ -130,7 +130,7 @@ def building_percentile(raw_mean: float | None) -> float | None:
     Flat outside the anchors, so a home beyond the sampled range clamps to 1 or 99
     rather than extrapolating a claim the panel cannot support. Falls back to the
     raw mean if the curve is ever empty, so the axis degrades to its previous
-    behaviour rather than to None.
+    behavior rather than to None.
     """
     if raw_mean is None:
         return None

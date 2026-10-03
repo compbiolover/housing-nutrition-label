@@ -95,7 +95,7 @@ _SAME_ADDRESS_COTTAGE = {
 _SAME_ADDRESS = "10876 BARDWELL MILLS RD, REMSEN, NY, 13438"
 
 # A condominium unit in Erie County, recorded live with DUP_GEO = "Y": the whole
-# complex polygon is copied once per unit. Its neighbour in the stack is the same
+# complex polygon is copied once per unit. Its neighbor in the stack is the same
 # row with another unit, year and area — synthetic, because only the shape of the
 # stack is under test.
 _UNIT_29 = {"SWIS_SBL_ID": "14628906900000040010290000", "PARCEL_ADDR": "270 Buffalo Rd Unit 29", "LOC_ST_NBR": "270",
@@ -168,7 +168,7 @@ def test_the_house_is_found_from_the_roadway_too():
 
 def test_construction_and_the_rest_stay_empty():
     """BLDG_STYLE_DESC is an architectural style (Colonial, Ranch, Cape cod), not a
-    wall material, and the layer carries no storey count, foundation or condition."""
+    wall material, and the layer carries no story count, foundation or condition."""
     got = _lookup([_HOUSE], address=_HOUSE_ADDR)
     assert got is not None
     assert (got.construction, got.foundation, got.condition, got.stories) == (
@@ -253,7 +253,7 @@ def test_a_residential_inventory_outranks_a_stale_class():
     assert got.sqft is None, "not a one-family class, so the area is still refused"
 
 
-def test_an_unrecognised_class_is_not_a_refusal():
+def test_an_unrecognized_class_is_not_a_refusal():
     for cls in (None, "", "01", "21O"):
         got = _lookup([dict(_WAREHOUSE, PROP_CLASS=cls)],
                       address="3 CHARLES BLVD, ALBANY, NY, 12205")

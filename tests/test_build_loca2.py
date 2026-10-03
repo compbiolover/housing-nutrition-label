@@ -46,7 +46,7 @@ def test_sample_point_bbox_and_ring_fallback():
     j = int(np.abs(lon + 90.0).argmin())
     fn = np.full_like(f, np.nan)
     fn[i, j] = np.nan                 # nearest cell masked
-    fn[i, j + 1] = 7.0                # immediate neighbour (distance 1)
+    fn[i, j + 1] = 7.0                # immediate neighbor (distance 1)
     fn[i, j + 2] = 99.0               # farther cell (distance 2)
     assert b._sample_point(35.0, -90.0, lat, lon, fn) == 7.0
 

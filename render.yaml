@@ -33,11 +33,11 @@ services:
         value: "65536"
       # Per-caller rate limit on the scoring endpoints (protects the keyed/free
       # upstreams they proxy). "" or "0" disables it; /healthz is always exempt.
-      # The caller is the remote address, or the API key when one is recognised.
+      # The caller is the remote address, or the API key when one is recognized.
       - key: RATE_LIMIT
         value: "30/minute"
       # …and the remote address is only a caller if the app can see it. uvicorn
-      # honours X-Forwarded-For only when the immediate peer is in
+      # honors X-Forwarded-For only when the immediate peer is in
       # forwarded_allow_ips, which defaults to 127.0.0.1. Render's router is not
       # on loopback, so without this every anonymous visitor arrived as the
       # router's address: one shared 30/minute bucket for the whole internet, and
@@ -96,7 +96,7 @@ services:
       # per label in Cook, DC and CT, about +3 s in Florida, nothing elsewhere.
       # Each adapter carries its own hard deadline (4 s; CT 6 s; FL 7 s; DC condo
       # units 8 s) inside UPSTREAM_BUDGET, and every failure falls back to the
-      # modelled value. Set to "0" from the dashboard to switch off without a
+      # modeled value. Set to "0" from the dashboard to switch off without a
       # code change.
       - key: ASSESSOR_ADAPTERS
         value: "1"

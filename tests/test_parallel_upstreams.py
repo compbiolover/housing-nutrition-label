@@ -12,7 +12,7 @@ another thread changes nothing else a label depends on:
    and applies the answers exactly as the sequential code did — same fields, same
    notes, in the same order, with an NSI outage still flagged.
 3. The **warming fetches** really are the calls the label build makes later:
-   the build's own calls find them memoised and make no second request.
+   the build's own calls find them memoized and make no second request.
 4. Two identical ``/label`` requests in flight **share one scoring pass**.
 
 No network: every upstream is stubbed. This file alone:
@@ -228,7 +228,7 @@ def test_warmed_noise_layers_are_not_fetched_again(monkeypatch):
     assert len(calls) == len(R._SOURCES), "the build re-asked for a warmed layer"
 
 
-def test_a_failed_noise_layer_is_retried_not_memoised(monkeypatch):
+def test_a_failed_noise_layer_is_retried_not_memoized(monkeypatch):
     from housing_label.enrich import road_noise as R
     R._nearest_on_layer.cache_clear()
     R._sources_at.cache_clear()
@@ -350,7 +350,7 @@ def test_a_finished_task_is_not_named_as_dropped():
         utils.drain()
 
 
-def test_memoised_footprint_candidates_keep_no_geometry(monkeypatch):
+def test_memoized_footprint_candidates_keep_no_geometry(monkeypatch):
     """A memo of thousands of raw polygon collections is what a 512 MB host
     cannot hold; each candidate keeps its attributes and its perimeter only."""
     from housing_label.enrich import footprint as F
@@ -376,7 +376,7 @@ def test_waiters_wait_without_limit_when_the_budget_is_off(monkeypatch):
     assert api._waiter_timeout() == 35.0
 
 
-def test_queued_warmers_are_cancelled_when_the_window_runs_out(monkeypatch):
+def test_queued_warmers_are_canceled_when_the_window_runs_out(monkeypatch):
     """A warmer still queued when the request stops waiting must not stay in the
     shared pool's queue, holding a slot for a request that has moved on."""
     from housing_label.simulate import location as L

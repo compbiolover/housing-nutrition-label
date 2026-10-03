@@ -4,7 +4,7 @@
 The fifth adapter, and the first whose source is a database rather than a map
 service. The City publishes the Office of Property Assessment (OPA) roll as a
 table, ``opa_properties_public`` — one row per OPA account, 583,783 of them, with
-a year built, a livable area, a storey count, an exterior condition grade and a
+a year built, a livable area, a story count, an exterior condition grade and a
 basement code — on its Carto account, which answers arbitrary read-only SQL over
 HTTPS with no key. Philadelphia is a city and a county at once, so one table is
 the whole of county 42101: roughly 700,000 homes.
@@ -70,7 +70,7 @@ A condo unit's ``total_livable_area`` is the unit's own (450, 674 and 1,465 sq f
 at three units of one tower, verified live), so — like the District's
 ``LIVING_GBA`` — it is reported. Its ``number_stories`` is not: OPA's own field
 definition says that "in condominiums, this would relate to floor level", which
-is not a storey count at all.
+is not a story count at all.
 
 Ranges: "2018-32 WALNUT ST"
 ---------------------------
@@ -119,13 +119,13 @@ Family"), 3 ("Mixed Use") and 14 ("Apartments > 4 Units") describe the whole
 building and are refused, never divided.
 
 **Stories** — ``number_stories`` is an integer column, but OPA measures in half
-storeys ("only measure in half stories, which should be expressed as decimal
+stories ("only measure in half stories, which should be expressed as decimal
 (.5)") and the integer column rounds them: 7,140 houses whose building code says
 "2.5 STY" carry 3, and 2,481 carry 2. The label's field is a whole number and a
-half storey is not rounded into one (the District's and Cook's rule). So the
-count is reported only where the legacy building code names a **whole** storey
+half story is not rounded into one (the District's and Cook's rule). So the
+count is reported only where the legacy building code names a **whole** story
 count and ``number_stories`` agrees with it — two independent statements that
-concur. They disagree often enough to matter ("2 STY" with 1 storey on 30,711
+concur. They disagree often enough to matter ("2 STY" with 1 story on 30,711
 houses), and the agreeing set is still 85% of non-condominium single-family
 houses (360,999 of 424,816). Never for a
 condo unit (floor level, above) or a multi-dwelling record.
@@ -161,7 +161,7 @@ Mapped, reading DOWN where the scales differ (the reading that claims less wins)
   ==  ==================  ===========  ==========================================
 
 Deliberately unmapped: **1** NEWER CONSTRUCTION is a statement about age relative
-to the neighbours, not about upkeep, and the year built already carries it;
+to the neighbors, not about upkeep, and the year built already carries it;
 **6** VACANT is occupancy, not condition; **7** SEALED / STRUCTURALLY COMPROMISED
 lumps a boarded-up sound house with one open to the weather, which would be
 ``poor`` or ``unsound`` respectively and cannot be told apart; **0** is "not
@@ -186,7 +186,7 @@ houses with a median year built of 2021 still carry "VACANT LAND RESIDE < ACRE",
 and 229 carry "IND WAREHOUSE MASONRY". A material word from a code that has not
 been updated since the lot was empty is not an observation of the house. (The
 stories rule above survives this: a stale code cannot name the right whole
-storey count by accident often enough to matter, and when it does not, the
+story count by accident often enough to matter, and when it does not, the
 count is refused.) ``general_construction`` (codes A–J, 1–9) has no published
 definition and is not read.
 
@@ -280,7 +280,7 @@ or non-commercial condition. The separate phila.gov *website* terms
 pages; they are scoped to "the www.phila.gov Website" and its pages, not to the
 open-data API. So: querying live and caching in-process, never bundling — the
 posture ``base.py`` records for Cook — fits; a bulk copy of the table would assert
-a right the licence reserves.
+a right the license reserves.
 
 Privacy, and why the field list is short
 ----------------------------------------
@@ -321,7 +321,7 @@ SQL_URL = "https://phl.carto.com/api/v2/sql"
 
 # Only what the label scores, plus what decides whether a value describes one home:
 # the category, the unit, the second-building flag, and the building code (for the
-# storey cross-check and the two condo account types that are never homes). See
+# story cross-check and the two condo account types that are never homes). See
 # "Privacy" in the module docstring for what is never selected.
 _COLUMNS = ("parcel_number", "location", "unit", "category_code",
             "building_code_description", "year_built", "year_built_estimate",
@@ -369,7 +369,7 @@ _BASEMENT = {
 _RANGE_RE = re.compile(r"^(\d+)-(\d+)(\s+\S.*)$")
 _MAX_RANGE_SPAN = 200
 
-# The whole-number storey count in a legacy building code: "ROW 2 STY MASONRY".
+# The whole-number story count in a legacy building code: "ROW 2 STY MASONRY".
 # "2.5 STY" and "5+ STY" deliberately do not match.
 _STY_RE = re.compile(r"(?:^|\s)(\d+)\s+STY\b")
 
@@ -468,7 +468,7 @@ def _norm_unit(value) -> str:
 
 
 def _unit(row: dict) -> str:
-    """The account's own unit designator, normalised; "" when it has none."""
+    """The account's own unit designator, normalized; "" when it has none."""
     return _norm_unit(row.get("unit"))
 
 
@@ -532,12 +532,12 @@ def _is_condo(row: dict) -> bool:
 
 
 def _one_dwelling(row: dict) -> bool:
-    """Whether this account is exactly one home: the basis for area and storeys.
+    """Whether this account is exactly one home: the basis for area and stories.
 
     Single-family category, no second dwelling on the lot, and not a condominium
     building's account without a unit (whose area may be the building's). A
     condo *unit* account passes — its area is the unit's own — but see
-    :func:`_stories` for why its storey count does not.
+    :func:`_stories` for why its story count does not.
     """
     if _category(row) != _SINGLE_FAMILY:
         return False
@@ -567,8 +567,8 @@ def _sqft(row: dict) -> float | None:
 def _stories(row: dict) -> int | None:
     """``number_stories`` where the building code names the same whole number.
 
-    The integer column rounds OPA's half storeys; see "Stories" in the module
-    docstring. A condominium unit's count is its floor level, not a storey count,
+    The integer column rounds OPA's half stories; see "Stories" in the module
+    docstring. A condominium unit's count is its floor level, not a story count,
     and is never reported.
     """
     if not _one_dwelling(row) or _unit(row) or _is_condo(row):

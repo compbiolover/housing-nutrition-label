@@ -373,7 +373,7 @@ The Comptroller's own file settles it the other way:
 If the exemption skipped the debt levy, the I&S base would exceed the M&O base in
 essentially every district, since every district has homesteads. Instead they match in seven
 rows out of eight. The 209 exceptions are districts that may still tax exempted homestead
-value for debt authorised before the exemption increases — the rule TEA describes SB 1453
+value for debt authorized before the exemption increases — the rule TEA describes SB 1453
 (eff. 2026) as narrowing. `is_exempt_weight` carries the measured per-county share, so the
 carve-out is derived rather than assumed.
 

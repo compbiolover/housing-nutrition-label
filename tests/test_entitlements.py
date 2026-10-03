@@ -42,7 +42,7 @@ def _env(**pairs):
 def test_no_keys_configured_is_anonymous_and_unmetered():
     """The self-hosting contract, asserted directly.
 
-    README promises the licence lets you run this yourself. An instance with no
+    README promises the license lets you run this yourself. An instance with no
     keys configured must therefore hand every caller an unmetered anonymous plan
     — not a smaller version of the service that existed before this module.
     """
@@ -59,7 +59,7 @@ def test_no_keys_configured_is_anonymous_and_unmetered():
 def test_key_resolves_to_its_plan_and_an_unknown_key_is_none():
     """None is reserved for "supplied a key, and it isn't one".
 
-    Silently downgrading an unrecognised key to anonymous is the failure mode
+    Silently downgrading an unrecognized key to anonymous is the failure mode
     worth designing against: a customer whose key was mistyped or rotated would
     read their own downgrade as the service being slow.
     """

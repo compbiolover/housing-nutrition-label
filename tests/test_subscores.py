@@ -57,7 +57,7 @@ def test_the_three_groups_partition_the_roster_exactly():
 
 def test_an_unclassified_dimension_is_visibly_unclassified():
     """`kind` is an explicit lookup, so a future dimension added to no group is
-    labelled `unclassified` rather than silently claimed by the last branch."""
+    labeled `unclassified` rather than silently claimed by the last branch."""
     kinds = {d["key"]: d["kind"] for d in _payload()["dimensions"]}
     assert set(kinds.values()) <= {"construction", "location", "context"}
     for key in CONSTRUCTION_DRIVEN:
@@ -114,7 +114,7 @@ def test_the_building_leg_is_scored_at_a_reference_site():
         eal_rate_to_score(REFERENCE_SITE_EAL_RATE * 0.5), 1)
 
 
-def test_a_site_with_no_modelled_hazard_reports_no_multiplier():
+def test_a_site_with_no_modeled_hazard_reports_no_multiplier():
     """Dividing by zero hazard would call every building neutral, which is not a
     measurement — the building leg is unknown there, not 1.0."""
     from housing_label.score.resilience import resilience_legs
@@ -128,7 +128,7 @@ def test_a_site_with_no_modelled_hazard_reports_no_multiplier():
 def test_health_and_socioeconomic_are_shown_but_not_graded():
     """Both measure the PEOPLE nearby (ACS income/education, CDC PLACES disease
     prevalence) and are constant across a tract, so a per-address letter grade
-    built on them is a map of neighbourhoods graded by their residents. The rows
+    built on them is a map of neighborhoods graded by their residents. The rows
     stay; the aggregate does not include them."""
     assert CONTEXT_ONLY == {"health", "socioeconomic"}
     p = _payload()
@@ -270,7 +270,7 @@ def test_a_poor_structure_is_no_longer_laundered_by_its_surroundings():
 
     Scored here rather than at the LA fixture on purpose: the same preset in LA
     grades C on the building axis, so asserting D there would pass or fail on
-    which point was chosen rather than on the behaviour."""
+    which point was chosen rather than on the behavior."""
     loc = resolve_location(
         lat=35.13, lon=-89.99, allow_network=False,
         geography={"county_fips": "47157", "county_name": "Shelby County",
@@ -367,7 +367,7 @@ def test_the_percentile_suffix_agrees_with_its_number():
 
 def test_an_unscorable_axis_does_not_invent_a_percentile():
     """With no axis to show the block is omitted outright, rather than rendering
-    "N/A th pct" or a grey chip that reads as a real grade."""
+    "N/A th pct" or a gray chip that reads as a real grade."""
     html = _render({"dimensions": [], "construction_score": None,
                     "construction_national_grade": None,
                     "location_score": None, "location_national_grade": None})

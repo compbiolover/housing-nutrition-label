@@ -51,7 +51,7 @@ on fossil GWP only, consistent with the wood EPDs.
 | Material | Factor used | Declared source figure | Source | License |
 |----------|-------------|------------------------|--------|---------|
 | Ready-mix concrete | **320 kgCO2e/m³** | NRMCA v3.2: 311 (3000 psi) – 384 (4000 psi); GSA IRA typical 318–352 | NRMCA member industry-avg EPD v3.2 (2022); GSA IRA LEC Concrete Limits (Dec 2023) | Industry-avg / **US public domain** |
-| Reinforcing steel (rebar) | **0.854 kgCO2e/kg** | 854 kgCO2e/tonne, US EAF (~98% scrap) | CRSI Industry-Wide EPD (2022) | Industry-avg |
+| Reinforcing steel (rebar) | **0.854 kgCO2e/kg** | 854 kgCO2e/metric ton, US EAF (~98% scrap) | CRSI Industry-Wide EPD (2022) | Industry-avg |
 | Softwood lumber | **63.12 kgCO2e/m³** | GWP-fossil A1–A3 | AWC/CWC N. American Softwood Lumber EPD (2020) | Industry-avg |
 | Wood structural panels (OSB; plywood proxied) | **242.58 kgCO2e/m³** | OSB A1–A3 | AWC N. American OSB EPD (2020) | Industry-avg |
 | Gypsum board (½") | **2.51 kgCO2e/m²** | 233 kgCO2e per 1,000 ft² (MSF = 92.9 m²) | Gypsum Association cradle-to-gate LCA / EPD | Industry-avg |

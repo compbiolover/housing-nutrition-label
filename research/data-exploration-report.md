@@ -276,7 +276,7 @@ The following 14 columns were automatically detected as numeric by pandas type i
 
 ### `ADRSTR` — Street Name
 - 99.9% filled, 520 unique street names.
-- Top streets: LEVI (69), CENTRE OAK (15), POPLAR (14), MAIN (13), WHEELIS (12), PORTER (11).
+- Top streets: LEVI (69), CENTER OAK (15), POPLAR (14), MAIN (13), WHEELIS (12), PORTER (11).
 - The high count for "LEVI" aligns with the LAKEVIEW ROAD LP / LEVI LIMITED PARTNERSHIP institutional ownership cluster.
 
 ### `ADRSUF` — Street Type Suffix

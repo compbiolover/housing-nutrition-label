@@ -7,7 +7,7 @@ county aggregate onto every home in it — including homes on a private well tha
 are on no system at all. Until now the only way to say so was for the owner to
 tell us. EPA's service-area boundaries supply the missing join.
 
-The behaviour these tests pin is mostly about what happens when the answer is
+The behavior these tests pin is mostly about what happens when the answer is
 *not* clean: an unreachable service must not read as "this house is on a well",
 and a stated source must always beat a detected one.
 
@@ -118,7 +118,7 @@ def test_detection_fills_an_unstated_source():
 def test_unknown_detection_resolves_to_public():
     """No water_system means the lookup was skipped or the service was unreachable.
     That is NOT "outside", and must not unscore Water Quality — it resolves to the
-    pre-detection behaviour."""
+    pre-detection behavior."""
     assert resolve_water_source({}, _loc(None)) == "public"
     assert resolve_water_source({}, None) == "public"
 

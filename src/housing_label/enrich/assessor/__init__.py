@@ -26,16 +26,16 @@ actually buy" is a number rather than an argument.
 Precedence
 ----------
 Above NSI and above any area typical, below the reader. The label applies what the
-visitor entered first, then what the county observed, then a modelled stand-in,
-then a global default. An observed value outranks a modelled one — that is the
+visitor entered first, then what the county observed, then a modeled stand-in,
+then a global default. An observed value outranks a modeled one — that is the
 whole point — but the person standing in the house still outranks the county,
 whose record can be decades stale or simply wrong.
 
-Which modelled stand-in comes next is field-dependent, and worth stating exactly
+Which modeled stand-in comes next is field-dependent, and worth stating exactly
 because it has been described wrongly here before: for ``year_built`` the tract's
 ACS distribution wins where the tract resolves, and NSI's tract median is the
 fallback when it does not; for every other field NSI's structure record is the
-only modelled source.
+only modeled source.
 """
 
 from __future__ import annotations

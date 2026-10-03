@@ -40,7 +40,7 @@ from housing_label.legal import DISCLAIMER, DISCLAIMER_SHORT
 
 # ── Palette ───────────────────────────────────────────────────────────────────
 # Mirrors GRADE_COLORS / GRADE_INK in docs/label-core.js; tests/test_badge.py
-# fails if the two drift, because a badge grading a home one colour while the
+# fails if the two drift, because a badge grading a home one color while the
 # page behind it grades the same home another is worse than no badge.
 GRADE_COLORS = {"A": "#16a34a", "B": "#84cc16", "C": "#eab308", "D": "#f97316", "F": "#dc2626"}
 GRADE_INK = {"A": "#0f172a", "B": "#0f172a", "C": "#0f172a", "D": "#0f172a", "F": "#ffffff"}
@@ -131,7 +131,7 @@ def _theme_css(theme: str) -> str:
     """CSS custom properties for the requested theme.
 
     ``auto`` ships both and lets the reader's own setting choose. A media query
-    inside an SVG is honoured even when the SVG is loaded through ``<img>``,
+    inside an SVG is honored even when the SVG is loaded through ``<img>``,
     which is the only reason the badge can be theme-aware at all on a page whose
     background it cannot see.
     """
@@ -148,8 +148,8 @@ def _theme_css(theme: str) -> str:
 
 
 def _chip(x: float, y: float, w: float, h: float, grade: str, size: float) -> str:
-    """A grade letter on its own coloured field — the one element that carries
-    colour, and the reason colour and letter can never disagree: both are read
+    """A grade letter on its own colored field — the one element that carries
+    color, and the reason color and letter can never disagree: both are read
     from the same `grade`."""
     bg = GRADE_COLORS.get(grade, UNSCORED)
     ink = GRADE_INK.get(grade, UNSCORED_INK)
@@ -223,7 +223,7 @@ def render_badge(payload: dict, *, style: str = "full", theme: str = "auto",
     headline axes are read, so a trimmed payload works and a badge never depends
     on a field the API might stop sending.
 
-    Raises ValueError on an unknown style or theme — an unrecognised query
+    Raises ValueError on an unknown style or theme — an unrecognized query
     parameter should be a 400 at the edge, not a silent fallback that leaves a
     caller wondering why ``theme=drak`` looks the same as no theme at all.
     """

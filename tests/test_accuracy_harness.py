@@ -3,7 +3,7 @@
 
 ``scripts/measure_accuracy.py`` needs network for every row, so it cannot run in
 CI and its *measurements* are taken by hand. What can and must be tested offline
-is the maths that turns scored cases into published percentages, because that is
+is the math that turns scored cases into published percentages, because that is
 where a mistake would not announce itself: a coverage denominator that counted
 rows the county never had a value for, or a grade-impact rate computed over pairs
 where one side is missing, produces a number that looks entirely plausible and is
@@ -46,7 +46,7 @@ def test_year_built_error_and_tolerance_bands():
         _case({"year_built": 1900}, {"year_built": 1908}, {}, {}),   # 8 → within 10
         _case({"year_built": 1900}, {"year_built": 1930}, {}, {}),   # 30 → neither
     ]
-    f = M._summarise(cases, "baseline")["fields"]["year_built"]
+    f = M._summarize(cases, "baseline")["fields"]["year_built"]
     assert f["n"] == 4 and f["coverage_pct"] == 100.0
     assert f["median_abs_error"] == 6.0          # median of 0, 4, 8, 30
     assert f["exact_pct"] == 25.0
@@ -64,7 +64,7 @@ def test_coverage_counts_only_rows_the_county_could_grade():
         _case({"year_built": 1900}, {"year_built": 1900}, {}, {}),
         _case({}, {"year_built": 1999}, {}, {}),      # county said nothing
     ]
-    f = M._summarise(cases, "baseline")["fields"]["year_built"]
+    f = M._summarize(cases, "baseline")["fields"]["year_built"]
     assert f["n"] == 1, "a row with no ground truth is not a row we got wrong"
     assert f["coverage_pct"] == 100.0
     assert f["exact_pct"] == 100.0
@@ -78,7 +78,7 @@ def test_a_field_the_label_could_not_infer_lowers_coverage_not_accuracy():
         _case({"year_built": 1900}, {"year_built": 1900}, {}, {}),
         _case({"year_built": 1950}, {"year_built": None}, {}, {}),
     ]
-    f = M._summarise(cases, "baseline")["fields"]["year_built"]
+    f = M._summarize(cases, "baseline")["fields"]["year_built"]
     assert f["n"] == 2
     assert f["coverage_pct"] == 50.0
     assert f["exact_pct"] == 100.0, "accuracy is over what was actually answered"
@@ -89,7 +89,7 @@ def test_categorical_fields_are_scored_on_exact_match():
         _case({"construction": "frame"}, {"construction": "frame"}, {}, {}),
         _case({"construction": "brick"}, {"construction": "frame"}, {}, {}),
     ]
-    f = M._summarise(cases, "baseline")["fields"]["construction"]
+    f = M._summarize(cases, "baseline")["fields"]["construction"]
     assert f["exact_pct"] == 50.0
     assert "median_abs_error" not in f, "a wall type has no arithmetic distance"
 
@@ -99,7 +99,7 @@ def test_sqft_reports_relative_error():
         _case({"sqft": 1000.0}, {"sqft": 1100.0}, {}, {}),    # 10%
         _case({"sqft": 2000.0}, {"sqft": 1600.0}, {}, {}),    # 20%
     ]
-    f = M._summarise(cases, "baseline")["fields"]["sqft"]
+    f = M._summarize(cases, "baseline")["fields"]["sqft"]
     assert f["median_abs_pct_error"] == 15.0
 
 
@@ -110,7 +110,7 @@ def test_grade_impact_is_the_share_that_differs_from_truth():
         _case({}, {}, {"durability": "A", "building_axis": "A"},
                       {"durability": "C", "building_axis": "A"}),
     ]
-    g = M._summarise(cases, "baseline")["grade_impact"]
+    g = M._summarize(cases, "baseline")["grade_impact"]
     assert g["durability"]["differs_pct"] == 50.0
     assert g["building_axis"]["differs_pct"] == 50.0
     assert g["durability"]["n"] == 2
@@ -127,7 +127,7 @@ def test_grade_impact_skips_pairs_with_a_missing_side():
         _case({}, {}, {"durability": None}, {"durability": "C"}),  # nothing to compare
         _case({}, {}, {"durability": "B"}, {"durability": None}),  # nothing to compare
     ]
-    g = M._summarise(cases, "baseline")["grade_impact"]["durability"]
+    g = M._summarize(cases, "baseline")["grade_impact"]["durability"]
     assert g["n"] == 1
     assert g["differs_pct"] == 100.0
 
@@ -145,7 +145,7 @@ def test_an_unscorable_dimension_is_not_counted_as_agreement():
     cases[0]["truth_grades"] = M._grades(
         {"dimensions": [{"key": "durability", "national_grade": "\u2014"}]})
     cases[0]["baseline"]["grades"] = cases[0]["truth_grades"]
-    assert M._summarise(cases, "baseline")["grade_impact"]["durability"]["n"] == 0
+    assert M._summarize(cases, "baseline")["grade_impact"]["durability"]["n"] == 0
 
 
 def test_composite_is_not_among_the_graded_dimensions():
@@ -158,7 +158,7 @@ def test_composite_is_not_among_the_graded_dimensions():
 
 def test_an_empty_field_reports_nothing_rather_than_zero():
     """No ground truth at all must not render as 0% accuracy."""
-    f = M._summarise([_case({}, {}, {}, {})], "baseline")["fields"]["year_built"]
+    f = M._summarize([_case({}, {}, {}, {})], "baseline")["fields"]["year_built"]
     assert f["n"] == 0
     assert f["coverage_pct"] is None
     assert "exact_pct" not in f
@@ -173,10 +173,10 @@ def test_the_page_reports_the_numbers_it_was_given():
                       "assessment_year": "2026", "fetched": "2026-08-24",
                       "rows": 7, "sha256_16": "deadbeefdeadbeef"},
         "adapter_resolved_pct": 62.5,
-        "baseline": M._summarise([_case({"year_built": 1900}, {"year_built": 1930},
+        "baseline": M._summarize([_case({"year_built": 1900}, {"year_built": 1930},
                                         {"durability": "B"}, {"durability": "C"})],
                                  "baseline"),
-        "adapter": M._summarise([_case({"year_built": 1900}, {"year_built": 1900},
+        "adapter": M._summarize([_case({"year_built": 1900}, {"year_built": 1900},
                                        {"durability": "B"}, {"durability": "B"})],
                                 "adapter"),
     }
@@ -199,10 +199,10 @@ def _juris(source, digest, rows=7):
         "benchmark": {"source": source, "assessment_year": "2026",
                       "fetched": "2026-08-24", "rows": rows, "sha256_16": digest},
         "adapter_resolved_pct": 62.5,
-        "baseline": M._summarise([_case({"year_built": 1900}, {"year_built": 1930},
+        "baseline": M._summarize([_case({"year_built": 1900}, {"year_built": 1930},
                                         {"durability": "B"}, {"durability": "C"})],
                                  "baseline"),
-        "adapter": M._summarise([_case({"year_built": 1900}, {"year_built": 1900},
+        "adapter": M._summarize([_case({"year_built": 1900}, {"year_built": 1900},
                                        {"durability": "B"}, {"durability": "B"})],
                                 "adapter"),
     }
@@ -231,7 +231,7 @@ def test_the_original_single_county_results_still_render():
     assert "Cook County, Illinois" in M._render(flat)
 
 
-def test_an_unrecognised_results_shape_yields_no_sections():
+def test_an_unrecognized_results_shape_yields_no_sections():
     """Better an empty page than a confident one built from a file this code does
     not understand."""
     assert M.as_jurisdictions({"generated": "2026-08-24"}) == {}
@@ -396,8 +396,8 @@ def test_the_page_states_the_sampled_count_not_the_scored_one():
                       "sampled": 220, "rows": 200, "sha256_16": "deadbeefdeadbeef"},
         "unscored": 20,
         "adapter_resolved_pct": 62.5,
-        "baseline": M._summarise([_case({}, {}, {}, {})], "baseline"),
-        "adapter": M._summarise([_case({}, {}, {}, {})], "adapter"),
+        "baseline": M._summarize([_case({}, {}, {}, {})], "baseline"),
+        "adapter": M._summarize([_case({}, {}, {}, {})], "adapter"),
     }
     page = M._render(results)
     assert "220 addresses sampled" in page
@@ -414,8 +414,8 @@ def test_an_older_result_without_a_sampled_count_still_renders():
                       "assessment_year": "2026", "fetched": "2026-08-24",
                       "rows": 200, "sha256_16": "deadbeefdeadbeef"},
         "adapter_resolved_pct": 62.5,
-        "baseline": M._summarise([_case({}, {}, {}, {})], "baseline"),
-        "adapter": M._summarise([_case({}, {}, {}, {})], "adapter"),
+        "baseline": M._summarize([_case({}, {}, {}, {})], "baseline"),
+        "adapter": M._summarize([_case({}, {}, {}, {})], "adapter"),
     }
     assert "200 addresses sampled" in M._render(results)
 
@@ -625,7 +625,7 @@ def test_only_the_legacy_path_may_go_unstamped():
 
 def test_an_unreadable_results_shape_is_not_treated_as_an_empty_store():
     """"Merge, never replace" has to hold against a file this code does not
-    recognise — precisely when it is least safe to assume there is nothing to
+    recognize — precisely when it is least safe to assume there is nothing to
     preserve. as_jurisdictions returns {} for an unknown shape, and continuing
     would delete every other jurisdiction's measurement to fix a schema mistake."""
     assert M.as_jurisdictions({"something": "else"}) == {}, (
@@ -642,7 +642,7 @@ def test_an_unreadable_results_shape_is_not_treated_as_an_empty_store():
 
 def test_a_per_jurisdiction_benchmark_must_carry_a_digest():
     """Without a digest AND without `rows`, nothing checks the file's content at
-    all: a benchmark correctly labelled `dc` could hold any bytes and still be
+    all: a benchmark correctly labeled `dc` could hold any bytes and still be
     published as DC. The no-digest exemption belongs to the pre-split file only —
     I granted it to the stamp and not the digest in the same edit."""
     with tempfile.TemporaryDirectory() as tmp:
@@ -1437,7 +1437,7 @@ def test_the_documented_invocations_carry_every_required_argument():
 
 def test_the_cache_walk_reaches_the_caches_that_make_requests():
     """Replicates are only measurements if each one actually makes its requests.
-    The adapters and the geocoder memoise, so the second scoring of a row answers
+    The adapters and the geocoder memoize, so the second scoring of a row answers
     from memory: the DC condominium benchmark took half an hour on the first run
     and thirty-eight seconds on the second. A cache replay cannot fail the way a
     live request can, so a range across such runs describes the cache — and reads

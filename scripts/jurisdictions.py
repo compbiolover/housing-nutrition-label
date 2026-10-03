@@ -41,7 +41,7 @@ JURISDICTIONS = {
         # rather than folded into `dc` because the two are not one population
         # measured twice: they come from different CAMA tables, are reached by
         # different lookups (address-and-unit versus point-in-polygon), and the
-        # condominium table carries no wall, storey or condition column at all.
+        # condominium table carries no wall, story or condition column at all.
         # Averaging them would hide which half a number came from, and the halves
         # do not answer for the same fields.
         "scope": "condominium units only (61,329 of DC's 170,602 CAMA records)",
@@ -51,7 +51,7 @@ JURISDICTIONS = {
         # houses and then the condominiums under them, not two peers that look like
         # two cities. They stay separate measurements because they answer for
         # different fields from different tables; nesting is a statement about how
-        # to read them, not a licence to average them.
+        # to read them, not a license to average them.
         "parent": "dc",
     },
 }

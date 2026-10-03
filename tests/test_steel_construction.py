@@ -76,7 +76,7 @@ def test_every_extwall_consumer_knows_the_steel_code():
     assert factor != _wall_factor(EXTWALL_CODE["frame"])[1]
 
 
-def test_steel_is_penalised_on_energy_for_thermal_bridging():
+def test_steel_is_penalized_on_energy_for_thermal_bridging():
     """Steel studs conduct ~400x wood and short-circuit the cavity insulation, so a
     steel-framed envelope must cost MORE to condition than the same wood-framed one.
     The old frame alias gave it a free pass — this is the regression that matters."""

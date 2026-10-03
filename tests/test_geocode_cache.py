@@ -50,9 +50,9 @@ def test_a_benchmark_change_misses_rather_than_serving_a_stale_tract():
         assert c.get(stale) is None
 
 
-def test_key_normalises_case_and_whitespace_but_nothing_riskier():
+def test_key_normalizes_case_and_whitespace_but_nothing_riskier():
     """A book re-exported from another system should not miss on every line. But
-    normalising further — St/Street, punctuation — could merge two genuinely
+    normalizing further — St/Street, punctuation — could merge two genuinely
     different addresses, and a wrong hit is worse than a miss."""
     a = GC.address_key("123  main   st ", "MEMPHIS", "tn", "38104")
     b = GC.address_key("123 Main St", "Memphis", "TN", "38104")

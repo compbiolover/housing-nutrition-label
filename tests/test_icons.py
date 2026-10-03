@@ -67,14 +67,14 @@ def test_svg_geometry_is_derived_from_the_shared_constants():
 
 def test_palette_tracks_the_stylesheet():
     """The icon palette mirrors docs/style.css, so a brand change there cannot
-    quietly leave the icons on the old colours."""
+    quietly leave the icons on the old colors."""
     assert build_icons.PALETTE["tile"].lower() == _css_var("navy")
     assert build_icons.PALETTE["door"].lower() == _css_var("navy")
     assert build_icons.PALETTE["roof"].lower() == _css_var("accent-on-dark")
     assert build_icons.PALETTE["body"].lower() == _css_var("bg")
 
 
-def test_data_green_is_not_used_as_a_brand_colour():
+def test_data_green_is_not_used_as_a_brand_color():
     """style.css scopes --green to score-bar fills ("grades keep their own
     scale"). A green roof read as a grade signal — as though the label were
     rating itself — which is why the mark moved to Harbor."""
@@ -100,7 +100,7 @@ def test_favicon_ico_carries_the_small_bitmaps():
     assert {(16, 16), (32, 32)} <= set(ico.info["sizes"]), ico.info["sizes"]
 
 
-def test_pages_reference_the_icons_and_theme_colour():
+def test_pages_reference_the_icons_and_theme_color():
     """Each page links all three icons and declares the brand navy, so browser
     chrome matches the tile."""
     navy = _css_var("navy")

@@ -35,7 +35,7 @@ sample (2026-10-03):
   * **The other 46: 39% to 88% of all parcels carry a year** — vacant land and
     farm tracts included, so the share of *homes* is higher. Next lowest after
     Bertie is Columbus at 39%; there is no county in between, so the line is
-    not a judgement call.
+    not a judgment call.
 
 ``COUNTY_FIPS`` is those 46, and not the state, because registering a county
 here is a claim the label makes to a reader: that an observed year built is
@@ -59,7 +59,7 @@ answering a query, and every number below was measured through ``/query``.
 
 What this source carries, and what it does not
 ----------------------------------------------
-**Only the year built.** The standard schema has no floor area, no storey
+**Only the year built.** The standard schema has no floor area, no story
 count, no wall material, no foundation and no condition, so those stay empty and
 NSI's estimate stands for them. That also means the condominium trap that
 Florida and Connecticut spend a page on — a parcel's floor area describing a
@@ -212,7 +212,7 @@ exactly as the product does, passed through ``assessor_address`` and looked up:
 * **210 resolved, and 0 matched to the wrong parcel.** All 210 years are exact.
 * 76 did not resolve. 56 are geocodes the Census matcher placed out of reach
   of the shared 80 m search — interpolated along the street, 91 m to 2.7 km
-  from the parcel's centre, median 156 m. 14 are spellings the two sources
+  from the parcel's center, median 156 m. 14 are spellings the two sources
   genuinely disagree on: a directional present on one side only ("802 MEMORIAL
   BLVD" against "802 N MEMORIAL BLVD", which is not forgiven — see
   ``_comparable``), "STEEPLECHASE" against "STEEPLE CHASE", "OLE" against
@@ -227,7 +227,7 @@ because of this run; before them, the same kind of sample resolved 105 of 144.
 Terms of use
 ------------
 NC OneMap's terms (``https://www.nconemap.gov/pages/terms``, linked as the
-layer's licence) describe a "free and unrestricted use policy" that every
+layer's license) describe a "free and unrestricted use policy" that every
 contributing county accepts by sharing its data, state that "written release
 agreements to authorize use of the geospatial data, web services, and
 applications found on the NC OneMap website are not required and will not be
@@ -488,7 +488,7 @@ def _address_of(attrs: dict) -> str | None:
 
 # --- spelling, applied to BOTH sides of the comparison --------------------------
 #
-# The shared comparison already canonicalises the common street types ("STREET"
+# The shared comparison already canonicalizes the common street types ("STREET"
 # = "ST", "AV" = "AVE"). North Carolina's county files and the Census matcher
 # disagree in three further ways, each seen in the end-to-end run and each a
 # matter of spelling, not of which building:
@@ -527,10 +527,10 @@ _EXTRA_SUFFIXES = {"TR": "TRL", "CR": "CIR"}
 
 
 def _comparable(address: str | None) -> str | None:
-    """``address`` respelt so the two sources' conventions compare equal.
+    """``address`` respelled so the two sources' conventions compare equal.
 
     Rewrites only the street part (before the first comma), and only the three
-    things described above. Anything it does not recognise passes through
+    things described above. Anything it does not recognize passes through
     untouched, so the worst it can do is leave a pair unmatched.
     """
     if not address:
@@ -586,7 +586,7 @@ def _parcels(lat: float, lon: float, distance_m: float = 0,
 
     A row with an address and no year is KEPT, and so is one with a year the
     adapter will refuse (a shop). Both are real records: dropping them could make
-    a neighbour the only parcel left under the point. A row with no parcel
+    a neighbor the only parcel left under the point. A row with no parcel
     number is kept too — Cumberland files its newest parcels without one ("1507
     FAWN WOOD PL", built 2022), and the year is a fact with or without it.
     """
@@ -613,7 +613,7 @@ def _parcel_at(lat: float, lon: float, address: str | None = None,
     """The record of the parcel this point belongs to, or None.
 
     Deciding *which* parcel an address means is the dangerous part of any adapter
-    — name the wrong one and the label reports a neighbour's house as observed
+    — name the wrong one and the label reports a neighbor's house as observed
     fact — so the policy lives in ``_shared.select_parcel`` and is shared by every
     jurisdiction. No shared locality set is passed: the city tail is per row here
     (it is the row's own ``scity``), so ``_address_of`` trims it instead. Both
@@ -650,7 +650,7 @@ def _says_it_is_not_a_home(row: dict) -> bool:
 
     See "The use description, read only where it is unambiguous" in the module
     docstring. Silence is never a refusal: a blank description, a single-letter
-    code, or one this adapter does not recognise all let the year through, the
+    code, or one this adapter does not recognize all let the year through, the
     same way Florida treats a missing dwelling count.
     """
     desc = str(row.get("parusedesc") or "").strip().upper()
@@ -695,9 +695,9 @@ def _lookup_cached(lat: float, lon: float, address: str | None,
         data_vintage=_vintage(row),
         parcel_id=_parcel_id(row),
         year_built=year_built,
-        # The statewide schema carries no floor area, storey count, wall
+        # The statewide schema carries no floor area, story count, wall
         # material, foundation or condition. Left empty on purpose, which lets
-        # the label fall back to its modelled estimate for those rather than to
+        # the label fall back to its modeled estimate for those rather than to
         # a guess dressed up as an observation.
     )
 
@@ -711,7 +711,7 @@ def lookup(lat: float, lon: float, address: str | None = None) -> AssessorRecord
 
     Fails open on everything — a timeout, a 500, a renamed column, a parcel the
     county has no year for. The caller then keeps whatever it had, which is the
-    behaviour that existed before this adapter.
+    behavior that existed before this adapter.
     """
     try:
         # Round before the cache so two clicks on the same rooftop share an entry.

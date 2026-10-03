@@ -100,7 +100,7 @@ its counties do classify rental housing, and by a lot. It is left out because tw
 four implied multipliers breach ``CLASSIFICATION_MULT_CEIL`` and Honolulu's is a
 value-tiered bracket rather than a class ratio — under-correcting a jurisdiction that is
 0.44% of the population beats encoding a 3.5x correction from a bracket schedule that has
-not been modelled. Between them the two hold 0.65% of the population.
+not been modeled. Between them the two hold 0.65% of the population.
 
 The rollout plan is ``research/property-tax-classification-rollout.md`` and the
 per-jurisdiction authority record is ``research/property-tax-classification-research.md``;
@@ -581,7 +581,7 @@ CLASSIFICATION_RULES: dict[str, ClassificationRule] = {
                "and rental housing sits on the residential side of it. Class 3 was higher "
                "historically and was reduced by ordinance in stages to 10% by 2011, so an "
                "older secondary source shows a differential that no longer exists. The "
-               "Assessor's three-year equalization study puts the REALISED levels at 9.15% "
+               "Assessor's three-year equalization study puts the REALIZED levels at 9.15% "
                "for class 2 against 7.89% for class 3, so in practice Cook apartments are "
                "assessed below houses and even the observed gap runs the wrong way for a "
                "correction. Outside Cook, 35 ILCS 200/9-145 is a uniform 33-1/3%."),
@@ -732,7 +732,7 @@ CLASSIFICATION_RULES: dict[str, ClassificationRule] = {
                "76:3), and it is the instructive contrast with Vermont: the New Hampshire "
                "Supreme Court upheld it in 2025 precisely because it is administered 'equal "
                "in valuation and uniform in rate throughout the state', where Vermont's "
-               "equivalent splits homestead from nonhomestead. Two neighbours, the same "
+               "equivalent splits homestead from nonhomestead. Two neighbors, the same "
                "instrument, opposite answers."),
     ),
     "RI": ClassificationRule(
@@ -1049,7 +1049,7 @@ CLASSIFICATION_RULES: dict[str, ClassificationRule] = {
                "which places newly added value at the same assessed-to-market ratio as "
                "similar existing property. It keys on the § 308.149 'property class', "
                "which OAR 150-308-0170 takes from the Department of Revenue's USE "
-               "classification — and it equalises new value rather than preferring "
+               "classification — and it equalizes new value rather than preferring "
                "anyone. Nothing in Oregon keys on tenure."),
     ),
     "CA": ClassificationRule(
@@ -1093,13 +1093,13 @@ CLASSIFICATION_RULES: dict[str, ClassificationRule] = {
     # FIPS resolves the rule cleanly, and the split is genuinely tenure-based: Honolulu's
     # Residential A, Kaua'i's Non-Owner-Occupied and the Maui and Hawai'i County
     # Apartment classes all separate an owner's principal residence from rented housing.
-    # What stops it is the SIZE. Modelled on the FY26 rate schedules at a large building,
+    # What stops it is the SIZE. Modeled on the FY26 rate schedules at a large building,
     # the implied multipliers are Kaua'i 3.56x, Honolulu 3.20x, Maui 2.12x and Hawai'i
     # County 1.97x — two of the four breach CLASSIFICATION_MULT_CEIL, the research-error
     # tripwire, and Honolulu's Residential A is a two-tier bracket above $1,000,000, so
     # its effective rate is value-dependent in the Florida shape rather than a fixed
     # class ratio. Under "when in doubt, under-correct" Hawaii stays out of the table
-    # until the brackets are modelled properly. See
+    # until the brackets are modeled properly. See
     # research/property-tax-classification-research.md.
     # DC is deliberately NOT encoded. It restructured its classes for tax year 2025 (a
     # new Class 1A / 1B split), and sources conflict on where a multifamily rental

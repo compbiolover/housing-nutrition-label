@@ -308,7 +308,7 @@ def resolve_location(
     everything keyed off county/tract — climate zone, eGRID, Cambium, climate
     projections, wildfire, tornado — resolves from the bundled crosswalks as usual.
     It is rejected alongside ``address``: one says "I already know where this is",
-    the other says "go look it up", and silently honouring one would drop the other.
+    the other says "go look it up", and silently honoring one would drop the other.
 
     The narrow claim this rests on: the Census geocode is the ONLY network call
     needed to learn a point's county and tract, and every crosswalk keyed off them
@@ -325,7 +325,7 @@ def resolve_location(
 
     ``also_fetch`` is a list of callables taking ``(lat, lon)`` that the caller
     will need answered about the same point later — the label build's flood zone,
-    seismic hazard, road noise and rooftop solar. They are memoised fetchers, so
+    seismic hazard, road noise and rooftop solar. They are memoized fetchers, so
     starting them here, alongside this function's own enrichers, means the label
     build later finds each answer already waiting instead of asking for it in
     turn. Their results and their failures are discarded here: a fetcher that
@@ -393,7 +393,7 @@ def resolve_location(
             # The geocoder does not always echo a matchedAddress. Without one,
             # _pin_at falls back to accepting a sole containing polygon
             # unconfirmed — and the interpolation error that motivates the
-            # confirmation can land the point inside a neighbour's lot. So the
+            # confirmation can land the point inside a neighbor's lot. So the
             # caller's own address string stands in. It stays None for
             # coordinate-only callers, who genuinely have nothing to confirm
             # against.
@@ -426,7 +426,7 @@ def resolve_location(
         def _footprint_candidates():
             # The footprint's own requests, at the same time as NSI's. Choosing
             # among the buildings they return needs NSI's floor area, so that
-            # choice is made below, once both are back, from memoised candidates.
+            # choice is made below, once both are back, from memoized candidates.
             footprint_warm(loc.lat, loc.lon)
 
         def _water():
@@ -515,7 +515,7 @@ def resolve_location(
 
     # Year-built distribution (ACS B25034/B25035): tract→county→national, same
     # shape as the hazard lookups above. This is NOT a fact about the building on
-    # this parcel — it is when its neighbours were built, and how much they vary.
+    # this parcel — it is when its neighbors were built, and how much they vary.
     # The label uses the median as a stand-in for an unknown year and the quartiles
     # to say how much of a stand-in it is. Unlike the hazard rows it can be None
     # (no geography resolved at all), so every reader must guard.
@@ -551,7 +551,7 @@ def resolve_location(
     if allow_network:
         utils.gather(futures + warming)
         # Tasks whose answers are only memo warmers — the footprint candidates and
-        # the label build's point fetches — are cancelled if the window ran out
+        # the label build's point fetches — are canceled if the window ran out
         # before they started: their consumers make the same call directly, and a
         # queued warmer left behind would hold a pool slot for the next request.
         for warmer in [futures[2], *warming]:
@@ -626,7 +626,7 @@ def resolve_location(
 
 
 def _quietly(fetch, lat: float, lon: float) -> None:
-    """Run a warming fetch for its side effect (a memoised answer), and nothing else.
+    """Run a warming fetch for its side effect (a memoized answer), and nothing else.
 
     Swallowing is right here and only here: the same fetch is made again by the
     code that consumes it, which is where its failure means something.
@@ -647,7 +647,7 @@ def _outcome(future, fallback, host: str):
     recorded as one under ``host`` — the same bookkeeping a refused call gets — so
     the payload names it and the API does not cache the degraded label. Without
     that, a saturated pool would look like "no record here" and be pinned to the
-    coordinate for the whole TTL. A task still queued is cancelled, so it does not
+    coordinate for the whole TTL. A task still queued is canceled, so it does not
     spend a slot on an answer nobody will read.
     """
     if not future.done():
@@ -687,7 +687,7 @@ def assessor_address(matched: str | None, typed: str | None) -> str | None:
     address entirely when the geocoder echoed nothing.
 
     **Except when the geocoder answered for a different house.** The Census
-    matcher will substitute a near neighbour it can find for one it cannot:
+    matcher will substitute a near neighbor it can find for one it cannot:
     "123 FINLAY ST 10307" came back as "123 FINLAY AVE 10309" in the New York City
     adapter's verification run, the point was placed on Finlay Avenue, and the
     adapter then confirmed — correctly, against what it was given — the parcel of
@@ -715,7 +715,7 @@ def _another_house(matched: str, typed: str) -> bool:
     # address_key will not parse "770A" (its number must be all digits), and the
     # New York City adapter matches 770A and 770 as different lots — so a matcher
     # that turned 770A GREENE AVE into 770 GREENE AVE would otherwise pass here
-    # unseen and let the neighbouring lot be confirmed.
+    # unseen and let the neighboring lot be confirmed.
     nm, nt = _house_number(matched), _house_number(typed)
     if nm and nt and nm != nt:
         return True
@@ -728,7 +728,7 @@ def _another_house(matched: str, typed: str) -> bool:
         return True
     # A different street NAME is a different house too — but only where the two
     # CONTRADICT, never where one simply says more. This was first left out, on
-    # the theory that correcting a misspelt name is the matcher's job; then added
+    # the theory that correcting a misspelled name is the matcher's job; then added
     # as plain token equality, which was wrong the other way: "2123 California St"
     # typed against the matcher's "2123 CALIFORNIA ST NW", or a comma-less "123
     # Main St Brooklyn NY" with its city still in the tokens, read as different
@@ -747,7 +747,7 @@ def _another_house(matched: str, typed: str) -> bool:
 
 def _fold(tokens) -> list[str]:
     """Street-name tokens from ``address_key`` with every direction abbreviated and
-    every street type canonicalised, wherever they stand.
+    every street type canonicalized, wherever they stand.
 
     ``address_key`` has already folded ordinals, SAINT/MOUNT/FORT and the
     directions inside a longer name (``_shared.fold_name``). It leaves a direction

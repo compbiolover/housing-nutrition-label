@@ -349,7 +349,7 @@ def test_the_points_fold_a_building_exactly_as_the_polygons_do():
 
 
 def test_the_typed_unit_is_looked_for_among_the_points_before_the_building():
-    """1 Ginford Pl, Catonsville, is one polygon labelled with unit 202's account;
+    """1 Ginford Pl, Catonsville, is one polygon labeled with unit 202's account;
     unit 102 exists only among the points. Asking the polygons about the building
     first would answer the reader in 102 with 202's account (measured live: four of
     50 random condominium units got another unit's account that way)."""
@@ -494,10 +494,10 @@ def test_the_rewrites_do_not_loosen_the_comparison():
     assert not _shared.same_address("12 SAINT", "12 ST")
 
 
-# ── storeys and construction ───────────────────────────────────────────────────
+# ── stories and construction ───────────────────────────────────────────────────
 
 
-def test_only_a_whole_storey_count_is_a_storey_count():
+def test_only_a_whole_story_count_is_a_story_count():
     for style, want in (("STRY 1 Story No Basement", 1),
                         ("STRY Townhouse-End Unit 3 Story No Basement", 3),
                         ("STRY Townhouse-Center Unit 2 Story With Basem", 2),
@@ -586,7 +586,7 @@ def test_the_whole_budget_fits_inside_what_the_host_allows_one_service():
 
 
 def test_both_passes_share_their_requests_and_one_clock():
-    """A typed unit runs two selection passes; each fetch is memoised so the second
+    """A typed unit runs two selection passes; each fetch is memoized so the second
     pass costs nothing, and every request is handed the same deadline."""
     seen = []
 
@@ -638,13 +638,13 @@ def test_two_houses_containing_the_point_are_ambiguous_and_refused():
     assert _lookup([_HOUSE, other]) is None
 
 
-def test_the_neighbours_house_is_not_confirmed_against_this_address():
-    """The geocode can land inside the neighbour's polygon. A sole containing parcel
+def test_the_neighbors_house_is_not_confirmed_against_this_address():
+    """The geocode can land inside the neighbor's polygon. A sole containing parcel
     whose address disagrees is not evidence, and the buffer must find the right one
     by address or nothing."""
-    neighbour = dict(_HOUSE, ACCTID="1301189426", ADDRESS="1204 ASHMEAD SQ",
+    neighbor = dict(_HOUSE, ACCTID="1301189426", ADDRESS="1204 ASHMEAD SQ",
                      YEARBLT="1975")
-    got = _lookup([neighbour], near=[neighbour, _HOUSE],
+    got = _lookup([neighbor], near=[neighbor, _HOUSE],
                   address="1202 ASHMEAD SQ, BEL AIR, MD")
     assert got is not None and got.parcel_id == "1301189425"
     assert got.year_built == 1989

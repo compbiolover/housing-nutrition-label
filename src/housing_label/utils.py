@@ -540,7 +540,7 @@ def fan_out(*tasks):
 
     Every task runs inside the caller's timing/budget window (see above). The
     caller collects results with :func:`gather`, or ignores them when a task exists
-    only to warm a memoised fetcher.
+    only to warm a memoized fetcher.
     """
     window = _window()
 

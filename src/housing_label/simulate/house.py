@@ -423,7 +423,7 @@ BONUS_IMPACT_GARAGE_DOOR = 0.95  # A PRESSURE-rated garage door (ANSI/DASMA 108,
                                   # failure at 81-165 mph, squarely in the EF0-EF2 band that
                                   # dominates NRI tornado EAL, where the 10 psf garage door fails and
                                   # the 40 psf windows do not (Hazus; Vickery 2006 Tbl 1). Internal
-                                  # pressurisation is real but compressive: ARA prices designing the
+                                  # pressurization is real but compressive: ARA prices designing the
                                   # whole house for partially-enclosed GCpi at 0.98 too.
                                   # Moderate evidence.
 BONUS_SEALED_ROOF_DECK   = 0.93  # Sealed roof deck / secondary water resistance: a self-adhered
@@ -640,9 +640,9 @@ BONUS_GROUPS = {
         # these explicitly ("no SWR tends to minimize the effect of deck strength").
         ("sealed_roof_deck", "metal_roof"),
         # Large-opening pressure resistance — a separate failure path from roof
-        # uplift (breach → internal pressurisation). Note this is NOT ARA's
+        # uplift (breach → internal pressurization). Note this is NOT ARA's
         # "opening protection" dimension, which covers glazed openings and is not
-        # modelled here; only the garage door is.
+        # modeled here; only the garage door is.
         ("impact_garage_door",),
     ],
     "flood": [
@@ -664,7 +664,7 @@ BONUS_GROUPS = {
     # (shaking vs fire-following-earthquake), so their product is honest.
 }
 
-# Per-hazard lower bound on the COMBINED bonus stack — the analogue of BRM_FLOOR
+# Per-hazard lower bound on the COMBINED bonus stack — the analog of BRM_FLOOR
 # ("floor only, no ceiling").
 BONUS_FLOOR = {
     # IBHS FORTIFIED Gold, the best-evidenced number in this file: Alabama DOI /
@@ -731,7 +731,7 @@ def combine_bonuses(cfg: dict, hazard: str, modifiers: dict) -> float:
     survivors multiply across groups; the result is floored at BONUS_FLOOR.
 
     An active flag not named in any group multiplies on its own, so adding a
-    constant without classifying it degrades to the old behaviour rather than
+    constant without classifying it degrades to the old behavior rather than
     being silently dropped.
     """
     groups = BONUS_GROUPS.get(hazard, ())
@@ -2182,7 +2182,7 @@ def label_payload(cfg: dict, r: dict, label: dict, include_building: bool = True
         "confidence": confidence_for_label(label),
         "bands": bands_for_label(label),
         # Per address, not the shared constant: a dimension capped for resting on a
-        # neighbourhood typical says so here, where the reader is already looking.
+        # neighborhood typical says so here, where the reader is already looking.
         "confidence_notes": confidence_notes_for_label(label),
         "confidence_legend": CONFIDENCE_LEGEND,
         # Annual $ flows for the lifetime-cost strip (delta vs. a baseline is
@@ -2360,7 +2360,7 @@ def _autofill_construction_from_nsi(cfg: dict, explicit: set, location,
     so the label can tag each with where it came from.
 
     Sources in precedence order: an OBSERVED county-assessor record (tagged
-    ``observed``), then a modelled stand-in, then a global default. The modelled
+    ``observed``), then a modeled stand-in, then a global default. The modeled
     step is field-dependent: ``year_built`` prefers the tract's ACS distribution
     where the tract resolved and falls back to NSI's tract median; every other
     field comes from NSI's structure record. The assessor is applied per field, so a
@@ -2690,7 +2690,7 @@ def _building_block(cfg: dict, struct: dict, explicit: set, autofilled: dict,
 
     # The year-built interval. A bare median cannot say how wrong it might be, and
     # the answer varies enormously by place: the middle half of homes spans 8 years
-    # in a new subdivision and 50 in a mixed-vintage neighbourhood (median US tract:
+    # in a new subdivision and 50 in a mixed-vintage neighborhood (median US tract:
     # 27). Carried on the field itself rather than in confidence.bands, which is
     # reserved for score-space whiskers on a dimension — this is an input-space
     # interval on an input, and conflating the two would put a data gap and a
@@ -2698,7 +2698,7 @@ def _building_block(cfg: dict, struct: dict, explicit: set, autofilled: dict,
     #
     # Only while the value is still ours to doubt — status "assumed". A confirmed
     # year came from the reader and an observed one from the county; in both cases
-    # what the neighbours did has stopped bearing on it. Testing for "assumed"
+    # what the neighbors did has stopped bearing on it. Testing for "assumed"
     # rather than "not confirmed" is what keeps an observed year from being drawn
     # inside a tract spread on the rare parcel where the two coincide.
     yb = out.get("year_built")
@@ -2774,7 +2774,7 @@ def _point_fetches(flood_zone: str | None) -> tuple:
     """The point-level datasets this build will ask about, for ``resolve_location``
     to start early (its ``also_fetch``).
 
-    Each is the same memoised public function the build calls later, called with
+    Each is the same memoized public function the build calls later, called with
     the same point, so the later call is a cache hit rather than a second request.
     That equivalence is the whole contract, and it holds because every one of them
     rounds the coordinate itself before it reaches its memo. FEMA is left out when
@@ -2834,7 +2834,7 @@ def build_label_parts(*, address: str | None = None,
     from argparse import Namespace
     from housing_label.simulate.location import resolve_location
 
-    # **fields is a convenience, not a licence to accept anything. It used to
+    # **fields is a convenience, not a license to accept anything. It used to
     # swallow unknown keyword arguments in silence, which is the worst possible
     # failure for this function: passing geography= before it was a real parameter
     # dropped it into fields, scored the parcel with no tract, and returned a label
@@ -3006,7 +3006,7 @@ def build_label_parts(*, address: str | None = None,
         # The autofill writes cfg["stories"], and `struct` was derived from cfg
         # before it ran. While every autofilled value came from NSI that was
         # harmless — recomputing reproduced the same numbers — but a county
-        # assessor's storey count differs from NSI's by design, so the stale
+        # assessor's story count differs from NSI's by design, so the stale
         # `struct` would score and display NSI's height while the field carried
         # the "observed" tag. Recompute from the cfg that actually won.
         struct = effective_structure(cfg, location)

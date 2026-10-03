@@ -115,7 +115,7 @@ def _metrics(incorporated):
 
 def test_unincorporated_is_not_charged_municipal_collection():
     """Curbside collection stops at the city limit — unincorporated residents haul
-    to a convenience centre or contract privately, which is not a public cost
+    to a convenience center or contract privately, which is not a public cost
     allocated to that parcel."""
     inc, _ = _metrics(True)
     unin, _ = _metrics(False)

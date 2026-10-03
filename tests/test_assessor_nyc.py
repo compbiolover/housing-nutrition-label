@@ -193,13 +193,13 @@ def test_the_two_sources_disagree_about_where_the_hyphen_goes():
                                     nyc._street_form(pluto)), (census, pluto)
 
 
-def test_a_wrong_queens_neighbour_in_the_buffer_is_not_taken():
+def test_a_wrong_queens_neighbor_in_the_buffer_is_not_taken():
     """The buffer finds every lot within 80 m; the address must pick exactly one."""
-    neighbour = dict(_HOUSE, BBL=4032040022, Address="68-42 CLYDE STREET",
+    neighbor = dict(_HOUSE, BBL=4032040022, Address="68-42 CLYDE STREET",
                      YearBuilt=1931)
-    got = _lookup([], near=[neighbour, _HOUSE], address=_CLYDE)
+    got = _lookup([], near=[neighbor, _HOUSE], address=_CLYDE)
     assert got is not None and got.parcel_id == "4032040021" and got.year_built == 1930
-    assert _lookup([], near=[neighbour], address=_CLYDE) is None
+    assert _lookup([], near=[neighbor], address=_CLYDE) is None
 
 
 def test_ordinals_and_directions_are_spelled_one_way_on_both_sides():
@@ -325,7 +325,7 @@ def test_an_area_dcp_computed_is_not_reported_as_one_finance_recorded():
     assert got.stories == 3, "the floor count is still Finance's"
 
 
-def test_a_half_storey_is_not_rounded_into_a_whole_one():
+def test_a_half_story_is_not_rounded_into_a_whole_one():
     got = _lookup([dict(_HOUSE, NumFloors=2.5)])
     assert got is not None and got.stories is None and got.sqft == 1638.0
 
@@ -434,9 +434,9 @@ def test_two_real_lots_containing_the_point_are_ambiguous_and_refused():
 
 def test_a_containing_lot_whose_address_disagrees_is_not_taken():
     """The interpolation error that puts a geocode in the roadway can put it in the
-    neighbour's lot. A sole containing lot must still agree with the address."""
-    neighbour = dict(_HOUSE, BBL=4032040022, Address="68-42 CLYDE STREET")
-    assert _lookup([neighbour], address=_CLYDE) is None
+    neighbor's lot. A sole containing lot must still agree with the address."""
+    neighbor = dict(_HOUSE, BBL=4032040022, Address="68-42 CLYDE STREET")
+    assert _lookup([neighbor], address=_CLYDE) is None
 
 
 # ── privacy ────────────────────────────────────────────────────────────────────
@@ -463,14 +463,14 @@ def test_the_requested_fields_are_what_reaches_the_service():
 
 def test_the_five_boroughs_and_nothing_else():
     """Checked against the county table this repository ships, so the five codes
-    cannot be mistyped into a neighbouring county."""
+    cannot be mistyped into a neighboring county."""
     path = _ROOT / "src" / "housing_label" / "data" / "year_built_county.csv"
     with open(path, newline="") as fh:
         geoids = {r["geoid"] for r in csv.DictReader(fh)}
     assert nyc.COUNTY_FIPS <= geoids
     assert nyc.COUNTY_FIPS == {"36005", "36047", "36061", "36081", "36085"}
-    for neighbour in ("36059", "36119", "34017", "34003"):   # Nassau, Westchester, NJ
-        assert neighbour in geoids and neighbour not in nyc.COUNTY_FIPS
+    for neighbor in ("36059", "36119", "34017", "34003"):   # Nassau, Westchester, NJ
+        assert neighbor in geoids and neighbor not in nyc.COUNTY_FIPS
 
 
 # ── the clock ──────────────────────────────────────────────────────────────────
@@ -540,7 +540,7 @@ def test_the_service_falling_over_is_not_evidence_of_absence():
 
 
 def test_a_renamed_column_fails_open_rather_than_raising():
-    """A layer reorganised under the same URL returns rows without the columns
+    """A layer reorganized under the same URL returns rows without the columns
     this adapter reads. Nothing must raise past ``lookup``."""
     assert _lookup([{"OBJECTID": 1, "SomethingElse": "x"}]) is None
     assert nyc.lookup("not a number", None) is None

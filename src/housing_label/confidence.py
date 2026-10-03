@@ -9,7 +9,7 @@ applies exactly one rubric.
 
 Methodology + citations: research/uncertainty-confidence-research.md.
 
-The tier is a NUSAP/pedigree judgement of *fitness for use* (source, geographic
+The tier is a NUSAP/pedigree judgment of *fitness for use* (source, geographic
 resolution, completeness) — NOT a statistical confidence interval, and never
 drawn as one. "Confident" must never read as "good": a parcel can be
 confidently an F.
@@ -49,8 +49,8 @@ CONFIDENCE_LEGEND = (
 #
 # Until the accuracy harness existed, every scored dimension carried the same tier
 # whatever its construction inputs were made of: a durability grade computed from a
-# census-tract median year built was labelled exactly as confidently as one computed
-# from the county's record of the building. That was an editorial judgement, and the
+# census-tract median year built was labeled exactly as confidently as one computed
+# from the county's record of the building. That was an editorial judgment, and the
 # measurement says it was wrong.
 #
 # From research/accuracy/results.json (217 Cook County and 218 Washington, DC
@@ -70,7 +70,7 @@ CONFIDENCE_LEGEND = (
 # A third to a half is not a High-confidence number by any
 # reading of this module's own rubric, and it is now capped.
 #
-# Resilience is deliberately NOT capped, and this is the judgement most worth
+# Resilience is deliberately NOT capped, and this is the judgment most worth
 # revisiting. It moved on 2.8% of Cook addresses and 8.7% of DC ones — DC's rate is
 # roughly THREE TIMES Cook's, and Cook's was quoted alone, as though it were a
 # property of the dimension, when only Cook had been measured. One city is not a
@@ -80,7 +80,7 @@ CONFIDENCE_LEGEND = (
 # wildfire class do the work there, and the vintage reaches the letter only at the
 # margin.
 #
-# So the exemption rests on a judgement about magnitude, not a bright line. Capping
+# So the exemption rests on a judgment about magnitude, not a bright line. Capping
 # resilience would tell readers a genuinely strong signal is weak; leaving it
 # uncapped accepts that roughly one DC label in eleven carries a resilience letter a
 # real year built would move. If a third jurisdiction lands nearer durability than
@@ -95,7 +95,7 @@ _PROVENANCE_SENSITIVE = {
 }
 
 # `assumed` is the status the pipeline gives an area typical — a value that
-# describes the neighbourhood rather than the building. `estimated` (NSI's record
+# describes the neighborhood rather than the building. `estimated` (NSI's record
 # of this structure) and `observed` (a county's) are both about the building
 # itself, and `confirmed` is the reader's own answer.
 _STANDIN_STATUS = "assumed"
@@ -181,7 +181,7 @@ def _rests_on_a_standin(key: str, building: dict) -> bool:
     return False
 
 
-# Appended to a dimension the STAND-IN capped. The dot changing colour without a
+# Appended to a dimension the STAND-IN capped. The dot changing color without a
 # reason is worse than not capping at all: the reader sees a downgrade and cannot
 # tell whether the data source is weak in general or weak for THEIR address, and
 # the second is fixable by them in the panel directly above.
@@ -194,7 +194,7 @@ def _rests_on_a_standin(key: str, building: dict) -> bool:
 # Environmental's 26.7%/23.4% is deliberately NOT in that range: this note never
 # reaches it, because its band caps it first.
 STANDIN_NOTE = (" Confidence is held at Moderate here because this dimension is "
-                "being computed from a neighbourhood typical rather than a record "
+                "being computed from a neighborhood typical rather than a record "
                 "of this building. Measured against assessor records in the two "
                 "places that have been checked, the letter differs between about "
                 "a third and about half the time on such inputs. Correcting the "
@@ -225,7 +225,7 @@ def year_built_display(building: dict | None) -> str | None:
     """The year built as a reader should see it, or None when there is none.
 
     The web page carries a sentence explaining that a year built can be a
-    neighbourhood typical rather than this home's, and shows the range it was drawn
+    neighborhood typical rather than this home's, and shows the range it was drawn
     from. Every other surface — the terminal card, the printable SVG, the shared
     card — printed the same number bare, which reads as a fact about the building.
     That is the one field in this codebase whose whole difficulty is that it is

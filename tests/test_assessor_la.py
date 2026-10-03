@@ -59,8 +59,8 @@ _HOUSE = _row(AIN="5103026007", SitusHouseNo="897", SitusDirection="E",
               SitusStreet="52ND PL", DesignType1="0110", YearBuilt1="1904",
               Units1=1, SQFTmain1=912)
 
-# Recorded live. A neighbour on the same block, for the buffered search.
-_NEIGHBOUR = _row(AIN="5103026008", SitusHouseNo="893", SitusDirection="E",
+# Recorded live. A neighbor on the same block, for the buffered search.
+_NEIGHBOR = _row(AIN="5103026008", SitusHouseNo="893", SitusDirection="E",
                   SitusStreet="52ND PL", DesignType1="0110", YearBuilt1="1911",
                   Units1=1, SQFTmain1=1020)
 
@@ -182,7 +182,7 @@ def test_the_year_is_a_string_in_the_roll_and_an_integer_on_the_label():
 
 
 def test_an_off_parcel_geocode_is_confirmed_by_its_address():
-    got = _lookup([], near=[_NEIGHBOUR, _HOUSE], address=_ADDR)
+    got = _lookup([], near=[_NEIGHBOR, _HOUSE], address=_ADDR)
     assert got is not None and got.parcel_id == "5103026007"
 
 
@@ -456,7 +456,7 @@ def test_a_row_with_no_ain_does_not_make_a_real_parcel_ambiguous():
 def test_a_lettered_avenue_keeps_its_letter_and_number():
     """The shared parser drops a digit-bearing token after a street type as a unit,
     so "5142 W AVE L8" and "5142 W AVENUE L10" — two Lancaster streets a few hundred
-    metres apart — would match each other."""
+    meters apart — would match each other."""
     l8 = _row(AIN="3102023031", SitusHouseNo="5142", SitusDirection="W",
               SitusStreet="AVENUE L8", DesignType1="0110", YearBuilt1="1957",
               Units1=1, SQFTmain1=990)
@@ -477,7 +477,7 @@ def test_the_census_spellings_of_a_lettered_avenue_match_the_rolls():
         assert _shared.same_address(la._canon(census), la._canon(roll)), census
 
 
-def test_a_numbered_avenue_is_not_its_neighbour():
+def test_a_numbered_avenue_is_not_its_neighbor():
     """Northeast LA's Avenue 63 and Avenue 64 run parallel a block apart."""
     assert not _shared.same_address(la._canon("223 N AVE 64, LOS ANGELES, CA"),
                                     la._canon("223 N AVENUE 63"))
@@ -543,7 +543,7 @@ def test_the_requested_fields_are_what_reaches_the_service():
     assert params and all(p["outFields"] == la._FIELDS for p in params)
 
 
-def test_the_buffered_query_is_in_metres_and_carries_an_output_reference():
+def test_the_buffered_query_is_in_meters_and_carries_an_output_reference():
     params = []
     _lookup([], near=[_HOUSE], address=_ADDR, params=params)
     assert len(params) == 2

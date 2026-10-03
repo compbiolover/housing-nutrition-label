@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build the coverage page (``docs/coverage.html``) from the adapter registry.
 
-Where does the label carry an *observed* building record rather than a modelled
+Where does the label carry an *observed* building record rather than a modeled
 one? The honest answer changes every time an assessor adapter lands, and a page
 that says it by hand is a page that goes stale the day after it is written. So
 this page is generated, like ``accuracy.html``, from the things that are already
@@ -9,7 +9,7 @@ the truth:
 
 * ``enrich.assessor.ADAPTERS`` — which county FIPS each adapter answers for. A
   county is on the map because an adapter is registered for it, not because
-  somebody coloured it in.
+  somebody colored it in.
 * ``data/year_built_county.csv`` — the ACS housing-unit count per county, the
   same table the label's year-built fallback reads. "Homes covered" is the sum
   over an adapter's counties, and the national row is the denominator.
@@ -26,7 +26,7 @@ from the verification run recorded in each adapter's own module docstring.
 The county map is a separate asset, ``docs/coverage-map.svg``: every US county as
 a path keyed ``c<FIPS>``, drawn once from the Census Bureau's cartographic
 boundaries (via the ``us-atlas`` package, which projects them to Albers USA). It
-carries no colours. The page colours covered counties with a generated CSS
+carries no colors. The page colors covered counties with a generated CSS
 block, so the map only needs redrawing if county geometry changes, which is why
 ``--map`` is the only mode that touches the network.
 
@@ -67,14 +67,14 @@ ATLAS_URL = "https://cdn.jsdelivr.net/npm/us-atlas@3.0.1/counties-albers-10m.jso
 
 FIELDS = ("year_built", "sqft", "stories", "construction", "foundation", "condition")
 FIELD_LABELS = {
-    "year_built": "Year built", "sqft": "Floor area", "stories": "Storeys",
+    "year_built": "Year built", "sqft": "Floor area", "stories": "Stories",
     "construction": "Wall", "foundation": "Foundation", "condition": "Condition",
 }
 
 # ── What each adapter is, in words ──────────────────────────────────────────────
 # Keyed by module name (``housing_label.enrich.assessor.<key>``). `fields` is what
 # the adapter can put on a label, not what every record carries — a condominium
-# unit, for instance, never reports a storey count. `verified` is the end-to-end
+# unit, for instance, never reports a story count. `verified` is the end-to-end
 # check from the module's docstring: homes drawn at random from the source,
 # geocoded through the Census matcher, then looked up. `accuracy` names the
 # jurisdiction in results.json when there is a measured benchmark, and takes the
@@ -298,7 +298,7 @@ def depth(fields) -> int:
     """How much of a building's record an adapter supplies, as a map tier.
 
     1 — year built only; 2 — year built and floor area; 3 — those plus at least
-    one structural fact (storeys, wall, foundation or condition).
+    one structural fact (stories, wall, foundation or condition).
     """
     f = set(fields)
     if f & {"stories", "construction", "foundation", "condition"}:
@@ -419,7 +419,7 @@ def share_bar(m: dict) -> str:
 
 
 def homes_bars(m: dict) -> str:
-    """Homes covered per source, ranked. One series, so one colour."""
+    """Homes covered per source, ranked. One series, so one color."""
     rows = m["adapters"]
     row_h, gap, label_w, val_w, plot_w = 30, 8, 190, 90, 520
     width = label_w + plot_w + val_w
@@ -523,21 +523,21 @@ def dumbbells(rows: list[dict], lo_key: str, hi_key: str, unit_note: str,
         if a is None or b is None:
             continue
         out.append(
-            f'<g><title>{esc(r["label"])}: {a:.1f}% modelled → {b:.1f}% with the '
+            f'<g><title>{esc(r["label"])}: {a:.1f}% modeled → {b:.1f}% with the '
             f'assessor record ({esc(unit_note)})</title>'
             f'<text class="lbl" x="{label_w - 12}" y="{y:.1f}" dy="0.35em" '
             f'text-anchor="end">{esc(r["label"])}</text>'
             f'<line class="link" x1="{X(a):.1f}" x2="{X(b):.1f}" y1="{y:.1f}" y2="{y:.1f}"/>'
             f'<circle class="base" cx="{X(a):.1f}" cy="{y:.1f}" r="6"/>'
             f'<circle class="obs" cx="{X(b):.1f}" cy="{y:.1f}" r="7"/>'
-            # Both ends labelled above their dots, so a falling value (fewer wrong
+            # Both ends labeled above their dots, so a falling value (fewer wrong
             # grades is the good direction) never runs into the row label.
             f'<text class="axis" x="{X(a):.1f}" y="{y - 12:.1f}" '
             f'text-anchor="middle">{a:.0f}%</text>'
             f'<text class="val" x="{X(b):.1f}" y="{y - 12:.1f}" '
             f'text-anchor="middle">{b:.0f}%</text></g>')
     return (f'<svg class="dumbbell" viewBox="0 0 {w} {h}" role="img" '
-            f'aria-label="{esc(unit_note)}, modelled versus with the assessor record">'
+            f'aria-label="{esc(unit_note)}, modeled versus with the assessor record">'
             + "".join(out) + "</svg>")
 
 
@@ -545,12 +545,12 @@ def dumbbells(rows: list[dict], lo_key: str, hi_key: str, unit_note: str,
 
 
 def county_css(m: dict) -> str:
-    """One selector list per tier, colouring each covered county on the map."""
+    """One selector list per tier, coloring each covered county on the map."""
     by_tier: dict[int, list[str]] = {1: [], 2: [], 3: []}
     for r in m["adapters"]:
         by_tier[r["depth"]].extend(f"#c{f}" for f in r["counties"])
     # A county too small to see at this scale (the District, Manhattan) carries a
-    # dot in the map asset; it is shown, in its tier's colour, only when covered.
+    # dot in the map asset; it is shown, in its tier's color, only when covered.
     dots = {t: [f"#d{sel[2:]}" for sel in sels] for t, sels in by_tier.items()}
     return "\n".join(
         ",".join(f"#covmap {s}" for s in sorted(sels + dots[tier]))
@@ -771,7 +771,7 @@ _SCRIPT = """
       h += '<span>' + a.n + '</span><span class="m">Observed: ' + a.f.join(', ') + '</span>';
       if (hit[1]) h += '<span class="m">' + fmt(hit[1]) + ' homes in this county</span>';
     } else {
-      h += '<span class="m">Modelled building data (no assessor source yet)</span>';
+      h += '<span class="m">Modeled building data (no assessor source yet)</span>';
     }
     tip.innerHTML = h; tip.style.display = 'block';
     var box = holder.getBoundingClientRect();
@@ -819,7 +819,7 @@ def render(m: dict) -> str:
     legend = "".join(
         f'<span style="--sw:var(--tier-{t})">{esc(TIER_LABELS[t])} '
         f'({homes_text(tier_counts[t])} homes)</span>' for t in (3, 2, 1) if tier_counts[t])
-    legend += '<span style="--sw:var(--tier-0)">Modelled only</span>'
+    legend += '<span style="--sw:var(--tier-0)">Modeled only</span>'
     yb = dumbbells(measured, "yb10_base", "yb10_adapter",
                    "year built within ±10 years of the assessor's", True)
     grade_rows = [r for r in measured if r.get("grade_base") is not None]
@@ -829,7 +829,7 @@ def render(m: dict) -> str:
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Coverage &mdash; Housing Nutrition Label</title>
-<meta name="description" content="Where the Housing Nutrition Label reads an observed building record from the assessor instead of a modelled one: {homes_text(m['total'])} homes across {len(m['adapters'])} sources.">
+<meta name="description" content="Where the Housing Nutrition Label reads an observed building record from the assessor instead of a modeled one: {homes_text(m['total'])} homes across {len(m['adapters'])} sources.">
 <link rel="icon" href="favicon.svg" type="image/svg+xml" sizes="any">
 <link rel="icon" href="favicon.ico" type="image/x-icon" sizes="any">
 <link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180">
@@ -852,7 +852,7 @@ def render(m: dict) -> str:
 structure inventory and the census tract's year-built distribution. Where a county or
 state publishes its assessment roll, the label reads what the assessor
 <em>observed</em> instead &mdash; the actual year built, floor area and, in some places,
-storeys, walls, foundation and condition. This page shows where that is true today.</p>
+stories, walls, foundation and condition. This page shows where that is true today.</p>
 
 <div class="tiles">
   <div class="tile"><div class="num">{millions(m['total'])}</div><div class="cap">homes with an observed record source</div></div>
@@ -898,7 +898,7 @@ storeys, walls, foundation and condition. This page shows where that is true tod
 <div class="card">
   <h2>Does the record make the label more accurate?</h2>
   <p class="sub">Measured where a benchmark exists: addresses drawn at random, scored from the address alone, compared with the assessor's own record. <a href="accuracy.html">Full methodology and caveats</a>.</p>
-  <div class="key"><span><i style="--k:var(--base)"></i>Modelled</span><span><i style="--k:var(--series)"></i>With the assessor record</span></div>
+  <div class="key"><span><i style="--k:var(--base)"></i>Modeled</span><span><i style="--k:var(--series)"></i>With the assessor record</span></div>
   <div class="two">
     <div><h3>Year built within ±10 years</h3>{yb}</div>
     <div><h3>Building grade a reader sees is wrong</h3>{gr}</div>
@@ -907,7 +907,7 @@ storeys, walls, foundation and condition. This page shows where that is true tod
 
 <div class="card">
   <h2>Is the right house found?</h2>
-  <p class="sub">The dangerous failure is not a missing record but a neighbour's record shown as yours. Every source is checked end to end: homes drawn at random from the source itself, geocoded exactly as the label does, then looked up. When the address and the parcel do not agree, the label declines to guess and keeps its modelled value.</p>
+  <p class="sub">The dangerous failure is not a missing record but a neighbor's record shown as yours. Every source is checked end to end: homes drawn at random from the source itself, geocoded exactly as the label does, then looked up. When the address and the parcel do not agree, the label declines to guess and keeps its modeled value.</p>
   {verification_table(m)}
 </div>
 
@@ -920,7 +920,7 @@ storeys, walls, foundation and condition. This page shows where that is true tod
 <div class="card">
   <h2>What this page does and does not say</h2>
   <ul class="notes">
-    <li><strong>A source is not a guarantee.</strong> Inside a covered county the label still falls back to its modelled values when the address cannot be matched to exactly one parcel, when the record omits a field, or when the assessor's service is slow. The "answered" rates above are the realistic share.</li>
+    <li><strong>A source is not a guarantee.</strong> Inside a covered county the label still falls back to its modeled values when the address cannot be matched to exactly one parcel, when the record omits a field, or when the assessor's service is slow. The "answered" rates above are the realistic share.</li>
     <li><strong>Serving is not measuring.</strong> Only the jurisdictions on the <a href="accuracy.html">accuracy page</a> carry measured accuracy figures. The others carry a verification run that checks the right parcel is found, which is a narrower claim.</li>
     <li><strong>Homes are ACS housing units</strong> in each source's counties, the same table the label uses for its year-built fallback. Some sources do not answer for every home in those counties (New York State's public layer, for instance, covers only the counties that opted in, and it is mapped that way).</li>
     <li><strong>Nothing is bundled.</strong> Every record is queried live from the publisher and cached briefly; owner names, mailing addresses and sale prices are never requested.</li>

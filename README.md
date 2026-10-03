@@ -193,9 +193,9 @@ County drinking-water safety from the EPA **Safe Drinking Water Information Syst
 
 The national/local thresholds are identical across all dimensions, so a grade means exactly the same thing whether it's read from the resilience dimension, the composite, or any other.
 
-> **Nationally-anchored scores.** The location-driven dimensions (health, socioeconomic, walkability, air quality, noise, and water) plus infrastructure and climate are scored against **national reference distributions** (bundled, versioned, and reproducible from the `scripts/build_*` builders), so a dimension's 0–100 score and its **absolute national grade are comparable across locations**. This replaces the earlier within-county percentile for health/socioeconomic, which re-baselined every county to a ~50 median and was not comparable place-to-place. The optional *local* percentile grade remains a rank within whatever dataset is loaded and is labelled with its reference population and vintage, never presented as a national percentile.
+> **Nationally-anchored scores.** The location-driven dimensions (health, socioeconomic, walkability, air quality, noise, and water) plus infrastructure and climate are scored against **national reference distributions** (bundled, versioned, and reproducible from the `scripts/build_*` builders), so a dimension's 0–100 score and its **absolute national grade are comparable across locations**. This replaces the earlier within-county percentile for health/socioeconomic, which re-baselined every county to a ~50 median and was not comparable place-to-place. The optional *local* percentile grade remains a rank within whatever dataset is loaded and is labeled with its reference population and vintage, never presented as a national percentile.
 >
-> **National percentile per dimension ("vs US homes").** Each dimension also shows where the home stands nationally, e.g. *"72nd US"*. The construction-driven dimensions (energy, durability, environmental, resilience) map their score through a bundled national distribution built by [`scripts/calibrate_construction_percentiles.py`](scripts/calibrate_construction_percentiles.py) (a household-weighted panel of every US county × documented building archetypes, scored with the real models); walkability maps through the EPA-NWI crosswalk distribution; health/socioeconomic already are national percentiles; climate/infrastructure/air quality track national quantiles. These construction/walkability references are **modeled** distributions, so the percentile is an honest, versioned *estimate* (labelled as such on the label).
+> **National percentile per dimension ("vs US homes").** Each dimension also shows where the home stands nationally, e.g. *"72nd US"*. The construction-driven dimensions (energy, durability, environmental, resilience) map their score through a bundled national distribution built by [`scripts/calibrate_construction_percentiles.py`](scripts/calibrate_construction_percentiles.py) (a household-weighted panel of every US county × documented building archetypes, scored with the real models); walkability maps through the EPA-NWI crosswalk distribution; health/socioeconomic already are national percentiles; climate/infrastructure/air quality track national quantiles. These construction/walkability references are **modeled** distributions, so the percentile is an honest, versioned *estimate* (labeled as such on the label).
 
 ## Accuracy
 
@@ -233,7 +233,7 @@ than guessing, and the page says so where the numbers are.
 The measurement feeds back into the label rather than only being published. Where a
 dimension's grade was measured as sensitive to construction provenance — durability
 differs from the assessor's answer 37.3% of the time in Cook and 50.5% in DC when
-the profile is a neighbourhood typical, and energy 37.3% and 32.6% — its confidence
+the profile is a neighborhood typical, and energy 37.3% and 32.6% — its confidence
 tier is now capped at Moderate until the building's own details are known. Resilience is deliberately exempt: it moved on 2.8% of the
 Cook sample and 8.7% of the DC one — separate samples, not a paired comparison — so
 the vintage reaches its letter only at the margin, and capping it would understate a
@@ -397,7 +397,7 @@ Memphis tract (47157003100, whose homes are typically from 1950):
 The default year built used to be a flat 2024, which graded **92.9 (A)** on that same
 tract — a book of century-old housing read as new construction. It is now the tract's
 ACS median year built ([`data/year_built.py`](src/housing_label/data/year_built.py),
-bundled, so it resolves offline here too), which follows the neighbourhood instead of
+bundled, so it resolves offline here too), which follows the neighborhood instead of
 flattering it: the same attribute-free row grades **19 in a 1950s Memphis tract and 84
 in a 2010s one**.
 
@@ -527,7 +527,7 @@ that isn't ours:
 
 It renders inside a plain `<img>`: no script, no CORS, no build step on the host page.
 `style=full|compact`, `theme=auto|light|dark` (auto follows the reader's own setting, via a
-media query that browsers honour even inside an `<img>`), and `label_text=` overrides the
+media query that browsers honor even inside an `<img>`), and `label_text=` overrides the
 caption for a caller who has already formatted the address.
 
 **It shows two grades, not one** — the building and the site, the same split the label page
@@ -595,7 +595,7 @@ screen:
   label lands on one sheet instead of breaking across two wherever the browser chose. The
   per-row detail panels are the one thing left off; printing all thirteen would be a
   booklet, not a label.
-- **Colour is never the only channel.** Every grade is a letter *and* a bar length *and* a
+- **Color is never the only channel.** Every grade is a letter *and* a bar length *and* a
   number, so a grayscale printer, a fax, or a photocopy of a photocopy loses nothing.
 - **The text is still text.** Real `<text>` elements, not outlines — searchable,
   selectable, and editable in Illustrator or Inkscape. Which is also why there are no web
@@ -610,7 +610,7 @@ screen:
 **No key is needed, and on your own instance none exists.** Every caller is anonymous
 unless the operator has issued keys, and an anonymous caller is unmetered — which is what
 callers have always had, and what keeps `pip install` → `housing-api` the same program the
-licence invites you to self-host.
+license invites you to self-host.
 
 Where the operator *has* issued keys, sending one as an `X-API-Key` header buys two
 things: a rate-limit bucket of your own instead of one shared with everybody behind the
@@ -628,7 +628,7 @@ cooperative callers correctly without stopping an uncooperative one.
 so it lands in the server's access log, any proxy in front of it, browser history, and the
 `Referer` sent to third parties — none of which this code can unwrite. Use the header
 wherever you can set one; `?key=` is there for callers that genuinely can't (an `<img>` or
-iframe embed, a quick curl), and a key that has travelled that way is one to rotate.
+iframe embed, a quick curl), and a key that has traveled that way is one to rotate.
 Requests carrying it are answered `no-store` so the URL at least stays out of the disk
 cache.
 
@@ -810,7 +810,7 @@ The label now present-values the two dollar-defensible flows (modeled **energy c
 <details>
 <summary>True Fire Weather Index (Argonne ClimRR) for the Climate Projections fire leg</summary>
 
-The **Climate Projections** dimension now carries a genuine **wildfire (Fire Weather Index)** leg from Argonne National Laboratory's [ClimRR](https://www.anl.gov/ccrds/climrr) 12 km dynamically-downscaled projections (95th-percentile FWI, RCP8.5, mid-century), replacing the consecutive-dry-days stand-in for fire. The keyless ClimRR CSVs (grid keyed by `Crossmodel` cell id) are joined to census geography by parsing the companion grid **shapefile** in pure stdlib (bbox centre → Web Mercator → WGS84, the same formula as `utils.webmercator_to_wgs84`) and sampling the nearest cell at each tract's internal point (county = the mean of its tracts). Built by [`scripts/build_climate_projections.py --source fwi`](scripts/build_climate_projections.py), which augments the existing crosswalks in place with `fire_fwi_{hist,low,high}`. ClimRR publishes a single RCP8.5 pathway, so the mid-century FWI drives both bands (no scenario spread). Fire is an *optional enrichment* on top of the required LOCA2 core (heat/precip/drought): where present it adds a fourth leg (every CONUS place), and where a CONUS place lacks it the composite is the mean of the core legs. But a place outside the CONUS LOCA2 grid (Alaska/Hawaii/Puerto Rico) lacks the core legs too and falls back to a coarser geography rather than being scored on fire alone. This is the forward-looking climate-fire signal; the *present-day* wildfire hazard ships separately in Disaster Resilience. See [research/climate-projections-research.md](research/climate-projections-research.md).
+The **Climate Projections** dimension now carries a genuine **wildfire (Fire Weather Index)** leg from Argonne National Laboratory's [ClimRR](https://www.anl.gov/ccrds/climrr) 12 km dynamically-downscaled projections (95th-percentile FWI, RCP8.5, mid-century), replacing the consecutive-dry-days stand-in for fire. The keyless ClimRR CSVs (grid keyed by `Crossmodel` cell id) are joined to census geography by parsing the companion grid **shapefile** in pure stdlib (bbox center → Web Mercator → WGS84, the same formula as `utils.webmercator_to_wgs84`) and sampling the nearest cell at each tract's internal point (county = the mean of its tracts). Built by [`scripts/build_climate_projections.py --source fwi`](scripts/build_climate_projections.py), which augments the existing crosswalks in place with `fire_fwi_{hist,low,high}`. ClimRR publishes a single RCP8.5 pathway, so the mid-century FWI drives both bands (no scenario spread). Fire is an *optional enrichment* on top of the required LOCA2 core (heat/precip/drought): where present it adds a fourth leg (every CONUS place), and where a CONUS place lacks it the composite is the mean of the core legs. But a place outside the CONUS LOCA2 grid (Alaska/Hawaii/Puerto Rico) lacks the core legs too and falls back to a coarser geography rather than being scored on fire alone. This is the forward-looking climate-fire signal; the *present-day* wildfire hazard ships separately in Disaster Resilience. See [research/climate-projections-research.md](research/climate-projections-research.md).
 
 </details>
 

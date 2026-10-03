@@ -9,7 +9,7 @@ absent from the 2023 release entirely. That is ~17.5M people.
 
 The scoring was already right — the dimension is left unscored rather than filled
 with the national average. What these tests defend is the EXPLANATION. "no health
-data for tract 42101000100" points a Philadelphian at their own neighbourhood for a
+data for tract 42101000100" points a Philadelphian at their own neighborhood for a
 gap that is statewide and upstream, and reads as a bad tract id.
 
 They also pin which states are affected, so a later PLACES release that restores

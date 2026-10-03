@@ -53,7 +53,7 @@ no residential record, which is what a condo address looks like from the parcel
 layer.
 
 A condo record carries less and more than a house's. Less: the condominium table has
-no exterior wall, no storey count and no condition, and those stay absent rather
+no exterior wall, no story count and no condition, and those stay absent rather
 than being borrowed from the building the unit sits in — a different structure's
 record. More: ``LIVING_GBA`` is the unit's own floor area, where the residential
 table's ``GBA`` is the whole building's and has to be dropped on a multi-unit parcel.
@@ -113,7 +113,7 @@ _LOCALITY = frozenset({"washington", "dc"})
 #
 # The veneer entries are the point of this table. A brick or stone VENEER is a
 # framed wall wearing a masonry face: it has the thermal mass and the seismic
-# behaviour of frame, not of solid masonry, and calling it `brick` would tell the
+# behavior of frame, not of solid masonry, and calling it `brick` would tell the
 # durability and resilience models the opposite of the truth about the structure.
 _EXT_WALL = {
     "Common Brick": "brick",
@@ -181,7 +181,7 @@ def _ssl_at(lat: float, lon: float, address: str | None = None,
 
     The selection policy is shared; see ``_shared.select_parcel`` for why it refuses
     a nearest-parcel match. Measured here too: the Census geocoder puts 3401 Newark
-    St NW twenty metres off its own parcel, in the roadway, with twenty-six parcels
+    St NW twenty meters off its own parcel, in the roadway, with twenty-six parcels
     inside the search radius — so the address, not the distance, has to decide.
     """
     deadline = deadline_from(deadline)
@@ -286,7 +286,7 @@ def _same_unit(a: str | None, b: str | None) -> bool:
     """Whether two unit designators are the same one.
 
     Case and punctuation vary between what a reader types and what the District
-    records ("#3-B", "3B"). Nothing else is normalised: leading zeros stay
+    records ("#3-B", "3B"). Nothing else is normalized: leading zeros stay
     significant because unit 01 and unit 1 can both exist in one building.
     """
     def norm(v):
@@ -334,7 +334,7 @@ def _condo_record(address: str | None, *, deadline: float | None = None):
     """The District's record of one condominium unit, or None.
 
     Reports year built and the unit's own floor area, and nothing else: the
-    condominium table records no exterior wall, no storey count and no condition,
+    condominium table records no exterior wall, no story count and no condition,
     so those stay absent rather than being borrowed from the building.
     """
     base, unit = _split_unit(address)
@@ -358,10 +358,10 @@ def _condo_record(address: str | None, *, deadline: float | None = None):
 
 
 def _stories(raw) -> int | None:
-    """A whole-number storey count, or None.
+    """A whole-number story count, or None.
 
-    DC records storeys as a float, and a 2.5-storey house is a real and common
-    thing here. The label's field is a whole number, so a half storey is not
+    DC records stories as a float, and a 2.5-story house is a real and common
+    thing here. The label's field is a whole number, so a half story is not
     rounded into one — the same call the Cook adapter makes for "1.5 Story".
     """
     v = num(raw)
@@ -425,7 +425,7 @@ def _lookup_cached(lat: float, lon: float, address: str | None,
 def lookup(lat: float, lon: float, address: str | None = None) -> AssessorRecord | None:
     """What the District says is standing at this point, or None.
 
-    Fails open on everything, like every adapter: a timeout, a 500, a reorganised
+    Fails open on everything, like every adapter: a timeout, a 500, a reorganized
     layer, a parcel with no residential row. The caller then keeps whatever it had.
     """
     try:

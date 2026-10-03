@@ -196,7 +196,7 @@ DATA_SOURCE = (
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 #: The earliest year this model will treat as a construction date rather than as a
-#: data-entry accident. It is a *plausibility* floor, not a modelling one: the
+#: data-entry accident. It is a *plausibility* floor, not a modeling one: the
 #: component basket saturates long before it (see below), so the number only has to
 #: separate real colonial stock from sentinels.
 #:
@@ -230,7 +230,7 @@ def _valid_year(yr) -> bool:
     came out at 33.0: a 27-point bonus for being *older*, at an arbitrary line, on
     the dimension whose entire subject is age.
 
-    Widening the floor introduces no new behaviour below it. The longest-lived
+    Widening the floor introduces no new behavior below it. The longest-lived
     component in ``COMPONENTS`` is the 100-year structural shell, so every building
     from 1926 back already reports 0% remaining life and all 8 components past
     life; a 1725 house lands on exactly the figures a 1900 one does. What changes

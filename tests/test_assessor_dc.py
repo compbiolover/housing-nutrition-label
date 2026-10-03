@@ -87,7 +87,7 @@ def test_a_postal_code_ends_the_street_even_with_no_locality_word():
         ("1349", ("maryland", "ne"), "ave")
 
 
-def test_a_neighbouring_house_number_is_still_refused():
+def test_a_neighboring_house_number_is_still_refused():
     """The DC failure mode measured live: at 1350 Maryland Ave NE the parcels within
     the search radius are 1341 and 1349 — near misses on the same street. This is
     the case a nearest-parcel match would get confidently wrong."""
@@ -125,8 +125,8 @@ def test_an_ambiguous_cladding_is_left_unmapped():
     assert "construction" not in rec.fields()
 
 
-def test_a_half_storey_is_not_rounded_into_a_whole_one():
-    """2.5 storeys is common in DC's stock and the label's field is a whole number.
+def test_a_half_story_is_not_rounded_into_a_whole_one():
+    """2.5 stories is common in DC's stock and the label's field is a whole number.
     Rounding would invent a precision the county did not record."""
     rec = _lookup([_PARCEL], [dict(_CAMA, STORIES=2.5)],
                   address="3401 Newark St NW, Washington, DC")
@@ -243,7 +243,7 @@ def test_the_city_named_street_fix_did_not_loosen_the_match():
 # LIVING_GBA 1262 — same building, different area, which is the point of the second
 # test. Rows built inline below (the 15th St one) are constructed to pose a case, not
 # read from the portal, and are marked where they appear. The distinction matters:
-# the first review of this file caught D8 carrying 1256, a neighbouring unit's area
+# the first review of this file caught D8 carrying 1256, a neighboring unit's area
 # recorded under D8's name.
 
 _UNIT_ROW = {"PRIMARY_ADDRESS": "2123 CALIFORNIA STREET NW",
@@ -276,7 +276,7 @@ def test_the_condo_table_reports_the_units_own_floor_area():
 
 
 def test_a_condo_reports_only_what_its_table_records():
-    """The condominium table has no exterior wall, no storey count and no condition
+    """The condominium table has no exterior wall, no story count and no condition
     column. Those stay absent rather than being borrowed from the building the unit
     happens to sit in, which is a different structure's record."""
     rec = _lookup([], [], address="2123 California St NW #D7",
@@ -392,14 +392,14 @@ def test_unit_designators_compare_past_punctuation_but_not_past_zeros():
 def test_a_street_type_before_a_quadrant_is_still_a_street_type():
     """"2123 CALIFORNIA STREET NW" and "2123 California St NW" are one address. The
     suffix table only reached a terminal token, so in every quadrant-addressed city
-    the abbreviation went unrecognised and the two spellings never matched."""
+    the abbreviation went unrecognized and the two spellings never matched."""
     assert address_key("2123 CALIFORNIA STREET NW", dc._LOCALITY) == \
         address_key("2123 California St NW", dc._LOCALITY)
     assert same_address("2123 California St NW, Washington, DC",
                         "2123 CALIFORNIA STREET NW", dc._LOCALITY)
 
 
-def test_normalising_the_street_type_did_not_swallow_the_quadrant():
+def test_normalizing_the_street_type_did_not_swallow_the_quadrant():
     """Stepping over the quadrant to find the street type must not drop it: NW and
     SE are opposite corners of the city at the same house number."""
     assert not same_address("2123 California St NW", "2123 California St SE",

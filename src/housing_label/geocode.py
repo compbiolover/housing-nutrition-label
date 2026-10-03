@@ -27,7 +27,7 @@ silent wrong answer if missed:
 
 Non-matches are reported, never guessed at. An address the Census cannot place
 comes back with ``matched=False`` and its status, and the caller decides — a
-fabricated coordinate would score a real parcel against the wrong neighbourhood.
+fabricated coordinate would score a real parcel against the wrong neighborhood.
 """
 
 from __future__ import annotations
@@ -94,7 +94,7 @@ def split_address(address: str) -> tuple[str, str, str, str]:
     street, rest = parts[0], parts[1:]
     zipc = state = ""
 
-    # Work from the END, because that is the part with a recognisable shape. The
+    # Work from the END, because that is the part with a recognizable shape. The
     # ZIP may be its own comma field ("…, DC, 20500") or ride along with the state
     # ("…, DC 20500"); both are common in real exports, and an earlier version of
     # this that only handled the second silently dropped the state from the first.

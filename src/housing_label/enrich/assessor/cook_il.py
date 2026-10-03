@@ -106,10 +106,10 @@ _CONDITION = {
 }
 # "3 Story +" is deliberately absent. It is a bucket with an open top, and
 # recording it as exactly 3 would report a precise observed height for every 4-
-# and 6-storey building in it — inventing a fact rather than transcribing one, and
+# and 6-story building in it — inventing a fact rather than transcribing one, and
 # understating the multi-family flood-floor adjustment while carrying the
 # "observed" tag that tells a reader not to doubt it. Same reasoning as "1.5
-# Story" and "Split Level": the label's field is a whole-number storey count and
+# Story" and "Split Level": the label's field is a whole-number story count and
 # these three categories do not answer it.
 _STORIES = {"1 Story": 1, "2 Story": 2}
 
@@ -205,9 +205,9 @@ def lookup(lat: float, lon: float, address: str | None = None) -> AssessorRecord
     when the point itself lands off-parcel; see :func:`_pin_at`. Without it the
     lookup still works wherever the geocode falls inside a polygon.
 
-    Fails open on everything: a timeout, a 500, a reorganised layer, a PIN with
+    Fails open on everything: a timeout, a 500, a reorganized layer, a PIN with
     no characteristics row. The caller then keeps whatever it had, which is the
-    behaviour that existed before this adapter.
+    behavior that existed before this adapter.
     """
     try:
         # Round before the cache so two clicks on the same rooftop share an entry.

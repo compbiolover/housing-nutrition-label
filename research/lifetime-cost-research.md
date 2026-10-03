@@ -63,10 +63,10 @@ producing an estimated net savings of $6,350" after the efficiency premium
 ([ENERGY STAR EEM](https://www.energystar.gov/newhomes/energy-efficient-mortgages);
 [FHA EEM fact sheet](https://www.energystar.gov/ia/partners/bldrs_lenders_raters/EEM_Fact_Sheet.pdf)).
 This is the mainstream, underwriting-grade way to put energy into a cost-of-ownership number, and it
-is the direct analogue of what this project should do — except this project can extend it to
+is the direct analog of what this project should do — except this project can extend it to
 **expected disaster losses** (its EAL model) as well as energy, which most TCO tools cannot.
 
-The **location-cost** analogue is the Center for Neighborhood Technology **H+T Affordability Index**,
+The **location-cost** analog is the Center for Neighborhood Technology **H+T Affordability Index**,
 which argues that the "true cost" of a location must add the household's *transportation* cost
 (usually its second-largest expense) to housing cost, thresholding affordability at ≤45% of income
 (30% H + 15% T) via a regression of auto ownership/use and transit use on neighborhood
@@ -143,7 +143,7 @@ escalation band. Do not print more than 2 significant figures.
 
 Mirror the EPA fuel-economy sticker's **comparative** construction — *"You save $X in fuel costs over
 5 years compared to the average new vehicle"* (40 CFR 600.311; the reference "average vehicle" is a
-fixed, published benchmark). The housing analogue:
+fixed, published benchmark). The housing analog:
 
 > **"Over a 30-year mortgage, this home's energy bills and expected disaster losses run about
 > $18,000 less than a typical comparable at this location — in today's dollars."**

@@ -50,7 +50,7 @@ def _municipal_rate(fips: str, tax: dict, gov: dict) -> tuple[float, str]:
     an owner-occupier actually pays is computed at the county median home value and
     subtracted. Both terms are then measured over owner-occupied homes.
 
-    Falls back to the SHARE path — today's behaviour — everywhere else. That path multiplies
+    Falls back to the SHARE path — today's behavior — everywhere else. That path multiplies
     an owner-occupied-derived rate by an all-property school share, which over-nets in
     states giving owners school-specific relief; see ``data/school_millage.py``. The
     fallback is byte-identical to the pre-existing computation, so counties outside the

@@ -12,7 +12,7 @@ the county's enterprise GIS, keyless:
 One request, like Florida and Connecticut: the building facts sit on the parcel
 polygon, so the lookup is one question — *which parcel is this point inside, and
 what does its record say?* The layer answers point and buffered queries sent in
-4326 with the buffer in metres (``esriSRUnit_Meter``), checked live: an 80 m
+4326 with the buffer in meters (``esriSRUnit_Meter``), checked live: an 80 m
 buffer returns the surrounding parcels, and an address whose geocode landed 73 m
 off its own lot resolves through it.
 
@@ -92,7 +92,7 @@ number and so match Avenue L8 to L10.
 
 What this source does not carry, and what it carries but is not used
 --------------------------------------------------------------------
-No storey count, foundation, exterior wall or condition grade. Two columns look
+No story count, foundation, exterior wall or condition grade. Two columns look
 closer than they are:
 
 * ``QualityClass1..5`` is the California Standard Classification System code
@@ -154,7 +154,7 @@ three.
 The 28 that did not resolve in the final run, every one traced:
 
 * 11 — the geocoder placed the point off the lot by more than the search radius
-  (95 m to 1 km), or in another neighbourhood entirely: two San Pedro addresses
+  (95 m to 1 km), or in another neighborhood entirely: two San Pedro addresses
   came back as same-named streets downtown, in a different ZIP.
 * 8 — parcels with several buildings that disagree on the year: the refusal
   described above.
@@ -167,7 +167,7 @@ The 28 that did not resolve in the final run, every one traced:
 
 Terms of use
 ------------
-The service's catalogue entry (ArcGIS item ``5b277305f006459586a70165065d0fd6``,
+The service's catalog entry (ArcGIS item ``5b277305f006459586a70165065d0fd6``,
 owner ``lacounty_isd``) binds users of "any LA County REST URLs" to the County of
 Los Angeles eGIS Terms of Use (``egis-lacounty.hub.arcgis.com/pages/terms-of-use``,
 read 2026-10-03), which grant "a license to copy, publish, distribute and/or
@@ -261,7 +261,7 @@ def _canon(text: str | None) -> str | None:
     **Lettered and numbered avenues.** The shared parser reads a digit-bearing
     token after a street type as a unit number — "234 W STATION ST B12" — and drops
     it. "5142 W AVENUE L8" is not a unit: Avenue L8 is a street, and so are L6 and
-    L10, a few hundred metres either side, with the same house numbers. Left to the
+    L10, a few hundred meters either side, with the same house numbers. Left to the
     shared rule, every one of those parses to "5142 W AVE" and they all match each
     other; northeast LA's "N AVENUE 63" and "N AVENUE 64", which run parallel a
     block apart, likewise. Joining the identifier onto the street word keeps it in
@@ -283,7 +283,7 @@ def _address_of(attrs: dict) -> str | None:
     """The parcel's street address without its unit, or None if it has none.
 
     Built from the roll's parts rather than read from ``SitusAddress``, which runs
-    the unit onto the end in forms the shared parser cannot all recognise —
+    the unit onto the end in forms the shared parser cannot all recognize —
     "850 E OCEAN BLVD   NO  1108" carries no marker it knows, and would parse as a
     street called "OCEAN BLVD NO 1108". The unit is compared separately, by
     :func:`_unit_key`, where it can be compared exactly.
@@ -314,7 +314,7 @@ def _unit_key(raw: str | None) -> str | None:
 
     The roll writes one unit several ways — "103", "APT 104S", "NO    B5",
     "# 6", "UNIT  2E" — and a reader writes it others ("#B-5"). The marker word and
-    punctuation go; case is folded. Nothing else is normalised: leading zeros stay
+    punctuation go; case is folded. Nothing else is normalized: leading zeros stay
     significant because unit 01 and unit 1 can both exist in one building, which
     is the call the District's adapter makes too.
     """
@@ -503,7 +503,7 @@ def _building_year(fetch, address: str) -> tuple[int, dict] | None:
 
     ``(year, one of the rows)``, or None. Reached when neither path above found the
     reader's home: an address that is a stack of units, and no unit the roll
-    recognises — the reader gave none, or gave one the roll spells some other way.
+    recognizes — the reader gave none, or gave one the roll spells some other way.
 
     Which unit is unknowable, but for the year it does not matter if every unit at
     the address says the same thing: the building went up when it went up, the

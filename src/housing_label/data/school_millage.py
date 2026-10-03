@@ -117,7 +117,7 @@ def owner_school_rate(county_fips: str | None, home_value: float | None) -> floa
     The operating levy applies to value above the exemption. The debt levy applies to that
     same reduced base for the share of the county's debt levy the exemption reaches
     (``is_exempt_weight``) and to full value for the rest — the districts that may still
-    tax exempted homestead value for debt authorised before the exemption increases.
+    tax exempted homestead value for debt authorized before the exemption increases.
     """
     rec = millage_for_county(county_fips)
     if rec is None:

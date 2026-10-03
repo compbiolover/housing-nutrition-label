@@ -199,7 +199,7 @@ Four confirmations:
 
 1. **Mechanism.** Auto-closing the supply main is inert against water entering
    through walls, foundation and openings.
-2. **FEMA gives it no credit.** NFIP Risk Rating 2.0 recognises exactly three
+2. **FEMA gives it no credit.** NFIP Risk Rating 2.0 recognizes exactly three
    building-level mitigations — elevating the building (~34%), elevating machinery
    (~5%), flood openings (~5%). The model already credits two of the three correctly
    via `BONUS_ELEVATION_*` and `BONUS_FLOOD_VENTS`.
@@ -284,7 +284,7 @@ fixed-base under FEMA P-58; Jampole et al. 2020: near-elimination of light-frame
 superstructure damage), targets a different failure mode, and is essentially absent
 from US single-family housing on cost grounds. One constant cannot honestly serve
 both it and a 0.75 bolt-only retrofit, and as a self-reported checkbox it would draw
-more false positives than true ones. The flag is relabelled "Foundation anchorage
+more false positives than true ones. The flag is relabeled "Foundation anchorage
 retrofit (bolting)".
 
 ---
@@ -367,7 +367,7 @@ NFPA's own measurement. None were relied on. The widely-repeated blog claim that
 "NFPA data shows sprinklers slash property damage up to 60%" is the same
 residential-row misreading that likely produced the original 0.40.
 
-### 7.3 General modifiers were mislabelled as "all hazards"
+### 7.3 General modifiers were mislabeled as "all hazards"
 
 `BONUS_MODIFIER_DESC` advertised solar, generator, passive house and sprinklers as
 "×N all hazards", but `gen_mod` is applied to flood, tornado and seismic only — the
@@ -489,7 +489,7 @@ bound belongs.
   by maintaining envelope integrity"), in the section behind
   `BONUS_IMPACT_GARAGE_DOOR`. Worth checking when that constant is re-derived.
 - **Metric composition.** This model's HAZUS-derived damage ratios are ground-up
-  structural loss; PEER's EAL is FEMA P-58 repair cost normalised by replacement
+  structural loss; PEER's EAL is FEMA P-58 repair cost normalized by replacement
   value. Close enough to compose, but not identical metrics.
 - **A non-weather-water peril** would give leak detection a legitimate home and would
   cover ~24% of homeowners claims that the four-peril model currently ignores

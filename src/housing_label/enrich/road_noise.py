@@ -32,8 +32,8 @@ so nothing would ever resolve.
 These are attenuation distances instead, from line-source geometry (roughly
 3-4.5 dB per doubling of distance over soft ground, FHWA TNM):
 
-  * a freeway is ~75-80 dBA at 15 m, so >=60 dB reaches a few hundred metres
-  * a busy arterial is ~65-70 dBA at 15 m, so >=60 dB reaches tens of metres
+  * a freeway is ~75-80 dBA at 15 m, so >=60 dB reaches a few hundred meters
+  * a busy arterial is ~65-70 dBA at 15 m, so >=60 dB reaches tens of meters
   * a local street rarely clears 60 dB L_eq beyond its own right-of-way, which is
     why local roads are not queried at all — including them would flag every
     parcel in the country, since every house is on a road.
@@ -116,10 +116,10 @@ def _query(lat: float, lon: float, layer: int) -> list[dict]:
 
 def _point_segment_m(lat: float, lon: float,
                      lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Metres from a point to a line SEGMENT (not to its endpoints).
+    """Meters from a point to a line SEGMENT (not to its endpoints).
 
-    Worked in a local planar frame — metres east/north of the query point — which
-    is exact enough at the hundreds-of-metres scale these thresholds live at.
+    Worked in a local planar frame — meters east/north of the query point — which
+    is exact enough at the hundreds-of-meters scale these thresholds live at.
     """
     k = _M_PER_DEG_LAT * math.cos(math.radians(lat))
     px, py = 0.0, 0.0                                    # the query point, at origin
@@ -141,7 +141,7 @@ def _nearest_m(lat: float, lon: float, features: list[dict]) -> float | None:
     it belongs to, so vertex distance can only ever OVERstate how near a road is —
     and overstating is exactly what grants the quiet-parcel credit. TIGER puts few
     vertices on a long straight run, so a house beside the midpoint of a straight
-    interstate could have looked hundreds of metres clear of it.
+    interstate could have looked hundreds of meters clear of it.
     """
     best = None
     for f in features:
@@ -159,12 +159,12 @@ def _nearest_m(lat: float, lon: float, features: list[dict]) -> float | None:
 
 @lru_cache(maxsize=3 * 4096)
 def _nearest_on_layer(lat: float, lon: float, layer: int) -> float | None:
-    """Metres to the nearest feature of one layer, memoised per layer.
+    """Meters to the nearest feature of one layer, memoized per layer.
 
     Per layer rather than only per point because the three layers are three
     independent requests, and a label asks them at the same time (see
     :func:`layer_fetches`); the point-level answer below is then assembled from
-    three memo hits. A layer that fails raises and is not memoised, so an outage
+    three memo hits. A layer that fails raises and is not memoized, so an outage
     on one layer is retried next time without re-asking the two that answered.
     """
     return _nearest_m(lat, lon, _query(lat, lon, layer))

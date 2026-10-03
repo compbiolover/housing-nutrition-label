@@ -134,12 +134,12 @@ verified comparables (§3 there). They are not market-tested.
 | # | Offer | Buyer | Proposed shape | What it still needs | Time to first dollar |
 |---|---|---|---|---|---|
 | A | **Self-serve metered API** | Proptech developers, relocation firms, small SFR investors | Free tier (the existing `basic` plan's 5,000/day, or lower); then pay-as-you-go per 1,000 labels, Geocodio-style, with an **"observed" surcharge** on addresses where an assessor adapter answered | Stripe, a durable ledger, a pricing page, ToS | Weeks |
-| B | **Badge syndication licence** | Brokerages, MLS vendors, listing portals, property managers | Free with attribution below a monthly unique-visitor cap; paid above it or for multiple domains, paywalled use or offline use. Priced on the licensee's traffic, as Walk Score priced. Free in advertising, licensed in operational use (the Morningstar split). | A monthly, durable count per embedder (today's is daily and in memory), a trademark filing to enforce the licence | 1–3 months |
-| C | **Portfolio scoring reports** | SFR operators, CDFIs, housing nonprofits, climate-risk teams at small lenders | Per-parcel price for a scored CSV plus a written summary, run with `housing-batch`. Per-parcel pricing falls with volume. The observed share, per the accuracy harness, is shown on the report. | A report template and a data-licence agreement | Weeks (sold by hand) |
+| B | **Badge syndication license** | Brokerages, MLS vendors, listing portals, property managers | Free with attribution below a monthly unique-visitor cap; paid above it or for multiple domains, paywalled use or offline use. Priced on the licensee's traffic, as Walk Score priced. Free in advertising, licensed in operational use (the Morningstar split). | A monthly, durable count per embedder (today's is daily and in memory), a trademark filing to enforce the license | 1–3 months |
+| C | **Portfolio scoring reports** | SFR operators, CDFIs, housing nonprofits, climate-risk teams at small lenders | Per-parcel price for a scored CSV plus a written summary, run with `housing-batch`. Per-parcel pricing falls with volume. The observed share, per the accuracy harness, is shown on the report. | A report template and a data-license agreement | Weeks (sold by hand) |
 | D | **Fiscal-fragility underwriting signal** | Lenders, SFR investors, municipal-bond analysts | `fiscal_ratio` and `net_fiscal_per_acre` sold as a parcel-level forward risk for property-tax increases and service decline (monetization memo §5) | Intra-jurisdiction framing only, plus counsel review | 3–6 months |
 | E | **Municipal fiscal studies (consulting)** | Cities and counties | A fixed-fee Urban3-style engagement built on the per-acre productivity lens that already ships. Urban3's verified comparable is $226K for Rapid City. | A slide template and one reference city | 1–3 months, but lumpy |
-| F | **Research data licence** | Universities, think tanks | A one-time bulk file, cheap or free in exchange for a published outcome-validation study | A licence agreement and a data dictionary | Low cash; high strategic value (see step 7) |
-| G | **Grants** | Climate and housing philanthropy, DOE and HUD programmes | Fund the free consumer layer, as philanthropic capital funded First Street's | An application; the accuracy page is the evidence | 3–9 months |
+| F | **Research data license** | Universities, think tanks | A one-time bulk file, cheap or free in exchange for a published outcome-validation study | A license agreement and a data dictionary | Low cash; high strategic value (see step 7) |
+| G | **Grants** | Climate and housing philanthropy, DOE and HUD programs | Fund the free consumer layer, as philanthropic capital funded First Street's | An application; the accuracy page is the evidence | 3–9 months |
 
 **Where to start:** A and C together. A is the infrastructure every other offer bills
 through. C can be sold by hand this month with no new code, and every portfolio sold is a
@@ -168,9 +168,9 @@ nothing in §2 should take money before they are done.
 
 1. **Fair-housing counsel.** Get a written opinion on which buyer segments may receive an
    address-level composite. It bounds offers C and D.
-2. **Terms of service and a data-licence agreement** for the hosted API and bulk output.
+2. **Terms of service and a data-license agreement** for the hosted API and bulk output.
 3. **USPTO filing** for the Housing Nutrition Label mark. `TRADEMARKS.md` still asserts
-   only common-law ™, and offer B depends on the trademark to enforce its licence.
+   only common-law ™, and offer B depends on the trademark to enforce its license.
 4. **Five customer-discovery calls per segment** (SFR operator, CDFI, brokerage, relocation
    firm, small lender) before building anything customer-specific. Offer C doubles as the
    excuse for the calls.
@@ -194,7 +194,7 @@ nothing in §2 should take money before they are done.
    offer B's free-below-a-cap needs on top is a monthly window instead of a UTC day, and
    storage that survives a restart. Both come with the durable ledger in step 2.
 6. **Adapters LA, NYC, NYS, Philadelphia and Maryland** (§1.2 #4–8).
-7. **Outcome validation.** Offer the research licence (F) to one academic group, in
+7. **Outcome validation.** Offer the research license (F) to one academic group, in
    exchange for a backtest of the Disaster Resilience score against FEMA NFIP claims or
    insurer loss data. Tier-1 buyers (lenders, insurers) cannot buy without it, and the
    monetization memo calls it the gap that "nothing in §4 Tier 1 closes without".

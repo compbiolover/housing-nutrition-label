@@ -27,7 +27,7 @@ point inside, and what does its record say?*
 What this source carries, and what it does not
 ----------------------------------------------
 Two fields reach the label: ``AYB`` (the actual year built) and ``Living_Area``.
-Neither an exterior wall nor a foundation type nor a storey count is in the
+Neither an exterior wall nor a foundation type nor a story count is in the
 statewide schema at all, so those stay empty and NSI's estimate stands for them.
 
 ``Condition`` is in the schema, and is deliberately not read. It looks like
@@ -169,8 +169,8 @@ Census matcher exactly as the product does, then looked up: 64 resolved and **0
 matched to the wrong parcel**. The 39 that did not resolve are addresses the
 geocoder placed off their own lot whose street address then matched no nearby
 parcel, plus a handful where two parcels contain the point — the shared
-parcel-choosing rule declining to guess, which is the behaviour that keeps a
-neighbour's house from being reported as observed fact.
+parcel-choosing rule declining to guess, which is the behavior that keeps a
+neighbor's house from being reported as observed fact.
 
 Privacy, and why the field list is short
 ----------------------------------------
@@ -361,7 +361,7 @@ def _parcel_at(lat: float, lon: float, address: str | None = None,
     """The record of the parcel this point belongs to, or None.
 
     Deciding *which* parcel an address means is the dangerous part of any adapter
-    — name the wrong one and the label reports a neighbour's house as observed
+    — name the wrong one and the label reports a neighbor's house as observed
     fact — so the policy lives in ``_shared.select_parcel`` and is shared by every
     jurisdiction. See that function for why it refuses to take the nearest parcel.
 
@@ -445,7 +445,7 @@ def _lookup_cached(lat: float, lon: float, address: str | None,
     sqft = _area_of_one_home(row)
     # A parcel that matched but recorded neither fact contributed nothing. Saying
     # so here keeps a fact-free record out of the cache; the registry drops it
-    # either way, so behaviour is unchanged.
+    # either way, so behavior is unchanged.
     if year_built is None and sqft is None:
         return None
     return AssessorRecord(
@@ -454,10 +454,10 @@ def _lookup_cached(lat: float, lon: float, address: str | None,
         parcel_id=_parcel_id(row),
         year_built=year_built,
         sqft=sqft,
-        # The statewide schema carries no wall material, storey count or
+        # The statewide schema carries no wall material, story count or
         # foundation, and its condition column is not readable across 169
         # vendors — see the module docstring. Left empty on purpose, which lets
-        # the label fall back to its modelled estimate for those rather than to a
+        # the label fall back to its modeled estimate for those rather than to a
         # guess dressed up as an observation.
     )
 
@@ -471,7 +471,7 @@ def lookup(lat: float, lon: float, address: str | None = None) -> AssessorRecord
 
     Fails open on everything — a timeout, a 500, a renamed column, a parcel the
     state has no record for. The caller then keeps whatever it had, which is the
-    behaviour that existed before this adapter.
+    behavior that existed before this adapter.
     """
     try:
         # Round before the cache so two clicks on the same rooftop share an entry.

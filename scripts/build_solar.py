@@ -6,7 +6,7 @@ Writes ``src/housing_label/data/solar_yield_county.csv`` — one row per US coun
     county_fips, specific_yield_kwh_kwp, irradiation_kwh_m2
 
 so the runtime (``data/solar.py``) can look up rooftop-solar productivity for any
-county with no network call. Values come from the EU Joint Research Centre's
+county with no network call. Values come from the EU Joint Research Center's
 **PVGIS v5.2** PV-performance model, queried at each county's internal point using
 the **PVGIS-NSRDB** satellite database (the same NREL NSRDB resource PVWatts uses,
 covering the Americas). PVGIS is keyless and, unlike NREL's own API host, reachable

@@ -943,7 +943,7 @@ _OFFLINE_PARAMS = {"lat": 35.13, "lon": -89.99, "preset": "baseline"}
 
 
 def test_no_keys_configured_leaves_the_api_exactly_as_it_was():
-    """The self-hosting contract. README's licence section invites you to run
+    """The self-hosting contract. README's license section invites you to run
     this yourself; an instance with no keys must not be a metered version of the
     one that existed before plans did — no quota ceiling, no quota headers, and
     /usage answering honestly rather than demanding credentials."""
@@ -1275,14 +1275,14 @@ def test_one_site_is_one_ledger_row_whatever_its_referer_looks_like():
         assert ident(junk) == "ip:203.0.113.9", junk
 
 
-def test_a_recognised_key_gets_its_own_rate_limit_bucket():
+def test_a_recognized_key_gets_its_own_rate_limit_bucket():
     """What a key actually changes about rate limiting today: who you share the
-    bucket with. Two callers behind one address stop competing; an unrecognised
+    bucket with. Two callers behind one address stop competing; an unrecognized
     key falls back to the address rather than minting a bucket per guess."""
     try:
         import fastapi  # noqa: F401
     except ImportError:
-        print("  skip test_a_recognised_key_gets_its_own_rate_limit_bucket (fastapi not installed)")
+        print("  skip test_a_recognized_key_gets_its_own_rate_limit_bucket (fastapi not installed)")
         return
     from starlette.requests import Request
     from housing_label import api
@@ -1348,7 +1348,7 @@ def test_label_sheet_is_an_svg_scored_like_the_label():
 
         # Caller free text is bounded at the edge. The renderer already truncates
         # what it draws, so this is about the work and the headers: an oversized
-        # caption must not be normalised in full to draw two lines of it, and must
+        # caption must not be normalized in full to draw two lines of it, and must
         # not reach Content-Disposition at length. (A URL long enough to carry
         # megabytes is refused by the HTTP layer before it gets here, so this is
         # the largest caption that is actually reachable.)

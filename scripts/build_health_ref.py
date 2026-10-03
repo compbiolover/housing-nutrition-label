@@ -21,7 +21,7 @@ same thing in Memphis and in Denver.
 
 Method (reproducible, keyless — CDC PLACES public API only)
 ----------------------------------------------------------
-  1. Download CDC PLACES census-tract crude-prevalence for the 7 modelled measures
+  1. Download CDC PLACES census-tract crude-prevalence for the 7 modeled measures
      for **every US tract** (keyless Socrata API, paginated).
   2. For each measure, compute every tract's **population-weighted national
      percentile** (weight = ``totalpop18plus``). All 7 measures are "higher =

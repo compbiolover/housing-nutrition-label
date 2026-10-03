@@ -639,7 +639,7 @@ Class 3 *was* higher historically and was reduced by ordinance in stages, reachi
 2011, so an older secondary source shows a differential that no longer exists. This is
 exactly the trap the "index, then primary" rule exists to catch.
 
-The Assessor's three-year equalization study makes it stronger: the **realised** levels are
+The Assessor's three-year equalization study makes it stronger: the **realized** levels are
 9.15% for class 2 against 7.89% for class 3, so in practice Cook apartments are assessed
 *below* houses and even the observed gap runs the wrong way for a correction.
 
@@ -1101,7 +1101,7 @@ finding in a different constitution, and it lands the same way.
 placed at the same assessed-to-market ratio as similar existing property, and "similar" is
 resolved by the ORS 308.149 **property class**, which OAR 150-308-0170 takes from the
 Department of Revenue's classification. That classification keys on **use**, in the Louisiana
-and Ohio pattern — and the ratio *equalises* new value rather than preferring anyone, and only
+and Ohio pattern — and the ratio *equalizes* new value rather than preferring anyone, and only
 at the moment value is added. Nothing in Oregon keys on tenure.
 
 ### Washington — `RULE_UNIFORM`
@@ -1149,7 +1149,7 @@ genuinely tenure-based: Honolulu's Residential A, Kaua'i's Non-Owner-Occupied, a
 and Hawai'i County Apartment classes all separate an owner's principal residence from rented
 housing.
 
-What stops it is the size. Modelled on the FY26 rate schedules at a large apartment building:
+What stops it is the size. Modeled on the FY26 rate schedules at a large apartment building:
 
 | county | apartment / non-owner class | owner-occupied | implied |
 |---|---|---|---|
@@ -1161,7 +1161,7 @@ What stops it is the size. Modelled on the FY26 rate schedules at a large apartm
 **Two of the four breach `CLASSIFICATION_MULT_CEIL` (3.0)**, the tripwire this table carries
 precisely so that a research error announces itself instead of scoring. And Honolulu's
 Residential A is a **two-tier bracket above $1,000,000**, so the "effective rate" in that
-table is a modelling choice about building value, not a statutory ratio — the Florida shape
+table is a modeling choice about building value, not a statutory ratio — the Florida shape
 wearing a rate schedule.
 
 Either the multipliers are right, in which case Hawaii deserves the largest correction in the

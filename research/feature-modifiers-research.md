@@ -351,14 +351,14 @@ METAL_ROOF_MODIFIER = 0.65
 **Evidence:** Three independent findings retire this section.
 
 *It is not an above-code feature.* IRC R403.1.6 requires ½" anchor bolts at not more
-than 6 ft on centre, 7 in. embedment, at least two per plate section, one within 12 in.
+than 6 ft on center, 7 in. embedment, at least two per plate section, one within 12 in.
 of each end. R403.1.6.1 tightens this in SDC D0–D2 (and SDC C townhouses) by adding
 3" × 3" × 0.229" plate washers over braced wall lines, and drops spacing to 4 ft only
 for buildings **over two stories** — a height trigger, not a seismic one. What
 high-seismic provisions actually tighten is *detailing*, not spacing. More decisively,
 the retrofit standard prescribes the identical ladder: CEBC Appendix Chapter A3
 Table A304.3.1 — the basis of Earthquake Brace + Bolt Plan Set A, and the retrofit
-PEER-CEA modelled — requires ½" @ 6'-0" (one story), ½" @ 4'-0" or ⅝" @ 6'-0" (two
+PEER-CEA modeled — requires ½" @ 6'-0" (one story), ½" @ 4'-0" or ⅝" @ 6'-0" (two
 story), ⅝" @ 4'-0" (three story). A homeowner who bolts their foundation installs bolts
 at code spacing; there is no "tighter than code" tier to report. PEER 2020/22 notes that
 ½" bolts at 6 ft "was apparently adopted within the Uniform Building Code as early as
