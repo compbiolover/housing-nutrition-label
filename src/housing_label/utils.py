@@ -511,8 +511,10 @@ def log_upstreams(context: str, total: float, slow_after: float = 5.0) -> None:
 # loopback hosts and anyio's default 40-thread pool, that is ~760 client sockets —
 # comfortably inside the fd limit, and only reached if every worker touches every
 # dataset, but worth knowing next to render.yaml's paragraph about this instance's
-# memory. The upstream pool adds its own ``_FANOUT_WORKERS`` threads to that
-# count. A thread that dies releases its session with its thread-local, so the
+# memory. The upstream pool's ``_FANOUT_WORKERS`` (32) long-lived threads hold
+# sessions too, so the process-wide ceiling is now (40 + 32) threads x ~19 hosts,
+# about 1,370 client sockets — still well inside the fd limit, and reached only if
+# every thread touches every host. A thread that dies releases its session with its thread-local, so the
 # figure is bounded by live threads rather than by threads ever created.
 _thread_state = threading.local()
 

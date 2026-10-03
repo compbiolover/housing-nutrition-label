@@ -372,3 +372,24 @@ def test_waiters_wait_without_limit_when_the_budget_is_off(monkeypatch):
     assert api._waiter_timeout() is None
     monkeypatch.setattr(config, "UPSTREAM_BUDGET", 30.0)
     assert api._waiter_timeout() == 35.0
+
+
+def test_queued_warmers_are_cancelled_when_the_window_runs_out(monkeypatch):
+    """A warmer still queued when the request stops waiting must not stay in the
+    shared pool's queue, holding a slot for a request that has moved on."""
+    from housing_label.simulate import location as L
+    from concurrent.futures import Future
+    made = []
+
+    def fake_fan_out(*tasks):
+        out = []
+        for _ in tasks:
+            f = Future()          # never started: what a saturated pool leaves
+            made.append(f)
+            out.append(f)
+        return out
+    monkeypatch.setattr(utils, "fan_out", fake_fan_out)
+    monkeypatch.setattr(utils, "gather", lambda futures, timeout=None: None)
+    monkeypatch.setattr(L, "geographies_for_coords", lambda lat, lon: None)
+    L.resolve_location(lat=41.0, lon=-87.0, also_fetch=(lambda la, lo: None,))
+    assert made and all(f.cancelled() for f in made)

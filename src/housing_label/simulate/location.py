@@ -549,6 +549,12 @@ def resolve_location(
     # as they did when the questions were asked one at a time.
     if allow_network:
         utils.gather(futures + warming)
+        # Tasks whose answers are only memo warmers — the footprint candidates and
+        # the label build's point fetches — are cancelled if the window ran out
+        # before they started: their consumers make the same call directly, and a
+        # queued warmer left behind would hold a pool slot for the next request.
+        for warmer in [futures[2], *warming]:
+            warmer.cancel()
         structure, water = futures[0], futures[1]
 
         if want_assessor:
