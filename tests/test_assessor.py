@@ -190,9 +190,9 @@ def test_cook_county_resolves_and_pads():
 def test_the_2026_10_adapters_are_reachable():
     """Registered, not just written: an adapter missing from ADAPTERS fails open
     for its whole jurisdiction, silently, exactly like a county with no record."""
-    from housing_label.enrich.assessor import la, ma, md, nc, nyc, nys, phl
+    from housing_label.enrich.assessor import la, ma, md, nc, nyc, nys, phl, ut
     for fips, mod in (("06037", la), ("25025", ma), ("24510", md), ("37183", nc),
-                      ("36061", nyc), ("36029", nys), ("42101", phl)):
+                      ("36061", nyc), ("36029", nys), ("42101", phl), ("49035", ut)):
         assert A.adapter_for_county(fips) is mod, fips
     # New York City and New York State are disjoint: the five boroughs belong to
     # the city's PLUTO adapter, never to the state's opt-in layer.
@@ -972,3 +972,25 @@ def test_way_abbreviated_wy_is_way():
     from housing_label.enrich.assessor._shared import same_address
     assert same_address("10 SUNSET WY", "10 SUNSET WAY")
     assert not same_address("10 SUNSET WY", "10 SUNSET ST")
+
+
+def test_an_adapter_that_takes_the_county_is_given_it(monkeypatch):
+    """Utah keeps one layer per county; handing it the county the geocoder already
+    resolved saves a boundary request on every lookup."""
+    import os
+    from housing_label.enrich import assessor as reg
+    from housing_label.enrich.assessor import ut
+    seen = {}
+
+    def lookup(lat, lon, address=None, county_fips=None):
+        seen["county"] = county_fips
+        return None
+    monkeypatch.setattr(ut, "lookup", lookup)
+    reg._takes_county.cache_clear()
+    monkeypatch.setenv(reg.ENABLE_ENV, "1")
+    try:
+        reg.assessor_for_point(40.76, -111.89, "49035", "1 MAIN ST")
+    finally:
+        reg._takes_county.cache_clear()
+    assert seen["county"] == "49035"
+    assert os.environ.get(reg.ENABLE_ENV) == "1"

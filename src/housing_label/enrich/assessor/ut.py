@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Utah — 28 of the state's 29 counties, from UGRC's per-county LIR parcel layers.
 
-The fifth adapter and the third statewide one, though "statewide" is doing more
-work here than it did for Florida or Connecticut. Utah's 29 county assessors each
+A statewide adapter in the sense Florida's and Connecticut's are, though
+"statewide" is doing more work here. Utah's 29 county assessors each
 send their year-end tax roll to the Utah Geospatial Resource Center (UGRC), which
 joins it to the county's parcel map and publishes it as a Land Information Records
 (LIR) layer — one per county, all from one template, all in one keyless ArcGIS
@@ -149,24 +149,34 @@ Addresses, and the geocoder that cannot read the grid
 ``PARCEL_ADD`` is the street address alone ("3854 S 800 W"), with the city in its
 own column, so no locality trim is needed. Two Utah spellings are reconciled on
 both sides of the comparison (``_grid_form``): "175 E 100 SOUTH ST" from the Census
-matcher is the roll's "175 E 100 S".
+matcher is the roll's "175 E 100 S", and "COUNTRY CREEK COVE" is the roll's
+"COUNTRY CREEK CV".
 
-The commonest refusal measured is NOT reconciled: Census returns "1526 DOWNINGTON
-AVE" for a roll's "1526 E DOWNINGTON AVE", dropping the leading directional. It
-cannot be forgiven, because the matcher ignores that directional outright — typed
+The commonest mismatch measured is NOT reconciled here: Census returns "1526
+DOWNINGTON AVE" for a roll's "1526 E DOWNINGTON AVE", dropping the leading
+directional — 60 of 277 sampled homes, before the shared fix below. The adapter
+must not forgive it, because the matcher ignores that directional outright: typed
 "571 N 200 W" and "571 S 200 W" come back as the same point, 0 m apart, on all 12
-addresses tried — so the point cannot say which twin is meant, and accepting the
-directionless form would confirm whichever twin happens to be near.
+addresses tried. The point cannot say which twin is meant, and accepting the
+directionless form would confirm whichever twin happens to be near. What does
+recover those homes is ``location.assessor_address``, which now hands an adapter
+the reader's own typed address whenever the matched street name differs from it:
+"1526 E DOWNINGTON AVE" then agrees with exactly one roll address, and the twin on
+the other side of the grid does not.
 
-The same blindness produced the one wrong parcel the first end-to-end run found.
-Typed "325 E 300 N, Kanab", the matcher returned "325 N 300 E": a different, real
-house 45 m from the point, with the reader's house 55 m away. The adapter, handed
-only the matched address, confirmed it. So after a parcel is chosen, the 80 m
-neighbourhood is checked for a *confusable twin* — another parcel with the same
-house number and street once directionals are set aside, order and side included
-(``_has_a_confusable_twin``) — and its presence refuses the answer. It costs one
-extra request on lookups that containment answered. It cannot catch a swap whose
-twin is more than 80 m away; see "What the adapter is worth".
+The same blindness produced the one wrong parcel the first end-to-end run found,
+before that shared change. Typed "325 E 300 N, Kanab", the matcher returned "325 N
+300 E": a different, real house 45 m from the point, with the reader's house 55 m
+away, and the adapter, handed only the matched address, confirmed it. So after a
+parcel is chosen, the 80 m neighbourhood is checked for a *confusable twin* —
+another parcel with the same house number and street once directionals are set
+aside, order and side included (``_has_a_confusable_twin``) — and its presence
+refuses the answer. It is kept even though the shared change now catches that
+case upstream, because an adapter is not always handed the typed address (a label
+scored from coordinates has only the matched one), and it is cheap: one extra
+request on lookups that containment answered, and in the final run one refusal
+of 277 — Kanab itself, where the typed address would now have confirmed the right
+house. It cannot catch a swap whose twin is more than 80 m away.
 
 Timing
 ------
@@ -189,11 +199,40 @@ none of the 831 requests came near, and a four-second budget against a worst
 observed lookup of three requests summing to 1.4 s. ``READ_SLICE_S`` and
 ``LOOKUP_TIMEOUT`` are named only so every request visibly passes them; a test pins
 their sum under ``config.UPSTREAM_HOST_BUDGET``. End to end, a lookup took a median
-of VERIFY_LOOKUP_MEDIAN.
+of 0.40 s (p95 0.52 s, slowest 1.15 s), county request included.
 
 What the adapter is worth, end to end
 -------------------------------------
-VERIFY_PLACEHOLDER
+277 homes drawn at random from the layers themselves (residential class, a
+recorded year), in proportion to each county's residential rows, geocoded through
+the Census matcher and ``assessor_address`` exactly as the product does, then
+looked up with no county passed:
+
+  =====================================  =====
+  sampled                                  277
+  geocoded                                 254   (23 unknown to Census)
+  routed to the sampled county             248   (6 city-less addresses that
+                                                  Census placed elsewhere)
+  resolved                                 210   (83% of those geocoded)
+  **matched to the wrong parcel**          **0**
+  year built = the dwelling's year     210/210
+  floor area reported / exact            28/28
+  storeys reported                          22
+  wall type translated                      94
+  =====================================  =====
+
+"The dwelling's year" was adjudicated, not assumed: against a naive truth — the
+year of the parcel's LARGEST building — 205 of 210 agree, and in each of the five
+that do not, the larger building is a garage or shop (one is style-confirmed as
+"detached" in Utah County) while the adapter took the sole residential card. Two
+of the 28 floor areas differ from that naive truth for the same reason.
+
+The 44 that did not resolve: 28 geocodes more than 80 m from their parcel or at a
+different address; 7 condominium stacks with no unit typed, refused as ambiguous
+by design; 3 parcels with no single dwelling building; 3 transient upstream errors
+(a 503 or a read timeout during the run — each resolved on re-query, and none is
+cached); 1 refused by the confusable-twin guard; and 2 spellings the shared
+comparison does not fold ("SAINT"/"ST", "SECOND"/"2ND").
 
 Privacy, and why the field list is short
 ----------------------------------------
@@ -614,15 +653,16 @@ _GRID_WORDS = {"north": "n", "south": "s", "east": "e", "west": "w"}
 
 
 def _grid_form(address: str | None) -> str | None:
-    """``address`` with a spelled-out grid direction abbreviated, and nothing else.
+    """``address`` with Utah's two respellings undone, and nothing else changed.
 
     Utah numbers its streets on a grid, and one street has two spellings: the
     rolls write "175 E 100 S" where the Census matcher returns "175 E 100 SOUTH
     ST". Those parse as different streets, so the parcel is refused. The direction
     word is abbreviated only where it directly follows a number — "100 SOUTH" is
     the grid street 100 S — and never elsewhere, so "1820 E SOUTH WEBER DR" keeps
-    its name. Applied identically to both sides of the comparison, so it can only
-    make two spellings of one grid street equal.
+    its name. A terminal "COVE" becomes "CV" for the same reason (below). Applied
+    identically to both sides of the comparison, so it can only make two spellings
+    of one street equal.
 
     What this deliberately does NOT do is forgive a missing LEADING directional,
     though that is the commonest mismatch measured here ("1526 E DOWNINGTON AVE"
@@ -640,6 +680,11 @@ def _grid_form(address: str | None) -> str | None:
         word = tokens[i].lower().strip(".")
         if word in _GRID_WORDS and tokens[i - 1].isdigit():
             tokens[i] = _GRID_WORDS[word].upper()
+    # "Cove" is Utah's commonest cul-de-sac type, and the shared suffix table does
+    # not know it, so the roll's "COUNTRY CREEK CV" and Census's "COUNTRY CREEK
+    # COVE" parse as different streets. Only a TERMINAL "COVE" is a street type.
+    if len(tokens) > 2 and tokens[-1].lower() == "cove":
+        tokens[-1] = "CV"
     return " ".join(tokens) + sep + tail
 
 

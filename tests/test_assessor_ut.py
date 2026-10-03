@@ -239,6 +239,15 @@ def test_the_grid_word_is_abbreviated_only_after_a_number():
     assert ut._grid_form(None) is None
 
 
+def test_a_cove_is_a_cv():
+    """Utah's commonest cul-de-sac type, absent from the shared suffix table: the
+    roll writes "10806 S COUNTRY CREEK CV", Census "10806 S COUNTRY CREEK COVE"."""
+    cove = dict(_HOUSE, PARCEL_ID="SJ-1", PARCEL_ADD="10806 S COUNTRY CREEK CV")
+    got = _lookup([], near=[cove], address="10806 S COUNTRY CREEK COVE, SOUTH JORDAN, UT")
+    assert got is not None and got.parcel_id == "SJ-1"
+    assert ut._grid_form("12 COVE CREEK DR") == "12 COVE CREEK DR", "not terminal"
+
+
 def test_a_missing_leading_directional_is_still_a_different_address():
     """The commonest mismatch measured: the roll says "1526 E DOWNINGTON AVE", the
     Census matcher returns "1526 DOWNINGTON AVE". It is NOT forgiven, because the

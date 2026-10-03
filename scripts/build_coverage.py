@@ -146,6 +146,12 @@ CURATED: dict[str, dict] = {
         "fields": ("year_built", "sqft"),
         "verified": {"sample": 200, "resolved": 104, "wrong": 0},
     },
+    "ut": {
+        "name": "Utah (28 of 29 counties)", "short": "Utah",
+        "since": "2026-10-03",
+        "fields": ("year_built", "sqft", "stories", "construction"),
+        "verified": {"sample": 277, "resolved": 210, "wrong": 0},
+    },
     "ma": {
         "name": "Massachusetts (all 14 counties)", "short": "Massachusetts",
         "since": "2026-10-03",
