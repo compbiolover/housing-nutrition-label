@@ -43,8 +43,7 @@ _ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 # Recorded live from NYS_Tax_Parcels_Public. A one-family townhouse in the Town of
 # Colonie, Albany County: class 210, one kitchen, so its living area is that home's.
-_HOUSE = {"SWIS_SBL_ID": "01010004001200020060000068", "SBL": "04001200020060000068",
-          "PARCEL_ADDR": "68 Point Of Woods Dr", "LOC_ST_NBR": "68",
+_HOUSE = {"SWIS_SBL_ID": "01010004001200020060000068", "PARCEL_ADDR": "68 Point Of Woods Dr", "LOC_ST_NBR": "68",
           "LOC_STREET": "Point Of Woods Dr", "LOC_UNIT": None, "PROP_CLASS": "210",
           "YR_BLT": 1974, "SQFT_LIVING": 1431.0, "NBR_KITCHENS": 1, "ROLL_YR": 2025}
 _HOUSE_ADDR = "68 POINT OF WOODS DR, ALBANY, NY, 12203"
@@ -52,7 +51,7 @@ _HOUSE_ADDR = "68 POINT OF WOODS DR, ALBANY, NY, 12203"
 # Recorded live. A two-family house in Akron, Erie County: class 220, two kitchens.
 # Its living area covers both homes.
 _TWO_FAMILY = {"SWIS_SBL_ID": "14560104716000020190000000",
-               "SBL": "04716000020190000000", "PARCEL_ADDR": "188 East Ave",
+               "PARCEL_ADDR": "188 East Ave",
                "LOC_ST_NBR": "188", "LOC_STREET": "East Ave", "LOC_UNIT": None,
                "PROP_CLASS": "220", "YR_BLT": 1920, "SQFT_LIVING": 2200.0,
                "NBR_KITCHENS": 2, "ROLL_YR": 2025}
@@ -60,7 +59,7 @@ _TWO_FAMILY = {"SWIS_SBL_ID": "14560104716000020190000000",
 # Recorded live. A distribution warehouse in Albany County: class 449, a year from
 # the commercial inventory and no residential inventory at all.
 _WAREHOUSE = {"SWIS_SBL_ID": "01010004000000030070000000",
-              "SBL": "04000000030070000000", "PARCEL_ADDR": "3 Charles Blvd",
+              "PARCEL_ADDR": "3 Charles Blvd",
               "LOC_ST_NBR": "3", "LOC_STREET": "Charles Blvd", "LOC_UNIT": None,
               "PROP_CLASS": "449", "YR_BLT": 1974, "SQFT_LIVING": None,
               "NBR_KITCHENS": None, "ROLL_YR": 2025}
@@ -69,15 +68,14 @@ _WAREHOUSE = {"SWIS_SBL_ID": "01010004000000030070000000",
 # land" — and carrying a full residential inventory: 2,100 sq ft, two kitchens,
 # built 1890. The class is stale; the building is real.
 _ROW_HOUSE_ON_VACANT_CLASS = {
-    "SWIS_SBL_ID": "01010006506600020090000000", "SBL": "06506600020090000000",
-    "PARCEL_ADDR": "226 Colonie St", "LOC_ST_NBR": "226", "LOC_STREET": "Colonie St",
+    "SWIS_SBL_ID": "01010006506600020090000000", "PARCEL_ADDR": "226 Colonie St", "LOC_ST_NBR": "226", "LOC_STREET": "Colonie St",
     "LOC_UNIT": None, "PROP_CLASS": "311", "YR_BLT": 1890, "SQFT_LIVING": 2100.0,
     "NBR_KITCHENS": 2, "ROLL_YR": 2025}
 
 # Recorded live. An apartment complex in Albany County: class 411, a year, gross
 # floor area only.
 _APARTMENTS = {"SWIS_SBL_ID": "01010004100000020110010000",
-               "SBL": "04100000020110010000", "PARCEL_ADDR": "30 Pine Ln",
+               "PARCEL_ADDR": "30 Pine Ln",
                "LOC_ST_NBR": "30", "LOC_STREET": "Pine Ln", "LOC_UNIT": None,
                "PROP_CLASS": "411", "YR_BLT": 2023, "SQFT_LIVING": None,
                "NBR_KITCHENS": None, "ROLL_YR": 2025}
@@ -87,13 +85,11 @@ _APARTMENTS = {"SWIS_SBL_ID": "01010004100000020110010000",
 # 1950 seasonal cottage 190 m away. The end-to-end check once reported the house
 # for an address sampled from the cottage.
 _SAME_ADDRESS_HOUSE = {
-    "SWIS_SBL_ID": "30528910400000010440010000", "SBL": "10400000010440010000",
-    "PARCEL_ADDR": "10876 Bardwell Mills Rd", "LOC_ST_NBR": "10876",
+    "SWIS_SBL_ID": "30528910400000010440010000", "PARCEL_ADDR": "10876 Bardwell Mills Rd", "LOC_ST_NBR": "10876",
     "LOC_STREET": "Bardwell Mills Rd", "LOC_UNIT": None, "PROP_CLASS": "210",
     "YR_BLT": 1840, "SQFT_LIVING": 1787.0, "NBR_KITCHENS": 1, "ROLL_YR": 2025}
 _SAME_ADDRESS_COTTAGE = {
-    "SWIS_SBL_ID": "30528910400000010450000000", "SBL": "10400000010450000000",
-    "PARCEL_ADDR": "10876 Bardwell Mills Rd", "LOC_ST_NBR": "10876",
+    "SWIS_SBL_ID": "30528910400000010450000000", "PARCEL_ADDR": "10876 Bardwell Mills Rd", "LOC_ST_NBR": "10876",
     "LOC_STREET": "Bardwell Mills Rd", "LOC_UNIT": None, "PROP_CLASS": "260",
     "YR_BLT": 1950, "SQFT_LIVING": 520.0, "NBR_KITCHENS": 1, "ROLL_YR": 2025}
 _SAME_ADDRESS = "10876 BARDWELL MILLS RD, REMSEN, NY, 13438"
@@ -102,12 +98,10 @@ _SAME_ADDRESS = "10876 BARDWELL MILLS RD, REMSEN, NY, 13438"
 # complex polygon is copied once per unit. Its neighbour in the stack is the same
 # row with another unit, year and area — synthetic, because only the shape of the
 # stack is under test.
-_UNIT_29 = {"SWIS_SBL_ID": "14628906900000040010290000", "SBL": "06900000040010290000",
-            "PARCEL_ADDR": "270 Buffalo Rd Unit 29", "LOC_ST_NBR": "270",
+_UNIT_29 = {"SWIS_SBL_ID": "14628906900000040010290000", "PARCEL_ADDR": "270 Buffalo Rd Unit 29", "LOC_ST_NBR": "270",
             "LOC_STREET": "Buffalo Rd", "LOC_UNIT": "Unit 29", "PROP_CLASS": "210",
             "YR_BLT": 1988, "SQFT_LIVING": 1180.0, "NBR_KITCHENS": 1, "ROLL_YR": 2025}
-_UNIT_30 = dict(_UNIT_29, SWIS_SBL_ID="14628906900000040010300000",
-                SBL="06900000040010300000", PARCEL_ADDR="270 Buffalo Rd Unit 30",
+_UNIT_30 = dict(_UNIT_29, SWIS_SBL_ID="14628906900000040010300000", PARCEL_ADDR="270 Buffalo Rd Unit 30",
                 LOC_UNIT="Unit 30", YR_BLT=1989, SQFT_LIVING=1420.0)
 _UNIT_ADDR = "270 BUFFALO RD, EAST AURORA, NY, 14052"
 
@@ -338,18 +332,28 @@ def test_without_an_address_there_is_nothing_to_check():
     assert len(calls) == 1, "containment alone; no buffer and no uniqueness search"
 
 
-def test_the_same_parcel_assessed_by_a_village_and_its_town_is_one_parcel():
-    """The layer's own documentation: a parcel on a village boundary is assessed by
-    both, and its polygon is duplicated with the same SBL and address under two SWIS
-    codes. Identical facts are one candidate, not two rival ones."""
-    village = dict(_HOUSE, SWIS_SBL_ID="01010104001200020060000068")
-    got = _lookup([_HOUSE, village], address=_HOUSE_ADDR)
+def test_a_row_returned_twice_under_one_full_id_is_one_candidate():
+    """The same roll record twice (one parcel drawn as two polygons) is not a rival
+    to itself."""
+    got = _lookup([_HOUSE, dict(_HOUSE)], address=_HOUSE_ADDR)
     assert got is not None and got.year_built == 1974
 
 
-def test_two_assessments_that_disagree_are_still_ambiguous():
-    village = dict(_HOUSE, SWIS_SBL_ID="01010104001200020060000068", YR_BLT=1975)
-    assert _lookup([_HOUSE, village], address=_HOUSE_ADDR) is None
+def test_rows_sharing_an_sbl_under_different_swis_codes_both_survive():
+    """SBL is only the section-block-lot part of the id and repeats across
+    municipalities (recorded live: Chester and Crawford, Orange County, both have
+    SBL 02900000010010000003). Two such rows agreeing on every other fact are still
+    two parcels, so the point is ambiguous and the lookup refuses — this is also
+    the deliberate answer for a village-boundary parcel assessed twice."""
+    other_town = dict(_HOUSE, SWIS_SBL_ID="33260004001200020060000068")
+    assert len(nys._candidates([_HOUSE, other_town], None)) == 2
+    assert _lookup([_HOUSE, other_town], address=_HOUSE_ADDR) is None
+    assert _lookup([_HOUSE, other_town]) is None
+
+
+def test_one_full_id_with_disagreeing_facts_is_still_ambiguous():
+    twin = dict(_HOUSE, YR_BLT=1975)
+    assert _lookup([_HOUSE, twin], address=_HOUSE_ADDR) is None
 
 
 # ── condominium stacks ─────────────────────────────────────────────────────────
