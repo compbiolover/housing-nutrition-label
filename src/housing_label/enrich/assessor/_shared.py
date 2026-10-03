@@ -311,8 +311,16 @@ UNIT_MARKERS = frozenset({"apt", "unit", "ste", "suite", "#", "fl", "floor", "rm
 #: the marked form, because that is the only form that is unambiguous in an
 #: arbitrary jurisdiction: a bare trailing token is a unit in one city's records
 #: and part of the street's name in another's, so reading it here would guess.
+#:
+#: A marker WORD must be followed by a separator (a space, or the period of
+#: "Apt." / "Ste."); only "#" may run straight into the unit. Without that, any
+#: comma part that merely begins with the letters of a marker read as one: the
+#: geocoder's "147 LANTERN LN, STEWARTSTOWN, PA" gave unit "WARTSTOWN" (found by
+#: the Pennsylvania adapter's verification run), and so would Steelton, Sterling,
+#: Unity and Aptos. A phantom unit refuses every condominium in those places.
 _TYPED_UNIT_RE = re.compile(
-    r"(?:^|\s)(?:#|apt\.?|unit|ste\.?|suite)\s*([A-Za-z0-9\-]+)\s*$", re.I)
+    r"(?:^|\s)(?:#\s*|(?:apt|unit|ste|suite)\.?\s+|(?:apt|ste)\.)([A-Za-z0-9\-]+)\s*$",
+    re.I)
 
 
 def unit_of(address: str | None) -> str | None:

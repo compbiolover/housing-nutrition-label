@@ -1067,3 +1067,16 @@ def test_folding_never_makes_two_streets_one():
     assert fold_name(["east"]) == ["east"]
     assert fold_name(["north", "main"]) == ["n", "main"]
     assert fold_name(["21st", "twenty"]) == ["21", "twenty"]
+
+
+def test_a_place_name_that_starts_like_a_unit_marker_is_not_a_unit():
+    """"STEWARTSTOWN" read as unit "WARTSTOWN" until a marker word had to be
+    followed by a separator; only "#" may run straight into the unit."""
+    from housing_label.enrich.assessor._shared import unit_of
+    for place in ("147 LANTERN LN, STEWARTSTOWN, PA", "12 MAIN ST, UNITY, ME",
+                  "5 SOQUEL DR, APTOS, CA", "40 N FRONT ST, STEELTON, PA"):
+        assert unit_of(place) is None, place
+    for typed, unit in (("1 MAIN ST #5", "5"), ("1 MAIN ST APT 3-B", "3-B"),
+                        ("1 MAIN ST, Apt.3", "3"), ("1 MAIN ST STE. 4", "4"),
+                        ("1 MAIN ST UNIT 12", "12"), ("1 MAIN ST # 7", "7")):
+        assert unit_of(typed) == unit, typed
