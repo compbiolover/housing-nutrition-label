@@ -131,11 +131,22 @@ def _lead_trailing_direction(tokens: list[str]) -> list[str] | None:
     return None
 
 
+def _trail_leading_direction(tokens: list[str]) -> list[str] | None:
+    if len(tokens) >= 3 and tokens[-1].lower() in SUFFIXES \
+            and tokens[0].lower() in ("n", "s", "e", "w"):
+        return tokens[1:] + [tokens[0].upper()]
+    return None
+
+
 def _street_spellings(raw: str) -> list[str]:
-    spellings = [_base_tokens(raw)]
-    for transform in (_numeral_ordinal, _abbreviate_leading_direction,
-                      _lead_trailing_direction):
-        for tokens in list(spellings):
+    base = _base_tokens(raw)
+    spellings = [base]
+    numbered = _numeral_ordinal(base)
+    if numbered:
+        spellings.append(numbered)
+    for tokens in list(spellings):
+        for transform in (_abbreviate_leading_direction, _lead_trailing_direction,
+                          _trail_leading_direction):
             changed = transform(tokens)
             if changed and changed not in spellings:
                 spellings.append(changed)

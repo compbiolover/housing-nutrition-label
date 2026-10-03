@@ -223,6 +223,54 @@ def test_an_off_parcel_geocode_is_confirmed_by_address_in_the_buffer():
     assert _lookup([], near=[_TWO_STORY, _HOUSE], address="928 E 100 N, PROVO, UT") is None
 
 
+def test_a_spelled_out_grid_street_is_the_same_street():
+    """Beaver's roll writes "175 E 100 S"; the Census matcher returns "175 E 100
+    SOUTH ST". One grid street, two spellings."""
+    beaver = dict(_HOUSE, PARCEL_ID="B-1", PARCEL_ADD="175 E 100 S")
+    got = _lookup([], near=[beaver], address="175 E 100 SOUTH ST, BEAVER, UT, 84713")
+    assert got is not None and got.parcel_id == "B-1"
+
+
+def test_the_grid_word_is_abbreviated_only_after_a_number():
+    """"SOUTH WEBER DR" is a street's name, not a grid direction."""
+    assert ut._grid_form("1820 E SOUTH WEBER DR, SOUTH WEBER, UT") == \
+        "1820 E SOUTH WEBER DR, SOUTH WEBER, UT"
+    assert ut._grid_form("20 E 200 NORTH ST, DUCHESNE, UT") == "20 E 200 N ST, DUCHESNE, UT"
+    assert ut._grid_form(None) is None
+
+
+def test_a_missing_leading_directional_is_still_a_different_address():
+    """The commonest mismatch measured: the roll says "1526 E DOWNINGTON AVE", the
+    Census matcher returns "1526 DOWNINGTON AVE". It is NOT forgiven, because the
+    matcher ignores that directional outright — "571 N 200 W" and "571 S 200 W"
+    geocode to the same point — so the point cannot tell which twin is meant."""
+    north = dict(_HOUSE, PARCEL_ID="N-571", PARCEL_ADD="571 N 200 W")
+    assert _lookup([], near=[north], address="571 200 W, PROVIDENCE, UT, 84332") is None
+    assert _lookup([north], address="571 200 W, PROVIDENCE, UT, 84332") is None
+
+
+def test_a_typed_unit_picks_its_own_parcel_from_a_condominium_stack():
+    """947 Canyon Rd, Ogden: six "APT n" parcels share one street address. The unit
+    the reader typed is the only thing that can choose between them; the year is
+    the building's, and the unit's area is still refused."""
+    # Each unit row keeps a one-dwelling style, so the unit in the roll's own
+    # address is what refuses the area, not the absence of evidence.
+    stack = [dict(_HOUSE, PARCEL_ID=f"13166000{n}", PARCEL_ADD=f"947 CANYON RD APT {n}")
+             for n in range(1, 7)]
+    got = _lookup([], near=stack, address="947 CANYON RD #3, OGDEN, UT, 84404")
+    assert got is not None and got.parcel_id == "131660003"
+    assert got.year_built == 1920 and got.sqft is None
+    assert _lookup([], near=stack, address="947 CANYON RD, OGDEN, UT, 84404") is None
+    assert _lookup([], near=stack, address="947 CANYON RD #9, OGDEN, UT, 84404") is None
+
+
+def test_a_typed_unit_does_not_discard_a_parcel_that_names_no_unit():
+    """The filter drops only parcels naming a DIFFERENT unit. A parcel with no unit
+    in its address can still be the reader's building."""
+    got = _lookup([_HOUSE], address="924 E 100 N #2, PROVO, UT")
+    assert got is not None and got.parcel_id == "140350270"
+
+
 def test_a_truncated_buffer_is_no_answer():
     """These layers cap a response at 2,000 rows and write one per building per
     polygon part. A cut-short buffer can drop the second of two parcels sharing an

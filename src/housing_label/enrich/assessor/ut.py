@@ -422,6 +422,45 @@ def _parcels(url: str, lat: float, lon: float, distance_m: float = 0,
     return [p for p in parcels if p is not None]
 
 
+_GRID_WORDS = {"north": "n", "south": "s", "east": "e", "west": "w"}
+
+
+def _grid_form(address: str | None) -> str | None:
+    """``address`` with a spelled-out grid direction abbreviated, and nothing else.
+
+    Utah numbers its streets on a grid, and one street has two spellings: the
+    rolls write "175 E 100 S" where the Census matcher returns "175 E 100 SOUTH
+    ST". Those parse as different streets, so the parcel is refused. The direction
+    word is abbreviated only where it directly follows a number — "100 SOUTH" is
+    the grid street 100 S — and never elsewhere, so "1820 E SOUTH WEBER DR" keeps
+    its name. Applied identically to both sides of the comparison, so it can only
+    make two spellings of one grid street equal.
+
+    What this deliberately does NOT do is forgive a missing LEADING directional,
+    though that is the commonest mismatch measured here ("1526 E DOWNINGTON AVE"
+    on the roll, "1526 DOWNINGTON AVE" from Census). The Census matcher ignores
+    that directional outright: "571 N 200 W" and "571 S 200 W" come back as the
+    same point, 0 m apart, so the point cannot say which side of the grid the home
+    is on, and accepting "571 S 200 W" for it would confirm whichever twin happens
+    to be near. See the module docstring.
+    """
+    if not address:
+        return address
+    head, sep, tail = str(address).partition(",")
+    tokens = head.split()
+    for i in range(1, len(tokens)):
+        word = tokens[i].lower().strip(".")
+        if word in _GRID_WORDS and tokens[i - 1].isdigit():
+            tokens[i] = _GRID_WORDS[word].upper()
+    return " ".join(tokens) + sep + tail
+
+
+def _same_unit_or_none(parcel: dict, unit: str) -> bool:
+    """Whether this parcel could be the typed unit's: it names that unit, or none."""
+    own = unit_of(parcel.get("PARCEL_ADD"))
+    return own is None or own.lower() == unit.lower()
+
+
 def _county_at(lat: float, lon: float, *, deadline: float) -> str | None:
     """The FIPS of the Utah county this point is in, from UGRC's boundaries.
 
@@ -457,8 +496,21 @@ def _parcel_at(lat: float, lon: float, address: str | None = None,
     if fips is None:
         return None
     url = PARCEL_URL.format(service=COUNTY_SERVICES[fips])
-    return select_parcel(lambda d: _parcels(url, lat, lon, d, deadline=deadline),
-                         address, lambda p: p.get("PARCEL_ADD"))
+    unit = unit_of(address)
+
+    def fetch(distance_m):
+        found = _parcels(url, lat, lon, distance_m, deadline=deadline)
+        # A reader who typed a unit cannot live in a parcel that names a DIFFERENT
+        # unit. Condominium units are separate parcels stacked on one footprint, all
+        # sharing the street address the comparison reads, so without this a
+        # typed "#1" faces six "947 CANYON RD APT n" candidates and is refused.
+        # Dropping rows that cannot be the answer is the sanctioned shape (see
+        # select_parcel): it can turn "ambiguous" into "one", never admit a parcel
+        # the address check would not.
+        return [p for p in found if _same_unit_or_none(p, unit)] if unit else found
+
+    return select_parcel(fetch, _grid_form(address),
+                         lambda p: _grid_form(p.get("PARCEL_ADD")))
 
 
 def _vintage(parcel: dict) -> str:
