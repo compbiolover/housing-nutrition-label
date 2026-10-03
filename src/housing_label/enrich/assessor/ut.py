@@ -1,7 +1,219 @@
 #!/usr/bin/env python3
-"""Utah — all 29 counties from UGRC's per-county LIR parcel layers.
+"""Utah — 28 of the state's 29 counties, from UGRC's per-county LIR parcel layers.
 
-DOCSTRING_PLACEHOLDER
+The fifth adapter and the third statewide one, though "statewide" is doing more
+work here than it did for Florida or Connecticut. Utah's 29 county assessors each
+send their year-end tax roll to the Utah Geospatial Resource Center (UGRC), which
+joins it to the county's parcel map and publishes it as a Land Information Records
+(LIR) layer — one per county, all from one template, all in one keyless ArcGIS
+Online organisation:
+
+  ``services1.arcgis.com/99lidPhWCzftIe9K/.../Parcels_<County>_LIR/FeatureServer/0``
+
+The organisation's services directory holds exactly 29 such services, one per
+county (``COUNTY_SERVICES``). About 1.04 million parcels carry a year built.
+
+Twenty-eight are claimed, not 29. **Juab** publishes a layer whose 15,259 rows
+carry no year built and no wall material at all, and whose floor areas come with
+no evidence that they describe one home; a lookup there could only spend part of
+the label's budget to return nothing, so 49023 is left out of ``COUNTY_FIPS``
+(``_NOTHING_TO_SAY``) until its rows start carrying ``BUILT_YR``.
+
+Three words this file leans on:
+
+* **LIR** — "Land Information Records", the 2016 state work group's name for a
+  tax-year parcel layer carrying assessor attributes beside the boundary.
+* **residential card** — the appraiser's record of one dwelling building, as
+  opposed to the record of a shed, garage, barn or commercial structure.
+* **grid address** — Utah numbers its streets as coordinates: "325 E 300 N" is
+  325 units east on the street 300 units north of the city's origin.
+
+One request per county, and one to find the county
+--------------------------------------------------
+Like Florida, each layer carries the parcel shape and the assessor's facts on one
+record, so the lookup is a point query. Unlike Florida there are 29 layers, and the
+registry hands an adapter a coordinate and an address but not the county it routed
+on. So ``lookup`` accepts an optional ``county_fips`` and, without one, asks UGRC's
+own 29-polygon county boundaries layer first (``COUNTY_URL``, median 0.12 s). If the
+registry ever passes the county it already knows, that request disappears.
+
+One row per building, not per parcel
+------------------------------------
+This is the fact everything else follows from. 1.85 million rows describe 1.47
+million parcels: a house with two sheds and a detached garage is four rows under
+one coordinate, each with its own year, area and wall type. 924 E 100 N in Provo is
+a 1920 house, two 1920 sheds and a 1996 garage. Weber has one parcel with 527 rows.
+
+Two consequences:
+
+* **The rows are grouped by ``PARCEL_ID`` before the parcel is chosen.** Offered
+  raw, four rows of one parcel are four candidates, which ``select_parcel``
+  correctly calls ambiguous — and the most ordinary house in the state is refused.
+  Grouping is the sanctioned shape (see ``select_parcel``): rows sharing an id are
+  one tax parcel, so it can only turn "ambiguous" into "one". A group whose rows
+  disagree about the parcel's own address or class is a broken join and is not
+  offered at all. Identical building rows are one building repeated per polygon
+  part of a multipart parcel, and are collapsed.
+* **The home has to be picked out of the buildings** (``_the_dwelling``), and
+  getting it wrong reports the garage's year as observed fact. The twenty counties
+  on the common CAMA system write a residential card's wall as
+  ``"<structure>: <cladding>"`` — "Frame:  Metal Vinyl Siding", "Masonry:  Common
+  Brick", "2 X 4: Lap Siding" for a manufactured home — and every other building
+  with a bare construction class ("Wood Framed", "Steel Framed", "Pole Framed").
+  Measured in Utah County, which also publishes each building's style: every
+  "one_story", "two_story", "split_level", "duplex", townhouse and cabin carries
+  the colon form; every "shed:_wood", "detached" garage, barn, carport, office and
+  warehouse carries a bare class. So the home is the parcel's ONE residential card;
+  two (a house and a second dwelling) or none (sheds only) is refused. Where a
+  county writes no such vocabulary — Salt Lake's codes, Washington's, the counties
+  with no material — the parcel must hold exactly one building; measured where
+  those counties list a second, it is a second house (235 E Hubbard Ave, Salt Lake:
+  a 1918 brick house and a 2021 frame cottage), not a shed.
+
+The column that is not what it says
+-----------------------------------
+``HOUSE_CNT`` is "Number of Housing Units" in UGRC's schema. In every county that
+fills it, it counts the parcel's BUILDING ROWS: the Provo house above reads 4, a
+house with a shed reads 2, and a duplex and every condominium unit read 1 (sampled
+in Salt Lake, Weber, Washington, Davis, Cache and Utah County). It cannot carry the
+one-dwelling rule, and it is not requested, so a later edit cannot read it as one.
+
+The one-dwelling rule, and the condo trap
+-----------------------------------------
+The label's ``sqft`` and ``stories`` mean one home. Salt Lake writes the TOWER's
+floor count onto each condominium unit — 27 for every unit of 48 W 300 S, 30 for
+99 W South Temple — and a duplex's floor area is both homes. With ``HOUSE_CNT``
+unusable, only two things in the layer positively say "one home":
+
+* Utah County's building style (it writes the style into ``BLDG_SQFT_INFO``):
+  one/two-storey, split level, bi-level, townhouse end/interior unit, cabin,
+  manufactured section — and not "duplex", "triplex", "fourplex", "<n>_unit_building"
+  or "multiple_residence".
+* Carbon County's ``PROP_CLASS`` of "Single Family".
+
+So area and storeys are reported only with that evidence, only where the roll's
+own address carries no unit designator ("# 1706N", "UNIT 301", "APT 2"), and only
+on a parcel whose class does not say it is not a home. Everywhere else the year
+and the wall type still come through — the building went up when it went up — and
+the area and storeys are left to the label's model. That is a deliberate coverage
+cost: "Residential" in the other counties covers duplexes, and nothing in their
+rows can tell one from a house. It was checked rather than assumed: in Utah County
+the duplexes, triplexes and fourplexes are classed "Unknown", which would have made
+the class look like a usable proxy if only that county had been examined; it is a
+fact about one county's coding, not about the layer.
+
+Storeys are read only where Utah County's style and ``FLOORS_CNT`` agree: it records
+7,123 "one_story" buildings with ``FLOORS_CNT`` of 2 against 63,615 with 1. Split
+levels and bi-levels have no whole-number reading (Cook's call for "Split Level").
+A condominium unit, stacked with its neighbours on one footprint, is refused by
+``select_parcel`` as ambiguous; a reader who typed the unit is matched to that
+unit's own parcel (``fetch`` drops parcels naming a DIFFERENT unit), and gets the
+building's year with the unit's area still refused.
+
+The year built
+--------------
+``BUILT_YR``, the actual year. ``EFFBUILT_YR`` is moved forward when a property is
+improved — 3913 S 2200 W's 1946 house reads 1992 — so it describes condition, and
+is not requested. 0 is "not recorded". The zero-dwelling refusal is ``PROP_CLASS``:
+the layer's only statement about whether anyone lives there. An explicit
+"Commercial", "Vacant", "Tax Exempt", "Industrial", "Land" or "Centrally Assessed"
+refuses the year; "Unknown", a blank, "Greenbelt", "Agricultural", "Mixed Use",
+"Commercial - Apartment & Condo" and a mobile home filed as personal property do
+not — Utah County files its whole multi-unit stock as "Unknown" (117,386 rows), and
+a farmhouse stands on a greenbelt parcel. Refusing on silence is the error
+Florida's dwelling count was written to avoid.
+
+Construction, and the code table that does not exist
+----------------------------------------------------
+UGRC's schema defines ``CONST_MATERIAL`` only as "Construction Material Types,
+Values for this field are expected to vary greatly by county" (Expanded Parcel Data
+Sharing Implementation Guidelines, 2016, linked from
+https://gis.utah.gov/products/sgid/cadastre/parcels/). There is no statewide code
+table, and four vocabularies are in use: the common CAMA system's colon form,
+Washington and Box Elder's "Frame Syn Plaster" form, Wasatch's single "Wood Frame"
+for every building it has, and Salt Lake's two-letter codes. ``_CONSTRUCTION``
+translates only wordings that name their own structure; the comment beneath it
+lists every dropped value and why — masonry veneer (brick OR stone face), log,
+manufactured-home walls, cast concrete.
+
+Salt Lake's codes (SO, BR, AL, FR, SC, BL, CN, MT, AS, ML, …) are all left
+unmapped. The only table the county publishes is the Assessor's commercial-record
+field descriptions (https://apps.saltlakecounty.gov/assessor/new/FieldDescriptions/
+commercialRecord.html: AB, FR, BR, ST, AL, ML, MG, CN, BL, CU, SO, OT), and the
+residential rows carry four codes it does not list — SC, MT, AS, CP — so it is not
+the table those rows were written against. Its "BR - Brick" would not separate solid
+brick from brick veneer even if it were.
+
+Addresses, and the geocoder that cannot read the grid
+-----------------------------------------------------
+``PARCEL_ADD`` is the street address alone ("3854 S 800 W"), with the city in its
+own column, so no locality trim is needed. Two Utah spellings are reconciled on
+both sides of the comparison (``_grid_form``): "175 E 100 SOUTH ST" from the Census
+matcher is the roll's "175 E 100 S".
+
+The commonest refusal measured is NOT reconciled: Census returns "1526 DOWNINGTON
+AVE" for a roll's "1526 E DOWNINGTON AVE", dropping the leading directional. It
+cannot be forgiven, because the matcher ignores that directional outright — typed
+"571 N 200 W" and "571 S 200 W" come back as the same point, 0 m apart, on all 12
+addresses tried — so the point cannot say which twin is meant, and accepting the
+directionless form would confirm whichever twin happens to be near.
+
+The same blindness produced the one wrong parcel the first end-to-end run found.
+Typed "325 E 300 N, Kanab", the matcher returned "325 N 300 E": a different, real
+house 45 m from the point, with the reader's house 55 m away. The adapter, handed
+only the matched address, confirmed it. So after a parcel is chosen, the 80 m
+neighbourhood is checked for a *confusable twin* — another parcel with the same
+house number and street once directionals are set aside, order and side included
+(``_has_a_confusable_twin``) — and its presence refuses the answer. It costs one
+extra request on lookups that containment answered. It cannot catch a swap whose
+twin is more than 80 m away; see "What the adapter is worth".
+
+Timing
+------
+Measured over 277 real rooftops drawn at random from the layers themselves, spread
+across 26 counties in proportion to their residential parcels, through the
+product's own HTTP session:
+
+  ==================================  ======  ======  ======  ======
+  request                             median     p90     p95     max
+  ==================================  ======  ======  ======  ======
+  "which county is this dot in?"       0.12 s  0.13 s  0.14 s  0.21 s
+  "which parcel is this dot inside?"   0.13 s  0.15 s  0.16 s  0.52 s
+  "what is within 80 m of this dot?"   0.14 s  0.18 s  0.22 s  0.61 s
+  ==================================  ======  ======  ======  ======
+
+A cold connection, TLS handshake included, took 0.47–0.73 s (26 layers, one fresh
+session each) — and the connect half of the timeout has the whole budget anyway.
+The responses are 4–25 KB. So Utah keeps the SHARED clock: a one-second read slice
+none of the 831 requests came near, and a four-second budget against a worst
+observed lookup of three requests summing to 1.4 s. ``READ_SLICE_S`` and
+``LOOKUP_TIMEOUT`` are named only so every request visibly passes them; a test pins
+their sum under ``config.UPSTREAM_HOST_BUDGET``. End to end, a lookup took a median
+of VERIFY_LOOKUP_MEDIAN.
+
+What the adapter is worth, end to end
+-------------------------------------
+VERIFY_PLACEHOLDER
+
+Privacy, and why the field list is short
+----------------------------------------
+The LIR layers carry no owner name or mailing address — the 2016 recommendations
+kept them out — but they do carry ``TOTAL_MKT_VALUE``, ``LAND_MKT_VALUE``,
+``TAXEXEMPT_TYPE``, ``PRIMARY_RES`` (whether the owner lives there) and
+``SERIAL_NUM``. None is an input to the label. Nine columns are requested by name;
+the shared helper refuses ``*``. Nothing from this source is written into the
+repository.
+
+Licence
+-------
+UGRC's dataset page (https://gis.utah.gov/products/sgid/cadastre/parcels/) states:
+"There are no constraints or warranties with regard to the use of this dataset.
+Users are encouraged to attribute content to: State of Utah, SGID." Each row's
+``DISCLAIMER`` points to https://www.utah.gov/support/disclaimer.html, which
+provides the State's information "as is", without warranty, and the 2016 guidelines
+add a no-liability release. Nothing restricts querying, caching or commercial use;
+``ATTRIBUTION`` carries the requested credit. The posture is the one every adapter
+takes regardless — query live, cache in process, bundle nothing.
 """
 
 from __future__ import annotations
@@ -79,9 +291,9 @@ COUNTY_URL = _ORG + "/UtahCountyBoundaries/FeatureServer/0/query"
 
 #: How long the service may go quiet before the silence is a stall, and the budget
 #: for a whole Utah lookup. Both are the SHARED defaults, kept on purpose and named
-#: here only so every request visibly passes them: measured over 153 random homes
-#: (see "Timing" in the module docstring) the slowest of all 459 requests took
-#: 0.58 s, and the slowest county + containment + buffer triple 1.4 s, so neither
+#: here only so every request visibly passes them: measured over 277 random homes
+#: (see "Timing" in the module docstring) the slowest of all 831 requests took
+#: 0.61 s, and the slowest county + containment + buffer triple 1.4 s, so neither
 #: Florida's nor Connecticut's longer clock is warranted. Raising them would only
 #: let a genuinely hung portal hold the label longer.
 READ_SLICE_S = _shared._READ_SLICE_S
