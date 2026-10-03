@@ -59,12 +59,30 @@ groups records **by polygon** (``LOC_ID``) before the shared chooser sees them:
 
 This is the District's condominium idea reached from a point instead of from a
 second table, and like the District's it never guesses: no unit, no unit-level
-answer. A non-dwelling record inside a stack (Boston files the condominium master
-as ``995``, with the *conversion* year — 1999 on an 1890 brownstone, measured) is
-dropped from the group before the vote, so it cannot veto the units' agreement.
-It is dropped only inside a stack: a polygon whose only records are non-dwellings
-stays a candidate, so it still counts towards "two polygons here" and still
-resolves to nothing.
+answer. Inside a stack only records whose use code positively says "a home"
+take part wherever there are any. Boston files the condominium master as
+``995``, with the *conversion* year — 1999 on an 1890 brownstone, measured — and
+Cambridge files its masters under a local ``199`` (1916 against units of 1873 at
+35 Washburn Ave); either, left in, would veto the units' agreement or stand in
+for a unit whose own address does not parse. The filter applies only inside a
+stack: a polygon whose only records are non-dwellings stays a candidate, so it
+still counts towards "two polygons here" and still resolves to nothing.
+
+Addresses
+---------
+The comparison is ``_shared.same_address`` throughout, including where this
+module checks a record against itself: a record whose split address
+(``ADDR_NUM``/``FULL_STR``) and free-text ``SITE_ADDR`` name different buildings —
+"24 MAIN ST" against "24 MAIN AVE", or Springfield's "2426 MALDEN ST" (a range
+with the dash dropped) against "24 MALDEN ST" — offers no address and cannot be
+confirmed, Connecticut's rule. The records on one polygon must likewise agree
+pairwise before the polygon offers an address.
+
+A few spellings the roll uses and the Census matcher never returns are rewritten
+on the record's side only ("WY", "TERR", "CI"/"CR" for circle, "NO"/"SO" and
+spelled-out directionals, ordinal words, Barnstable's "(HYANNIS)" village tags);
+see ``_normalise``. Each turns one spelling of a street into the matcher's
+spelling of the same street, so it can only add a match the matcher agrees with.
 
 Which records hold a home: the Department of Revenue's use codes
 -----------------------------------------------------------------
@@ -188,8 +206,8 @@ The typical lookup is fast. The tail is not random: it is the southeast. Buffere
 queries in Dartmouth repeat at 3.3–10.6 s at the same point, and Fairhaven,
 Acushnet and New Bedford were the slowest buffers in the sweep (3.6–5.1 s);
 containment at the same points answers in 0.1–0.3 s. Under the shared one-second
-read slice 6 of the 220 buffered queries were cut off, nearly all in Bristol
-County — and a cut-off does not look like a timeout to anyone reading the label,
+read slice 6 of the 220 buffered queries were cut off, half of them in
+Dartmouth — and a cut-off does not look like a timeout to anyone reading the label,
 it looks like a county with no records.
 
 So ``READ_SLICE_S`` is 5 seconds, which clears every buffered query measured
@@ -205,7 +223,8 @@ records, beside Boston's Millennium Tower) — so the slice is the service
 thinking, not bytes moving. The layer's ``maxRecordCount`` is 2,000, and a
 truncated buffer would silently remove candidates, which can turn "two parcels at
 this address" into "one" — the wrong-house failure the chooser exists to prevent.
-So a response flagged ``exceededTransferLimit`` is refused rather than read; see
+So a response flagged ``exceededTransferLimit`` is refused rather than read —
+by ``_shared.get_json``, which raises ``TruncatedResponse``, and again in
 ``_query``.
 
 What the adapter is worth, end to end
