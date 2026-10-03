@@ -288,6 +288,36 @@ def test_a_record_whose_two_addresses_name_different_buildings_has_none():
     assert _lookup([], near=[row], address="24 MALDEN ST, SPRINGFIELD, MA") is None
 
 
+def test_a_record_naming_two_street_types_is_a_contradiction():
+    """"24 MAIN ST" against "24 MAIN AVE" agree on number and name and are still
+    two buildings. A check on number and name alone let such a record confirm a
+    parcel as either one; the shared comparison refuses two different explicit
+    street types, and only tolerates one side leaving it out."""
+    row = dict(_HOUSE, SITE_ADDR="24 MAIN AVE", ADDR_NUM="24", FULL_STR="MAIN ST")
+    assert ma._address_of(row) is None
+    assert _lookup([row], address="24 MAIN ST, WESTFORD, MA") is None
+    assert _lookup([], near=[row], address="24 MAIN AVE, WESTFORD, MA") is None
+    bare = dict(row, SITE_ADDR="24 MAIN")
+    assert ma._address_of(bare) == "24 MAIN ST", "a missing type is not a contradiction"
+
+
+def test_stacked_records_naming_two_street_types_share_no_address():
+    """The same rule across the records on one polygon: "24 MAIN ST" and "24 MAIN
+    AVE" each agree with a bare "24 MAIN", and still are not one address."""
+    st = dict(_HOUSE, PROP_ID="A", SITE_ADDR="24 MAIN ST", ADDR_NUM="24",
+              FULL_STR="MAIN ST")
+    ave = dict(st, PROP_ID="B", SITE_ADDR="24 MAIN AVE", FULL_STR="MAIN AVE")
+    candidate = {"loc_id": _HOUSE["LOC_ID"], "members": [st, ave], "all": [st, ave]}
+    assert ma._candidate_address(candidate) is None
+    bare = dict(st, PROP_ID="C", SITE_ADDR="24 MAIN", FULL_STR="MAIN")
+    agreeing = {"loc_id": _HOUSE["LOC_ID"], "members": [bare, st], "all": [bare, st]}
+    assert ma._candidate_address(agreeing) == "24 MAIN ST"
+    # With a typed street type, the address picks the one record that agrees —
+    # never the AVE record for a ST address.
+    assert _lookup([st, ave], address="24 MAIN ST, WESTFORD, MA").parcel_id == "A"
+    assert _lookup([st, ave], address="24 MAIN AVE, WESTFORD, MA").parcel_id == "B"
+
+
 def test_a_polygon_with_no_assessor_record_is_not_a_candidate():
     """The layer includes polygons the town never linked to its roll."""
     blank = {"LOC_ID": _HOUSE["LOC_ID"], "PROP_ID": None, "USE_CODE": None}
