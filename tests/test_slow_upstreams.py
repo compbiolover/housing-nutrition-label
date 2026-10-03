@@ -226,6 +226,17 @@ def test_the_seam_costs_a_getattr_when_nobody_is_recording():
         requests.sessions.Session.send = before
 
 
+def test_a_shared_arcgis_host_is_keyed_by_its_publisher():
+    """One ArcGIS Online shard serves unrelated publishers; each is its own dataset,
+    with its own name and its own share of the budget."""
+    fp = "https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services/x/0/query"
+    ga = "https://services2.arcgis.com/StQaZGYzUARPnrpL/arcgis/rest/services/y/0/query"
+    assert utils.host_of(fp) == "services2.arcgis.com/FiaPA4ga0iQKduv3"
+    assert utils.host_of(fp) != utils.host_of(ga)
+    assert utils.host_of("https://services2.arcgis.com") == "services2.arcgis.com"
+    assert utils.host_of("https://gis.semcog.org/server/x") == "gis.semcog.org"
+
+
 def test_host_of_survives_anything():
     assert utils.host_of("https://nsi.sec.usace.army.mil/x?y=1") == "nsi.sec.usace.army.mil"
     assert utils.host_of("not a url") == "not a url"

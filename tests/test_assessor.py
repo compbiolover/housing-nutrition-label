@@ -873,17 +873,28 @@ def test_a_county_outage_reaches_the_cache_decision():
 def test_every_adapter_host_has_a_readable_name():
     """The payload names the dataset a label went without; a bare hostname would
     tell a reader nothing."""
-    from urllib.parse import urlsplit
-
     from housing_label import utils
     # Every *_URL every registered adapter defines, so a new adapter's host is
-    # checked the day it is registered rather than when someone remembers.
+    # checked the day it is registered rather than when someone remembers. Keyed
+    # as the budget and the payload key it (``utils.host_of``), so an ArcGIS
+    # Online layer is named after its own publisher, not the shard it shares.
     urls = sorted({v for mod in set(A.ADAPTERS.values()) for k, v in vars(mod).items()
                    if k.endswith("_URL") and isinstance(v, str) and v.startswith("http")})
     assert len(urls) >= 8
     for url in urls:
-        host = urlsplit(url).hostname
-        assert utils.dataset_name(host) != host, f"{host} has no readable name"
+        key = utils.host_of(url)
+        assert utils.dataset_name(key) != key, f"{key} has no readable name"
+
+
+def test_a_dropped_county_is_named_after_its_own_publisher():
+    """A multi-county adapter names the county's own layer, through ``url_for``;
+    the first URL constant in the module could be another county's."""
+    from housing_label import utils
+    from housing_label.simulate.location import _assessor_host
+    for mod in set(A.ADAPTERS.values()):
+        for fips in mod.COUNTY_FIPS:
+            key = _assessor_host(fips)
+            assert utils.dataset_name(key) != key, f"{fips}: {key} has no readable name"
 
 
 def test_the_hosted_api_declares_the_adapters_on():
@@ -1067,3 +1078,16 @@ def test_folding_never_makes_two_streets_one():
     assert fold_name(["east"]) == ["east"]
     assert fold_name(["north", "main"]) == ["n", "main"]
     assert fold_name(["21st", "twenty"]) == ["21", "twenty"]
+
+
+def test_a_place_name_that_starts_like_a_unit_marker_is_not_a_unit():
+    """"STEWARTSTOWN" read as unit "WARTSTOWN" until a marker word had to be
+    followed by a separator; only "#" may run straight into the unit."""
+    from housing_label.enrich.assessor._shared import unit_of
+    for place in ("147 LANTERN LN, STEWARTSTOWN, PA", "12 MAIN ST, UNITY, ME",
+                  "5 SOQUEL DR, APTOS, CA", "40 N FRONT ST, STEELTON, PA"):
+        assert unit_of(place) is None, place
+    for typed, unit in (("1 MAIN ST #5", "5"), ("1 MAIN ST APT 3-B", "3-B"),
+                        ("1 MAIN ST, Apt.3", "3"), ("1 MAIN ST STE. 4", "4"),
+                        ("1 MAIN ST UNIT 12", "12"), ("1 MAIN ST # 7", "7")):
+        assert unit_of(typed) == unit, typed

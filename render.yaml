@@ -87,8 +87,10 @@ services:
       # area, wall, foundation and condition where the jurisdiction records them,
       # in place of an area typical. Cook County IL, Washington DC, Florida and
       # Connecticut since 2026-09; LA County, NYC, New York State, Philadelphia,
-      # North Carolina, Maryland, Massachusetts and Utah added 2026-10 (see
-      # docs/coverage.html). Each 2026-10 adapter's deadline is in its module. Off by default in code because it adds an upstream to the
+      # North Carolina, Maryland, Massachusetts and Utah added 2026-10; parts of
+      # Texas, California, Pennsylvania, Ohio, Georgia and Southeast Michigan
+      # added later in 2026-10 (see docs/coverage.html). Each 2026-10 adapter's
+      # deadline is in its module. Off by default in code because it adds an upstream to the
       # critical path; on here because the cost was measured before switching it
       # on (2026-09-25, same four jurisdictions, adapters off vs on): about +0.7 s
       # per label in Cook, DC and CT, about +3 s in Florida, nothing elsewhere.
