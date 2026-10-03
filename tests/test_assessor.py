@@ -912,8 +912,11 @@ def test_a_street_named_avenue_l8_is_not_avenue_l10():
     from housing_label.enrich.assessor._shared import same_address
     assert not same_address("45 E AVENUE L8", "45 E AVENUE L10")
     assert not same_address("100 HIGHWAY 66", "100 HIGHWAY 61")
-    # The unmarked-unit rule still works after an ordinary trailing type.
+    # The unmarked-unit rule still works after an ordinary trailing type —
+    # including AVENUE and HIGHWAY when they end the name rather than lead it.
     assert same_address("234 W STATION ST B12", "234 W STATION ST")
+    assert same_address("234 W STATION AVE B12", "234 W STATION AVE")
+    assert same_address("9 OLD COUNTY HWY 4B", "9 OLD COUNTY HWY")
 
 
 def test_a_truncated_page_is_not_an_answer(monkeypatch):

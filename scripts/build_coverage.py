@@ -133,6 +133,30 @@ def adapters_by_module() -> dict[str, object]:
     return mods
 
 
+#: Connecticut's planning regions, which the Census Bureau adopted in place of its
+#: eight counties. The map predates them, so they have no name there.
+CT_REGIONS = {
+    "09110": "Capitol Planning Region", "09120": "Greater Bridgeport Planning Region",
+    "09130": "Lower Connecticut River Valley Planning Region",
+    "09140": "Naugatuck Valley Planning Region",
+    "09150": "Northeastern Connecticut Planning Region",
+    "09160": "Northwest Hills Planning Region",
+    "09170": "South Central Connecticut Planning Region",
+    "09180": "Southeastern Connecticut Planning Region",
+    "09190": "Western Connecticut Planning Region",
+}
+
+
+def county_names() -> dict[str, str]:
+    """County names by FIPS, read from the map asset (``data-n``) so the page's
+    county list and the map's tooltips can never name a county differently."""
+    import re
+    if not MAP.exists():
+        return {}
+    svg = MAP.read_text(encoding="utf-8")
+    return dict(re.findall(r'id="c(\d{5})" data-n="([^"]*)"', svg))
+
+
 def accuracy_results() -> dict:
     if not RESULTS.exists():
         return {}
@@ -477,6 +501,36 @@ def verification_table(m: dict) -> str:
             f'<tbody>{"".join(body)}</tbody></table></div>')
 
 
+def county_lists(m: dict) -> str:
+    """Every covered county, by source — the map's county detail in a form a
+    keyboard or a screen reader can reach. Making 3,142 map paths tab stops would
+    be worse than useless; a list is the accessible equivalent."""
+    from housing_label.data.states import usps_for_fips
+    names = county_names()
+    out = []
+    for r in m["adapters"]:
+        items = []
+        for f in r["counties"]:
+            # Listed at the grain the housing counts exist at. Connecticut is
+            # registered under both its legacy counties and its planning regions;
+            # only the regions carry ACS counts, so only they are listed, and the
+            # state is not shown twice.
+            homes = m["units"].get(f)
+            if not homes:
+                continue
+            name = names.get(f) or CT_REGIONS.get(f) or f
+            items.append((f"{name}, {usps_for_fips(f[:2]) or f[:2]}",
+                          f" — {homes_text(homes)} homes"))
+        items.sort()
+        lis = "".join(f"<li>{esc(n)}{esc(t)}</li>" for n, t in items)
+        noun = "county" if len(items) == 1 else "counties"
+        if r["key"] == "ct":
+            noun = "planning regions"
+        out.append(f'<details><summary>{esc(r["name"])} &middot; {len(items)} '
+                   f'{noun}</summary><ul class="counties">{lis}</ul></details>')
+    return "".join(out)
+
+
 def measured_rows(m: dict) -> list[dict]:
     rows = []
     for r in m["adapters"]:
@@ -568,6 +622,10 @@ _STYLE = """
 .cov .data-table tbody th { text-transform: none; letter-spacing: normal; background: none;
   color: var(--ink); font-size: .95rem; }
 .cov #covmap .dot { display: none; stroke: var(--surface); stroke-width: 1.2; }
+.cov details { border-top: 1px solid var(--border); padding: .45rem 0; }
+.cov details summary { cursor: pointer; font-weight: 600; }
+.cov .counties { columns: 3 13rem; margin: .5rem 0 .25rem 1.1rem; font-size: .9rem;
+  color: var(--ink-2); }
 .cov .notes li { margin: .4rem 0 .4rem 1.1rem; }
 .cov .fine { opacity: .75; font-size: .85rem; }
 """
@@ -696,9 +754,10 @@ storeys, walls, foundation and condition. This page shows where that is true tod
 <div class="card map-wrap">
   <h2>Counties with an observed record source</h2>
   <p class="sub">Darker means more of the building comes from the record. Hover a county for what its assessor supplies; hover a source in the chart below to find its counties.</p>
-  <div id="covmap" aria-label="Map of US counties shaded by how much of the building record the assessor supplies"><noscript><p>The interactive map needs JavaScript; the tables below carry the same information.</p></noscript></div>
+  <div id="covmap" role="img" aria-label="Map of US counties shaded by how much of the building record the assessor supplies; the same detail is listed under Counties covered"><noscript><p>The interactive map needs JavaScript; the tables below carry the same information.</p></noscript></div>
   <div class="tip" id="covtip" role="tooltip"></div>
   <div class="legend">{legend}</div>
+  <p class="sub" style="margin-top:.6rem">Every covered county is also listed, by source, under <a href="#county-list">Counties covered</a>.</p>
 </div>
 
 <div class="card">
@@ -733,6 +792,12 @@ storeys, walls, foundation and condition. This page shows where that is true tod
   <h2>Is the right house found?</h2>
   <p class="sub">The dangerous failure is not a missing record but a neighbour's record shown as yours. Every source is checked end to end: homes drawn at random from the source itself, geocoded exactly as the label does, then looked up. When the address and the parcel do not agree, the label declines to guess and keeps its modelled value.</p>
   {verification_table(m)}
+</div>
+
+<div class="card" id="county-list">
+  <h2>Counties covered</h2>
+  <p class="sub">The map's county detail as a list, with ACS housing units per county.</p>
+  {county_lists(m)}
 </div>
 
 <div class="card">
