@@ -1,7 +1,228 @@
 #!/usr/bin/env python3
 """New York State — the 33 opt-in counties outside New York City, in a single request.
 
-PLACEHOLDER DOCSTRING — filled in after measurement.
+New York assesses property in its 900-odd cities and towns, and every one of them
+files its roll with the state's Office of Real Property Tax Services (ORPTS) in a
+common format. NYS ITS Geospatial Services joins those rolls to the parcel maps the
+counties send in and publishes the result as one layer — but only for the counties
+that have *given permission* for public release. That is the whole shape of this
+adapter: one request, like Florida and Connecticut, over a map with holes in it.
+
+  ``Parcels/NYS_Tax_Parcels_Public/FeatureServer/1`` on GeoHub — 3,827,530 parcels
+  in 38 counties, keyless, verified live 2026-10-03. Outside New York City,
+  2,185,852 residential (class 2xx) parcels, **1,669,160 of them with a year
+  built**.
+
+The address in the research plan is not the one used
+-----------------------------------------------------
+The plan names ``gisservices.its.ny.gov/.../NYS_Tax_Parcels_Public/MapServer/1``.
+ITS has migrated every service to its new GeoHub server, and its migration page
+(``gis.ny.gov/migration-web-services``) says the legacy copies "stop receiving
+updates on September 18th, 2026" and "remain online through October". An adapter
+pointed at the old address would go dark within the month — and, failing open,
+would look exactly like a state with no records. The GeoHub layer has the same
+schema (only the shape-length column names differ) and returned identical
+per-county counts, and it is also the faster of the two by far (see the clock,
+below).
+
+Which counties — taken from the data, not from the state
+--------------------------------------------------------
+Derived 2026-10-03 by grouping the layer on ``COUNTY_NAME`` (and cross-checked
+against the service's own footprint layer, ``FeatureServer/0``, which carries
+``COUNTY_FIPS``): 38 counties are present, five of them the boroughs of New York
+City. The city's rows come from MapPLUTO with a different property-class code
+system, and a separate adapter answers for them from PLUTO directly, so they are
+not claimed here. The other 33 all carry ``YR_BLT`` on residential parcels.
+
+Two of the 33 carry it for only part of the county, and are kept anyway because
+the part is large: in **Suffolk** only Southampton, Smithtown, Riverhead and Shelter
+Island file a residential inventory (76,935 of 464,486 residential parcels) —
+Brookhaven, Islip, Huntington, Babylon and East Hampton file none — and in
+**Westchester** 110,166 of 190,972, with Cortlandt, Mount Vernon, Peekskill,
+Bedford and Eastchester nearly empty. A lookup there costs one fast request and
+answers nothing, which is the same thing as having no adapter.
+
+Nassau, Monroe, Dutchess, Saratoga and the other 20 counties that have not opted
+in are absent from the layer and are not claimed.
+
+What this source carries, and what it does not
+----------------------------------------------
+Two fields reach the label: ``YR_BLT`` and ``SQFT_LIVING`` ("square footage of
+living area (residential)", from the ORPTS residential inventory).
+
+* ``BLDG_STYLE_DESC`` is an *architectural style* — Colonial, Ranch, Cape cod,
+  Raised ranch, Old style — not a wall material, so ``construction`` stays empty.
+  There is no storey count, foundation or condition in the public schema.
+* ``HEAT_TYPE_DESC``, ``FUEL_TYPE_DESC``, ``SEWER_DESC`` and ``WATER_DESC`` are
+  what make this the only candidate source with heating fuel, sewer and water
+  supply. They are **future inputs**: ``AssessorRecord`` has no slot for them, and
+  feeding Energy, Environmental or Water Quality means extending that contract
+  and the scoring paths first, as its own change. Until something reads them they
+  are not fetched.
+* ``YR_BLT`` is null, never zero, where it is not recorded, and every recorded
+  value outside the city lies between 1700 and 2025. Old houses are heaped on
+  round years — 88,525 residential parcels say 1900 against 685 for 1899 and
+  1,355 for 1901 — which is the assessor's estimate, reported as the assessor
+  wrote it.
+
+The property class decides two things
+-------------------------------------
+``PROP_CLASS`` is the ORPTS property-type code
+(``tax.ny.gov/research/property/assess/manuals/prclas.htm``).
+
+**The floor area is reported only for class 210**, "one family year-round
+residence" — and not where that record counts two or more kitchens (12,049
+class-210 records do: the roll's own sign of a second household). 215 has an
+accessory apartment, 220 and 230 are two and three families, 240 may hold three
+dwellings, 280/281 are several residences on one lot, and 260 is a seasonal
+cottage; the area on any of them is not one year-round home's. A condominium unit
+(classed by its building, 210 for a townhouse unit, 411 for a flat) reports its
+own unit's area, so the one-family rule needs no condo exception. 1,395,223
+class-210 records carry an area.
+
+**The year is refused only where both the class and the inventory say no
+dwelling.** The year on a commercial parcel comes from the commercial inventory —
+a warehouse's year is not anyone's home's. So a year is dropped when the row has
+no residential inventory (no living area, no kitchen) *and* its class is one that
+holds no dwelling: vacant land (3xx), recreation (5xx), community services (6xx)
+other than welfare and homes for the aged (63x), industrial (7xx), public
+services (8xx), wild and forest land (9xx), agricultural vacant land (105,
+"does not have living accommodations"), and commercial (4xx) other than living
+accommodations (41x — apartments, condominium flats, boarding houses) and the
+mixed-use rows with flats upstairs (480-483). Measured: 73,399 parcels with a year
+are turned away by this. Either condition alone would be wrong: 2,976
+vacant-class parcels carry a full residential inventory — an Albany row house
+filed as class 311 with two kitchens and an 1890 year — and farms (1xx) carry
+farmhouses, so neither is refused on its class.
+
+Three things this roll does that the shared chooser needs help with
+-------------------------------------------------------------------
+**The same street address on two parcels.** ``select_parcel`` confirms a parcel
+by address within 80 m, and that is only decisive if the address is unique. In
+the Town of Remsen two parcels are both "10876 Bardwell Mills Rd" — an 1840 house
+on ten acres and a 1950 seasonal cottage 190 m away — and the geocode for the
+cottage landed within 80 m of the house only, so the first end-to-end run reported
+the house: the one wrong parcel it found. So every address-confirmed answer is
+checked by one more request: every row within ``UNIQUENESS_RADIUS_M`` (500 m)
+carrying the same house number, and if a second parcel shares the address the
+lookup is refused. The ``where`` clause holds only the parsed house number,
+which is digits by construction. Measured cost: median 184 ms.
+
+**Condominium stacks.** The layer copies the whole complex polygon once per unit
+(``DUP_GEO = "Y"``, 75,054 rows), so a point in a condominium lands in every unit
+at once, which the shared chooser rightly refuses. The unit is in its own column
+(``LOC_UNIT``: "Unit 29", "Unit 1-K"), so where the reader typed a unit — which
+``assessor_address`` carries onto the geocoder's canonical address — rows for
+*other* units are dropped before the choice. Rows with no unit stay: the record
+of a rental building is right for every flat in it. Without a typed unit the
+stack stays ambiguous and is refused.
+
+**Duplicate rows, and the ones that only look duplicate.** A row returned twice
+under the same full ``SWIS_SBL_ID`` with identical facts is one candidate, not two
+rival ones. Rows are never merged on ``SBL`` alone: the section-block-lot number
+repeats across municipalities — 539 residential SBLs appear under two SWIS codes in
+the duplicated-geometry rows alone, nearly all distinct parcels in Orange County
+towns with coincident numbering — so merging on it could silently remove an
+ambiguity ``select_parcel`` must see. The cost is deliberate: the layer's
+documentation says a parcel on a village boundary is assessed by both village and
+town under two SWIS codes, and those genuinely-same parcels stay two candidates
+and are refused as ambiguous.
+
+The roll's spelling and the geocoder's
+--------------------------------------
+The comparison runs on the roll's own number and street columns, not on
+``PARCEL_ADDR``, which runs the unit in after the street ("12 S Lake Dr 2",
+"7 Constantine Ct Lot 5"). And the roll spells streets as the assessor typed them,
+which the Census matcher does not echo:
+
+* numbered streets spelled out — "734 Fifth Ave" in Troy where the matcher says
+  "734 5TH AVE", while in Smithtown it says "140 SIXTH ST" for "140 Sixth St";
+* directions spelled out or placed after the street — "West Hill Rd" for
+  "W HILL RD", "Edwards Ave N" for "N EDWARDS AVE";
+* apostrophes — "Tinker's Ln" for "TINKERS LN";
+* and the whole Town of Clarkstown (about 25,000 homes) runs the hamlet into the
+  street with Lane as LA: "ASPEN LA NEW CITY" for "ASPEN LN".
+
+The geocoder is inconsistent itself (Fifth/5TH but SIXTH), so no single rewrite
+of the roll can be right. Each roll street is offered in a short list of
+spellings — as written, with the ordinal as a numeral, with one direction moved
+or abbreviated — and the one the query matches is used, through the same strict
+``same_address``. Every spelling names the same street, so this can only turn a
+failed match into a match on that street, never confirm a different one. A
+hamlet tail is cut only when it follows a street type and is one of the phrases
+Clarkstown actually writes; single-letter and directional tokens are never
+treated as locality, because "MAIN ST W" is not "MAIN ST".
+
+Why this service runs on the shared clock
+-----------------------------------------
+Measured 2026-10-03. Rooftops are 120 residential parcel centroids drawn at random
+from the layer; product points are the 144 Census geocodes of the end-to-end run
+below, i.e. what the label actually sends:
+
+  ====================================  ======  ======  ======  ======
+  request (GeoHub)                      median     p90     p95     max
+  ====================================  ======  ======  ======  ======
+  containment, rooftops (n=120)         0.15 s  0.19 s  0.21 s  0.61 s
+  80 m buffer, rooftops (n=120)         0.16 s  0.21 s  0.21 s  0.42 s
+  containment, product points (n=144)   0.17 s  0.22 s  0.29 s  0.59 s
+  80 m buffer, product points (n=139)   0.18 s  0.21 s  0.23 s  0.44 s
+  same-number search (n=105)            0.18 s  0.20 s  0.21 s  0.43 s
+  ====================================  ======  ======  ======  ======
+
+No request came near the shared one-second read slice, and the worst three
+requests together (0.59 + 0.44 + 0.43 s) sit far inside the shared four-second
+budget, so this module defines no ``READ_SLICE_S`` or ``LOOKUP_TIMEOUT`` of its
+own. The legacy server, on the same 60 rooftops, had a containment p95 of 3.85 s
+and a maximum of 6.47 s — under the shared slice it would have been cut off on
+one lookup in twelve. Responses are 0.2 to 34 KB.
+
+What the adapter is worth, end to end
+-------------------------------------
+200 residential homes drawn at random from the layer (class 2xx with a year, by
+random object id, across the 33 counties), geocoded through the Census matcher
+exactly as the product does, routed by the geocoder's county, then looked up: 144
+geocoded, all 144 routed here, **104 resolved, 0 matched to the wrong parcel**, and
+every one of the 104 exact on the year built; 92 of them were one-family records
+whose floor area was checked, and all 92 were exact. A second, independent draw
+of 120 gave 64 resolved, 0 wrong, 64/64 years and 53/53 areas exact.
+
+The 40 that did not resolve: 28 geocodes landed more than 80 m from their own
+parcel (long rural lots, private lanes, interpolation along the road — including
+the Remsen cottage, now refused rather than misreported); 11 roll addresses that
+cannot be matched by rule — house-number ranges ("143-145 Hammond St"), lettered
+numbers ("38A"), run-together names ("Shinhollow" for "SHIN HOLLOW"), route
+designations ("Rt 212" for "STATE RTE 212") and USPS suffixes the shared table
+does not know ("Fox Trace" for "FOX TRCE"); and one condominium stack with no unit
+given. Only 5 of the 144 lookups were settled by containment: the Census matcher
+puts nearly every New York address in the roadway, so the address-confirmed
+buffer is the normal path here, not the fallback.
+
+Of the 56 that did not geocode, 48 are an artefact of drawing addresses from the
+roll: it has no ZIP for them and names the assessing town, which is often not the
+postal city. A reader types the postal address.
+
+Terms of use
+------------
+Read 2026-10-03: the layer description, the Clearinghouse parcels page
+(``gis.ny.gov/parcels``) and the published metadata
+(``gis.ny.gov/current-parcel-polygon-metadata``). The data is published for
+"public access" by counties that "specifically authorized Geospatial Services to
+share their GIS tax parcel data with the public"; the use limitation is an "as is"
+disclaimer of every warranty, and the per-county constraints say "general
+planning purposes only and not to determine property boundaries". No licence term
+restricts commercial use or forbids querying; none grants redistribution of the
+compilation either, and the counties are named as the data owners. Verdict: the
+same posture as Cook — query live and cache in process, never bundle, attribute
+the counties, ORPTS and ITS (as ``ATTRIBUTION`` does). Nothing from this source is
+written into the repository.
+
+Privacy, and why the field list is short
+----------------------------------------
+The layer has 74 columns, among them ``PRIMARY_OWNER``, ``ADD_OWNER``, the owner's
+full mailing address in two sets of columns, deed book and page, and every
+assessed and market value. None of it is an input to any dimension of the label.
+Ten columns are requested by name and the rest are never fetched — the
+shared helper refuses ``*`` for precisely this reason.
 """
 
 from __future__ import annotations
@@ -63,7 +284,7 @@ DATA_VINTAGE = "NYS public tax parcels (ORPTS assessment roll joined to county p
 PARCEL_URL = ("https://nysgeohub.ny.gov/arcgis/rest/services/Parcels"
               "/NYS_Tax_Parcels_Public/FeatureServer/1/query")
 
-_FIELDS = ("SWIS_SBL_ID,SBL,PARCEL_ADDR,LOC_ST_NBR,LOC_STREET,LOC_UNIT,PROP_CLASS,"
+_FIELDS = ("SWIS_SBL_ID,PARCEL_ADDR,LOC_ST_NBR,LOC_STREET,LOC_UNIT,PROP_CLASS,"
            "YR_BLT,SQFT_LIVING,NBR_KITCHENS,ROLL_YR")
 
 _ORDINALS = {
@@ -182,7 +403,7 @@ def _norm_unit(raw) -> str:
 
 
 def _same_fact_key(attrs: dict) -> tuple:
-    return (str(attrs.get("SBL") or "").strip(), _address_of(attrs),
+    return (_parcel_id(attrs), _address_of(attrs),
             attrs.get("YR_BLT"), attrs.get("SQFT_LIVING"),
             attrs.get("PROP_CLASS"), attrs.get("NBR_KITCHENS"))
 
