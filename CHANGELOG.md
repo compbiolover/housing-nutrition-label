@@ -9,6 +9,18 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.2.17](https://github.com/compbiolover/housing-nutrition-label/compare/v0.2.16...v0.2.17) (2026-10-03)
+
+
+### Features
+
+* **assessor:** cover the ten most populous states where open data allows ([#328](https://github.com/compbiolover/housing-nutrition-label/issues/328)) ([d151175](https://github.com/compbiolover/housing-nutrition-label/commit/d151175608a6079f6c8d0043166ce9bf30921c8b))
+
+
+### Bug Fixes
+
+* write US English throughout, including the coverage page's "Stories" ([#327](https://github.com/compbiolover/housing-nutrition-label/issues/327)) ([5ab2c4c](https://github.com/compbiolover/housing-nutrition-label/commit/5ab2c4cbf73076859718e9634250eea0e251d4cd))
+
 ## [0.2.16](https://github.com/compbiolover/housing-nutrition-label/compare/v0.2.15...v0.2.16) (2026-10-03)
 
 
