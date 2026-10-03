@@ -150,11 +150,37 @@ def _select_building(feats: list[dict], lat: float, lon: float,
     return min(cands, key=lambda c: c[0])[2]
 
 
-@lru_cache(maxsize=4096)
-def _footprint_at(lat: float, lon: float, allow_network: bool,
-                  expected_m2: float | None) -> dict | None:
-    if not allow_network:
-        return None
+def _compact(feature: dict) -> dict:
+    """What choosing a building and measuring it need, and nothing else.
+
+    The candidates are memoised so a label can fetch them beside NSI; a raw
+    feature carries every polygon ring of every building in the box, and a memo of
+    thousands of those is the kind of retained geometry this 512 MB host cannot
+    spare (``structure.py`` refuses to cache its feature lists for the same
+    reason). So each is reduced on arrival to its attributes and the one number
+    the label takes from its geometry: the exterior perimeter.
+    """
+    a = feature.get("attributes") or {}
+    rings = [r for r in ((feature.get("geometry") or {}).get("rings") or []) if len(r) >= 4]
+    # A polygon can have multiple rings (holes / multipart); the exterior wall
+    # perimeter is the outer boundary — the largest-area ring.
+    outer = max(rings, key=_ring_area_deg2) if rings else None
+    return {"attributes": {k: a.get(k) for k in
+                           ("SQMETERS", "OCC_CLS", "OUTBLDG", "LONGITUDE", "LATITUDE")},
+            "perimeter_m": _ring_perimeter_m(outer) if outer else None}
+
+
+@lru_cache(maxsize=1024)
+def _candidates_at(lat: float, lon: float) -> tuple[dict | None, list[dict]]:
+    """``(primary building containing the point, buildings in the box around it)``.
+
+    Everything this module asks the service, and none of it depends on NSI's
+    expected footprint — that only chooses among the box's buildings, in
+    :func:`_footprint_at`. Split out so a label can fetch these at the same time as
+    NSI (see :func:`warm`) instead of waiting for NSI's floor area to arrive first.
+    The box is only searched when no primary building contains the point, exactly
+    as before, so the split costs no request.
+    """
     # 1) Exact: a footprint that contains the geocoded point (rooftop-accurate geocode).
     feats = _query(f"{lon},{lat}", "esriGeometryPoint")
     # Only a PRIMARY building containing the point counts as an exact hit; if the point
@@ -165,29 +191,41 @@ def _footprint_at(lat: float, lon: float, allow_network: bool,
     if primary:
         # >1 only on a shared edge / overlap; take the largest real footprint.
         best = max(primary, key=lambda f: _num((f.get("attributes") or {}).get("SQMETERS")) or 0.0)
-    else:
-        # 2) Parcel/street geocode → no containing footprint; pick the addressed home
-        # from the primary buildings in a box around the point. Size the box in metres
-        # (± _MAX_ASSOC_M, longitude widened by 1/cos(lat), the cos capped at 0.1 so the
-        # span stays finite past ~84° — irrelevant for US addresses) so it covers the
-        # full acceptance radius rather than a fixed degree span.
-        dlat = _MAX_ASSOC_M * _DEG_PER_M_LAT
-        dlon = dlat / max(math.cos(math.radians(lat)), 0.1)
-        env = json.dumps({"xmin": lon - dlon, "ymin": lat - dlat,
-                          "xmax": lon + dlon, "ymax": lat + dlat,
-                          "spatialReference": {"wkid": 4326}})
-        best = _select_building(_query(env, "esriGeometryEnvelope"), lat, lon, expected_m2)
+        return _compact(best), []
+    # 2) Parcel/street geocode → no containing footprint; pick the addressed home
+    # from the primary buildings in a box around the point. Size the box in metres
+    # (± _MAX_ASSOC_M, longitude widened by 1/cos(lat), the cos capped at 0.1 so the
+    # span stays finite past ~84° — irrelevant for US addresses) so it covers the
+    # full acceptance radius rather than a fixed degree span.
+    dlat = _MAX_ASSOC_M * _DEG_PER_M_LAT
+    dlon = dlat / max(math.cos(math.radians(lat)), 0.1)
+    env = json.dumps({"xmin": lon - dlon, "ymin": lat - dlat,
+                      "xmax": lon + dlon, "ymax": lat + dlat,
+                      "spatialReference": {"wkid": 4326}})
+    return None, [_compact(f) for f in _query(env, "esriGeometryEnvelope")]
+
+
+def warm(lat: float, lon: float) -> None:
+    """Fetch the candidates for this point now, for :func:`footprint_for_point` to
+    find memoised later. Rounded exactly as that function rounds."""
+    _candidates_at(round(float(lat), 6), round(float(lon), 6))
+
+
+@lru_cache(maxsize=4096)
+def _footprint_at(lat: float, lon: float, allow_network: bool,
+                  expected_m2: float | None) -> dict | None:
+    if not allow_network:
+        return None
+    best, nearby = _candidates_at(lat, lon)
+    if best is None:
+        best = _select_building(nearby, lat, lon, expected_m2)
     if best is None:
         return None
     attrs = best.get("attributes") or {}
     area = attrs.get("SQMETERS")
     if not area or area <= 0:
         return None
-    # A polygon can have multiple rings (holes / multipart); the exterior wall
-    # perimeter is the outer boundary — the largest-area ring.
-    rings = [r for r in ((best.get("geometry") or {}).get("rings") or []) if len(r) >= 4]
-    outer = max(rings, key=_ring_area_deg2) if rings else None
-    perim = _ring_perimeter_m(outer) if outer else None
+    perim = best.get("perimeter_m")
     if not perim or perim <= 0:
         return None
     return {
