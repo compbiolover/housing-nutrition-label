@@ -235,14 +235,19 @@ SUFFIXES = {
 # position ("234 W STATION AVE B12") the type ends the name and the token after it
 # is still a unit, exactly as after ST.
 LEADING_TYPES = frozenset({"ave", "av", "avenue", "hwy", "highway"})
-_DIRECTIONALS = frozenset({"n", "s", "e", "w", "ne", "nw", "se", "sw",
-                           "north", "south", "east", "west"})
+# Only the ABBREVIATED directionals, and at most one. A spelled-out "NORTH" before
+# AVE is the street's name, not a directional — "1600 W NORTH AVE B12" is North
+# Avenue, whose type ends the name and whose B12 is still a unit.
+_DIRECTIONALS = frozenset({"n", "s", "e", "w", "ne", "nw", "se", "sw"})
 
 
 def _leads_the_name(rest: list[str]) -> bool:
-    """Whether ``rest[-2]`` is a leading street type: AVENUE/HIGHWAY with nothing
-    before it in the name but, at most, a directional."""
-    return rest[-2] in LEADING_TYPES and all(t in _DIRECTIONALS for t in rest[:-2])
+    """Whether ``rest[-2]`` is a leading street type: AVENUE/HIGHWAY first in the
+    name, or after a single abbreviated directional."""
+    if rest[-2] not in LEADING_TYPES:
+        return False
+    before = rest[:-2]
+    return not before or (len(before) == 1 and before[0] in _DIRECTIONALS)
 
 # Everything from a unit marker onwards is dropped: a parcel layer writes
 # "234 W STATION ST B12" for one condo, and a unit number must not decide whether
@@ -378,7 +383,11 @@ def address_key(raw: str | None, locality: frozenset[str] = frozenset()):
     # "234 W STATION ST B12" and "234 W STATION ST" would parse differently and
     # fail to match. Inverting these two is a silent coverage loss, so the order
     # is pinned by a test.
-    if (len(rest) >= 2 and rest[-2] in SUFFIXES and not _leads_the_name(rest)
+    if len(rest) >= 2 and _leads_the_name(rest):
+        # A leading type is part of the name, so it is spelled one way for
+        # comparison: the roll writes "AVENUE L8", the geocoder "AVE L8".
+        rest = rest[:-2] + [SUFFIXES[rest[-2]], rest[-1]]
+    elif (len(rest) >= 2 and rest[-2] in SUFFIXES
             and any(c.isdigit() for c in rest[-1])):
         rest = rest[:-1]
     # Only a TERMINAL street type is a street type. Consuming the token wherever it

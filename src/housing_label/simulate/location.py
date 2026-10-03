@@ -595,19 +595,23 @@ def _another_house(matched: str, typed: str) -> bool:
         return True
     if km[2] is not None and kt[2] is not None and km[2] != kt[2]:
         return True
-    # A different street NAME is a different house too. This was first left out,
-    # on the theory that the matcher's job includes correcting a misspelt name and
-    # treating that as a substitution would cost real matches. Verification said
-    # otherwise: of the eight adapters added in 2026-10, the only wrong parcels any
-    # of them returned were geocoder substitutions, and one of the two changed the
-    # name — "21 LONGWOOD AVE, Wareham" came back as "21 LINWOOD AVE", 3 km away,
-    # and the Massachusetts adapter correctly confirmed 21 Linwood Avenue. Addresses
-    # reach this function mostly from the site's autocomplete, already spelled the
-    # way a geocoder spells them, so the cost is small; and the cost is a missed
-    # match, never a wrong one. Spellings that mean the same street (North/N,
-    # Fifth/5th, Saint/St, Mount/Mt) are folded first so formatting alone is not
-    # read as a different street.
-    return _name_form(km[1]) != _name_form(kt[1])
+    # A different street NAME is a different house too — but only where the two
+    # CONTRADICT, never where one simply says more. This was first left out, on
+    # the theory that correcting a misspelt name is the matcher's job; then added
+    # as plain token equality, which was wrong the other way: "2123 California St"
+    # typed against the matcher's "2123 CALIFORNIA ST NW", or a comma-less "123
+    # Main St Brooklyn NY" with its city still in the tokens, read as different
+    # streets and cost Cook and the District matches they make every day.
+    #
+    # What verification actually showed is a substituted WORD: the only wrong
+    # parcels any of the 2026-10 adapters returned were geocoder substitutions,
+    # one of which changed the name — "21 LONGWOOD AVE, Wareham" came back as "21
+    # LINWOOD AVE", 3 km away. So the test is: does every word of the matcher's
+    # street name have a counterpart in what was typed (the same word, or an
+    # abbreviation of it either way, after folding spellings like Fifth/5th), and
+    # do any directionals both sides name agree? Extra typed words — a city, a
+    # ZIP, a missing quadrant — are not a contradiction.
+    return _contradicts(km[1], kt[1])
 
 
 _NAME_FORMS = {
@@ -616,12 +620,32 @@ _NAME_FORMS = {
     "saint": "st", "mount": "mt", "fort": "ft",
     "first": "1st", "second": "2nd", "third": "3rd", "fourth": "4th", "fifth": "5th",
     "sixth": "6th", "seventh": "7th", "eighth": "8th", "ninth": "9th", "tenth": "10th",
-    "eleventh": "11th", "twelfth": "12th",
+    "eleventh": "11th", "twelfth": "12th", "thirteenth": "13th",
+    "fourteenth": "14th", "fifteenth": "15th", "sixteenth": "16th",
+    "seventeenth": "17th", "eighteenth": "18th", "nineteenth": "19th",
+    "twentieth": "20th",
 }
+_DIRECTIONS = frozenset({"n", "s", "e", "w", "ne", "nw", "se", "sw"})
 
 
-def _name_form(tokens) -> tuple:
-    return tuple(_NAME_FORMS.get(t, t) for t in tokens)
+def _fold(tokens) -> list[str]:
+    from housing_label.enrich.assessor._shared import SUFFIXES
+    return [SUFFIXES.get(_NAME_FORMS.get(t, t), _NAME_FORMS.get(t, t)) for t in tokens]
+
+
+def _contradicts(matched_tokens, typed_tokens) -> bool:
+    """Whether the matcher's street-name words contradict the typed ones."""
+    m, t = _fold(matched_tokens), _fold(typed_tokens)
+    md = {w for w in m if w in _DIRECTIONS}
+    td = {w for w in t if w in _DIRECTIONS}
+    if md and td and md != td:
+        return True                     # 123 E MAIN is not 123 W MAIN
+    typed_words = [w for w in t if w not in _DIRECTIONS]
+    for word in (w for w in m if w not in _DIRECTIONS):
+        if not any(word == u or u.startswith(word) or word.startswith(u)
+                   for u in typed_words):
+            return True                 # LINWOOD has no counterpart in LONGWOOD
+    return False
 
 
 _HOUSE_NUMBER_RE = re.compile(r"^\s*(\d+[A-Za-z]?)\b")

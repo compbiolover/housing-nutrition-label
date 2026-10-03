@@ -584,9 +584,12 @@ def _lookup_cached(lat: float, lon: float, address: str | None,
         if row is not None:
             return _record(row, address)
         building = _building_year(fetch, address) if address else None
-    except _Truncated:
+    except (_Truncated, _shared.TruncatedResponse):
         # Deterministic for this point, not a portal glitch: the same query will
-        # be truncated the same way next time, so "no answer" is the answer.
+        # be truncated the same way next time, so "no answer" is the answer — and
+        # it is cached as one. The shared transport raises its own
+        # TruncatedResponse on the same flag before this module's check can see
+        # it, so both are caught here.
         return None
     if building is None:
         return None

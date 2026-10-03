@@ -994,3 +994,35 @@ def test_an_adapter_that_takes_the_county_is_given_it(monkeypatch):
         reg._takes_county.cache_clear()
     assert seen["county"] == "49035"
     assert os.environ.get(reg.ENABLE_ENV) == "1"
+
+
+def test_saying_more_is_not_a_substitution():
+    """A typed address that omits the quadrant, keeps its city in the street part,
+    or spells a type or ordinal out, names the same street as the matcher's
+    canonical form — the canonical form must still be what confirms the parcel,
+    or Cook and the District lose matches they make every day."""
+    from housing_label.simulate.location import assessor_address
+    for matched, typed in (
+            ("2123 CALIFORNIA ST NW, WASHINGTON, DC, 20008", "2123 California St, Washington, DC"),
+            ("1234 W MAIN ST, CHICAGO, IL, 60607", "1234 Main St, Chicago"),
+            ("123 MAIN ST, BROOKLYN, NY, 11201", "123 Main St Brooklyn NY 11201"),
+            ("10 WASHINGTON SQ, NEW YORK, NY, 10012", "10 Washington Square, New York"),
+            ("2123 CALIFORNIA ST NW, WASHINGTON, DC", "2123 California Street Northwest"),
+            ("50 13TH ST, BROOKLYN, NY", "50 Thirteenth St, Brooklyn")):
+        assert assessor_address(matched, typed) == matched, typed
+
+
+def test_conflicting_directionals_are_a_substitution():
+    from housing_label.simulate.location import assessor_address
+    typed = "123 E Main St, Springfield, IL"
+    assert assessor_address("123 W MAIN ST, SPRINGFIELD, IL, 62701", typed) == typed
+
+
+def test_north_avenue_keeps_its_unit_rule_and_leading_types_fold():
+    """Spelled-out NORTH before AVE is the street's name, so B12 is still a unit;
+    and a leading AVENUE/HIGHWAY is spelled one way for comparison."""
+    from housing_label.enrich.assessor._shared import same_address
+    assert same_address("1600 W NORTH AVE B12", "1600 W NORTH AVE")
+    assert same_address("45 E AVENUE L8", "45 E AVE L8")
+    assert same_address("100 HIGHWAY 66", "100 HWY 66")
+    assert not same_address("45 E AVE L8", "45 E AVE L10")

@@ -31,11 +31,12 @@ Three words this file leans on:
 One request per county, and one to find the county
 --------------------------------------------------
 Like Florida, each layer carries the parcel shape and the assessor's facts on one
-record, so the lookup is a point query. Unlike Florida there are 29 layers, and the
-registry hands an adapter a coordinate and an address but not the county it routed
-on. So ``lookup`` accepts an optional ``county_fips`` and, without one, asks UGRC's
-own 29-polygon county boundaries layer first (``COUNTY_URL``, median 0.12 s). If the
-registry ever passes the county it already knows, that request disappears.
+record, so the lookup is a point query. Unlike Florida there are 29 layers, so the
+lookup needs the county first. The registry passes the county it routed on to any
+adapter whose ``lookup`` accepts ``county_fips``, which this one does, so in the
+product no extra request is made. Without one — a direct call, or a county outside
+``COUNTY_FIPS`` — it asks UGRC's own 29-polygon county boundaries layer
+(``COUNTY_URL``, median 0.12 s).
 
 One row per building, not per parcel
 ------------------------------------
@@ -860,8 +861,9 @@ def lookup(lat: float, lon: float, address: str | None = None,
     """What Utah's county rolls say is standing at this point, or None.
 
     ``address`` is the geocoder's matched address, used only to confirm the
-    parcel. ``county_fips`` is optional: the registry does not pass it today, and
-    without it the county is looked up from the point (one extra request).
+    parcel. ``county_fips`` is the county the registry routed on, which it passes
+    to adapters that accept it; without it the county is looked up from the point
+    (one extra request).
 
     Fails open on everything. The caller then keeps whatever it had, which is the
     behaviour that existed before this adapter.
