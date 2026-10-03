@@ -183,8 +183,20 @@ def test_fields_omits_what_the_county_does_not_say():
 def test_cook_county_resolves_and_pads():
     assert A.adapter_for_county("17031") is cook_il
     assert A.adapter_for_county(17031) is cook_il          # int, unpadded
-    assert A.adapter_for_county("06037") is None           # LA — no adapter
+    assert A.adapter_for_county("06001") is None           # Alameda — no adapter
     assert A.adapter_for_county(None) is None
+
+
+def test_the_2026_10_adapters_are_reachable():
+    """Registered, not just written: an adapter missing from ADAPTERS fails open
+    for its whole jurisdiction, silently, exactly like a county with no record."""
+    from housing_label.enrich.assessor import la, ma, md, nc, nyc, nys, phl
+    for fips, mod in (("06037", la), ("25025", ma), ("24510", md), ("37183", nc),
+                      ("36061", nyc), ("36029", nys), ("42101", phl)):
+        assert A.adapter_for_county(fips) is mod, fips
+    # New York City and New York State are disjoint: the five boroughs belong to
+    # the city's PLUTO adapter, never to the state's opt-in layer.
+    assert not set(nyc.COUNTY_FIPS) & set(nys.COUNTY_FIPS)
 
 
 def test_the_gate_is_off_unless_switched_on(monkeypatch=None):
@@ -864,9 +876,11 @@ def test_every_adapter_host_has_a_readable_name():
     from urllib.parse import urlsplit
 
     from housing_label import utils
-    from housing_label.enrich.assessor import ct, dc, fl
-    urls = [cook_il.PARCEL_URL, cook_il.CAMA_URL, dc.PARCEL_URL, dc.CAMA_URL,
-            dc.UNITS_URL, dc.CONDO_CAMA_URL, fl.PARCEL_URL, ct.PARCEL_URL]
+    # Every *_URL every registered adapter defines, so a new adapter's host is
+    # checked the day it is registered rather than when someone remembers.
+    urls = sorted({v for mod in set(A.ADAPTERS.values()) for k, v in vars(mod).items()
+                   if k.endswith("_URL") and isinstance(v, str) and v.startswith("http")})
+    assert len(urls) >= 8
     for url in urls:
         host = urlsplit(url).hostname
         assert utils.dataset_name(host) != host, f"{host} has no readable name"

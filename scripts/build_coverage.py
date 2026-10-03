@@ -105,6 +105,56 @@ CURATED: dict[str, dict] = {
         "fields": ("year_built", "sqft"),
         "verified": {"sample": 103, "resolved": 64, "wrong": 0},
     },
+    # The 2026-10 adapters. Samples are homes drawn at random from each source;
+    # "resolved" is over the whole sample, so geocoding failures count against it.
+    "la": {
+        "name": "Los Angeles County, California", "short": "Los Angeles County",
+        "since": "2026-10-03",
+        "fields": ("year_built", "sqft"),
+        "verified": {"sample": 430, "resolved": 358, "wrong": 0},
+    },
+    "nyc": {
+        "name": "New York City (five boroughs)", "short": "New York City",
+        "since": "2026-10-03",
+        "fields": ("year_built", "sqft", "stories", "foundation"),
+        "verified": {"sample": 507, "resolved": 452, "wrong": 2,
+                     "note": "Neither from the adapter: a Census street substitution "
+                             "(now caught before lookup) and a city data swap of "
+                             "twin lots with the same year."},
+    },
+    "phl": {
+        "name": "Philadelphia, Pennsylvania", "short": "Philadelphia",
+        "since": "2026-10-03",
+        "fields": ("year_built", "sqft", "stories", "foundation", "condition"),
+        "verified": {"sample": 450, "resolved": 396, "wrong": 0},
+    },
+    "nc": {
+        "name": "North Carolina (46 of 100 counties)", "short": "North Carolina",
+        "since": "2026-10-03",
+        "fields": ("year_built",),
+        "verified": {"sample": 300, "resolved": 210, "wrong": 0},
+    },
+    "md": {
+        "name": "Maryland (all 24 jurisdictions)", "short": "Maryland",
+        "since": "2026-10-03",
+        "fields": ("year_built", "sqft", "stories", "construction"),
+        "verified": {"sample": 150, "resolved": 117, "wrong": 0},
+    },
+    "nys": {
+        "name": "New York State (33 opt-in counties)", "short": "New York State",
+        "since": "2026-10-03",
+        "fields": ("year_built", "sqft"),
+        "verified": {"sample": 200, "resolved": 104, "wrong": 0},
+    },
+    "ma": {
+        "name": "Massachusetts (all 14 counties)", "short": "Massachusetts",
+        "since": "2026-10-03",
+        "fields": ("year_built", "sqft", "stories"),
+        "verified": {"sample": 260, "resolved": 196, "wrong": 1,
+                     "note": "A Census street substitution (21 Longwood Ave returned "
+                             "as 21 Linwood Ave, 3 km away), now caught before "
+                             "lookup."},
+    },
 }
 
 
@@ -490,10 +540,14 @@ def verification_table(m: dict) -> str:
             how = "random-sample check"
         meter = (f'<span class="meter" aria-hidden="true"><span style="width:{res:.0f}%">'
                  f'</span></span>' if res is not None else "")
+        note = (v.get("note") if isinstance(v, dict) else None) or ""
+        wrong_cell = "—" if wrong is None else str(wrong)
+        if note:
+            wrong_cell += f'<span class="fn">{esc(note)}</span>'
         body.append(
             f'<tr><th scope="row">{esc(r["name"])}</th><td>{n}</td>'
             f'<td class="res">{meter}<span>{pct(res, 0)}</span></td>'
-            f'<td>{"—" if wrong is None else wrong}</td><td>{how}</td></tr>')
+            f'<td>{wrong_cell}</td><td>{how}</td></tr>')
     return ('<div class="table-scroll"><table class="data-table verify"><thead><tr>'
             '<th scope="col">Source</th><th scope="col">Homes sampled</th>'
             '<th scope="col">Answered with an observed record</th>'
@@ -615,6 +669,8 @@ _STYLE = """
 .cov .matrix .no { color: var(--ink-2); }
 .cov .verify td { font-variant-numeric: tabular-nums; }
 .cov .verify .res { white-space: nowrap; }
+.cov .verify .fn { display: block; color: var(--ink-2); font-size: .8rem; line-height: 1.35;
+  margin-top: .2rem; max-width: 22rem; }
 .cov .meter { display: inline-block; width: 5rem; height: .5rem; border-radius: 3px;
   background: var(--tier-0); margin-right: .5rem; vertical-align: middle; overflow: hidden; }
 .cov .meter span { display: block; height: 100%; background: var(--series); border-radius: 3px; }
