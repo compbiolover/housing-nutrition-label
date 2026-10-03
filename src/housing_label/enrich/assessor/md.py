@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Maryland — all 23 counties and Baltimore City from one statewide layer, in a single request.
+"""Maryland — all 23 counties and Baltimore City from one statewide layer, usually in one request.
 
 The fifth statewide-scale adapter, and the one where the obvious design was not the
 right one. The plan (``research/next-adapters-and-revenue-plan.md`` §1.2 #8) named
@@ -93,9 +93,10 @@ accounts for exactly those — and are refused whatever else the row says.
 
 Condominiums: one account per unit, and a polygon per account
 -------------------------------------------------------------
-Maryland files each condominium unit as its own account, and the Department draws a
-small square for each one — 45 to 90 m² — inside the building, beside a ``COMMON``
-polygon for the shared elements. 43 S Prospect St in Hagerstown is seven squares,
+Maryland files each condominium unit as its own account, and where a county's maps
+allow, the Department draws a small square for each one — 45 to 90 m² — inside the
+building, beside a ``COMMON`` polygon for the shared elements. (Where they do not, see
+"Accounts with no polygon".) 43 S Prospect St in Hagerstown is seven squares,
 each with its own unit (``STRTUNT = 'UNIT 3'``), its own floor area (``SQFTSTRC`` of
 567 against 1,311 next door) and the same year built, 2005.
 
@@ -211,32 +212,75 @@ the repository — although these terms would permit more.
 
 Why this service gets its own read slice
 ----------------------------------------
-Measured over 80 requests to real Maryland parcels drawn at random from the layer,
-in 16 of the 24 jurisdictions, with the production field list and predicate:
+Measured first on its own — 40 real Maryland parcels drawn at random from the polygon
+layer in 16 of the 24 jurisdictions, and 30 more against the account points, with the
+production field list and predicate:
 
-  ==================================  ======  ======  ======  ======
-  request                             median     p90     p95     max
-  ==================================  ======  ======  ======  ======
-  "which parcel is this dot inside?"   0.42 s  0.48 s  0.50 s  0.64 s
-  "what is within 80 m of this dot?"   0.46 s  0.56 s  0.90 s  0.95 s
-  ==================================  ======  ======  ======  ======
+  ====================================  ======  ======  ======  ======
+  request                               median     p90     p95     max
+  ====================================  ======  ======  ======  ======
+  polygons: "which parcel is this in?"   0.42 s  0.48 s  0.50 s  0.64 s
+  polygons: "what is within 80 m?"       0.46 s  0.56 s  0.90 s  0.95 s
+  points:   "what is within 80 m?"       0.44 s  0.48 s  0.54 s  0.58 s
+  ====================================  ======  ======  ======  ======
 
-Quick, but the buffered tail sits at the shared one-second read slice: dense Baltimore
-City blocks return 100+ parcels within 80 m and took 0.90–0.95 s, a twentieth of a
-second from being cut off — and a cut-off reads as "no record here", not as a
-timeout. So ``READ_SLICE_S`` is 2.5 s, well clear of the slowest request measured,
-and ``LOOKUP_TIMEOUT`` stays at five seconds, covering the worst observed pair
-(0.64 + 0.95 s) several times over. Neither is what a lookup costs: the typical
-lookup is one containment query, about 0.4 s. The connect half of a socket timeout
-keeps the whole remaining budget, so the worst case for one request is
-5 + 2.5 = 7.5 s, inside the 12 s the host allows one service
+and then in flight, over the 143 geocoded lookups of the end-to-end run below (308
+requests; the buffered row mixes both layers):
+
+  ====================================  ======  ======  ======  ======
+  request                               median     p90     p95     max
+  ====================================  ======  ======  ======  ======
+  containment                            0.18 s  0.58 s  0.81 s  1.31 s
+  buffered, 80 m                         0.20 s  0.62 s  0.67 s  1.19 s
+  whole lookup                           0.46 s  1.22 s  1.80 s  2.47 s
+  ====================================  ======  ======  ======  ======
+
+Usually quick, but the tail runs past the shared one-second read slice — the slowest
+single request across every run, well over a thousand requests in all, took 1.35 s — and a
+cut-off reads as "no record here", not as a timeout. Dense Baltimore City blocks
+return 100+ parcels within 80 m. So ``READ_SLICE_S`` is 2.5 s, nearly twice the
+slowest request seen, and ``LOOKUP_TIMEOUT`` is five seconds, twice the slowest whole
+lookup (three requests at most: containment, polygon buffer, points buffer). Neither
+is what a lookup costs: the typical lookup is a single containment query. The connect
+half of a socket timeout keeps the whole remaining budget, so the worst case for one
+request is 5 + 2.5 = 7.5 s, inside the 12 s the host allows one service
 (``config.UPSTREAM_HOST_BUDGET``); a test pins that sum against the constant.
 
 The buffered responses are at most 42 KB, so no body can stream for seconds.
 
 What the adapter is worth, end to end
 -------------------------------------
-See ``VERIFIED`` below for the measured run.
+150 homes drawn at random from the polygon layer (single-family, townhouse and
+condominium accounts with a premise address and a year built, 23 of the 24
+jurisdictions), geocoded through the Census matcher exactly as the product does, the
+reader's unit carried by ``assessor_address``, then looked up: 143 geocoded, all 143
+routed to a Maryland county code, **117 resolved and 0 matched to the wrong parcel**.
+The year built was exact on all 117 and the floor area on all 112 that reported one.
+
+Of the 26 that did not resolve, 23 are addresses the geocoder placed more than 80 m
+from the edge of their own parcel — typically 100 to 450 m, the Census matcher
+interpolating along rural and suburban roads — so the right polygon was never among
+the candidates. The other three are spellings the shared matcher declines: a lettered
+house number (``309A``), the matcher adding a directional the roll does not have
+(``N SAINT AUGUSTINE RD``), and its abbreviation ``FAR CORS LP``. An earlier sample of
+150 also showed two addresses that the roll gives to two accounts within 80 m of each
+other, refused as ambiguous, and four ``SAINT``/``NORTH`` spellings that
+``_canonical`` now reconciles.
+
+That earlier sample also flagged one apparent wrong parcel, and it was the roll's:
+SDAT gives two accounts the premise address 404 S Talbot St, St Michaels, 700 m apart.
+One stands at 404 S Talbot St; the other stands next to 400 *N* Talbot St, where the
+Census matcher puts 404 N Talbot St. The adapter answered with the first, which is the
+building at the address asked about.
+
+Condominiums were measured separately, because the polygon layer under-represents
+them: 100 condominium units drawn at random from the account points, 93 geocoded, 46
+resolved, 0 wrong. The year was exact on all 46 and the floor area on all 22 that
+reported one — the typed unit found and confirmed. The rest are mostly unit stacks
+more than 80 m from the geocode and units written into the house number. A first run
+of that sample found four readers given another unit's account (the year right, the
+account not), which is what the unit-first ordering and the unattributed building
+answer in ``_record_at`` and ``_record`` now prevent.
 """
 
 from __future__ import annotations
@@ -255,9 +299,8 @@ from housing_label.enrich.durability import EARLIEST_PLAUSIBLE_YEAR
 log = logging.getLogger(__name__)
 
 # All 23 Maryland counties and Baltimore City. The counties are the odd codes from
-# 24001 to 24047 — except 24007, which has never been assigned (the numbering is
-# alphabetical, and no county falls between Baltimore and Calvert). Baltimore City is
-# an independent city and takes 24510, outside the county run. Written as a rule so it
+# 24001 to 24047 — except 24007, which is not assigned to any county (the repository's
+# own county table has no 24007 either). Baltimore City is an independent city and takes 24510, outside the county run. Written as a rule so it
 # cannot drift; a test checks it against the county table this repository ships.
 COUNTY_FIPS = frozenset(
     f"24{n:03d}" for n in range(1, 48, 2) if n != 7
@@ -270,8 +313,9 @@ DATA_VINTAGE = "Maryland SDAT real property data on MDP parcel boundaries"
 
 PARCEL_URL = ("https://mdgeodata.md.gov/imap/rest/services/PlanningCadastre"
               "/MD_ParcelBoundaries/MapServer/0/query")
-#: The same SDAT columns on one point per account. Asked only when the polygons
-#: found nothing; see "Accounts with no polygon" in the module docstring.
+#: The same SDAT columns on one point per account. Asked for a typed unit the
+#: polygons do not hold, or when the polygons chose nothing; see "Accounts with no
+#: polygon" in the module docstring.
 POINTS_URL = ("https://mdgeodata.md.gov/imap/rest/services/PlanningCadastre"
               "/MD_PropertyData/MapServer/0/query")
 

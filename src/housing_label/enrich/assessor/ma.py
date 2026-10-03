@@ -362,13 +362,29 @@ def _says_a_home_is_here(row: dict) -> bool | None:
 
 # --- addresses and units --------------------------------------------------------
 #
-# Two spellings of a street type that this state's assessors use and the shared
-# table does not know: "WY" (8,158 residential records) and "TERR" (3,596). They
-# are rewritten on the ROW side only, before the shared comparison sees them, so
-# "2 ARBOR WY" can match the Census matcher's "2 ARBOR WAY" and still cannot match
-# "2 ARBOR ST". Ambiguous two-letter forms ("CR", "TR", "PK", "LA") are left
-# alone: each stands for more than one street type.
-_LOCAL_SUFFIXES = {"wy": "way", "terr": "ter"}
+# Spellings this state's assessors use that the Census matcher never returns, each
+# rewritten on the ROW side only, before the shared comparison sees it. Every
+# rewrite turns one spelling of a street into the matcher's spelling of the SAME
+# street; none can make two different streets equal, and a rewrite the matcher
+# does not share can only produce a refusal, the safe direction.
+#
+# * Street types the shared table does not know: "WY" (8,158 residential
+#   records), "TERR" (3,596), "CI" (3,322) and "CR" (6,674). "CI" and "CR" are not
+#   USPS abbreviations for anything; the matcher returned "CIR" for every one in
+#   the verification sample ("59 BOUNDARY CR" → "59 BOUNDARY CIR"). Forms that do
+#   stand for two types ("TR" terrace/trail, "PK" park/pike, "LA") are left alone.
+# * Directionals. USPS standardisation abbreviates a leading or trailing
+#   directional, and the matcher does — "1114 N MAIN ST" for the roll's "1114 NO
+#   MAIN ST", "624 BOSTON POST RD E" for "...RD EAST". A directional is rewritten
+#   only where it is not itself the street's name: "NORTH ST" stays as it is.
+# * Ordinal words before a bare street type: the matcher writes "15 5TH ST" for
+#   the roll's "15 FIFTH ST".
+_LOCAL_SUFFIXES = {"wy": "WAY", "terr": "TER", "ci": "CIR", "cr": "CIR"}
+_DIRECTIONAL_WORDS = {"north": "N", "south": "S", "east": "E", "west": "W",
+                      "no": "N", "no.": "N", "so": "S", "so.": "S"}
+_ORDINALS = {"first": "1ST", "second": "2ND", "third": "3RD", "fourth": "4TH",
+             "fifth": "5TH", "sixth": "6TH", "seventh": "7TH", "eighth": "8TH",
+             "ninth": "9TH", "tenth": "10TH"}
 # Barnstable writes its villages into the street name — "MAIN ST (HYANNIS)", 284
 # residential records — which is locality, not street.
 _PAREN_TAIL_RE = re.compile(r"\s*\([^)]*\)\s*$")
@@ -381,11 +397,33 @@ _LOCATION_UNIT_RE = re.compile(
 
 
 def _normalise(raw: str | None) -> str:
+    """A row's street address in the Census matcher's spelling; see above.
+
+    Only the street part before any unit marker is touched, and only when it
+    starts with a house number — anything else is returned whitespace-collapsed
+    and otherwise as it was, for ``address_key`` to accept or refuse.
+    """
     text = _PAREN_TAIL_RE.sub("", " ".join(str(raw or "").split()))
     parts = text.split(" ")
-    if len(parts) >= 3 and parts[-1].lower() in _LOCAL_SUFFIXES:
-        parts[-1] = _LOCAL_SUFFIXES[parts[-1].lower()]
-    return " ".join(parts)
+    if len(parts) < 3 or not parts[0].isdigit():
+        return text
+    cut = next((i for i, p in enumerate(parts) if p.startswith("#")
+                or p.lower() in _shared.UNIT_MARKERS), len(parts))
+    number, street, tail = parts[0], parts[1:cut], parts[cut:]
+    if street and street[-1].lower() in _LOCAL_SUFFIXES:
+        street[-1] = _LOCAL_SUFFIXES[street[-1].lower()]
+    is_type = [p.lower() in _shared.SUFFIXES for p in street]
+    if (len(street) >= 3 and street[-1].lower() in _DIRECTIONAL_WORDS
+            and is_type[-2]):
+        street[-1] = _DIRECTIONAL_WORDS[street[-1].lower()]
+    # Leading: only when a real name follows it, so "NORTH ST" and "EAST AVE"
+    # keep the directional as their name.
+    if (len(street) >= 2 and street[0].lower() in _DIRECTIONAL_WORDS
+            and not all(t for t in is_type[1:])):
+        street[0] = _DIRECTIONAL_WORDS[street[0].lower()]
+    if len(street) == 2 and street[0].lower() in _ORDINALS and is_type[1]:
+        street[0] = _ORDINALS[street[0].lower()]
+    return " ".join([number, *street, *tail])
 
 
 def _structured_address(row: dict) -> str | None:
@@ -489,9 +527,15 @@ def _parcels(lat: float, lon: float, distance_m: float = 0,
 
     Within a polygon carrying more than one record:
 
-    * records whose DOR code rules out a dwelling are dropped (a condominium
-      master record is not anyone's home, and cannot be allowed to veto the
-      units' agreement on a year);
+    * only records whose DOR code positively says "a home" are kept where there
+      are any. A condominium master record is not anyone's home and must not
+      veto the units' agreement on a year — nor stand in for them: Cambridge
+      files its masters under a local 199, and the master for 35 Washburn Ave
+      says 1916 where its three units say 1873. Measured in the verification
+      run, that master answered for a unit whose own address did not parse;
+      with this rule it cannot. Records whose code says nothing are kept only
+      where no record says "a home", and records that rule one out only where
+      nothing else is on the polygon;
     * when an address is in hand, only records whose own address agrees with it
       are kept, unless none does — then the whole group stays, offers no common
       address, and fails confirmation as it should.
@@ -512,8 +556,9 @@ def _parcels(lat: float, lon: float, distance_m: float = 0,
     for loc_id, rows in groups.items():
         members = rows
         if len(rows) > 1:
-            homes = [r for r in rows if _says_a_home_is_here(r) is not False]
-            members = homes or rows
+            homes = [r for r in rows if _says_a_home_is_here(r) is True]
+            silent = [r for r in rows if _says_a_home_is_here(r) is None]
+            members = homes or silent or rows
             if address:
                 agreeing = [r for r in members
                             if same_address(address, _address_of(r))]
