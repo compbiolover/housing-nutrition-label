@@ -317,3 +317,58 @@ def test_a_waiter_does_not_inherit_its_leaders_failure():
     leader.join()
     waiter.join()
     assert out == {"leader": "raised", "waiter": "fine"}
+
+
+# --- review follow-ups ----------------------------------------------------------
+
+
+def test_a_task_the_window_ran_out_on_is_named_as_dropped():
+    """Otherwise a saturated pool reads as 'no record here' and the degraded label
+    is cached onto the coordinate for the whole TTL."""
+    from concurrent.futures import Future
+    from housing_label.simulate.location import _outcome
+    utils.begin(budget=30, per_host=12)
+    try:
+        assert _outcome(Future(), "fallback", "nsi.sec.usace.army.mil") == "fallback"
+        assert utils.starved() == ["nsi.sec.usace.army.mil"]
+    finally:
+        utils.drain()
+
+
+def test_a_finished_task_is_not_named_as_dropped():
+    from concurrent.futures import Future
+    from housing_label.simulate.location import _outcome
+    f = Future()
+    f.set_result("answer")
+    utils.begin(budget=30, per_host=12)
+    try:
+        assert _outcome(f, "fallback", "x.example.gov") == "answer"
+        assert utils.starved() == []
+    finally:
+        utils.drain()
+
+
+def test_memoised_footprint_candidates_keep_no_geometry(monkeypatch):
+    """A memo of thousands of raw polygon collections is what a 512 MB host
+    cannot hold; each candidate keeps its attributes and its perimeter only."""
+    from housing_label.enrich import footprint as F
+    F._candidates_at.cache_clear()
+    ring = [[-87.0, 41.0], [-87.0001, 41.0], [-87.0001, 41.0001], [-87.0, 41.0001],
+            [-87.0, 41.0]]
+    feat = {"attributes": {"SQMETERS": 120.0, "OCC_CLS": "Residential", "OUTBLDG": "N",
+                           "LONGITUDE": -87.00005, "LATITUDE": 41.00005, "EXTRA": "x"},
+            "geometry": {"rings": [ring]}}
+    monkeypatch.setattr(F, "_query", lambda g, t: [feat] if t == "esriGeometryEnvelope" else [])
+    best, nearby = F._candidates_at(41.2, -87.2)
+    assert best is None and len(nearby) == 1
+    assert "geometry" not in nearby[0] and "EXTRA" not in nearby[0]["attributes"]
+    assert nearby[0]["perimeter_m"] == pytest.approx(F._ring_perimeter_m(ring))
+
+
+def test_waiters_wait_without_limit_when_the_budget_is_off(monkeypatch):
+    pytest.importorskip("fastapi")
+    from housing_label import api, config
+    monkeypatch.setattr(config, "UPSTREAM_BUDGET", 0.0)
+    assert api._waiter_timeout() is None
+    monkeypatch.setattr(config, "UPSTREAM_BUDGET", 30.0)
+    assert api._waiter_timeout() == 35.0

@@ -448,13 +448,19 @@ window.LabelForm = (function () {
       });
     }
     // The speculative response for this query, if one is in flight — taken once.
-    // A speculation that failed is not replayed: the submit asks again, so a blip
-    // during the pick costs a retry rather than an error the reader never caused.
+    // A speculation that failed in transit (a network blip, a timeout, a 5xx) is
+    // not replayed: the submit asks again, so a blip during the pick costs a retry
+    // rather than an error the reader never caused. A 4xx is the answer — the API
+    // refusing a non-residential address, say — and asking again would only pay
+    // for the same refusal twice, so it is the submit's result as it stands.
     function takeSpeculative(qs, url) {
       var hit = spec && spec.qs === qs ? spec : null;
       spec = null;
       if (!hit) return null;
-      return hit.promise.catch(function () { return fetchScoring(url).then(okJson); });
+      return hit.promise.catch(function (err) {
+        if (err && err.status >= 400 && err.status < 500) throw err;
+        return fetchScoring(url).then(okJson);
+      });
     }
 
     // View state. `presets`/`detected` are cached per location so switching modes

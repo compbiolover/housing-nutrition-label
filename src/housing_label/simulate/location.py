@@ -555,7 +555,8 @@ def resolve_location(
             # Fails open to None, so a county portal having a bad day is
             # indistinguishable from a county with no adapter — which is correct,
             # because the label's response to both is identical.
-            loc.assessor = _outcome(futures[3], None)
+            loc.assessor = _outcome(futures[3], None,
+                                    _assessor_host(loc.county_fips))
             if loc.assessor is not None:
                 notes["assessor"] = (
                     f"construction details observed by the {loc.assessor.source}"
@@ -563,7 +564,8 @@ def resolve_location(
 
         # A task the window ran out on is an outage for this request, and is
         # treated exactly like one: NSI's flag keeps the label out of the cache.
-        s, loc.structure_unavailable = _outcome(structure, (None, True))
+        s, loc.structure_unavailable = _outcome(structure, (None, True),
+                                                "nsi.sec.usace.army.mil")
         if s:
             loc.structure_type = s.get("structure_type")
             loc.num_units = s.get("num_units")
@@ -583,7 +585,8 @@ def resolve_location(
         else:
             notes["structure"] = "building type unknown (no NSI match)"
 
-        loc.water_system, water_unavailable = _outcome(water, (None, True))
+        loc.water_system, water_unavailable = _outcome(water, (None, True),
+                                                       "services.arcgis.com")
         if water_unavailable:
             notes["water_system"] = ("EPA service-area layer unavailable; water "
                                      "source not detected")
@@ -626,15 +629,34 @@ def _quietly(fetch, lat: float, lon: float) -> None:
         log.debug("warming fetch %s failed: %s", getattr(fetch, "__name__", fetch), exc)
 
 
-def _outcome(future, fallback):
+def _outcome(future, fallback, host: str):
     """A fanned-out task's result; ``fallback`` if the window ran out on it.
 
     A task that finished by raising re-raises here, in the request's own thread,
     exactly where the sequential call used to raise.
+
+    One the window ran out on is an upstream this label went without, and is
+    recorded as one under ``host`` — the same bookkeeping a refused call gets — so
+    the payload names it and the API does not cache the degraded label. Without
+    that, a saturated pool would look like "no record here" and be pinned to the
+    coordinate for the whole TTL. A task still queued is cancelled, so it does not
+    spend a slot on an answer nobody will read.
     """
     if not future.done():
+        future.cancel()
+        utils.note_dropped(host)
         return fallback
     return future.result()
+
+
+def _assessor_host(county_fips: str | None) -> str:
+    """The host the county's assessor adapter queries, to name it if it is dropped."""
+    from urllib.parse import urlsplit
+    from housing_label.enrich.assessor import adapter_for_county
+    mod = adapter_for_county(county_fips)
+    urls = [v for k, v in vars(mod).items()
+            if k.endswith("_URL") and isinstance(v, str)] if mod else []
+    return (urlsplit(urls[0]).hostname if urls else None) or "county assessor records"
 
 
 def assessor_address(matched: str | None, typed: str | None) -> str | None:

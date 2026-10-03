@@ -587,6 +587,10 @@ _inflight: dict = {}
 _inflight_lock = threading.Lock()
 
 
+def _waiter_timeout() -> float | None:
+    return config.UPSTREAM_BUDGET + 5 if config.UPSTREAM_BUDGET else None
+
+
 def _single_flight(key, compute):
     from concurrent.futures import Future
     with _inflight_lock:
@@ -595,8 +599,12 @@ def _single_flight(key, compute):
         if leader:
             pending = _inflight[key] = Future()
     if not leader:
+        # The leader works under the request budget; past it (plus the payload
+        # build) it has failed in all but name. A disabled budget (0) means no
+        # deadline anywhere, so the wait is unbounded too — a timeout here would
+        # turn every slow-but-healthy pass into a stampede of duplicates.
         try:
-            return pending.result(timeout=config.UPSTREAM_BUDGET + 5)
+            return pending.result(timeout=_waiter_timeout())
         except Exception:  # noqa: BLE001 — the leader failed or overran; try ourselves
             return compute()
     try:
