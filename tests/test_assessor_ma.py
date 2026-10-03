@@ -215,6 +215,50 @@ def test_way_abbreviated_wy_matches_and_still_not_another_type():
     assert ma._normalise("12 MAIN ST (HYANNIS)") == "12 MAIN ST"
 
 
+def test_the_rolls_spellings_become_the_matchers_spellings():
+    """Each pair recorded live: the roll's spelling, then what the Census matcher
+    returned for it. Unmatched, every one of these homes read as "no record"."""
+    for roll, census in (("1114 NO MAIN ST", "1114 N MAIN ST"),
+                         ("1661 NO. BROOKFIELD ROAD", "1661 N BROOKFIELD RD"),
+                         ("624 BOSTON POST RD EAST #10", "624 BOSTON POST RD E"),
+                         ("59 BOUNDARY CR", "59 BOUNDARY CIR"),
+                         ("21 THAYER CI", "21 THAYER CIR"),
+                         ("15 FIFTH ST", "15 5TH ST"),
+                         ("10 EAST BROADWAY", "10 E BROADWAY")):
+        assert _shared.same_address(census, ma._normalise(roll)), roll
+
+
+def test_a_directional_that_is_the_streets_name_is_left_alone():
+    """"NORTH ST" is a street called North; abbreviating it would make it equal to
+    a street called "N"."""
+    assert ma._normalise("21 NORTH ST") == "21 NORTH ST"
+    assert ma._normalise("5 EAST AVE") == "5 EAST AVE"
+    assert not _shared.same_address("21 N ST", ma._normalise("21 NORTH ST"))
+    assert not _shared.same_address("1114 S MAIN ST", ma._normalise("1114 NO MAIN ST"))
+
+
+def test_a_master_record_with_a_local_code_cannot_stand_in_for_the_units():
+    """Cambridge files condominium masters under its own code 199. The master for
+    35 Washburn Ave says 1916; its units, whose free-text address "33-35 WASHBURN
+    AVE" does not parse, say 1873. Kept as a member, the master was the only record
+    agreeing with "35 WASHBURN AVE" and answered for the units — measured in the
+    verification run. Where any record on the polygon is a documented home, a
+    record whose code says nothing does not take part."""
+    loc = "F_755781_2970903"
+    master = {"LOC_ID": loc, "PROP_ID": "184-38", "TOWN_ID": 49, "USE_CODE": "199",
+              "SITE_ADDR": "35 WASHBURN AVE", "ADDR_NUM": "35",
+              "FULL_STR": "WASHBURN AVE", "LOCATION": None, "YEAR_BUILT": 1916,
+              "RES_AREA": None, "UNITS": 3, "STORIES": "3", "FY": 2026}
+    units = [{"LOC_ID": loc, "PROP_ID": f"184-38-{n}", "TOWN_ID": 49, "USE_CODE": "102",
+              "SITE_ADDR": "33-35 WASHBURN AVE", "ADDR_NUM": "33-35",
+              "FULL_STR": "WASHBURN AVE", "LOCATION": None, "YEAR_BUILT": 1873,
+              "RES_AREA": 956, "UNITS": None, "STORIES": "1", "FY": 2026}
+             for n in (1, 2, 3)]
+    assert _lookup([master, *units], address="35 WASHBURN AVE #1, CAMBRIDGE, MA") is None
+    alone = _lookup([master], address="35 WASHBURN AVE, CAMBRIDGE, MA")
+    assert alone is not None and alone.year_built == 1916, "alone, it is the record"
+
+
 def test_two_polygons_containing_the_point_are_still_ambiguous():
     """Grouping is by polygon, so it can never merge two polygons into one."""
     other = dict(_HOUSE, LOC_ID="F_668355_3050099", PROP_ID="071 0036 0001")
