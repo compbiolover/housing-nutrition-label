@@ -520,26 +520,12 @@ def _address_of(row: dict) -> str | None:
 
 def _query(url: str, lat: float, lon: float, distance_m: float,
            *, deadline: float) -> list[dict]:
-    """``_shared.arcgis_parcels``, plus the predicate that keeps owner-derived
-    addresses out of the response.
-
-    The shared helper takes no ``where``; this is the same request with one more
-    parameter, sent through the same ``get_json`` so the budget, the read slice and
-    the dropped-dataset accounting are the shared ones.
-    """
-    params = {
-        "where": _WHERE,
-        "geometry": f"{lon},{lat}", "geometryType": "esriGeometryPoint",
-        "inSR": "4326", "outSR": "4326",
-        "spatialRel": "esriSpatialRelIntersects",
-        "outFields": _FIELDS, "returnGeometry": "false", "f": "json",
-    }
-    if distance_m:
-        params["distance"] = str(distance_m)
-        params["units"] = "esriSRUnit_Meter"
-    body = _shared.get_json(url, params, deadline, READ_SLICE_S)
-    return [(f or {}).get("attributes") or {}
-            for f in ((body or {}).get("features") or [])]
+    """``_shared.arcgis_parcels`` with the predicate that keeps owner-derived
+    addresses out of the response — the shared budget, read slice, dropped-dataset
+    accounting and truncated-page refusal all apply."""
+    return _shared.arcgis_parcels(url, lat, lon, _FIELDS, distance_m,
+                                  deadline=deadline, read_slice=READ_SLICE_S,
+                                  where=_WHERE)
 
 
 def _parcels(lat: float, lon: float, distance_m: float = 0,

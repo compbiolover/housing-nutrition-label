@@ -891,8 +891,10 @@ def test_a_geocoder_substituted_street_is_not_what_the_parcel_is_confirmed_again
     from housing_label.simulate.location import assessor_address
     typed = "123 Finlay St, Staten Island, NY 10307"
     assert assessor_address("123 FINLAY AVE, STATEN ISLAND, NY, 10309", typed) == typed
-    # A different house number is the same failure.
+    # A different house number is the same failure, lettered half-lots included.
     assert assessor_address("125 FINLAY ST, STATEN ISLAND, NY, 10307", typed) == typed
+    lettered = "770A Greene Ave, Brooklyn, NY 11221"
+    assert assessor_address("770 GREENE AVE, BROOKLYN, NY, 11221", lettered) == lettered
 
 
 def test_the_matchers_ordinary_corrections_still_win():
@@ -923,11 +925,22 @@ def test_a_truncated_page_is_not_an_answer(monkeypatch):
     """A response cut at the service's transfer limit may have dropped the second
     parcel that would make a match ambiguous, so it must not be used as one."""
     import pytest
-    monkeypatch.setattr(_shared, "get_json", lambda *a, **k: {
+    from housing_label import utils
+    monkeypatch.setattr(_shared, "_fetch_json", lambda *a, **k: {
         "features": [{"attributes": {"PIN": "1"}}], "exceededTransferLimit": True})
-    with pytest.raises(_shared.TruncatedResponse):
-        _shared.arcgis_parcels("https://example.gov/q", 41.0, -87.0, "PIN", 80,
-                               deadline=time.monotonic() + 4)
+    utils.begin(budget=30, per_host=12)
+    try:
+        # Through the shared parcel query, and through get_json directly — the
+        # path an adapter's own request takes (Maryland's, New York State's).
+        with pytest.raises(_shared.TruncatedResponse):
+            _shared.arcgis_parcels("https://example.gov/q", 41.0, -87.0, "PIN", 80,
+                                   deadline=time.monotonic() + 4)
+        with pytest.raises(_shared.TruncatedResponse):
+            _shared.get_json("https://example.gov/q", {}, time.monotonic() + 4)
+        # "Too many to list" is an answer, not an outage: not a dropped dataset.
+        assert utils.starved() == []
+    finally:
+        utils.drain()
 
 
 def test_way_abbreviated_wy_is_way():

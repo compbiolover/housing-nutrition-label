@@ -22,6 +22,7 @@ caller can still score the dimensions that don't need them.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from functools import lru_cache
 
@@ -578,12 +579,29 @@ def _another_house(matched: str, typed: str) -> bool:
     """Whether the geocoder's matched address names a different building from
     the typed one, by house number or by an explicit, different street type."""
     from housing_label.enrich.assessor._shared import address_key, strip_unit
+    # The house number is compared on its own first, lettered half-lots included:
+    # address_key will not parse "770A" (its number must be all digits), and the
+    # New York City adapter matches 770A and 770 as different lots — so a matcher
+    # that turned 770A GREENE AVE into 770 GREENE AVE would otherwise pass here
+    # unseen and let the neighbouring lot be confirmed.
+    nm, nt = _house_number(matched), _house_number(typed)
+    if nm and nt and nm != nt:
+        return True
     km, kt = address_key(strip_unit(matched)), address_key(strip_unit(typed))
     if km is None or kt is None:
         return False
     if km[0] != kt[0]:
         return True
     return km[2] is not None and kt[2] is not None and km[2] != kt[2]
+
+
+_HOUSE_NUMBER_RE = re.compile(r"^\s*(\d+[A-Za-z]?)\b")
+
+
+def _house_number(address: str | None) -> str | None:
+    """The leading house number, with a half-lot letter if it has one, upper-cased."""
+    m = _HOUSE_NUMBER_RE.match(str(address or ""))
+    return m.group(1).upper() if m else None
 
 
 def _apply_geo(loc: Location, geo: dict) -> None:

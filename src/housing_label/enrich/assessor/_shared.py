@@ -108,10 +108,28 @@ def get_json(url: str, params: dict, deadline: float,
     here" does not raise and is not recorded; that is an answer, and cacheable.
     """
     try:
-        return _fetch_json(url, params, deadline, read_slice)
+        body = _fetch_json(url, params, deadline, read_slice)
     except Exception:
         utils.note_dropped(urlsplit(url).hostname or url)
         raise
+    # A layer caps how many features one response may carry (1,000 or 2,000 on
+    # these services) and says so with ``exceededTransferLimit`` rather than by
+    # failing. A truncated page is not "these are the parcels here": the rows it
+    # dropped can include a second parcel at the same address, so a match that
+    # looks unique on the page may not be. Refused HERE, in the one function every
+    # adapter's requests pass through, rather than in each caller — three adapters
+    # had already written their own request and two of them had missed it.
+    # Raised outside the block above on purpose: this is the service answering
+    # "too many to list", not an outage, so it is not recorded as a dropped
+    # dataset. It stays uncached all the same, because the lookup fails open.
+    if isinstance(body, dict) and body.get("exceededTransferLimit"):
+        raise TruncatedResponse(f"{urlsplit(url).hostname}: response truncated at the "
+                                f"service's transfer limit")
+    return body
+
+
+class TruncatedResponse(RuntimeError):
+    """The service returned only part of what matched the query."""
 
 
 def _fetch_json(url: str, params: dict, deadline: float, read_slice: float):
@@ -410,8 +428,13 @@ def same_address(a: str | None, b: str | None,
 
 def arcgis_parcels(url: str, lat: float, lon: float, out_fields: str,
                    distance_m: float = 0, *, deadline: float,
-                   read_slice: float = _READ_SLICE_S) -> list[dict]:
+                   read_slice: float = _READ_SLICE_S,
+                   where: str | None = None) -> list[dict]:
     """Parcel attributes at (or within ``distance_m`` of) a point.
+
+    ``where`` is an optional attribute predicate, for a layer that mixes rows the
+    adapter must never read (Maryland's owner-mailing-address rows) with the ones
+    it can.
 
     ``out_fields`` is always an explicit list and never ``*``. Some parcel layers
     carry owner names, mailing addresses and tax balances alongside the geometry;
@@ -434,24 +457,12 @@ def arcgis_parcels(url: str, lat: float, lon: float, out_fields: str,
     if distance_m:
         params["distance"] = str(distance_m)
         params["units"] = "esriSRUnit_Meter"
+    if where:
+        params["where"] = where
+    # A truncated page raises inside get_json; see TruncatedResponse there.
     body = get_json(url, params, deadline, read_slice)
-    # A layer caps how many features one response may carry (1,000 or 2,000 on
-    # these services) and says so with ``exceededTransferLimit`` rather than by
-    # failing. A truncated page is not "these are the parcels here": the rows it
-    # dropped can include a second parcel at the same address, so a match that
-    # looks unique on the page may not be. Raising keeps the lookup in the
-    # fail-open path, and uncached — the answer is "cannot tell", not "nothing".
-    # Raised first by the Los Angeles and Utah adapters, whose dense condominium
-    # stacks reach the cap inside an 80 m buffer.
-    if isinstance(body, dict) and body.get("exceededTransferLimit"):
-        raise TruncatedResponse(f"{urlsplit(url).hostname}: response truncated at the "
-                                f"service's transfer limit")
     return [(f or {}).get("attributes") or {}
             for f in ((body or {}).get("features") or [])]
-
-
-class TruncatedResponse(RuntimeError):
-    """The service returned only part of what matched the query."""
 
 
 def select_parcel(fetch, address: str | None, address_of, locality=frozenset()):

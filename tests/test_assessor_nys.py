@@ -160,7 +160,7 @@ def test_a_one_family_house_reports_its_year_and_floor_area():
 
 def test_the_house_is_found_from_the_roadway_too():
     """The Census matcher puts most New York addresses in the street: in the
-    end-to-end run only 5 of 144 lookups were settled by containment. The
+    end-to-end run only 5 of 145 lookups were settled by containment. The
     buffered search, confirmed by the address, is the normal path here."""
     got = _lookup([], near=[_TWO_FAMILY, _HOUSE], address=_HOUSE_ADDR)
     assert got is not None and got.parcel_id == _HOUSE["SWIS_SBL_ID"]

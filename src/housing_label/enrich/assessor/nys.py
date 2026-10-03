@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""New York State — the 33 opt-in counties outside New York City, in a single request.
+"""New York State — the 33 opt-in counties outside New York City, from one statewide layer.
 
 New York assesses property in its 900-odd cities and towns, and every one of them
 files its roll with the state's Office of Real Property Tax Services (ORPTS) in a
 common format. NYS ITS Geospatial Services joins those rolls to the parcel maps the
 counties send in and publishes the result as one layer — but only for the counties
 that have *given permission* for public release. That is the whole shape of this
-adapter: one request, like Florida and Connecticut, over a map with holes in it.
+adapter: one statewide layer, like Florida and Connecticut, over a map with holes in
+it. A lookup makes at most three requests to it — containment, the
+address-confirmed 80 m buffer when containment does not confirm, and the
+address-uniqueness check described below for any address-confirmed answer.
 
   ``Parcels/NYS_Tax_Parcels_Public/FeatureServer/1`` on GeoHub — 3,827,530 parcels
   in 38 counties, keyless, verified live 2026-10-03. Outside New York City,
@@ -106,7 +109,7 @@ the house: the one wrong parcel it found. So every address-confirmed answer is
 checked by one more request: every row within ``UNIQUENESS_RADIUS_M`` (500 m)
 carrying the same house number, and if a second parcel shares the address the
 lookup is refused. The ``where`` clause holds only the parsed house number,
-which is digits by construction. Measured cost: median 184 ms.
+which is digits by construction. Measured cost: median 196 ms.
 
 **Condominium stacks.** The layer copies the whole complex polygon once per unit
 (``DUP_GEO = "Y"``, 75,054 rows), so a point in a condominium lands in every unit
@@ -156,7 +159,7 @@ treated as locality, because "MAIN ST W" is not "MAIN ST".
 Why this service runs on the shared clock
 -----------------------------------------
 Measured 2026-10-03. Rooftops are 120 residential parcel centroids drawn at random
-from the layer; product points are the 144 Census geocodes of the end-to-end run
+from the layer; product points are the 145 Census geocodes of the end-to-end run
 below, i.e. what the label actually sends:
 
   ====================================  ======  ======  ======  ======
@@ -164,13 +167,13 @@ below, i.e. what the label actually sends:
   ====================================  ======  ======  ======  ======
   containment, rooftops (n=120)         0.15 s  0.19 s  0.21 s  0.61 s
   80 m buffer, rooftops (n=120)         0.16 s  0.21 s  0.21 s  0.42 s
-  containment, product points (n=144)   0.17 s  0.22 s  0.29 s  0.59 s
-  80 m buffer, product points (n=139)   0.18 s  0.21 s  0.23 s  0.44 s
-  same-number search (n=105)            0.18 s  0.20 s  0.21 s  0.43 s
+  containment, product points (n=145)   0.16 s  0.22 s  0.26 s  0.56 s
+  80 m buffer, product points (n=140)   0.18 s  0.23 s  0.32 s  0.46 s
+  same-number search (n=105)            0.20 s  0.22 s  0.24 s  0.55 s
   ====================================  ======  ======  ======  ======
 
 No request came near the shared one-second read slice, and the worst three
-requests together (0.59 + 0.44 + 0.43 s) sit far inside the shared four-second
+requests together (0.56 + 0.46 + 0.55 s) sit far inside the shared four-second
 budget, so this module defines no ``READ_SLICE_S`` or ``LOOKUP_TIMEOUT`` of its
 own. The legacy server, on the same 60 rooftops, had a containment p95 of 3.85 s
 and a maximum of 6.47 s — under the shared slice it would have been cut off on
@@ -180,24 +183,24 @@ What the adapter is worth, end to end
 -------------------------------------
 200 residential homes drawn at random from the layer (class 2xx with a year, by
 random object id, across the 33 counties), geocoded through the Census matcher
-exactly as the product does, routed by the geocoder's county, then looked up: 144
-geocoded, all 144 routed here, **104 resolved, 0 matched to the wrong parcel**, and
-every one of the 104 exact on the year built; 92 of them were one-family records
-whose floor area was checked, and all 92 were exact. A second, independent draw
+exactly as the product does, routed by the geocoder's county, then looked up: 145
+geocoded, all 145 routed here, **104 resolved, 0 matched to the wrong parcel**, and
+every one of the 104 exact on the year built; 91 of them were one-family records
+whose floor area was checked, and all 91 were exact. A second, independent draw
 of 120 gave 64 resolved, 0 wrong, 64/64 years and 53/53 areas exact.
 
-The 40 that did not resolve: 28 geocodes landed more than 80 m from their own
+The 41 that did not resolve: 29 geocodes landed more than 80 m from their own
 parcel (long rural lots, private lanes, interpolation along the road — including
 the Remsen cottage, now refused rather than misreported); 11 roll addresses that
 cannot be matched by rule — house-number ranges ("143-145 Hammond St"), lettered
 numbers ("38A"), run-together names ("Shinhollow" for "SHIN HOLLOW"), route
 designations ("Rt 212" for "STATE RTE 212") and USPS suffixes the shared table
 does not know ("Fox Trace" for "FOX TRCE"); and one condominium stack with no unit
-given. Only 5 of the 144 lookups were settled by containment: the Census matcher
+given. Only 5 of the 145 lookups were settled by containment: the Census matcher
 puts nearly every New York address in the roadway, so the address-confirmed
 buffer is the normal path here, not the fallback.
 
-Of the 56 that did not geocode, 48 are an artefact of drawing addresses from the
+Of the 55 that did not geocode, 46 are an artefact of drawing addresses from the
 roll: it has no ZIP for them and names the assessing town, which is often not the
 postal city. A reader types the postal address.
 
