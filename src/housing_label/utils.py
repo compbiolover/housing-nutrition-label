@@ -411,6 +411,7 @@ DATASET_NAMES = {
     "gis.claytoncountyga.gov": "the Clayton County, GA tax assessor records",
     "pub.sagis.org": "the Chatham County, GA (SAGIS) parcel records",
     "services2.arcgis.com/StQaZGYzUARPnrpL": "the Forsyth County, GA parcel records",
+    "gismap.augustaga.gov": "the Augusta-Richmond County, GA parcel records",
     "gis.semcog.org": "the SEMCOG building inventory (Southeast Michigan)",
     "gis.franklincountyohio.gov": "the Franklin County, OH Auditor parcel records",
     "gis.cuyahogacounty.gov": "the Cuyahoga County, OH Fiscal Office parcel records",
