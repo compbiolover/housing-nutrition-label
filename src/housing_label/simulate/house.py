@@ -2770,6 +2770,30 @@ _HOUSE_FIELDS = frozenset({
 })
 
 
+def _point_fetches(flood_zone: str | None) -> tuple:
+    """The point-level datasets this build will ask about, for ``resolve_location``
+    to start early (its ``also_fetch``).
+
+    Each is the same memoised public function the build calls later, called with
+    the same point, so the later call is a cache hit rather than a second request.
+    That equivalence is the whole contract, and it holds because every one of them
+    rounds the coordinate itself before it reaches its memo. FEMA is left out when
+    the caller supplied a flood zone: ``_auto_flood_zone`` only runs without one,
+    and a fetch nobody reads is a request against somebody else's service for
+    nothing.
+    """
+    from housing_label.enrich.fema_flood import fetch_flood_zone
+    from housing_label.enrich.road_noise import layer_fetches
+    from housing_label.enrich.seismic_lookup import get_pga
+    from housing_label.enrich.solar_point import solar_yield_near
+    # Road noise is warmed one TIGERweb layer per task: its three layers are three
+    # independent requests, and asked in one task they were the longest chain left.
+    fetches = [get_pga, solar_yield_near, *layer_fetches()]
+    if flood_zone is None:
+        fetches.append(fetch_flood_zone)
+    return tuple(fetches)
+
+
 def build_label_parts(*, address: str | None = None,
                       lat: float | None = None, lon: float | None = None,
                       preset: str | None = None, flood_zone: str | None = None,
@@ -2835,7 +2859,8 @@ def build_label_parts(*, address: str | None = None,
                 "for them.")
         try:
             location = resolve_location(address=address, allow_network=allow_network,
-                                        want_assessor=preset is None)
+                                        want_assessor=preset is None,
+                                        also_fetch=_point_fetches(flood_zone))
         except Exception as exc:  # noqa: BLE001 — surface as a clean validation error
             raise ValueError(f"Could not geocode address {address!r}: {exc}") from exc
         lat, lon = location.lat, location.lon
@@ -2856,7 +2881,8 @@ def build_label_parts(*, address: str | None = None,
         try:
             location = resolve_location(lat=lat, lon=lon, allow_network=allow_network,
                                         geography=geography,
-                                        want_assessor=preset is None)
+                                        want_assessor=preset is None,
+                                        also_fetch=_point_fetches(flood_zone))
         except Exception:  # noqa: BLE001
             location = None
 

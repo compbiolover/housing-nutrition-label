@@ -44,6 +44,7 @@ Attribution: US Census Bureau TIGERweb (public domain).
 from __future__ import annotations
 
 import math
+import functools
 from functools import lru_cache
 
 from housing_label import utils
@@ -156,13 +157,43 @@ def _nearest_m(lat: float, lon: float, features: list[dict]) -> float | None:
     return best
 
 
+@lru_cache(maxsize=3 * 4096)
+def _nearest_on_layer(lat: float, lon: float, layer: int) -> float | None:
+    """Metres to the nearest feature of one layer, memoised per layer.
+
+    Per layer rather than only per point because the three layers are three
+    independent requests, and a label asks them at the same time (see
+    :func:`layer_fetches`); the point-level answer below is then assembled from
+    three memo hits. A layer that fails raises and is not memoised, so an outage
+    on one layer is retried next time without re-asking the two that answered.
+    """
+    return _nearest_m(lat, lon, _query(lat, lon, layer))
+
+
+def _warm_layer(lat: float, lon: float, *, layer: int) -> None:
+    # Rounded exactly as noise_sources_near rounds, or the warm entry would sit
+    # under a different key from the one the label build later asks for.
+    _nearest_on_layer(round(float(lat), 6), round(float(lon), 6), layer)
+
+
+def layer_fetches() -> tuple:
+    """One ``(lat, lon)`` warming fetch per TIGERweb layer this module reads.
+
+    For ``resolve_location(also_fetch=...)``: three requests side by side instead
+    of one after another. They were the longest serial chain left in a label —
+    0.7 + 0.1 + 1.7 s at one Chicago address — once everything else ran at once.
+    """
+    return tuple(functools.partial(_warm_layer, layer=layer)
+                 for layer, _ in _SOURCES.values())
+
+
 @lru_cache(maxsize=4096)
 def _sources_at(lat: float, lon: float, allow_network: bool) -> dict | None:
     if not allow_network:
         return None
     out: dict = {"distances_m": {}, "within_threshold": [], "thresholds_m": {}}
     for name, (layer, threshold) in _SOURCES.items():
-        d = _nearest_m(lat, lon, _query(lat, lon, layer))
+        d = _nearest_on_layer(lat, lon, layer)
         out["distances_m"][name] = None if d is None else round(d, 1)
         out["thresholds_m"][name] = threshold
         if d is not None and d <= threshold:

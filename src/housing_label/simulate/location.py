@@ -21,6 +21,7 @@ caller can still score the dimensions that don't need them.
 
 from __future__ import annotations
 
+import functools
 import logging
 import re
 from dataclasses import dataclass, field
@@ -291,6 +292,7 @@ def resolve_location(
     allow_network: bool = True,
     geography: dict | None = None,
     want_assessor: bool = True,
+    also_fetch: tuple = (),
 ) -> Location:
     """Resolve an address or lat/lon into a fully-populated Location.
 
@@ -320,8 +322,25 @@ def resolve_location(
     already knows the FIPS — a batch job with pre-joined geography, or a fixture
     pinning a known place — should not have to choose between a network call and no
     location signal at all.
+
+    ``also_fetch`` is a list of callables taking ``(lat, lon)`` that the caller
+    will need answered about the same point later — the label build's flood zone,
+    seismic hazard, road noise and rooftop solar. They are memoised fetchers, so
+    starting them here, alongside this function's own enrichers, means the label
+    build later finds each answer already waiting instead of asking for it in
+    turn. Their results and their failures are discarded here: a fetcher that
+    failed is simply asked again by the code that needs it, which then handles the
+    failure exactly as it always has. Ignored without ``allow_network``.
     """
     notes: dict = {}
+    warming: list = []
+
+    def warm(lat_, lon_):
+        # Started the moment the point is known — before the geographies lookup on
+        # the coordinate path, since none of these needs a county.
+        if allow_network and also_fetch and not warming:
+            warming.extend(utils.fan_out(
+                *(functools.partial(_quietly, f, lat_, lon_) for f in also_fetch)))
 
     if geography is not None:
         if address:
@@ -332,6 +351,7 @@ def resolve_location(
         if lat is None or lon is None:
             raise ValueError("geography= requires both lat and lon.")
         loc = Location(lat=float(lat), lon=float(lon), notes=notes)
+        warm(loc.lat, loc.lon)
         _apply_geo(loc, geography)
         notes["geocoder"] = "supplied by caller (not geocoded)"
     elif address:
@@ -341,11 +361,13 @@ def resolve_location(
         if not geo or geo.get("lat") is None:
             raise ValueError(f"Could not geocode address: {address!r}")
         loc = Location(lat=float(geo["lat"]), lon=float(geo["lon"]), notes=notes)
+        warm(loc.lat, loc.lon)
         _apply_geo(loc, geo)
     else:
         if lat is None or lon is None:
             raise ValueError("Provide either --address or both lat and lon.")
         loc = Location(lat=float(lat), lon=float(lon), notes=notes)
+        warm(loc.lat, loc.lon)
         if allow_network:
             geo = geographies_for_coords(loc.lat, loc.lon)
             if geo:
@@ -354,6 +376,79 @@ def resolve_location(
                 notes["geocoder"] = "lat/lon geocoding failed; FIPS/tract unavailable"
         else:
             notes["geocoder"] = "skipped (no network)"
+
+    # The network enrichers are started the moment the point and its county are
+    # known — before the bundled crosswalk lookups below rather than after them, so
+    # the requests are in flight while this thread reads the local tables. They
+    # are collected, and their answers applied, further down where each always was.
+    if allow_network:
+        from housing_label.enrich.footprint import footprint_for_point
+        from housing_label.enrich.footprint import warm as footprint_warm
+        from housing_label.enrich.structure import NSIUnavailable, structure_for_point
+        from housing_label.enrich.water_system import (
+            ServiceAreaUnavailable, water_system_for_point)
+
+        def _assessor():
+            from housing_label.enrich.assessor import assessor_for_point
+            # The geocoder does not always echo a matchedAddress. Without one,
+            # _pin_at falls back to accepting a sole containing polygon
+            # unconfirmed — and the interpolation error that motivates the
+            # confirmation can land the point inside a neighbour's lot. So the
+            # caller's own address string stands in. It stays None for
+            # coordinate-only callers, who genuinely have nothing to confirm
+            # against.
+            #
+            # `with_unit` puts back the one thing the matched address cannot
+            # carry. The Census matcher answers with the address of a POINT, and a
+            # unit is not a point, so "2123 California St NW #D7" comes back as
+            # "2123 CALIFORNIA ST NW" — and preferring that canonical spelling,
+            # which is right for confirming a parcel, silently discarded the only
+            # token that identifies a condominium. Every DC condo then reached the
+            # adapter looking exactly like a reader who gave no unit, and the
+            # lookup correctly refused: no error, no log line, a third of the city
+            # reading as "no assessor record".
+            return assessor_for_point(
+                loc.lat, loc.lon, loc.county_fips,
+                address=assessor_address(loc.matched_address, address))
+
+        def _structure():
+            # Building structure (USACE NSI, live keyless API): what kind of
+            # building sits here — single-family, multi-family, unit count,
+            # stories.
+            try:
+                return structure_for_point(loc.lat, loc.lon, allow_network=True), False
+            except NSIUnavailable:
+                # Transient NSI outage — reported to the caller below so the API
+                # doesn't cache this degraded "single-family defaults" label onto
+                # the coordinate for the whole TTL.
+                return None, True
+
+        def _footprint_candidates():
+            # The footprint's own requests, at the same time as NSI's. Choosing
+            # among the buildings they return needs NSI's floor area, so that
+            # choice is made below, once both are back, from memoised candidates.
+            footprint_warm(loc.lat, loc.lon)
+
+        def _water():
+            # Which public water system serves this point, if any (EPA ORD
+            # service-area boundaries). This is the parcel->utility join the Water
+            # Quality dimension was missing: without it, county community-water-
+            # system compliance was broadcast onto homes that are on a private well
+            # and no system at all. Best effort — an unreachable service leaves
+            # water_system None (unknown), deliberately distinct from a mapped
+            # "outside".
+            try:
+                return water_system_for_point(loc.lat, loc.lon,
+                                              allow_network=allow_network), False
+            except ServiceAreaUnavailable:
+                return None, True
+
+        # `want_assessor` is False when the caller already knows it will discard
+        # the result — scoring a hypothetical preset skips the construction
+        # autofill entirely, so the hops would be paid and thrown away.
+        tasks = ([_structure, _water, _footprint_candidates]
+                 + ([_assessor] if want_assessor else []))
+        futures = utils.fan_out(*tasks)
 
     # Bundled reference lookups (offline, keyed on county FIPS).
     if loc.county_fips:
@@ -445,48 +540,39 @@ def resolve_location(
     # entered. Fails open to None, so a county portal having a bad day is
     # indistinguishable from a county with no adapter — which is correct, because
     # the label's response to both is identical.
-    # `want_assessor` is False when the caller already knows it will discard the
-    # result — scoring a hypothetical preset skips the construction autofill
-    # entirely, so the two hops would be paid and thrown away, on a critical path
-    # with a 12-second budget for every upstream combined.
-    if allow_network and want_assessor:
-        from housing_label.enrich.assessor import assessor_for_point
-        # The geocoder does not always echo a matchedAddress. Without one, _pin_at
-        # falls back to accepting a sole containing polygon unconfirmed — and the
-        # interpolation error that motivates the confirmation can land the point
-        # inside a neighbour's lot. So the caller's own address string stands in.
-        # It stays None for coordinate-only callers, who genuinely have nothing to
-        # confirm against.
-        #
-        # `with_unit` puts back the one thing the matched address cannot carry. The
-        # Census matcher answers with the address of a POINT, and a unit is not a
-        # point, so "2123 California St NW #D7" comes back as "2123 CALIFORNIA ST
-        # NW" — and preferring that canonical spelling, which is right for
-        # confirming a parcel, silently discarded the only token that identifies a
-        # condominium. Every DC condo then reached the adapter looking exactly like
-        # a reader who gave no unit, and the lookup correctly refused: no error, no
-        # log line, a third of the city reading as "no assessor record".
-        loc.assessor = assessor_for_point(
-            loc.lat, loc.lon, loc.county_fips,
-            address=assessor_address(loc.matched_address, address))
-        if loc.assessor is not None:
-            notes["assessor"] = (
-                f"construction details observed by the {loc.assessor.source}"
-                f" (parcel {loc.assessor.parcel_id})")
-
-    # Building structure (USACE NSI, live keyless API): what kind of building sits
-    # here — single-family, multi-family, unit count, stories. Best effort; leaves
-    # the fields None (with a note) when NSI is unavailable or off-network.
+    #
+    # Every network enricher is a question about this one point, and none needs
+    # another's answer except the footprint, which takes NSI's floor area as a
+    # tie-breaker. So they were all asked at once, above (``utils.fan_out``),
+    # inside this request's timing and budget window, and the label waits here for
+    # the slowest rather than for the sum. The answers are applied in the order
+    # this function always applied them, so the notes and every field read exactly
+    # as they did when the questions were asked one at a time.
     if allow_network:
-        from housing_label.enrich.structure import structure_for_point, NSIUnavailable
-        try:
-            s = structure_for_point(loc.lat, loc.lon, allow_network=True)
-        except NSIUnavailable:
-            # Transient NSI outage — leave the building fields at their defaults but
-            # flag it so the caller (API) doesn't cache this degraded "single-family
-            # defaults" label onto the coordinate for the whole TTL.
-            s = None
-            loc.structure_unavailable = True
+        utils.gather(futures + warming)
+        # Tasks whose answers are only memo warmers — the footprint candidates and
+        # the label build's point fetches — are cancelled if the window ran out
+        # before they started: their consumers make the same call directly, and a
+        # queued warmer left behind would hold a pool slot for the next request.
+        for warmer in [futures[2], *warming]:
+            warmer.cancel()
+        structure, water = futures[0], futures[1]
+
+        if want_assessor:
+            # Fails open to None, so a county portal having a bad day is
+            # indistinguishable from a county with no adapter — which is correct,
+            # because the label's response to both is identical.
+            loc.assessor = _outcome(futures[3], None,
+                                    _assessor_host(loc.county_fips))
+            if loc.assessor is not None:
+                notes["assessor"] = (
+                    f"construction details observed by the {loc.assessor.source}"
+                    f" (parcel {loc.assessor.parcel_id})")
+
+        # A task the window ran out on is an outage for this request, and is
+        # treated exactly like one: NSI's flag keeps the label out of the cache.
+        s, loc.structure_unavailable = _outcome(structure, (None, True),
+                                                "nsi.sec.usace.army.mil")
         if s:
             loc.structure_type = s.get("structure_type")
             loc.num_units = s.get("num_units")
@@ -505,31 +591,22 @@ def resolve_location(
             notes["structure"] = "NSI temporarily unavailable; building details are defaults"
         else:
             notes["structure"] = "building type unknown (no NSI match)"
-        # Which public water system serves this point, if any (EPA ORD service-area
-        # boundaries). This is the parcel->utility join the Water Quality dimension
-        # was missing: without it, county community-water-system compliance was
-        # broadcast onto homes that are on a private well and no system at all.
-        # Best effort — an unreachable service leaves water_system None (unknown),
-        # deliberately distinct from a mapped "outside".
-        from housing_label.enrich.water_system import (
-            water_system_for_point, ServiceAreaUnavailable)
-        try:
-            loc.water_system = water_system_for_point(loc.lat, loc.lon,
-                                                      allow_network=allow_network)
-        except ServiceAreaUnavailable:
+
+        loc.water_system, water_unavailable = _outcome(water, (None, True),
+                                                       "services.arcgis.com")
+        if water_unavailable:
             notes["water_system"] = ("EPA service-area layer unavailable; water "
                                      "source not detected")
-        else:
-            if loc.water_system and loc.water_system.get("status") == "outside":
-                notes["water_system"] = ("no mapped community water system at this "
-                                         "point (EPA service areas)")
+        elif loc.water_system and loc.water_system.get("status") == "outside":
+            notes["water_system"] = ("no mapped community water system at this "
+                                     "point (EPA service areas)")
 
         # Real footprint geometry (area + perimeter) for the embodied-carbon model,
-        # independent of NSI — best effort, None when the point isn't a mapped building.
-        from housing_label.enrich.footprint import footprint_for_point
-        # NSI floor area ÷ stories ≈ the home's footprint — a hint to disambiguate
-        # when a parcel geocode falls among several nearby buildings. Only when both
-        # are valid (stories >= 1, sqft > 0); a bad story count is left as unknown.
+        # independent of NSI — best effort, None when the point isn't a mapped
+        # building. NSI floor area ÷ stories ≈ the home's footprint — a hint to
+        # disambiguate when a parcel geocode falls among several nearby buildings.
+        # Only when both are valid (stories >= 1, sqft > 0); a bad story count is
+        # left as unknown. Its requests were made above, alongside NSI's.
         expected_fp = None
         if loc.sqft and loc.sqft > 0 and loc.stories and loc.stories >= 1:
             expected_fp = (loc.sqft * 0.092903) / loc.stories
@@ -545,6 +622,48 @@ def resolve_location(
         notes["structure"] = "skipped (no network)"
 
     return loc
+
+
+def _quietly(fetch, lat: float, lon: float) -> None:
+    """Run a warming fetch for its side effect (a memoised answer), and nothing else.
+
+    Swallowing is right here and only here: the same fetch is made again by the
+    code that consumes it, which is where its failure means something.
+    """
+    try:
+        fetch(lat, lon)
+    except Exception as exc:  # noqa: BLE001
+        log.debug("warming fetch %s failed: %s", getattr(fetch, "__name__", fetch), exc)
+
+
+def _outcome(future, fallback, host: str):
+    """A fanned-out task's result; ``fallback`` if the window ran out on it.
+
+    A task that finished by raising re-raises here, in the request's own thread,
+    exactly where the sequential call used to raise.
+
+    One the window ran out on is an upstream this label went without, and is
+    recorded as one under ``host`` — the same bookkeeping a refused call gets — so
+    the payload names it and the API does not cache the degraded label. Without
+    that, a saturated pool would look like "no record here" and be pinned to the
+    coordinate for the whole TTL. A task still queued is cancelled, so it does not
+    spend a slot on an answer nobody will read.
+    """
+    if not future.done():
+        future.cancel()
+        utils.note_dropped(host)
+        return fallback
+    return future.result()
+
+
+def _assessor_host(county_fips: str | None) -> str:
+    """The host the county's assessor adapter queries, to name it if it is dropped."""
+    from urllib.parse import urlsplit
+    from housing_label.enrich.assessor import adapter_for_county
+    mod = adapter_for_county(county_fips)
+    urls = [v for k, v in vars(mod).items()
+            if k.endswith("_URL") and isinstance(v, str)] if mod else []
+    return (urlsplit(urls[0]).hostname if urls else None) or "county assessor records"
 
 
 def assessor_address(matched: str | None, typed: str | None) -> str | None:

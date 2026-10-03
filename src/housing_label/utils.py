@@ -98,6 +98,7 @@ def begin(budget: float | None = None, per_host: float | None = None) -> None:
     want: there, a slow upstream is worth waiting out.
     """
     _timings.calls = []
+    _timings.inflight = {}
     _timings.deadline = None if not budget else time.monotonic() + float(budget)
     _timings.host_budget = float(per_host) if per_host else None
     _timings.starved = []
@@ -153,8 +154,47 @@ def remaining(host: str) -> tuple[float | None, float | None]:
         # The record is the meter: what this host has already cost this request.
         # It holds one entry per logical call — see the seam's redirect note, which
         # is what keeps a redirecting host from being billed twice for one answer.
-        host_left = per_host - sum(t for n, t in calls if n == host)
+        host_left = per_host - sum(t for n, t in calls if n == host) - _active_span(host)
     return (total_left, host_left)
+
+
+# Calls to a host that are still running, by start time — shared through the
+# window like ``calls``, because a label now asks one host from several threads at
+# once (TIGERweb's three layers). The completed-call meter alone cannot see work
+# in flight: a call starting ten seconds into a sibling's twelve would be handed
+# the host's whole share again and hold the label to twenty-two. Charging the span
+# the host has been busy keeps every call to it inside the share, measured from
+# the first one still running, while calls that start together still run together.
+_inflight_lock = threading.Lock()
+
+
+def _active_span(host: str) -> float:
+    """Seconds since the earliest still-running call to ``host`` began, else 0."""
+    inflight = getattr(_timings, "inflight", None)
+    if not inflight:
+        return 0.0
+    with _inflight_lock:
+        starts = inflight.get(host)
+        return time.monotonic() - min(starts) if starts else 0.0
+
+
+@contextlib.contextmanager
+def _running(host: str):
+    """Mark a call to ``host`` as in flight for the life of the block."""
+    inflight = getattr(_timings, "inflight", None)
+    if inflight is None:
+        yield
+        return
+    start = time.monotonic()
+    with _inflight_lock:
+        inflight.setdefault(host, []).append(start)
+    try:
+        yield
+    finally:
+        with _inflight_lock:
+            starts = inflight.get(host) or []
+            if start in starts:
+                starts.remove(start)
 
 
 def allowance(host: str) -> float | None:
@@ -178,11 +218,22 @@ def _capped(timeout, allow: float):
         return allow
 
 
+# The dropped-host list is shared by every thread working for one label (see
+# fan_out), and "not already listed, then append" is two steps: three TIGERweb
+# workers refused at once could each find the host absent and each add it, naming
+# one dataset three times in the payload. The lock makes the check and the append
+# one step.
+_starved_lock = threading.Lock()
+
+
 def _note_starved(host: str) -> None:
     """Note that ``host`` was refused, for the caller that reports the label."""
     seen = getattr(_timings, "starved", None)
-    if seen is not None and host not in seen and len(seen) < _MAX_RECORDED:
-        seen.append(host)
+    if seen is None:
+        return
+    with _starved_lock:
+        if host not in seen and len(seen) < _MAX_RECORDED:
+            seen.append(host)
 
 
 def note_dropped(host: str) -> None:
@@ -282,7 +333,7 @@ def install_timing() -> None:
             kwargs["timeout"] = _capped(kwargs.get("timeout"), allow)
         _timings.depth = 1
         try:
-            with timed(host):
+            with _running(host), timed(host):
                 return original(self, request, **kwargs)
         finally:
             _timings.depth = 0
@@ -367,9 +418,114 @@ def drain() -> list[tuple[str, float]]:
     _timings.deadline = None
     _timings.host_budget = None
     _timings.starved = None
+    _timings.inflight = None
     _timings.last = None
     _timings.depth = 0
     return sorted(calls, key=lambda c: -c[1])
+
+
+# ── Asking the independent upstreams at the same time ───────────────────────────
+# A label used to ask its datasets one after another: geocode, then the assessor,
+# then NSI, then the water systems, then the footprint, then FEMA, USGS, TIGERweb
+# and PVGIS. Each answers in a fraction of a second to a couple of seconds, and
+# none of them needs another's answer — once the point is known, every one of them
+# is a question about that point. Asked in a row they cost the SUM, five to nine
+# seconds cold, and a single slow one (USGS at 11.6 s, measured) pushed the whole
+# label past twenty. Asked side by side they cost the slowest one.
+#
+# The catch is that the recording and the spending limits above are per THREAD,
+# deliberately (two visitors' timings must not braid). A worker thread asked to
+# fetch on a request's behalf would otherwise run outside that request's window:
+# unbudgeted, untimed, and invisible in the slow-upstream line. So a fanned-out
+# task ADOPTS the window of the request that submitted it — the same list of calls,
+# the same deadline, the same per-host share, the same list of dropped hosts — and
+# lets go of it when it finishes. Sharing the lists rather than copying them is the
+# point: a host's spend is metered across every thread working for one label, and
+# a host dropped in a worker is still named in the payload and still keeps the
+# degraded label out of the cache. (``list.append`` is atomic under the GIL, which
+# is all the sharing needs.)
+#
+# One process-wide pool rather than one per request: its threads are long-lived,
+# so each keeps its own warm ``http_session`` (see below) from one label to the
+# next, and the number of threads does not grow with traffic. A task never submits
+# to the pool itself, which is what keeps a busy pool from deadlocking on its own
+# queue.
+_FANOUT_WORKERS = 32
+_fanout_pool = None
+_fanout_lock = threading.Lock()
+
+
+def _pool():
+    global _fanout_pool
+    if _fanout_pool is None:
+        with _fanout_lock:
+            if _fanout_pool is None:
+                from concurrent.futures import ThreadPoolExecutor
+                _fanout_pool = ThreadPoolExecutor(
+                    max_workers=_FANOUT_WORKERS, thread_name_prefix="hnl-upstream")
+    return _fanout_pool
+
+
+def _window() -> dict | None:
+    """The calling thread's open window, as the parts a worker must share."""
+    calls = getattr(_timings, "calls", None)
+    if calls is None:
+        return None
+    return {"calls": calls, "deadline": getattr(_timings, "deadline", None),
+            "host_budget": getattr(_timings, "host_budget", None),
+            "starved": getattr(_timings, "starved", None),
+            "inflight": getattr(_timings, "inflight", None)}
+
+
+def _adopt(window: dict | None) -> None:
+    window = window or {}
+    _timings.calls = window.get("calls")
+    _timings.deadline = window.get("deadline")
+    _timings.host_budget = window.get("host_budget")
+    _timings.starved = window.get("starved")
+    _timings.inflight = window.get("inflight")
+    # Per-thread by nature: which host THIS thread is about to retry, and whether
+    # it is inside a redirect. Never inherited.
+    _timings.last = None
+    _timings.depth = 0
+
+
+def fan_out(*tasks):
+    """Start each zero-argument callable on the shared pool; return their futures.
+
+    Every task runs inside the caller's timing/budget window (see above). The
+    caller collects results with :func:`gather`, or ignores them when a task exists
+    only to warm a memoised fetcher.
+    """
+    window = _window()
+
+    def run(task):
+        _adopt(window)
+        try:
+            return task()
+        finally:
+            _adopt(None)
+
+    pool = _pool()
+    return [pool.submit(run, t) for t in tasks]
+
+
+def gather(futures, timeout: float | None = None) -> None:
+    """Wait for ``futures`` to finish, but never past what this request has left.
+
+    Every fetcher already bounds itself — capped timeouts, a per-host share, the
+    assessor's own deadline — so in practice this returns when the slowest one
+    does. The ceiling is the backstop for a task that somehow does not: the
+    request's own remaining budget plus a second, so a worker cannot hold a label
+    longer than the label was ever allowed to take. Outside a budgeted window (the
+    CLI, batch jobs) it waits as long as the tasks take.
+    """
+    from concurrent.futures import wait
+    if timeout is None:
+        deadline = getattr(_timings, "deadline", None)
+        if deadline is not None:
+            timeout = max(0.0, deadline - time.monotonic()) + _MIN_CALL
+    wait(list(futures), timeout=timeout)
 
 
 def log_upstreams(context: str, total: float, slow_after: float = 5.0) -> None:
@@ -405,9 +561,11 @@ def log_upstreams(context: str, total: float, slow_after: float = 5.0) -> None:
 # request, and /presets scores five profiles at one address.
 #
 # Per THREAD rather than one global, because the API serves its sync endpoints on
-# a threadpool and ``requests.Session`` is not documented as thread-safe. That
-# costs nothing here: a scoring request runs on one thread and makes all of its
-# calls from it, which is exactly where the repeated handshakes were.
+# a threadpool and ``requests.Session`` is not documented as thread-safe. A
+# scoring request now spreads its calls over the shared upstream pool (see
+# ``fan_out``), whose threads are long-lived, so each worker keeps its own warm
+# session from one label to the next: the handshake is still paid once per thread
+# and host, not once per call.
 #
 # The timing/budget seam (see ``timed`` above) patches ``Session.send`` at class
 # level, so it sees these sessions unchanged.
@@ -417,7 +575,10 @@ def log_upstreams(context: str, total: float, slow_after: float = 5.0) -> None:
 # loopback hosts and anyio's default 40-thread pool, that is ~760 client sockets —
 # comfortably inside the fd limit, and only reached if every worker touches every
 # dataset, but worth knowing next to render.yaml's paragraph about this instance's
-# memory. A thread that dies releases its session with its thread-local, so the
+# memory. The upstream pool's ``_FANOUT_WORKERS`` (32) long-lived threads hold
+# sessions too, so the process-wide ceiling is now (40 + 32) threads x ~19 hosts,
+# about 1,370 client sockets — still well inside the fd limit, and reached only if
+# every thread touches every host. A thread that dies releases its session with its thread-local, so the
 # figure is bounded by live threads rather than by threads ever created.
 _thread_state = threading.local()
 
