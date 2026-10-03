@@ -240,6 +240,15 @@ from housing_label.enrich.durability import EARLIEST_PLAUSIBLE_YEAR
 
 log = logging.getLogger(__name__)
 
+# The 33 counties outside New York City that the layer actually serves. Derived
+# from the data on 2026-10-03, not from the state's list: the layer grouped on
+# COUNTY_NAME (with returnDistinctValues/statistics) gave 38 counties, every one
+# outside the city carrying YR_BLT on residential parcels, and the service's own
+# footprint layer (FeatureServer/0) gave the same 38 with their COUNTY_FIPS. The
+# five boroughs (36005, 36047, 36061, 36081, 36085) are left out on purpose — a
+# separate adapter answers for them from PLUTO. Written as literals because the set
+# is a fact about which counties opted in, which no rule can produce; re-derive it
+# when ITS publishes a new year (the description lists the counties by name).
 COUNTY_FIPS = frozenset({
     "36001",   # Albany
     "36007",   # Broome
@@ -284,9 +293,17 @@ DATA_VINTAGE = "NYS public tax parcels (ORPTS assessment roll joined to county p
 PARCEL_URL = ("https://nysgeohub.ny.gov/arcgis/rest/services/Parcels"
               "/NYS_Tax_Parcels_Public/FeatureServer/1/query")
 
+# Only what the label scores, plus the columns that decide whether a value belongs
+# to one home: the class, the kitchen count, the unit, and the roll year that dates
+# the record. See "Privacy" in the module docstring for what the other 64 columns
+# hold. The heating, fuel, sewer and water columns are not here because nothing
+# reads them yet (see "What this source carries").
 _FIELDS = ("SWIS_SBL_ID,PARCEL_ADDR,LOC_ST_NBR,LOC_STREET,LOC_UNIT,PROP_CLASS,"
            "YR_BLT,SQFT_LIVING,NBR_KITCHENS,ROLL_YR")
 
+# Spellings the roll uses and the Census matcher does not; see "The roll's spelling
+# and the geocoder's" in the module docstring. Each is applied as an ALTERNATIVE
+# spelling of the same street, never as a replacement.
 _ORDINALS = {
     "first": "1st", "second": "2nd", "third": "3rd", "fourth": "4th", "fifth": "5th",
     "sixth": "6th", "seventh": "7th", "eighth": "8th", "ninth": "9th", "tenth": "10th",
@@ -298,6 +315,10 @@ _ORDINALS = {
 _DIRECTIONS = {"north": "N", "south": "S", "east": "E", "west": "W"}
 _TYPE_SPELLINGS = {"la": "Ln", "terr": "Ter"}
 _STREET_TYPES = frozenset(SUFFIXES) | frozenset(_TYPE_SPELLINGS)
+# The hamlet tails the Town of Clarkstown runs into its street column, exactly as
+# written there (measured over its 1,660 residential street names). Matched only
+# as a whole phrase directly after a street type; never single letters or
+# directions, because "MAIN ST W" is not "MAIN ST".
 _LOCALITY_TAILS = tuple(tuple(p.split()) for p in (
     "NEW CITY", "NANUET", "CONGERS", "WEST NYACK", "W NYACK", "W NYK",
     "VALLEY COTTAGE", "VALLEY COTTAG", "VALLEY COTTA", "VALLEY COTT", "VALL COTT",
@@ -305,18 +326,34 @@ _LOCALITY_TAILS = tuple(tuple(p.split()) for p in (
     "C NYACK", "CENTRAL NYK", "SPRING VALLEY", "SPR VLY",
 ))
 
+#: How far to look for a second parcel carrying the confirmed address. The case
+#: that set it: two Remsen parcels share "10876 Bardwell Mills Rd" 190 m apart.
+#: Wide enough for long rural lots; the house-number filter keeps the response to
+#: a handful of rows. See "Three things this roll does" in the module docstring.
 UNIQUENESS_RADIUS_M = 500
 
+# ORPTS categories whose every class holds no dwelling: vacant land, recreation,
+# industrial, public services, wild and forest land. Community services (6) and
+# commercial (4) have exceptions, handled in _class_says_no_dwelling.
 _NON_DWELLING_CATEGORIES = frozenset("35789")
+# Commercial classes that commonly carry flats: multiple-use buildings, downtown
+# rows with apartments upstairs, converted residences.
 _DWELLING_EXCEPTIONS = frozenset({"480", "481", "482", "483"})
 
 
 def _parcel_id(attrs: dict) -> str | None:
+    """The statewide parcel id (SWIS municipality code + SBL), or None.
+
+    Null on 5,276 polygons outside the city that were never joined to a roll
+    record — no class, no year, no address. They can never contribute a fact.
+    """
     pid = str(attrs.get("SWIS_SBL_ID") or "").strip()
     return pid or None
 
 
 def _base_tokens(raw: str) -> list[str]:
+    """The roll's street as tokens: apostrophes dropped, a Clarkstown hamlet tail
+    cut, and Lane/Terrace written the way the shared suffix table knows them."""
     tokens = raw.replace("'", "").replace("\u2019", "").split()
     for tail in _LOCALITY_TAILS:
         n = len(tail)
@@ -360,6 +397,12 @@ def _trail_leading_direction(tokens: list[str]) -> list[str] | None:
 
 
 def _street_spellings(raw: str) -> list[str]:
+    """Every spelling of this roll street that is still the same street.
+
+    One transformation at a time from the written form (and from its numeral
+    form): "West Hill Rd" may become "W Hill Rd" but never "Hill Rd W", because a
+    direction the roll spelled out as part of a name is not moved to its other end.
+    """
     base = _base_tokens(raw)
     spellings = [base]
     numbered = _numeral_ordinal(base)
@@ -375,6 +418,13 @@ def _street_spellings(raw: str) -> list[str]:
 
 
 def _address_for(attrs: dict, query: str | None) -> str | None:
+    """The row's street address, in the spelling that matches ``query`` if any does.
+
+    Built from LOC_ST_NBR and LOC_STREET, which leave the unit out; PARCEL_ADDR
+    runs it in ("12 S Lake Dr 2") and is used only when the components are absent,
+    in which case it is usually a bare street name that can never confirm anything.
+    The comparison itself is still the shared, strict ``same_address``.
+    """
     number = str(attrs.get("LOC_ST_NBR") or "").strip()
     street = str(attrs.get("LOC_STREET") or "").strip()
     if not (number and street):
@@ -394,6 +444,8 @@ def _address_of(attrs: dict) -> str | None:
 
 
 def _norm_unit(raw) -> str:
+    """A unit designator reduced to compare: "Unit 1-K", "#1K" and "1k" are equal.
+    "Lot 5" stays "LOT5", which no typed unit matches — a refusal, not a guess."""
     text = " ".join(str(raw or "").upper().replace("#", " # ").split())
     for marker in ("UNIT ", "APT ", "STE ", "SUITE ", "# "):
         if text.startswith(marker):
@@ -409,6 +461,17 @@ def _same_fact_key(attrs: dict) -> tuple:
 
 
 def _candidates(rows: list[dict], unit: str | None) -> list[dict]:
+    """The rows that could be an answer, before the shared chooser sees them.
+
+    Each filter can only turn "ambiguous" into "one real parcel", never let a
+    wrong one through, because the address confirmation after it is untouched:
+
+    * rows with no parcel id (unjoined polygons) are records of nothing;
+    * where the reader typed a unit, a row for a DIFFERENT unit is not their home
+      (rows with no unit stay — a rental building's record is right for every flat);
+    * the same full id returned twice with identical facts is one row. Never on
+      SBL alone — see "Duplicate rows" in the module docstring.
+    """
     rows = [r for r in rows if _parcel_id(r) is not None]
     if unit:
         wanted = _norm_unit(unit)
@@ -447,6 +510,14 @@ def _same_number_nearby(lat: float, lon: float, number: str, unit: str | None,
 
 def _address_is_unique(lat: float, lon: float, address: str, chosen: dict,
                        unit: str | None, *, deadline: float) -> bool:
+    """Whether ``chosen`` is the only parcel near here that carries ``address``.
+
+    One request on the lookup's own clock: rows within UNIQUENESS_RADIUS_M whose
+    house number is the address's. The number comes from ``address_key``, which
+    accepts only an all-digit first token, so nothing typed reaches the ``where``
+    clause unparsed. A failure raises into the fail-open path — an answer whose
+    uniqueness could not be checked is not reported.
+    """
     key = address_key(address)
     if not key or not key[0].isdigit():
         return False
@@ -459,6 +530,15 @@ def _address_is_unique(lat: float, lon: float, address: str, chosen: dict,
 
 def _parcel_at(lat: float, lon: float, address: str | None = None,
                *, deadline: float | None = None) -> dict | None:
+    """The record of the parcel this point belongs to, or None.
+
+    The choice is ``_shared.select_parcel``'s, unchanged. Two things are added
+    around it and neither loosens it: rows that cannot be the reader's home are
+    dropped first (``_candidates``), and an address-confirmed answer must also be
+    the only parcel nearby with that address. No locality trim is passed: the roll
+    keeps the city out of its street column everywhere but Clarkstown, whose tails
+    are cut on the roll side only (see _base_tokens).
+    """
     deadline = deadline_from(deadline)
     unit = unit_of(address)
     chosen = select_parcel(
@@ -471,6 +551,8 @@ def _parcel_at(lat: float, lon: float, address: str | None = None,
 
 
 def _vintage(row: dict) -> str:
+    """Dated from ROLL_YR on the row: the layer is republished annually under an
+    unchanged URL, so a hard-coded year would go stale silently."""
     year = num(row.get("ROLL_YR"))
     if year and 1900 <= year <= 2100:
         return f"{DATA_VINTAGE}, {int(year)} assessment roll"
@@ -478,12 +560,16 @@ def _vintage(row: dict) -> str:
 
 
 def _has_residential_inventory(row: dict) -> bool:
+    """Whether the roll recorded a dwelling building here: a living area or a
+    kitchen, both of which come only from the ORPTS residential inventory."""
     area = num(row.get("SQFT_LIVING"))
     kitchens = num(row.get("NBR_KITCHENS"))
     return bool((area and area > 0) or (kitchens and kitchens >= 1))
 
 
 def _class_says_no_dwelling(prop_class) -> bool:
+    """Whether the ORPTS class is one that holds no dwelling. Anything not a
+    three-digit code (null, or a PLUTO land-use code) is not a refusal."""
     code = str(prop_class or "").strip()
     if len(code) != 3 or not code.isdigit():
         return False
@@ -499,11 +585,23 @@ def _class_says_no_dwelling(prop_class) -> bool:
 
 
 def _says_a_home_is_here(row: dict) -> bool:
+    """Whether a year on this row can belong to somebody's home.
+
+    Refused only when BOTH the inventory and the class say no dwelling; see "The
+    property class decides two things" in the module docstring for the parcels
+    either test alone would get wrong.
+    """
     return _has_residential_inventory(row) or not _class_says_no_dwelling(
         row.get("PROP_CLASS"))
 
 
 def _area_of_one_home(row: dict) -> float | None:
+    """SQFT_LIVING when the record is one year-round family home, otherwise None.
+
+    Class 210 and not two kitchens. A missing kitchen count is silence, not a
+    second kitchen. Never divided by anything: an average tagged ``observed``
+    would tell a reader not to doubt it.
+    """
     area = num(row.get("SQFT_LIVING"))
     if area is None or area <= 0:
         return None
@@ -522,6 +620,8 @@ def _lookup_cached(lat: float, lon: float, address: str | None,
     if not row:
         return None
     year = num(row.get("YR_BLT"))
+    # Null is this roll's "not recorded"; a zero is refused too, so a change of
+    # convention upstream cannot age a building by two thousand years.
     year_built = int(year) if (year and EARLIEST_PLAUSIBLE_YEAR <= year <= 2100
                                and _says_a_home_is_here(row)) else None
     sqft = _area_of_one_home(row)
@@ -533,11 +633,21 @@ def _lookup_cached(lat: float, lon: float, address: str | None,
         parcel_id=_parcel_id(row),
         year_built=year_built,
         sqft=sqft,
+        # No wall material (BLDG_STYLE_DESC is an architectural style), storey
+        # count, foundation or condition in the public schema. Left empty so the
+        # label falls back to its modelled estimate rather than a guess.
     )
 
 
 def lookup(lat: float, lon: float, address: str | None = None) -> AssessorRecord | None:
+    """What New York's assessment rolls say is standing at this point, or None.
+
+    ``address`` is the geocoder's matched address, carrying the reader's unit.
+    Fails open on everything — a timeout, a 500, a renamed column, a parcel the
+    roll has no record for.
+    """
     try:
+        # Round before the cache so two clicks on the same rooftop share an entry.
         return _lookup_cached(round(float(lat), 5), round(float(lon), 5), address,
                               cache_bucket())
     except Exception as exc:  # noqa: BLE001
