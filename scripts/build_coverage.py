@@ -208,6 +208,14 @@ CURATED: dict[str, dict] = {
         "fields": ("year_built", "sqft", "stories"),
         "verified": {"sample": 320, "resolved": 314, "wrong": 0},
     },
+    "tx": {
+        "name": "Texas (Harris, Dallas, Tarrant, Bexar, Travis, Fort Bend and "
+                "Montgomery counties)",
+        "short": "Texas (7 counties)",
+        "since": "2026-10-03",
+        "fields": ("year_built", "sqft", "stories"),
+        "verified": {"sample": 315, "resolved": 268, "wrong": 0},
+    },
 }
 
 

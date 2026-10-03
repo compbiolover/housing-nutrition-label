@@ -431,6 +431,13 @@ DATASET_NAMES = {
     "services2.arcgis.com/GQhSReJEO6f7tsvy": "the San Joaquin County, CA Assessor parcels",
     "gis.countyofriverside.us": "the Riverside County, CA Assessor records",
     "data.sf.gov": "the San Francisco Assessor-Recorder secured roll (DataSF)",
+    "geohwp.houstontx.gov": "the City of Houston copy of the Harris and Montgomery "
+                            "County, TX appraisal rolls",
+    "gisweb.fbcad.org": "the Fort Bend Central Appraisal District roll",
+    "maps.dcad.org": "the Dallas Central Appraisal District roll",
+    "tad.newedgeservices.com": "the Tarrant Appraisal District roll",
+    "maps.bexar.org": "the Bexar County, TX appraisal roll",
+    "taxmaps.traviscountytx.gov": "the Travis County, TX appraisal roll",
 }
 
 
