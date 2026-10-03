@@ -206,7 +206,17 @@ SUFFIXES = {
     "pl": "pl", "place": "pl", "way": "way", "ter": "ter", "terrace": "ter",
     "pkwy": "pkwy", "parkway": "pkwy", "cir": "cir", "circle": "cir",
     "hwy": "hwy", "highway": "hwy", "trl": "trl", "trail": "trl",
+    "wy": "way",
 }
+
+# Street types that also LEAD a street's name: "AVENUE L8" in Lancaster, "AVENUE J"
+# in Brooklyn, "HIGHWAY 66". After one of these a digit-bearing token is the
+# street's own name, not a unit, so the unmarked-unit rule in address_key must not
+# strip it — doing so made "45 E AVENUE L8" and "45 E AVENUE L10" the same street.
+# Leaving the token in place can only make two addresses compare unequal, which is
+# the safe direction: a missed match falls back to the modelled value, a false one
+# reports a stranger's house as observed fact.
+LEADING_TYPES = frozenset({"ave", "av", "avenue", "hwy", "highway"})
 
 # Everything from a unit marker onwards is dropped: a parcel layer writes
 # "234 W STATION ST B12" for one condo, and a unit number must not decide whether
@@ -342,7 +352,8 @@ def address_key(raw: str | None, locality: frozenset[str] = frozenset()):
     # "234 W STATION ST B12" and "234 W STATION ST" would parse differently and
     # fail to match. Inverting these two is a silent coverage loss, so the order
     # is pinned by a test.
-    if len(rest) >= 2 and rest[-2] in SUFFIXES and any(c.isdigit() for c in rest[-1]):
+    if (len(rest) >= 2 and rest[-2] in SUFFIXES and rest[-2] not in LEADING_TYPES
+            and any(c.isdigit() for c in rest[-1])):
         rest = rest[:-1]
     # Only a TERMINAL street type is a street type. Consuming the token wherever it
     # appeared collapsed "213 ST JOHN ST" onto "213 JOHN ST" and "100 PARK PLACE DR"
@@ -416,8 +427,23 @@ def arcgis_parcels(url: str, lat: float, lon: float, out_fields: str,
         params["distance"] = str(distance_m)
         params["units"] = "esriSRUnit_Meter"
     body = get_json(url, params, deadline, read_slice)
+    # A layer caps how many features one response may carry (1,000 or 2,000 on
+    # these services) and says so with ``exceededTransferLimit`` rather than by
+    # failing. A truncated page is not "these are the parcels here": the rows it
+    # dropped can include a second parcel at the same address, so a match that
+    # looks unique on the page may not be. Raising keeps the lookup in the
+    # fail-open path, and uncached — the answer is "cannot tell", not "nothing".
+    # Raised first by the Los Angeles and Utah adapters, whose dense condominium
+    # stacks reach the cap inside an 80 m buffer.
+    if isinstance(body, dict) and body.get("exceededTransferLimit"):
+        raise TruncatedResponse(f"{urlsplit(url).hostname}: response truncated at the "
+                                f"service's transfer limit")
     return [(f or {}).get("attributes") or {}
             for f in ((body or {}).get("features") or [])]
+
+
+class TruncatedResponse(RuntimeError):
+    """The service returned only part of what matched the query."""
 
 
 def select_parcel(fetch, address: str | None, address_of, locality=frozenset()):

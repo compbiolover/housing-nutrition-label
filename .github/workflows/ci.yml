@@ -50,6 +50,8 @@ jobs:
       # crosswalks. What CI can enforce is that the page a reader sees still
       # reports the run that was committed — the failure mode being a published
       # accuracy claim that no longer matches any measurement anyone took.
+      - name: Coverage page in sync with the adapter registry
+        run: python scripts/build_coverage.py --check
       - name: Accuracy page in sync with the committed measurements
         run: python scripts/measure_accuracy.py --check
       - name: Test (pytest)

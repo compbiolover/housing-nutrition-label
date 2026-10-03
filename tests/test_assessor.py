@@ -880,3 +880,54 @@ def test_the_hosted_api_declares_the_adapters_on():
     # No YAML parser in the dependency set; the entry's two lines are the contract.
     assert re.search(r'- key: %s\n\s+value: "1"' % A.ENABLE_ENV, render), (
         "render.yaml no longer switches the assessor adapters on")
+
+
+# --- shared safeguards raised while building the 2026-10 adapters ----------------
+
+
+def test_a_geocoder_substituted_street_is_not_what_the_parcel_is_confirmed_against():
+    """The Census matcher turned 123 Finlay St into 123 Finlay Ave; confirming the
+    parcel against its answer named the wrong house as observed fact."""
+    from housing_label.simulate.location import assessor_address
+    typed = "123 Finlay St, Staten Island, NY 10307"
+    assert assessor_address("123 FINLAY AVE, STATEN ISLAND, NY, 10309", typed) == typed
+    # A different house number is the same failure.
+    assert assessor_address("125 FINLAY ST, STATEN ISLAND, NY, 10307", typed) == typed
+
+
+def test_the_matchers_ordinary_corrections_still_win():
+    """Spelling, case and an omitted street type are what the canonical form is
+    for; none of them is a substitution."""
+    from housing_label.simulate.location import assessor_address
+    m = "123 FINLAY ST, STATEN ISLAND, NY, 10307"
+    assert assessor_address(m, "123 Finaly St, Staten Island NY") == m
+    assert assessor_address(m, "123 finlay street") == m
+    assert assessor_address(m, "123 Finlay, Staten Island") == m
+    assert assessor_address(m, "Some Place Name") == m
+
+
+def test_a_street_named_avenue_l8_is_not_avenue_l10():
+    """A digit token after a LEADING street type is the street's name, not a
+    unit. Stripping it made two Lancaster streets compare equal."""
+    from housing_label.enrich.assessor._shared import same_address
+    assert not same_address("45 E AVENUE L8", "45 E AVENUE L10")
+    assert not same_address("100 HIGHWAY 66", "100 HIGHWAY 61")
+    # The unmarked-unit rule still works after an ordinary trailing type.
+    assert same_address("234 W STATION ST B12", "234 W STATION ST")
+
+
+def test_a_truncated_page_is_not_an_answer(monkeypatch):
+    """A response cut at the service's transfer limit may have dropped the second
+    parcel that would make a match ambiguous, so it must not be used as one."""
+    import pytest
+    monkeypatch.setattr(_shared, "get_json", lambda *a, **k: {
+        "features": [{"attributes": {"PIN": "1"}}], "exceededTransferLimit": True})
+    with pytest.raises(_shared.TruncatedResponse):
+        _shared.arcgis_parcels("https://example.gov/q", 41.0, -87.0, "PIN", 80,
+                               deadline=time.monotonic() + 4)
+
+
+def test_way_abbreviated_wy_is_way():
+    from housing_label.enrich.assessor._shared import same_address
+    assert same_address("10 SUNSET WY", "10 SUNSET WAY")
+    assert not same_address("10 SUNSET WY", "10 SUNSET ST")

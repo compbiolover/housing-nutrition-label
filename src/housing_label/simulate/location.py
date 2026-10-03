@@ -553,9 +553,37 @@ def assessor_address(matched: str | None, typed: str | None) -> str | None:
     confirms a parcel — carrying the unit from what the reader typed, because that
     is the one component the canonical form cannot have. Falls back to the typed
     address entirely when the geocoder echoed nothing.
+
+    **Except when the geocoder answered for a different house.** The Census
+    matcher will substitute a near neighbour it can find for one it cannot:
+    "123 FINLAY ST 10307" came back as "123 FINLAY AVE 10309" in the New York City
+    adapter's verification run, the point was placed on Finlay Avenue, and the
+    adapter then confirmed — correctly, against what it was given — the parcel of
+    123 Finlay Avenue. No adapter can see that substitution; only this function
+    holds both strings. So where the house number differs, or both name a street
+    type and the types differ, the reader's own words are what the parcel must
+    agree with. The parcel under the substituted point will not, and the lookup
+    declines instead of reporting a stranger's house as observed fact.
+
+    Deliberately narrow: a differing street *name* is not treated as a
+    substitution, because the matcher's ordinary job is correcting a misspelt one.
     """
     from housing_label.enrich.assessor._shared import with_unit
+    if matched and typed and _another_house(matched, typed):
+        return typed
     return with_unit(matched, typed) or typed
+
+
+def _another_house(matched: str, typed: str) -> bool:
+    """Whether the geocoder's matched address names a different building from
+    the typed one, by house number or by an explicit, different street type."""
+    from housing_label.enrich.assessor._shared import address_key, strip_unit
+    km, kt = address_key(strip_unit(matched)), address_key(strip_unit(typed))
+    if km is None or kt is None:
+        return False
+    if km[0] != kt[0]:
+        return True
+    return km[2] is not None and kt[2] is not None and km[2] != kt[2]
 
 
 def _apply_geo(loc: Location, geo: dict) -> None:
