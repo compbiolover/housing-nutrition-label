@@ -571,6 +571,48 @@ def _key_coord(v: float | None) -> float | None:
     return None if v is None else round(float(v), 6)
 
 
+# ── One scoring pass per question in flight ─────────────────────────────────────
+# The result cache answers a question asked AGAIN; it cannot answer one asked
+# twice at once, because the first asker has not finished yet. That is not rare:
+# the label page starts a score when a suggestion is picked, a double-click sends
+# two, and a badge embedded on a busy page is requested by every visitor who
+# arrives before the first render has been cached. Each of those used to be a full
+# fan-out to the same federal services for the same answer.
+#
+# So the first request for a key computes, and an identical one arriving while it
+# runs waits for that result. A waiter whose leader failed computes for itself
+# rather than inheriting the failure — the leader's exception may be its own bad
+# minute. The wait is bounded by the same budget the leader works under.
+_inflight: dict = {}
+_inflight_lock = threading.Lock()
+
+
+def _single_flight(key, compute):
+    from concurrent.futures import Future
+    with _inflight_lock:
+        pending = _inflight.get(key)
+        leader = pending is None
+        if leader:
+            pending = _inflight[key] = Future()
+    if not leader:
+        try:
+            return pending.result(timeout=config.UPSTREAM_BUDGET + 5)
+        except Exception:  # noqa: BLE001 — the leader failed or overran; try ourselves
+            return compute()
+    try:
+        result = compute()
+    except BaseException as exc:
+        pending.set_exception(exc)
+        raise
+    else:
+        pending.set_result(result)
+        return result
+    finally:
+        with _inflight_lock:
+            if _inflight.get(key) is pending:
+                del _inflight[key]
+
+
 @app.get("/healthz")
 @limiter.exempt
 def healthz() -> dict:
@@ -1195,60 +1237,66 @@ def label(
     if cached is not None:
         return cached
 
-    # One window per scoring request, opened and — whatever happens — closed.
-    # A request that raises must not leave one open on a threadpool thread for
-    # the next request to start filling, and its timings are the ones most worth
-    # having: a 502 after three minutes of upstream is the log line you want.
-    with _upstream_timing(_timing_context("label", address, lat, lon)):
-        try:
-            cfg, r, lbl = build_label_parts(
-                address=address, lat=lat, lon=lon, preset=preset, flood_zone=flood_zone,
-                upgrades=upgrade_list,
-                allow_network=True, allow_non_residential=allow_non_residential,
-                year_built=year_built, construction=construction, foundation=foundation,
-                condition=condition, value=value, units=units, sqft=sqft, lot_acres=lot_acres,
-                bldg_material=bldg_material, stories=stories,
-                owner_occupied=owner_occupied,
-                water_source=water_source, sewer=sewer, lot_context=lot_context,
+    # Two identical requests in flight share one scoring pass: the second waits
+    # for the first instead of fanning out to the same dozen datasets again. See
+    # _single_flight for when that happens and what it costs.
+    def compute() -> dict:
+        # One window per scoring request, opened and — whatever happens — closed.
+        # A request that raises must not leave one open on a threadpool thread for
+        # the next request to start filling, and its timings are the ones most worth
+        # having: a 502 after three minutes of upstream is the log line you want.
+        with _upstream_timing(_timing_context("label", address, lat, lon)):
+            try:
+                cfg, r, lbl = build_label_parts(
+                    address=address, lat=lat, lon=lon, preset=preset, flood_zone=flood_zone,
+                    upgrades=upgrade_list,
+                    allow_network=True, allow_non_residential=allow_non_residential,
+                    year_built=year_built, construction=construction, foundation=foundation,
+                    condition=condition, value=value, units=units, sqft=sqft, lot_acres=lot_acres,
+                    bldg_material=bldg_material, stories=stories,
+                    owner_occupied=owner_occupied,
+                    water_source=water_source, sewer=sewer, lot_context=lot_context,
+                )
+            except NonResidentialProperty as exc:
+                # Not bad input — a deliberate residential-only screen. 422 (Unprocessable
+                # Content) lets the frontend distinguish "we won't score this" from a 400
+                # validation error or a 502 upstream failure, and show the guidance verbatim.
+                raise HTTPException(422, str(exc))
+            except ValueError as exc:
+                raise HTTPException(400, str(exc))
+            except Exception:  # noqa: BLE001 — don't leak internals; log server-side
+                log.exception("scoring failed (address=%r lat=%r lon=%r)", address, lat, lon)
+                raise HTTPException(502, "scoring failed")
+            payload = label_payload(cfg, r, lbl)
+            # When the scored home IS its own baseline comparable, the delta is 0 by
+            # definition — reuse the already-computed house cost instead of a redundant
+            # (network-hitting) second scoring pass. See _is_self_baseline.
+            is_self_baseline = _is_self_baseline(
+                preset, year_built=year_built, construction=construction,
+                foundation=foundation, condition=condition, bldg_material=bldg_material,
+                upgrade_list=upgrade_list,
             )
-        except NonResidentialProperty as exc:
-            # Not bad input — a deliberate residential-only screen. 422 (Unprocessable
-            # Content) lets the frontend distinguish "we won't score this" from a 400
-            # validation error or a 502 upstream failure, and show the guidance verbatim.
-            raise HTTPException(422, str(exc))
-        except ValueError as exc:
-            raise HTTPException(400, str(exc))
-        except Exception:  # noqa: BLE001 — don't leak internals; log server-side
-            log.exception("scoring failed (address=%r lat=%r lon=%r)", address, lat, lon)
-            raise HTTPException(502, "scoring failed")
-        payload = label_payload(cfg, r, lbl)
-        # When the scored home IS its own baseline comparable, the delta is 0 by
-        # definition — reuse the already-computed house cost instead of a redundant
-        # (network-hitting) second scoring pass. See _is_self_baseline.
-        is_self_baseline = _is_self_baseline(
-            preset, year_built=year_built, construction=construction,
-            foundation=foundation, condition=condition, bldg_material=bldg_material,
-            upgrade_list=upgrade_list,
-        )
-        _attach_baseline_cost(payload, lbl, cfg, self_baseline=is_self_baseline)
-        _attach_detached_cost(payload, r, cfg)   # multi-unit → density-dividend line
-        # Which datasets this score stopped waiting for, if any. What comes back
-        # is the rest of the label — that is the whole point of the budget — but a
-        # reader looking at an N/A row is owed the reason: "one public dataset was
-        # slow just now, try again in a minute" is a very different thing to be
-        # told than "we have nothing for your address".
-        dropped = _dropped_datasets()
-        if dropped:
-            payload["slow_upstreams"] = dropped
-        # Don't cache a degraded label. When NSI structure detection was unavailable
-        # (a transient upstream outage), the building falls back to generic defaults —
-        # caching that would pin a wrong "single-family / defaults" label onto this
-        # exact coordinate for the whole TTL, poisoning a bookmarked or shared URL.
-        # Skip the cache so the next request re-detects the real building. A dataset
-        # dropped for slowness is the same bargain with a shorter fuse.
-        if _may_cache(bool(getattr(lbl.get("location"), "structure_unavailable", False))):
-            _result_cache.put(cache_key, payload)
-        return payload
+            _attach_baseline_cost(payload, lbl, cfg, self_baseline=is_self_baseline)
+            _attach_detached_cost(payload, r, cfg)   # multi-unit → density-dividend line
+            # Which datasets this score stopped waiting for, if any. What comes back
+            # is the rest of the label — that is the whole point of the budget — but a
+            # reader looking at an N/A row is owed the reason: "one public dataset was
+            # slow just now, try again in a minute" is a very different thing to be
+            # told than "we have nothing for your address".
+            dropped = _dropped_datasets()
+            if dropped:
+                payload["slow_upstreams"] = dropped
+            # Don't cache a degraded label. When NSI structure detection was unavailable
+            # (a transient upstream outage), the building falls back to generic defaults —
+            # caching that would pin a wrong "single-family / defaults" label onto this
+            # exact coordinate for the whole TTL, poisoning a bookmarked or shared URL.
+            # Skip the cache so the next request re-detects the real building. A dataset
+            # dropped for slowness is the same bargain with a shorter fuse.
+            if _may_cache(bool(getattr(lbl.get("location"), "structure_unavailable", False))):
+                _result_cache.put(cache_key, payload)
+            return payload
+
+    return _single_flight(cache_key, compute)
 
 
 _BASELINE_LABEL = "a same-size 2000-era frame home"

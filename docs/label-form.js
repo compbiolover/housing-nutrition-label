@@ -411,7 +411,51 @@ window.LabelForm = (function () {
       }
     }
     var ac = AS.attach({ input: addrInput, box: q(".lf-suggest"), apiBase: API_BASE,
-                         idPrefix: uid + "opt-", onPick: showPoiHint });
+                         idPrefix: uid + "opt-",
+                         onPick: function (s) { showPoiHint(s); speculate(s); } });
+
+    // ── Scoring starts at the pick, not at the button ───────────────────────────
+    // Picking a suggestion already fixes everything the first /label request will
+    // say: the place resolves to coordinates the moment it is chosen (the eager
+    // resolvePicked above), and load() clears every refine edit and upgrade before
+    // it asks, so the query is just the location. The reader then spends a second
+    // or so moving to "Score this address" — which used to be a second in which
+    // nothing happened. So the request is sent at the pick, and the submit picks up
+    // the response already in flight (or already arrived) instead of asking again.
+    //
+    // It is the SAME request, not a warm-up: the submit reuses this promise, so a
+    // pick followed by a score costs one /label, as it always did. Only a pick the
+    // reader abandons costs one they did not ask for. A pick the geocoder flags as
+    // non-residential is not speculated on — it will be refused, and nobody is
+    // waiting on it. Reuse is keyed on the exact query string, so anything that
+    // makes the submit ask a different question (a refined location, a non-
+    // residential flag that only arrived with the place details, another view
+    // mode) simply misses and fetches as before.
+    var spec = null;                  // { qs, promise } for the pick in flight
+    function speculate(s) {
+      spec = null;
+      if (!s || !API_BASE || s.residential === false || state.mode !== "detected") return;
+      ac.resolvePicked().then(function (rp) {
+        if (ac.picked() !== s) return;              // the reader has moved on
+        var nonRes = !!(rp && rp.residential === false);
+        if (nonRes) return;
+        var d = (rp && rp.lat != null && rp.lon != null)
+          ? { lat: rp.lat, lon: rp.lon } : { address: s.label };
+        var qs = buildDetectedParams(d).qs;
+        var promise = fetchScoring(API_BASE + "/label" + qs).then(okJson);
+        promise.catch(function () {});              // a miss is retried at submit
+        spec = { qs: qs, promise: promise };
+      });
+    }
+    // The speculative response for this query, if one is in flight — taken once.
+    // A speculation that failed is not replayed: the submit asks again, so a blip
+    // during the pick costs a retry rather than an error the reader never caused.
+    function takeSpeculative(qs, url) {
+      var hit = spec && spec.qs === qs ? spec : null;
+      spec = null;
+      if (!hit) return null;
+      return hit.promise.catch(function () { return fetchScoring(url).then(okJson); });
+    }
 
     // View state. `presets`/`detected` are cached per location so switching modes
     // doesn't refetch; `desc` is the current location descriptor.
@@ -1333,20 +1377,22 @@ window.LabelForm = (function () {
       ybNote.style.display = "";
     }
 
-    function buildDetectedParams() {
-      var params = new URLSearchParams(), d = state.desc, edited = false;
+    // `bare` is a location with no edits at all — what the first score of a fresh
+    // load() asks, and so what a speculative pick-time request must ask (above).
+    function buildDetectedParams(bare) {
+      var params = new URLSearchParams(), d = bare || state.desc, edited = false;
       if (d && d.lat != null) { params.set("lat", d.lat); params.set("lon", d.lon); }
       else if (d && d.address) { params.set("address", d.address); }
       else { params.set("lat", DEFAULT_LAT); params.set("lon", DEFAULT_LON); }
       // The picked place was a non-residential POI — ask the API to refuse it.
       if (d && d.nonResidential) params.set("nonresidential", "1");
       FIELDS.forEach(function (f) {
-        if (!touched[f.key]) return;
+        if (bare || !touched[f.key]) return;
         var el = fieldEl(f.key), v = el.value != null ? el.value : "";
         v = v.trim ? v.trim() : v;
         if (v !== "") { params.set(f.key, v); edited = true; }
       });
-      var ups = qa(".addr-upgrades input:checked").map(function (c) { return c.value; });
+      var ups = bare ? [] : qa(".addr-upgrades input:checked").map(function (c) { return c.value; });
       if (ups.length) params.set("upgrades", ups.join(","));
       var qs = params.toString();
       return { qs: qs ? "?" + qs : "", query: qs,
@@ -1444,8 +1490,8 @@ window.LabelForm = (function () {
                 : "Reading flood, climate, energy, and neighborhood data for " + placeText() + ".");
       setFormBusy(true);
       var built = buildDetectedParams();
-      fetchScoring(API_BASE + "/label" + built.qs)
-        .then(okJson)
+      var url = API_BASE + "/label" + built.qs;
+      (takeSpeculative(built.qs, url) || fetchScoring(url).then(okJson))
         .then(function (data) {
           if (seq !== reqSeq) return;
           state.detected = data; state.building = data.building || null;
