@@ -18,7 +18,8 @@ feature layer and folds in municipal updates monthly.
 
   ``Massachusetts_Property_Tax_Parcels/FeatureServer/0`` — owner ``MassGIS`` on
   ArcGIS Online, 2,559,636 features, keyless, verified live 2026-10-03. 2,063,535
-  of them carry a residential use code and a year built.
+  of them carry a residence, apartment or mixed-residential use code (10x, 11x,
+  013) and a year built; 1,440,812 are single-family houses with one.
 
 One request, like Florida and Connecticut
 -----------------------------------------
@@ -209,15 +210,44 @@ So a response flagged ``exceededTransferLimit`` is refused rather than read; see
 
 What the adapter is worth, end to end
 -------------------------------------
-See ``scratchpad/adapters/ma.json`` from the verification run, summarised here:
-VERIFICATION_SUMMARY
+260 homes drawn at random from the layer itself (random object ids, any
+dwelling use code, 147 towns), typed as the roll spells them — with the unit
+where the record has one — geocoded through the Census matcher exactly as the
+product does, then looked up:
+
+* 240 geocoded, all 240 routed to a Massachusetts county code.
+* **197 resolved**: 196 with the exact year built, and all 155 floor areas and
+  all 106 storey counts reported exactly equal to the record's.
+* **1 named a different parcel, and it is the geocoder's**: the matcher turned
+  "21 LONGWOOD AVE, WAREHAM" into "21 LINWOOD AVE" — another street, 3 km
+  away — and the adapter correctly returned 21 Linwood Ave. Nothing inside an
+  adapter can see this, because it is only ever handed the matched address; it
+  is a fault one layer up, in ``assessor_address``.
+* An earlier run had a second: a Cambridge unit answered by its building's
+  locally coded master record (same polygon, same year, different record). That
+  is what the "documented home codes first" rule in ``_parcels`` closes; see the
+  test pinning it.
+
+The stacked-record path is the reason condominiums resolve at all: **17 of the
+24 sampled condominium units resolved, every one of them from a stacked
+polygon**, which ``select_parcel`` alone refuses — 11 with the unit's own area,
+4 with only the building's year. So it is worth its code, measured.
+
+The 43 that did not resolve: 31 where the geocoder put the point more than 80 m
+from the home's parcel (large rural lots, mostly), 9 whose roll address the
+comparison cannot join to the matcher's ("162 -1 MYRTLE ST", "SEA MEADOW" against
+"SEAMEADOW", "MYSTIC VLLY PY", "200 202 SOUTH ST"), 2 where two polygons carry
+the same address (a Weymouth house and a vacant Holbrook lot across the town
+line; two Cambridge parcels at 132 Hampshire St) and 1 where the only agreeing
+record had a range number that does not parse. The shared chooser declining to
+guess in every case.
 
 Privacy, and why the field list is short
 ----------------------------------------
-This layer has 52 columns, among them ``OWNER1``, ``OWN_ADDR``, ``OWN_CITY``,
+This layer has 50 columns, among them ``OWNER1``, ``OWN_ADDR``, ``OWN_CITY``,
 ``OWN_STATE``, ``OWN_ZIP``, ``OWN_CO``, the last sale's date, price and deed book
 and page, and every assessed value. None of it is an input to any dimension of
-the label. Thirteen columns are requested by name and the other 39 are never
+the label. Thirteen columns are requested by name and the other 37 are never
 fetched. Nothing from this source is written into the repository.
 """
 
@@ -451,8 +481,13 @@ def _address_of(row: dict) -> str | None:
     """
     structured = _structured_address(row)
     site = _normalise(row.get("SITE_ADDR"))
-    keys = {k for k in (address_key(structured), address_key(site)) if k}
-    if len({(k[0], k[1]) for k in keys}) > 1:
+    # The shared comparison, not a looser local one: it tolerates one side
+    # omitting the street type and refuses two different ones, so "24 MAIN ST"
+    # against "24 MAIN AVE" is a contradiction here exactly as it is everywhere
+    # else. Comparing only the number and name tokens would let that record
+    # confirm a parcel as either building.
+    if (address_key(structured) and address_key(site)
+            and not same_address(structured, site)):
         return None
     for candidate in (structured, site):
         if candidate and address_key(candidate):
@@ -495,12 +530,17 @@ def _house_number(row: dict) -> str | None:
 def _query(lat: float, lon: float, distance_m: float, *, deadline: float) -> list[dict]:
     """Record attributes at (or within ``distance_m`` of) a point.
 
-    The same request ``_shared.arcgis_parcels`` sends, made here only so the
-    response's ``exceededTransferLimit`` can be read: the shared helper drops it.
-    This layer stops at 2,000 records, and a buffer beside a Boston tower already
-    returns 500. A truncated list can only lose candidates — and losing one of two
-    parcels at one address turns "ambiguous" into a confident wrong answer — so a
-    truncated response raises instead, which the lookup treats as no answer.
+    The same request ``_shared.arcgis_parcels`` sends, made here so the
+    response's ``exceededTransferLimit`` is checked by this module as well as by
+    the transport. This layer stops at 2,000 records, and a buffer beside a
+    Boston tower already returns 500. A truncated list can only lose candidates —
+    and losing one of two parcels at one address turns "ambiguous" into a
+    confident wrong answer — so a truncated response raises, which the lookup
+    treats as no answer.
+
+    ``_shared.get_json`` now raises ``TruncatedResponse`` on that flag itself, so
+    the check below is belt and braces: it keeps this adapter's refusal pinned by
+    its own test, whatever the transport underneath does.
     """
     params = {
         "geometry": f"{lon},{lat}", "geometryType": "esriGeometryPoint",
@@ -570,12 +610,17 @@ def _parcels(lat: float, lon: float, distance_m: float = 0,
 def _candidate_address(candidate: dict) -> str | None:
     """The street address every record in the candidate shares, or None."""
     addresses = [_address_of(r) for r in candidate["members"]]
-    keys = {address_key(a) for a in addresses}
-    if not addresses or None in keys:
+    if not addresses or any(address_key(a) is None for a in addresses):
         return None
-    if len({(k[0], k[1]) for k in keys}) != 1:
+    # Every pair must agree under the shared rule — the same reason as in
+    # _address_of: "24 MAIN ST" and "24 MAIN AVE" are two buildings even though
+    # each agrees with a bare "24 MAIN".
+    if not all(same_address(a, b) for i, a in enumerate(addresses)
+               for b in addresses[i + 1:]):
         return None
-    return addresses[0]
+    # The most specific spelling: one that carries its street type, so the
+    # chooser compares against that rather than against a bare name.
+    return next((a for a in addresses if address_key(a)[2]), addresses[0])
 
 
 def _candidate_at(lat: float, lon: float, address: str | None = None,
