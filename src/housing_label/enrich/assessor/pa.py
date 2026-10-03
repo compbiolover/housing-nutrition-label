@@ -948,6 +948,13 @@ def _lookup_cached(lat: float, lon: float, address: str | None,
     return _record(county, row) if row else None
 
 
+def url_for(county_fips: str) -> str | None:
+    """The parcel layer that answers for this county, or None if none does — so a
+    dropped lookup is named after the county's own publisher, not another's."""
+    county = COUNTIES.get(county_fips)
+    return county.url if county else None
+
+
 def lookup(lat: float, lon: float, address: str | None = None,
            county_fips: str | None = None) -> AssessorRecord | None:
     """What the county assessor says is standing at this point, or None.

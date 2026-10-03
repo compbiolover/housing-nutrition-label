@@ -873,17 +873,28 @@ def test_a_county_outage_reaches_the_cache_decision():
 def test_every_adapter_host_has_a_readable_name():
     """The payload names the dataset a label went without; a bare hostname would
     tell a reader nothing."""
-    from urllib.parse import urlsplit
-
     from housing_label import utils
     # Every *_URL every registered adapter defines, so a new adapter's host is
-    # checked the day it is registered rather than when someone remembers.
+    # checked the day it is registered rather than when someone remembers. Keyed
+    # as the budget and the payload key it (``utils.host_of``), so an ArcGIS
+    # Online layer is named after its own publisher, not the shard it shares.
     urls = sorted({v for mod in set(A.ADAPTERS.values()) for k, v in vars(mod).items()
                    if k.endswith("_URL") and isinstance(v, str) and v.startswith("http")})
     assert len(urls) >= 8
     for url in urls:
-        host = urlsplit(url).hostname
-        assert utils.dataset_name(host) != host, f"{host} has no readable name"
+        key = utils.host_of(url)
+        assert utils.dataset_name(key) != key, f"{key} has no readable name"
+
+
+def test_a_dropped_county_is_named_after_its_own_publisher():
+    """A multi-county adapter names the county's own layer, through ``url_for``;
+    the first URL constant in the module could be another county's."""
+    from housing_label import utils
+    from housing_label.simulate.location import _assessor_host
+    for mod in set(A.ADAPTERS.values()):
+        for fips in mod.COUNTY_FIPS:
+            key = _assessor_host(fips)
+            assert utils.dataset_name(key) != key, f"{fips}: {key} has no readable name"
 
 
 def test_the_hosted_api_declares_the_adapters_on():

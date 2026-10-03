@@ -110,7 +110,7 @@ def get_json(url: str, params: dict, deadline: float,
     try:
         body = _fetch_json(url, params, deadline, read_slice)
     except Exception:
-        utils.note_dropped(urlsplit(url).hostname or url)
+        utils.note_dropped(utils.host_of(url))
         raise
     # A layer caps how many features one response may carry (1,000 or 2,000 on
     # these services) and says so with ``exceededTransferLimit`` rather than by
