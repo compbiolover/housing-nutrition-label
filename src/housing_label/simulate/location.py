@@ -733,34 +733,33 @@ def _another_house(matched: str, typed: str) -> bool:
     return _contradicts(km[1], kt[1])
 
 
-_NAME_FORMS = {
-    "north": "n", "south": "s", "east": "e", "west": "w", "northeast": "ne",
-    "northwest": "nw", "southeast": "se", "southwest": "sw",
-    "saint": "st", "mount": "mt", "fort": "ft",
-    "first": "1st", "second": "2nd", "third": "3rd", "fourth": "4th", "fifth": "5th",
-    "sixth": "6th", "seventh": "7th", "eighth": "8th", "ninth": "9th", "tenth": "10th",
-    "eleventh": "11th", "twelfth": "12th", "thirteenth": "13th",
-    "fourteenth": "14th", "fifteenth": "15th", "sixteenth": "16th",
-    "seventeenth": "17th", "eighteenth": "18th", "nineteenth": "19th",
-    "twentieth": "20th",
-}
-_DIRECTIONS = frozenset({"n", "s", "e", "w", "ne", "nw", "se", "sw"})
-
-
 def _fold(tokens) -> list[str]:
-    from housing_label.enrich.assessor._shared import SUFFIXES
-    return [SUFFIXES.get(_NAME_FORMS.get(t, t), _NAME_FORMS.get(t, t)) for t in tokens]
+    """Street-name tokens from ``address_key`` with every direction abbreviated and
+    every street type canonicalised, wherever they stand.
+
+    ``address_key`` has already folded ordinals, SAINT/MOUNT/FORT and the
+    directions inside a longer name (``_shared.fold_name``). It leaves a direction
+    that is the WHOLE name alone, because "NORTH ST" is a street called North. This
+    guard folds it anyway: it compares directions as directions, and typed "100
+    SOUTH ST" against a matched "100 N ST" must read as the contradiction it is.
+    Folding further than the parcel comparison does can only find more
+    contradictions here, and a contradiction only hands the adapter the reader's
+    own words — the conservative direction.
+    """
+    from housing_label.enrich.assessor._shared import SPELLED_DIRECTIONS, SUFFIXES
+    return [SUFFIXES.get(t, t) for t in (SPELLED_DIRECTIONS.get(t, t) for t in tokens)]
 
 
 def _contradicts(matched_tokens, typed_tokens) -> bool:
     """Whether the matcher's street-name words contradict the typed ones."""
+    from housing_label.enrich.assessor._shared import DIRECTIONS
     m, t = _fold(matched_tokens), _fold(typed_tokens)
-    md = {w for w in m if w in _DIRECTIONS}
-    td = {w for w in t if w in _DIRECTIONS}
+    md = {w for w in m if w in DIRECTIONS}
+    td = {w for w in t if w in DIRECTIONS}
     if md and td and md != td:
         return True                     # 123 E MAIN is not 123 W MAIN
-    typed_words = [w for w in t if w not in _DIRECTIONS]
-    for word in (w for w in m if w not in _DIRECTIONS):
+    typed_words = [w for w in t if w not in DIRECTIONS]
+    for word in (w for w in m if w not in DIRECTIONS):
         if not any(word == u or u.startswith(word) or word.startswith(u)
                    for u in typed_words):
             return True                 # LINWOOD has no counterpart in LONGWOOD

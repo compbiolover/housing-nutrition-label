@@ -55,7 +55,7 @@ still applies unchanged.
   against "1870 3RD AVE"; "29 PROSPECT PARK WEST" against "29 PROSPECT PARK W".
   Manhattan's own records are not even consistent with Brooklyn's: 350 East 18th
   Street is "350 EAST 18TH STREET" in one borough and "350 EAST 18 STREET" in the
-  other.
+  other. The shared comparison folds both on every state's addresses.
 * **PTS splits the Gaelic prefixes.** "MAC DOUGAL STREET", "MC KINLEY AVENUE"
   against "MACDOUGAL ST" — about 2,000 lots.
 * **Street types sit in the middle of names.** "AVENUE J", "BEACH 116 STREET",
@@ -289,22 +289,14 @@ _BASEMENT = {
 
 _HYPHENATED = re.compile(r"^(\d{1,4})-(\d{1,3})$")
 _LETTERED = re.compile(r"^(\d{1,5})([A-Z])$")
-_ORDINAL = re.compile(r"^(\d+)(?:ST|ND|RD|TH)$")
 
-# Words the two sources spell differently and that name the same thing. The
-# directions are rewritten wherever they stand: leading ("WEST 131 STREET"),
-# trailing ("PROSPECT PARK WEST") and inside a name ("WEST END AVENUE") alike,
-# which is safe only because both sides are rewritten the same way.
-_SPELLINGS = {
-    "EAST": "E", "WEST": "W", "NORTH": "N", "SOUTH": "S",
-    "FT": "FORT", "SAINT": "ST",
-    # PTS truncates its 28-character address field, and writes BL for BLVD.
-    "BL": "BLVD",
-    # Street types the shared table does not know. Census follows USPS
-    # Publication 28; PLUTO spells them out.
-    "CRESCENT": "CRES", "EXPRESSWAY": "EXPY", "EXPWY": "EXPY", "TURNPIKE": "TPKE",
-    "PLAZA": "PLZ", "SQUARE": "SQ", "ALLEY": "ALY",
-}
+# A word the two sources spell differently and that names the same thing. PTS
+# truncates its 28-character address field, and writes BL for BLVD — which
+# elsewhere is not an abbreviation anyone uses, so it is not in the shared table.
+# Spelled-out directions, ordinals, SAINT and FORT, and the street types Census
+# abbreviates and PLUTO spells out (CRESCENT, EXPRESSWAY, PLAZA, ...), were here
+# too; the shared comparison now folds all of them.
+_SPELLINGS = {"BL": "BLVD"}
 
 
 def _house_number(token: str) -> str:
@@ -382,9 +374,6 @@ def _street_form(raw: str | None) -> str | None:
     out = [_house_number(tokens[0])]
     rest = _join_prefixes(tokens[1:])
     for token in rest:
-        m = _ORDINAL.match(token)
-        if m:
-            token = m.group(1)
         token = _SPELLINGS.get(token, token)
         # A street type in the middle of a name ("AVENUE J", "BEACH 116 STREET")
         # is canonicalised as well as a terminal one: address_key only looks at the

@@ -278,8 +278,16 @@ def test_a_city_with_no_state_is_trimmed_when_it_is_the_rows_own():
 def test_a_tail_that_cannot_be_told_from_the_street_is_left_alone():
     """No street type and no ``scity``: the city cannot be found, so nothing is
     cut. The comparison then refuses the parcel rather than guessing."""
+    row = dict(_HOUSE, siteadd="98 CHESTNUT KNOB ROBBINSVILLE NC 28771", scity="")
+    assert nc._address_of(row) == "98 CHESTNUT KNOB ROBBINSVILLE NC 28771"
+
+
+def test_a_cove_is_a_street_type_so_its_city_tail_is_found():
+    """COVE joined the shared street types (USPS "CV"), so the city run on after
+    it is now recognised and cut — the address this test used to pin as
+    unreadable is in fact an ordinary one."""
     row = dict(_HOUSE, siteadd="98 CHESTNUT COVE ROBBINSVILLE NC 28771", scity="")
-    assert nc._address_of(row) == "98 CHESTNUT COVE ROBBINSVILLE NC 28771"
+    assert nc._address_of(row) == "98 CHESTNUT COVE"
 
 
 def test_a_route_number_after_nc_is_not_a_state():
@@ -347,7 +355,8 @@ def test_a_trailing_directional_matches_a_leading_one():
 def test_spelled_out_directionals_and_street_types():
     assert nc._comparable("6511 EAST LANGLEY RD") == nc._comparable("6511 E LANGLEY RD")
     assert nc._comparable("1861 QUEENS RD WEST") == nc._comparable("1861 QUEENS RD W")
-    assert nc._comparable("6824 CARRADALE WY") == nc._comparable("6824 CARRADALE WAY")
+    assert _shared.same_address(nc._comparable("6824 CARRADALE WY"),
+                                nc._comparable("6824 CARRADALE WAY"))
     assert nc._comparable("1004 WINDRACE TR NORTH") == "1004 N WINDRACE TRL"
 
 

@@ -147,10 +147,12 @@ which the Census matcher does not echo:
   street with Lane as LA: "ASPEN LA NEW CITY" for "ASPEN LN".
 
 The geocoder is inconsistent itself (Fifth/5TH but SIXTH), so no single rewrite
-of the roll can be right. Each roll street is offered in a short list of
-spellings — as written, with the ordinal as a numeral, with one direction moved
-or abbreviated — and the one the query matches is used, through the same strict
-``same_address``. Every spelling names the same street, so this can only turn a
+of the roll can be right. The spelled-out ordinal and direction need nothing
+here: the shared comparison folds "FIFTH" and "5TH" alike, and "WEST HILL" and
+"W HILL", on both sides. A direction placed after the street is the one thing
+left, and it is handled by offering each roll street in a short list of
+spellings — as written, and with one direction moved — and using the one the
+query matches, through the same strict ``same_address``. Every spelling names the same street, so this can only turn a
 failed match into a match on that street, never confirm a different one. A
 hamlet tail is cut only when it follows a street type and is one of the phrases
 Clarkstown actually writes; single-letter and directional tokens are never
@@ -307,16 +309,9 @@ _FIELDS = ("SWIS_SBL_ID,PARCEL_ADDR,LOC_ST_NBR,LOC_STREET,LOC_UNIT,PROP_CLASS,"
 # Spellings the roll uses and the Census matcher does not; see "The roll's spelling
 # and the geocoder's" in the module docstring. Each is applied as an ALTERNATIVE
 # spelling of the same street, never as a replacement.
-_ORDINALS = {
-    "first": "1st", "second": "2nd", "third": "3rd", "fourth": "4th", "fifth": "5th",
-    "sixth": "6th", "seventh": "7th", "eighth": "8th", "ninth": "9th", "tenth": "10th",
-    "eleventh": "11th", "twelfth": "12th", "thirteenth": "13th",
-    "fourteenth": "14th", "fifteenth": "15th", "sixteenth": "16th",
-    "seventeenth": "17th", "eighteenth": "18th", "nineteenth": "19th",
-    "twentieth": "20th",
-}
 _DIRECTIONS = {"north": "N", "south": "S", "east": "E", "west": "W"}
-_TYPE_SPELLINGS = {"la": "Ln", "terr": "Ter"}
+# LA is Lane only here, in Clarkstown; it is not in the shared table.
+_TYPE_SPELLINGS = {"la": "Ln"}
 _STREET_TYPES = frozenset(SUFFIXES) | frozenset(_TYPE_SPELLINGS)
 # The hamlet tails the Town of Clarkstown runs into its street column, exactly as
 # written there (measured over its 1,660 residential street names). Matched only
@@ -356,7 +351,7 @@ def _parcel_id(attrs: dict) -> str | None:
 
 def _base_tokens(raw: str) -> list[str]:
     """The roll's street as tokens: apostrophes dropped, a Clarkstown hamlet tail
-    cut, and Lane/Terrace written the way the shared suffix table knows them."""
+    cut, and Clarkstown's LA written the way the shared suffix table knows Lane."""
     tokens = raw.replace("'", "").replace("\u2019", "").split()
     for tail in _LOCALITY_TAILS:
         n = len(tail)
@@ -368,19 +363,6 @@ def _base_tokens(raw: str) -> list[str]:
     if tokens and tokens[-1].lower() in _TYPE_SPELLINGS:
         tokens = tokens[:-1] + [_TYPE_SPELLINGS[tokens[-1].lower()]]
     return tokens
-
-
-def _numeral_ordinal(tokens: list[str]) -> list[str] | None:
-    if len(tokens) >= 2 and tokens[-1].lower() in SUFFIXES \
-            and tokens[-2].lower() in _ORDINALS:
-        return tokens[:-2] + [_ORDINALS[tokens[-2].lower()], tokens[-1]]
-    return None
-
-
-def _abbreviate_leading_direction(tokens: list[str]) -> list[str] | None:
-    if len(tokens) >= 3 and tokens[0].lower() in _DIRECTIONS:
-        return [_DIRECTIONS[tokens[0].lower()]] + tokens[1:]
-    return None
 
 
 def _lead_trailing_direction(tokens: list[str]) -> list[str] | None:
@@ -402,21 +384,16 @@ def _trail_leading_direction(tokens: list[str]) -> list[str] | None:
 def _street_spellings(raw: str) -> list[str]:
     """Every spelling of this roll street that is still the same street.
 
-    One transformation at a time from the written form (and from its numeral
-    form): "West Hill Rd" may become "W Hill Rd" but never "Hill Rd W", because a
+    One transformation from the written form: "Edwards Ave N" may become "N
+    Edwards Ave", but "West Hill Rd" never becomes "Hill Rd W", because a
     direction the roll spelled out as part of a name is not moved to its other end.
     """
     base = _base_tokens(raw)
     spellings = [base]
-    numbered = _numeral_ordinal(base)
-    if numbered:
-        spellings.append(numbered)
-    for tokens in list(spellings):
-        for transform in (_abbreviate_leading_direction, _lead_trailing_direction,
-                          _trail_leading_direction):
-            changed = transform(tokens)
-            if changed and changed not in spellings:
-                spellings.append(changed)
+    for transform in (_lead_trailing_direction, _trail_leading_direction):
+        changed = transform(base)
+        if changed and changed not in spellings:
+            spellings.append(changed)
     return [" ".join(t) for t in spellings if t]
 
 
@@ -498,16 +475,9 @@ def _parcels(lat: float, lon: float, distance_m: float = 0, unit: str | None = N
 
 def _same_number_nearby(lat: float, lon: float, number: str, unit: str | None,
                         *, deadline: float) -> list[dict]:
-    body = _shared.get_json(PARCEL_URL, {
-        "geometry": f"{lon},{lat}", "geometryType": "esriGeometryPoint",
-        "inSR": "4326", "outSR": "4326",
-        "spatialRel": "esriSpatialRelIntersects",
-        "distance": str(UNIQUENESS_RADIUS_M), "units": "esriSRUnit_Meter",
-        "where": f"LOC_ST_NBR='{number}' OR PARCEL_ADDR LIKE '{number} %'",
-        "outFields": _FIELDS, "returnGeometry": "false", "f": "json",
-    }, deadline)
-    rows = [(f or {}).get("attributes") or {}
-            for f in ((body or {}).get("features") or [])]
+    rows = _shared.arcgis_parcels(
+        PARCEL_URL, lat, lon, _FIELDS, UNIQUENESS_RADIUS_M, deadline=deadline,
+        where=f"LOC_ST_NBR='{number}' OR PARCEL_ADDR LIKE '{number} %'")
     return _candidates(rows, unit)
 
 

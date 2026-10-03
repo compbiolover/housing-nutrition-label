@@ -487,18 +487,11 @@ def test_a_spelled_out_prefix_directional_matches_its_letter():
 
 def test_the_rewrites_do_not_loosen_the_comparison():
     """"North" as a street's own name is not a directional; a different house number
-    or street type still never matches; SAINT as the last word is left alone."""
-    assert md._canonical("100 NORTH ST") == "100 NORTH ST"
-    assert not _shared.same_address(md._canonical("100 N ST"),
-                                    md._canonical("100 NORTH ST"))
-    assert not _shared.same_address(md._canonical("9207 ST ANDREWS PL"),
-                                    md._canonical("9205 SAINT ANDREWS PL"))
-    assert not _shared.same_address(md._canonical("9205 ST ANDREWS CT"),
-                                    md._canonical("9205 SAINT ANDREWS PL"))
-    assert md._canonical("12 SAINT") == "12 SAINT"
-    assert md._canonical("43 S PROSPECT ST #5, HAGERSTOWN, MD") == \
-        "43 S PROSPECT ST #5, HAGERSTOWN, MD"
-    assert md._canonical(None) is None
+    or street type still never matches; SAINT as the last word is not "ST"."""
+    assert not _shared.same_address("100 N ST", "100 NORTH ST")
+    assert not _shared.same_address("9207 ST ANDREWS PL", "9205 SAINT ANDREWS PL")
+    assert not _shared.same_address("9205 ST ANDREWS CT", "9205 SAINT ANDREWS PL")
+    assert not _shared.same_address("12 SAINT", "12 ST")
 
 
 # ── storeys and construction ───────────────────────────────────────────────────

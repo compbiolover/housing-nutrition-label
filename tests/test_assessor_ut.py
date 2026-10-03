@@ -34,6 +34,7 @@ import time
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 from housing_label.enrich.assessor import _shared, ut
+from housing_label.enrich.assessor._shared import same_address
 
 _ASOF = 1761782400000          # 2025-10-30, Utah County's CURRENT_ASOF, recorded live
 
@@ -231,12 +232,13 @@ def test_a_spelled_out_grid_street_is_the_same_street():
     assert got is not None and got.parcel_id == "B-1"
 
 
-def test_the_grid_word_is_abbreviated_only_after_a_number():
-    """"SOUTH WEBER DR" is a street's name, not a grid direction."""
-    assert ut._grid_form("1820 E SOUTH WEBER DR, SOUTH WEBER, UT") == \
-        "1820 E SOUTH WEBER DR, SOUTH WEBER, UT"
-    assert ut._grid_form("20 E 200 NORTH ST, DUCHESNE, UT") == "20 E 200 N ST, DUCHESNE, UT"
-    assert ut._grid_form(None) is None
+def test_a_direction_word_in_a_name_is_folded_never_dropped():
+    """"SOUTH WEBER DR" is a street's name. Folding its direction word to "S" on
+    both sides keeps it a name — it still differs from plain "WEBER DR" — while
+    the grid street "200 NORTH" is the roll's "200 N"."""
+    assert same_address("1820 E SOUTH WEBER DR, SOUTH WEBER, UT", "1820 E S WEBER DR")
+    assert not same_address("1820 E SOUTH WEBER DR", "1820 E WEBER DR")
+    assert same_address("20 E 200 NORTH ST, DUCHESNE, UT", "20 E 200 N ST")
 
 
 def test_a_cove_is_a_cv():
@@ -245,7 +247,7 @@ def test_a_cove_is_a_cv():
     cove = dict(_HOUSE, PARCEL_ID="SJ-1", PARCEL_ADD="10806 S COUNTRY CREEK CV")
     got = _lookup([], near=[cove], address="10806 S COUNTRY CREEK COVE, SOUTH JORDAN, UT")
     assert got is not None and got.parcel_id == "SJ-1"
-    assert ut._grid_form("12 COVE CREEK DR") == "12 COVE CREEK DR", "not terminal"
+    assert not same_address("12 COVE CREEK DR", "12 CREEK DR"), "a name, not a type"
 
 
 def test_a_missing_leading_directional_is_still_a_different_address():

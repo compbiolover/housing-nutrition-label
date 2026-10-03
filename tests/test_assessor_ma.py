@@ -84,7 +84,7 @@ _POINT = (42.5793, -71.4378)
 
 
 def _lookup(exact, near=(), address=None, slices=None, params=None, extra=None):
-    """Drive ``ma.lookup()`` over recorded rows, through the real transport call.
+    """Drive ``ma.lookup()`` over recorded rows, beneath the real transport call.
 
     ``exact`` is what the point lands inside; ``near`` is what the 80 m buffer
     finds. ``extra`` is merged into every response body.
@@ -99,12 +99,12 @@ def _lookup(exact, near=(), address=None, slices=None, params=None, extra=None):
         return {"features": [{"attributes": dict(a)} for a in rows], **(extra or {})}
 
     ma._lookup_cached.cache_clear()
-    saved = _shared.get_json
-    _shared.get_json = fake
+    saved = _shared._fetch_json
+    _shared._fetch_json = fake
     try:
         return ma.lookup(*_POINT, address)
     finally:
-        _shared.get_json = saved
+        _shared._fetch_json = saved
         ma._lookup_cached.cache_clear()
 
 
