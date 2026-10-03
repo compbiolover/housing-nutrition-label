@@ -208,7 +208,7 @@ def test_a_dc_offset_that_recovers_on_retry_is_not_fatal():
 def test_both_samplers_refuse_the_same_answers():
     """The two have drifted apart twice — once on an empty 200, once on a row
     with no identifier — and each time one jurisdiction quietly tolerated what
-    the other rejected. Pin the parity rather than the two behaviours."""
+    the other rejected. Pin the parity rather than the two behaviors."""
     cook = (_cook_portal, lambda: B._cama_sample("2024", 2, SEED),
             {"nothing": lambda off: None, "no identifier": lambda off: {"pin": ""}})
     dc = (_dc_portal, lambda: B._dc_sample(2, SEED),
@@ -392,7 +392,7 @@ def test_the_join_reports_which_parcels_the_layer_actually_held():
     about the assessor, and both used to leave the same trace — no entry in the
     returned map — so the build reported every addressless parcel as one the layer
     had never heard of. Splitting the drop REASONS without making the DATA carry
-    the distinction only relabelled the misattribution, and left `no_address` a
+    the distinction only relabeled the misattribution, and left `no_address` a
     branch that could never be taken.
     """
     body = {"features": [{"attributes": {
@@ -441,7 +441,7 @@ def test_a_malformed_offset_body_is_a_failed_offset_not_a_crash():
 def test_an_unusable_rows_argument_costs_no_request_in_either_jurisdiction():
     """Cook resolved the assessment year FIRST, so --rows 0 made a live portal
     request before being told the argument was unusable — the docstring promised
-    otherwise and the DC path honoured it while Cook did not."""
+    otherwise and the DC path honored it while Cook did not."""
     calls = []
 
     def fetch(url, params):
@@ -660,7 +660,7 @@ def test_the_index_answering_about_a_different_unit_is_refused():
 
 
 def test_the_condo_truth_leaves_blank_what_its_table_does_not_record():
-    """The condominium table has no wall, storey, basement or condition column.
+    """The condominium table has no wall, story, basement or condition column.
     Borrowing them from the building the unit sits in would grade the adapter
     against a different structure's record."""
     truth = B._dc_condo_truth({"SSL": "2528    2029", "AYB": 1911.0,

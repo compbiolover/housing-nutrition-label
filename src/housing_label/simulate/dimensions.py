@@ -141,7 +141,7 @@ def resolve_water_source(cfg: dict, location=None) -> str:
     water reported as this home's.
 
     An unreachable service leaves ``water_system`` None, which is NOT "outside" and
-    resolves to "public" — the pre-detection behaviour, so an outage cannot unscore
+    resolves to "public" — the pre-detection behavior, so an outage cannot unscore
     Water Quality for every address at once."""
     stated = cfg.get("water_source")
     if stated is not None:
@@ -235,9 +235,9 @@ LOCATION_DRIVEN = {"resilience", "infrastructure", "air_quality", "noise",
 # Both measure the PEOPLE nearby rather than the place: Census ACS income,
 # poverty and education; CDC PLACES chronic-disease prevalence. Both are constant
 # across a census tract, so publishing a per-address letter grade built on them is
-# publishing a map of neighbourhoods graded by their residents' income and health
+# publishing a map of neighborhoods graded by their residents' income and health
 # — which is what a residential security map was. Redfin, Realtor.com and Trulia
-# all withdrew neighbourhood crime data in December 2021 over the same concern.
+# all withdrew neighborhood crime data in December 2021 over the same concern.
 #
 # Keeping the rows visible preserves the information for someone who wants it;
 # keeping them out of the aggregate means the headline grade measures the site and
@@ -356,7 +356,7 @@ def per_unit_home_value(cfg: dict) -> float:
 
 # ── Build a synthetic CAMA parcel row from the simulator config ─────────────────
 def _feet_to_m(feet) -> float:
-    """Feet → metres, tolerant of missing / non-numeric input (→ NaN)."""
+    """Feet → meters, tolerant of missing / non-numeric input (→ NaN)."""
     try:
         return float(feet) * 0.3048
     except (TypeError, ValueError):
@@ -394,7 +394,7 @@ def build_parcel_row(cfg: dict) -> dict:
         # Stories drives the embodied-carbon footprint (a 1-story home spreads more
         # foundation + roof over its floor area than a 2-story of the same size).
         "STORIES":   cfg.get("stories") or np.nan,
-        # Optional actual basement depth (metres) for the embodied foundation term;
+        # Optional actual basement depth (meters) for the embodied foundation term;
         # absent / non-numeric → NaN, and the embodied model falls back to a
         # per-foundation-type default depth (degrades gracefully, never crashes).
         "basement_depth_m": _feet_to_m(cfg.get("basement_depth_ft")),
@@ -716,7 +716,7 @@ def fetch_location_dimensions(
             else:
                 # Name the real scope. CDC PLACES omits some states wholesale, and
                 # telling a Philadelphian "no health data for tract 42101000100"
-                # points at their neighbourhood for a gap that is statewide and
+                # points at their neighborhood for a gap that is statewide and
                 # upstream — it reads as a bad tract id rather than as the survey
                 # having no outcome data for Pennsylvania at all.
                 gap = health_data.states_without_data()
@@ -728,7 +728,7 @@ def fetch_location_dimensions(
                         f"{usps_for_fips(st) or st}, so Health Impact is unscored "
                         f"across the whole state — not a gap in this tract. Left "
                         f"unscored rather than filled with the national average, "
-                        f"which would read as an average neighbourhood instead of "
+                        f"which would read as an average neighborhood instead of "
                         f"an unmeasured one")
                 else:
                     notes["health"] = f"no health data for tract {tract}"
@@ -965,7 +965,7 @@ def simulate_all_dimensions(
     # home in the clear got whichever of the two the centroid happened to land near.
     #
     # PVGIS is natively a point API. Asking it about this address is not a new data
-    # source or a modelling assumption, it is the same query without the coarsening.
+    # source or a modeling assumption, it is the same query without the coarsening.
     # So unlike the noise refinement there is no gate and no direction restriction:
     # the point answer is strictly better evidence than the county one and replaces
     # it, up or down.

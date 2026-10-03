@@ -45,7 +45,7 @@ none. When there is a customer, there can be a database.
 
 **Not a gate on self-hosting.** With ``HOUSING_LABEL_KEYS`` unset there is no
 registry, every caller resolves to :data:`ANONYMOUS`, and the API behaves exactly
-as it did before this module existed. The licence invites you to run it yourself
+as it did before this module existed. The license invites you to run it yourself
 (README, "read it, run it, modify it, self-host it") and a self-hosted instance
 that demanded keys would be a smaller promise than the one that was made. Keys
 only ever *raise* a caller above anonymous; there is no way to configure one that
@@ -69,7 +69,7 @@ difference matters. The API also accepts a key as ``?key=``, and a query string
 is part of the request line: uvicorn's access log, any reverse proxy or load
 balancer in front of it, browser history and the ``Referer`` header will all
 capture it verbatim, and no amount of care in here can unwrite them. Steer
-callers to the ``X-API-Key`` header, and treat a key that has travelled as a
+callers to the ``X-API-Key`` header, and treat a key that has traveled as a
 query parameter as one to rotate.
 
 ``ANON_DAILY_SCORES`` sets the anonymous plan's daily allowance and defaults to

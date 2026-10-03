@@ -9,7 +9,7 @@ from __future__ import annotations
 from housing_label.enrich import health as H
 
 
-def test_clean_tract_normalises_geoid():
+def test_clean_tract_normalizes_geoid():
     assert H._clean_tract("47157000400.0") == "47157000400"
     assert H._clean_tract("400") == "00000000400"
     for empty in (None, "nan", "None", ""):

@@ -200,7 +200,7 @@ def test_geography_without_coordinates_is_refused():
 
 
 def test_unknown_house_field_is_refused_by_name():
-    """The silent-drop this whole path was blocked on: an unrecognised kwarg used
+    """The silent-drop this whole path was blocked on: an unrecognized kwarg used
     to vanish into **fields and score a subtly different parcel."""
     from housing_label.simulate.house import build_label_parts
     try:
@@ -443,7 +443,7 @@ def test_defaults_still_move_the_building_grade():
     pedantry — while no longer overstating it.
 
     This assertion used to demand a 40-point gap, which held only because an
-    attribute-free row was scored as a 2024 new build in a 1950s neighbourhood. Now
+    attribute-free row was scored as a 2024 new build in a 1950s neighborhood. Now
     that the assumed vintage follows the tract, most of that gap was never about the
     missing *attributes* at all — it was one bad default. What is left (condition,
     construction, foundation) is real and still worth a grade step, so the warning
@@ -469,7 +469,7 @@ def test_defaults_still_move_the_building_grade():
     assert abs(blank["site_score"] - real["site_score"]) < 1.0
 
 
-def test_a_defaulted_grade_follows_the_neighbourhoods_vintage():
+def test_a_defaulted_grade_follows_the_neighborhoods_vintage():
     """The improvement, pinned: the default is no longer a flat optimistic constant.
 
     Two Shelby County tracts, identical rows, nothing supplied. The 1950s tract has
@@ -487,7 +487,7 @@ def test_a_defaulted_grade_follows_the_neighbourhoods_vintage():
     assert b["building_score"] - a["building_score"] > 40, (
         f"defaulted grades barely differ between a 1950s and a 2010s tract "
         f"({a['building_score']} vs {b['building_score']}) — the assumed vintage "
-        f"is not tracking the neighbourhood")
+        f"is not tracking the neighborhood")
 
 
 def test_the_run_summary_counts_defaulted_and_partial_separately():

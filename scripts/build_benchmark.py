@@ -24,7 +24,7 @@ Three are supported, selected with ``--jurisdiction``:
   dc-condo  Washington, DC — the other table. Condominium CAMA keyed by unit SSL,
             placed through the District's unit index, which holds the only
             keyless address-and-unit edge. Two graded fields rather than six: that
-            table records no wall, storey, basement or condition.
+            table records no wall, story, basement or condition.
 
 DC is two entries rather than one because they are not one population sampled
 twice — different tables, different lookups, different fields answered. A single
@@ -111,7 +111,7 @@ def _write_atomic(path: pathlib.Path, data: str | bytes) -> None:
     path shared by every concurrent build of the same jurisdiction: two of them
     interleave their bytes into it, or one renames it away while the other is still
     filling it, and the rename that was supposed to make the write atomic delivers
-    a torn file instead. Builds are not otherwise serialised — they are long,
+    a torn file instead. Builds are not otherwise serialized — they are long,
     manual, and there is nothing to stop two.
 
     Same directory as the target, because a rename is only atomic within a
@@ -416,7 +416,7 @@ def _primary_cards(year: str, pins: list[str]) -> list[dict]:
         # A SHORT answer is legitimate for the parcel-layer joins — those parcels
         # really can be absent from the layer, which is what a `no_address` drop
         # records. It is NOT legitimate here, and treating the two the same was a
-        # rule generalised past its evidence: every PIN in this chunk was returned
+        # rule generalized past its evidence: every PIN in this chunk was returned
         # by THIS table filtered to THIS year moments ago, so each provably has a
         # card. A missing one is a truncated response (a `$limit` cut, a partial
         # page), and it would vanish from the sample and be published as a house
@@ -443,7 +443,7 @@ def _parcel_info(pins: list[str]) -> tuple[dict[str, dict], set[str]]:
     parcel as one the layer had never heard of — a stronger claim than the evidence
     supports, and the very misattribution the split into separate drop reasons was
     supposed to end. Splitting the REPORT without making the DATA carry the
-    distinction just relabelled it.
+    distinction just relabeled it.
     """
     out: dict[str, dict] = {}
     present: set[str] = set()
@@ -580,7 +580,7 @@ def _dc_sample(rows: int, seed: int) -> tuple[list[dict], dict]:
                 #
                 # Adding the check here rejected all six offsets of a live build
                 # on the first run, which is how the difference was noticed: one
-                # more rule generalised past the evidence for it.
+                # more rule generalized past the evidence for it.
                 #
                 # A row with no SSL joins the empty and error cases: it cannot be
                 # resolved to an address, so it is an offset that did not answer.
@@ -830,7 +830,7 @@ def _dc_condo_truth(row: dict) -> dict | None:
     """DC's condominium record, in the label's vocabulary. None if ungradeable.
 
     Two fields, and four deliberately empty. The condominium table has no exterior
-    wall, no storey count, no basement and no condition column, so those are left
+    wall, no story count, no basement and no condition column, so those are left
     blank rather than borrowed from the building the unit sits in — that is a
     different structure's record, and filling them from it would grade the adapter
     against something the District never said about this home.
@@ -916,7 +916,7 @@ def main() -> int:
     # checked it too, but Cook resolves the assessment year FIRST, so `--rows 0`
     # made a live portal request before being told the argument was unusable —
     # the docstring promised "an unusable argument should not cost a request" and
-    # the DC path honoured it while Cook did not.
+    # the DC path honored it while Cook did not.
     if args.rows < 1:
         raise SystemExit(f"--rows must be at least 1 (got {args.rows})")
 

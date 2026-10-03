@@ -265,7 +265,7 @@ window.LabelCore = (function () {
   // because both measure the PEOPLE nearby (ACS income and education, CDC PLACES
   // disease prevalence) rather than the place, and both are constant across a
   // census tract. A per-address letter grade built on them is a map of
-  // neighbourhoods graded by their residents — see simulate/dimensions.py.
+  // neighborhoods graded by their residents — see simulate/dimensions.py.
   var GROUP_LABEL = {
     construction: "The building itself",
     location: "The site &amp; environment",
@@ -474,7 +474,7 @@ window.LabelCore = (function () {
       var bits = [];
       if (h.construction) bits.push(WALL_LABELS[h.construction] || h.construction);
       // Mirrors housing_label.confidence.year_built_display — the terminal card, the
-      // printable SVG and this one all state a neighbourhood typical as the range it
+      // printable SVG and this one all state a neighborhood typical as the range it
       // came from. A bare number here reads as a fact about the building, and this
       // is the one field whose whole difficulty is that it usually is not one.
       var ybInfo = (data.building || {}).year_built;
@@ -567,7 +567,7 @@ window.LabelCore = (function () {
     aging: "modeled aging"
   };
 
-  // How a trajectory moves. Deliberately NOT the up/down colouring deltaTable
+  // How a trajectory moves. Deliberately NOT the up/down coloring deltaTable
   // uses: there, green means "the option you're considering wins". Here a rising
   // score is simply the place or the building getting better, which is a claim
   // about the world rather than about a choice, so the word carries it and the

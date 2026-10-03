@@ -78,7 +78,7 @@ def _ring_area_deg2(ring: list) -> float:
 # the rooftop, so an exact point-in-polygon test frequently misses the building.
 # When it does, we search a box around the point and pick the addressed home.
 _MAX_ASSOC_M = 40.0   # a footprint centroid farther than this isn't this address's home
-_DEG_PER_M_LAT = 1.0 / 111_320.0   # metres → degrees latitude
+_DEG_PER_M_LAT = 1.0 / 111_320.0   # meters → degrees latitude
 
 
 def _num(v) -> float | None:
@@ -153,7 +153,7 @@ def _select_building(feats: list[dict], lat: float, lon: float,
 def _compact(feature: dict) -> dict:
     """What choosing a building and measuring it need, and nothing else.
 
-    The candidates are memoised so a label can fetch them beside NSI; a raw
+    The candidates are memoized so a label can fetch them beside NSI; a raw
     feature carries every polygon ring of every building in the box, and a memo of
     thousands of those is the kind of retained geometry this 512 MB host cannot
     spare (``structure.py`` refuses to cache its feature lists for the same
@@ -193,7 +193,7 @@ def _candidates_at(lat: float, lon: float) -> tuple[dict | None, list[dict]]:
         best = max(primary, key=lambda f: _num((f.get("attributes") or {}).get("SQMETERS")) or 0.0)
         return _compact(best), []
     # 2) Parcel/street geocode → no containing footprint; pick the addressed home
-    # from the primary buildings in a box around the point. Size the box in metres
+    # from the primary buildings in a box around the point. Size the box in meters
     # (± _MAX_ASSOC_M, longitude widened by 1/cos(lat), the cos capped at 0.1 so the
     # span stays finite past ~84° — irrelevant for US addresses) so it covers the
     # full acceptance radius rather than a fixed degree span.
@@ -207,7 +207,7 @@ def _candidates_at(lat: float, lon: float) -> tuple[dict | None, list[dict]]:
 
 def warm(lat: float, lon: float) -> None:
     """Fetch the candidates for this point now, for :func:`footprint_for_point` to
-    find memoised later. Rounded exactly as that function rounds."""
+    find memoized later. Rounded exactly as that function rounds."""
     _candidates_at(round(float(lat), 6), round(float(lon), 6))
 
 

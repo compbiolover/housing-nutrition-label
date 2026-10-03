@@ -73,7 +73,7 @@ Operational env vars::
     HOUSING_LABEL_KEYS "plan:key" entries, comma-separated, issuing API keys
                        (unset by default: everyone is anonymous)
     ANON_DAILY_SCORES  daily scoring passes allowed without a key
-                       (default 0 = unmetered, which is the historical behaviour)
+                       (default 0 = unmetered, which is the historical behavior)
     LABEL_CACHE_SIZE   max cached label results (default 512; 0 disables)
     LABEL_CACHE_TTL    cache entry lifetime in seconds (default 21600 = 6 h)
     HTTP_TIMEOUT       seconds per upstream call (default 60; render.yaml sets 12)
@@ -341,13 +341,13 @@ async def _cache_headers(request, call_next):
 # everyone. A per-caller token bucket (default 30/min, override with the
 # RATE_LIMIT env var; set it to "" / "0" to disable) fronts every endpoint via
 # SlowAPIMiddleware; /healthz is exempted so probes are never throttled. "Caller"
-# is the remote address, or the API key when one is recognised — see _bucket.
+# is the remote address, or the API key when one is recognized — see _bucket.
 RATE_LIMIT = os.environ.get("RATE_LIMIT", "30/minute").strip()
 _RATE_LIMIT_OFF = not RATE_LIMIT or RATE_LIMIT.lower() in ("0", "off", "none")
 
 
 def _bucket(request: Request) -> str:
-    """Who is being rate-limited: a recognised API key, else the remote address.
+    """Who is being rate-limited: a recognized API key, else the remote address.
 
     Two callers behind one office NAT share an IP and therefore share one bucket,
     which is the right default for anonymous traffic and the wrong one for a
@@ -359,7 +359,7 @@ def _bucket(request: Request) -> str:
     caller without replacing the limiter (see housing_label.entitlements). What a
     key changes here is who you share the bucket with, not how big it is.
 
-    An unrecognised key falls back to the address on purpose: it must not mint a
+    An unrecognized key falls back to the address on purpose: it must not mint a
     fresh bucket per guess, and the request is about to be refused by ``_caller``
     anyway. Must never raise — the middleware calls this before any endpoint
     runs, so an exception here would be a 500 on every request.
@@ -1159,7 +1159,7 @@ def _times_upstreams(name: str):
     """Give an endpoint the timing window, without reshaping its body.
 
     A decorator rather than a ``with`` inside each one: these bodies run 70 to
-    115 lines and wrapping them by hand is five reindentations for no behaviour,
+    115 lines and wrapping them by hand is five reindentations for no behavior,
     which is how a mechanical edit becomes a bug on a production fix. FastAPI
     reads the signature through ``functools.wraps``, so the endpoint it sees is
     the one that was written.
@@ -1613,7 +1613,7 @@ def label_sheet(
     # Both free-text parameters are caller input landing in a document a browser
     # will parse. The renderer escapes them and truncates what it draws, so the
     # sheet is already bounded whatever arrives — these caps bound the *work*
-    # instead, so a caller cannot make the server normalise half a megabyte of
+    # instead, so a caller cannot make the server normalize half a megabyte of
     # "address" to draw two lines of it. 200 is well past what the title can show.
     caption = (label_text or address or "")[:200] or None
     svg = sheet_svg.render_sheet(

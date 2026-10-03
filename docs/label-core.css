@@ -236,7 +236,7 @@
 /* ── "Refine building details" auto-fill panel (index.html + label.html) ─────*/
 /* Shared so the address-derived building form + provenance tags look identical
    on the home hero and the Label page. Page-specific chrome (the dark-hero
-   colour overrides on index) stays inline on that page. */
+   color overrides on index) stays inline on that page. */
 .addr-details { margin: 0 0 0.5rem; }
 .addr-details summary { cursor: pointer; color: var(--navy); font-weight: 600; font-size: 0.9rem; padding: 0.3rem 0; }
 .addr-fields { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 0.6rem 0; }
@@ -272,7 +272,7 @@
 
 /* ── Trajectory tables (the "Over time" view) ───────────────────────────────*/
 /* Same table skeleton as .delta-table, which is why they share the class —
-   the up/down/flat colours mean "the world moved this way" here rather than
+   the up/down/flat colors mean "the world moved this way" here rather than
    "this option wins", and that difference is carried by the words beside them
    (LabelCore.trajDir), not by the palette. */
 .traj-table { margin-top: 1.5rem; }
@@ -546,8 +546,8 @@
       page that ends early, so rows, cells, the cost strip and the notice are all
       break-inside: avoid, and a group heading is never left stranded at the
       bottom of a page without its first row.
-   4. WHAT COLOUR IT IS. Grade fills are kept (print-color-adjust: exact) because
-      the colour is a channel, not decoration — but never the only one: the
+   4. WHAT COLOR IT IS. Grade fills are kept (print-color-adjust: exact) because
+      the color is a channel, not decoration — but never the only one: the
       letter, the number, and the bar length all carry the same grade, so a
       grayscale printer, a fax, or a photocopy of a photocopy loses nothing that
       matters. Dark mode is overridden back to ink-on-white: a reader who prints
@@ -565,7 +565,7 @@
   .print-stamp { display: block; margin: 0.5rem 0 0; font-size: 8pt; color: #555;
     line-height: 1.45; }
   /* Fine print that only just clears the paper is fine print nobody can read.
-     The notice keeps its quiet position and gives up its light grey. */
+     The notice keeps its quiet position and gives up its light gray. */
   .label-legal, .conf-legend { color: #333 !important; }
 
   /* 4. Ink on white, whatever the screen was set to, with the grade fills kept. */

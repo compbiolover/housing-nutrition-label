@@ -229,7 +229,7 @@ WATER_SEWER_COST_BY_DENSITY = [
 # Splitting it properly means rebuilding govfinance_county.csv with the two
 # functions kept apart — a separate change. Until then an even split is the
 # neutral assumption, and it is applied to BOTH the cost and the fee-revenue side
-# so neither is silently favoured.
+# so neither is silently favored.
 WATER_LEG_SHARE = 0.5     # water supply / distribution
 SEWER_LEG_SHARE = 0.5     # sewerage collection / treatment
 
@@ -428,7 +428,7 @@ def police_cost(base: float, density: float) -> float:
 def density_normalizer(county_du_acre: float | None) -> float:
     """``shape(D_SHELBY) / shape(county_du_acre)``, clamped.
 
-    Returns 1.0 for an unknown county — no correction, the pre-existing behaviour —
+    Returns 1.0 for an unknown county — no correction, the pre-existing behavior —
     so a missing crosswalk row degrades to the old model rather than a wrong one.
 
     The ROAD curve is the reference shape for every component. Using each
@@ -519,7 +519,7 @@ def enrich_row(row: dict, *,
     others:
 
       * Municipal curbside collection stops at the city limit. Unincorporated
-        county residents haul to a convenience centre or contract a private hauler
+        county residents haul to a convenience center or contract a private hauler
         privately; either way it is not a public cost allocated to that parcel, and
         the trash fee that recovers it is not paid to a city. So the cost and its
         fee revenue both leave, the same treatment a well and a septic field get.

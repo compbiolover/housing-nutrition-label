@@ -11,7 +11,7 @@ polygon exists. Measured at 213 W Main St, Barrington — the geocode falls 38 m
 from its parcel and hits nothing. Widening to the nearest parcel looks like the
 obvious repair, and at a 10 m buffer the two nearest parcels there are **205 and
 209**, neither of which is the address asked for. A nearest-match would have
-reported a neighbour's 1881 house as this one's, tagged ``observed`` with high
+reported a neighbor's 1881 house as this one's, tagged ``observed`` with high
 confidence — strictly worse than the tract typical it replaced, because the
 reader has no reason to doubt it.
 
@@ -43,8 +43,8 @@ from housing_label.enrich.assessor.base import (
 def test_a_different_house_number_never_matches():
     """The case that makes a distance buffer unsafe, pinned directly."""
     asked = "213 W MAIN ST, BARRINGTON, IL, 60010"
-    for neighbour in ("205 W MAIN ST", "209 W MAIN ST", "215 W MAIN ST"):
-        assert not same_address(asked, neighbour), neighbour
+    for neighbor in ("205 W MAIN ST", "209 W MAIN ST", "215 W MAIN ST"):
+        assert not same_address(asked, neighbor), neighbor
 
 
 def test_the_same_house_matches_across_formatting():
@@ -57,7 +57,7 @@ def test_the_same_house_matches_across_formatting():
 def test_a_different_street_never_matches():
     """Directionals and street names both have to agree.
 
-    Dropping the directional would be the classic normalisation shortcut, and it
+    Dropping the directional would be the classic normalization shortcut, and it
     would make 213 W Main and 213 E Main the same house.
     """
     assert not same_address("213 W MAIN ST", "213 E MAIN ST")
@@ -115,7 +115,7 @@ def test_an_offparcel_geocode_is_rescued_by_the_house_number():
         ])
         got = cook_il._pin_at(42.154164, -88.139354,
                               "213 W MAIN ST, BARRINGTON, IL, 60010")
-        assert got == "01011000040000", "picked a neighbour instead of the address"
+        assert got == "01011000040000", "picked a neighbor instead of the address"
     finally:
         cook_il._parcels = orig
 
@@ -134,7 +134,7 @@ def test_an_offparcel_geocode_without_an_address_refuses():
 
 
 def test_an_address_matching_two_parcels_refuses():
-    """Duplicate street addresses in the layer are not a licence to pick one."""
+    """Duplicate street addresses in the layer are not a license to pick one."""
     orig = cook_il._parcels
     try:
         _stub_parcels(_patch, [], near=[
@@ -348,7 +348,7 @@ def test_condition_is_applied_even_though_nsi_has_no_equivalent():
     assert cfg.get("condition") == "good"
 
 
-def test_no_record_leaves_the_previous_behaviour_untouched():
+def test_no_record_leaves_the_previous_behavior_untouched():
     from housing_label.simulate import house as H
     cfg = {}
     filled = H._autofill_construction_from_nsi(cfg, explicit=set(),
@@ -360,7 +360,7 @@ def test_no_record_leaves_the_previous_behaviour_untouched():
 def test_a_different_street_type_is_not_the_same_address():
     """"213 MAIN ST" and "213 MAIN AVE" are different houses that a corner can put
     inside one 80 m buffer. An earlier revision dropped the street type entirely
-    before comparing, so both normalised to "213 MAIN" and matched."""
+    before comparing, so both normalized to "213 MAIN" and matched."""
     assert not same_address("213 W MAIN ST", "213 W MAIN AVE")
     assert not same_address("100 OAK RD", "100 OAK BLVD")
 
@@ -381,8 +381,8 @@ def test_a_longer_street_name_is_not_the_same_street():
 def test_a_containing_parcel_with_the_wrong_address_does_not_win():
     """A sole polygon under the point is not proof of anything when the point was
     interpolated: 38 m of error is wider than a city lot, so it can land inside the
-    neighbour. The number must still agree, and when it does not the search widens
-    rather than accepting the neighbour."""
+    neighbor. The number must still agree, and when it does not the search widens
+    rather than accepting the neighbor."""
     orig = cook_il._parcels
     try:
         _stub_parcels(_patch,
@@ -390,14 +390,14 @@ def test_a_containing_parcel_with_the_wrong_address_does_not_win():
                       near=[{"PIN14": "01011000050000", "street_address": "209 W MAIN ST"},
                             {"PIN14": "01011000040000", "street_address": "213 W MAIN ST"}])
         got = cook_il._pin_at(42.154164, -88.139354, "213 W MAIN ST, BARRINGTON, IL")
-        assert got == "01011000040000", "took the containing neighbour, not the address"
+        assert got == "01011000040000", "took the containing neighbor, not the address"
     finally:
         cook_il._parcels = orig
 
 
-def test_an_open_ended_storey_bucket_is_not_a_storey_count():
+def test_an_open_ended_story_bucket_is_not_a_story_count():
     """"3 Story +" has no top. Recording it as exactly 3 would report a precise
-    observed height for every 4- and 6-storey building in the bucket."""
+    observed height for every 4- and 6-story building in the bucket."""
     assert cook_il._STORIES.get("3 Story +") is None
     assert cook_il._STORIES["2 Story"] == 2
 
@@ -458,7 +458,7 @@ def test_a_preset_build_does_not_pay_for_an_assessor_lookup():
 
     Checked against the source of build_label_parts rather than by running it,
     because exercising the real path needs network that CI does not have. That
-    makes this a guard on the wiring, not the behaviour: it catches the flag being
+    makes this a guard on the wiring, not the behavior: it catches the flag being
     dropped from an existing call site, which is how this regressed once.
     """
     import inspect
@@ -614,9 +614,9 @@ def test_a_zero_year_and_zero_area_are_read_as_not_recorded():
 
 
 def test_a_containing_parcel_whose_address_disagrees_is_not_accepted():
-    """The interpolated point can land inside the neighbour's lot, so containment
+    """The interpolated point can land inside the neighbor's lot, so containment
     alone is not evidence. With no second candidate to fall back to, the answer is
-    nothing rather than the neighbour."""
+    nothing rather than the neighbor."""
     assert _lookup([_PARCEL], _CAMA, address="209 W Main St") is None
 
 
@@ -794,7 +794,7 @@ def test_an_implausibly_large_body_is_refused_rather_than_read_to_the_end():
 # ── A failed lookup must not be cached as the label's answer ─────────────────────
 #
 # The adapters fail open, so a county portal's bad minute produces a label built
-# from modelled values. That label is right for the reader in front of it and wrong
+# from modeled values. That label is right for the reader in front of it and wrong
 # to keep: the API caches a scored label on its coordinate for hours. These pin the
 # signal that stops it — the failing host recorded as a dataset the request went
 # without, which is what api._may_cache already refuses to cache.
@@ -888,7 +888,7 @@ def test_every_adapter_host_has_a_readable_name():
 
 def test_the_hosted_api_declares_the_adapters_on():
     """The production switch lives in render.yaml. A blueprint re-sync that lost it
-    would quietly put every label back on modelled construction data."""
+    would quietly put every label back on modeled construction data."""
     import re
     render = (_ROOT / "render.yaml").read_text(encoding="utf-8")
     # No YAML parser in the dependency set; the entry's two lines are the contract.

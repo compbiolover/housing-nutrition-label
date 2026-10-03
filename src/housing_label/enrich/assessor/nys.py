@@ -55,7 +55,7 @@ living area (residential)", from the ORPTS residential inventory).
 
 * ``BLDG_STYLE_DESC`` is an *architectural style* — Colonial, Ranch, Cape cod,
   Raised ranch, Old style — not a wall material, so ``construction`` stays empty.
-  There is no storey count, foundation or condition in the public schema.
+  There is no story count, foundation or condition in the public schema.
 * ``HEAT_TYPE_DESC``, ``FUEL_TYPE_DESC``, ``SEWER_DESC`` and ``WATER_DESC`` are
   what make this the only candidate source with heating fuel, sewer and water
   supply. They are **future inputs**: ``AssessorRecord`` has no slot for them, and
@@ -202,7 +202,7 @@ given. Only 5 of the 145 lookups were settled by containment: the Census matcher
 puts nearly every New York address in the roadway, so the address-confirmed
 buffer is the normal path here, not the fallback.
 
-Of the 55 that did not geocode, 46 are an artefact of drawing addresses from the
+Of the 55 that did not geocode, 46 are an artifact of drawing addresses from the
 roll: it has no ZIP for them and names the assessing town, which is often not the
 postal city. A reader types the postal address.
 
@@ -214,7 +214,7 @@ Read 2026-10-03: the layer description, the Clearinghouse parcels page
 "public access" by counties that "specifically authorized Geospatial Services to
 share their GIS tax parcel data with the public"; the use limitation is an "as is"
 disclaimer of every warranty, and the per-county constraints say "general
-planning purposes only and not to determine property boundaries". No licence term
+planning purposes only and not to determine property boundaries". No license term
 restricts commercial use or forbids querying; none grants redistribution of the
 compilation either, and the counties are named as the data owners. Verdict: the
 same posture as Cook — query live and cache in process, never bundle, attribute
@@ -606,9 +606,9 @@ def _lookup_cached(lat: float, lon: float, address: str | None,
         parcel_id=_parcel_id(row),
         year_built=year_built,
         sqft=sqft,
-        # No wall material (BLDG_STYLE_DESC is an architectural style), storey
+        # No wall material (BLDG_STYLE_DESC is an architectural style), story
         # count, foundation or condition in the public schema. Left empty so the
-        # label falls back to its modelled estimate rather than a guess.
+        # label falls back to its modeled estimate rather than a guess.
     )
 
 

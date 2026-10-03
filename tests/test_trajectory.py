@@ -158,7 +158,7 @@ def test_trajectory_confidence_never_exceeds_the_snapshot():
     for key, tier in traj.items():
         assert order[tier] <= order[snap[key]], f"{key}: {tier} > {snap[key]}"
     # An unmeasured basis caps a High snapshot at Moderate: durability's snapshot
-    # is High (it is a measured CAMA record), but ageing it is arithmetic.
+    # is High (it is a measured CAMA record), but aging it is arithmetic.
     assert snap["durability"] == "high" and traj["durability"] == "moderate"
 
 

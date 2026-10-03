@@ -291,7 +291,7 @@ def _sample_point(lat: float, lon: float, lat_arr: np.ndarray, lon_arr: np.ndarr
     if np.isfinite(v):
         return float(v)
     # Masked (NaN) nearest cell — a coastal/edge internal point. Fall back to the
-    # NEAREST valid cell in an expanding ring (still nearest-neighbour, not an
+    # NEAREST valid cell in an expanding ring (still nearest-neighbor, not an
     # average, which would bias the value).
     for r in range(1, max_ring + 1):
         i0, i1 = max(0, i - r), min(field2d.shape[0], i + r + 1)
@@ -464,7 +464,7 @@ def build_loca2(
 #
 # The FWI CSV is keyed by ``Crossmodel`` grid-cell id (R{row}C{col}), not by lat/
 # lon or FIPS. The companion GridCellsShapefile gives each cell's polygon in Web
-# Mercator (EPSG:3857); we take each cell's bbox centre, convert to WGS84 with the
+# Mercator (EPSG:3857); we take each cell's bbox center, convert to WGS84 with the
 # same formula as ``housing_label.utils.webmercator_to_wgs84`` (inlined to keep
 # this build script decoupled from the runtime package), and join grid cells to
 # census geography by sampling the NEAREST cell at each tract's internal point —
@@ -500,16 +500,16 @@ def _webmerc_to_lonlat(x: float, y: float) -> tuple[float, float]:
 
 
 def _parse_grid_cells(zip_bytes: bytes) -> dict[str, tuple[float, float]]:
-    """ClimRR GridCellsShapefile.zip → {Crossmodel: (lat, lon)} cell centres.
+    """ClimRR GridCellsShapefile.zip → {Crossmodel: (lat, lon)} cell centers.
 
-    Pure-stdlib .shp (polygon bounding-box centres) + .dbf (Crossmodel) parsing.
-    The shapefile is EPSG:3857, so each centre is reprojected to WGS84."""
+    Pure-stdlib .shp (polygon bounding-box centers) + .dbf (Crossmodel) parsing.
+    The shapefile is EPSG:3857, so each center is reprojected to WGS84."""
     zf = zipfile.ZipFile(io.BytesIO(zip_bytes))
     shp_name = next(n for n in zf.namelist() if n.lower().endswith(".shp"))
     dbf_name = next(n for n in zf.namelist() if n.lower().endswith(".dbf"))
     shp = zf.read(shp_name)
     # .shp: 100-byte header, then records of [big-endian num,len][little-endian body].
-    centres: list[tuple[float, float] | None] = []
+    centers: list[tuple[float, float] | None] = []
     pos = 100
     while pos + 8 <= len(shp):
         _num, clen = struct.unpack(">ii", shp[pos:pos + 8])
@@ -518,9 +518,9 @@ def _parse_grid_cells(zip_bytes: bytes) -> dict[str, tuple[float, float]]:
         if stype == 5:  # polygon: bbox is 4 doubles after the 4-byte type
             xmin, ymin, xmax, ymax = struct.unpack("<4d", shp[pos + 4:pos + 36])
             lon, lat = _webmerc_to_lonlat((xmin + xmax) / 2, (ymin + ymax) / 2)
-            centres.append((lat, lon))
+            centers.append((lat, lon))
         else:
-            centres.append(None)
+            centers.append(None)
         pos += clen * 2
     # .dbf: header (record count, header/record length) then field descriptors.
     dbf = zf.read(dbf_name)
@@ -539,9 +539,9 @@ def _parse_grid_cells(zip_bytes: bytes) -> dict[str, tuple[float, float]]:
     for i in range(numrec):
         base = hdrlen + i * reclen
         cm = dbf[base + cs:base + cs + cl].decode("latin-1").strip()
-        centre = centres[i] if i < len(centres) else None
-        if cm and centre is not None:
-            out[cm] = centre
+        center = centers[i] if i < len(centers) else None
+        if cm and center is not None:
+            out[cm] = center
     return out
 
 
@@ -565,7 +565,7 @@ def _load_fwi_values(csv_bytes: bytes) -> dict[str, dict[str, float]]:
 
 
 class _CellIndex:
-    """Nearest-cell lookup over ClimRR grid centres via a 0.5° lat/lon hash."""
+    """Nearest-cell lookup over ClimRR grid centers via a 0.5° lat/lon hash."""
 
     _BIN = 0.5
 

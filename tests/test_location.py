@@ -278,7 +278,7 @@ def test_supplied_geography_resolves_offline_without_geocoding():
 
 def test_geography_and_address_together_are_rejected():
     """They are contradictory instructions — geography says the county/tract are
-    already known, address says to geocode for them. Honouring either silently
+    already known, address says to geocode for them. Honoring either silently
     would drop the other, which this resolver explicitly promises not to do."""
     try:
         resolve_location(address="1600 Pennsylvania Ave NW, Washington DC",
@@ -302,7 +302,7 @@ def test_supplied_geography_still_needs_a_point():
 
 
 def test_offline_without_geography_leaves_the_geography_unknown():
-    """The behaviour the golden snapshot was silently relying on: no geocode means
+    """The behavior the golden snapshot was silently relying on: no geocode means
     no county and no tract, so every location dimension goes unscored."""
     loc = resolve_location(lat=35.13, lon=-89.99, allow_network=False)
     assert loc.county_fips is None and loc.tract is None

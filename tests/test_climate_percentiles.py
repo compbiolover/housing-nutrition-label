@@ -66,7 +66,7 @@ def test_every_curve_is_monotonic():
 # ── What the reweighting actually fixed ──────────────────────────────────────
 def test_the_anchors_land_where_their_percentiles_claim():
     """The whole point: the share of HOUSEHOLDS beyond each anchor should match the
-    percentile the anchor is labelled with. The old county curve did not."""
+    percentile the anchor is labeled with. The old county curve did not."""
     for metric, (xs, _ys) in cp._BREAKPOINTS.items():
         for pct, x in zip(cal.PERCENTILES, xs):
             share = _share_at_or_beyond(metric, x)

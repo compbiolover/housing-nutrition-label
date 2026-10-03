@@ -6,11 +6,11 @@ A statewide adapter in the sense Florida's and Connecticut's are, though
 send their year-end tax roll to the Utah Geospatial Resource Center (UGRC), which
 joins it to the county's parcel map and publishes it as a Land Information Records
 (LIR) layer — one per county, all from one template, all in one keyless ArcGIS
-Online organisation:
+Online organization:
 
   ``services1.arcgis.com/99lidPhWCzftIe9K/.../Parcels_<County>_LIR/FeatureServer/0``
 
-The organisation's services directory holds exactly 29 such services, one per
+The organization's services directory holds exactly 29 such services, one per
 county (``COUNTY_SERVICES``). About 1.04 million parcels carry a year built.
 
 Twenty-eight are claimed, not 29. **Juab** publishes a layer whose 15,259 rows
@@ -87,26 +87,26 @@ floor count onto each condominium unit — 27 for every unit of 48 W 300 S, 30 f
 unusable, only two things in the layer positively say "one home":
 
 * Utah County's building style (it writes the style into ``BLDG_SQFT_INFO``):
-  one/two-storey, split level, bi-level, townhouse end/interior unit, cabin,
+  one/two-story, split level, bi-level, townhouse end/interior unit, cabin,
   manufactured section — and not "duplex", "triplex", "fourplex", "<n>_unit_building"
   or "multiple_residence".
 * Carbon County's ``PROP_CLASS`` of "Single Family".
 
-So area and storeys are reported only with that evidence, only where the roll's
+So area and stories are reported only with that evidence, only where the roll's
 own address carries no unit designator ("# 1706N", "UNIT 301", "APT 2"), and only
 on a parcel whose class does not say it is not a home. Everywhere else the year
 and the wall type still come through — the building went up when it went up — and
-the area and storeys are left to the label's model. That is a deliberate coverage
+the area and stories are left to the label's model. That is a deliberate coverage
 cost: "Residential" in the other counties covers duplexes, and nothing in their
 rows can tell one from a house. It was checked rather than assumed: in Utah County
 the duplexes, triplexes and fourplexes are classed "Unknown", which would have made
 the class look like a usable proxy if only that county had been examined; it is a
 fact about one county's coding, not about the layer.
 
-Storeys are read only where Utah County's style and ``FLOORS_CNT`` agree: it records
+Stories are read only where Utah County's style and ``FLOORS_CNT`` agree: it records
 7,123 "one_story" buildings with ``FLOORS_CNT`` of 2 against 63,615 with 1. Split
 levels and bi-levels have no whole-number reading (Cook's call for "Split Level").
-A condominium unit, stacked with its neighbours on one footprint, is refused by
+A condominium unit, stacked with its neighbors on one footprint, is refused by
 ``select_parcel`` as ambiguous; a reader who typed the unit is matched to that
 unit's own parcel (``fetch`` drops parcels naming a DIFFERENT unit), and gets the
 building's year with the unit's area still refused.
@@ -170,7 +170,7 @@ The same blindness produced the one wrong parcel the first end-to-end run found,
 before that shared change. Typed "325 E 300 N, Kanab", the matcher returned "325 N
 300 E": a different, real house 45 m from the point, with the reader's house 55 m
 away, and the adapter, handed only the matched address, confirmed it. So after a
-parcel is chosen, the 80 m neighbourhood is checked for a *confusable twin* —
+parcel is chosen, the 80 m neighborhood is checked for a *confusable twin* —
 another parcel with the same house number and street once directionals are set
 aside, order and side included (``_has_a_confusable_twin``) — and its presence
 refuses the answer. It is kept even though the shared change now catches that
@@ -219,7 +219,7 @@ looked up with no county passed:
   **matched to the wrong parcel**          **0**
   year built = the dwelling's year     210/210
   floor area reported / exact            28/28
-  storeys reported                          22
+  stories reported                          22
   wall type translated                      94
   =====================================  =====
 
@@ -245,7 +245,7 @@ kept them out — but they do carry ``TOTAL_MKT_VALUE``, ``LAND_MKT_VALUE``,
 the shared helper refuses ``*``. Nothing from this source is written into the
 repository.
 
-Licence
+License
 -------
 UGRC's dataset page (https://gis.utah.gov/products/sgid/cadastre/parcels/) states:
 "There are no constraints or warranties with regard to the use of this dataset.
@@ -275,7 +275,7 @@ log = logging.getLogger(__name__)
 _ORG = "https://services1.arcgis.com/99lidPhWCzftIe9K/arcgis/rest/services"
 
 #: County FIPS → the UGRC service holding that county's LIR parcels. Read off the
-#: organisation's services directory, where exactly these 29 ``Parcels_*_LIR``
+#: organization's services directory, where exactly these 29 ``Parcels_*_LIR``
 #: services exist — one per Utah county, so no county is missing. Utah's county
 #: codes are the odd numbers 49001–49057 in alphabetical order, which is also the
 #: order of UGRC's own ``COUNTY_ID`` (Beaver = 1 … Weber = 29), so the table can be
@@ -456,7 +456,7 @@ _MANUFACTURED_STYLE_PREFIXES = ("one-section_", "two-section_", "three-section_"
 # Stories are read only where the style and FLOORS_CNT agree. Utah County records
 # 7,123 "one_story" buildings with FLOORS_CNT of 2 against 63,615 with 1, so
 # either column alone is wrong often enough to matter. Split levels, bi-levels and
-# half storeys have no whole-number reading — the call Cook makes for "Split
+# half stories have no whole-number reading — the call Cook makes for "Split
 # Level" and "1.5 Story".
 _STYLE_STORIES = {
     "one_story": 1, "end:_one_story": 1, "int:_one_story": 1,
@@ -483,7 +483,7 @@ def _one_dwelling_evidence(parcel: dict, building: dict) -> bool:
 
 
 def _is_one_home(parcel: dict, building: dict) -> bool:
-    """Whether the building's area and storey count describe the reader's home."""
+    """Whether the building's area and story count describe the reader's home."""
     return (_one_dwelling_evidence(parcel, building)
             and not unit_of(parcel.get("PARCEL_ADD"))
             and not _says_no_home(parcel.get("PROP_CLASS")))
@@ -512,7 +512,7 @@ def _stories(parcel: dict, building: dict) -> int | None:
 
 # ── construction ───────────────────────────────────────────────────────────────
 
-# County wording → the label's vocabulary, keyed on the normalised string. The
+# County wording → the label's vocabulary, keyed on the normalized string. The
 # UGRC schema says only that values "are expected to vary greatly by county", and
 # publishes no code table (gis.utah.gov/products/sgid/cadastre/parcels/, and the
 # LIR Implementation Guidelines linked there), so every entry is a wording that
@@ -675,7 +675,7 @@ def _has_a_confusable_twin(query: str, chosen: dict, nearby: list[dict]) -> bool
 
     The adapter is handed only the matched address, so it cannot see the swap.
     What it can see is whether the confusion is POSSIBLE here: another parcel in
-    the 80 m neighbourhood with the same house number and the same street once
+    the 80 m neighborhood with the same house number and the same street once
     directionals are set aside — order and side included — but a different full
     address. Where one exists the answer is refused, because which of the two
     the reader meant is exactly what the geocoder has shown it cannot be trusted
@@ -755,7 +755,7 @@ def _parcel_at(lat: float, lon: float, address: str | None = None,
     if chosen is None or not address:
         return chosen
     # The confusable-twin guard; see _has_a_confusable_twin. It needs the 80 m
-    # neighbourhood even when containment already answered, which costs one more
+    # neighborhood even when containment already answered, which costs one more
     # request (measured median 0.14 s) on exactly those lookups.
     if _has_a_confusable_twin(address, chosen, fetch(_shared.SEARCH_RADIUS_M)):
         return None
@@ -826,7 +826,7 @@ def lookup(lat: float, lon: float, address: str | None = None,
     (one extra request).
 
     Fails open on everything. The caller then keeps whatever it had, which is the
-    behaviour that existed before this adapter.
+    behavior that existed before this adapter.
     """
     try:
         return _lookup_cached(round(float(lat), 5), round(float(lon), 5), address,

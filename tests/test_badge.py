@@ -6,8 +6,8 @@ is most of why it lives in its own module.
 
 The badge is the one artifact that ends up on somebody else's page, under our
 mark, outside our control once it is there. So the assertions here are weighted
-towards the failures a third-party page can't fix and we might never see: a grade
-coloured differently from the same grade on our own site, a fabricated letter
+toward the failures a third-party page can't fix and we might never see: a grade
+colored differently from the same grade on our own site, a fabricated letter
 where the truth is "not scored", and caller text reaching markup unescaped.
 
 This file alone:  pytest tests/test_badge.py
@@ -39,7 +39,7 @@ def _js_map(name: str) -> dict:
 
 
 def test_the_badge_palette_matches_the_page_it_will_sit_next_to():
-    """A badge grading a home one colour while the site grades it another is
+    """A badge grading a home one color while the site grades it another is
     worse than no badge — the reader can see both and has no way to tell which
     is stale. Editing docs/label-core.js alone must fail here."""
     assert badge.GRADE_COLORS == _js_map("GRADE_COLORS")
@@ -59,13 +59,13 @@ def test_every_style_and_theme_renders_well_formed_svg():
             assert root.get("viewBox") == f'0 0 {geom["w"]} {geom["h"]}'
 
 
-def test_colour_and_letter_are_read_from_the_same_grade():
+def test_color_and_letter_are_read_from_the_same_grade():
     """The chip fill and the letter on it can never disagree, for any grade."""
-    for grade, colour in badge.GRADE_COLORS.items():
+    for grade, color in badge.GRADE_COLORS.items():
         svg = badge.render_badge(
             {"construction_national_grade": grade, "construction_score": 50,
              "location_national_grade": grade, "location_score": 50})
-        assert svg.count(f'fill="{colour}"') == 2, grade
+        assert svg.count(f'fill="{color}"') == 2, grade
         letters = [e.text for e in ET.fromstring(svg).iter()
                    if e.tag.endswith("text") and e.text == grade]
         assert len(letters) == 2, f"{grade}: {letters}"
@@ -77,8 +77,8 @@ def test_an_unscored_axis_is_never_given_a_letter():
     svg = badge.render_badge({}, style="full")
     assert "not scored" in svg
     assert badge.UNSCORED in svg
-    for grade, colour in badge.GRADE_COLORS.items():
-        assert colour not in svg, f"an unscored badge must not show {grade}"
+    for grade, color in badge.GRADE_COLORS.items():
+        assert color not in svg, f"an unscored badge must not show {grade}"
     # Half-scored is the more likely case and must not promote the missing half.
     half = badge.render_badge({"construction_score": 63.9, "construction_national_grade": "B"})
     assert "not scored" in half and badge.GRADE_COLORS["B"] in half
@@ -120,7 +120,7 @@ def test_a_long_address_is_truncated_rather_than_fitted():
 
 def test_auto_is_the_only_theme_that_ships_two_palettes():
     """`auto` is why the badge can suit a page whose background it cannot see —
-    a media query inside an SVG is honoured even through <img>."""
+    a media query inside an SVG is honored even through <img>."""
     auto = badge.render_badge(_SCORED, theme="auto")
     assert "prefers-color-scheme:dark" in auto
     assert badge.THEMES["light"]["bg"] in auto and badge.THEMES["dark"]["bg"] in auto

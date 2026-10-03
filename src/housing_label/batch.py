@@ -9,7 +9,7 @@ Why this drives the LIVE path rather than reviving score/all_dimensions.py
 ``score/all_dimensions.py`` looks like the batch scorer and is not one. It is a
 *grading* stage: it reads a CSV whose per-dimension metrics were already computed
 by a Shelby-County enrichment pipeline that no longer exists, and it knows nine
-dimensions — it predates Air Quality, Noise, Solar and Water. Generalising it
+dimensions — it predates Air Quality, Noise, Solar and Water. Generalizing it
 would mean rebuilding that pipeline and then maintaining two scoring paths that
 must agree forever.
 
@@ -182,7 +182,7 @@ def output_fieldnames(portfolio: bool = False) -> list[str]:
 
 # The building inputs that actually move the construction-driven dimensions. A row
 # missing all of these is scored as a wood-frame slab-on-grade 2,000 sqft house
-# (simulate/house.py GLOBAL_DEFAULTS) of its NEIGHBOURHOOD's typical vintage — the
+# (simulate/house.py GLOBAL_DEFAULTS) of its NEIGHBORHOOD's typical vintage — the
 # year comes from the tract's ACS year-built median (data/year_built.py), which is
 # bundled and so resolves offline here too. That last part used to be a flat 2024,
 # which graded ~A on the Building axis everywhere and made a book of century-old
@@ -354,7 +354,7 @@ def score_rows(rows: Iterable[dict], *, allow_network: bool = False,
     from concurrent.futures import ThreadPoolExecutor
 
     # Submit in windows rather than handing the whole iterable to
-    # ThreadPoolExecutor.map, which would materialise 400,000 rows and their
+    # ThreadPoolExecutor.map, which would materialize 400,000 rows and their
     # futures at once. The window is what bounds memory; the pool bounds
     # politeness to the upstreams.
     window = max(jobs * 8, jobs)

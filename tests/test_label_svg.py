@@ -8,7 +8,7 @@ The sheet is the copy of the label that leaves the browser: it gets printed,
 filed, emailed, and read months later by somebody who was never at the screen.
 So the assertions here lean on the failures that only show up off-screen and
 that nobody would see in review — a page that silently grew to two, a grade that
-exists only as a colour, a letter invented for a dimension that was never
+exists only as a color, a letter invented for a dimension that was never
 scored, and caller text reaching markup unescaped.
 
 This file alone:  pytest tests/test_label_svg.py
@@ -142,7 +142,7 @@ def test_the_root_carries_physical_units():
 
 
 def test_the_palette_is_the_badges_palette():
-    """A printed grade and the same grade on the site must be the same colour —
+    """A printed grade and the same grade on the site must be the same color —
     the reader can hold both up next to each other, which is more than they can
     do with two browser tabs. Sharing the constants is the mechanism; this is the
     assertion that they are still shared (tests/test_badge.py in turn pins them
@@ -153,10 +153,10 @@ def test_the_palette_is_the_badges_palette():
         assert badge.GRADE_COLORS[grade] in svg, grade
 
 
-def test_colour_is_never_the_only_channel():
-    """Grayscale printers, photocopies, and colour blindness all destroy the
+def test_color_is_never_the_only_channel():
+    """Grayscale printers, photocopies, and color blindness all destroy the
     same channel. Every grade on the sheet must also be readable as a letter and
-    as a number, so nothing is lost when the colour is."""
+    as a number, so nothing is lost when the color is."""
     svg = label_svg.render_sheet(_payload())
     drawn = _texts(svg)
     for _k, _lab, _kind, score, grade, _pct in _DIMS:
@@ -192,10 +192,10 @@ def test_caller_text_cannot_reach_the_markup():
 
 
 def test_the_sheet_avoids_what_print_tooling_does_not_render():
-    """Two rules the badge doesn't need. ``dominant-baseline`` is honoured by
+    """Two rules the badge doesn't need. ``dominant-baseline`` is honored by
     browsers and ignored by several design applications, which slides every grade
     letter out of its chip; ``foreignObject`` is HTML smuggled into an SVG and
-    renders in browsers only, which is exactly the trap a DOM-serialising
+    renders in browsers only, which is exactly the trap a DOM-serializing
     "export" falls into."""
     svg = label_svg.render_sheet(_payload())
     assert "dominant-baseline" not in svg

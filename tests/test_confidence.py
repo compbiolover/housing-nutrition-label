@@ -83,7 +83,7 @@ def test_wide_band_dims_capped_at_moderate():
 # --- construction provenance ---------------------------------------------------
 #
 # Until the accuracy harness ran, a durability grade computed from a census-tract
-# median year built was labelled as confidently as one computed from the county's
+# median year built was labeled as confidently as one computed from the county's
 # record of the building. These pin the retune that measurement forced, including
 # the exemption it also forced.
 
@@ -106,7 +106,7 @@ def test_an_area_typical_caps_the_dimensions_it_measurably_moves():
 
 
 def test_resilience_is_not_capped_because_the_measurement_says_not_to():
-    """The deliberate exemption, and the judgement most worth revisiting.
+    """The deliberate exemption, and the judgment most worth revisiting.
 
     Resilience moved on 2.8% of Cook addresses and 8.7% of DC ones — the second
     figure arrived only after a second jurisdiction was measured, and is three times
@@ -147,11 +147,11 @@ def test_a_label_with_no_construction_profile_is_unchanged():
 
 
 def test_a_capped_dimension_says_why_on_the_dot():
-    """A dot that changes colour with no reason is worse than no cap: the reader
+    """A dot that changes color with no reason is worse than no cap: the reader
     cannot tell whether the source is weak in general or weak for their address —
     and the second is fixable by them, in the panel directly above."""
     notes = confidence_notes_for_label(_with_building("assumed"))
-    assert "neighbourhood typical" in notes["durability"]
+    assert "neighborhood typical" in notes["durability"]
     assert "Correcting the building details" in notes["durability"]
     # The base description must survive, not be replaced by the caveat.
     assert "Component-lifespan model" in notes["durability"]
@@ -171,7 +171,7 @@ def test_the_note_only_goes_where_correcting_the_details_would_actually_help():
     before = confidence_for_label(_with_building("assumed"))
     after = confidence_for_label(_with_building("observed"))
     for key, note in stood_in.items():
-        if "neighbourhood typical" not in note:
+        if "neighborhood typical" not in note:
             continue
         assert before[key] == "moderate", key
         assert after[key] == "high", (
@@ -185,7 +185,7 @@ def test_a_dimension_capped_for_its_band_does_not_claim_a_standin_caused_it():
     so the stand-in explanation would be the wrong cause on a real address."""
     notes = confidence_notes_for_label(_with_building("assumed"))
     assert "environmental" in WIDE_BAND_DIMS and "environmental" in _PROVENANCE_SENSITIVE
-    assert "neighbourhood typical" not in notes["environmental"]
+    assert "neighborhood typical" not in notes["environmental"]
     # The base description still has to be there — the dot still needs its note.
     assert "eGRID2023" in notes["environmental"]
 
@@ -199,13 +199,13 @@ def test_an_unscored_dimension_does_not_blame_a_standin():
             d["score"] = None
     notes = confidence_notes_for_label(label)
     assert confidence_for_label(label)["durability"] == "low"
-    assert "neighbourhood typical" not in notes["durability"]
+    assert "neighborhood typical" not in notes["durability"]
 
 
 def test_an_uncapped_dimension_note_is_left_alone():
     notes = confidence_notes_for_label(_with_building("observed"))
-    assert "neighbourhood typical" not in notes["durability"]
-    assert "neighbourhood typical" not in notes["resilience"]
+    assert "neighborhood typical" not in notes["durability"]
+    assert "neighborhood typical" not in notes["resilience"]
 
 
 # --- how a stand-in year is shown ----------------------------------------------

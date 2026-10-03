@@ -122,7 +122,7 @@ def _num(v):
 
 # What the payload puts in a grade field when the dimension could not be scored
 # (dimensions.py). It is a rendering character, not a grade, and it reaches this
-# module through the same key a real letter does — so it is normalised to None
+# module through the same key a real letter does — so it is normalized to None
 # here, once, rather than at each comparison. Left alone, two unscorable rows
 # would compare EQUAL and be counted as the label agreeing with the truth, which
 # inflates the headline accuracy with rows that were never scored at all.
@@ -262,7 +262,7 @@ def _clear_caches() -> int:
     """Empty every in-process cache under ``housing_label``. Returns how many.
 
     Without this, replicates are not measurements. The adapters, the geocoder and
-    the enrichers all memoise on an ``lru_cache``, so the second scoring of a row
+    the enrichers all memoize on an ``lru_cache``, so the second scoring of a row
     answers from memory and makes no request at all: the first run of the DC
     condominium benchmark took half an hour and the second took thirty-eight
     seconds. A cache replay cannot fail the way a live request can, so the range
@@ -329,9 +329,9 @@ def _wilson(hits: int, n: int, z: float = 1.959963985) -> list[float] | None:
     if n <= 0:
         return None
     p, z2 = hits / n, z * z
-    centre = (p + z2 / (2 * n)) / (1 + z2 / n)
+    center = (p + z2 / (2 * n)) / (1 + z2 / n)
     half = (z / (1 + z2 / n)) * math.sqrt(p * (1 - p) / n + z2 / (4 * n * n))
-    return [round(100 * max(0.0, centre - half), 1), round(100 * min(1.0, centre + half), 1)]
+    return [round(100 * max(0.0, center - half), 1), round(100 * min(1.0, center + half), 1)]
 
 
 def _spread(values: list[float]) -> dict | None:
@@ -354,7 +354,7 @@ def _spread(values: list[float]) -> dict | None:
             "median": round(statistics.median(values), 1)}
 
 
-def _summarise(cases: list[dict], arm: str) -> dict:
+def _summarize(cases: list[dict], arm: str) -> dict:
     """Field error and grade impact for one arm."""
     out: dict = {"fields": {}, "grade_impact": {}}
 
@@ -391,7 +391,7 @@ def _summarise(cases: list[dict], arm: str) -> dict:
 
 
 def _tolerance_sentence(results: dict) -> str:
-    """The ±5 / ±10-year bands, which _summarise computes and the tables above do
+    """The ±5 / ±10-year bands, which _summarize computes and the tables above do
     not show. They were quoted as a headline result while appearing nowhere on the
     page a reader was pointed at, which is the kind of gap that makes a published
     number unverifiable."""
@@ -730,7 +730,7 @@ building &mdash; the only check that asks whether the output describes the world
 rather than whether the code does what it says.</p>
 
 <p><strong>How to read it.</strong> <em>Baseline</em> is what the label infers
-everywhere: a modelled structure record plus the census tract's year-built
+everywhere: a modeled structure record plus the census tract's year-built
 distribution. <em>With assessor</em> adds an observed record from the assessing
 authority where one resolves. The number that matters is the last table in each section — a year-built
 error that moves no letter is not a defect anyone can see; one that crosses a
@@ -785,7 +785,7 @@ distribution of the source far more than the label's skill, and should not be re
 as one.</li>
 {_dc_foundation_caveat(juris)}
 <li><strong>The reference profile is not wholly observed.</strong> Where the
-assessor records nothing for a field, the truth arm falls back to the same modelled
+assessor records nothing for a field, the truth arm falls back to the same modeled
 inputs the other two arms use, so a grade attributed to &ldquo;true
 attributes&rdquo; is built from the assessor's facts <em>plus</em> those
 fallbacks. It is the best
@@ -811,7 +811,7 @@ _LOCK_TIMEOUT_S = 60
 
 @contextlib.contextmanager
 def _results_lock():
-    """Serialise the results read-modify-write across concurrent runs.
+    """Serialize the results read-modify-write across concurrent runs.
 
     An exclusive-create lockfile rather than `fcntl.flock`: this module is imported
     by the test suite and by `--check`, and the repository documents a Windows
@@ -880,7 +880,7 @@ def _results_lock():
 def _readable_results(previous, where: str, *, existed: bool) -> dict:
     """The jurisdiction sections of a results file, or the end of the run.
 
-    `as_jurisdictions` answers {} for a shape it does not recognise, and BOTH
+    `as_jurisdictions` answers {} for a shape it does not recognize, and BOTH
     writers then do something destructive with that answer: the merge writes this
     run's section alone over whatever the file held, and --render-only publishes an
     empty accuracy page over the real one. An unreadable file is exactly when it is
@@ -888,7 +888,7 @@ def _readable_results(previous, where: str, *, existed: bool) -> dict:
 
     One function because the two paths kept diverging: the merge grew this guard a
     commit before --render-only did, which is the same one-branch-and-not-its-
-    neighbour mistake that produced half the findings on this change.
+    neighbor mistake that produced half the findings on this change.
 
     `existed` rather than truthiness. A file holding `{}`, `[]`, `0` or `false` is
     a file that exists and says something this code cannot read — testing
@@ -1048,7 +1048,7 @@ def _verify_benchmark(path: pathlib.Path, meta: dict, juris: str,
     * **Digest.** Catches an interrupted build: a partial CSV beside the previous
       run's metadata. Required outside the legacy path, because without it and
       without `rows` nothing checks the file's CONTENT at all — a correctly
-      labelled benchmark could hold any bytes and still be published.
+      labeled benchmark could hold any bytes and still be published.
     * **Row count.** Checked independently of the digest, not as a follow-on. A
       pre-split cache records `rows` but no digest, and skipping the count there
       would leave that file unvalidated altogether.
@@ -1096,7 +1096,7 @@ def _verify_benchmark(path: pathlib.Path, meta: dict, juris: str,
         # Same exemption as the stamp above, and I granted it to one and not the
         # other in the same edit. Without a digest AND without `rows`, nothing
         # about the file's CONTENT is checked at all — a benchmark correctly
-        # labelled `dc` can hold any bytes whatsoever and still be scored and
+        # labeled `dc` can hold any bytes whatsoever and still be scored and
         # published as DC. Only the pre-split file may lack this.
         raise SystemExit(
             f"{path.stem}.meta.json records no sha256_16, so nothing would verify "
@@ -1269,7 +1269,7 @@ def _write_atomic(path: pathlib.Path, text: str) -> None:
     time it returns: a failing `replace` — a permissions change, an open target on
     Windows — otherwise propagates and leaves `<name>.<random>.tmp` behind. The
     cleanup existed in `_publish` and not in the helper beside it, which is the
-    same one-branch-and-not-its-neighbour pattern as most findings on this change.
+    same one-branch-and-not-its-neighbor pattern as most findings on this change.
     """
     tmp = _staged(path, text.encode())
     try:
@@ -1315,7 +1315,7 @@ def main() -> int:
                                 ("--render-only", args.render_only)) if on]
     if args.replicates < 1:
         # The same rule --rows already carries in the builder, applied to its
-        # neighbour here, and applied before anything is read or scored. Zero
+        # neighbor here, and applied before anything is read or scored. Zero
         # replicates scored nothing and then indexed the empty list for a median
         # run: an IndexError traceback where this script otherwise states its
         # refusals. A guard on one argument and not the one beside it is how most
@@ -1488,7 +1488,7 @@ def main() -> int:
         if args.replicates > 1 and not n_cleared:
             raise SystemExit(
                 "found no in-process caches to clear, which means this build no "
-                "longer memoises where it used to — or that this walk stopped "
+                "longer memoizes where it used to — or that this walk stopped "
                 "finding them. Either way the replicates below would be cache "
                 "replays reported as independent runs, so the range would "
                 "describe the cache. Fix _clear_caches before publishing a range.")
@@ -1549,8 +1549,8 @@ def main() -> int:
         # reader that silently accepts two names for one field is how a section
         # gets published under a schema nothing checks.
         "parcel_mismatches": mismatched,
-        "baseline": _summarise(cases, "baseline"),
-        "adapter": _summarise(cases, "adapter"),
+        "baseline": _summarize(cases, "baseline"),
+        "adapter": _summarize(cases, "adapter"),
     }
 
     # Merge, never replace. Each jurisdiction is a separate expensive run, and

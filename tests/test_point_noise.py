@@ -31,7 +31,7 @@ QUIET_TRACT = "47123925302"      # 0.87% exposed -> scores 68.1 unrefined
 
 
 def _sources(primary=None, secondary=None, rail=None):
-    """A stubbed lookup result with the given distances in metres."""
+    """A stubbed lookup result with the given distances in meters."""
     dist = {"primary": primary, "secondary": secondary, "rail": rail}
     within = [k for k, (_l, t) in rn._SOURCES.items()
               if dist[k] is not None and dist[k] <= t]
@@ -72,7 +72,7 @@ def test_off_network_returns_none():
 
 
 def test_an_outage_raises_rather_than_reporting_nothing_nearby():
-    """An outage must not look like an empty neighbourhood.
+    """An outage must not look like an empty neighborhood.
 
     Finding nothing nearby is the condition that grants the credit, so a failed
     lookup that produced it would quietly upgrade every address in the country."""
@@ -89,7 +89,7 @@ def test_distance_is_to_the_segment_not_its_vertices():
     """A vertex is never closer than the line it belongs to, so vertex distance
     OVERstates how near a road is — and overstating is what grants the credit.
     TIGER puts few vertices on a long straight run, so a house beside the midpoint
-    of a straight interstate could have looked hundreds of metres clear of it."""
+    of a straight interstate could have looked hundreds of meters clear of it."""
     # A north-south line passing ~88 m east of the point, with its two vertices
     # far to the north and south. Nearest vertex is ~1.1 km; the line is not.
     feats = [{"geometry": {"paths": [[[-84.4220, 35.5182], [-84.4220, 35.5382]]]}}]

@@ -559,7 +559,7 @@ def gen_ref_year_fire() -> str:
 def gen_ref_upgrades() -> str:
     """A tab widget (one tab per upgrade group). Progressive enhancement: docs.js
     switches panels one at a time; with no JS the tab strip hides and the panels
-    show stacked, each labelled by its caption."""
+    show stacked, each labeled by its caption."""
     def _short(title: str) -> str:
         return title.split(" (")[0]
 

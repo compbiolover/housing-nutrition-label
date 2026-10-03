@@ -72,7 +72,7 @@ def test_a_tight_tract_stays_silent():
 
 
 def test_a_confirmed_year_removes_the_whole_disclosure():
-    """Once the reader tells us the year, what the neighbours did stops bearing."""
+    """Once the reader tells us the year, what the neighbors did stops bearing."""
     yb = _score(OLD_TRACT, year_built="2005")[1]["building"]["year_built"]
     assert yb["status"] == "confirmed"
     assert "sensitivity" not in yb

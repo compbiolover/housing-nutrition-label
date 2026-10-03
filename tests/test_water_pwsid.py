@@ -6,7 +6,7 @@ not know which system serves the address. Now that ``enrich/water_system.py``
 resolves a parcel to a PWSID, ``data/water_system.py`` scores that system's own
 SDWIS record instead, and the county becomes the fallback.
 
-The behaviour worth pinning is the fallback boundary: a system EPA maps a service
+The behavior worth pinning is the fallback boundary: a system EPA maps a service
 area for but SDWIS has no active record of must NOT score as clean.
 
 Runs without network (the parcel→PWSID lookup is injected). This file alone: ``pytest tests/test_water_pwsid.py``.

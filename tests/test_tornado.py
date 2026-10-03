@@ -3,7 +3,7 @@
 EAL, and the live-path injection into the simulator.
 
 These cover the consolidation that retires the NOAA SPC touchdown-count model in
-favour of the FEMA National Risk Index tornado EAL rate (mirroring the wildfire
+favor of the FEMA National Risk Index tornado EAL rate (mirroring the wildfire
 consolidation). Runs without network access. This file alone:
   pytest tests/test_tornado.py
 """

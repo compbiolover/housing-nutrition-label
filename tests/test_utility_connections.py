@@ -12,7 +12,7 @@ dimensions were reading it as if it were:
     credited it the utility fees that go with it.
 
 The per-component cost/fee arithmetic is covered in tests/test_infrastructure.py;
-these tests pin the behaviour a visitor actually sees on the label.
+these tests pin the behavior a visitor actually sees on the label.
 
 Runs without network (a pre-resolved Location is injected). This file alone: ``pytest tests/test_utility_connections.py``.
 """
@@ -47,7 +47,7 @@ def _dim(lbl, key):
     return next(d for d in lbl["dimensions"] if d["key"] == key)
 
 
-def test_year_built_is_labelled_as_a_tract_median_not_a_measurement():
+def test_year_built_is_labeled_as_a_tract_median_not_a_measurement():
     """NSI's med_yr_blt is, in its own documentation, "the median year built of
     structures within the Census tract" — a property of the tract, never of this
     building. It is kept as the best available prior, but it must render as a

@@ -545,7 +545,7 @@ window.LabelForm = (function () {
 
     // ── busy / done status banner ───────────────────────────────────────────────
     // Scoring is a multi-second round trip (geocode, then a dozen federal
-    // datasets), and the only signal used to be one grey "Scoring this address…"
+    // datasets), and the only signal used to be one gray "Scoring this address…"
     // line — quiet enough to miss, and nothing at all marked the finish. Every
     // request now opens with a spinner and a moving bar, and closes with a green
     // confirmation that fades out on its own. The banner is a single aria-live
@@ -773,7 +773,7 @@ window.LabelForm = (function () {
           + '<p class="conf-legend traj-caveat">Only Durability moves with the '
           + 'calendar here — Energy Efficiency is keyed to the construction era and '
           + 'the Environmental Footprint’s embodied carbon was fixed when the home '
-          + 'was built — so this is what ageing alone does to the Building grade.</p>';
+          + 'was built — so this is what aging alone does to the Building grade.</p>';
       }
       html += LC.trajPointInTime(data);
       // The card renderer carries the notice on every other view; this one draws
@@ -1280,7 +1280,7 @@ window.LabelForm = (function () {
         .catch(function (err) {
           if (seq !== reqSeq) return;
           // The stale table stays, but undimmed: it is the last real answer, and
-          // leaving it greyed out under an error would imply it's still updating.
+          // leaving it grayed out under an error would imply it's still updating.
           setSweepBusy(false);
           densStatus.error("Could not compare densities", err.message);
         });

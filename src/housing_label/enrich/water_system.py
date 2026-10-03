@@ -74,7 +74,7 @@ def _is_community(attrs: dict) -> bool:
     kind = str(attrs.get("Service_Area_Type") or "").strip().lower()
     if not kind:
         # The CWS layer's own rows sometimes carry a descriptive area type
-        # ("Residential Area") rather than a system class. An unlabelled row in
+        # ("Residential Area") rather than a system class. An unlabeled row in
         # this service is a community system; only an explicit non-community
         # marker excludes it.
         return True

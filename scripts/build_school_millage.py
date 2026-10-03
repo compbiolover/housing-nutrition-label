@@ -49,7 +49,7 @@ secondary sources say confidently that it does not.
 If the exemption applied only to M&O, the I&S base would exceed the M&O base in essentially
 every district, since every district has homesteads. Instead they match in seven rows out of
 eight. The 209 exceptions are the districts that may still tax exempted homestead value for
-debt service — the hold-harmless for debt authorised before the exemption increases, which
+debt service — the hold-harmless for debt authorized before the exemption increases, which
 TEA describes as the prior rule that SB 1453 (eff. 2026) narrows.
 
 So the exemption reaches both levies, and the carve-out is measured rather than assumed:
@@ -161,13 +161,13 @@ def _norm(name: str) -> str:
     """County name → comparison key, tolerant of 'County', case, spaces and punctuation.
 
     Texas has De Witt/DeWitt and La Salle/LaSalle spelled inconsistently across sources,
-    so match on letters only rather than trying to normalise the spacing.
+    so match on letters only rather than trying to normalize the spacing.
     """
     return re.sub(r"[^a-z]", "", re.sub(r"\s+county$", "", name.strip(), flags=re.I).lower())
 
 
 def texas_fips_by_name() -> dict[str, str]:
-    """Normalised Texas county name → 5-digit FIPS, from the bundled crosswalk."""
+    """Normalized Texas county name → 5-digit FIPS, from the bundled crosswalk."""
     out: dict[str, str] = {}
     with (_DATA_DIR / "govfinance_county.csv").open(newline="") as f:
         for row in csv.DictReader(f):

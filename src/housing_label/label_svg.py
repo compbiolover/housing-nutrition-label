@@ -24,9 +24,9 @@ differently:
 * **The sheet has no dark mode.** Paper is white and toner is expensive, so
   ``theme`` defaults to ``light`` here where the badge defaults to ``auto``.
   Dark is still available for an SVG that will be embedded in a dark document.
-* **Colour is never the only channel.** Every grade appears as a letter *and* a
+* **Color is never the only channel.** Every grade appears as a letter *and* a
   bar length *and* a number, so the sheet survives a grayscale printer, a fax,
-  and a photocopy of a photocopy — the same rule the site follows for colour
+  and a photocopy of a photocopy — the same rule the site follows for color
   blindness, which paper enforces far more often.
 
 Drawn as text, not as paths
@@ -41,7 +41,7 @@ breathes; a line that comes out long is a layout that collides.
 
 Two further constraints the badge doesn't have, both from print tooling:
 
-* **No ``dominant-baseline``.** Browsers honour it; several print and design
+* **No ``dominant-baseline``.** Browsers honor it; several print and design
   applications do not, and a grade letter that slides out of its chip in
   Illustrator is a broken document. Vertical centring here is arithmetic
   (``_center_baseline``) against the font size.
@@ -60,7 +60,7 @@ import math
 
 # badge.py is where the SVG primitives and the grade palette live; importing
 # them (rather than restating them) is what keeps a printed grade the same
-# colour as the same grade on the site and on an embedder's page. The palette
+# color as the same grade on the site and on an embedder's page. The palette
 # has a drift test against docs/label-core.js — see tests/test_badge.py — and
 # that test protects this file for free.
 from housing_label.badge import (
@@ -134,7 +134,7 @@ def _fit(text, width: float, size: float, weight: int = 400) -> str:
 
 
 def _wrap(text, width: float, size: float, weight: int = 400, max_lines: int = 2) -> list[str]:
-    """Greedy word wrap to at most ``max_lines``; the overflow is ellipsised onto
+    """Greedy word wrap to at most ``max_lines``; the overflow is ellipsized onto
     the last line rather than dropped, so a truncated caveat still reads as one."""
     words = " ".join(str(text).split()).split(" ")
     if words == [""]:
@@ -158,9 +158,9 @@ def _wrap(text, width: float, size: float, weight: int = 400, max_lines: int = 2
 
 
 def _center_baseline(cy: float, size: float) -> float:
-    """Baseline that visually centres a line of ``size`` on ``cy``.
+    """Baseline that visually centers a line of ``size`` on ``cy``.
 
-    Not ``dominant-baseline="central"``: browsers honour that attribute, several
+    Not ``dominant-baseline="central"``: browsers honor that attribute, several
     print and design applications quietly ignore it, and a grade letter sitting
     outside its chip in Illustrator is a broken document. 0.355em is the usual
     cap-height/2 for the system stack.
@@ -187,7 +187,7 @@ def _rule(y, x=PAD, w=COL, color="var(--bd)") -> str:
 
 
 def _chip(x, y, w, h, grade: str, size: float, rx: float = 4) -> str:
-    """A grade letter on its own coloured field. Colour and letter are read from
+    """A grade letter on its own colored field. Color and letter are read from
     the same value, so they cannot disagree — and the letter is what carries the
     grade when the sheet is photocopied in black and white."""
     bg = GRADE_COLORS.get(grade, UNSCORED)
@@ -583,7 +583,7 @@ def render_sheet(payload: dict, *, address: str | None = None, theme: str = "lig
     should be reproducible from its payload, and because the date that matters is
     the one the label was *scored*, not the one the file was written.
 
-    Raises ValueError on an unknown theme: an unrecognised query parameter should
+    Raises ValueError on an unknown theme: an unrecognized query parameter should
     be a 400 at the edge, not a silent fallback.
     """
     validate_theme(theme)

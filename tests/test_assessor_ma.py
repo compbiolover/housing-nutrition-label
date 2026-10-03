@@ -34,7 +34,7 @@ from housing_label.enrich.assessor import _shared, ma
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 # Recorded live. A Westford single-family house: one dwelling, one record, so its
-# residential area and storey count are that home's.
+# residential area and story count are that home's.
 _HOUSE = {"LOC_ID": "F_668355_3050015", "PROP_ID": "071 0036 0000", "TOWN_ID": 330,
           "USE_CODE": "101", "SITE_ADDR": "57  DUNSTABLE RD", "ADDR_NUM": "57",
           "FULL_STR": "DUNSTABLE RD", "LOCATION": None, "YEAR_BUILT": 1933,
@@ -111,7 +111,7 @@ def _lookup(exact, near=(), address=None, slices=None, params=None, extra=None):
 # ── the happy path ─────────────────────────────────────────────────────────────
 
 
-def test_a_house_reports_year_area_and_storeys():
+def test_a_house_reports_year_area_and_stories():
     got = _lookup([_HOUSE], address="57 DUNSTABLE RD, WESTFORD, MA, 01886")
     assert got is not None
     assert (got.year_built, got.sqft, got.stories) == (1933, 1840, 2)
@@ -143,7 +143,7 @@ def test_a_condominium_stack_with_a_unit_reports_that_units_area():
     got = _lookup(_STACK, address="17 DURHAM ST #3, BOSTON, MA, 02120")
     assert got is not None
     assert (got.year_built, got.sqft, got.parcel_id) == (1880, 1123, "0402423016")
-    assert got.stories is None, "a condominium's storey count is never reported"
+    assert got.stories is None, "a condominium's story count is never reported"
 
 
 def test_a_condominium_stack_without_a_unit_reports_only_the_buildings_year():
@@ -190,7 +190,7 @@ def test_a_townhouse_development_without_an_address_has_no_single_year():
     assert _lookup(_TOWNHOUSES) is None
 
 
-def test_a_condo_record_sharing_its_number_with_a_neighbour_keeps_no_area():
+def test_a_condo_record_sharing_its_number_with_a_neighbor_keeps_no_area():
     """Holyoke files "2 A ARBOR WY" and "2 C ARBOR WY" as separate records whose
     split address is just "2 ARBOR WY". The unit letter sits between the number and
     the street, so the free-text form does not parse alike and that record offers
@@ -210,9 +210,9 @@ def test_a_condo_record_sharing_its_number_with_a_neighbour_keeps_no_area():
 
 
 def test_way_abbreviated_wy_matches_and_still_not_another_type():
-    assert _shared.same_address("2 ARBOR WAY", ma._normalise("2 ARBOR WY"))
-    assert not _shared.same_address("2 ARBOR ST", ma._normalise("2 ARBOR WY"))
-    assert ma._normalise("12 MAIN ST (HYANNIS)") == "12 MAIN ST"
+    assert _shared.same_address("2 ARBOR WAY", ma._normalize("2 ARBOR WY"))
+    assert not _shared.same_address("2 ARBOR ST", ma._normalize("2 ARBOR WY"))
+    assert ma._normalize("12 MAIN ST (HYANNIS)") == "12 MAIN ST"
 
 
 def test_the_rolls_spellings_become_the_matchers_spellings():
@@ -225,16 +225,16 @@ def test_the_rolls_spellings_become_the_matchers_spellings():
                          ("21 THAYER CI", "21 THAYER CIR"),
                          ("15 FIFTH ST", "15 5TH ST"),
                          ("10 EAST BROADWAY", "10 E BROADWAY")):
-        assert _shared.same_address(census, ma._normalise(roll)), roll
+        assert _shared.same_address(census, ma._normalize(roll)), roll
 
 
 def test_a_directional_that_is_the_streets_name_is_left_alone():
     """"NORTH ST" is a street called North; abbreviating it would make it equal to
     a street called "N"."""
-    assert ma._normalise("21 NORTH ST") == "21 NORTH ST"
-    assert ma._normalise("5 EAST AVE") == "5 EAST AVE"
-    assert not _shared.same_address("21 N ST", ma._normalise("21 NORTH ST"))
-    assert not _shared.same_address("1114 S MAIN ST", ma._normalise("1114 NO MAIN ST"))
+    assert ma._normalize("21 NORTH ST") == "21 NORTH ST"
+    assert ma._normalize("5 EAST AVE") == "5 EAST AVE"
+    assert not _shared.same_address("21 N ST", ma._normalize("21 NORTH ST"))
+    assert not _shared.same_address("1114 S MAIN ST", ma._normalize("1114 NO MAIN ST"))
 
 
 def test_a_master_record_with_a_local_code_cannot_stand_in_for_the_units():
@@ -272,10 +272,10 @@ def test_two_polygons_at_the_address_within_the_buffer_are_refused():
                    address="57 DUNSTABLE RD, WESTFORD, MA") is None
 
 
-def test_a_neighbours_polygon_under_the_point_is_not_the_answer():
-    neighbour = dict(_HOUSE, PROP_ID="X", SITE_ADDR="59 DUNSTABLE RD", ADDR_NUM="59",
+def test_a_neighbors_polygon_under_the_point_is_not_the_answer():
+    neighbor = dict(_HOUSE, PROP_ID="X", SITE_ADDR="59 DUNSTABLE RD", ADDR_NUM="59",
                      LOC_ID="F_1", YEAR_BUILT=1999)
-    got = _lookup([neighbour], near=[neighbour, _HOUSE],
+    got = _lookup([neighbor], near=[neighbor, _HOUSE],
                   address="57 DUNSTABLE RD, WESTFORD, MA")
     assert got is not None and got.year_built == 1933
 
@@ -329,7 +329,7 @@ def test_a_polygon_with_no_assessor_record_is_not_a_candidate():
 # ── the one-dwelling rule ──────────────────────────────────────────────────────
 
 
-def test_a_two_family_reports_its_year_but_not_its_area_or_storeys():
+def test_a_two_family_reports_its_year_but_not_its_area_or_stories():
     """104 is two homes: the area covers both."""
     got = _lookup([dict(_HOUSE, USE_CODE="104", UNITS=2, RES_AREA=2968)])
     assert got is not None and got.year_built == 1933
@@ -392,18 +392,18 @@ def test_exempt_housing_codes_are_homes():
     assert ma._says_a_home_is_here({"USE_CODE": "931"}) is None
 
 
-# ── storeys ────────────────────────────────────────────────────────────────────
+# ── stories ────────────────────────────────────────────────────────────────────
 
 
-def test_storeys_in_a_town_that_writes_a_code_table_are_not_read():
-    """Medfield's single-family houses are "7", "8" and "14" storeys."""
+def test_stories_in_a_town_that_writes_a_code_table_are_not_read():
+    """Medfield's single-family houses are "7", "8" and "14" stories."""
     medfield = dict(_HOUSE, TOWN_ID=175, STORIES="7")
     got = _lookup([medfield])
     assert got is not None and got.stories is None and got.sqft == 1840
     assert _lookup([dict(medfield, STORIES="2")]).stories is None
 
 
-def test_half_storeys_and_letters_are_not_rounded():
+def test_half_stories_and_letters_are_not_rounded():
     for raw in ("1.5", "1.75", "2A", "1T", "0", "5", None):
         got = _lookup([dict(_HOUSE, STORIES=raw)])
         assert got is not None and got.stories is None, raw

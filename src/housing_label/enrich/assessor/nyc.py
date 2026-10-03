@@ -12,7 +12,7 @@ Output": DCP takes Finance's property-tax and mass-appraisal records, one row pe
 tax lot, adds planning fields, and publishes it quarterly. MapPLUTO is the same
 table joined to Finance's Digital Tax Map, so every row carries its lot boundary.
 
-  ``MAPPLUTO/FeatureServer/0`` on DCP's own ArcGIS Online organisation
+  ``MAPPLUTO/FeatureServer/0`` on DCP's own ArcGIS Online organization
   (``services5.arcgis.com/GfwWNkhOj9bNBqoJ``, owner ``DCP_GIS``) — 856,687 lots,
   release 26v2, keyless, verified live.
 
@@ -75,7 +75,7 @@ lands on one record describing the whole tower: 20 West 64th Street is one lot w
 655 residential units. ``BldgArea`` is "the total gross area" of every structure on
 the lot, so on that record it is the tower.
 
-So the floor area and the storey count are reported only where the record is one
+So the floor area and the story count are reported only where the record is one
 home in one building, and the building is a one-family dwelling — **all** of:
 
 * ``UnitsRes == 1`` — one residential unit;
@@ -126,7 +126,7 @@ What else is read, and what is not
   building.
 * ``NumFloors`` — "full and partial floors … for the tallest building on the tax
   lot". Behind the same one-home gate as the area, and whole numbers only: a
-  2.5-storey house is not rounded into a third storey, the call Cook and DC make.
+  2.5-story house is not rounded into a third story, the call Cook and DC make.
 * Nothing for ``construction`` or ``condition``: PLUTO carries neither a wall
   material nor a condition grade.
 
@@ -199,12 +199,12 @@ range where PLUTO keeps "the low number when there is a range", a large complex
 "HUMPHREY"). The other 4 are geocodes more than 80 m from their own lot. All of it
 is the shared parcel-choosing rule declining to guess.
 
-Licence
+License
 -------
 NYC Open Data's own FAQ (``nyc.gov/opendata/get-started/FAQs``): "Open Data
 belongs to all New Yorkers. There are no restrictions on the use of Open Data." —
 the Open Data Law (Local Law 11 of 2012) requires public datasets to be published
-without "restrictions on their use". DCP's licence text on the MapPLUTO item and
+without "restrictions on their use". DCP's license text on the MapPLUTO item and
 the data dictionary's disclaimer provide it "for informational purposes only" with
 no warranty of completeness, accuracy or fitness, and assert no restriction. So
 this adapter is clear to run; it still takes the posture every adapter takes —
@@ -362,7 +362,7 @@ def _street_form(raw: str | None) -> str | None:
     Only the part before the first comma — the street address — is rewritten; the
     locality tail is carried through untouched for ``address_key`` to discard as it
     always does. A unit marker ("#5A", "APT 3") is left exactly where it is so the
-    shared parse still recognises and drops it.
+    shared parse still recognizes and drops it.
     """
     text = " ".join(str(raw or "").split()).upper()
     if not text:
@@ -376,7 +376,7 @@ def _street_form(raw: str | None) -> str | None:
     for token in rest:
         token = _SPELLINGS.get(token, token)
         # A street type in the middle of a name ("AVENUE J", "BEACH 116 STREET")
-        # is canonicalised as well as a terminal one: address_key only looks at the
+        # is canonicalized as well as a terminal one: address_key only looks at the
         # last token, so "AVENUE J" and "AVE J" would otherwise be different names.
         canonical = SUFFIXES.get(token.lower())
         out.append(canonical.upper() if canonical else token)
@@ -467,7 +467,7 @@ def _says_a_home_is_here(row: dict) -> bool:
 def _is_one_house(row: dict) -> bool:
     """One residential unit, in one building, of a one-family class.
 
-    The gate on the floor area and the storey count, both of which PLUTO records
+    The gate on the floor area and the story count, both of which PLUTO records
     for the whole lot. See "The condo trap" in the module docstring for what each
     of the three tests catches that the others do not.
     """
@@ -490,7 +490,7 @@ def _stories_of_one_home(row: dict) -> int | None:
     """``NumFloors`` for a one-house lot, as a whole number, otherwise None.
 
     It is the tallest building's floor count, which on a one-building lot is the
-    house's. A half storey (1.5, 2.5 — common here) is not rounded into a whole
+    house's. A half story (1.5, 2.5 — common here) is not rounded into a whole
     one, the same call the Cook and District adapters make.
     """
     if not _is_one_house(row):
@@ -537,7 +537,7 @@ def _lookup_cached(lat: float, lon: float, address: str | None,
         stories=_stories_of_one_home(row),
         foundation=_foundation(row) if _says_a_home_is_here(row) else None,
         # PLUTO carries no wall material and no condition grade. Left empty on
-        # purpose, which lets the label fall back to its modelled estimate.
+        # purpose, which lets the label fall back to its modeled estimate.
     )
     # A lot that matched but recorded no fact contributed nothing. The registry
     # drops it either way; returning None here keeps it out of the cache.
@@ -553,7 +553,7 @@ def lookup(lat: float, lon: float, address: str | None = None) -> AssessorRecord
 
     Fails open on everything — a timeout, a 500, a renamed column, a lot the city
     has no record for. The caller then keeps whatever it had, which is the
-    behaviour that existed before this adapter.
+    behavior that existed before this adapter.
     """
     try:
         # Round before the cache so two clicks on the same rooftop share an entry.

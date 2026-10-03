@@ -26,7 +26,7 @@ a term.
 
 ## 1. The nearest comparable argues against selling the score
 
-**Walk Score** is the closest structural analogue that has ever existed: a *score*, in US
+**Walk Score** is the closest structural analog that has ever existed: a *score*, in US
 residential, sold as an API plus a badge.
 
 - Free below published thresholds (5,000 API calls/day, 1,000 widget views/day), Premium
@@ -68,7 +68,7 @@ Neither monetized the label first. Both monetized the position the free label bo
    by rule for exactly this reason. "Get your house scored" has the problem on day one.
 3. **Ratings shopping** is structural to issuer-pays: the rated party picks the rater.
 4. **Fair housing — the risk none of the comparables carry.** An address-level composite
-   grade, incorporating neighbourhood and demographically-correlated inputs, used by
+   grade, incorporating neighborhood and demographically-correlated inputs, used by
    lenders, insurers or landlords, is a disparate-impact surface. GreatSchools' retreat to
    three coarse "bands" (sold as a separate licensing tier from full ratings) and Redfin's
    published methodology are both partly defensive.
@@ -166,7 +166,7 @@ for the Tier 1 buyers who have budget — the First Street move exactly — and 
 ## 6. Licensing reality check — including one risk that turned out not to apply
 
 **The ODbL question, and its answer.** The general risk is real and worth recording: the
-ODbL distinguishes a *Produced Work* (any licence, but recipients may request the
+ODbL distinguishes a *Produced Work* (any license, but recipients may request the
 derivative database under ODbL) from a *Derivative Database* (full share-alike). The OSMF
 guideline test is whether "the published result of your project is intended for the
 extraction of the original data". A rendered label image is defensibly a Produced Work; a
@@ -218,10 +218,10 @@ data in raw, aggregate **or derivative** form, and the Public Records API is inv
 The project's existing refusal to depend on any of them is what keeps the score sellable.
 
 **Our own position.** PolyForm Shield is not OSI-approved: no "open source" claim, no
-Debian/Fedora, and exclusion from procurement lists that require an OSI licence. The
-trademark is the stronger asset, because it is what enforces a display/syndication licence
-regardless of what the code licence says — that is the Morningstar and Nutri-Score
-mechanism. Worth noting that m3o/Micro, an early Shield adopter, is defunct: the licence
+Debian/Fedora, and exclusion from procurement lists that require an OSI license. The
+trademark is the stronger asset, because it is what enforces a display/syndication license
+regardless of what the code license says — that is the Morningstar and Nutri-Score
+mechanism. Worth noting that m3o/Micro, an early Shield adopter, is defunct: the license
 did not save it.
 
 ## 7. Business models for a solo operator, and how they fail
@@ -242,7 +242,7 @@ which does not scale but is cash-positive from month one and funds the product.
   the only advantage over ATTOM's balance sheet evaporates, against competitors who were
   never going to fork you anyway. This is not an argument to reverse it. It *is* the
   argument that the free tier must now be deliberately generous, because generosity is no
-  longer produced for free by the licence.
+  longer produced for free by the license.
 - **"Contact sales" without a sales team.** Every opaque competitor in §3 has one. A
   quote-based offer loses to HouseCanary's published $790/yr on velocity alone.
 - **Selling to municipalities as SaaS.** RFP cycles, council presentations, $1,788 trial
@@ -260,14 +260,14 @@ which does not scale but is cash-positive from month one and funds the product.
 fund the first year like Urban3.**
 
 1. **The label is monetizable as a right to *syndicate*, never a right to be *rated*.**
-   Free embeddable badge with attribution, capped by volume; paid licence for multi-domain,
+   Free embeddable badge with attribution, capped by volume; paid license for multi-domain,
    paywalled, offline or systematic use, priced on the licensee's traffic or portfolio
    rather than our compute. Free in advertising, licensed in operational use — Morningstar's
-   split, deliberately copied. Trademark enforces this, not the code licence.
+   split, deliberately copied. Trademark enforces this, not the code license.
 2. **Publish prices.**
 3. **Meter per address scored, with the per-dimension subscores as the volume lever.**
 4. **Batch/portfolio is the high-value SKU.** `batch.py` already is the product; it needs
-   a licence and a price, not features.
+   a license and a price, not features.
 5. **Do not build issuer-pays certification.** The Home Energy Score model only works
    because municipal mandates create demand and DOE absorbs the credibility cost. Without a
    mandate you get BBB's incentive structure and none of BBB's brand.

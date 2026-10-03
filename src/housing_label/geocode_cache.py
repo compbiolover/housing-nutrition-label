@@ -71,9 +71,9 @@ def address_key(street: str, city: str, state: str, zipc: str,
                 *, benchmark: str = BENCHMARK, vintage: str = VINTAGE) -> str:
     """Stable cache key for one address under one geocoder version.
 
-    Normalised so trivial formatting differences ("123 Main St" vs "123  MAIN
+    Normalized so trivial formatting differences ("123 Main St" vs "123  MAIN
     st ") hit the same row — a book re-exported from a different system should
-    not miss on every line. Deliberately NOT normalised any further than case and
+    not miss on every line. Deliberately NOT normalized any further than case and
     whitespace: collapsing "St"/"Street" or dropping punctuation would risk
     merging two genuinely different addresses, and a wrong cache hit is worse
     than a miss.

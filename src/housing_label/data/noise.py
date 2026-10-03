@@ -68,7 +68,7 @@ MEDIAN_TRACT_PCT = _PCT_XS[3]        # 1.85% of residents at >=60 dB
 #
 # QUIET_FLOOR_SCORE is the p10 anchor — the quietest the curve goes short of
 # absolute zero. A refined parcel is floored here rather than scored 100 on
-# purpose: the evidence is "no modelled source within its attenuation distance",
+# purpose: the evidence is "no modeled source within its attenuation distance",
 # which supports "as quiet as the quietest tenth of US tracts". It does not support
 # a claim of exactly zero exposure, because aviation is invisible to this test and
 # TIGER carries no traffic volumes.

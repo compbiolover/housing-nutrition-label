@@ -3,7 +3,7 @@
 
 The response fixtures below are real bytes captured from
 ``geocoding.geo.census.gov/geocoder/geographies/addressbatch``, so the parser is
-tested against the endpoint's actual output rather than an idealised version of
+tested against the endpoint's actual output rather than an idealized version of
 it. Nothing here goes out to the network.
 
 This file alone:  pytest tests/test_geocode.py

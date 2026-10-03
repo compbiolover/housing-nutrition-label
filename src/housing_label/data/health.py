@@ -80,7 +80,7 @@ def states_without_data() -> frozenset[str]:
     Not every missing tract is a missing tract. CDC PLACES omits some states
     wholesale, and when it does, "no health data for tract 42101000100" is a
     misleading thing to tell a Philadelphian — it reads as a bad tract id or a
-    coverage hole in their neighbourhood, when the truth is that the survey has no
+    coverage hole in their neighborhood, when the truth is that the survey has no
     outcome data for **Pennsylvania at all**.
 
     As of the bundled release that is Kentucky (21), Pennsylvania (42) and Puerto

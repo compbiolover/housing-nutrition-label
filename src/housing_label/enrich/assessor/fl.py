@@ -60,7 +60,7 @@ not the size of anybody's home.
 The label's ``sqft`` means one dwelling. So the area is reported only where the
 county's own record says the parcel holds exactly one home in exactly one
 building — ``NO_RES_UNT == 1`` and ``NO_BULDNG == 1``. Anything else is left
-empty and the label falls back to its modelled estimate.
+empty and the label falls back to its modeled estimate.
 
 Dividing the total by the unit count was considered and rejected: it would turn a
 measurement into an average, and then tag the average ``observed``, which tells a
@@ -128,7 +128,7 @@ and a seven-kilobyte body cannot stream for eight seconds.
 
 What this source does not carry
 -------------------------------
-The state roll has no exterior wall, no storey count, no foundation type and no
+The state roll has no exterior wall, no story count, no foundation type and no
 condition grade, so those four stay empty and NSI's estimate stands for them. Two
 fields are close enough to be worth explaining why they are *not* used:
 
@@ -244,7 +244,7 @@ def _parcel_at(lat: float, lon: float, address: str | None = None,
     """The record of the parcel this point belongs to, or None.
 
     Deciding *which* parcel an address means is the dangerous part of any adapter
-    — name the wrong one and the label reports a neighbour's house as observed
+    — name the wrong one and the label reports a neighbor's house as observed
     fact — so the policy lives in ``_shared.select_parcel`` and is shared by every
     jurisdiction. See that function for why it refuses to take the nearest parcel.
 
@@ -332,7 +332,7 @@ def _lookup_cached(lat: float, lon: float, address: str | None,
     sqft = _area_of_one_home(row)
     # A parcel that matched but recorded neither fact contributed nothing. Saying
     # so here costs one comparison and keeps a fact-free record out of the cache;
-    # the registry drops it either way, so behaviour is unchanged.
+    # the registry drops it either way, so behavior is unchanged.
     if year_built is None and sqft is None:
         return None
     return AssessorRecord(
@@ -341,9 +341,9 @@ def _lookup_cached(lat: float, lon: float, address: str | None,
         parcel_id=_parcel_id(row),
         year_built=year_built,
         sqft=sqft,
-        # The state roll carries no wall material, storey count, foundation or
+        # The state roll carries no wall material, story count, foundation or
         # condition. Left empty on purpose, which lets the label fall back to its
-        # modelled estimate for those four rather than to a guess dressed up as an
+        # modeled estimate for those four rather than to a guess dressed up as an
         # observation.
     )
 
@@ -357,7 +357,7 @@ def lookup(lat: float, lon: float, address: str | None = None) -> AssessorRecord
 
     Fails open on everything — a timeout, a 500, a renamed column, a parcel the
     state has no record for. The caller then keeps whatever it had, which is the
-    behaviour that existed before this adapter.
+    behavior that existed before this adapter.
     """
     try:
         # Round before the cache so two clicks on the same rooftop share an entry.

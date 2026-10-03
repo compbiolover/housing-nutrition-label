@@ -183,7 +183,7 @@ UTILITY_MIX = {
     "large multifamily (20+)":    ((True, True, 1.0),),
 }
 
-# KNOWN GAP, deliberately not modelled: incorporation. An unincorporated parcel
+# KNOWN GAP, deliberately not modeled: incorporation. An unincorporated parcel
 # drops municipal curbside collection from both sides too, but its effect on the
 # ratio is a rounding error next to water/sewer (0.259 -> 0.262 on the same test
 # parcel, because sanitation is small and only ~97% fee-recovered), so adding a

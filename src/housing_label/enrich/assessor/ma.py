@@ -11,7 +11,7 @@ board of assessors and its own CAMA vendor. What the state contributed is the
 **MassGIS Digital Parcel Standard, "Level 3"**: a procurement that redrew every
 community's tax map to one specification and attached a fixed extract of the
 assessor's database to every parcel — the same roughly 25 columns in every town,
-including year built, residential area, storeys, units and the Department of
+including year built, residential area, stories, units and the Department of
 Revenue's property-use code. Boston, the last community, was added in July 2020.
 MassGIS publishes the joined result (``L3_TAXPAR_POLY_ASSESS``) as one hosted
 feature layer and folds in municipal updates monthly.
@@ -55,7 +55,7 @@ groups records **by polygon** (``LOC_ID``) before the shared chooser sees them:
 * Where several records remain and no unit singles one out, the polygon's **year**
   is reported only if every remaining record agrees on it — true of every unit in a
   condominium building, so it is right for whichever unit the reader lives in —
-  and nothing else is. Floor area and storeys always belong to one record.
+  and nothing else is. Floor area and stories always belong to one record.
 
 This is the District's condominium idea reached from a point instead of from a
 second table, and like the District's it never guesses: no unit, no unit-level
@@ -66,7 +66,7 @@ Cambridge files its masters under a local ``199`` (1916 against units of 1873 at
 35 Washburn Ave); either, left in, would veto the units' agreement or stand in
 for a unit whose own address does not parse. The filter applies only inside a
 stack: a polygon whose only records are non-dwellings stays a candidate, so it
-still counts towards "two polygons here" and still resolves to nothing.
+still counts toward "two polygons here" and still resolves to nothing.
 
 Addresses
 ---------
@@ -81,7 +81,7 @@ pairwise before the polygon offers an address.
 A few spellings the roll uses and the Census matcher never returns are rewritten
 on the record's side only ("WY", "TERR", "CI"/"CR" for circle, "NO"/"SO" and
 spelled-out directionals, ordinal words, Barnstable's "(HYANNIS)" village tags);
-see ``_normalise``. Each turns one spelling of a street into the matcher's
+see ``_normalize``. Each turns one spelling of a street into the matcher's
 spelling of the same street, so it can only add a match the matcher agrees with.
 
 Which records hold a home: the Department of Revenue's use codes
@@ -147,21 +147,21 @@ Never divided by a unit count, for the reason ``fl.py`` gives.
 
 The standard is candid that the measurement basis varies by vendor — "gross
 square-feet, adjusted gross square-feet, or finished area" — so this is the
-assessor's residential area, not a harmonised living area. Florida's and
+assessor's residential area, not a harmonized living area. Florida's and
 Connecticut's columns carry the same caveat in practice; Massachusetts is the one
 that says so.
 
-Storeys: a column three towns use as a code
+Stories: a column three towns use as a code
 -------------------------------------------
 ``STORIES`` is a story height ("1.5", "1.75", "2A" for Patriot's attic stories)
 on 348 of 351 towns. Medfield, Upton and Dartmouth write a code table into it
 instead — Medfield's single-family houses are "7" (1,698), "8" (472) and "14"
-(278) storeys — measured as the only towns where whole values of 5 or more exceed
+(278) stories — measured as the only towns where whole values of 5 or more exceed
 1% of single-family records (70%, 28% and 2.3%; the next is 0.7%). Those three
-towns report no storeys at all, since their "1" and "2" are codes too. Elsewhere
+towns report no stories at all, since their "1" and "2" are codes too. Elsewhere
 only a whole number from 1 to 4 on a one-dwelling single-family record is
-reported; a half storey is not rounded into one, the same call Cook and the
-District make, and a condominium's storey count is never reported because it can
+reported; a half story is not rounded into one, the same call Cook and the
+District make, and a condominium's story count is never reported because it can
 be the unit's or the building's.
 
 What is not read
@@ -180,7 +180,7 @@ records ... MassGIS data may be freely redistributed and integrated into
 commercial products and applications, including any derivative works", with a
 liability disclaimer and a requested credit line ("Learn about MassGIS data",
 ``mass.gov/info-details/learn-about-massgis-data``; the MassGIS FAQ calls its data
-"public domain ... can be used by anyone for any purpose"). The item's licence
+"public domain ... can be used by anyone for any purpose"). The item's license
 note says only that parcel mapping is not an authoritative boundary record, and
 the data page that the assessing extract is an "as is" copy "with errors and
 discrepancies". Verdict: clear for live query and cache, and the most permissive
@@ -235,7 +235,7 @@ product does, then looked up:
 
 * 240 geocoded, all 240 routed to a Massachusetts county code.
 * **196 resolved**: 195 with the exact year built, and all 155 floor areas and
-  all 106 storey counts reported exactly equal to the record's.
+  all 106 story counts reported exactly equal to the record's.
 * **1 named a different parcel, and it is the geocoder's**: the matcher turned
   "21 LONGWOOD AVE, WAREHAM" into "21 LINWOOD AVE" — another street, 3 km
   away — and the adapter correctly returned 21 Linwood Ave. Nothing inside an
@@ -375,8 +375,8 @@ _CONDOMINIUM = frozenset({"102", "1020"})
 #: MassGIS TOWN_IDs whose STORIES column holds a code table rather than a count:
 #: Medfield (175), Upton (303), Dartmouth (72). Measured as the only towns where
 #: whole values of five or more are over 1% of single-family records.
-_STOREY_CODE_TOWNS = frozenset({72, 175, 303})
-_MAX_STOREYS = 4
+_STORY_CODE_TOWNS = frozenset({72, 175, 303})
+_MAX_STORIES = 4
 
 
 def _dor_code(raw) -> str | None:
@@ -444,7 +444,7 @@ _LOCATION_UNIT_RE = re.compile(
     r"^(?:#|UNIT|APT\.?|STE\.?|SUITE|NO\.?)?\s*#?\s*([A-Z0-9][A-Z0-9\-]*)$")
 
 
-def _normalise(raw: str | None) -> str:
+def _normalize(raw: str | None) -> str:
     """A row's street address in the Census matcher's spelling; see above.
 
     Only the street part before any unit marker is touched, and only when it
@@ -478,7 +478,7 @@ def _structured_address(row: dict) -> str | None:
     street = str(row.get("FULL_STR") or "").strip()
     if not (number.isdigit() and street):
         return None
-    return _normalise(f"{number} {street}")
+    return _normalize(f"{number} {street}")
 
 
 def _address_of(row: dict) -> str | None:
@@ -496,7 +496,7 @@ def _address_of(row: dict) -> str | None:
     can be confirmed against.
     """
     structured = _structured_address(row)
-    site = _normalise(row.get("SITE_ADDR"))
+    site = _normalize(row.get("SITE_ADDR"))
     # The shared comparison, not a looser local one: it tolerates one side
     # omitting the street type and refuses two different ones, so "24 MAIN ST"
     # against "24 MAIN AVE" is a contradiction here exactly as it is everywhere
@@ -666,13 +666,13 @@ def _area(row: dict, *, unit_matched: bool, siblings: list[dict]) -> float | Non
 
 
 def _stories(row: dict) -> int | None:
-    """A whole storey count for a one-dwelling single-family record, or None."""
+    """A whole story count for a one-dwelling single-family record, or None."""
     if str(row.get("USE_CODE") or "").strip().upper() not in _SINGLE_FAMILY:
         return None
-    if _claims_several_units(row) or num(row.get("TOWN_ID")) in _STOREY_CODE_TOWNS:
+    if _claims_several_units(row) or num(row.get("TOWN_ID")) in _STORY_CODE_TOWNS:
         return None
     v = num(str(row.get("STORIES") or "").strip())
-    if v is None or not float(v).is_integer() or not 1 <= v <= _MAX_STOREYS:
+    if v is None or not float(v).is_integer() or not 1 <= v <= _MAX_STORIES:
         return None
     return int(v)
 

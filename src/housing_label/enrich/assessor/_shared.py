@@ -6,7 +6,7 @@ The first adapter (Cook County, IL) worked out — over several review rounds an
 three distinct bugs in one comparison function — how to decide *which parcel* an
 address refers to without ever confidently naming the wrong one. That reasoning is
 the dangerous part of an adapter, not the field mapping: a wrong parcel produces a
-neighbour's house tagged ``observed`` at high confidence, which is strictly worse
+neighbor's house tagged ``observed`` at high confidence, which is strictly worse
 than the area typical it replaces, because the reader has no reason to doubt it.
 
 A second adapter that copied that logic would fork it, and the copy would not
@@ -98,7 +98,7 @@ def get_json(url: str, params: dict, deadline: float,
 
     A raise here is, by this module's own rules, transient: a timeout, a 5xx, an
     ArcGIS error in a 200 body, an empty body. The adapter swallows it and the
-    label falls back to its modelled values, which is right for the reader in
+    label falls back to its modeled values, which is right for the reader in
     front of it — and wrong to *keep*. The API caches a scored label on its
     coordinate for hours, and a label built while a county portal was having a
     bad minute would pin that minute's fallback onto the address. So the failing
@@ -200,10 +200,10 @@ def _fetch_json(url: str, params: dict, deadline: float, read_slice: float):
 # ST" and "213 MAIN AVE" are different streets that can both exist within one
 # buffer, and collapsing both to "MAIN" would let the wrong parcel pass the
 # confirmation step and be reported as a confident "observed" answer — exactly what
-# that step exists to prevent. They are canonicalised rather than compared raw
+# that step exists to prevent. They are canonicalized rather than compared raw
 # because sources abbreviate differently ("STREET" vs "ST") for the same street.
 #
-# Directionals are neither dropped nor canonicalised: "213 W Main" and "213 E Main"
+# Directionals are neither dropped nor canonicalized: "213 W Main" and "213 E Main"
 # are different houses, and in a quadrant city ("NEWARK ST NW" vs "NEWARK ST NE")
 # they are different streets outright. They stay ordinary name tokens, which
 # preserves them wherever they appear — leading, as Chicago writes them, or
@@ -214,7 +214,7 @@ def _fetch_json(url: str, params: dict, deadline: float, read_slice: float):
 # that does not. Bridgeport, New Haven and several other Connecticut towns write
 # "350 GROVERS AV" where the Census matcher returns "350 GROVERS AVE" — 17,766 of
 # the state's residential parcels — and without the entry those two parse as
-# different streets and the parcel is refused. It stays a canonicalisation rather
+# different streets and the parcel is refused. It stays a canonicalization rather
 # than a deletion: "213 MAIN AV" now matches "213 MAIN AVE" and still does not
 # match "213 MAIN ST".
 SUFFIXES = {
@@ -432,7 +432,7 @@ def address_key(raw: str | None, locality: frozenset[str] = frozenset()):
     # ROUTE 66" alone, where the digit-bearing token is the street's own name.
     #
     # BEFORE the suffix rule below, not after: with the unit still trailing, the
-    # street type is no longer terminal and would never be recognised, so
+    # street type is no longer terminal and would never be recognized, so
     # "234 W STATION ST B12" and "234 W STATION ST" would parse differently and
     # fail to match. Inverting these two is a silent coverage loss, so the order
     # is pinned by a test.
@@ -557,7 +557,7 @@ def select_parcel(fetch, address: str | None, address_of, locality=frozenset()):
     a parcel is accepted only when its address agrees, uniquely.
 
     Containment is confirmed against the address too. The same interpolation error
-    that lands a point in the roadway can land it inside the *neighbour's* polygon —
+    that lands a point in the roadway can land it inside the *neighbor's* polygon —
     city lots are far narrower than the error — so a sole containing parcel is not
     by itself evidence. When it disagrees the search widens rather than giving up,
     since the buffer is anchored on the address and can still find the right parcel.

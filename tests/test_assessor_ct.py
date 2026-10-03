@@ -144,7 +144,7 @@ def test_greenwich_writes_the_cama_column_backwards_and_is_still_reachable():
 
 def test_the_cama_column_wins_when_both_parse():
     """Preference, not fallback. New Haven's parcel-map column holds the bare
-    string "93" for every parcel in a neighbourhood; the CAMA column holds the real
+    string "93" for every parcel in a neighborhood; the CAMA column holds the real
     address. Trying the parcel-map column first would pick the junk."""
     junk = dict(_HOUSE, Location="93")
     assert ct._address_of(junk) == "70 FOXCROFT ROAD"
@@ -250,7 +250,7 @@ def test_an_avenue_abbreviated_av_is_the_same_street_as_ave():
     coverage loss across 17,766 of the state's residential parcels, and the reason
     the condominium case above resolves at all.
 
-    Canonicalised, not dropped: an avenue still does not match a street."""
+    Canonicalized, not dropped: an avenue still does not match a street."""
     assert _shared.same_address("350 GROVERS AVE", "350 GROVERS AV")
     assert _shared.same_address("350 GROVERS AVENUE", "350 GROVERS AV")
     assert not _shared.same_address("350 GROVERS AV", "350 GROVERS ST")
@@ -371,7 +371,7 @@ def test_a_colonial_year_survives_the_adapter():
 
 def test_the_adapter_floor_is_the_scorer_floor():
     """The two used to be separate literals that happened to agree, which is how
-    they came to disagree. Pinned on behaviour at the boundary, in both directions,
+    they came to disagree. Pinned on behavior at the boundary, in both directions,
     so neither can move without the other."""
     from housing_label.enrich.durability import EARLIEST_PLAUSIBLE_YEAR, _valid_year
 

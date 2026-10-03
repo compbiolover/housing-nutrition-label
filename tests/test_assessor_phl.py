@@ -20,7 +20,7 @@ Philadelphia's own:
    reader typed can pick theirs out.
 3. **House-number ranges** ("2018-32 WALNUT ST") that the shared address parse
    cannot anchor on.
-4. A storey count stored as an **integer that rounds half storeys**.
+4. A story count stored as an **integer that rounds half stories**.
 5. An exterior-condition scale whose **published numbering disagrees with the
    data**.
 6. A year-built **estimate flag** on 70% of the city.
@@ -39,7 +39,7 @@ _ROOT = pathlib.Path(__file__).resolve().parent.parent
 from housing_label.enrich.assessor import _shared, phl
 
 # Recorded live (OPA account 521423200). A single-family brick row in Overbrook:
-# one home, legacy building code and storey count agreeing on 2.
+# one home, legacy building code and story count agreeing on 2.
 _HOUSE = {"parcel_number": "521423200", "location": "3710 LANKENAU RD", "unit": None,
           "category_code": "1", "building_code_description": "ROW B/GAR 2 STY MASONRY",
           "year_built": "1959", "year_built_estimate": "Y", "total_livable_area": 1415,
@@ -126,19 +126,19 @@ def test_containment_with_no_address_is_still_an_answer():
 def test_an_off_parcel_geocode_is_rescued_by_its_address():
     """The Census matcher interpolates onto the centerline; in the verification
     run 147 of 150 lookups fell through to the buffer."""
-    neighbour = dict(_HOUSE, parcel_number="521423300", location="3712 LANKENAU RD")
-    got = _lookup([], near=[neighbour, _HOUSE],
+    neighbor = dict(_HOUSE, parcel_number="521423300", location="3712 LANKENAU RD")
+    got = _lookup([], near=[neighbor, _HOUSE],
                   address="3710 LANKENAU RD, PHILADELPHIA, PA, 19131")
     assert got is not None and got.parcel_id == "521423200"
 
 
-def test_containment_in_the_neighbours_parcel_is_not_believed():
-    neighbour = dict(_HOUSE, parcel_number="521423300", location="3712 LANKENAU RD",
+def test_containment_in_the_neighbors_parcel_is_not_believed():
+    neighbor = dict(_HOUSE, parcel_number="521423300", location="3712 LANKENAU RD",
                      year_built="1961")
-    got = _lookup([neighbour], near=[neighbour, _HOUSE],
+    got = _lookup([neighbor], near=[neighbor, _HOUSE],
                   address="3710 LANKENAU RD, PHILADELPHIA, PA, 19131")
     assert got is not None and got.parcel_id == "521423200"
-    assert _lookup([neighbour], near=[neighbour],
+    assert _lookup([neighbor], near=[neighbor],
                    address="3710 LANKENAU RD, PHILADELPHIA, PA") is None
 
 
@@ -168,7 +168,7 @@ def test_a_condominium_without_a_unit_has_no_answer():
 
 
 def test_the_unit_the_reader_typed_picks_their_home():
-    """Recorded live: unit 1221 is 674 sq ft, its neighbours 937 and 1,465. The
+    """Recorded live: unit 1221 is 674 sq ft, its neighbors 937 and 1,465. The
     unit's own area is reported, as the District reports LIVING_GBA."""
     got = _lookup(_TOWER, near=_TOWER,
                   address="2001 HAMILTON ST #1221, PHILADELPHIA, PA, 19130")
@@ -179,7 +179,7 @@ def test_the_unit_the_reader_typed_picks_their_home():
     assert got.condition == "good"
 
 
-def test_a_condo_units_storey_count_is_its_floor_level_and_is_refused():
+def test_a_condo_units_story_count_is_its_floor_level_and_is_refused():
     """OPA's definition: 'In condominiums, this would relate to floor level.'"""
     got = _lookup(_TOWER, address="2001 HAMILTON ST #2008, PHILADELPHIA, PA")
     assert got is not None and got.parcel_id == "888091902"
@@ -191,7 +191,7 @@ def test_a_unit_that_does_not_exist_is_not_rounded_to_one_that_does():
                    address="2001 HAMILTON ST #9999, PHILADELPHIA, PA") is None
 
 
-def test_unit_spelling_is_normalised_but_leading_zeros_are_not():
+def test_unit_spelling_is_normalized_but_leading_zeros_are_not():
     """'#p-501' is P501. Unit 01 and unit 1 can both exist in one building."""
     got = _lookup(_TOWER, address="2001 HAMILTON ST Apt p-501, PHILADELPHIA, PA")
     assert got is not None and got.parcel_id == "888092032"
@@ -261,7 +261,7 @@ def test_a_rear_property_never_confirms_as_the_front_house():
     assert _lookup([], near=[rear], address="406 S 21ST ST, PHILADELPHIA, PA") is None
 
 
-# ── one dwelling, or no area and no storeys ────────────────────────────────────
+# ── one dwelling, or no area and no stories ────────────────────────────────────
 
 
 def test_a_multi_family_building_keeps_its_year_and_loses_its_area():
@@ -277,7 +277,7 @@ def test_mixed_use_and_apartments_are_not_one_dwelling():
         assert got.sqft is None and got.stories is None, category
 
 
-def test_a_second_dwelling_on_the_lot_refuses_area_and_storeys():
+def test_a_second_dwelling_on_the_lot_refuses_area_and_stories():
     got = _lookup([dict(_HOUSE, other_building="Y")])
     assert got is not None and got.year_built == 1959
     assert got.sqft is None and got.stories is None
@@ -306,7 +306,7 @@ def test_a_stale_building_code_does_not_refuse_a_new_house():
                year_built="2021", year_built_estimate=None, number_stories=3)
     got = _lookup([new])
     assert got is not None and got.year_built == 2021 and got.sqft == 1415.0
-    assert got.stories is None, "no storey count in the code to agree with"
+    assert got.stories is None, "no story count in the code to agree with"
 
 
 def test_a_blank_category_is_silence_not_a_statement():
@@ -367,10 +367,10 @@ def test_a_record_with_nothing_the_label_reads_is_not_an_answer():
     assert _lookup([empty]) is None
 
 
-# ── storeys: an integer column that rounds half storeys ────────────────────────
+# ── stories: an integer column that rounds half stories ────────────────────────
 
 
-def test_a_rounded_half_storey_is_refused():
+def test_a_rounded_half_story_is_refused():
     """Recorded live: 7,140 '2.5 STY' houses carry number_stories = 3."""
     for code, n in (("SEMI/DET 2.5 STY MASONRY", 3), ("DET 1.5 STY FRAME", 2),
                     ("ROW 2.5 STY MASONRY", 2)):
@@ -384,13 +384,13 @@ def test_a_code_and_a_count_that_disagree_are_refused():
     assert got is not None and got.stories is None
 
 
-def test_an_open_topped_storey_bucket_is_not_a_count():
+def test_an_open_topped_story_bucket_is_not_a_count():
     got = _lookup([dict(_HOUSE, building_code_description="ROW 5+ STY MASONRY",
                         number_stories=5)])
     assert got.stories is None
 
 
-def test_an_agreeing_three_storey_row_is_reported():
+def test_an_agreeing_three_story_row_is_reported():
     got = _lookup([dict(_HOUSE, building_code_description="ROW 3 STY MASONRY",
                         number_stories=3)])
     assert got.stories == 3
@@ -408,7 +408,7 @@ def test_exterior_condition_follows_the_numbering_the_data_uses():
 
 
 def test_codes_that_are_not_a_condition_are_not_mapped():
-    """1 is age relative to the neighbours, 6 is occupancy, 7 lumps a sealed sound
+    """1 is age relative to the neighbors, 6 is occupancy, 7 lumps a sealed sound
     house with one open to the weather, 0 is 'not applicable', 8 has one row on a
     scale with no 8."""
     for code in ("0", "1", "6", "7", "8", "9", "", None, "A"):

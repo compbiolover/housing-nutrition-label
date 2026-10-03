@@ -121,7 +121,7 @@ captures directly.
 The rigorous, citable way to turn *data provenance* into a confidence score is the **pedigree matrix**
 from the **NUSAP** system (Numeral, Unit, Spread, Assessment, Pedigree), introduced by **Funtowicz &
 Ravetz (1990)** and operationalized for model-based environmental assessment by **van der Sluijs et
-al. (2005)**. NUSAP extends a bare number with a qualitative, multi-criteria judgement of the
+al. (2005)**. NUSAP extends a bare number with a qualitative, multi-criteria judgment of the
 *strength* of its underpinning
 ([van der Sluijs et al. 2005, *Risk Analysis* 25(2) / Saltelli mirror PDF](http://www.andreasaltelli.eu/file/repository/08_vdSluijs_et_al2005.pdf);
 [NUSAP overview](https://en.wikipedia.org/wiki/NUSAP)).
@@ -133,7 +133,7 @@ well-founded to speculative
 |---|---|---|
 | **Proxy** | An exact measure of the desired quantity | Not clearly related to the quantity |
 | **Empirical basis** | Controlled experiments / large-sample direct measurement | Crude speculation |
-| **Methodological rigour** | Best practice in a well-established discipline | No discernible rigour |
+| **Methodological rigor** | Best practice in a well-established discipline | No discernible rigor |
 | **Validation** | Compared against independent measurements over a long domain | No validation performed |
 
 The same idea is the backbone of **ecoinvent's LCA data-quality pedigree matrix** (reliability,
@@ -195,7 +195,7 @@ small-rubric layer, not a modeling change.
 ## 4. Model/parametric uncertainty propagation — the fuller (later) approach
 
 For the five model-driven dimensions, a genuine numeric 0–100 confidence interval requires propagating
-*input-parameter* uncertainty through the score. Three standard methods, in ascending rigour/cost:
+*input-parameter* uncertainty through the score. Three standard methods, in ascending rigor/cost:
 
 1. **First-order (Gaussian) error propagation.** If a score `S = f(x₁…xₙ)` and each input `xᵢ` has
    std `σᵢ`, then `σ_S² ≈ Σ (∂f/∂xᵢ)² σᵢ²` (independent) — the *Guide to the Expression of Uncertainty
@@ -321,7 +321,7 @@ precision. Reuse existing tokens (`--navy`, `--muted`, `--border`, `.grade-*`), 
    draw whiskers on dimensions whose only uncertainty is a provenance tier — that would fake a CI.
 3. **A composite confidence line** — beside the big composite grade, one muted line:
    *"Moderate confidence · 7 of 9 dimensions scored"* (§5.2), with the two missing dimensions named on
-   hover. This is the credit-score-band / Zestimate-range analogue (§7): a trust signal attached to the
+   hover. This is the credit-score-band / Zestimate-range analog (§7): a trust signal attached to the
    headline number.
 
 **Tooltip / drill-down.** On hover of a row's dot, show the plain-language provenance already stored —

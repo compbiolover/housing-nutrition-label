@@ -2,7 +2,7 @@
 
 > **What this backs:** `src/housing_label/data/tornado.py` and the tornado leg of
 > `src/housing_label/score/resilience.py` + `src/housing_label/simulate/house.py`.
-> Retires the NOAA SPC touchdown-count tornado model in favour of the FEMA
+> Retires the NOAA SPC touchdown-count tornado model in favor of the FEMA
 > National Risk Index tornado EAL rate — the same shape already used for wildfire.
 > **Date:** 2026-07-10. Constraint: open / keyless / redistributable.
 

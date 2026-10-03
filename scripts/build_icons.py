@@ -8,7 +8,7 @@ palette (a ``#1a2332`` tile and a ``#22c55e`` roof) long after the site moved to
 Harbor, so the iOS home-screen icon no longer matched the site it opened.
 
 Everything here derives from ``PALETTE`` below, which mirrors the CSS custom
-properties in ``docs/style.css``. Change a colour there and re-run:
+properties in ``docs/style.css``. Change a color there and re-run:
 
     python scripts/build_icons.py            # rewrite the three icon files
     python scripts/build_icons.py --check    # exit 1 if they are stale (CI)
@@ -132,7 +132,7 @@ def build() -> dict[pathlib.Path, bytes]:
 
     # Apple touch icon: 180x180, opaque. iOS applies its own mask, and a
     # transparent margin would show the home-screen wallpaper through the
-    # corners, so this one is flattened onto the tile colour.
+    # corners, so this one is flattened onto the tile color.
     apple = Image.new("RGB", (180, 180), PALETTE["tile"])
     art = render(180)
     apple.paste(art, (0, 0), art)

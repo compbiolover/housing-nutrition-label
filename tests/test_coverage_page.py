@@ -55,9 +55,9 @@ def test_homes_are_summed_from_the_registry_without_double_counting():
     assert 0 < m["share_pct"] < 100
 
 
-def test_every_mapped_covered_county_is_coloured():
+def test_every_mapped_covered_county_is_colored():
     """A county the registry covers and the map draws must get a fill rule — the
-    failure is a covered county left grey, which reads as 'not covered'."""
+    failure is a covered county left gray, which reads as 'not covered'."""
     svg = (_ROOT / "docs" / "coverage-map.svg").read_text(encoding="utf-8")
     drawn = set(re.findall(r'id="c(\d{5})"', svg))
     page = (_ROOT / "docs" / "coverage.html").read_text(encoding="utf-8")
@@ -66,7 +66,7 @@ def test_every_mapped_covered_county_is_coloured():
     on_map = covered & drawn
     assert on_map, "no covered county is drawn on the map at all"
     for f in on_map:
-        assert f"#covmap #c{f}" in page, f"county {f} is covered but not coloured"
+        assert f"#covmap #c{f}" in page, f"county {f} is covered but not colored"
     # Every registered county the map lacks is a code the map's vintage predates
     # (Connecticut's planning regions), never an ordinary county that went missing.
     assert {f for f in covered - drawn if not f.startswith("091")} == set()

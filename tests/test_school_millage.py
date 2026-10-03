@@ -11,7 +11,7 @@ bundled: compute what the owner actually pays in school tax and subtract it. The
 pin three things a future reader could easily break —
 
   1. the measured path fires ONLY where millage exists, and is byte-identical to the old
-     behaviour everywhere else (the guarantee that makes shipping one state safe);
+     behavior everywhere else (the guarantee that makes shipping one state safe);
   2. the arithmetic matches a hand computation from the encoded legs;
   3. the Texas homestead exemption reaches the DEBT levy as well as operating, which
      secondary sources deny and the source data establishes.
@@ -56,7 +56,7 @@ def test_crosswalk_covers_every_texas_county_and_only_texas():
 
     The coverage boundary is the whole safety argument for this change, so it is asserted
     rather than implied. A partial Texas would silently mix two netting bases within one
-    state — neighbouring counties scored on different definitions.
+    state — neighboring counties scored on different definitions.
     """
     rows = _rows()
     assert len(rows) == TX_COUNTY_COUNT, f"expected {TX_COUNTY_COUNT} counties, got {len(rows)}"

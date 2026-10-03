@@ -105,7 +105,7 @@ HEALTH_COLS = [
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 def _clean_tract(val) -> str | None:
-    """Normalise a raw census_tract value to an 11-char GEOID string or None."""
+    """Normalize a raw census_tract value to an 11-char GEOID string or None."""
     if val is None:
         return None
     s = str(val).strip()

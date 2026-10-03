@@ -140,7 +140,7 @@ def _footprint_radius_m(sqft) -> float:
 
 
 def _dist_m(p: dict, lat: float, lon: float) -> float | None:
-    """Great-circle-ish metres from the point to a structure's centroid (x/y),
+    """Great-circle-ish meters from the point to a structure's centroid (x/y),
     or None when the structure has no usable coordinates."""
     try:
         py, px = float(p["y"]), float(p["x"])

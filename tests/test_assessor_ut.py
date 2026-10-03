@@ -51,7 +51,7 @@ _SHED_2 = dict(_HOUSE, BUILT_YR=1920, BLDG_SQFT=192, BLDG_SQFT_INFO="shed:_wood"
 _GARAGE = dict(_HOUSE, BUILT_YR=1996, BLDG_SQFT=572, BLDG_SQFT_INFO="detached",
                CONST_MATERIAL="Wood Framed")
 
-# Recorded live: 930 E 100 N, a 2013 two-storey house with a 2018 detached garage.
+# Recorded live: 930 E 100 N, a 2013 two-story house with a 2018 detached garage.
 # The garage is the NEWER building, so taking the latest year would be wrong.
 _TWO_STORY = {"PARCEL_ID": "140350267", "PARCEL_ADD": "930 E 100 N",
               "PROP_CLASS": "Residential", "BUILT_YR": 2013, "BLDG_SQFT": 2943,
@@ -70,7 +70,7 @@ _WEBER = {"PARCEL_ID": "051730006", "PARCEL_ADD": "3854 S 800 W",
           "CURRENT_ASOF": 1761696000000}
 _WEBER_SHED = dict(_WEBER, BUILT_YR=2019, BLDG_SQFT=96, CONST_MATERIAL="Wood Framed")
 
-# Recorded live from Parcels_SaltLake_LIR: a unit in the 27-storey tower at 48 W
+# Recorded live from Parcels_SaltLake_LIR: a unit in the 27-story tower at 48 W
 # 300 S. FLOORS_CNT is the tower's; HOUSE_CNT (not requested) reads 1.
 _CONDO = {"PARCEL_ID": "15012832180000", "PARCEL_ADD": "48 W 300 S # 1706N",
           "PROP_CLASS": "Residential", "BUILT_YR": 1982, "BLDG_SQFT": 1509,
@@ -211,13 +211,13 @@ def test_rows_with_no_parcel_id_are_records_of_nothing():
 
 
 def test_two_different_parcels_at_the_point_are_ambiguous():
-    neighbour = dict(_TWO_STORY)
-    assert _lookup([_HOUSE, neighbour]) is None
+    neighbor = dict(_TWO_STORY)
+    assert _lookup([_HOUSE, neighbor]) is None
 
 
 def test_an_off_parcel_geocode_is_confirmed_by_address_in_the_buffer():
     """The ordinary interpolated-geocode case: nothing contains the point, the 80 m
-    buffer finds both neighbours, and only the address decides."""
+    buffer finds both neighbors, and only the address decides."""
     got = _lookup([], near=[_TWO_STORY, _ITS_GARAGE, _HOUSE, _SHED_1],
                   address="924 E 100 N, PROVO, UT, 84606")
     assert got is not None and got.parcel_id == "140350270"
@@ -318,9 +318,9 @@ def test_a_grid_twin_near_the_point_refuses_the_answer():
 
 def test_without_a_twin_nearby_the_grid_address_still_answers():
     """Guards the test above from passing vacuously: the same parcel, with only an
-    ordinary neighbour in the buffer, resolves."""
-    neighbour = dict(_KANAB_TYPED, PARCEL_ID="U-C-16", PARCEL_ADD="345 N 300 E")
-    got = _lookup([_KANAB_MATCHED], near=[_KANAB_MATCHED, neighbour],
+    ordinary neighbor in the buffer, resolves."""
+    neighbor = dict(_KANAB_TYPED, PARCEL_ID="U-C-16", PARCEL_ADD="345 N 300 E")
+    got = _lookup([_KANAB_MATCHED], near=[_KANAB_MATCHED, neighbor],
                   address="325 N 300 E, KANAB, UT, 84741", county="49025")
     assert got is not None and got.parcel_id == "U-C-15" and got.year_built == 1975
 
@@ -346,7 +346,7 @@ def test_house_cnt_is_never_requested():
 def test_a_house_without_one_dwelling_evidence_reports_its_year_but_not_its_area():
     """Weber writes no building style and its PROP_CLASS "Residential" covers
     duplexes, so nothing in the row says one home. The year is right whatever the
-    building holds; the area and storeys are not reported."""
+    building holds; the area and stories are not reported."""
     got = _lookup([_WEBER, _WEBER_SHED], county="49057")
     assert got is not None and got.year_built == 2000
     assert got.sqft is None and got.stories is None
@@ -371,7 +371,7 @@ def test_carbon_single_family_is_one_dwelling_evidence():
 def test_a_salt_lake_condo_reports_the_towers_year_and_nothing_else():
     """The trap the research memo confirmed live: FLOORS_CNT is 27, the tower's,
     on every unit. The year is the building's and right for every unit; the area
-    and the storey count are refused — the unit number in PARCEL_ADD says the row
+    and the story count are refused — the unit number in PARCEL_ADD says the row
     is one unit of a larger building."""
     got = _lookup([_CONDO], county="49035", address="48 W 300 S, SALT LAKE CITY, UT")
     assert got is not None and got.year_built == 1982

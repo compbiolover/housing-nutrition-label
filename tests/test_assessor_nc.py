@@ -117,7 +117,7 @@ def test_a_house_reports_its_year_parcel_and_county_file_date():
 
 
 def test_the_year_is_the_only_field_this_source_can_fill():
-    """The statewide schema has no floor area, storeys, wall, foundation or
+    """The statewide schema has no floor area, stories, wall, foundation or
     condition. A later edit that read one of the 72 columns as a stand-in for
     them would be a guess wearing the ``observed`` tag."""
     got = _lookup([_HOUSE])
@@ -284,7 +284,7 @@ def test_a_tail_that_cannot_be_told_from_the_street_is_left_alone():
 
 def test_a_cove_is_a_street_type_so_its_city_tail_is_found():
     """COVE joined the shared street types (USPS "CV"), so the city run on after
-    it is now recognised and cut — the address this test used to pin as
+    it is now recognized and cut — the address this test used to pin as
     unreadable is in fact an ordinary one."""
     row = dict(_HOUSE, siteadd="98 CHESTNUT COVE ROBBINSVILLE NC 28771", scity="")
     assert nc._address_of(row) == "98 CHESTNUT COVE"
@@ -412,10 +412,10 @@ def test_a_right_of_way_polygon_with_an_id_is_not_a_record_either():
 
 
 def test_a_real_parcel_without_a_year_still_counts_as_a_candidate():
-    """Dropping it would leave a neighbour as the only parcel under the point."""
-    neighbour_no_year = dict(_HOUSE, parno="1713072014", siteadd="422 HAYWOOD ST",
+    """Dropping it would leave a neighbor as the only parcel under the point."""
+    neighbor_no_year = dict(_HOUSE, parno="1713072014", siteadd="422 HAYWOOD ST",
                              structyear=0)
-    assert _lookup([neighbour_no_year, _HOUSE]) is None, "two parcels: ambiguous"
+    assert _lookup([neighbor_no_year, _HOUSE]) is None, "two parcels: ambiguous"
 
 
 def test_a_parcel_with_no_identifier_is_still_an_answer():

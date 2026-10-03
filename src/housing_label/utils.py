@@ -384,7 +384,7 @@ DATASET_NAMES = {
     "services9.arcgis.com": "the Florida statewide parcel records",
     "services3.arcgis.com": "the Connecticut statewide parcel records",
     # The 2026-10 adapters. services1 is one ArcGIS Online shard serving two
-    # different organisations' layers; a label is only ever in one of the two
+    # different organizations' layers; a label is only ever in one of the two
     # states, so naming both tells the reader which records were missing.
     "public.gis.lacounty.gov": "the Los Angeles County Assessor records",
     "services5.arcgis.com": "the NYC City Planning MapPLUTO tax lots",
@@ -495,7 +495,7 @@ def fan_out(*tasks):
 
     Every task runs inside the caller's timing/budget window (see above). The
     caller collects results with :func:`gather`, or ignores them when a task exists
-    only to warm a memoised fetcher.
+    only to warm a memoized fetcher.
     """
     window = _window()
 

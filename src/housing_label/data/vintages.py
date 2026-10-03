@@ -43,7 +43,7 @@ twice already — see the ``_sub()`` docstring in ``simulate/dimensions.py`` and
 ``BUILDING_XS`` note in ``data/national_percentile.py``, both of which exist because
 two numbers that look alike and answer different questions is a defect.
 
-A moving-yardstick reading is admissible later as an explicitly-labelled SECOND
+A moving-yardstick reading is admissible later as an explicitly-labeled SECOND
 series. It is never a replacement.
 
 Percentiles do not travel

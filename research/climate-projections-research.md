@@ -224,7 +224,7 @@ resolved two ways:
 - **Spatial join without a geospatial library.** The FWI CSV is keyed by `Crossmodel` grid-cell
   id (`R{row}C{col}`), not lat/lon. The grid shapefile is **EPSG:3857 (Web Mercator)** — which
   the project already converts in `utils.webmercator_to_wgs84`. So a **pure-stdlib** `.shp`/`.dbf`
-  parser reads each cell's polygon bounding-box centre, reprojects it to WGS84, and a 0.5° lat/lon
+  parser reads each cell's polygon bounding-box center, reprojects it to WGS84, and a 0.5° lat/lon
   spatial hash finds the nearest cell at each census tract's internal point (county = the mean of
   its tracts, coherent with the LOCA2 build). No GeoPandas / Shapely / Fiona.
 

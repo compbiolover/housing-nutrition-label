@@ -60,7 +60,7 @@ def test_the_build_script_imports_the_query_rather_than_restating_it():
 
 def test_the_query_pins_every_assumption_the_curve_depends_on():
     """peakpower=1 is what makes E_y a specific yield at all; the rest are the
-    modelling choices the bundled quantiles were computed under."""
+    modeling choices the bundled quantiles were computed under."""
     assert sp.PVGIS_PARAMS["peakpower"] == "1"
     assert sp.PVGIS_PARAMS["loss"] == "14"
     assert sp.PVGIS_PARAMS["mountingplace"] == "building"

@@ -13,7 +13,7 @@ is 27 years**, and 72.8% of tracts spread 20 years or more. A tract median is a 
 estimate with roughly ±14 years of slack at the quartiles, and that is enough to move
 ``code_era_factor`` by ~18% and to halve or double a modeled component age.
 
-So this builds the thing NSI never had: the **distribution**, not just its centre.
+So this builds the thing NSI never had: the **distribution**, not just its center.
 
 Method (reproducible, KEYLESS — ACS 5-year table-based Summary File)
 --------------------------------------------------------------------
@@ -349,7 +349,7 @@ def finalize(df: pd.DataFrame) -> pd.DataFrame:
     is suppressed. Clamping matters because the two are computed from the same
     distribution by *almost* the same rule, so on a handful of geographies the
     published median can land a hair outside our quartiles — and a range that
-    doesn't contain its own centre would render as nonsense.
+    doesn't contain its own center would render as nonsense.
     """
     median = df["acs_median"].where(df["acs_median"].notna(), df["derived_median"])
     out = pd.DataFrame(index=df.index)

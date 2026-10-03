@@ -24,10 +24,10 @@ to know that Cook County writes ``"Full"`` where this codebase writes
 
 Three rules every adapter follows, and the reasons are not stylistic:
 
-**Fail open, always.** A county portal being slow, rate-limited or reorganised
+**Fail open, always.** A county portal being slow, rate-limited or reorganized
 must never stop a label rendering. Every adapter swallows its own errors and
 returns ``None``; the caller then falls back to what it had before, which is
-exactly the behaviour that existed before any adapter did.
+exactly the behavior that existed before any adapter did.
 
 **Map only what is unambiguous.** Leaving a field ``None`` costs nothing — the
 caller falls back to NSI or an area typical — while guessing wrong silently
@@ -36,9 +36,9 @@ onto this vocabulary is dropped rather than approximated, and the adapter says
 in a comment which values it drops and why.
 
 **Nothing is bundled.** These records are queried live and cached in this
-process only. See the licence note below.
+process only. See the license note below.
 
-Licence, and why no county data is committed
+License, and why no county data is committed
 --------------------------------------------
 Cook County's terms of use (``cookcountyil.gov/terms-use``) provide the data "AS
 IS", disclaim every warranty, and grant no explicit right to redistribute a
