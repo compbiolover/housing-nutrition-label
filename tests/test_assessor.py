@@ -1026,3 +1026,44 @@ def test_north_avenue_keeps_its_unit_rule_and_leading_types_fold():
     assert same_address("45 E AVENUE L8", "45 E AVE L8")
     assert same_address("100 HIGHWAY 66", "100 HWY 66")
     assert not same_address("45 E AVE L8", "45 E AVE L10")
+
+
+# ── one set of spellings for every state ──────────────────────────────────────
+
+
+def test_spellings_of_one_street_compare_equal():
+    """Each pair was reconciled by at least one adapter's own table before the
+    shared comparison learned it: the roll spells a word out, the Census matcher
+    abbreviates it, or the other way round."""
+    for a, b in (("100 NORTH MAIN ST", "100 N MAIN ST"),
+                 ("15 FIFTH ST", "15 5TH ST"),
+                 ("15 FIFTH ST", "15 5 ST"),
+                 ("9205 SAINT ANDREWS PL", "9205 ST ANDREWS PL"),
+                 ("10 FORT WASHINGTON AVE", "10 FT WASHINGTON AVE"),
+                 ("4 MOUNT VERNON ST", "4 MT VERNON ST"),
+                 ("624 BOSTON POST RD EAST", "624 BOSTON POST RD E"),
+                 ("175 E 100 SOUTH", "175 E 100 S"),
+                 ("1 UNION SQUARE", "1 UNION SQ"),
+                 ("10806 S COUNTRY CREEK COVE", "10806 S COUNTRY CREEK CV"),
+                 ("1301 CHEETAH WY", "1301 CHEETAH WAY"),
+                 ("12 ELM TERR", "12 ELM TER"),
+                 ("3 OCEAN CRESCENT", "3 OCEAN CRES")):
+        assert same_address(a, b), (a, b)
+
+
+def test_folding_never_makes_two_streets_one():
+    """A street NAMED for a direction is not that direction's abbreviation — "100
+    NORTH ST" is not "100 N ST", which in the District is a lettered street — and
+    every folded word still has to agree."""
+    from housing_label.enrich.assessor._shared import fold_name
+    assert not same_address("100 NORTH ST", "100 N ST")
+    assert not same_address("1234 N ST NW", "1234 NORTH ST NW")
+    assert not same_address("5 EAST WEST HWY", "5 E W HWY")
+    assert not same_address("1600 W NORTH AVE", "1600 W N AVE")
+    assert not same_address("100 NW MAIN ST", "100 NE MAIN ST")
+    assert not same_address("100 NORTH MAIN ST", "100 SOUTH MAIN ST")
+    assert not same_address("15 FIFTH ST", "15 SIXTH ST")
+    assert not same_address("1820 E SOUTH WEBER DR", "1820 E WEBER DR")
+    assert fold_name(["east"]) == ["east"]
+    assert fold_name(["north", "main"]) == ["n", "main"]
+    assert fold_name(["21st", "twenty"]) == ["21", "twenty"]

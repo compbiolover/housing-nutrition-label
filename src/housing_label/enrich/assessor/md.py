@@ -264,8 +264,8 @@ the candidates. The other three are spellings the shared matcher declines: a let
 house number (``309A``), the matcher adding a directional the roll does not have
 (``N SAINT AUGUSTINE RD``), and its abbreviation ``FAR CORS LP``. An earlier sample of
 150 also showed two addresses that the roll gives to two accounts within 80 m of each
-other, refused as ambiguous, and four ``SAINT``/``NORTH`` spellings that
-``_canonical`` now reconciles.
+other, refused as ambiguous, and four ``SAINT``/``NORTH`` spellings that the
+shared comparison now reconciles.
 
 That earlier sample also flagged one apparent wrong parcel, and it was the roll's:
 SDAT gives two accounts the premise address 404 S Talbot St, St Michaels, 700 m apart.
@@ -480,42 +480,10 @@ def _is_candidate(row: dict) -> bool:
     return not _says_no_home_is_here(row)
 
 
-# Spelled-out words the roll keeps and the Census matcher abbreviates. Measured: in a
-# random sample of 150 Maryland homes, three failed to confirm on "SAINT ANDREWS PL"
-# against the matcher's "ST ANDREWS PL", and one on "NORTH BEND RD" against "N BEND
-# RD" — with the right polygon in hand each time.
-_DIRECTIONALS = {"NORTH": "N", "SOUTH": "S", "EAST": "E", "WEST": "W"}
-
-
-def _canonical(address: str | None) -> str | None:
-    """``address`` with two spellings the roll and the geocoder disagree on made
-    alike, and nothing else changed. Applied to both sides of every comparison.
-
-    * ``SAINT`` before another word becomes ``ST``. Not as the last word, where
-      ``ST`` would read as a street type.
-    * A spelled-out directional straight after the house number becomes its letter
-      — but only when at least two words follow it, so ``100 NORTH ST``, where
-      "North" is the street's own name, is left alone.
-
-    Neither rewrite can make two different streets equal unless they differ only in
-    that spelling, which is the same street written two ways. The house number, the
-    street type and every other word are untouched, so the comparison stays exactly
-    as strict as ``_shared.same_address`` makes it. (A shared canonicalisation would
-    be the better home for this; see the report that accompanied this adapter.)
-    """
-    if not address:
-        return address
-    head, sep, tail = str(address).partition(",")
-    words = head.split()
-    if len(words) >= 4 and words[0].isdigit() and words[1].upper() in _DIRECTIONALS:
-        words[1] = _DIRECTIONALS[words[1].upper()]
-    words = ["ST" if w.upper() == "SAINT" and i + 1 < len(words) else w
-             for i, w in enumerate(words)]
-    return " ".join(words) + sep + tail
-
-
 def _address_of(row: dict) -> str | None:
-    return _canonical(_text(row, "ADDRESS")) or None
+    # "SAINT ANDREWS PL" and "NORTH BEND RD", which the roll spells out and the
+    # Census matcher abbreviates, are reconciled by the shared comparison.
+    return _text(row, "ADDRESS") or None
 
 
 def _query(url: str, lat: float, lon: float, distance_m: float,
@@ -678,16 +646,15 @@ def _record_at(lat: float, lon: float, address: str | None,
     deadline = deadline_from(deadline, LOOKUP_TIMEOUT)
     polygons = _memo(_parcels, lat, lon, deadline)
     points = _memo(_points, lat, lon, deadline)
-    asked = _canonical(address)
     unit = unit_of(address)
     if unit:
         for fetch in (polygons, points):
-            chosen = _choose_unit(fetch, unit, asked)
+            chosen = _choose_unit(fetch, unit, address)
             if chosen:
                 return _record(chosen, unit_confirmed=True)
-    chosen = _choose_building(polygons, asked)
+    chosen = _choose_building(polygons, address)
     if chosen is None and address:
-        chosen = _choose_building(points, asked)
+        chosen = _choose_building(points, address)
     return _record(chosen, unit_confirmed=False) if chosen else None
 
 

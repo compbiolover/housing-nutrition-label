@@ -130,8 +130,9 @@ def _lookup(exact, near=(), address=None, slices=None, params=None, truncated=()
     """Drive ``la.lookup()`` over recorded rows.
 
     ``exact`` is what the point lands inside; ``near`` is what a buffered search
-    would find. Both are answered through the real transport helper, so the field
-    list, the AIN filter, the parcel choice and the unit paths are all exercised.
+    would find. Both are answered beneath the real transport helper, so the field
+    list, the truncation check, the AIN filter, the parcel choice and the unit
+    paths are all exercised.
 
     ``slices`` and ``params`` collect what each request was handed; ``truncated``
     names the distances (0 or the buffer) whose answer carries the service's
@@ -151,12 +152,12 @@ def _lookup(exact, near=(), address=None, slices=None, params=None, truncated=()
         return body
 
     la._lookup_cached.cache_clear()
-    saved = _shared.get_json
-    _shared.get_json = fake
+    saved = _shared._fetch_json
+    _shared._fetch_json = fake
     try:
         return la.lookup(*_POINT, address)
     finally:
-        _shared.get_json = saved
+        _shared._fetch_json = saved
         la._lookup_cached.cache_clear()
 
 

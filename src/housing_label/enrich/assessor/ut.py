@@ -148,10 +148,11 @@ brick from brick veneer even if it were.
 Addresses, and the geocoder that cannot read the grid
 -----------------------------------------------------
 ``PARCEL_ADD`` is the street address alone ("3854 S 800 W"), with the city in its
-own column, so no locality trim is needed. Two Utah spellings are reconciled on
-both sides of the comparison (``_grid_form``): "175 E 100 SOUTH ST" from the Census
-matcher is the roll's "175 E 100 S", and "COUNTRY CREEK COVE" is the roll's
-"COUNTRY CREEK CV".
+own column, so no locality trim is needed. Two Utah spellings differ between the
+Census matcher and the roll — "175 E 100 SOUTH ST" for the roll's "175 E 100 S",
+and "COUNTRY CREEK COVE" for "COUNTRY CREEK CV" — and the shared address
+comparison reconciles both: it folds a spelled-out direction in a street's name
+and knows Cove as a street type.
 
 The commonest mismatch measured is NOT reconciled here: Census returns "1526
 DOWNINGTON AVE" for a roll's "1526 E DOWNINGTON AVE", dropping the leading
@@ -650,48 +651,9 @@ def _parcels(url: str, lat: float, lon: float, distance_m: float = 0,
     return [p for p in parcels if p is not None]
 
 
-_GRID_WORDS = {"north": "n", "south": "s", "east": "e", "west": "w"}
-
-
-def _grid_form(address: str | None) -> str | None:
-    """``address`` with Utah's two respellings undone, and nothing else changed.
-
-    Utah numbers its streets on a grid, and one street has two spellings: the
-    rolls write "175 E 100 S" where the Census matcher returns "175 E 100 SOUTH
-    ST". Those parse as different streets, so the parcel is refused. The direction
-    word is abbreviated only where it directly follows a number — "100 SOUTH" is
-    the grid street 100 S — and never elsewhere, so "1820 E SOUTH WEBER DR" keeps
-    its name. A terminal "COVE" becomes "CV" for the same reason (below). Applied
-    identically to both sides of the comparison, so it can only make two spellings
-    of one street equal.
-
-    What this deliberately does NOT do is forgive a missing LEADING directional,
-    though that is the commonest mismatch measured here ("1526 E DOWNINGTON AVE"
-    on the roll, "1526 DOWNINGTON AVE" from Census). The Census matcher ignores
-    that directional outright: "571 N 200 W" and "571 S 200 W" come back as the
-    same point, 0 m apart, so the point cannot say which side of the grid the home
-    is on, and accepting "571 S 200 W" for it would confirm whichever twin happens
-    to be near. See the module docstring.
-    """
-    if not address:
-        return address
-    head, sep, tail = str(address).partition(",")
-    tokens = head.split()
-    for i in range(1, len(tokens)):
-        word = tokens[i].lower().strip(".")
-        if word in _GRID_WORDS and tokens[i - 1].isdigit():
-            tokens[i] = _GRID_WORDS[word].upper()
-    # "Cove" is Utah's commonest cul-de-sac type, and the shared suffix table does
-    # not know it, so the roll's "COUNTRY CREEK CV" and Census's "COUNTRY CREEK
-    # COVE" parse as different streets. Only a TERMINAL "COVE" is a street type.
-    if len(tokens) > 2 and tokens[-1].lower() == "cove":
-        tokens[-1] = "CV"
-    return " ".join(tokens) + sep + tail
-
-
 def _directionless(address: str | None):
     """(house number, street tokens minus directionals), or None if unparseable."""
-    key = address_key(_grid_form(address))
+    key = address_key(address)
     if key is None:
         return None
     return key[0], tuple(sorted(t for t in key[1] if t not in _GRID_LETTERS))
@@ -709,7 +671,7 @@ def _has_a_confusable_twin(query: str, chosen: dict, nearby: list[dict]) -> bool
     away. Every step after the geocoder then worked as designed and named the
     wrong home: the matched address agreed with exactly one parcel. The same run
     turned "333 S 300 E" into "333 E 300 S", "1652 S 1100 W" into "1652 N 1100 E",
-    and dropped leading directionals outright (see _grid_form).
+    and dropped leading directionals outright (see the module docstring).
 
     The adapter is handed only the matched address, so it cannot see the swap.
     What it can see is whether the confusion is POSSIBLE here: another parcel in
@@ -727,8 +689,7 @@ def _has_a_confusable_twin(query: str, chosen: dict, nearby: list[dict]) -> bool
         if other.get("PARCEL_ID") == chosen.get("PARCEL_ID"):
             continue
         add = other.get("PARCEL_ADD")
-        if _directionless(add) == want and not _shared.same_address(
-                query, _grid_form(add)):
+        if _directionless(add) == want and not _shared.same_address(query, add):
             return True
     return False
 
@@ -790,14 +751,13 @@ def _parcel_at(lat: float, lon: float, address: str | None = None,
         # the address check would not.
         return [p for p in found if _same_unit_or_none(p, unit)] if unit else found
 
-    query = _grid_form(address)
-    chosen = select_parcel(fetch, query, lambda p: _grid_form(p.get("PARCEL_ADD")))
+    chosen = select_parcel(fetch, address, lambda p: p.get("PARCEL_ADD"))
     if chosen is None or not address:
         return chosen
     # The confusable-twin guard; see _has_a_confusable_twin. It needs the 80 m
     # neighbourhood even when containment already answered, which costs one more
     # request (measured median 0.14 s) on exactly those lookups.
-    if _has_a_confusable_twin(query, chosen, fetch(_shared.SEARCH_RADIUS_M)):
+    if _has_a_confusable_twin(address, chosen, fetch(_shared.SEARCH_RADIUS_M)):
         return None
     return chosen
 

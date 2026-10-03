@@ -225,7 +225,60 @@ SUFFIXES = {
     "pkwy": "pkwy", "parkway": "pkwy", "cir": "cir", "circle": "cir",
     "hwy": "hwy", "highway": "hwy", "trl": "trl", "trail": "trl",
     "wy": "way",
+    # USPS Publication 28 abbreviations that the 2026-10 adapters each taught
+    # themselves: rolls spell these out (or write the roll's own short form, TERR),
+    # the Census matcher abbreviates. Only spellings with one meaning are here —
+    # TR (terrace or trail), CR (circle or creek), PK (park or pike) and LA (lane,
+    # or the article in "VIA LA ...") stay with the adapter that knows its roll.
+    "terr": "ter", "sq": "sq", "square": "sq", "cv": "cv", "cove": "cv",
+    "trce": "trce", "trace": "trce", "aly": "aly", "alley": "aly",
+    "plz": "plz", "plaza": "plz", "cres": "cres", "crescent": "cres",
+    "expy": "expy", "expwy": "expy", "expressway": "expy",
+    "tpke": "tpke", "turnpike": "tpke",
 }
+
+# Words inside a street's NAME that two sources spell differently for the same
+# street. Folded on both sides of every comparison by address_key, so two spellings
+# of one street compare equal and nothing else changes. Seven adapters had grown
+# their own copy of some subset of this table — Massachusetts folded ordinals to
+# Tenth, New York State to Twentieth, the substitution guard to Twelfth — so
+# whether "Fifteenth St" matched "15TH ST" depended on the state. One table now.
+#
+# Ordinals fold to the bare number, digit forms included ("5TH" → "5", "FIFTH" →
+# "5"): New York City's PLUTO writes "5 AVENUE" where the matcher writes "5TH
+# AVE", and a number is a number whichever way it is suffixed.
+_ORDINAL_WORDS = {
+    "first": "1", "second": "2", "third": "3", "fourth": "4", "fifth": "5",
+    "sixth": "6", "seventh": "7", "eighth": "8", "ninth": "9", "tenth": "10",
+    "eleventh": "11", "twelfth": "12", "thirteenth": "13", "fourteenth": "14",
+    "fifteenth": "15", "sixteenth": "16", "seventeenth": "17", "eighteenth": "18",
+    "nineteenth": "19", "twentieth": "20",
+}
+_ORDINAL_DIGITS_RE = re.compile(r"^(\d+)(?:st|nd|rd|th)$")
+_NAME_WORDS = {"saint": "st", "mount": "mt", "fort": "ft", **_ORDINAL_WORDS}
+
+# A spelled-out directional folds to its letter — but only where some other word
+# of the name survives, because a directional can BE the name. "100 NORTH ST" is
+# North Street and "100 N ST" is N Street (Washington has both kinds), so a name
+# made only of directionals is left exactly as written. "NORTH MAIN" folds to "N
+# MAIN", "BOSTON POST RD EAST" to "... E", "300 NORTH" (a Utah grid street) to
+# "300 N".
+SPELLED_DIRECTIONS = {
+    "north": "n", "south": "s", "east": "e", "west": "w", "northeast": "ne",
+    "northwest": "nw", "southeast": "se", "southwest": "sw",
+}
+DIRECTIONS = frozenset(SPELLED_DIRECTIONS.values())
+
+
+def fold_name(tokens) -> list[str]:
+    """Street-name tokens with equivalent spellings made alike; see above."""
+    out = []
+    for t in tokens:
+        m = _ORDINAL_DIGITS_RE.match(t)
+        out.append(m.group(1) if m else _NAME_WORDS.get(t, t))
+    if any(SPELLED_DIRECTIONS.get(t, t) not in DIRECTIONS for t in out):
+        out = [SPELLED_DIRECTIONS.get(t, t) for t in out]
+    return out
 
 # Street types that also LEAD a street's name: "AVENUE L8" in Lancaster, "AVENUE J"
 # in Brooklyn, "HIGHWAY 66". In that position — first in the name, or after only a
@@ -410,6 +463,9 @@ def address_key(raw: str | None, locality: frozenset[str] = frozenset()):
         # quadrant away would make them equal.
         suffix = SUFFIXES[rest[-2]]
         rest = rest[:-2] + [rest[-1]]
+    # Last, once the type and the unit are settled: equivalent spellings of the
+    # name's own words (North/N, Fifth/5th/5, Saint/St).
+    rest = fold_name(rest)
     return (number, tuple(rest), suffix) if rest else None
 
 

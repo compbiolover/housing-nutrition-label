@@ -224,8 +224,7 @@ thinking, not bytes moving. The layer's ``maxRecordCount`` is 2,000, and a
 truncated buffer would silently remove candidates, which can turn "two parcels at
 this address" into "one" — the wrong-house failure the chooser exists to prevent.
 So a response flagged ``exceededTransferLimit`` is refused rather than read —
-by ``_shared.get_json``, which raises ``TruncatedResponse``, and again in
-``_query``.
+by ``_shared.get_json``, which raises ``TruncatedResponse``.
 
 What the adapter is worth, end to end
 -------------------------------------
@@ -418,23 +417,22 @@ def _says_a_home_is_here(row: dict) -> bool | None:
 # street; none can make two different streets equal, and a rewrite the matcher
 # does not share can only produce a refusal, the safe direction.
 #
-# * Street types the shared table does not know: "WY" (8,158 residential
-#   records), "TERR" (3,596), "CI" (3,322) and "CR" (6,674). "CI" and "CR" are not
-#   USPS abbreviations for anything; the matcher returned "CIR" for every one in
-#   the verification sample ("59 BOUNDARY CR" → "59 BOUNDARY CIR"). Forms that do
-#   stand for two types ("TR" terrace/trail, "PK" park/pike, "LA") are left alone.
-# * Directionals. USPS standardisation abbreviates a leading or trailing
-#   directional, and the matcher does — "1114 N MAIN ST" for the roll's "1114 NO
-#   MAIN ST", "624 BOSTON POST RD E" for "...RD EAST". A directional is rewritten
-#   only where it is not itself the street's name: "NORTH ST" stays as it is.
-# * Ordinal words before a bare street type: the matcher writes "15 5TH ST" for
-#   the roll's "15 FIFTH ST".
-_LOCAL_SUFFIXES = {"wy": "WAY", "terr": "TER", "ci": "CIR", "cr": "CIR"}
-_DIRECTIONAL_WORDS = {"north": "N", "south": "S", "east": "E", "west": "W",
-                      "no": "N", "no.": "N", "so": "S", "so.": "S"}
-_ORDINALS = {"first": "1ST", "second": "2ND", "third": "3RD", "fourth": "4TH",
-             "fifth": "5TH", "sixth": "6TH", "seventh": "7TH", "eighth": "8TH",
-             "ninth": "9TH", "tenth": "10TH"}
+# * Street types no other source writes: "CI" (3,322 residential records) and
+#   "CR" (6,674). Neither is a USPS abbreviation for anything; the matcher
+#   returned "CIR" for every one in the verification sample ("59 BOUNDARY CR" →
+#   "59 BOUNDARY CIR"). "CR" means Crescent or Creek elsewhere, which is why this
+#   lives here and not in the shared table. Forms that stand for two types even
+#   here ("TR" terrace/trail, "PK" park/pike, "LA") are left alone.
+# * "NO" and "SO" for North and South — "1114 NO MAIN ST" for the matcher's
+#   "1114 N MAIN ST". Rewritten only where the word is not itself the street's
+#   name; "NO" is too short a word to fold everywhere, as the shared comparison
+#   folds "NORTH".
+#
+# "WY", "TERR", spelled-out directionals ("RD EAST") and ordinal words ("FIFTH
+# ST") were rewritten here too; the shared comparison now folds all of them on
+# both sides of every state's comparison.
+_LOCAL_SUFFIXES = {"ci": "CIR", "cr": "CIR"}
+_DIRECTIONAL_WORDS = {"no": "N", "no.": "N", "so": "S", "so.": "S"}
 # Barnstable writes its villages into the street name — "MAIN ST (HYANNIS)", 284
 # residential records — which is locality, not street.
 _PAREN_TAIL_RE = re.compile(r"\s*\([^)]*\)\s*$")
@@ -471,8 +469,6 @@ def _normalise(raw: str | None) -> str:
     if (len(street) >= 2 and street[0].lower() in _DIRECTIONAL_WORDS
             and not all(t for t in is_type[1:])):
         street[0] = _DIRECTIONAL_WORDS[street[0].lower()]
-    if len(street) == 2 and street[0].lower() in _ORDINALS and is_type[1]:
-        street[0] = _ORDINALS[street[0].lower()]
     return " ".join([number, *street, *tail])
 
 
@@ -550,31 +546,14 @@ def _house_number(row: dict) -> str | None:
 def _query(lat: float, lon: float, distance_m: float, *, deadline: float) -> list[dict]:
     """Record attributes at (or within ``distance_m`` of) a point.
 
-    The same request ``_shared.arcgis_parcels`` sends, made here so the
-    response's ``exceededTransferLimit`` is checked by this module as well as by
-    the transport. This layer stops at 2,000 records, and a buffer beside a
-    Boston tower already returns 500. A truncated list can only lose candidates —
-    and losing one of two parcels at one address turns "ambiguous" into a
-    confident wrong answer — so a truncated response raises, which the lookup
-    treats as no answer.
-
-    ``_shared.get_json`` now raises ``TruncatedResponse`` on that flag itself, so
-    the check below is belt and braces: it keeps this adapter's refusal pinned by
-    its own test, whatever the transport underneath does.
+    This layer stops at 2,000 records, and a buffer beside a Boston tower already
+    returns 500. A truncated list can only lose candidates — and losing one of two
+    parcels at one address turns "ambiguous" into a confident wrong answer — so
+    the shared transport raises ``TruncatedResponse`` on ``exceededTransferLimit``,
+    which the lookup treats as no answer.
     """
-    params = {
-        "geometry": f"{lon},{lat}", "geometryType": "esriGeometryPoint",
-        "inSR": "4326", "outSR": "4326",
-        "spatialRel": "esriSpatialRelIntersects",
-        "outFields": _FIELDS, "returnGeometry": "false", "f": "json",
-    }
-    if distance_m:
-        params["distance"] = str(distance_m)
-        params["units"] = "esriSRUnit_Meter"
-    body = _shared.get_json(PARCEL_URL, params, deadline, READ_SLICE_S) or {}
-    if body.get("exceededTransferLimit"):
-        raise RuntimeError("MassGIS response truncated at the layer's record limit")
-    return [(f or {}).get("attributes") or {} for f in (body.get("features") or [])]
+    return _shared.arcgis_parcels(PARCEL_URL, lat, lon, _FIELDS, distance_m,
+                                  deadline=deadline, read_slice=READ_SLICE_S)
 
 
 def _parcels(lat: float, lon: float, distance_m: float = 0,

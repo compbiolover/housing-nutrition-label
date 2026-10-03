@@ -497,8 +497,9 @@ def _address_of(attrs: dict) -> str | None:
 #   "6511 E LANGLEY RD"; "1861 QUEENS RD WEST" against "1861 QUEENS RD W";
 # * a single-letter directional written after the street rather than before it —
 #   Guilford's "1900 BESSEMER AVE E" against "1900 E BESSEMER AVE";
-# * a street type the shared table does not know — Mecklenburg's "6824 CARRADALE
-#   WY" against "6824 CARRADALE WAY", "TR" for trail, "CR" for circle.
+# * a street type the shared table does not take, because elsewhere it means
+#   something else — "TR" for trail, "CR" for circle. (Mecklenburg's "WY" for
+#   Way was a third; the shared table now has it.)
 #
 # Both strings are rewritten the same way before the shared comparison sees them,
 # so the comparison itself is untouched: every part still has to agree. The risk
@@ -522,7 +523,7 @@ _SINGLE_DIRECTIONS = frozenset({"N", "S", "E", "W"})
 # CR is Lenoir's circle ("736 CAVALIER CR" against the matcher's "736 CAVALIER
 # CIR"). It cannot be a county road here: North Carolina has none — the state
 # maintains every public road outside the towns, and numbers them SR.
-_EXTRA_SUFFIXES = {"WY": "WAY", "TR": "TRL", "CR": "CIR"}
+_EXTRA_SUFFIXES = {"TR": "TRL", "CR": "CIR"}
 
 
 def _comparable(address: str | None) -> str | None:

@@ -85,10 +85,10 @@ The comparison is built from the roll's parts — ``SitusHouseNo``,
 ``SitusFraction``, ``SitusDirection``, ``SitusStreet`` — not from
 ``SitusAddress``, which runs the unit onto the end in forms ("NO  1108") the
 shared parser does not know. The fraction is kept: "123 1/2" is a different
-address. Two spellings are put right on both sides before comparing, because the
-shared parser misreads them (see ``_canon``): lettered and numbered avenues
+address. One spelling is put right on both sides before comparing, because the
+shared parser misreads it (see ``_canon``): lettered and numbered avenues
 ("AVENUE L8", "N AVENUE 64"), whose identifier it would otherwise drop as a unit
-number and so match Avenue L8 to L10, and the roll's "WY" for Way.
+number and so match Avenue L8 to L10.
 
 What this source does not carry, and what it carries but is not used
 --------------------------------------------------------------------
@@ -242,10 +242,6 @@ _FIELDS = ",".join(
        for col in ("DesignType", "YearBuilt", "Units", "SQFTmain")])
 
 
-class _Truncated(Exception):
-    """The service returned fewer parcels than matched the query."""
-
-
 # --- addresses ------------------------------------------------------------------
 
 # A lettered or numbered avenue — "AVENUE L8" in Lancaster, "AVE 64" in Highland
@@ -256,13 +252,8 @@ _NAMED_AVENUE_RE = re.compile(
     r"^(?P<head>\d+(?:\s+\d+/\d+)?\s+(?:[NSEW]\s+)?)AVE(?:NUE)?\s+"
     r"(?P<id>[A-Z](?:[\s-]?\d{1,3})?|\d{1,3}[A-Z]?)(?=\s*(?:,|#|$))")
 
-# The roll writes WAY as "WY", which the shared suffix table does not know, while
-# the Census matcher writes "WAY". Only a terminal "WY" is a street type.
-_WY_RE = re.compile(r"\bWY(?=\s*(?:,|#|$))")
-
-
 def _canon(text: str | None) -> str | None:
-    """``text`` with the two LA spellings the shared parser misreads put right.
+    """``text`` with the LA avenue spelling the shared parser misreads put right.
 
     Applied identically to the reader's address and to the roll's, so it can only
     make two spellings of one street agree or two different streets disagree.
@@ -277,8 +268,7 @@ def _canon(text: str | None) -> str | None:
     the street's name. A bare letter ("AVENUE I") is joined too, because the
     Census matcher abbreviates it to "AVE I" and the roll does not.
 
-    **WY.** The roll's abbreviation for Way, which the shared table lacks, so
-    "1301 CHEETAH WY" would never match the Census matcher's "1301 CHEETAH WAY".
+    (The roll's "WY" for Way needs nothing here: the shared suffix table has it.)
     """
     if not text:
         return text
@@ -286,7 +276,6 @@ def _canon(text: str | None) -> str | None:
     head = _NAMED_AVENUE_RE.sub(
         lambda m: m["head"] + "AVENUE_" + m["id"].replace("-", "").replace(" ", ""),
         head)
-    head = _WY_RE.sub("WAY", head)
     return f"{head}{sep}{tail}"
 
 
@@ -343,32 +332,19 @@ def _parcels(lat: float, lon: float, distance_m: float = 0,
              *, deadline: float) -> list[dict]:
     """Parcel records at (or within ``distance_m`` of) a point.
 
-    The same request ``_shared.arcgis_parcels`` makes, sent through the same
-    ``_shared.get_json`` so the budget and the dropped-dataset bookkeeping are
-    identical — but reading one flag that helper discards. The service returns at
-    most 1,000 records, and a condominium stack is one record per unit on one
-    shared footprint: a single coordinate measured here returned 226 rows, and an
-    80 m buffer around it 790. A truncated answer is not a smaller answer. It can
-    drop the second record that would have made a match ambiguous, and present the
-    first as unique. So ``exceededTransferLimit`` ends the lookup.
+    The service returns at most 1,000 records, and a condominium stack is one
+    record per unit on one shared footprint: a single coordinate measured here
+    returned 226 rows, and an 80 m buffer around it 790. A truncated answer is not
+    a smaller answer. It can drop the second record that would have made a match
+    ambiguous, and present the first as unique. The shared transport raises
+    ``TruncatedResponse`` on ``exceededTransferLimit``, and that ends the lookup.
 
     Rows without an AIN are dropped before the parcel is chosen, as Florida drops
     its placeholder polygons: 22 of the county's 2,433,059 rows have none, and a
     row that can never be an answer must not make a real one ambiguous.
     """
-    params = {
-        "geometry": f"{lon},{lat}", "geometryType": "esriGeometryPoint",
-        "inSR": "4326", "outSR": "4326",
-        "spatialRel": "esriSpatialRelIntersects",
-        "outFields": _FIELDS, "returnGeometry": "false", "f": "json",
-    }
-    if distance_m:
-        params["distance"] = str(distance_m)
-        params["units"] = "esriSRUnit_Meter"
-    body = _shared.get_json(PARCEL_URL, params, deadline, READ_SLICE_S) or {}
-    if body.get("exceededTransferLimit"):
-        raise _Truncated(f"more than one page of parcels within {distance_m} m")
-    rows = [(f or {}).get("attributes") or {} for f in (body.get("features") or [])]
+    rows = _shared.arcgis_parcels(PARCEL_URL, lat, lon, _FIELDS, distance_m,
+                                  deadline=deadline, read_slice=READ_SLICE_S)
     return [r for r in rows if str(r.get("AIN") or "").strip()]
 
 
@@ -584,12 +560,10 @@ def _lookup_cached(lat: float, lon: float, address: str | None,
         if row is not None:
             return _record(row, address)
         building = _building_year(fetch, address) if address else None
-    except (_Truncated, _shared.TruncatedResponse):
+    except _shared.TruncatedResponse:
         # Deterministic for this point, not a portal glitch: the same query will
         # be truncated the same way next time, so "no answer" is the answer — and
-        # it is cached as one. The shared transport raises its own
-        # TruncatedResponse on the same flag before this module's check can see
-        # it, so both are caught here.
+        # it is cached as one.
         return None
     if building is None:
         return None
