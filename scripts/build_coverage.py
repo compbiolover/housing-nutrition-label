@@ -243,6 +243,13 @@ CURATED: dict[str, dict] = {
         "fields": ("year_built", "sqft", "construction", "condition"),
         "verified": {"sample": 215, "resolved": 178, "wrong": 0},
     },
+    "va": {
+        "name": "Virginia (Chesterfield County and the City of Richmond)",
+        "short": "Chesterfield and Richmond, VA",
+        "since": "2026-10-04",
+        "fields": ("year_built", "sqft", "stories", "condition"),
+        "verified": {"sample": 180, "resolved": 149, "wrong": 0},
+    },
     "pdx": {
         "name": "Portland metro, Oregon (Multnomah, Washington and Clackamas counties)",
         "short": "Portland metro",

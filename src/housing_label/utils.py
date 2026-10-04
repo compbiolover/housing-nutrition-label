@@ -440,6 +440,8 @@ DATASET_NAMES = {
     "services3.arcgis.com/4PNQOtAivErR7nbT": "the Adams County, CO Assessor parcel records",
     "services.arcgis.com/seTexOicoRXDvRsJ": "the Douglas County, CO Assessor parcel records",
     "maps.bouldercounty.org": "the Boulder County, CO Assessor parcel records",
+    "services3.arcgis.com/TsynfzBSE6sXfoLq": "the Chesterfield County, VA real estate assessment records",
+    "services1.arcgis.com/k3vhq11XkBNeeOfM": "the City of Richmond, VA Assessor of Real Estate records",
     "geohwp.houstontx.gov": "the City of Houston copy of the Harris and Montgomery "
                             "County, TX appraisal rolls",
     "gisweb.fbcad.org": "the Fort Bend Central Appraisal District roll",
