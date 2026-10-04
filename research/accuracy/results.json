@@ -2365,6 +2365,149 @@
           }
         }
       }
+    },
+    "nys": {
+      "benchmark": {
+        "jurisdiction": "nys",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 138,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 62
+        },
+        "source": "NYS ITS Geospatial Services public tax parcels (ORPTS rolls)",
+        "scope": "residential (class 2xx) parcels in the 33 opted-in counties outside New York City, drawn in proportion to each county's housing units; homes the roll gives no year built are counted, not skipped",
+        "assessment_year": "2025",
+        "fetched": "2026-10-04",
+        "rows": 131,
+        "sha256_16": "bbefba603570d38b"
+      },
+      "unscored": 7,
+      "adapter_resolved_pct": 66.7,
+      "resolved_ci95": [
+        58.4,
+        74.0
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 131,
+            "coverage_pct": 100.0,
+            "median_abs_error": 17.0,
+            "exact_pct": 1.5,
+            "within_5yr_pct": 25.2,
+            "within_10yr_pct": 39.7
+          },
+          "sqft": {
+            "n": 81,
+            "coverage_pct": 100.0,
+            "median_abs_error": 237.0,
+            "exact_pct": 24.7,
+            "median_abs_pct_error": 12.5
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 131,
+            "differs_pct": 22.1
+          },
+          "energy": {
+            "n": 131,
+            "differs_pct": 45.8
+          },
+          "resilience": {
+            "n": 131,
+            "differs_pct": 1.5
+          },
+          "environmental": {
+            "n": 131,
+            "differs_pct": 16.0
+          },
+          "building_axis": {
+            "n": 131,
+            "differs_pct": 44.3
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 131,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 71.0,
+            "within_5yr_pct": 76.3,
+            "within_10yr_pct": 80.9
+          },
+          "sqft": {
+            "n": 81,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 67.9,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 131,
+            "differs_pct": 9.2
+          },
+          "energy": {
+            "n": 131,
+            "differs_pct": 17.6
+          },
+          "resilience": {
+            "n": 131,
+            "differs_pct": 0.0
+          },
+          "environmental": {
+            "n": 131,
+            "differs_pct": 6.9
+          },
+          "building_axis": {
+            "n": 131,
+            "differs_pct": 16.8
+          }
+        }
+      }
     }
   }
 }
