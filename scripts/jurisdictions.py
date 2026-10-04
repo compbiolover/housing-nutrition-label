@@ -158,6 +158,38 @@ JURISDICTIONS = {
                  "of Richmond only, drawn in proportion to each one's housing units",
         "sampler": "adapter", "basis": "adapter", "adapter": "va",
     },
+    "ut": {
+        "source": "UGRC Land Information Records parcels (Utah county tax rolls)",
+        "label": "Utah",
+        "scope": "residential parcels with a recorded year built in the 28 counties "
+                 "served, one draw per parcel, in proportion to each county's housing "
+                 "units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "ut",
+    },
+    "pa": {
+        "source": "Montgomery, York, Northampton and Cumberland County (PA) assessment "
+                  "parcel layers",
+        "label": "Pennsylvania (four counties)",
+        "scope": "residential parcels with a recorded year built in Montgomery, York, "
+                 "Northampton and Cumberland counties, drawn in proportion to each "
+                 "county's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "pa",
+    },
+    "oh": {
+        "source": "Ohio county auditors' parcel layers (nine counties)",
+        "label": "Ohio (nine counties)",
+        "scope": "residential, agricultural and apartment parcels with a recorded "
+                 "year built in the nine counties served, drawn in proportion to each "
+                 "county's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "oh",
+    },
+    "ind": {
+        "source": "Vanderburgh County Assessor tax parcels",
+        "label": "Indiana (Vanderburgh County)",
+        "scope": "residential, apartment and farmhouse parcels with a recorded year "
+                 "built in Vanderburgh County",
+        "sampler": "adapter", "basis": "adapter", "adapter": "ind",
+    },
 }
 
 
