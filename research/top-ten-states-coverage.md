@@ -69,3 +69,52 @@ public record served without a key. Confirm them before a commercial launch:
 - Move house-number range matching ("1622-1624 FORBES AVE") into `_shared`. Philadelphia and Allegheny each have a copy, and SEMCOG's range addresses never confirm without it.
 - Move unit-designator comparison into `_shared`. `dc`, `phl`, `allegheny` and `pa` each have their own copy.
 - Atlanta's "2304 BOULEVARD GRANADA SW" does not match the matcher's "BLVD GRANADA SW". The leading-type rule does not apply when a quadrant follows the name.
+
+## Beyond the top ten: toward 40% (2026-10-04)
+
+These adapters took national coverage from 34.8% to just over 41%:
+
+| Adapter | Area | Homes |
+|---|---|---:|
+| `nj` | New Jersey, all 21 counties (NJOGIS Parcels and MOD-IV Composite) | 3.79M |
+| `tx` (extended) | Collin, Denton, El Paso, Williamson and Cameron counties, TX | 1.56M |
+| `mn` | the seven Twin Cities metro counties (MetroGIS regional parcels) | 1.33M |
+| `co` | Denver, Jefferson, Adams, Douglas and Boulder counties, CO | 1.10M |
+| `pdx` | Multnomah, Washington and Clackamas counties, OR (Oregon Metro RLIS) | 0.79M |
+| `mo` | Jackson County, MO (Kansas City) | 0.34M |
+| `va` | Chesterfield County and the City of Richmond, VA | 0.26M |
+
+### Held back for their terms
+
+| County | Homes | What the terms say |
+|---|---:|---|
+| Clark, NV (Las Vegas) | 949k | Sold under a GIS subscriber license whose §8 bars disclosing, distributing or transferring the product without GISMO's consent. The free REST layer serves the same roll. |
+| Washoe, NV (Reno) | 218k | "the data itself may not be resold"; the county license allows internal use only |
+| Fairfax, VA | 430k | "Copyright by Fairfax County. Except as provided herein, all rights are reserved." |
+| Arlington, VA | 122k | "non commercial, personal use only" (the portal's current terms) |
+| St. Louis County, MO | 446k | "Copyright 2019 St. Louis County. All rights reserved." The service metadata says "Use Constraints: None", so the two texts conflict. |
+| St. Louis City, MO | 174k | "No information may be sold or redistributed in any manner unless written permission is received" |
+| Davidson, TN (Nashville) | 357k | "Commercial use of the materials is prohibited without the written permission of the Metro" |
+| Arapahoe, CO | 269k | "furnished with all rights reserved" |
+| Weld, CO | 130k | "developed solely for internal use only by Weld County", with no grant of rights |
+| Kauai, HI | 30k | "limited to internal and partner official use only" |
+| Pinal, AZ | 185k | falls under A.R.S. 39-121.03 commercial-purpose requests, the rule that excluded Maricopa |
+
+### No usable year built in public data
+
+- **Honolulu, HI.** The only year-built source is a 2013 planning snapshot. The live roll's dwelling table is not published.
+- **Pima County, AZ.** The only source covers the City of Tucson, which holds 44% of the county's homes.
+- **Jefferson County, KY (Louisville).** The property valuation office sells year built by subscription.
+- **Shelby County, TN (Memphis).** The county server fails the TLS handshake (it needs legacy renegotiation).
+- **Northern Virginia.** Prince William, Loudoun and Alexandria have nothing usable: Loudoun has only an undocumented planning layer, and Alexandria has years on footprints but no address to join on. Henrico and Virginia Beach are blocked by the egress proxy.
+- **Texas.** Hidalgo's sources are unreachable, need a token, or have empty year fields. Galveston, Hays, Brazoria and Nueces have no year field. Bell has only a neighborhood median. Lubbock has no state codes on its current layer.
+- **Colorado.** Larimer has no year or area on its parcel layer.
+
+### Public records with no license text
+
+Confirm these before a commercial launch:
+- Collin, El Paso and Cameron, TX: city republications of the appraisal rolls.
+- Denton County, TX.
+- Jackson County, MO.
+- City of Richmond, VA.
+- Douglas County, CO: the improvements table is CC BY-SA 4.0 (share-alike).
