@@ -52,6 +52,7 @@ record-keeping, different sample.</p>
 <tr><td><a href="#dc">Washington, DC</a></td><td>195 of 200</td><td>83.8%</td><td>0</td><td>1.5% &rarr; 85.6%</td><td>56.4% &rarr; 8.2%</td><td>assessor tables, mapped independently</td></tr>
 <tr><td style="padding-left:1.4rem"><a href="#dc-condo">Washington, DC — condominiums</a></td><td>187 of 200</td><td>97.4%</td><td>0</td><td>2.1% &rarr; 99.5%</td><td>65.8% &rarr; 19.8%</td><td>assessor tables, mapped independently</td></tr>
 <tr><td><a href="#ca">California — Contra Costa, San Joaquin and Riverside Counties</a></td><td>182 of 200</td><td>89.2%</td><td>1</td><td>5.5% &rarr; 91.2%</td><td>36.3% &rarr; 3.8%</td><td>county record as the adapter reads it</td></tr>
+<tr><td><a href="#co">Colorado (Denver metro)</a></td><td>190 of 200</td><td>87.2%</td><td>0</td><td>4.2% &rarr; 90.0%</td><td>38.9% &rarr; 3.2%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#la">Los Angeles County, California</a></td><td>173 of 200</td><td>89.3%</td><td>1</td><td>3.5% &rarr; 91.9%</td><td>39.3% &rarr; 2.9%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#nj">New Jersey</a></td><td>181 of 200</td><td>75.1%</td><td>0</td><td>2.2% &rarr; 77.3%</td><td>43.1% &rarr; 15.5%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#nyc">New York City</a></td><td>198 of 200</td><td>96.0%</td><td>0</td><td>2.5% &rarr; 97.0%</td><td>30.3% &rarr; 0.5%</td><td>county record as the adapter reads it</td></tr>
@@ -238,6 +239,49 @@ than collapsing into one median: within &plusmn;5 years 41.2% of the time at bas
 89.2% of the sample, of which 1 landed on a different parcel than the benchmark row &mdash; those answers are wrong for the address asked about, and are scored as the error they are rather than set aside. 95% confidence interval 83.9&ndash;92.9% for the draw.
 Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
 a2d67083da00a94e.</p>
+
+
+<h2 id="co">Colorado (Denver metro)</h2>
+
+<p><strong>Method.</strong> 196 addresses sampled across
+Denver, Jefferson, Adams, Douglas and Boulder county assessors (assessment year current,
+fetched 2026-10-04); a further 6 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: residential parcels (houses, condominium units, townhouses and multifamily) in the five Denver-metro counties the adapter serves, drawn in proportion to each county&#x27;s housing units. Drawn from 200 assessor rows; 1 had no site address on file, 3 were not read as one home even at their own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>4.2%</td><td>90.0%</td><td>7.0</td><td>0.0</td><td>190</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>34.2%</td><td>93.7%</td><td>148.0</td><td>0.0</td><td>111</td></tr>
+<tr><td>stories</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>construction</td><td>100.0%</td><td>100.0%</td><td>82.2%</td><td>96.7%</td><td>—</td><td>—</td><td>90</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>100.0%</td><td>100.0%</td><td>17.4%</td><td>91.3%</td><td>—</td><td>—</td><td>23</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 38.9% of the time at baseline and 94.2% with the assessor; within &plusmn;10 years 62.6% and 95.8%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>31.6%</td><td>3.2%</td><td>190</td></tr>
+<tr><td>energy</td><td>29.5%</td><td>2.1%</td><td>190</td></tr>
+<tr><td>resilience</td><td>3.2%</td><td>0.5%</td><td>190</td></tr>
+<tr><td>environmental</td><td>22.6%</td><td>1.1%</td><td>190</td></tr>
+<tr><td>building_axis</td><td>38.9%</td><td>3.2%</td><td>190</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+87.2% of the sample. 95% confidence interval 81.8&ndash;91.2% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+0a5020fe2746aa04.</p>
 
 
 <h2 id="la">Los Angeles County, California</h2>
@@ -460,7 +504,7 @@ Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchma
 jurisdiction served.</strong>
 Each figure describes one place's housing stock and record-keeping.
 Nothing here supports a claim about anywhere else, and the sections should not
-be averaged into one. An adapter can serve a jurisdiction that carries no figure here &mdash; Allegheny County, PA, Denver metro, Connecticut, Florida, Georgia (4 counties), Vanderburgh County, IN, Massachusetts, Maryland, Southeast Michigan, Twin Cities metro, Jackson County, MO, North Carolina, New York State, Ohio (9 counties), Pennsylvania (4 counties), Portland metro, Philadelphia, Utah and Chesterfield and Richmond, VA are served and not measured, so these numbers say nothing about them. Each carries a wrong-parcel verification instead, listed on the <a href="coverage.html">coverage page</a>. Serving is not measuring.</li>
+be averaged into one. An adapter can serve a jurisdiction that carries no figure here &mdash; Allegheny County, PA, Connecticut, Florida, Georgia (4 counties), Vanderburgh County, IN, Massachusetts, Maryland, Southeast Michigan, Twin Cities metro, Jackson County, MO, North Carolina, New York State, Ohio (9 counties), Pennsylvania (4 counties), Portland metro, Philadelphia, Utah and Chesterfield and Richmond, VA are served and not measured, so these numbers say nothing about them. Each carries a wrong-parcel verification instead, listed on the <a href="coverage.html">coverage page</a>. Serving is not measuring.</li>
 <li><strong>Adapter benchmarks grade the lookup, not the field mapping.</strong>
 Cook's and DC's references are built from the assessor's tables by this page's own
 mapping, independently of the adapter. The other sections draw homes at random from

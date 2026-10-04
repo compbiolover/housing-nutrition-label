@@ -1336,6 +1336,153 @@
           }
         }
       }
+    },
+    "co": {
+      "benchmark": {
+        "jurisdiction": "co",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 196,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 1,
+          "no_year_built": 0,
+          "no_home_record": 3
+        },
+        "source": "Denver, Jefferson, Adams, Douglas and Boulder county assessors",
+        "scope": "residential parcels (houses, condominium units, townhouses and multifamily) in the five Denver-metro counties the adapter serves, drawn in proportion to each county's housing units",
+        "assessment_year": "current",
+        "fetched": "2026-10-04",
+        "rows": 190,
+        "sha256_16": "0a5020fe2746aa04"
+      },
+      "unscored": 6,
+      "adapter_resolved_pct": 87.2,
+      "resolved_ci95": [
+        81.8,
+        91.2
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 190,
+            "coverage_pct": 100.0,
+            "median_abs_error": 7.0,
+            "exact_pct": 4.2,
+            "within_5yr_pct": 38.9,
+            "within_10yr_pct": 62.6
+          },
+          "sqft": {
+            "n": 111,
+            "coverage_pct": 100.0,
+            "median_abs_error": 148.0,
+            "exact_pct": 34.2,
+            "median_abs_pct_error": 6.1
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 90,
+            "coverage_pct": 100.0,
+            "exact_pct": 82.2
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 23,
+            "coverage_pct": 100.0,
+            "exact_pct": 17.4
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 190,
+            "differs_pct": 31.6
+          },
+          "energy": {
+            "n": 190,
+            "differs_pct": 29.5
+          },
+          "resilience": {
+            "n": 190,
+            "differs_pct": 3.2
+          },
+          "environmental": {
+            "n": 190,
+            "differs_pct": 22.6
+          },
+          "building_axis": {
+            "n": 190,
+            "differs_pct": 38.9
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 190,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 90.0,
+            "within_5yr_pct": 94.2,
+            "within_10yr_pct": 95.8
+          },
+          "sqft": {
+            "n": 111,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 93.7,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 90,
+            "coverage_pct": 100.0,
+            "exact_pct": 96.7
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 23,
+            "coverage_pct": 100.0,
+            "exact_pct": 91.3
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 190,
+            "differs_pct": 3.2
+          },
+          "energy": {
+            "n": 190,
+            "differs_pct": 2.1
+          },
+          "resilience": {
+            "n": 190,
+            "differs_pct": 0.5
+          },
+          "environmental": {
+            "n": 190,
+            "differs_pct": 1.1
+          },
+          "building_axis": {
+            "n": 190,
+            "differs_pct": 3.2
+          }
+        }
+      }
     }
   }
 }
