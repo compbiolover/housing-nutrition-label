@@ -223,6 +223,12 @@ CURATED: dict[str, dict] = {
         "fields": ("year_built", "stories"),
         "verified": {"sample": 465, "resolved": 348, "wrong": 0},
     },
+    "mo": {
+        "name": "Jackson County, Missouri (Kansas City)", "short": "Jackson County, MO",
+        "since": "2026-10-04",
+        "fields": ("year_built", "sqft", "stories"),
+        "verified": {"sample": 160, "resolved": 134, "wrong": 0},
+    },
 }
 
 
