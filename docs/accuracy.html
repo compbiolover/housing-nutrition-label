@@ -60,6 +60,7 @@ record-keeping, different sample.</p>
 <tr><td><a href="#nj">New Jersey</a></td><td>181 of 200</td><td>75.1%</td><td>0</td><td>2.2% &rarr; 77.3%</td><td>43.1% &rarr; 15.5%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#nyc">New York City</a></td><td>198 of 200</td><td>96.0%</td><td>0</td><td>2.5% &rarr; 97.0%</td><td>30.3% &rarr; 0.5%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#sf">San Francisco, California</a></td><td>184 of 200</td><td>97.8%</td><td>0</td><td>3.8% &rarr; 97.8%</td><td>22.8% &rarr; 0.5%</td><td>county record as the adapter reads it</td></tr>
+<tr><td><a href="#mi">Southeast Michigan (SEMCOG&#x27;s seven counties)</a></td><td>190 of 200</td><td>96.3%</td><td>0</td><td>5.3% &rarr; 96.8%</td><td>27.4% &rarr; 1.6%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#tx">Texas (twelve largest-county appraisal districts)</a></td><td>190 of 200</td><td>82.7%</td><td>0</td><td>6.8% &rarr; 85.8%</td><td>29.5% &rarr; 2.6%</td><td>county record as the adapter reads it</td></tr>
 </tbody></table></div>
 <p style="opacity:0.75;font-size:0.85rem;"><em>Building grade differs</em> is the
@@ -588,6 +589,49 @@ Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchma
 38e0e2eccf21bdc5.</p>
 
 
+<h2 id="mi">Southeast Michigan (SEMCOG&#x27;s seven counties)</h2>
+
+<p><strong>Method.</strong> 191 addresses sampled across
+SEMCOG Building Footprints 2024 (assessment year 2024,
+fetched 2026-10-04); a further 1 sampled address could not be geocoded or scored and is excluded from every rate below. Scope: live single-family, attached-condo and apartment buildings (not parcels) in Wayne, Oakland, Macomb, Washtenaw, Livingston, St. Clair and Monroe, drawn in proportion to each county&#x27;s housing units. Drawn from 200 assessor rows; 9 were not read as one home even at their own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>5.3%</td><td>96.8%</td><td>9.0</td><td>0.0</td><td>190</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>19.0%</td><td>96.4%</td><td>176.0</td><td>0.0</td><td>137</td></tr>
+<tr><td>stories</td><td>87.6%</td><td>100.0%</td><td>67.9%</td><td>99.3%</td><td>0.0</td><td>0.0</td><td>153</td></tr>
+<tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 35.3% of the time at baseline and 98.4% with the assessor; within &plusmn;10 years 54.2% and 98.4%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>23.2%</td><td>1.6%</td><td>190</td></tr>
+<tr><td>energy</td><td>33.2%</td><td>2.6%</td><td>190</td></tr>
+<tr><td>resilience</td><td>0.5%</td><td>0.0%</td><td>190</td></tr>
+<tr><td>environmental</td><td>27.4%</td><td>1.6%</td><td>190</td></tr>
+<tr><td>building_axis</td><td>27.4%</td><td>1.6%</td><td>190</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+96.3% of the sample. 95% confidence interval 92.6&ndash;98.2% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+af02a75f72e38d5b.</p>
+
+
 <h2 id="tx">Texas (twelve largest-county appraisal districts)</h2>
 
 <p><strong>Method.</strong> 197 addresses sampled across
@@ -636,7 +680,7 @@ Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchma
 jurisdiction served.</strong>
 Each figure describes one place's housing stock and record-keeping.
 Nothing here supports a claim about anywhere else, and the sections should not
-be averaged into one. An adapter can serve a jurisdiction that carries no figure here &mdash; Allegheny County, PA, Florida, Georgia (4 counties), Vanderburgh County, IN, Massachusetts, Maryland, Southeast Michigan, North Carolina, New York State, Ohio (9 counties), Pennsylvania (4 counties), Portland metro, Philadelphia, Utah and Chesterfield and Richmond, VA are served and not measured, so these numbers say nothing about them. Each carries a wrong-parcel verification instead, listed on the <a href="coverage.html">coverage page</a>. Serving is not measuring.</li>
+be averaged into one. An adapter can serve a jurisdiction that carries no figure here &mdash; Allegheny County, PA, Florida, Georgia (4 counties), Vanderburgh County, IN, Massachusetts, Maryland, North Carolina, New York State, Ohio (9 counties), Pennsylvania (4 counties), Portland metro, Philadelphia, Utah and Chesterfield and Richmond, VA are served and not measured, so these numbers say nothing about them. Each carries a wrong-parcel verification instead, listed on the <a href="coverage.html">coverage page</a>. Serving is not measuring.</li>
 <li><strong>Adapter benchmarks grade the lookup, not the field mapping.</strong>
 Cook's and DC's references are built from the assessor's tables by this page's own
 mapping, independently of the adapter. The other sections draw homes at random from

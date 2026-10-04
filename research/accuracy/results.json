@@ -1922,6 +1922,153 @@
           }
         }
       }
+    },
+    "mi": {
+      "benchmark": {
+        "jurisdiction": "mi",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 191,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 9
+        },
+        "source": "SEMCOG Building Footprints 2024",
+        "scope": "live single-family, attached-condo and apartment buildings (not parcels) in Wayne, Oakland, Macomb, Washtenaw, Livingston, St. Clair and Monroe, drawn in proportion to each county's housing units",
+        "assessment_year": "2024",
+        "fetched": "2026-10-04",
+        "rows": 190,
+        "sha256_16": "af02a75f72e38d5b"
+      },
+      "unscored": 1,
+      "adapter_resolved_pct": 96.3,
+      "resolved_ci95": [
+        92.6,
+        98.2
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 190,
+            "coverage_pct": 100.0,
+            "median_abs_error": 9.0,
+            "exact_pct": 5.3,
+            "within_5yr_pct": 35.3,
+            "within_10yr_pct": 54.2
+          },
+          "sqft": {
+            "n": 137,
+            "coverage_pct": 100.0,
+            "median_abs_error": 176.0,
+            "exact_pct": 19.0,
+            "median_abs_pct_error": 13.3
+          },
+          "stories": {
+            "n": 153,
+            "coverage_pct": 87.6,
+            "median_abs_error": 0.0,
+            "exact_pct": 67.9
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 190,
+            "differs_pct": 23.2
+          },
+          "energy": {
+            "n": 190,
+            "differs_pct": 33.2
+          },
+          "resilience": {
+            "n": 190,
+            "differs_pct": 0.5
+          },
+          "environmental": {
+            "n": 190,
+            "differs_pct": 27.4
+          },
+          "building_axis": {
+            "n": 190,
+            "differs_pct": 27.4
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 190,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 96.8,
+            "within_5yr_pct": 98.4,
+            "within_10yr_pct": 98.4
+          },
+          "sqft": {
+            "n": 137,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 96.4,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 153,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 99.3
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 190,
+            "differs_pct": 1.6
+          },
+          "energy": {
+            "n": 190,
+            "differs_pct": 2.6
+          },
+          "resilience": {
+            "n": 190,
+            "differs_pct": 0.0
+          },
+          "environmental": {
+            "n": 190,
+            "differs_pct": 1.6
+          },
+          "building_axis": {
+            "n": 190,
+            "differs_pct": 1.6
+          }
+        }
+      }
     }
   }
 }
