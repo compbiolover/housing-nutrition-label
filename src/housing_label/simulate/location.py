@@ -702,9 +702,39 @@ def assessor_address(matched: str | None, typed: str | None) -> str | None:
     decided it.
     """
     from housing_label.enrich.assessor._shared import with_unit
-    if matched and typed and _another_house(matched, typed):
+    if matched and typed and (_another_house(matched, typed)
+                              or _drops_a_direction(matched, typed)):
         return typed
     return with_unit(matched, typed) or typed
+
+
+def _drops_a_direction(matched: str, typed: str) -> bool:
+    """Whether the reader named a direction the geocoder's spelling leaves out.
+
+    The canonical spelling is preferred because it confirms a parcel — but one
+    missing a direction the roll records cannot. Utah's grid addresses are the
+    measured case: typed "3676 S CHIPPEWA RD" comes back from the Census matcher
+    as "3676 CHIPPEWA RD", which no parcel filed "3676 S CHIPPEWA RD" agrees
+    with, because a direction is what separates 3676 S from 3676 N. In the
+    2026-10-04 Utah benchmark that one omission left most of the misses
+    unanswered. The reader's own words are no less safe to hand the adapter: the
+    parcel must still agree with them.
+
+    One-way on purpose. Where the matcher ADDS a direction the reader left off
+    ("2123 California St" → "2123 CALIFORNIA ST NW"), its spelling is the more
+    specific one and is kept.
+    """
+    from housing_label.enrich.assessor._shared import DIRECTIONS, address_key, strip_unit
+    km, kt = address_key(strip_unit(matched)), address_key(strip_unit(typed))
+    if km is None or kt is None:
+        return False
+    # Only a direction LEADING the street name, the one the matcher drops. A later
+    # one is not evidence: in a comma-less "123 Main St West Valley City UT" the
+    # city's first word reads as a direction, and handing the adapter that string
+    # would cost a match the canonical spelling makes.
+    m, t = _fold(km[1]), _fold(kt[1])
+    return (len(t) > 1 and t[0] in DIRECTIONS
+            and not any(w in DIRECTIONS for w in m))
 
 
 def _another_house(matched: str, typed: str) -> bool:
