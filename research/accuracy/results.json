@@ -3092,6 +3092,149 @@
           }
         }
       }
+    },
+    "fl": {
+      "benchmark": {
+        "jurisdiction": "fl",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 203,
+        "sampled": 178,
+        "dropped": {
+          "no_parcel_record": 2,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 23
+        },
+        "source": "Florida Department of Revenue statewide cadastral (county property appraisers' rolls)",
+        "scope": "residential parcels (DOR use 001-008) with a dwelling unit and a year built in all 67 counties, drawn in proportion to each county's housing units",
+        "assessment_year": "2026",
+        "fetched": "2026-10-04",
+        "rows": 169,
+        "sha256_16": "5dfa68716babe58d"
+      },
+      "unscored": 9,
+      "adapter_resolved_pct": 60.7,
+      "resolved_ci95": [
+        53.3,
+        67.6
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 169,
+            "coverage_pct": 100.0,
+            "median_abs_error": 8.0,
+            "exact_pct": 3.0,
+            "within_5yr_pct": 37.9,
+            "within_10yr_pct": 63.3
+          },
+          "sqft": {
+            "n": 117,
+            "coverage_pct": 100.0,
+            "median_abs_error": 280.0,
+            "exact_pct": 8.5,
+            "median_abs_pct_error": 15.3
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 169,
+            "differs_pct": 18.9
+          },
+          "energy": {
+            "n": 169,
+            "differs_pct": 16.0
+          },
+          "resilience": {
+            "n": 169,
+            "differs_pct": 10.7
+          },
+          "environmental": {
+            "n": 169,
+            "differs_pct": 7.7
+          },
+          "building_axis": {
+            "n": 169,
+            "differs_pct": 32.5
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 169,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 65.7,
+            "within_5yr_pct": 78.1,
+            "within_10yr_pct": 85.8
+          },
+          "sqft": {
+            "n": 117,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 62.4,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 169,
+            "differs_pct": 10.7
+          },
+          "energy": {
+            "n": 169,
+            "differs_pct": 5.9
+          },
+          "resilience": {
+            "n": 169,
+            "differs_pct": 4.1
+          },
+          "environmental": {
+            "n": 169,
+            "differs_pct": 2.4
+          },
+          "building_axis": {
+            "n": 169,
+            "differs_pct": 10.1
+          }
+        }
+      }
     }
   }
 }

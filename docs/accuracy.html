@@ -54,6 +54,7 @@ record-keeping, different sample.</p>
 <tr><td><a href="#ca">California — Contra Costa, San Joaquin and Riverside Counties</a></td><td>182 of 200</td><td>64.9%</td><td>0</td><td>5.5% &rarr; 68.7%</td><td>36.3% &rarr; 15.4%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#co">Colorado (Denver metro)</a></td><td>190 of 200</td><td>87.2%</td><td>0</td><td>4.2% &rarr; 90.0%</td><td>38.9% &rarr; 3.2%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#ct">Connecticut</a></td><td>168 of 200</td><td>70.2%</td><td>0</td><td>2.4% &rarr; 72.0%</td><td>55.4% &rarr; 17.9%</td><td>county record as the adapter reads it</td></tr>
+<tr><td><a href="#fl">Florida</a></td><td>169 of 203</td><td>60.7%</td><td>0</td><td>3.0% &rarr; 65.7%</td><td>32.5% &rarr; 10.1%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#ga">Georgia — Fulton, Clayton, Chatham and Forsyth counties</a></td><td>158 of 200</td><td>77.0%</td><td>0</td><td>3.8% &rarr; 81.0%</td><td>43.7% &rarr; 10.8%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#la">Los Angeles County, California</a></td><td>173 of 200</td><td>89.3%</td><td>0</td><td>3.5% &rarr; 91.9%</td><td>39.3% &rarr; 3.5%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#md">Maryland</a></td><td>192 of 200</td><td>78.4%</td><td>0</td><td>3.1% &rarr; 81.8%</td><td>53.1% &rarr; 12.0%</td><td>county record as the adapter reads it</td></tr>
@@ -336,6 +337,49 @@ than collapsing into one median: within &plusmn;5 years 22.0% of the time at bas
 70.2% of the sample. 95% confidence interval 62.9&ndash;76.5% for the draw.
 Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
 d468b944d878dc8d.</p>
+
+
+<h2 id="fl">Florida</h2>
+
+<p><strong>Method.</strong> 178 addresses sampled across
+Florida Department of Revenue statewide cadastral (county property appraisers&#x27; rolls) (assessment year 2026,
+fetched 2026-10-04); a further 9 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: residential parcels (DOR use 001-008) with a dwelling unit and a year built in all 67 counties, drawn in proportion to each county&#x27;s housing units. Drawn from 203 assessor rows; 2 could not be fetched from the source when drawn, 23 were not read as one home even at their own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>3.0%</td><td>65.7%</td><td>8.0</td><td>0.0</td><td>169</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>8.5%</td><td>62.4%</td><td>280.0</td><td>0.0</td><td>117</td></tr>
+<tr><td>stories</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 37.9% of the time at baseline and 78.1% with the assessor; within &plusmn;10 years 63.3% and 85.8%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>18.9%</td><td>10.7%</td><td>169</td></tr>
+<tr><td>energy</td><td>16.0%</td><td>5.9%</td><td>169</td></tr>
+<tr><td>resilience</td><td>10.7%</td><td>4.1%</td><td>169</td></tr>
+<tr><td>environmental</td><td>7.7%</td><td>2.4%</td><td>169</td></tr>
+<tr><td>building_axis</td><td>32.5%</td><td>10.1%</td><td>169</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+60.7% of the sample. 95% confidence interval 53.3&ndash;67.6% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+5dfa68716babe58d.</p>
 
 
 <h2 id="ga">Georgia — Fulton, Clayton, Chatham and Forsyth counties</h2>
@@ -988,7 +1032,7 @@ Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchma
 jurisdiction served.</strong>
 Each figure describes one place's housing stock and record-keeping.
 Nothing here supports a claim about anywhere else, and the sections should not
-be averaged into one. An adapter can serve a jurisdiction that carries no figure here &mdash; Allegheny County, PA, Florida, Vanderburgh County, IN, Ohio (9 counties), Pennsylvania (4 counties), Portland metro and Utah are served and not measured, so these numbers say nothing about them. Each carries a wrong-parcel verification instead, listed on the <a href="coverage.html">coverage page</a>. Serving is not measuring.</li>
+be averaged into one. An adapter can serve a jurisdiction that carries no figure here &mdash; Allegheny County, PA, Vanderburgh County, IN, Ohio (9 counties), Pennsylvania (4 counties), Portland metro and Utah are served and not measured, so these numbers say nothing about them. Each carries a wrong-parcel verification instead, listed on the <a href="coverage.html">coverage page</a>. Serving is not measuring.</li>
 <li><strong>Adapter benchmarks grade the lookup, not the field mapping.</strong>
 Cook's and DC's references are built from the assessor's tables by this page's own
 mapping, independently of the adapter. The other sections draw homes at random from
