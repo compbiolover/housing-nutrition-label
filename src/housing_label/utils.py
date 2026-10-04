@@ -442,6 +442,11 @@ DATASET_NAMES = {
     "tad.newedgeservices.com": "the Tarrant Appraisal District roll",
     "maps.bexar.org": "the Bexar County, TX appraisal roll",
     "taxmaps.traviscountytx.gov": "the Travis County, TX appraisal roll",
+    "gismaps.cityofallen.org": "the City of Allen copy of the Collin County, TX appraisal roll",
+    "gis.dentoncounty.gov": "the Denton County, TX appraisal roll",
+    "gis.elpasotexas.gov": "the City of El Paso copy of the El Paso County, TX appraisal roll",
+    "data.wcad.org": "the Williamson Central Appraisal District open data",
+    "cobgis.brownsvilletx.gov": "the City of Brownsville copy of the Cameron County, TX appraisal roll",
 }
 
 

@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
-"""Texas — the seven largest counties, each from its own appraisal district's roll.
+"""Texas — twelve large counties, each from its own appraisal district's roll.
 
 Texas has no county assessor. Each county has an appraisal district (a CAD), and
 each CAD keeps and publishes its own roll; there is no state-collected roll of
 the kind Florida's Department of Revenue publishes. So this adapter is a table of
-seven services (``COUNTIES``), one per county, routed by the county FIPS the
-registry already resolved. It answers for Harris, Dallas, Tarrant, Bexar, Travis,
-Fort Bend and Montgomery: 5.84 million of the state's 12.13 million housing units
-(48%, ACS).
+services (``COUNTIES``), one per county, routed by the county FIPS the registry
+already resolved. It answers for Harris, Dallas, Tarrant, Bexar, Travis, Fort
+Bend and Montgomery (the first seven: 5.84 million housing units), and Collin,
+Denton, El Paso, Williamson and Cameron (added second: 1.56 million) — 7.40
+million of the state's 12.13 million housing units (61%, ACS). Of the large
+counties researched for the second round, Hidalgo, Galveston, Bell, Hays,
+Brazoria, Nueces and Lubbock are not here; "Counties researched and not added"
+says why, county by county.
 
 Why not the statewide layer
 ---------------------------
@@ -22,14 +26,17 @@ row, including ``owner_name``, ``name_care`` and the whole mailing address, with
 no field list and no way to leave them out (a ``dynamicLayers`` field list is
 silently ignored). This package never fetches owner names, so it cannot use a
 source that sends them unasked. If TxGIO re-enables ``query`` with an explicit
-``outFields``, StratMap would add about 92 further counties with a usable year
-built (measured: 94 counties at 40% or better fill, two of them Harris and
-Tarrant, already here) — a second adapter, not a change to this one.
+``outFields``, StratMap would add about 89 further counties with a usable year
+built (measured: 94 counties at 40% or better fill, five of them — Harris,
+Tarrant, Collin, Denton and Cameron — already here) — a second adapter, not a
+change to this one.
 
 The services
 ------------
-All keyless ArcGIS REST, ``query`` enabled, explicit ``outFields`` honored, read
-2026-10-03:
+All keyless; all but Williamson are ArcGIS REST with ``query`` enabled and an
+explicit ``outFields`` honored. The first seven were read 2026-10-03, the second
+five 2026-10-04. "Year built" is the share of ALL rows (vacant lots included)
+carrying a plausible year; the share of homes is the next table's.
 
   ==========  ===============================================  =======  ==========  ==================
   county      service                                          rows     year built  roll
@@ -41,7 +48,28 @@ All keyless ArcGIS REST, ``query`` enabled, explicit ``outFields`` honored, read
   Tarrant     TAD, OD_TAD/OD_ParcelView                        759 k    84.7%       TAD 2025
   Bexar       Bexar County, Parcels layer 0                    711 k    86.6%       BCAD, about 2025
   Travis      Travis County TNR, Parcels layer 0               374 k    85.0%       TCAD, about 2023
+  Collin      City of Allen, CCAD Tax Parcels (FeatureServer)  452 k    83.9%       CCAD 2027 (open)
+  Denton      Denton County, Parcels_FC layer 0                384 k    83.7%       Denton CAD 2027
+  El Paso     City of El Paso, Parcels_Uncached layer 0        407 k    62.9%       EPCAD 2026
+  Williamson  WCAD open data (Socrata), parcels + improvements 291 k    79.0%       WCAD 2026
+  Cameron     City of Brownsville, CameronCAD_Parcels_05312026 188 k    67.4%       Cameron CAD 2026
   ==========  ===============================================  =======  ==========  ==================
+
+The second five, on homes (the residential category, which is where a reader's
+address lands):
+
+  ==========  =====================================  ===================  =================
+  county      residential rows with a year           area                 stories
+  ==========  =====================================  ===================  =================
+  Collin      A1 339,559 of 341,155 (99.5%)          A1, A2, A4           yes
+  Denton      A1 281,510 of 282,693 (99.6%)          A1, A2               no
+  El Paso     A1 227,420 of 230,136 (98.8%)          none published       none published
+  Williamson  A1 213,130 of 213,196 improvements     one-improvement A1   no
+  Cameron     A 109,469 of 115,985 (94.4%)           withheld (bare "A")  none published
+  ==========  =====================================  ===================  =================
+
+El Paso's and Cameron's lower all-rows share is vacant land: El Paso files 97,340
+colonia and vacant lots as C2 and Cameron 30,687 as C1, none with a building.
 
 Each county's vintage is stated as honestly as its layer allows, on every record:
 
@@ -84,6 +112,63 @@ Each county's vintage is stated as honestly as its layer allows, on every record
   answers nothing), and a house rebuilt since still carries the old house's year:
   the one way this county can be wrong that no parcel check can catch. The record
   carries the measured newest year, so a reader can date it.
+* **Collin** is the City of Allen's copy of the CCAD roll, refreshed by a script
+  every Friday, and it is current: 8,873 houses built in 2026, every row in
+  appraisal year 2027 with status "InProgress" — CCAD has opened next year's
+  roll, and the record says exactly that ("CCAD 2027 appraisal year (in
+  progress)"). CCAD's own nightly layer (``CCAD_Parcel_Feature_Set``, layer 4)
+  was measured too and set aside: its category column is a bare "A" on all
+  363,886 residential rows, which cannot tell a house from a condominium unit, so
+  it could give the year alone. On 299 random A1 houses the two agree on the
+  year 296 times and on the area 296 times; the three differences are years the
+  copy has and CCAD's layer lacks.
+* **Denton** is the county GIS's copy of the Denton CAD roll (its item calls it
+  "DCAD's Update Parcel data" — Denton's DCAD, not Dallas's), current to 2,849
+  houses built in 2026, with ``pYear`` 2027 on every row: like Collin's, the CAD
+  has opened next year's roll. No status column is published, so the record says
+  "records for appraisal year 2027".
+* **El Paso** is the City of El Paso's copy of the EPCAD roll, ``PROP_VAL_Y`` 2026
+  on 401,372 of 407,054 rows, 3,428 houses built in 2025. The layer is named
+  "testing.DBO.Parcels", in a folder of cached services; it is nonetheless the
+  city's only parcel layer with a year (every other folder was scanned), and it
+  covers the whole county, Canutillo, Socorro and Clint included. The city's
+  firewall answers 403 to the ``requests`` library's own User-Agent; the shared
+  helper's header passes.
+* **Williamson** is WCAD's own open-data portal: the parcels dataset (refreshed
+  2026-10-03) for the polygon and address, joined to the "Property
+  Characteristics" export of 2026-07-27, the certified 2026 roll (newest year
+  built 2025, on 6,293 improvements). WCAD's ArcGIS layer (``WCAD_Tax_Parcels``)
+  publishes a ``RESYRBLT`` column that is empty on all 291,077 rows, and every
+  city copy of it found (Leander, Cedar Park, Georgetown, Hutto) is as empty.
+* **Cameron** is the Cameron CAD's yearly export (2026-05-31, roll year 2026 on
+  185,936 of 187,770 rows), hosted by the City of Brownsville. A static yearly
+  copy: it will not see a house finished after May 2026 until the next export,
+  and the record names the export date. The CAD's own server
+  (``gissvr.cameroncad.org``) publishes polygons with no attributes.
+
+Counties researched and not added
+---------------------------------
+Searched 2026-10-04 (CAD and county GIS hosts, city copies, ArcGIS Online, the
+vendors' hosted services); none has a live, keyless, point-queryable layer with a
+per-parcel year built, so none is registered:
+
+* **Hidalgo** (308,556 units). The CAD's map service
+  (``propaccess.hidalgoad.org/.../HidalgoMapSearch``) cannot be reached (its host
+  does not resolve from here); its hosted ``HidalgoCADWebService`` needs a token;
+  the 911 district's copy (``gis.rgv911.org``, 334,098 parcels) has the year and
+  state-code columns empty on every row; Edinburg's copy covers 61,036 parcels
+  of its own city.
+* **Galveston**, **Hays**, **Brazoria**, **Nueces**: every parcel layer found
+  (the CADs' vendor-hosted web services, the counties' and cities' copies)
+  carries owner, value and legal columns but no year; San Marcos's copy has one
+  for its own 29,408 parcels.
+* **Bell**: the CAD's market-analysis service publishes a neighborhood's
+  *median* year built on every parcel — a fact about the neighbors, not the house.
+* **Lubbock**: the CAD's own ``LubbockCADWebService`` (layer 129, 137,468
+  parcels) has a year on 107,773 rows, but no state code, only an improvement
+  class ("RV5", "WH1", "OFC2A") whose vocabulary is not published, so whether a
+  year belongs to a home cannot be read; its ``Class`` layer has the state code
+  but stops at houses built in 2023.
 
 Travis's year column, and what it means
 ---------------------------------------
@@ -132,6 +217,26 @@ readings (``ONE_HOME``, ``CONDO``, ``MULTI``, ``SILENT``, ``NOT_A_HOME``):
 * DCAD's ``CLASSCD`` is DCAD's own numbering, read off its 32 values; TAD's
   ``Property_C`` and the rest are the Comptroller's. Montgomery appends an
   exemption flag ("A1XV", 331 houses) that is stripped before reading.
+* **CCAD's M4 and M5 are common areas, not mobile homes.** 9,996 Collin accounts,
+  legal descriptions "LOT COMMON AREA", "(OPEN SPACE)", "SECURITY OFFICE", 211
+  of them with a year: a clubhouse's. Collin reads them as no home; its M3,
+  which carries HUD numbers, stays a mobile home. CCAD's certified totals give
+  A1 single family, A2 mobile home on own land, A3 condominiums, A4 townhomes;
+  a townhome is one home, as DCAD's is.
+* **A list of codes is never one home.** Denton writes every code an account
+  carries ("A1,D1,E1": a house on open-space land with a rural improvement), and
+  Williamson has a code per improvement. Several codes describe several parts of
+  the account, so the area is withheld; the year stands unless every code
+  refuses (``_codes_reading``). Denton's own A3 to A6 and Williamson's A3 to A9
+  are published without definitions — read off the rows, they hold houses on
+  larger lots, condominiums, fourplexes and townhomes — and report the year
+  alone.
+* **El Paso and Cameron report the year alone.** El Paso publishes no floor area
+  or stories; Cameron publishes a living area, but its residential code is a
+  bare "A" (115,985 rows; A1 appears on 2), which does not say the account is
+  one house rather than a condominium unit. Their codes still decide whether a
+  year is a home's: El Paso's "XV-R", an exempt residence, is silence; its C2
+  colonia lots and Cameron's C1 refuse.
 
 Stacks, and the address two accounts share
 ------------------------------------------
@@ -154,20 +259,44 @@ produces that two ways that are not ambiguity about which building:
   second search: the rows within ``TWIN_RADIUS_M`` (1 km) whose address carries
   the same house number, an attribute filter that keeps the answer to a handful
   of rows. The address must name exactly one candidate there, or the lookup is
-  refused (or answered with the year alone, where the twins agree on it).
+  refused (or answered with the year alone, where the twins agree on it: 721 La
+  Mesa Ave, Canutillo is two El Paso accounts, both A1, both 1982).
+
+Williamson: two datasets, one answer
+------------------------------------
+WCAD's year lives only in its Socrata portal, in a table of improvements keyed
+by property id, so Williamson is the one county read in two hops
+(``_williamson_rows``): the parcels the point (or the circle) intersects, then
+every improvement row of those properties in one ``propertyid in (...)``
+request. The parcel query is shaped to ask what the ArcGIS queries ask —
+``intersects`` with the point, with a 32-sided polygon inscribed in the 80 m
+circle (Socrata's own ``within_circle`` answers a different question; see
+``_circle_wkt``), and, for the same-number search, the 1 km polygon plus
+``starts_with(siteaddress, '<number> ')`` — and a page that reaches its row
+limit is refused as ArcGIS's ``exceededTransferLimit`` is. An account's
+improvements must agree on the year; floor area comes only from an account with
+one improvement row, coded A1 or A2. A parcel with no improvement row (vacant
+land, commercial accounts: the table is residential) says nothing.
 
 Addresses
 ---------
-Every service keeps the street address in one column. Harris, Dallas, Tarrant
-and Bexar write the street alone; Fort Bend and Montgomery append the city after
-a comma, which the shared comparison already sets aside. Bexar often omits the
-street type ("509 KING WILLIAM"), which the shared comparison tolerates. Two
-spellings are genuinely local and handled here, each with a test: TAD writes
-Trail as "TR" (and Terrace as "TERR", so in this roll TR is only Trail;
-``_tarrant_address``), and Travis writes "W 1316 6 ST   TX 78701" — the
-directional before the number, the city optional — which ``_travis_address``
-rebuilds as "1316 W 6 ST". A Travis city it does not know stays in the string,
-and the address then matches nothing: a refusal, never a wrong match.
+Every service but El Paso's and Cameron's keeps the street address in one
+column. Harris, Dallas, Tarrant, Bexar and Denton write the street alone; Fort
+Bend, Montgomery and Williamson append the city after a comma, which the shared
+comparison already sets aside, and Collin's runs on to the city after a line
+break, cut there (``_first_line``). El Paso and Cameron split the address into
+number, street and type, and the reader joins them (El Paso's type column is
+named ``SITUS_DIR``); their same-number search asks the number column itself
+(``_County.number_field``). Bexar often omits the street type ("509 KING
+WILLIAM"), which the shared comparison tolerates. Three spellings are genuinely
+local and handled here, each with a test: TAD writes Trail as "TR" (and Terrace
+as "TERR", so in this roll TR is only Trail; ``_tarrant_address``); Travis writes
+"W 1316 6 ST   TX 78701" — the directional before the number, the city optional
+— which ``_travis_address`` rebuilds as "1316 W 6 ST"; and WCAD writes a
+directional after the street type ("726 5TH ST W"), where the Census matcher
+puts it first, which ``_williamson_address`` moves. A Travis city it does not
+know stays in the string, and the address then matches nothing: a refusal,
+never a wrong match.
 
 Not carried
 -----------
@@ -198,6 +327,30 @@ came near, and a four-second budget against a worst lookup of 1.44 s (the run's
 very first, connection included). ``READ_SLICE_S`` and
 ``LOOKUP_TIMEOUT`` are named so every request visibly passes them, and a test
 pins their sum under ``config.UPSTREAM_HOST_BUDGET``.
+
+The second five, measured the same way over their own verification run (216
+geocoded homes; the first of two runs, whose maxima include each host's
+connection):
+
+  ==========================================  ======  ======  ======  ======
+  request                                     median     p90     p95     max
+  ==========================================  ======  ======  ======  ======
+  "which parcel is this dot inside?"           0.11 s  0.17 s  0.31 s  0.81 s
+  "what is within 80 m of this dot?"           0.11 s  0.16 s  0.19 s  0.36 s
+  "who else has this house number nearby?"     0.14 s  0.19 s  0.22 s  0.56 s
+  Williamson's improvements (second hop)       0.13 s  0.30 s  0.32 s  0.38 s
+  whole lookup (up to six requests)            0.36 s  0.71 s  0.93 s  1.85 s
+  ==========================================  ======  ======  ======  ======
+
+Williamson is the slowest county by construction — up to six requests, each of
+the three searches followed by its improvements — and the run's worst lookup took
+1.85 s (1.00 s in the second run), inside the four-second budget with room to
+spare. data.wcad.org was the slowest host of the first run (containment p90 0.32 s;
+0.14 s in the second); the City of Allen's and Brownsville's are
+the quickest (containment medians 0.085 and 0.088 s). Probed with a fresh
+connection after five idle minutes, the five hosts answered in 0.43–0.83 s each
+time — TLS included, and no idle-out of the kind that disqualified TAD's hosted
+layer. So the second five keep the shared clock too.
 
 What the adapter is worth, end to end
 -------------------------------------
@@ -238,17 +391,52 @@ address, sit on one polygon, refused as ambiguous under the point; and the
 Hubenak farm, refused by the same-address search. 8 addresses the Census
 matcher did not find.
 
+The second five were verified the same way on 2026-10-04 (random object ids;
+for Williamson, random rows of the improvements table, then that property's
+parcel):
+
+  ==========  ======  ========  ========  ==========  =========  ==========
+  county      drawn   geocoded  resolved  wrong       year       floor area
+                                          parcel      exact      exact
+  ==========  ======  ========  ========  ==========  =========  ==========
+  Collin          50        49        43           0      43/43       43/43
+  Denton          45        44        40           0      40/40       39/39
+  El Paso         45        43        36           0      36/36         —
+  Williamson      45        42        37           0      37/37       33/33
+  Cameron         40        38        33           0      33/33         —
+  **all**      **225**   **216**   **189**      **0**  **189/189**  **115/115**
+  ==========  ======  ========  ========  ==========  =========  ==========
+
+189 of 216 geocoded homes resolved (88%); every Collin answer also carried its
+story count. Every geocode was routed to a county this adapter serves, one of
+them to the wrong one: 7519 Alderwood Dr, Garland is on CCAD's roll, and the
+Census matcher put it in Dallas County, where DCAD has no such parcel — a
+refusal. The 27 that did not resolve: 25 geocodes more than 80 m from their
+parcel or spelled differently from the roll (the matcher's "GEN MALONEY CIR" for
+EPCAD's "GENERAL MALONEY CIR", "CAROL JESCHKE" for "CAROLE JESCHKE", "304 W EL
+PASEO ST" for Denton's "304 EL PASEO ST", "412 W FLEETWOOD AVE" for Cameron's
+"412 FLEETWOOD"); 1 new El Paso house (1217 Indigo Sky St, built 2025) whose
+point lands on two unaddressed accounts, refused as ambiguous; and 1 Cameron
+address (5 Iturbide St) with two accounts, of which the point lands in the one
+with no home code and no year — nothing reported. 9 addresses the Census
+matcher did not find.
+
 Privacy, and why the field lists are short
 ------------------------------------------
 Every one of these layers carries owner names, and most carry mailing addresses,
 deed references and values: ``OWNER``/``OWNER_ADD`` (Houston), ``ownername``/
 ``oaddr1`` (FBCAD), ``OWNERNME1``/``PSTLADDRESS`` (DCAD), ``Owner_Name``
 (TAD), ``Owner``/``AddrLn1`` (Bexar), ``py_owner_name`` and ``deed_date``
-(Travis). None is an input to the label, and Tax Code §25.025 makes the pairing
-of certain people's names with their home addresses confidential in these very
-records — one more reason a field list never asks for a name. Six to eight
-columns are requested by name per county; the shared helper refuses ``*``.
-Nothing from these services is written into the repository.
+(Travis), ``file_as_name``/``addr_line1`` and certified values (Collin's copy),
+``name``/``addrDeliveryLine`` and owner values (Denton), ``FILE_AS_NA``/
+``ADDR_LINE2`` (El Paso), ``adtnName`` and values (Cameron), ``ownernme1``/
+``pstladdres`` on WCAD's parcels and ``totalmktcur``/``deeddate`` on its
+characteristics. None is an input to the label, and Tax Code §25.025 makes the
+pairing of certain people's names with their home addresses confidential in
+these very records — one more reason a field list never asks for a name. Four
+to nine columns are requested by name per county (Williamson: four from the
+parcels, five from the improvements, by ``$select``); the shared helper refuses
+``*``. Nothing from these services is written into the repository.
 
 License and public status
 -------------------------
@@ -259,8 +447,19 @@ or be suitable for legal, engineering, or surveying purposes"); DCAD's GIS page
 (https://www.dallascad.org/GISDataProducts.aspx) carries the same disclaimer and
 offers the same data as free downloads; Travis County's site disclaimer
 (https://www.traviscountytx.gov/disclaimer) provides its information "as is";
-Bexar's service credits BCAD and states no terms; FBCAD's states none. Nothing
-read restricts querying, caching or commercial use. Appraisal records are public
+Bexar's service credits BCAD and states no terms; FBCAD's states none. For the
+second five: CCAD's open-data page (https://collincad.org/open-data-portal/)
+says "The information provided herein is considered public domain and is
+distributed 'as is' without warranty of any kind", and CCAD's own parcel item is
+licensed "For public use" with an informational-only disclaimer; the City of
+Allen's copy credits CCAD and states no terms. EPCAD's property search describes
+its information as "considered in the public domain and distributed without
+warranty of any kind" (https://epcad.org/Search, as indexed; the page answers
+403 to scripts); the City of El Paso's service states no terms. WCAD's site
+provides its information "As Is" without warranty (https://www.wcad.org), and
+its portal's datasets carry no license field. The Denton County and City of
+Brownsville services state no terms at all. Nothing read restricts querying,
+caching or commercial use. Appraisal records are public
 information in Texas: information an appraisal district collects or maintains in
 its official business is "public information" (Government Code §552.002(a)),
 available to the public (§552.021), with the exceptions that touch these rolls —
@@ -274,6 +473,7 @@ in process, bundle nothing; a legal read before a commercial launch is prudent.
 from __future__ import annotations
 
 import logging
+import math
 import re
 from dataclasses import dataclass
 from functools import lru_cache
@@ -315,6 +515,23 @@ BEXAR_URL = "https://maps.bexar.org/arcgis/rest/services/Parcels/MapServer/0/que
 #: Travis County: the county's (TNR) tax-map layer, joined to the TCAD roll.
 TRAVIS_URL = ("https://taxmaps.traviscountytx.gov/arcgis/rest/services/Parcels"
               "/MapServer/0/query")
+#: Collin County: the City of Allen's weekly republication of the CCAD roll.
+COLLIN_URL = ("https://gismaps.cityofallen.org/arcgis/rest/services/ReferenceData"
+              "/Collin_County_Appraisal_District_Parcels/FeatureServer/1/query")
+#: Denton County: the county's copy of the Denton CAD roll.
+DENTON_URL = ("https://gis.dentoncounty.gov/arcgis/rest/services/Parcels_FC"
+              "/MapServer/0/query")
+#: El Paso County: the City of El Paso's copy of the EPCAD roll.
+EL_PASO_URL = ("https://gis.elpasotexas.gov/arcgis/rest/services/CachedServices"
+               "/Parcels_Uncached/MapServer/0/query")
+#: Cameron County: the Cameron CAD's 2026 export, hosted by the City of Brownsville.
+CAMERON_URL = ("https://cobgis.brownsvilletx.gov/arcgis/rest/services/Hosted"
+               "/CameronCAD_Parcels_05312026/FeatureServer/0/query")
+#: Williamson County: WCAD's open-data portal — the parcels (polygons, address)...
+WILLIAMSON_URL = "https://data.wcad.org/resource/an3x-cnmw.json"
+#: ... joined on the property id to its property characteristics (the year).
+WILLIAMSON_CHARACTERISTICS_URL = "https://data.wcad.org/resource/cvyp-ab5t.json"
+_WILLIAMSON_IMPROVEMENT_FIELDS = "propertyid,actyrbuilt,sqftcur,fsptb,datadate"
 
 #: How long a service may go quiet before the silence is a stall, and the budget
 #: for a whole lookup. See "Timing" in the module docstring.
@@ -496,6 +713,23 @@ class _County:
     read: Callable[[dict], dict | None]
     #: The column the street address is in, for the same-address search.
     address_field: str
+    #: The column holding the house number ALONE, where the service splits the
+    #: address into parts (El Paso, Cameron): the same-number search then asks for
+    #: it exactly instead of searching inside a whole address string.
+    number_field: str | None = None
+    #: Where the rows come from, for a county they do not come from as one ArcGIS
+    #: layer (Williamson: two Socrata datasets). Called like ``_arcgis_rows``.
+    fetch: Callable[..., list[dict]] | None = None
+
+    def same_number(self, number: str) -> str:
+        """The attribute filter for "rows whose address carries this house
+        number". ``number`` is digits only (``address_key`` insists), so it is
+        safe to write into the predicate."""
+        if self.number_field:
+            f = self.number_field
+            return f"{f} = '{number}' OR {f} LIKE '{number} %'"
+        f = self.address_field
+        return f"{f} LIKE '{number} %' OR {f} LIKE '% {number} %'"
 
 
 def _candidate(pid, address, *, unit=None, year=None, reading=SILENT, sqft=None,
@@ -733,6 +967,253 @@ def _read_travis(r: dict) -> dict | None:
         vintage=_TRAVIS_VINTAGE)
 
 
+def _codes_reading(raw, one_home_codes: frozenset[str],
+                   overrides: dict[str, str] | None = None) -> str:
+    """The reading of a column that may list several state codes.
+
+    Denton writes every code an account carries, comma-joined ("A1,D1,E1": a
+    house on open-space land with a rural improvement), and Williamson's
+    characteristics carry a code per improvement. One code reads as usual.
+    Several codes are never one home, even "A1,A1": each describes a part of the
+    account, and which part the reader lives in is not stated, so the area is
+    withheld. They refuse together only when every one of them refuses; a code
+    that admits a home, or says nothing ("A1,F1", "C1,PLAN"), leaves the year
+    standing.
+    """
+    overrides = overrides or {}
+    codes = [c for c in (_state_code(p) for p in str(raw or "").split(",")) if c]
+    readings = {overrides.get(c) or _reading(c, one_home_codes) for c in codes}
+    if not readings:
+        return SILENT
+    if len(readings) == 1 and len(codes) == 1:
+        return readings.pop()
+    if readings == {NOT_A_HOME}:
+        return NOT_A_HOME
+    if PERSONAL_PROPERTY in readings and readings <= {PERSONAL_PROPERTY, NOT_A_HOME}:
+        return PERSONAL_PROPERTY
+    return SILENT
+
+
+def _first_line(raw) -> str:
+    """The street line of an address that runs on to the city on a new line."""
+    return _clean(str(raw or "").replace("\r", "\n").split("\n")[0])
+
+
+def _whole_number(raw) -> str:
+    """An identifier that a service stores as a float (``364745.0``), as text."""
+    n = num(raw)
+    return str(int(n)) if n is not None and float(n).is_integer() and n else _clean(raw)
+
+
+# Collin — CCAD's roll as the City of Allen republishes it weekly (its "CCAD Tax
+# Parcels", fed by a script every Friday). The columns arrive prefixed with the
+# joined table's name. CCAD's own codes, from its certified totals: A1
+# residential single family, A2 mobile home on its own land, A3 condominiums, A4
+# townhomes. Its M4 and M5 are not mobile homes: read off the layer, they are
+# subdivisions' common areas — 9,996 accounts, legal descriptions such as "LOT
+# COMMON AREA", "(OPEN SPACE)", "SECURITY OFFICE", nearly all with no situs — and
+# a clubhouse's year is no one's home's. M3 carries HUD numbers: a mobile home.
+_COLLIN_ONE = frozenset({"A1", "A2", "A4", "M3"})
+_COLLIN_CODES = {"M4": NOT_A_HOME, "M5": NOT_A_HOME}
+_COLLIN_PREFIX = "GIS_DBO_AD_ENTITY_"
+# CCAD's ``property_status`` values, as the record should say them.
+_STATUS = {"InProgress": "in progress", "Preliminary": "preliminary",
+           "Certified": "certified", "": "status not stated"}
+
+
+def _read_collin(r: dict) -> dict | None:
+    def col(name):
+        return r.get(_COLLIN_PREFIX + name)
+
+    roll, status = _year(col("CURR_VAL_YR")), _clean(col("PROPERTY_STAT"))
+    # ``living_area`` is CCAD's "improvement main area", which the layer's own
+    # alias glosses "(of all bldgs)": the living area, garages and porches apart.
+    # On a code that says one house (A1), one townhouse (A4) or one mobile home
+    # it is that home's; it is never reported on anything else.
+    return _candidate(
+        col("PROP_ID"), _first_line(col("SITUS_DISPLAY")),
+        year=_year(col("YR_BLT")),
+        reading=_codes_reading(col("STATE_CD"), _COLLIN_ONE, _COLLIN_CODES),
+        sqft=_area(col("LIVING_AREA")), stories=_stories(col("STORIES")),
+        vintage=(f"CCAD {roll} appraisal year ({_STATUS.get(status, status.lower())}), "
+                 "as republished by the City of Allen" if roll else
+                 "CCAD appraisal records, as republished by the City of Allen"))
+
+
+# Denton — the county's copy of the Denton CAD roll ("DCAD's Update Parcel data",
+# where DCAD is Denton's, not Dallas's). ``stateCodes`` lists every code the
+# account carries. A1 is a single-family house and A2 a mobile home on its own
+# land (its improvements read MS/MD, single- and double-wide); the CAD's other A
+# codes — A3 and A6 houses on larger lots by the look of them, A4 and A5
+# condominiums, fourplexes and townhomes (improvement class 26, "VISTA RIDGE
+# CONDOMINIUMS") — are not published with definitions, so they report the year
+# and nothing a single home owns.
+_DENTON_ONE = frozenset({"A1", "A2"})
+
+
+def _read_denton(r: dict) -> dict | None:
+    roll = _year(r.get("PYEAR"))
+    return _candidate(
+        r.get("PID"), r.get("SITUS_STREET_ADDRESS"),
+        year=_year(r.get("IMPRVACTUALYEARBUILT")),
+        reading=_codes_reading(r.get("STATECODES"), _DENTON_ONE),
+        # The main area, not ``imprvTotalArea``, which adds garages and porches
+        # (8950 Crockett Dr: 4,282 main, 5,649 total).
+        sqft=_area(r.get("IMPRVMAINAREA")),
+        vintage=(f"Denton CAD records for appraisal year {roll}, via Denton County GIS"
+                 if roll else "Denton CAD records, via Denton County GIS"))
+
+
+# El Paso — the City of El Paso's copy of the EPCAD roll (layer
+# "testing.DBO.Parcels" in its CachedServices folder, which despite the name is
+# the city's live parcel service: 407,054 rows, the whole county, roll year 2026
+# on 401,372). The address is in parts — number, street (with any leading
+# directional), type in ``SITUS_DIR`` despite its name, unit — and rebuilt here.
+# No floor area or stories are published, so El Paso reports the year alone,
+# whatever the code says; the code still decides whether a year is a home's.
+def _read_el_paso(r: dict) -> dict | None:
+    roll = _year(r.get("PROP_VAL_Y"))
+    street = " ".join(_clean(r.get(k)) for k in ("SITUS_NUM", "SITUS_STRE", "SITUS_DIR"))
+    return _candidate(
+        _whole_number(r.get("PROP_ID")), street, unit=r.get("SITUS_UNIT"),
+        year=_year(r.get("YR_BLT")),
+        reading=_reading(_state_code(r.get("STATE_CD")), frozenset()),
+        vintage=(f"EPCAD {roll} appraisal roll, as republished by the City of El Paso"
+                 if roll else "EPCAD appraisal roll, as republished by the City of El Paso"))
+
+
+# Cameron — the Cameron CAD's yearly parcel export as the City of Brownsville
+# hosts it (``CameronCAD_Parcels_05312026``: exported 2026-05-31, roll year 2026,
+# the whole county). Its residential code is a bare "A" on 115,985 of 187,770
+# rows, which does not separate a house from a condominium unit, so Cameron
+# reports the year alone. ``situsDispl`` runs the city on without a comma
+# ("2147  SHADOWBROOK CIRCLE  HARLINGEN TX"), so the address is rebuilt from its
+# parts.
+def _read_cameron(r: dict) -> dict | None:
+    roll, exported = _year(r.get("PYEAR")), _clean(r.get("EXPORTDT"))
+    street = " ".join(_clean(r.get(k)) for k in ("SITUSNO", "SITPFX", "SITSTR", "SITSFX"))
+    return _candidate(
+        r.get("PROP_ID"), street, year=_year(r.get("YRBUILT")),
+        reading=_reading(_state_code(r.get("STATECD")), frozenset()),
+        vintage=(f"Cameron CAD {roll} appraisal roll (exported {exported or 'date not stated'}), "
+                 "as republished by the City of Brownsville" if roll else
+                 "Cameron CAD appraisal roll, as republished by the City of Brownsville"))
+
+
+# Williamson — WCAD's own open-data portal (Socrata, data.wcad.org), two datasets
+# joined on the property id: "Parcels" (the polygons, with the situs address) and
+# "Property Characteristics" (one row per improvement: actual year built, current
+# square footage, the improvement's state code). WCAD's ArcGIS parcel layer
+# carries a year-built column that is empty on every one of its 291,077 rows, so
+# the portal is the only keyless source of the year. See ``_williamson_rows``.
+_WILLIAMSON_ONE = frozenset({"A1", "A2"})
+
+
+def _read_williamson(r: dict) -> dict | None:
+    improvements = r.get("_IMPROVEMENTS") or []
+    years = {_year(i.get("actyrbuilt")) for i in improvements}
+    year = years.pop() if len(years) == 1 else None
+    reading = _codes_reading(",".join(_clean(i.get("fsptb")) for i in improvements),
+                             _WILLIAMSON_ONE)
+    # Floor area only from an account with ONE improvement row: ``sqftcur`` is
+    # the account's current square footage, and two rows are two improvements
+    # (78745: two rows, one house and something else) whose sum is not a home.
+    sqft = _area(improvements[0].get("sqftcur")) if len(improvements) == 1 else None
+    dates = {_clean(i.get("datadate"))[:10] for i in improvements} - {""}
+    return _candidate(
+        r.get("PARCELID"), _williamson_address(r.get("SITEADDRESS")), unit=r.get("UNIT"),
+        year=year, reading=reading, sqft=sqft,
+        vintage=("WCAD property characteristics, via the WCAD open-data portal"
+                 + (f" (exported {dates.pop()})" if len(dates) == 1 else "")))
+
+
+def _williamson_address(raw) -> str:
+    """WCAD's situs address with its one source-specific spelling made standard.
+
+    WCAD writes a street's directional AFTER the street type where the street
+    has one ("726 5TH ST W, TAYLOR, TX  76574" — about 5,500 addresses, most of
+    Taylor and old Round Rock), and the Census matcher writes it before the name
+    ("726 W 5TH ST"): checked on four such addresses in Taylor, Bartlett and
+    Austin, all four came back from the matcher with the directional first. The
+    shared comparison keeps a directional where it stands, on purpose (a quadrant
+    city's "NEWARK ST NW" is not "NW NEWARK ST"), so here, and only after a street
+    type, it is moved in front of the name. The city after the comma is left for
+    the shared comparison to set aside.
+    """
+    street, sep, rest = _clean(raw).partition(",")
+    tokens = street.split()
+    if (len(tokens) >= 4 and tokens[0].isdigit() and tokens[-1] in _LEADING_DIRECTIONS
+            and tokens[-2].lower() in SUFFIXES):
+        tokens = [tokens[0], tokens[-1], *tokens[1:-1]]
+    return " ".join(tokens) + sep + rest
+
+
+#: The most rows one Socrata request may return before the answer is treated as
+#: cut short. A point or an 80 m circle meets a few dozen parcels; reaching this
+#: means the page is not the whole answer, which is refused like ArcGIS's
+#: ``exceededTransferLimit``.
+_SOCRATA_LIMIT = 500
+
+
+def _circle_wkt(lat: float, lon: float, radius_m: float, sides: int = 32) -> str:
+    """A polygon standing in for "within ``radius_m`` of the point", in WKT.
+
+    Socrata's own ``within_circle`` does not ask what ArcGIS's buffer asks
+    ("which parcels does the circle touch?"): probed at 101 Main Ave W, Round
+    Rock, it returned 14 parcels within 80 m where intersecting a drawn circle
+    returned 27. ``intersects`` against a 32-sided polygon does ask it: the
+    polygon is inscribed in the circle and its sides fall short of the arc by at
+    most 0.5% of the radius (40 cm at 80 m).
+    """
+    pts = []
+    for i in range(sides + 1):
+        a = 2 * math.pi * (i % sides) / sides
+        dlat = radius_m * math.cos(a) / 111_320
+        dlon = radius_m * math.sin(a) / (111_320 * math.cos(math.radians(lat)))
+        pts.append(f"{lon + dlon:.7f} {lat + dlat:.7f}")
+    return f"POLYGON(({', '.join(pts)}))"
+
+
+def _socrata(url: str, params: dict, deadline: float) -> list[dict]:
+    rows = _shared.get_json(url, dict(params, **{"$limit": str(_SOCRATA_LIMIT)}),
+                            deadline, READ_SLICE_S)
+    if not isinstance(rows, list):
+        raise RuntimeError(f"unexpected Socrata response from {url}")
+    if len(rows) >= _SOCRATA_LIMIT:
+        raise _shared.TruncatedResponse(f"{url}: {len(rows)} rows, the request's limit")
+    return rows
+
+
+def _williamson_rows(county: _County, lat: float, lon: float, distance_m: float,
+                     *, deadline: float, number: str | None = None) -> list[dict]:
+    """Williamson's parcels at (or within ``distance_m`` of) a point, each with
+    its improvements attached as ``_IMPROVEMENTS``.
+
+    Two requests: the parcels the point or circle intersects (and, for the
+    same-number search, whose address starts with the number), then every
+    improvement row of those properties in one ``propertyid in (...)`` query.
+    Only the columns named are asked for in either: the characteristics dataset
+    also carries market values and deed dates, the parcels dataset owner names
+    and mailing addresses.
+    """
+    shape = (_circle_wkt(lat, lon, distance_m) if distance_m
+             else f"POINT({lon:.7f} {lat:.7f})")
+    where = f"intersects(geometry, '{shape}')"
+    if number:
+        where += f" AND starts_with(siteaddress, '{number} ')"
+    parcels = _socrata(county.url, {"$select": county.fields, "$where": where}, deadline)
+    ids = sorted({str(p.get("propertyid")) for p in parcels
+                  if str(p.get("propertyid") or "").isdigit()}, key=int)
+    by_id: dict[str, list[dict]] = {}
+    if ids:
+        for row in _socrata(WILLIAMSON_CHARACTERISTICS_URL,
+                            {"$select": _WILLIAMSON_IMPROVEMENT_FIELDS,
+                             "$where": f"propertyid in ({','.join(ids)})"}, deadline):
+            by_id.setdefault(_whole_number(row.get("propertyid")), []).append(row)
+    return [dict(p, _IMPROVEMENTS=by_id.get(str(p.get("propertyid")), []))
+            for p in parcels]
+
+
 #: County FIPS → its service. Field lists are explicit and carry no owner name,
 #: mailing address, deed, sale or value column; see "Privacy" in the docstring.
 COUNTIES = {
@@ -773,6 +1254,34 @@ COUNTIES = {
         "PROP_ID,situs_address,F1year_imprv,land_state_cd",
         "Travis Central Appraisal District roll, via Travis County GIS (keyless)",
         _read_travis, "situs_address"),
+    "48085": _County(
+        "Collin", COLLIN_URL,
+        "GIS_DBO_AD_Entity_prop_id,GIS_DBO_AD_Entity_situs_display,"
+        "GIS_DBO_AD_Entity_state_cd,GIS_DBO_AD_Entity_yr_blt,"
+        "GIS_DBO_AD_Entity_living_area,GIS_DBO_AD_Entity_stories,"
+        "GIS_DBO_AD_Entity_curr_val_yr,GIS_DBO_AD_Entity_property_stat",
+        "Collin Central Appraisal District roll, via City of Allen GIS (keyless)",
+        _read_collin, "GIS_DBO_AD_Entity_situs_display"),
+    "48121": _County(
+        "Denton", DENTON_URL,
+        "pid,pYear,stateCodes,situs_street_address,imprvActualYearBuilt,imprvMainArea",
+        "Denton Central Appraisal District roll, via Denton County GIS (keyless)",
+        _read_denton, "situs_street_address"),
+    "48141": _County(
+        "El Paso", EL_PASO_URL,
+        "PROP_ID,PROP_VAL_Y,STATE_CD,SITUS_NUM,SITUS_STRE,SITUS_DIR,SITUS_UNIT,YR_BLT",
+        "El Paso Central Appraisal District roll, via City of El Paso GIS (keyless)",
+        _read_el_paso, "SITUS_STRE", number_field="SITUS_NUM"),
+    "48061": _County(
+        "Cameron", CAMERON_URL,
+        "prop_id,pyear,exportdt,statecd,situsno,sitpfx,sitstr,sitsfx,yrbuilt",
+        "Cameron Appraisal District roll, via City of Brownsville GIS (keyless)",
+        _read_cameron, "sitstr", number_field="situsno"),
+    "48491": _County(
+        "Williamson", WILLIAMSON_URL,
+        "parcelid,propertyid,siteaddress,unit",
+        "Williamson Central Appraisal District open data (keyless)",
+        _read_williamson, "siteaddress", fetch=_williamson_rows),
 }
 COUNTY_FIPS = frozenset(COUNTIES)
 
@@ -780,8 +1289,16 @@ COUNTY_FIPS = frozenset(COUNTIES)
 # ── choosing the parcel ────────────────────────────────────────────────────────
 
 
+def _arcgis_rows(county: _County, lat: float, lon: float, distance_m: float,
+                 *, deadline: float, number: str | None = None) -> list[dict]:
+    """The rows of a county served as one ArcGIS layer, the common case."""
+    return _shared.arcgis_parcels(
+        county.url, lat, lon, county.fields, distance_m, deadline=deadline,
+        read_slice=READ_SLICE_S, where=county.same_number(number) if number else None)
+
+
 def _rows(county: _County, lat: float, lon: float, distance_m: float,
-          *, deadline: float, where: str | None = None) -> list[dict]:
+          *, deadline: float, number: str | None = None) -> list[dict]:
     """Normalized candidate rows at (or within ``distance_m`` of) a point.
 
     Column names are upper-cased first: the Houston services answer
@@ -790,9 +1307,8 @@ def _rows(county: _County, lat: float, lon: float, distance_m: float,
     identifier, a personal-property account) are dropped, and a row repeated
     verbatim — one parcel per polygon part — is kept once.
     """
-    raw = _shared.arcgis_parcels(county.url, lat, lon, county.fields, distance_m,
-                                 deadline=deadline, read_slice=READ_SLICE_S,
-                                 where=where)
+    fetch = county.fetch or _arcgis_rows
+    raw = fetch(county, lat, lon, distance_m, deadline=deadline, number=number)
     out, seen = [], set()
     for row in raw:
         cand = county.read({str(k).upper(): v for k, v in row.items()})
@@ -909,10 +1425,8 @@ def _parcel_at(county: _County, lat: float, lon: float, address: str | None,
     if chosen is None or not address:
         return chosen
     number = address_key(address)[0]      # digits only: address_key insists
-    field = county.address_field
-    same_number = prepared(_rows(
-        county, lat, lon, TWIN_RADIUS_M, deadline=deadline,
-        where=f"{field} LIKE '{number} %' OR {field} LIKE '% {number} %'"))
+    same_number = prepared(_rows(county, lat, lon, TWIN_RADIUS_M, deadline=deadline,
+                                 number=number))
     return _shares_its_address(chosen, address, same_number)
 
 

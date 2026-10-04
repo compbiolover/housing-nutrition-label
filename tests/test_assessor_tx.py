@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""The Texas adapter — seven appraisal districts, seven schemas, one set of rules.
+"""The Texas adapter — twelve appraisal districts, twelve schemas, one set of rules.
 
 Nothing here touches the network. Each county's service is stubbed with row shapes
-recorded from it live (2026-10-03), for the reason every adapter test file gives:
+recorded from it live (2026-10-03 for the first seven counties, 2026-10-04 for
+Collin, Denton, El Paso, Williamson and Cameron), for the reason every adapter
+test file gives:
 an adapter fails open on purpose, so a renamed column or a broken match reads as
 "this county has no record here" and would never announce itself.
 
@@ -20,7 +22,13 @@ bounding the request budget — live in ``_shared`` and are tested against Cook 
    the homesite cut out of it), which containment alone cannot see.
 4. **Personal-property accounts** filed on a house's polygon (Dallas BPP, TAD L1).
 5. **Spellings**: Harris's comma-joined building lists, Bexar's literal 'NULL',
-   Tarrant's "TR" for Trail, Travis's directional written before the number.
+   Tarrant's "TR" for Trail, Travis's directional written before the number,
+   WCAD's written after the street type, Collin's line break before the city,
+   El Paso's and Cameron's addresses in parts.
+6. **Codes that are local**: CCAD's M4/M5 common areas, Denton's comma-joined
+   code lists.
+7. **Williamson's two Socrata hops**: parcels, then improvements by property id,
+   with ArcGIS-shaped point, circle and same-number queries.
 
 This file alone: ``pytest tests/test_assessor_tx.py``
 """
@@ -39,6 +47,7 @@ from housing_label.enrich.assessor import _shared, base, tx
 
 HARRIS, FORT_BEND, MONTGOMERY = "48201", "48157", "48339"
 DALLAS, TARRANT, BEXAR, TRAVIS = "48113", "48439", "48029", "48453"
+COLLIN, DENTON, EL_PASO, WILLIAMSON, CAMERON = "48085", "48121", "48141", "48491", "48061"
 
 # ── rows recorded live ──────────────────────────────────────────────────────────
 
@@ -536,6 +545,11 @@ def test_the_unmarked_unit_is_named():
 # ── what is requested ──────────────────────────────────────────────────────────
 
 _PRIVATE = ("OWNER", "OWNER_ADD", "OWNERNME1", "PSTLADDRESS", "ownername", "oaddr1",
+            # Collin (Allen), Denton, El Paso, Cameron, Williamson
+            "GIS_DBO_AD_Entity_file_as_name", "GIS_DBO_AD_Entity_addr_line1",
+            "GIS_DBO_AD_Entity_deed_dt", "GIS_DBO_AD_Entity_cert_market", "name",
+            "addrDeliveryLine", "ownerMarketValue", "deedDt", "FILE_AS_NA", "ADDR_LINE2",
+            "X022_APPRA", "market", "ownernme1", "pstladdres", "cntassdval",
             "py_owner_name", "Owner", "AddrLn1", "Owner_Name", "deed_date", "deeddate",
             "APP_VALUE", "MARKET_VAL", "CNTASSDVAL", "market_value", "TotVal",
             "Total_Valu", "LEGALDSCR1", "legal_desc", "*")
@@ -592,7 +606,8 @@ def test_every_claimed_county_is_a_texas_county_in_the_repos_table():
     # this table, which is a fact about the table, not about this adapter.
     assert len(texas) >= 253, f"expected Texas's counties, got {len(texas)}"
     assert tx.COUNTY_FIPS <= texas
-    assert tx.COUNTY_FIPS == {HARRIS, FORT_BEND, MONTGOMERY, DALLAS, TARRANT, BEXAR, TRAVIS}
+    assert tx.COUNTY_FIPS == {HARRIS, FORT_BEND, MONTGOMERY, DALLAS, TARRANT, BEXAR, TRAVIS,
+                              COLLIN, DENTON, EL_PASO, WILLIAMSON, CAMERON}
 
 
 def test_the_callers_county_picks_the_service():
@@ -604,7 +619,7 @@ def test_the_callers_county_picks_the_service():
 def test_without_a_county_there_is_no_guess():
     calls = []
     assert _lookup(None, [_HARRIS_HOUSE], urls=calls) is None
-    assert _lookup("48141", [_HARRIS_HOUSE], urls=calls) is None, "El Paso: not covered"
+    assert _lookup("48215", [_HARRIS_HOUSE], urls=calls) is None, "Hidalgo: not covered"
     assert not calls, "no service is asked when the county is not one of ours"
 
 
@@ -688,3 +703,284 @@ def test_garbage_coordinates_fail_open():
 
 def test_no_parcel_at_the_point_is_simply_no_answer():
     assert _lookup(HARRIS, []) is None
+
+
+# ══ the counties added second: Collin, Denton, El Paso, Cameron, Williamson ═══
+#
+# Rows recorded live 2026-10-04. Four are ArcGIS layers read through the same
+# path as the first seven; Williamson is two Socrata datasets joined on the
+# property id, stubbed by URL below.
+
+_C = "GIS_DBO_AD_Entity_"
+
+
+def _collin(**kw):
+    """A row of the City of Allen's "CCAD Tax Parcels", its columns prefixed."""
+    row = {"prop_id": 82, "situs_display": "6304 PIPER ST \r\nPLANO, TX 75093",
+           "state_cd": "A1", "yr_blt": 2008, "living_area": 4687.0, "stories": 2,
+           "curr_val_yr": 2027, "property_stat": "InProgress"}
+    row.update(kw)
+    return {_C + k: v for k, v in row.items()}
+
+
+_PIPER = _collin()
+# A condominium unit (CCAD A3), the unit written bare after the street type.
+_WINDFLOWER_107 = _collin(prop_id=15659, situs_display="17905 WINDFLOWER WAY 107\r\nDALLAS, TX 75252",
+                          state_cd="A3", yr_blt=1985, living_area=1934.0, stories=1)
+# A subdivision's security office, filed M4 with a year and a floor area.
+_OLD_POND = _collin(prop_id=20636, situs_display="4549 OLD POND DR \r\nPLANO, TX 75024",
+                    state_cd="M4", yr_blt=1988, living_area=2045.0, stories=1)
+# A townhome (CCAD A4).
+_EARLSHIRE = _collin(prop_id=279264, situs_display="1445 EARLSHIRE PL \r\nPLANO, TX 75075",
+                     state_cd="A4", yr_blt=1979, living_area=1748.0, stories=1)
+
+# Denton (Denton County's copy of the Denton CAD roll).
+_FOX_SEDGE = {"pid": 256876, "pYear": 2027, "stateCodes": "A1",
+              "situs_street_address": "4708 FOX SEDGE LN", "imprvActualYearBuilt": 2005,
+              "imprvMainArea": 2897.0}
+_SEABORN = {"pid": 254152, "pYear": 2027, "stateCodes": "A1,D1,E1",
+            "situs_street_address": "1862 SEABORN RD", "imprvActualYearBuilt": 1966,
+            "imprvMainArea": 1536.0}
+_CLUB_RIDGE = {"pid": 307851, "pYear": 2027, "stateCodes": "A4",
+               "situs_street_address": "2700 CLUB RIDGE DR", "imprvActualYearBuilt": 2008,
+               "imprvMainArea": 1750.0}
+
+# El Paso (the City of El Paso's copy of the EPCAD roll): the address in parts.
+_VILLANOVA = {"PROP_ID": 73700.0, "PROP_VAL_Y": 2026.0, "STATE_CD": "A1", "SITUS_NUM": "8424",
+              "SITUS_STRE": "VILLANOVA", "SITUS_DIR": "DR", "SITUS_UNIT": " ", "YR_BLT": 1982.0}
+_GEORGIA = {"PROP_ID": 168499.0, "PROP_VAL_Y": 2026.0, "STATE_CD": "XV-R", "SITUS_NUM": "809",
+            "SITUS_STRE": "GEORGIA", "SITUS_DIR": " ", "SITUS_UNIT": " ", "YR_BLT": 1988.0}
+# Two accounts at 721 La Mesa Ave, Canutillo, both A1, both 1982.
+_LA_MESA = [{"PROP_ID": pid, "PROP_VAL_Y": 2026.0, "STATE_CD": "A1", "SITUS_NUM": "721",
+             "SITUS_STRE": "LA MESA", "SITUS_DIR": "AVE", "SITUS_UNIT": " ", "YR_BLT": 1982.0}
+            for pid in (58933.0, 351824.0)]
+
+# Cameron (the CAD's 2026 export, hosted by the City of Brownsville).
+_PONCIANA = {"prop_id": 402324, "pyear": 2026, "exportdt": "2026-05-31", "statecd": "A",
+             "situsno": "24696", "sitpfx": " ", "sitstr": "PONCIANA", "sitsfx": "ST",
+             "yrbuilt": 2004}
+
+
+def test_a_collin_house_reports_year_area_stories_and_an_honest_roll():
+    got = _lookup(COLLIN, [_PIPER], address="6304 PIPER ST, PLANO, TX, 75093")
+    assert got is not None
+    assert (got.parcel_id, got.year_built, got.sqft, got.stories) == ("82", 2008, 4687.0, 2)
+    assert "CCAD 2027 appraisal year (in progress)" in got.data_vintage
+    assert "City of Allen" in got.data_vintage and "Collin" in got.source
+
+
+def test_a_collin_townhome_is_one_home():
+    """CCAD's certified totals name A4 "RESIDENTIAL TOWNHOMES": one dwelling on its
+    own lot, which is how Dallas's SFR - TOWNHOUSES is read too."""
+    got = _lookup(COLLIN, [_EARLSHIRE], address="1445 EARLSHIRE PL, PLANO, TX, 75075")
+    assert got is not None and (got.year_built, got.sqft) == (1979, 1748.0)
+
+
+def test_a_collin_condominium_unit_gives_the_year_and_nothing_a_unit_owns():
+    got = _lookup(COLLIN, [_WINDFLOWER_107],
+                  address="17905 WINDFLOWER WAY #107, DALLAS, TX, 75252")
+    assert got is not None and got.year_built == 1985
+    assert got.sqft is None and got.stories is None
+
+
+def test_collins_m4_is_a_common_area_not_a_mobile_home():
+    """Elsewhere M is a mobile home; CCAD files subdivisions' common areas M4 and
+    M5 — a security office here — and that building's year is no one's home's."""
+    assert _lookup(COLLIN, [_OLD_POND], address="4549 OLD POND DR, PLANO, TX, 75024") is None
+    assert tx._codes_reading("M3", tx._COLLIN_ONE, tx._COLLIN_CODES) == tx.ONE_HOME
+
+
+def test_collins_address_stops_at_the_line_break():
+    assert tx._first_line("6304 PIPER ST \r\nPLANO, TX 75093") == "6304 PIPER ST"
+    assert tx._first_line(None) == ""
+
+
+def test_a_denton_house_reports_its_main_area():
+    got = _lookup(DENTON, [_FOX_SEDGE], address="4708 FOX SEDGE LN, DENTON, TX, 76208")
+    assert got is not None
+    assert (got.parcel_id, got.year_built, got.sqft) == ("256876", 2005, 2897.0)
+    assert "Denton CAD" in got.data_vintage and "2027" in got.data_vintage
+
+
+def test_denton_lists_several_codes_and_several_codes_are_not_one_home():
+    """"A1,D1,E1": a house on open-space land with a rural improvement. Which part
+    is the home is not stated, so the year stands and the area does not."""
+    got = _lookup(DENTON, [_SEABORN], address="1862 SEABORN RD, DENTON, TX, 76226")
+    assert got is not None and got.year_built == 1966 and got.sqft is None
+
+
+def test_denton_codes_without_a_published_meaning_give_the_year_alone():
+    got = _lookup(DENTON, [_CLUB_RIDGE], address="2700 CLUB RIDGE DR, LEWISVILLE, TX, 75067")
+    assert got is not None and got.year_built == 2008 and got.sqft is None
+
+
+def test_a_list_of_codes_refuses_only_when_every_code_refuses():
+    one = frozenset({"A1"})
+    assert tx._codes_reading("A1", one) == tx.ONE_HOME
+    assert tx._codes_reading("A1,F1", one) == tx.SILENT
+    assert tx._codes_reading("C1,PLAN", one) == tx.SILENT, "an unknown code is silence"
+    assert tx._codes_reading("C1,F1", one) == tx.NOT_A_HOME
+    assert tx._codes_reading("D1,D2", one) == tx.NOT_A_HOME
+    assert tx._codes_reading("", one) == tx.SILENT and tx._codes_reading(None, one) == tx.SILENT
+
+
+def test_an_el_paso_house_is_rebuilt_from_its_parts_and_gives_the_year():
+    got = _lookup(EL_PASO, [_VILLANOVA], address="8424 VILLANOVA DR, EL PASO, TX, 79907")
+    assert got is not None
+    assert (got.parcel_id, got.year_built, got.sqft, got.stories) == ("73700", 1982, None, None)
+    assert "EPCAD 2026" in got.data_vintage and "City of El Paso" in got.data_vintage
+
+
+def test_el_pasos_exempt_residence_is_silence_not_refusal():
+    got = _lookup(EL_PASO, [_GEORGIA], address="809 GEORGIA, EL PASO, TX, 79902")
+    assert got is not None and got.year_built == 1988
+
+
+def test_el_pasos_same_number_search_asks_the_number_column():
+    params = []
+    got = _lookup(EL_PASO, _LA_MESA, address="721 LA MESA AVE, CANUTILLO, TX, 79835",
+                  params=params)
+    wheres = [p["where"] for p in params if p.get("where")]
+    assert wheres == ["SITUS_NUM = '721' OR SITUS_NUM LIKE '721 %'"]
+    # Two accounts at one address that agree on the year: the year, no parcel id.
+    assert got is not None and got.year_built == 1982 and got.parcel_id is None
+
+
+def test_cameron_gives_the_year_alone_and_drops_its_9999():
+    got = _lookup(CAMERON, [_PONCIANA], address="24696 PONCIANA ST, SAN BENITO, TX, 78586")
+    assert got is not None and (got.year_built, got.sqft) == (2004, None)
+    assert "exported 2026-05-31" in got.data_vintage and "Brownsville" in got.data_vintage
+    assert _lookup(CAMERON, [dict(_PONCIANA, yrbuilt=9999)],
+                   address="24696 PONCIANA ST, SAN BENITO, TX, 78586") is None
+
+
+# ── Williamson: two Socrata datasets ───────────────────────────────────────────
+
+_LYDIA = {"parcelid": "R349410", "propertyid": "181845",
+          "siteaddress": "2504 LYDIA LN, ROUND ROCK, TX  78665"}
+_LYDIA_IMPS = [{"propertyid": "181845", "actyrbuilt": "1996.000000", "sqftcur": "2214.000000",
+                "fsptb": "A1", "datadate": "2026-07-27T04:00:01.663"}]
+# Two improvement rows on one rural account.
+_PARKVIEW = {"parcelid": "R020130", "propertyid": "78745",
+             "siteaddress": "11620 PARKVIEW DR, COUPLAND, TX  78615"}
+_PARKVIEW_IMPS = [{"propertyid": "78745", "actyrbuilt": "1975.000000", "sqftcur": "1886.000000",
+                   "fsptb": "E1", "datadate": "2026-07-27T04:00:01.663"}] * 2
+_FIFTH_W = {"parcelid": "R015406", "propertyid": "74060",
+            "siteaddress": "726 5TH ST W, TAYLOR, TX  76574"}
+
+
+def _lookup_wcad(exact, imps, near=(), twin=None, address=None, params=None, urls=None):
+    """Drive a Williamson lookup over recorded rows: parcels by the shape of the
+    request (a point, a circle, or the same-number search), improvements by id."""
+    params = [] if params is None else params
+    urls = [] if urls is None else urls
+    twin = list(exact) + list(near) if twin is None else twin
+
+    def fake(url, request, deadline, read_slice=None):
+        params.append(dict(request))
+        urls.append(url)
+        where = request["$where"]
+        if url == tx.WILLIAMSON_CHARACTERISTICS_URL:
+            ids = where.split("(", 1)[1].rstrip(")").split(",")
+            return [dict(i) for i in imps if i["propertyid"] in ids]
+        rows = twin if "starts_with" in where else near if "POLYGON" in where else exact
+        return [dict(r) for r in rows]
+
+    tx._lookup_cached.cache_clear()
+    saved = _shared.get_json
+    _shared.get_json = fake
+    try:
+        return tx.lookup(30.5, -97.7, address, WILLIAMSON)
+    finally:
+        _shared.get_json = saved
+        tx._lookup_cached.cache_clear()
+
+
+def test_a_williamson_house_joins_its_parcel_to_its_improvement():
+    params, urls = [], []
+    got = _lookup_wcad([_LYDIA], _LYDIA_IMPS, address="2504 LYDIA LN, ROUND ROCK, TX, 78665",
+                       params=params, urls=urls)
+    assert got is not None
+    assert (got.parcel_id, got.year_built, got.sqft) == ("R349410", 1996, 2214.0)
+    assert "exported 2026-07-27" in got.data_vintage and "WCAD" in got.data_vintage
+    assert set(urls) == {tx.WILLIAMSON_URL, tx.WILLIAMSON_CHARACTERISTICS_URL}
+    assert all(p["$limit"] == str(tx._SOCRATA_LIMIT) for p in params)
+
+
+def test_williamson_asks_for_named_columns_only():
+    """The characteristics dataset carries market values and deed dates, the
+    parcels dataset owner names and mailing addresses; neither is asked for."""
+    params = []
+    _lookup_wcad([_LYDIA], _LYDIA_IMPS, address="2504 LYDIA LN, ROUND ROCK, TX, 78665",
+                 params=params)
+    selects = {p["$select"] for p in params}
+    assert selects == {tx.COUNTIES[WILLIAMSON].fields, tx._WILLIAMSON_IMPROVEMENT_FIELDS}
+    for select in selects:
+        for private in ("ownernme1", "pstladdres", "totalmktcur", "deeddate", "cntassdval", "*"):
+            assert private not in select.split(",")
+
+
+def test_two_improvements_give_the_year_they_agree_on_and_no_area():
+    got = _lookup_wcad([_PARKVIEW], _PARKVIEW_IMPS,
+                       address="11620 PARKVIEW DR, COUPLAND, TX, 78615")
+    assert got is not None and got.year_built == 1975 and got.sqft is None
+
+
+def test_improvements_that_disagree_give_no_year():
+    imps = [_PARKVIEW_IMPS[0], dict(_PARKVIEW_IMPS[0], actyrbuilt="2003.000000")]
+    assert _lookup_wcad([_PARKVIEW], imps,
+                        address="11620 PARKVIEW DR, COUPLAND, TX, 78615") is None
+
+
+def test_a_parcel_with_no_improvement_row_says_nothing():
+    assert _lookup_wcad([_LYDIA], [], address="2504 LYDIA LN, ROUND ROCK, TX, 78665") is None
+
+
+def test_wcads_trailing_directional_is_moved_before_the_name():
+    """WCAD writes "726 5TH ST W"; the Census matcher returned all four such
+    addresses checked with the directional first, "726 W 5TH ST"."""
+    assert tx._williamson_address("726 5TH ST W, TAYLOR, TX  76574") == \
+        "726 W 5TH ST, TAYLOR, TX 76574"
+    assert tx._williamson_address("2504 LYDIA LN, ROUND ROCK, TX  78665") == \
+        "2504 LYDIA LN, ROUND ROCK, TX 78665"
+    assert tx._williamson_address("100 N ST, TAYLOR, TX") == "100 N ST, TAYLOR, TX", (
+        "a street named by a letter keeps it")
+    imps = [dict(_LYDIA_IMPS[0], propertyid="74060")]
+    got = _lookup_wcad([_FIFTH_W], imps, address="726 W 5TH ST, TAYLOR, TX, 76574")
+    assert got is not None and got.year_built == 1996
+    assert not _shared.same_address("726 5TH ST W", "726 W 5TH ST"), (
+        "the shared comparison must not have learned this; if it has, drop the local fix")
+
+
+def test_williamsons_buffer_and_same_number_search_are_shaped_like_arcgis():
+    params = []
+    got = _lookup_wcad([], _LYDIA_IMPS, near=[_LYDIA],
+                       address="2504 LYDIA LN, ROUND ROCK, TX, 78665", params=params)
+    assert got is not None and got.parcel_id == "R349410"
+    wheres = [p["$where"] for p in params if "propertyid in" not in p["$where"]]
+    assert wheres[0].startswith("intersects(geometry, 'POINT(")
+    assert wheres[1].startswith("intersects(geometry, 'POLYGON((")
+    assert "starts_with(siteaddress, '2504 ')" in wheres[2]
+
+
+def test_the_circle_is_a_closed_ring_of_the_right_size():
+    import math
+    wkt = tx._circle_wkt(30.5, -97.7, 80)
+    pts = [tuple(map(float, p.split())) for p in wkt[len("POLYGON(("):-2].split(", ")]
+    assert pts[0] == pts[-1] and len(pts) == 33
+    for lon, lat in pts:
+        dy = (lat - 30.5) * 111_320
+        dx = (lon + 97.7) * 111_320 * math.cos(math.radians(30.5))
+        assert abs(math.hypot(dx, dy) - 80) < 0.5
+
+
+def test_a_socrata_page_at_its_limit_is_no_answer():
+    many = [dict(_LYDIA, parcelid=f"R{i}", propertyid=str(i)) for i in range(tx._SOCRATA_LIMIT)]
+    assert _lookup_wcad(many, _LYDIA_IMPS, address="2504 LYDIA LN, ROUND ROCK, TX, 78665") is None
+
+
+def test_url_for_names_each_new_countys_own_publisher():
+    assert tx.url_for(COLLIN) == tx.COLLIN_URL and tx.url_for(DENTON) == tx.DENTON_URL
+    assert tx.url_for(EL_PASO) == tx.EL_PASO_URL and tx.url_for(CAMERON) == tx.CAMERON_URL
+    assert tx.url_for(WILLIAMSON) == tx.WILLIAMSON_URL
+    assert tx.url_for("48215") is None

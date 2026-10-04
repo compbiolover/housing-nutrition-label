@@ -1102,3 +1102,10 @@ def test_a_county_road_keeps_its_number():
     assert same_address("12 COUNTY HIGHWAY 5", "12 CO HWY 5")
     # The ordinary unit rule after a street type is unchanged.
     assert same_address("234 W STATION ST B12", "234 W STATION ST")
+
+
+def test_general_and_gen_name_one_street():
+    """The Census matcher writes "GEN MALONEY CIR" where El Paso's roll writes
+    "GENERAL MALONEY CIR"."""
+    assert same_address("10 GENERAL MALONEY CIR", "10 GEN MALONEY CIR")
+    assert not same_address("10 GENERAL MALONEY CIR", "10 MALONEY CIR")

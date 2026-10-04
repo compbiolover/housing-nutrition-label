@@ -255,7 +255,8 @@ _ORDINAL_WORDS = {
     "nineteenth": "19", "twentieth": "20",
 }
 _ORDINAL_DIGITS_RE = re.compile(r"^(\d+)(?:st|nd|rd|th)$")
-_NAME_WORDS = {"saint": "st", "mount": "mt", "fort": "ft", **_ORDINAL_WORDS}
+_NAME_WORDS = {"saint": "st", "mount": "mt", "fort": "ft", "general": "gen",
+               **_ORDINAL_WORDS}
 
 # A spelled-out directional folds to its letter — but only where some other word
 # of the name survives, because a directional can BE the name. "100 NORTH ST" is

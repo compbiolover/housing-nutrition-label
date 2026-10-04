@@ -209,12 +209,12 @@ CURATED: dict[str, dict] = {
         "verified": {"sample": 320, "resolved": 314, "wrong": 0},
     },
     "tx": {
-        "name": "Texas (Harris, Dallas, Tarrant, Bexar, Travis, Fort Bend and "
-                "Montgomery counties)",
-        "short": "Texas (7 counties)",
+        "name": "Texas (12 counties: Harris, Dallas, Tarrant, Bexar, Travis, Collin, "
+                "Denton, Fort Bend, El Paso, Montgomery, Williamson, Cameron)",
+        "short": "Texas (12 counties)",
         "since": "2026-10-03",
         "fields": ("year_built", "sqft", "stories"),
-        "verified": {"sample": 315, "resolved": 268, "wrong": 0},
+        "verified": {"sample": 540, "resolved": 457, "wrong": 0},
     },
     # Toward 40% national coverage (2026-10).
     "nj": {
