@@ -2943,6 +2943,155 @@
           }
         }
       }
+    },
+    "md": {
+      "benchmark": {
+        "jurisdiction": "md",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 199,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 1
+        },
+        "source": "Maryland SDAT assessment data on MD iMAP parcel boundaries",
+        "scope": "residential parcel polygons with a premise address and a year built in all 23 counties and Baltimore City, drawn in proportion to housing units; condominium units filed only as account points (~150,000) are outside it",
+        "assessment_year": "2026",
+        "fetched": "2026-10-04",
+        "rows": 192,
+        "sha256_16": "56262715d4ffdbcb"
+      },
+      "unscored": 7,
+      "adapter_resolved_pct": 78.4,
+      "resolved_ci95": [
+        72.2,
+        83.5
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 192,
+            "coverage_pct": 100.0,
+            "median_abs_error": 10.0,
+            "exact_pct": 3.1,
+            "within_5yr_pct": 34.9,
+            "within_10yr_pct": 51.6
+          },
+          "sqft": {
+            "n": 116,
+            "coverage_pct": 100.0,
+            "median_abs_error": 262.4,
+            "exact_pct": 21.6,
+            "median_abs_pct_error": 16.3
+          },
+          "stories": {
+            "n": 164,
+            "coverage_pct": 67.1,
+            "median_abs_error": 0.0,
+            "exact_pct": 73.6
+          },
+          "construction": {
+            "n": 151,
+            "coverage_pct": 100.0,
+            "exact_pct": 82.8
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 192,
+            "differs_pct": 29.7
+          },
+          "energy": {
+            "n": 192,
+            "differs_pct": 35.4
+          },
+          "resilience": {
+            "n": 192,
+            "differs_pct": 2.1
+          },
+          "environmental": {
+            "n": 192,
+            "differs_pct": 27.6
+          },
+          "building_axis": {
+            "n": 192,
+            "differs_pct": 53.1
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 192,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 81.8,
+            "within_5yr_pct": 88.0,
+            "within_10yr_pct": 89.6
+          },
+          "sqft": {
+            "n": 116,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 77.6,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 164,
+            "coverage_pct": 97.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 93.7
+          },
+          "construction": {
+            "n": 151,
+            "coverage_pct": 100.0,
+            "exact_pct": 96.0
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 192,
+            "differs_pct": 6.2
+          },
+          "energy": {
+            "n": 192,
+            "differs_pct": 7.3
+          },
+          "resilience": {
+            "n": 192,
+            "differs_pct": 0.5
+          },
+          "environmental": {
+            "n": 192,
+            "differs_pct": 5.7
+          },
+          "building_axis": {
+            "n": 192,
+            "differs_pct": 12.0
+          }
+        }
+      }
     }
   }
 }
