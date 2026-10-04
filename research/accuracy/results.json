@@ -2218,6 +2218,153 @@
           }
         }
       }
+    },
+    "ma": {
+      "benchmark": {
+        "jurisdiction": "ma",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 190,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 10
+        },
+        "source": "MassGIS Level 3 standardized assessor parcels",
+        "scope": "records with a residential DOR use code in all 351 cities and towns (condominium units included, typed with their unit), drawn in proportion to each county's housing units",
+        "assessment_year": "FY2026",
+        "fetched": "2026-10-04",
+        "rows": 185,
+        "sha256_16": "f5451867e57d7d62"
+      },
+      "unscored": 5,
+      "adapter_resolved_pct": 81.1,
+      "resolved_ci95": [
+        74.9,
+        86.0
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 185,
+            "coverage_pct": 100.0,
+            "median_abs_error": 20.0,
+            "exact_pct": 1.6,
+            "within_5yr_pct": 17.3,
+            "within_10yr_pct": 30.8
+          },
+          "sqft": {
+            "n": 115,
+            "coverage_pct": 100.0,
+            "median_abs_error": 290.0,
+            "exact_pct": 31.3,
+            "median_abs_pct_error": 17.1
+          },
+          "stories": {
+            "n": 101,
+            "coverage_pct": 95.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 64.6
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 185,
+            "differs_pct": 37.8
+          },
+          "energy": {
+            "n": 185,
+            "differs_pct": 37.3
+          },
+          "resilience": {
+            "n": 185,
+            "differs_pct": 2.2
+          },
+          "environmental": {
+            "n": 185,
+            "differs_pct": 28.6
+          },
+          "building_axis": {
+            "n": 185,
+            "differs_pct": 38.9
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 185,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 83.2,
+            "within_5yr_pct": 84.3,
+            "within_10yr_pct": 87.6
+          },
+          "sqft": {
+            "n": 115,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 84.3,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 101,
+            "coverage_pct": 99.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 94.0
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 185,
+            "differs_pct": 7.6
+          },
+          "energy": {
+            "n": 185,
+            "differs_pct": 8.1
+          },
+          "resilience": {
+            "n": 185,
+            "differs_pct": 0.0
+          },
+          "environmental": {
+            "n": 185,
+            "differs_pct": 6.5
+          },
+          "building_axis": {
+            "n": 185,
+            "differs_pct": 8.1
+          }
+        }
+      }
     }
   }
 }
