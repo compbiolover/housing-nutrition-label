@@ -778,7 +778,7 @@
         93.1
       ],
       "resolved_runs": null,
-      "parcel_mismatches": 1,
+      "parcel_mismatches": 0,
       "baseline": {
         "fields": {
           "year_built": {
@@ -889,7 +889,7 @@
           },
           "building_axis": {
             "n": 173,
-            "differs_pct": 2.9
+            "differs_pct": 3.5
           }
         }
       }
