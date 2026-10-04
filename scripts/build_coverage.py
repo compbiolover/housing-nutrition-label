@@ -235,6 +235,16 @@ CURATED: dict[str, dict] = {
         "fields": ("year_built", "sqft", "stories", "construction"),
         "verified": {"sample": 325, "resolved": 251, "wrong": 0},
     },
+    "pdx": {
+        "name": "Portland metro, Oregon (Multnomah, Washington and Clackamas counties)",
+        "short": "Portland metro",
+        "since": "2026-10-04",
+        "fields": ("year_built", "sqft"),
+        "verified": {"sample": 214, "resolved": 181, "wrong": 0,
+                     "note": "Two sampled lots were addressed relative to a neighboring "
+                             "house (\"5655 S/ SE HARNEY DR\"); the geocoder resolves "
+                             "that to the house, whose own record was returned."},
+    },
 }
 
 
