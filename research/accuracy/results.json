@@ -4008,13 +4008,13 @@
         "sha256_16": "4aca9ee1ade9b26a"
       },
       "unscored": 13,
-      "adapter_resolved_pct": 85.9,
+      "adapter_resolved_pct": 84.9,
       "resolved_ci95": [
-        80.3,
-        90.2
+        79.1,
+        89.3
       ],
       "resolved_runs": null,
-      "parcel_mismatches": 1,
+      "parcel_mismatches": 0,
       "baseline": {
         "fields": {
           "year_built": {
@@ -4078,7 +4078,7 @@
             "n": 179,
             "coverage_pct": 100.0,
             "median_abs_error": 0.0,
-            "exact_pct": 92.7,
+            "exact_pct": 92.2,
             "within_5yr_pct": 94.4,
             "within_10yr_pct": 96.1
           },
@@ -4117,15 +4117,15 @@
           },
           "resilience": {
             "n": 179,
-            "differs_pct": 0.0
+            "differs_pct": 0.6
           },
           "environmental": {
             "n": 179,
-            "differs_pct": 1.7
+            "differs_pct": 2.2
           },
           "building_axis": {
             "n": 179,
-            "differs_pct": 3.4
+            "differs_pct": 4.5
           }
         }
       }
