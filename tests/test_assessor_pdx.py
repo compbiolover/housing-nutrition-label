@@ -464,3 +464,26 @@ def test_the_portal_falling_over_is_not_evidence_of_absence():
 
 def test_no_taxlot_at_the_point_is_simply_no_answer():
     assert _lookup([]) is None
+
+
+# Recorded live from RLIS: two Multnomah taxlots answering to 7815 N Wabash Ave.
+_WABASH = {"TLID": "1N1E08DD  -02400", "PRIMACCNUM": "R123456",
+           "SITEADDR": "7815 N WABASH AVE", "YEARBUILT": 1927, "BLDGSQFT": 1370,
+           "PROP_CODE": "101", "LANDUSE": "SFR"}
+_WABASH_WITH = dict(_WABASH, TLID="1N1E08DD  -01900", PRIMACCNUM="R123457",
+                    SITEADDR="7815 WI/ N WABASH AVE", YEARBUILT=1951, BLDGSQFT=800)
+
+
+def test_a_second_building_filed_with_the_address_makes_it_ambiguous():
+    """The "WI/" lot holds its own 1951 house; its resident types the same address
+    and was shown the 1927 house. Two buildings, one address: decline."""
+    addr = "7815 N WABASH AVE, PORTLAND, OR, 97217"
+    assert _lookup([_WABASH], near=[_WABASH, _WABASH_WITH], address=addr) is None
+
+
+def test_a_vacant_side_lot_filed_with_the_address_changes_nothing():
+    """Most "WI/" lots are vacant; the house under the plain address still answers."""
+    side = dict(_WABASH_WITH, YEARBUILT=0, BLDGSQFT=0, LANDUSE="VAC")
+    got = _lookup([_WABASH], near=[_WABASH, side],
+                  address="7815 N WABASH AVE, PORTLAND, OR, 97217")
+    assert got is not None and got.year_built == 1927
