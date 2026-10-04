@@ -2659,6 +2659,143 @@
           }
         }
       }
+    },
+    "nc": {
+      "benchmark": {
+        "jurisdiction": "nc",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 192,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 1,
+          "no_year_built": 0,
+          "no_home_record": 7
+        },
+        "source": "NC OneMap statewide parcels (county tax offices)",
+        "scope": "parcels the adapter reads as homes with a year built, in the 46 of 100 counties that record one (64% of the state's housing units), drawn in proportion to each county's housing units",
+        "assessment_year": "current",
+        "fetched": "2026-10-04",
+        "rows": 185,
+        "sha256_16": "9a228b28d6c8750d"
+      },
+      "unscored": 7,
+      "adapter_resolved_pct": 71.9,
+      "resolved_ci95": [
+        65.1,
+        77.8
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 185,
+            "coverage_pct": 100.0,
+            "median_abs_error": 11.0,
+            "exact_pct": 2.7,
+            "within_5yr_pct": 29.7,
+            "within_10yr_pct": 48.1
+          },
+          "sqft": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 185,
+            "differs_pct": 32.4
+          },
+          "energy": {
+            "n": 185,
+            "differs_pct": 28.1
+          },
+          "resilience": {
+            "n": 185,
+            "differs_pct": 1.1
+          },
+          "environmental": {
+            "n": 185,
+            "differs_pct": 11.4
+          },
+          "building_axis": {
+            "n": 185,
+            "differs_pct": 50.8
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 185,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 74.6,
+            "within_5yr_pct": 80.0,
+            "within_10yr_pct": 87.0
+          },
+          "sqft": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 185,
+            "differs_pct": 7.6
+          },
+          "energy": {
+            "n": 185,
+            "differs_pct": 8.1
+          },
+          "resilience": {
+            "n": 185,
+            "differs_pct": 0.5
+          },
+          "environmental": {
+            "n": 185,
+            "differs_pct": 2.7
+          },
+          "building_axis": {
+            "n": 185,
+            "differs_pct": 13.5
+          }
+        }
+      }
     }
   }
 }
