@@ -1775,6 +1775,153 @@
           }
         }
       }
+    },
+    "mo": {
+      "benchmark": {
+        "jurisdiction": "mo",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 198,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 2
+        },
+        "source": "Jackson County (MO) Assessment Department Parcel Viewer",
+        "scope": "dwelling land-use records (houses, townhouses, condominium units, duplexes to apartments) in Jackson County, the one county the adapter serves",
+        "assessment_year": "2024",
+        "fetched": "2026-10-04",
+        "rows": 196,
+        "sha256_16": "0dbff6323683458b"
+      },
+      "unscored": 2,
+      "adapter_resolved_pct": 78.8,
+      "resolved_ci95": [
+        72.6,
+        83.9
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 196,
+            "coverage_pct": 100.0,
+            "median_abs_error": 10.0,
+            "exact_pct": 2.0,
+            "within_5yr_pct": 32.1,
+            "within_10yr_pct": 52.6
+          },
+          "sqft": {
+            "n": 158,
+            "coverage_pct": 100.0,
+            "median_abs_error": 242.5,
+            "exact_pct": 15.8,
+            "median_abs_pct_error": 15.8
+          },
+          "stories": {
+            "n": 182,
+            "coverage_pct": 90.7,
+            "median_abs_error": 0.0,
+            "exact_pct": 69.7
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 196,
+            "differs_pct": 18.4
+          },
+          "energy": {
+            "n": 196,
+            "differs_pct": 30.6
+          },
+          "resilience": {
+            "n": 196,
+            "differs_pct": 0.5
+          },
+          "environmental": {
+            "n": 196,
+            "differs_pct": 28.1
+          },
+          "building_axis": {
+            "n": 196,
+            "differs_pct": 28.1
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 196,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 80.6,
+            "within_5yr_pct": 85.7,
+            "within_10yr_pct": 91.3
+          },
+          "sqft": {
+            "n": 158,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 81.6,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 182,
+            "coverage_pct": 97.8,
+            "median_abs_error": 0.0,
+            "exact_pct": 93.8
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 196,
+            "differs_pct": 4.1
+          },
+          "energy": {
+            "n": 196,
+            "differs_pct": 5.6
+          },
+          "resilience": {
+            "n": 196,
+            "differs_pct": 0.0
+          },
+          "environmental": {
+            "n": 196,
+            "differs_pct": 5.6
+          },
+          "building_axis": {
+            "n": 196,
+            "differs_pct": 5.1
+          }
+        }
+      }
     }
   }
 }
