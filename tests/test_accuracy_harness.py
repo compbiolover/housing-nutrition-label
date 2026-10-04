@@ -1497,3 +1497,15 @@ def test_a_building_answer_for_one_of_its_units_is_the_same_home():
     assert not M._parcel_matches(Loc, dict(row, year_built="1931"))
     # A prefix that is not a parent id (no separator) is a different parcel.
     assert not M._parcel_matches(Loc, dict(row, parcel_id="0901_159_181"))
+
+
+def test_a_building_year_that_names_no_parcel_is_judged_by_its_year():
+    """Contra Costa answers a condominium unit it cannot find with the building's
+    year and no parcel id. It names no lot, so it is judged by the year alone."""
+    class Rec:
+        parcel_id, year_built, sqft = None, 1972, None
+    class Loc:
+        assessor = Rec()
+    row = {"parcel_id": "173210621", "year_built": "1972", "sqft": "990"}
+    assert M._parcel_matches(Loc, row)
+    assert not M._parcel_matches(Loc, dict(row, year_built="1985"))

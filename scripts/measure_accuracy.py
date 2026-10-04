@@ -175,6 +175,16 @@ def _parcel_matches(loc, row: dict) -> bool:
                 return True
             return val is not None and cast(ref) == cast(val)
         return same("year_built", lambda v: int(float(v))) and same("sqft", float)
+    if not got:
+        # The address lookup answered with a building's year and named no parcel —
+        # an adapter's fallback when the unit's own record is not found but every
+        # record at that address agrees on one year (Contra Costa's "330 N CIVIC DR
+        # #410"). It points at no lot, so it cannot have named the wrong one; it is
+        # the same home's year only if it is the reference's year, and anything
+        # else is counted as a mismatch, the conservative reading.
+        ref = row.get("year_built")
+        val = getattr(record, "year_built", None)
+        return ref not in (None, "") and val is not None and int(float(ref)) == int(val)
     if got and want.startswith(got) and len(want) > len(got) \
             and not want[len(got)].isalnum():
         # The reference is a condominium UNIT's record ("0901_159_18_C0001", read
