@@ -843,9 +843,9 @@ def _overview(juris: dict, keys: list[str]) -> str:
     for k in keys:
         d = juris[k]
         b, a = d["baseline"], d["adapter"]
-        basis = ("county record as the adapter reads it"
+        basis = ("adapter&rsquo;s own read"
                  if JURISDICTIONS.get(k, {}).get("basis") == "adapter"
-                 else "assessor tables, mapped independently")
+                 else "independent")
         indent = ' style="padding-left:1.4rem"' if JURISDICTIONS.get(k, {}).get("parent") else ""
         body.append(
             f'<tr><td{indent}><a href="#{html.escape(k)}">{html.escape(LABELS.get(k, k))}</a></td>'
@@ -869,7 +869,10 @@ the reference record gives &mdash; lower is better. A home drawn but not scored
 (no address, no year built, or not readable even at its own parcel) is outside
 every rate in its row; each section's method note says why. <em>Wrong parcel</em> counts
 answers that came from a different lot than the one asked about; they are scored as
-errors in every rate. The two kinds of reference are not the same test: see
+errors in every rate. <em>Reference</em> says what each row was graded against:
+<em>independent</em> references are built from the assessor's tables by this page's
+own mapping, and <em>adapter's own read</em> is the county's record as the adapter
+reads it at the parcel itself. They are not the same test: see
 <a href="#caveats">what this does and does not establish</a>.</p>
 """
 

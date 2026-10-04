@@ -566,7 +566,12 @@ def timeline_chart(m: dict) -> str:
 def dumbbells(rows: list[dict], lo_key: str, hi_key: str, unit_note: str,
               better_high: bool) -> str:
     """Baseline → with-assessor, one row per measured jurisdiction."""
-    row_h, label_w, plot_w, pad_r = 46, 180, 320, 30
+    row_h, plot_w, pad_r = 46, 320, 30
+    # Sized to the longest label rather than fixed: a fixed 180 px cut "Chesterfield
+    # and Richmond, VA" down to "sterfield and Richmond, VA" once every adapter had
+    # a measurement. About 7.4 px a character at the 14 px label size, plus the gap.
+    longest = max((len(r["label"]) for r in rows), default=0)
+    label_w = max(180, int(7.4 * longest) + 16)
     w = label_w + plot_w + pad_r
     h = len(rows) * row_h + 38
 
