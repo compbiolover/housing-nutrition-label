@@ -2069,6 +2069,155 @@
           }
         }
       }
+    },
+    "va": {
+      "benchmark": {
+        "jurisdiction": "va",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 198,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 2
+        },
+        "source": "Chesterfield County Open GIS Data; City of Richmond Assessor",
+        "scope": "residential assessment records in Chesterfield County and the City of Richmond only, drawn in proportion to each one's housing units",
+        "assessment_year": "2025-2026 by locality (Chesterfield 2026, Richmond 2025)",
+        "fetched": "2026-10-04",
+        "rows": 190,
+        "sha256_16": "0ed594fd7c535280"
+      },
+      "unscored": 8,
+      "adapter_resolved_pct": 82.3,
+      "resolved_ci95": [
+        76.4,
+        87.0
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 190,
+            "coverage_pct": 100.0,
+            "median_abs_error": 10.0,
+            "exact_pct": 1.6,
+            "within_5yr_pct": 32.1,
+            "within_10yr_pct": 51.1
+          },
+          "sqft": {
+            "n": 150,
+            "coverage_pct": 100.0,
+            "median_abs_error": 176.5,
+            "exact_pct": 24.7,
+            "median_abs_pct_error": 10.0
+          },
+          "stories": {
+            "n": 134,
+            "coverage_pct": 90.3,
+            "median_abs_error": 0.0,
+            "exact_pct": 83.5
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 76,
+            "coverage_pct": 100.0,
+            "exact_pct": 46.1
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 190,
+            "differs_pct": 37.9
+          },
+          "energy": {
+            "n": 190,
+            "differs_pct": 29.5
+          },
+          "resilience": {
+            "n": 190,
+            "differs_pct": 0.5
+          },
+          "environmental": {
+            "n": 190,
+            "differs_pct": 24.2
+          },
+          "building_axis": {
+            "n": 190,
+            "differs_pct": 48.4
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 190,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 85.8,
+            "within_5yr_pct": 88.4,
+            "within_10yr_pct": 93.2
+          },
+          "sqft": {
+            "n": 150,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 86.0,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 134,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 97.0
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 76,
+            "coverage_pct": 100.0,
+            "exact_pct": 94.7
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 190,
+            "differs_pct": 7.4
+          },
+          "energy": {
+            "n": 190,
+            "differs_pct": 6.8
+          },
+          "resilience": {
+            "n": 190,
+            "differs_pct": 0.0
+          },
+          "environmental": {
+            "n": 190,
+            "differs_pct": 4.7
+          },
+          "building_axis": {
+            "n": 190,
+            "differs_pct": 8.9
+          }
+        }
+      }
     }
   }
 }
