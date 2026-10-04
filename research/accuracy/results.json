@@ -2796,6 +2796,153 @@
           }
         }
       }
+    },
+    "ga": {
+      "benchmark": {
+        "jurisdiction": "ga",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 165,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 35
+        },
+        "source": "Fulton, Clayton, Chatham (SAGIS) and Forsyth county parcel layers",
+        "scope": "improved residential parcels in the four counties the adapter answers for (19% of Georgia's homes), drawn in proportion to each county's housing units",
+        "assessment_year": "2024-2026 by county (Fulton 2026, Chatham 2025, Forsyth 2024, Clayton current)",
+        "fetched": "2026-10-04",
+        "rows": 158,
+        "sha256_16": "5bdcf0e953aa4094"
+      },
+      "unscored": 7,
+      "adapter_resolved_pct": 77.0,
+      "resolved_ci95": [
+        70.0,
+        82.7
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 158,
+            "coverage_pct": 100.0,
+            "median_abs_error": 8.0,
+            "exact_pct": 3.8,
+            "within_5yr_pct": 39.2,
+            "within_10yr_pct": 60.8
+          },
+          "sqft": {
+            "n": 35,
+            "coverage_pct": 100.0,
+            "median_abs_error": 163.0,
+            "exact_pct": 22.9,
+            "median_abs_pct_error": 11.6
+          },
+          "stories": {
+            "n": 105,
+            "coverage_pct": 90.5,
+            "median_abs_error": 0.0,
+            "exact_pct": 77.9
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 158,
+            "differs_pct": 27.8
+          },
+          "energy": {
+            "n": 158,
+            "differs_pct": 24.1
+          },
+          "resilience": {
+            "n": 158,
+            "differs_pct": 1.9
+          },
+          "environmental": {
+            "n": 158,
+            "differs_pct": 15.8
+          },
+          "building_axis": {
+            "n": 158,
+            "differs_pct": 43.7
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 158,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 81.0,
+            "within_5yr_pct": 86.7,
+            "within_10yr_pct": 91.8
+          },
+          "sqft": {
+            "n": 35,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 94.3,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 105,
+            "coverage_pct": 99.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 95.2
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 158,
+            "differs_pct": 5.1
+          },
+          "energy": {
+            "n": 158,
+            "differs_pct": 3.8
+          },
+          "resilience": {
+            "n": 158,
+            "differs_pct": 0.0
+          },
+          "environmental": {
+            "n": 158,
+            "differs_pct": 4.4
+          },
+          "building_axis": {
+            "n": 158,
+            "differs_pct": 10.8
+          }
+        }
+      }
     }
   }
 }
