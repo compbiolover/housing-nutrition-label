@@ -3257,13 +3257,13 @@
         "sha256_16": "8b522f5c6868a8d0"
       },
       "unscored": 22,
-      "adapter_resolved_pct": 52.2,
+      "adapter_resolved_pct": 75.3,
       "resolved_ci95": [
-        45.0,
-        59.2
+        68.6,
+        80.9
       ],
       "resolved_runs": null,
-      "parcel_mismatches": 1,
+      "parcel_mismatches": 0,
       "baseline": {
         "fields": {
           "year_built": {
@@ -3312,7 +3312,7 @@
           },
           "resilience": {
             "n": 164,
-            "differs_pct": 11.0
+            "differs_pct": 8.5
           },
           "environmental": {
             "n": 164,
@@ -3320,7 +3320,7 @@
           },
           "building_axis": {
             "n": 164,
-            "differs_pct": 47.6
+            "differs_pct": 47.0
           }
         }
       },
@@ -3330,27 +3330,27 @@
             "n": 164,
             "coverage_pct": 100.0,
             "median_abs_error": 0.0,
-            "exact_pct": 61.0,
-            "within_5yr_pct": 78.0,
-            "within_10yr_pct": 85.4
+            "exact_pct": 86.0,
+            "within_5yr_pct": 90.9,
+            "within_10yr_pct": 93.3
           },
           "sqft": {
             "n": 20,
             "coverage_pct": 100.0,
             "median_abs_error": 0.0,
-            "exact_pct": 70.0,
+            "exact_pct": 90.0,
             "median_abs_pct_error": 0.0
           },
           "stories": {
             "n": 18,
             "coverage_pct": 100.0,
             "median_abs_error": 0.0,
-            "exact_pct": 94.4
+            "exact_pct": 100.0
           },
           "construction": {
             "n": 58,
             "coverage_pct": 100.0,
-            "exact_pct": 94.8
+            "exact_pct": 98.3
           },
           "foundation": {
             "n": 0,
@@ -3364,11 +3364,11 @@
         "grade_impact": {
           "durability": {
             "n": 164,
-            "differs_pct": 11.0
+            "differs_pct": 4.9
           },
           "energy": {
             "n": 164,
-            "differs_pct": 11.6
+            "differs_pct": 4.9
           },
           "resilience": {
             "n": 164,
@@ -3376,11 +3376,11 @@
           },
           "environmental": {
             "n": 164,
-            "differs_pct": 8.5
+            "differs_pct": 3.0
           },
           "building_axis": {
             "n": 164,
-            "differs_pct": 20.1
+            "differs_pct": 8.5
           }
         }
       }
