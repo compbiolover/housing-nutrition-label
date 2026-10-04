@@ -42,25 +42,25 @@ from housing_label.enrich.assessor import _shared, ct
 # in West Hartford: one dwelling, so its living area is that home's.
 _HOUSE = {"Parcel_ID": "2176 2 70    0001", "Location": "70 FOXCROFT ROAD ",
           "Location_1": "70 FOXCROFT ROAD", "AYB": 1941.0, "Living_Area": 3152.0,
-          "Occupancy": 1.0, "Collection_year": "2025"}
+          "Occupancy": 1.0, "CAMA_Collection_Year": 2026}
 
 # Recorded live. Manchester files no parcel-map address at all — the whole town is
 # null in `Location` — so the CAMA column is the only one that can confirm it.
 _CAMA_ONLY = {"Parcel_ID": "51800044774", "Location": None,
               "Location_1": "961 HILLSTOWN ROAD", "AYB": 1985.0,
-              "Living_Area": 1602.0, "Occupancy": 1.0, "Collection_year": "2025"}
+              "Living_Area": 1602.0, "Occupancy": 1.0, "CAMA_Collection_Year": 2026}
 
 # Recorded live. Greenwich writes the CAMA column inverted — street first, house
 # number zero-padded last — and the ordinary form only in the parcel-map column.
 _INVERTED = {"Parcel_ID": "GW-200", "Location": "200 OLD MILL ROAD",
              "Location_1": "OLD MILL ROAD 0200", "AYB": 1955.0,
-             "Living_Area": 2400.0, "Occupancy": 1.0, "Collection_year": "2025"}
+             "Living_Area": 2400.0, "Occupancy": 1.0, "CAMA_Collection_Year": 2026}
 
 # Recorded live. A Bridgeport condominium: one unit, one parcel, `Occupancy` of 1
 # — and the two address columns naming two different units of the same building.
 _CONDO = {"Parcel_ID": "116-2", "Location": "350 GROVERS AV #01A",
           "Location_1": "350 GROVERS AV #11C", "AYB": 1975.0,
-          "Living_Area": 1284.0, "Occupancy": 1.0, "Collection_year": "2025"}
+          "Living_Area": 1284.0, "Occupancy": 1.0, "CAMA_Collection_Year": 2026}
 
 # Easton parcel 3771 27, whose two columns name two different streets — the
 # parcel-map filing and the CAMA filing joined to each other wrongly. The address
@@ -78,7 +78,7 @@ _CONDO = {"Parcel_ID": "116-2", "Location": "350 GROVERS AV #01A",
 _CONTRADICTORY = {"Parcel_ID": "3771 27", "Location": "80 SUNNY RIDGE ROAD",
                   "Location_1": "545 NORTH PARK AVENUE", "AYB": 1941.0,
                   "Living_Area": 2816.0, "Occupancy": 1.0,
-                  "Collection_year": "2025"}
+                  "CAMA_Collection_Year": 2026}
 
 #: A point in West Hartford. Every test uses the same one: which parcel a
 #: coordinate lands in is decided here by the stubbed rows, not by the coordinate.
@@ -422,11 +422,11 @@ def test_the_collection_year_travels_with_the_value():
     still carry 2024 against 1,217,852 at 2025, so the year is per-record rather
     than a property of the layer."""
     got = _lookup([_HOUSE])
-    assert got is not None and "2025 collection" in got.data_vintage
+    assert got is not None and "2026 collection" in got.data_vintage
 
 
 def test_a_missing_collection_year_falls_back_rather_than_inventing_one():
-    got = _lookup([dict(_HOUSE, Collection_year=None)])
+    got = _lookup([dict(_HOUSE, CAMA_Collection_Year=None)])
     assert got is not None
     assert got.data_vintage == ct.DATA_VINTAGE
     assert "collection" not in got.data_vintage

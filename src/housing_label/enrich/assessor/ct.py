@@ -246,7 +246,7 @@ LOOKUP_TIMEOUT = 6.0
 # in the module docstring for what the other 48 columns hold and why none of them
 # is fetched — and note that EYB, the effective year built, is not among these on
 # purpose.
-_FIELDS = "Parcel_ID,Location,Location_1,AYB,Living_Area,Occupancy,Collection_year"
+_FIELDS = "Parcel_ID,Location,Location_1,AYB,Living_Area,Occupancy,CAMA_Collection_Year"
 
 # The two columns the street address can arrive in, in the order they are tried.
 # Location_CAMA first because it is present on all but 109 of the state's
@@ -380,11 +380,16 @@ def _vintage(row: dict) -> str:
 
     The GIS Office reruns the collection annually and republishes under an
     unchanged URL, so a hard-coded year would go stale silently — presenting old
-    data at the same confidence as fresh data. 1,217,852 parcels carry 2025 and
-    57,231 still carry 2024, so the year is genuinely per-record rather than a
-    property of the layer.
+    data at the same confidence as fresh data. The 2026 republication carries
+    2026 on 1,316,777 parcels and 2023 on 3,909, so the year is genuinely
+    per-record rather than a property of the layer.
+
+    It also renamed this column from ``Collection_year`` to
+    ``CAMA_Collection_Year`` (now an integer). ArcGIS rejects a whole query that
+    names a column it no longer has, so the old name made every lookup in the
+    state come back empty — measured 2026-10-04, 0 of 200 homes read.
     """
-    year = str(row.get("Collection_year") or "").strip()
+    year = str(row.get("CAMA_Collection_Year") or "").strip()
     return f"{DATA_VINTAGE}, {year} collection" if year.isdigit() and len(year) == 4 \
         else DATA_VINTAGE
 
