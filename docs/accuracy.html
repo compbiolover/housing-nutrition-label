@@ -57,6 +57,7 @@ record-keeping, different sample.</p>
 <tr><td><a href="#ct">Connecticut</a></td><td>168 of 200</td><td>70.2%</td><td>0</td><td>2.4% &rarr; 72.0%</td><td>55.4% &rarr; 17.9%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#fl">Florida</a></td><td>169 of 203</td><td>60.7%</td><td>0</td><td>3.0% &rarr; 65.7%</td><td>32.5% &rarr; 10.1%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#ga">Georgia — Fulton, Clayton, Chatham and Forsyth counties</a></td><td>158 of 200</td><td>77.0%</td><td>0</td><td>3.8% &rarr; 81.0%</td><td>43.7% &rarr; 10.8%</td><td>county record as the adapter reads it</td></tr>
+<tr><td><a href="#ind">Indiana (Vanderburgh County)</a></td><td>197 of 200</td><td>88.5%</td><td>0</td><td>0.5% &rarr; 89.8%</td><td>39.6% &rarr; 4.6%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#la">Los Angeles County, California</a></td><td>173 of 200</td><td>89.3%</td><td>0</td><td>3.5% &rarr; 91.9%</td><td>39.3% &rarr; 3.5%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#md">Maryland</a></td><td>192 of 200</td><td>78.4%</td><td>0</td><td>3.1% &rarr; 81.8%</td><td>53.1% &rarr; 12.0%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#ma">Massachusetts</a></td><td>185 of 200</td><td>81.1%</td><td>0</td><td>1.6% &rarr; 83.2%</td><td>38.9% &rarr; 8.1%</td><td>county record as the adapter reads it</td></tr>
@@ -470,6 +471,49 @@ than collapsing into one median: within &plusmn;5 years 39.2% of the time at bas
 77.0% of the sample. 95% confidence interval 70.0&ndash;82.7% for the draw.
 Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
 5bdcf0e953aa4094.</p>
+
+
+<h2 id="ind">Indiana (Vanderburgh County)</h2>
+
+<p><strong>Method.</strong> 200 addresses sampled across
+Vanderburgh County Assessor tax parcels (assessment year current,
+fetched 2026-10-04); a further 3 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: residential, apartment and farmhouse parcels with a recorded year built in Vanderburgh County. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>0.5%</td><td>89.8%</td><td>16.0</td><td>0.0</td><td>197</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>20.5%</td><td>89.1%</td><td>272.0</td><td>0.0</td><td>156</td></tr>
+<tr><td>stories</td><td>89.2%</td><td>100.0%</td><td>76.5%</td><td>95.8%</td><td>0.0</td><td>0.0</td><td>167</td></tr>
+<tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>100.0%</td><td>100.0%</td><td>87.4%</td><td>98.4%</td><td>—</td><td>—</td><td>182</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 20.3% of the time at baseline and 91.9% with the assessor; within &plusmn;10 years 34.0% and 91.9%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>24.4%</td><td>3.6%</td><td>197</td></tr>
+<tr><td>energy</td><td>32.0%</td><td>4.1%</td><td>197</td></tr>
+<tr><td>resilience</td><td>4.1%</td><td>0.5%</td><td>197</td></tr>
+<tr><td>environmental</td><td>44.7%</td><td>5.6%</td><td>197</td></tr>
+<tr><td>building_axis</td><td>39.6%</td><td>4.6%</td><td>197</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+88.5% of the sample. 95% confidence interval 83.3&ndash;92.2% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+74155c508179c40f.</p>
 
 
 <h2 id="la">Los Angeles County, California</h2>
@@ -1208,7 +1252,7 @@ Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchma
 jurisdiction served.</strong>
 Each figure describes one place's housing stock and record-keeping.
 Nothing here supports a claim about anywhere else, and the sections should not
-be averaged into one. An adapter can serve a jurisdiction that carries no figure here &mdash; Vanderburgh County, IN and Portland metro are served and not measured, so these numbers say nothing about them. Each carries a wrong-parcel verification instead, listed on the <a href="coverage.html">coverage page</a>. Serving is not measuring.</li>
+be averaged into one. An adapter can serve a jurisdiction that carries no figure here &mdash; Portland metro is served and not measured, so these numbers say nothing about it. Each carries a wrong-parcel verification instead, listed on the <a href="coverage.html">coverage page</a>. Serving is not measuring.</li>
 <li><strong>Adapter benchmarks grade the lookup, not the field mapping.</strong>
 Cook's and DC's references are built from the assessor's tables by this page's own
 mapping, independently of the adapter. The other sections draw homes at random from

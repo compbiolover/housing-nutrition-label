@@ -3837,6 +3837,155 @@
           }
         }
       }
+    },
+    "ind": {
+      "benchmark": {
+        "jurisdiction": "ind",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 200,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 0
+        },
+        "source": "Vanderburgh County Assessor tax parcels",
+        "scope": "residential, apartment and farmhouse parcels with a recorded year built in Vanderburgh County",
+        "assessment_year": "current",
+        "fetched": "2026-10-04",
+        "rows": 197,
+        "sha256_16": "74155c508179c40f"
+      },
+      "unscored": 3,
+      "adapter_resolved_pct": 88.5,
+      "resolved_ci95": [
+        83.3,
+        92.2
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 197,
+            "coverage_pct": 100.0,
+            "median_abs_error": 16.0,
+            "exact_pct": 0.5,
+            "within_5yr_pct": 20.3,
+            "within_10yr_pct": 34.0
+          },
+          "sqft": {
+            "n": 156,
+            "coverage_pct": 100.0,
+            "median_abs_error": 272.0,
+            "exact_pct": 20.5,
+            "median_abs_pct_error": 18.8
+          },
+          "stories": {
+            "n": 167,
+            "coverage_pct": 89.2,
+            "median_abs_error": 0.0,
+            "exact_pct": 76.5
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 182,
+            "coverage_pct": 100.0,
+            "exact_pct": 87.4
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 197,
+            "differs_pct": 24.4
+          },
+          "energy": {
+            "n": 197,
+            "differs_pct": 32.0
+          },
+          "resilience": {
+            "n": 197,
+            "differs_pct": 4.1
+          },
+          "environmental": {
+            "n": 197,
+            "differs_pct": 44.7
+          },
+          "building_axis": {
+            "n": 197,
+            "differs_pct": 39.6
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 197,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 89.8,
+            "within_5yr_pct": 91.9,
+            "within_10yr_pct": 91.9
+          },
+          "sqft": {
+            "n": 156,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 89.1,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 167,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 95.8
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 182,
+            "coverage_pct": 100.0,
+            "exact_pct": 98.4
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 197,
+            "differs_pct": 3.6
+          },
+          "energy": {
+            "n": 197,
+            "differs_pct": 4.1
+          },
+          "resilience": {
+            "n": 197,
+            "differs_pct": 0.5
+          },
+          "environmental": {
+            "n": 197,
+            "differs_pct": 5.6
+          },
+          "building_axis": {
+            "n": 197,
+            "differs_pct": 4.6
+          }
+        }
+      }
     }
   }
 }
