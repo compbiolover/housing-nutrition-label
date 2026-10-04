@@ -938,6 +938,17 @@ def main() -> int:
         keys = [(r.get("SSL") or "").strip() for r in sample]
         info, present = _dc_condo_place([k for k in keys if k])
         truth_of, key_of = _dc_condo_truth, (lambda r: (r.get("SSL") or "").strip())
+    elif JURISDICTIONS[juris].get("sampler") == "adapter":
+        # A generic adapter benchmark (scripts/benchmark_samplers): homes drawn at
+        # random from the adapter's own source, the reference read through the
+        # adapter at the parcel itself. See that package's docstring for what
+        # this measures and what it does not.
+        import importlib
+        from scripts import benchmark_samplers
+        sampler = importlib.import_module(f"scripts.benchmark_samplers.{juris}")
+        out_rows, draw, dropped, year = benchmark_samplers.build(
+            sampler, args.rows, args.seed)
+        sample, info, present = None, None, None
     else:
         # The CLI takes its choices from the registry, so a third entry becomes
         # selectable the moment it is added — before anyone writes its sampler. A
@@ -950,8 +961,12 @@ def main() -> int:
             f"in this script. Add one rather than letting another jurisdiction's "
             f"draw be written under its name.")
 
-    log.info("Fetched %d characteristics rows.", len(sample))
-    log.info("Resolved %d of them to an address.", len(info))
+    if sample is None:
+        log.info("Drew %d homes; %d reached the benchmark.", draw["attempted"],
+                 len(out_rows))
+    else:
+        log.info("Fetched %d characteristics rows.", len(sample))
+        log.info("Resolved %d of them to an address.", len(info))
 
     # Counted, not inferred. The published note used to derive the cause of every
     # dropped row from `drawn - sampled`, and review found it naming the wrong one
@@ -963,9 +978,10 @@ def main() -> int:
     # blank address, and folding those together let the page say "had no address
     # on file" about a parcel whose record was simply not there — a claim about
     # the assessor's documentation that the build has no evidence for.
-    out_rows, dropped = [], {"no_parcel_record": 0, "no_address": 0,
-                             "no_year_built": 0}
-    for row in sample:
+    if sample is not None:
+        out_rows, dropped = [], {"no_parcel_record": 0, "no_address": 0,
+                                 "no_year_built": 0}
+    for row in sample or ():
         key = key_of(row)
         place = info.get(key)
         if not place:

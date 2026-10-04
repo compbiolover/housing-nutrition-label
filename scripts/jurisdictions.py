@@ -54,6 +54,17 @@ JURISDICTIONS = {
         # to read them, not a license to average them.
         "parent": "dc",
     },
+    # Adapter benchmarks (scripts/benchmark_samplers): homes drawn at random from
+    # each adapter's own source, the reference read through the adapter at the
+    # parcel itself. `sampler` routes build_benchmark.py to that package; `basis`
+    # tells the page which kind of reference a section was graded against.
+    "nj": {
+        "source": "NJOGIS Parcels and MOD-IV Composite of New Jersey",
+        "label": "New Jersey",
+        "scope": "residential (class 2) parcels in all 21 counties, drawn in "
+                 "proportion to each county's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "nj",
+    },
 }
 
 

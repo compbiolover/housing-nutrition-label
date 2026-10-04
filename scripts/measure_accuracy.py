@@ -162,6 +162,19 @@ def _parcel_matches(loc, row: dict) -> bool:
     # `pin` is the column the first benchmark used, before a second jurisdiction
     # made the name wrong; an older cached file still reads.
     want = _parcel_key(row.get("parcel_id") or row.get("pin"))
+    if not want:
+        # An adapter benchmark row whose reference record carries no parcel id —
+        # Delaware County, OH publishes none, and a condominium stack answered by
+        # its building's year has none to give. There is no id to compare, so the
+        # record is compared instead: the same year built (and floor area, where
+        # the reference has one) is the same home's record; anything else is
+        # counted as a different parcel, the conservative reading.
+        def same(field, cast):
+            ref, val = row.get(field), getattr(record, field, None)
+            if ref in (None, ""):
+                return True
+            return val is not None and cast(ref) == cast(val)
+        return same("year_built", lambda v: int(float(v))) and same("sqft", float)
     return bool(got) and got == want
 
 
@@ -442,6 +455,12 @@ _DROP_REASONS = {
                    "{} had no address on file"),
     "no_year_built": ("{} had no usable year built",
                       "{} had no usable year built"),
+    # Adapter benchmarks only: the adapter, asked at the parcel itself with its own
+    # address, read no single home there (a condominium stack it cannot separate,
+    # a record saying no dwelling). Counted rather than silently dropped, so the
+    # sample is not quietly narrowed to the homes the adapter handles.
+    "no_home_record": ("{} was not read as one home even at its own parcel",
+                       "{} were not read as one home even at their own parcel"),
 }
 
 #: The counters are shared; what they MEAN is not. Cook and DC's residential path
@@ -460,6 +479,21 @@ _DROP_WORDING = {
                        "{} had unit records carrying no address or unit number"),
     },
 }
+
+
+#: Adapter benchmarks (scripts/benchmark_samplers) all place a row the same way —
+#: a random offset into the adapter's own layer, then the adapter asked at the
+#: parcel — so they share one wording, registered per jurisdiction below so that
+#: none inherits the parcel sentence written for Cook and DC by default.
+_ADAPTER_DROP_WORDING = {
+    "no_parcel_record": ("{} could not be fetched from the source when drawn",
+                         "{} could not be fetched from the source when drawn"),
+    "no_address": ("{} had no site address on file",
+                   "{} had no site address on file"),
+}
+for _key, _cfg in JURISDICTIONS.items():
+    if _cfg.get("basis") == "adapter":
+        _DROP_WORDING.setdefault(_key, _ADAPTER_DROP_WORDING)
 
 
 def _drop_reasons(juris: str | None) -> dict[str, tuple[str, str]]:
@@ -654,7 +688,7 @@ def _section(key: str, data: dict, *, depth: int = 0) -> str:
 {html.escape(m['source'])} (assessment year {html.escape(str(m['assessment_year']))},
 fetched {html.escape(m['fetched'])}){_unscored_note(data)}.{scope_html}{_ungradeable_note(m)} Each is scored
 from the address alone, with no construction details supplied, and compared against
-that jurisdiction's own assessor record.</p>
+{_reference_phrase(key)}.</p>
 
 <{h_sub}>Field accuracy</{h_sub}>
 <div class="table-scroll"><table class="data-table"><thead><tr>
@@ -681,6 +715,62 @@ than collapsing into one median: {_tolerance_sentence(data)}</p>
 {_draw_sentence(m)}Benchmark digest
 {html.escape(m.get('sha256_16') or 'unrecorded')}.</p>
 """
+
+
+def _reference_phrase(key: str) -> str:
+    """What a section was graded against, in the words its method paragraph uses."""
+    if JURISDICTIONS.get(key, {}).get("basis") == "adapter":
+        return ("the county's record as the adapter reads it at the parcel itself "
+                "(see <em>adapter benchmarks</em> below)")
+    return "that jurisdiction's own assessor record"
+
+
+def _measured_adapters(juris: dict) -> set[str]:
+    """The adapter modules this page carries a measurement for."""
+    out = set()
+    for key in juris:
+        cfg = JURISDICTIONS.get(key, {})
+        out.add(cfg.get("adapter") or {"cook": "cook_il", "dc": "dc",
+                                        "dc-condo": "dc"}.get(key, key))
+    return out
+
+
+def _unmeasured_sentence(juris: dict) -> str:
+    """Name every served adapter that carries no figure here, from the registry —
+    a hand-kept list went stale the day the next adapter landed."""
+    from housing_label.enrich.assessor import ADAPTERS
+    from scripts.build_coverage import CURATED
+    served = {m.__name__.rsplit(".", 1)[-1] for m in ADAPTERS.values()}
+    missing = sorted(served - _measured_adapters(juris))
+    if not missing:
+        return ("Every adapter currently served carries a measurement here.")
+    names = [CURATED.get(k, {}).get("short", k) for k in missing]
+    listed = (", ".join(names[:-1]) + " and " + names[-1]) if len(names) > 1 else names[0]
+    return (f"An adapter can serve a jurisdiction that carries no figure here &mdash; "
+            f"{html.escape(listed)} {'are' if len(names) > 1 else 'is'} served and "
+            f"not measured, so these numbers say nothing about "
+            f"{'them' if len(names) > 1 else 'it'}. Each carries a wrong-parcel "
+            f"verification instead, listed on the <a href=\"coverage.html\">coverage "
+            f"page</a>. Serving is not measuring.")
+
+
+def _adapter_basis_caveat(juris: dict) -> str:
+    """How the adapter benchmarks differ from Cook's and DC's, where any is shown."""
+    if not any(JURISDICTIONS.get(k, {}).get("basis") == "adapter" for k in juris):
+        return ""
+    return """<li><strong>Adapter benchmarks grade the lookup, not the field mapping.</strong>
+Cook's and DC's references are built from the assessor's tables by this page's own
+mapping, independently of the adapter. The other sections draw homes at random from
+each adapter's own source and take as reference the county's record <em>as the
+adapter reads it at the parcel itself</em> &mdash; at a point inside the lot, with
+the lot's own address. So the &ldquo;with assessor&rdquo; column there measures what
+a visitor actually gets: how often typing the address reaches the county's record,
+whether it is the right record, and how far that record moves the grades from the
+modeled baseline. It does not test whether the adapter translates the county's
+columns correctly; each adapter's year built and floor area were checked against the
+raw source values in its own verification run (recorded in its module and on the
+coverage page). A drawn home the adapter will not read even at its own parcel is
+counted in the section's method note, not silently dropped.</li>"""
 
 
 def _render(results: dict) -> str:
@@ -746,12 +836,8 @@ housing stock, different record-keeping, different sample.</p>
 jurisdiction served.</strong>
 Each figure describes one place's housing stock and record-keeping.
 Nothing here supports a claim about anywhere else, and the sections should not
-be averaged into one. An adapter can serve a jurisdiction that carries no figure
-here — Florida, Connecticut, Los Angeles County, New York City and State,
-Philadelphia, North Carolina, Maryland, Massachusetts and Utah are all served and none
-is measured, so these numbers say nothing about any of them. Each carries a
-wrong-parcel verification instead, listed on the <a href="coverage.html">coverage
-page</a>. Serving is not measuring.</li>
+be averaged into one. {_unmeasured_sentence(juris)}</li>
+{_adapter_basis_caveat(juris)}
 {_dc_caveat(juris)}
 <li>The assessor's own record is treated as truth. It can be stale or wrong; it is
 the best available reference, not a survey.</li>
@@ -759,8 +845,8 @@ the best available reference, not a survey.</li>
 baseline, so the &ldquo;with assessor&rdquo; column includes them. It is the
 end-to-end number a visitor would experience, not the adapter's accuracy on the
 rows it answers.</li>
-<li>The benchmarks are fetched on demand and not committed: neither source grants
-an explicit right to redistribute a dataset. Re-running months later samples a
+<li>The benchmarks are fetched on demand and not committed: most sources grant
+no explicit right to redistribute a dataset. Re-running months later samples a
 refreshed roll, so each section's digest and date are recorded to make that
 visible.</li>
 <li><strong>The categorical fields are a weaker test than the numeric ones.</strong>

@@ -270,7 +270,11 @@ def test_a_registered_jurisdiction_with_no_sampler_fails_rather_than_drawing_dc(
         "jurisdiction and draws DC for it")
     assert "raise SystemExit" in dispatch, (
         "the dispatch must refuse a registered jurisdiction it has no sampler for")
-    for key in B.JURISDICTIONS:
+    for key, cfg in B.JURISDICTIONS.items():
+        if cfg.get("sampler") == "adapter":
+            # Routed by the generic branch to its own sampler module, which must
+            # exist — test_every_adapter_sampler_is_real checks what it contains.
+            continue
         assert f'juris == "{key}"' in dispatch, (
             f"{key} is registered but the builder's dispatch does not name it, so "
             f"it would fall through to the refusal or to another jurisdiction's draw")
@@ -534,7 +538,8 @@ SAMPLERS = {
 def test_every_sampler_is_covered_by_the_sampler_rules():
     """The roster below must name every jurisdiction the registry offers. A
     jurisdiction added to one and not the other is a sampler with no guards."""
-    assert set(SAMPLERS) == set(B.JURISDICTIONS), (
+    hand_written = {k for k, v in B.JURISDICTIONS.items() if v.get("sampler") != "adapter"}
+    assert set(SAMPLERS) == hand_written, (
         f"registry has {sorted(B.JURISDICTIONS)}, SAMPLERS has {sorted(SAMPLERS)}")
 
 
@@ -772,3 +777,98 @@ def test_a_build_must_name_its_seed():
         raise AssertionError("a build with no seed was accepted")
     finally:
         sys.argv = argv
+
+
+# --- adapter benchmarks (scripts/benchmark_samplers) -------------------------------
+
+from scripts import benchmark_samplers as BS  # noqa: E402
+
+
+def _adapter_juris():
+    return sorted(k for k, v in B.JURISDICTIONS.items() if v.get("sampler") == "adapter")
+
+
+def test_every_adapter_sampler_is_real():
+    """An adapter-sampled jurisdiction must have its own sampler module, naming a
+    registered adapter, so it can never fall through to another's draw."""
+    import importlib
+    from housing_label.enrich.assessor import ADAPTERS
+    adapters = {m.__name__.rsplit(".", 1)[-1] for m in ADAPTERS.values()}
+    assert _adapter_juris(), "no adapter-sampled jurisdiction registered"
+    for key in _adapter_juris():
+        mod = importlib.import_module(f"scripts.benchmark_samplers.{key}")
+        assert callable(getattr(mod, "draw", None)), key
+        assert mod.ADAPTER in adapters, (key, mod.ADAPTER)
+        assert B.JURISDICTIONS[key].get("basis") == "adapter", key
+
+
+def test_an_adapter_sampler_draws_only_counties_its_adapter_serves():
+    """A sampler's counties must be the adapter's: a row drawn in a county the
+    adapter does not serve would be graded against nothing."""
+    import importlib
+    from housing_label.enrich.assessor import adapter_for_county
+    for key in _adapter_juris():
+        mod = importlib.import_module(f"scripts.benchmark_samplers.{key}")
+        fips = getattr(mod, "_FIPS", None)
+        if fips is None:
+            continue
+        for f in fips:
+            served = adapter_for_county(f)
+            assert served is not None and served.__name__.endswith("." + mod.ADAPTER), (
+                key, f)
+
+
+def test_rows_are_allocated_in_proportion_and_sum_exactly():
+    parts = BS.allocate(200, ["34003", "34041", "34033"], 7)
+    assert sum(parts.values()) == 200
+    assert parts["34003"] > parts["34041"] > 0 and parts["34033"] >= 1
+
+
+def test_the_interior_point_is_inside_a_concave_lot():
+    """An L-shaped lot whose centroid falls outside it: the point used must be on
+    the lot itself, or the reference would be read off the neighbor's land."""
+    ring = [[0, 0], [10, 0], [10, 1], [1, 1], [1, 10], [0, 10], [0, 0]]
+    y, x = BS.interior_point({"rings": [ring]})
+    assert BS._inside(x, y, [ring])
+    assert BS.interior_point({"x": 3, "y": 4}) == (4, 3)
+    assert BS.interior_point({}) is None and BS.interior_point({"rings": []}) is None
+
+
+def test_a_failed_draw_is_counted_not_dropped(monkeypatch):
+    """A random offset whose request fails must be counted, so the page never
+    reports a smaller clean sample in place of a gap in a full one."""
+    calls = []
+
+    def fake_get(url, params, attempts=4):
+        calls.append(params)
+        if params.get("returnCountOnly") == "true":
+            return {"count": 50}
+        return None if len(calls) % 2 else {"features": [{"attributes": {"OBJECTID": 1},
+                                                          "geometry": {"x": 1, "y": 2}}]}
+    monkeypatch.setattr(BS, "get", fake_get)
+    feats, attempted = BS.arcgis_random("u", "1=1", "OBJECTID", 6, 1)
+    assert attempted == 6 and len(feats) < 6
+
+
+def test_every_drawn_home_is_written_or_counted(monkeypatch):
+    class Sampler:
+        ADAPTER = "nj"
+
+        @staticmethod
+        def draw(rows, seed):
+            return ([{"fips": "34003", "address": "", "lat": 0, "lon": 0},
+                     {"fips": "34003", "address": "1 A ST, X, NJ", "lat": 0, "lon": 0},
+                     {"fips": "34003", "address": "2 B ST, X, NJ", "lat": 0, "lon": 0}], 5)
+    answers = iter([None, ("P1", dict.fromkeys(BS.FIELDS, "") | {"year_built": 1950})])
+    monkeypatch.setattr(BS, "truth_at", lambda *a: next(answers))
+    out, draw, dropped, _year = BS.build(Sampler, 5, 1)
+    assert len(out) == 1 and out[0]["parcel_id"] == "P1"
+    assert dropped == {"no_parcel_record": 2, "no_address": 1, "no_year_built": 0,
+                       "no_home_record": 1}
+    assert draw["attempted"] == len(out) + sum(dropped.values())
+
+
+def test_the_reference_is_refused_in_a_county_the_adapter_does_not_serve():
+    import pytest
+    with pytest.raises(SystemExit):
+        BS.truth_at("nj", "17031", 41.9, -87.6, "1 MAIN ST")
