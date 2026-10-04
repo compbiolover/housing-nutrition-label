@@ -1091,3 +1091,14 @@ def test_a_place_name_that_starts_like_a_unit_marker_is_not_a_unit():
                         ("1 MAIN ST, Apt.3", "3"), ("1 MAIN ST STE. 4", "4"),
                         ("1 MAIN ST UNIT 12", "12"), ("1 MAIN ST # 7", "7")):
         assert unit_of(typed) == unit, typed
+
+
+def test_a_county_road_keeps_its_number():
+    """"15525 CO RD 33" and "15525 CO RD 10" are two houses at one corner; the
+    number after a county or state road's type is its name, not a unit."""
+    assert not same_address("15525 CO RD 33", "15525 CO RD 10")
+    assert same_address("15525 CO RD 33", "15525 COUNTY ROAD 33")
+    assert not same_address("100 STATE RD 7", "100 STATE RD 84")
+    assert same_address("12 COUNTY HIGHWAY 5", "12 CO HWY 5")
+    # The ordinary unit rule after a street type is unchanged.
+    assert same_address("234 W STATION ST B12", "234 W STATION ST")
