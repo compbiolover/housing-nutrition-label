@@ -94,6 +94,39 @@ JURISDICTIONS = {
                  "condominium is one billing lot)",
         "sampler": "adapter", "basis": "adapter", "adapter": "nyc",
     },
+    "mo": {
+        "source": "Jackson County (MO) Assessment Department Parcel Viewer",
+        "label": "Missouri (Jackson County)",
+        "scope": "dwelling land-use records (houses, townhouses, condominium units, "
+                 "duplexes to apartments) in Jackson County, the one county the "
+                 "adapter serves",
+        "sampler": "adapter", "basis": "adapter", "adapter": "mo",
+    },
+    "co": {
+        "source": "Denver, Jefferson, Adams, Douglas and Boulder county assessors",
+        "label": "Colorado (Denver metro)",
+        "scope": "residential parcels (houses, condominium units, townhouses and "
+                 "multifamily) in the five Denver-metro counties the adapter serves, "
+                 "drawn in proportion to each county's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "co",
+    },
+    "mn": {
+        "source": "MetroGIS Regional Parcel Dataset (Metropolitan Council)",
+        "label": "Minnesota (Twin Cities metro)",
+        "scope": "residential parcels (houses, townhouses, condominium units, "
+                 "duplexes to apartments) in the seven metro counties, drawn in "
+                 "proportion to each county's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "mn",
+    },
+    "tx": {
+        "source": "Texas county appraisal districts (twelve counties' own services)",
+        "label": "Texas (twelve largest-county appraisal districts)",
+        "scope": "residential accounts (state categories A single-family and "
+                 "condominium, B multifamily, M mobile homes) in the twelve counties "
+                 "the adapter serves, drawn in proportion to each county's housing "
+                 "units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "tx",
+    },
 }
 
 
