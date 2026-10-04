@@ -39,51 +39,30 @@ authority where one resolves. The number that matters is the last table in each 
 error that moves no letter is not a defect anyone can see; one that crosses a
 code-era boundary is.</p>
 
-<p>Measured so far: California — Contra Costa, San Joaquin and Riverside Counties, Cook County, Illinois, Washington, DC, Washington, DC — condominiums, Los Angeles County, California, New Jersey, New York City, San Francisco, California. Each adapter is measured against its
-own assessor, and the sections are not comparable to each other &mdash; different
-housing stock, different record-keeping, different sample.</p>
-
-<h2 id="ca">California — Contra Costa, San Joaquin and Riverside Counties</h2>
-
-<p><strong>Method.</strong> 185 addresses sampled across
-Contra Costa, San Joaquin and Riverside County Assessors (assessment year current,
-fetched 2026-10-04); a further 3 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: residential parcels and condominium units in the three counties, drawn in proportion to each county&#x27;s housing units. Drawn from 200 assessor rows; 7 had no site address on file, 8 were not read as one home even at their own parcel. Each is scored
-from the address alone, with no construction details supplied, and compared against
-the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
-
-<h3>Field accuracy</h3>
+<p>Each adapter is measured against its own assessor, and the sections are
+not comparable to each other &mdash; different housing stock, different
+record-keeping, different sample.</p>
+<h2 id="overview">At a glance</h2>
 <div class="table-scroll"><table class="data-table"><thead><tr>
-<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
-<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
-<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+<th>Where</th><th>Homes scored</th><th>Answered by the assessor</th><th>Wrong parcel</th>
+<th>Year built exact<br>baseline &rarr; w/ assessor</th>
+<th>Building grade differs<br>baseline &rarr; w/ assessor</th><th>Reference</th>
 </tr></thead><tbody>
-<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>5.5%</td><td>91.2%</td><td>7.0</td><td>0.0</td><td>182</td></tr>
-<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>44.2%</td><td>89.5%</td><td>142.0</td><td>0.0</td><td>86</td></tr>
-<tr><td>stories</td><td>54.9%</td><td>95.9%</td><td>89.6%</td><td>99.1%</td><td>0.0</td><td>0.0</td><td>122</td></tr>
-<tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
-<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
-<tr><td>condition</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td><a href="#cook">Cook County, Illinois</a></td><td>297</td><td>76.7%</td><td>0</td><td>1.0% &rarr; 77.8%</td><td>27.9% &rarr; 7.1%</td><td>assessor tables, mapped independently</td></tr>
+<tr><td><a href="#dc">Washington, DC</a></td><td>195</td><td>83.8%</td><td>0</td><td>1.5% &rarr; 85.6%</td><td>56.4% &rarr; 8.2%</td><td>assessor tables, mapped independently</td></tr>
+<tr><td style="padding-left:1.4rem"><a href="#dc-condo">Washington, DC — condominiums</a></td><td>187</td><td>97.4%</td><td>0</td><td>2.1% &rarr; 99.5%</td><td>65.8% &rarr; 19.8%</td><td>assessor tables, mapped independently</td></tr>
+<tr><td><a href="#ca">California — Contra Costa, San Joaquin and Riverside Counties</a></td><td>182</td><td>89.2%</td><td>1</td><td>5.5% &rarr; 91.2%</td><td>36.3% &rarr; 3.8%</td><td>county record as the adapter reads it</td></tr>
+<tr><td><a href="#la">Los Angeles County, California</a></td><td>173</td><td>89.3%</td><td>1</td><td>3.5% &rarr; 91.9%</td><td>39.3% &rarr; 2.9%</td><td>county record as the adapter reads it</td></tr>
+<tr><td><a href="#nj">New Jersey</a></td><td>181</td><td>75.1%</td><td>0</td><td>2.2% &rarr; 77.3%</td><td>43.1% &rarr; 15.5%</td><td>county record as the adapter reads it</td></tr>
+<tr><td><a href="#nyc">New York City</a></td><td>198</td><td>96.0%</td><td>0</td><td>2.5% &rarr; 97.0%</td><td>30.3% &rarr; 0.5%</td><td>county record as the adapter reads it</td></tr>
+<tr><td><a href="#sf">San Francisco, California</a></td><td>184</td><td>97.8%</td><td>0</td><td>3.8% &rarr; 97.8%</td><td>22.8% &rarr; 0.5%</td><td>county record as the adapter reads it</td></tr>
 </tbody></table></div>
-
-<p><strong>Year built, by tolerance.</strong> The single field the rest of the
-construction profile leans on hardest, so the near-misses are worth seeing rather
-than collapsing into one median: within &plusmn;5 years 41.2% of the time at baseline and 94.5% with the assessor; within &plusmn;10 years 64.3% and 96.7%.</p>
-
-<h3>Does the reader see a different grade?</h3>
-<div class="table-scroll"><table class="data-table"><thead><tr>
-<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
-</tr></thead><tbody>
-<tr><td>durability</td><td>29.7%</td><td>2.2%</td><td>182</td></tr>
-<tr><td>energy</td><td>17.0%</td><td>1.1%</td><td>182</td></tr>
-<tr><td>resilience</td><td>6.0%</td><td>0.0%</td><td>182</td></tr>
-<tr><td>environmental</td><td>12.6%</td><td>1.1%</td><td>182</td></tr>
-<tr><td>building_axis</td><td>36.3%</td><td>3.8%</td><td>182</td></tr>
-</tbody></table></div>
-
-<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
-89.2% of the sample, of which 1 landed on a different parcel than the benchmark row &mdash; those answers are wrong for the address asked about, and are scored as the error they are rather than set aside. 95% confidence interval 83.9&ndash;92.9% for the draw.
-Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
-a2d67083da00a94e.</p>
+<p style="opacity:0.75;font-size:0.85rem;"><em>Building grade differs</em> is the
+share of homes whose building letter, as a reader would see it, is not the letter
+the reference record gives &mdash; lower is better. <em>Wrong parcel</em> counts
+answers that came from a different lot than the one asked about; they are scored as
+errors in every rate. The two kinds of reference are not the same test: see
+<a href="#caveats">what this does and does not establish</a>.</p>
 
 
 <h2 id="cook">Cook County, Illinois</h2>
@@ -213,6 +192,49 @@ than collapsing into one median: within &plusmn;5 years 12.8% of the time at bas
 97.4% of the sample. 95% confidence interval 94.0&ndash;98.9% for the draw, and 95.8&ndash;97.9% observed across 3 scorings of these same rows. The second range is not sampling error: it is the same addresses scored again. Every upstream failure here fails open, so a portal having a bad minute is indistinguishable from a county with no record, and it removes rows from the numerator silently.
 Drawn uniform random offsets without replacement, seed 20260827 &middot; Benchmark digest
 d00857703ef166cb.</p>
+
+
+<h2 id="ca">California — Contra Costa, San Joaquin and Riverside Counties</h2>
+
+<p><strong>Method.</strong> 185 addresses sampled across
+Contra Costa, San Joaquin and Riverside County Assessors (assessment year current,
+fetched 2026-10-04); a further 3 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: residential parcels and condominium units in the three counties, drawn in proportion to each county&#x27;s housing units. Drawn from 200 assessor rows; 7 had no site address on file, 8 were not read as one home even at their own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>5.5%</td><td>91.2%</td><td>7.0</td><td>0.0</td><td>182</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>44.2%</td><td>89.5%</td><td>142.0</td><td>0.0</td><td>86</td></tr>
+<tr><td>stories</td><td>54.9%</td><td>95.9%</td><td>89.6%</td><td>99.1%</td><td>0.0</td><td>0.0</td><td>122</td></tr>
+<tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 41.2% of the time at baseline and 94.5% with the assessor; within &plusmn;10 years 64.3% and 96.7%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>29.7%</td><td>2.2%</td><td>182</td></tr>
+<tr><td>energy</td><td>17.0%</td><td>1.1%</td><td>182</td></tr>
+<tr><td>resilience</td><td>6.0%</td><td>0.0%</td><td>182</td></tr>
+<tr><td>environmental</td><td>12.6%</td><td>1.1%</td><td>182</td></tr>
+<tr><td>building_axis</td><td>36.3%</td><td>3.8%</td><td>182</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+89.2% of the sample, of which 1 landed on a different parcel than the benchmark row &mdash; those answers are wrong for the address asked about, and are scored as the error they are rather than set aside. 95% confidence interval 83.9&ndash;92.9% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+a2d67083da00a94e.</p>
 
 
 <h2 id="la">Los Angeles County, California</h2>
@@ -386,7 +408,7 @@ than collapsing into one median: within &plusmn;5 years 20.1% of the time at bas
 Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
 38e0e2eccf21bdc5.</p>
 
-<h2>What this does and does not establish</h2>
+<h2 id="caveats">What this does and does not establish</h2>
 <ul>
 <li><strong>These are measured jurisdictions, not a national sample, and not every
 jurisdiction served.</strong>
