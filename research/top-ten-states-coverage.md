@@ -118,3 +118,23 @@ Confirm these before a commercial launch:
 - Jackson County, MO.
 - City of Richmond, VA.
 - Douglas County, CO: the improvements table is CC BY-SA 4.0 (share-alike).
+
+### Built but held for coverage
+
+`wi.py` is complete and verified (170 homes sampled, 153 resolved, 0 wrong), but
+it registers no county. Each source covers only its own city: the City of
+Milwaukee's MPROP file covers 61% of Milwaukee County's homes, and the City of
+Madison's parcels cover 51% of Dane County's. No county-wide or suburban year
+built exists; the Wisconsin V12 statewide layer has none either. The Tucson,
+Flint and Grand Rapids precedent is not to register a county on partial data. To
+enable one, remove it from `wi._HELD_FOR_COVERAGE` and add a coverage-page entry.
+
+### Indiana
+
+`ind.py` covers Vanderburgh County (Evansville). Elsewhere in Indiana:
+- **Marion County (Indianapolis):** the only year built is a 2009 snapshot. It
+  misses 21 of 120 current houses and shows the old year for at least one house
+  rebuilt in 2024.
+- **Hamilton County:** its parcel service is marked "internal use only".
+- **Statewide:** IndianaMap's parcel layers carry no year built, and the richer
+  DLGF layer is restricted.

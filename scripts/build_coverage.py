@@ -250,6 +250,12 @@ CURATED: dict[str, dict] = {
         "fields": ("year_built", "sqft", "stories", "condition"),
         "verified": {"sample": 180, "resolved": 149, "wrong": 0},
     },
+    "ind": {
+        "name": "Vanderburgh County, Indiana (Evansville)", "short": "Vanderburgh County, IN",
+        "since": "2026-10-04",
+        "fields": ("year_built", "sqft", "stories", "condition"),
+        "verified": {"sample": 110, "resolved": 98, "wrong": 0},
+    },
     "pdx": {
         "name": "Portland metro, Oregon (Multnomah, Washington and Clackamas counties)",
         "short": "Portland metro",

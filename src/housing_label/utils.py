@@ -442,6 +442,10 @@ DATASET_NAMES = {
     "maps.bouldercounty.org": "the Boulder County, CO Assessor parcel records",
     "services3.arcgis.com/TsynfzBSE6sXfoLq": "the Chesterfield County, VA real estate assessment records",
     "services1.arcgis.com/k3vhq11XkBNeeOfM": "the City of Richmond, VA Assessor of Real Estate records",
+    "maps.evansvillegis.com": "the Vanderburgh County, IN Assessor parcel data",
+    # Held for coverage (city-only sources); named so enabling them is one line.
+    "milwaukeemaps.milwaukee.gov": "the City of Milwaukee Assessor's Master Property file",
+    "maps.cityofmadison.com": "the City of Madison Assessor's parcel records",
     "geohwp.houstontx.gov": "the City of Houston copy of the Harris and Montgomery "
                             "County, TX appraisal rolls",
     "gisweb.fbcad.org": "the Fort Bend Central Appraisal District roll",
