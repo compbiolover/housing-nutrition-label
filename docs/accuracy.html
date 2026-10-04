@@ -70,6 +70,7 @@ record-keeping, different sample.</p>
 <tr><td><a href="#oh">Ohio (nine counties)</a></td><td>188 of 200</td><td>83.5%</td><td>0</td><td>1.1% &rarr; 86.7%</td><td>36.2% &rarr; 5.3%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#pa">Pennsylvania (four counties)</a></td><td>192 of 200</td><td>76.5%</td><td>0</td><td>3.1% &rarr; 81.2%</td><td>54.7% &rarr; 8.9%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#phl">Philadelphia, Pennsylvania</a></td><td>197 of 200</td><td>84.9%</td><td>0</td><td>1.0% &rarr; 86.3%</td><td>35.0% &rarr; 8.1%</td><td>county record as the adapter reads it</td></tr>
+<tr><td><a href="#pdx">Portland metro, Oregon (Multnomah, Washington, Clackamas)</a></td><td>179 of 200</td><td>85.9%</td><td>1</td><td>5.0% &rarr; 92.7%</td><td>53.1% &rarr; 3.4%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#sf">San Francisco, California</a></td><td>184 of 200</td><td>97.8%</td><td>0</td><td>3.8% &rarr; 97.8%</td><td>22.8% &rarr; 0.5%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#mi">Southeast Michigan (SEMCOG&#x27;s seven counties)</a></td><td>190 of 200</td><td>96.3%</td><td>0</td><td>5.3% &rarr; 96.8%</td><td>27.4% &rarr; 1.6%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#tx">Texas (twelve largest-county appraisal districts)</a></td><td>190 of 200</td><td>82.7%</td><td>0</td><td>6.8% &rarr; 85.8%</td><td>29.5% &rarr; 2.6%</td><td>county record as the adapter reads it</td></tr>
@@ -1032,6 +1033,49 @@ Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchma
 6ea589ba92d5927e.</p>
 
 
+<h2 id="pdx">Portland metro, Oregon (Multnomah, Washington, Clackamas)</h2>
+
+<p><strong>Method.</strong> 192 addresses sampled across
+Oregon Metro RLIS Taxlots (Public) (assessment year 2026,
+fetched 2026-10-04); a further 13 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: residential taxlots (single-family, multi-family and rural residential, condominium units included) in all three counties, drawn in proportion to each county&#x27;s housing units. Drawn from 200 assessor rows; 8 were not read as one home even at their own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>5.0%</td><td>92.7%</td><td>15.0</td><td>0.0</td><td>179</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>29.5%</td><td>95.1%</td><td>180.0</td><td>0.0</td><td>122</td></tr>
+<tr><td>stories</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 26.3% of the time at baseline and 94.4% with the assessor; within &plusmn;10 years 39.1% and 96.1%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>26.3%</td><td>0.0%</td><td>179</td></tr>
+<tr><td>energy</td><td>26.3%</td><td>0.6%</td><td>179</td></tr>
+<tr><td>resilience</td><td>1.1%</td><td>0.0%</td><td>179</td></tr>
+<tr><td>environmental</td><td>21.8%</td><td>1.7%</td><td>179</td></tr>
+<tr><td>building_axis</td><td>53.1%</td><td>3.4%</td><td>179</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+85.9% of the sample, of which 1 landed on a different parcel than the benchmark row &mdash; those answers are wrong for the address asked about, and are scored as the error they are rather than set aside. 95% confidence interval 80.3&ndash;90.2% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+4aca9ee1ade9b26a.</p>
+
+
 <h2 id="sf">San Francisco, California</h2>
 
 <p><strong>Method.</strong> 184 addresses sampled across
@@ -1252,7 +1296,7 @@ Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchma
 jurisdiction served.</strong>
 Each figure describes one place's housing stock and record-keeping.
 Nothing here supports a claim about anywhere else, and the sections should not
-be averaged into one. An adapter can serve a jurisdiction that carries no figure here &mdash; Portland metro is served and not measured, so these numbers say nothing about it. Each carries a wrong-parcel verification instead, listed on the <a href="coverage.html">coverage page</a>. Serving is not measuring.</li>
+be averaged into one. Every adapter currently served carries a measurement here.</li>
 <li><strong>Adapter benchmarks grade the lookup, not the field mapping.</strong>
 Cook's and DC's references are built from the assessor's tables by this page's own
 mapping, independently of the adapter. The other sections draw homes at random from

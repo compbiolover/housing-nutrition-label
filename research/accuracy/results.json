@@ -3986,6 +3986,149 @@
           }
         }
       }
+    },
+    "pdx": {
+      "benchmark": {
+        "jurisdiction": "pdx",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 192,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 8
+        },
+        "source": "Oregon Metro RLIS Taxlots (Public)",
+        "scope": "residential taxlots (single-family, multi-family and rural residential, condominium units included) in all three counties, drawn in proportion to each county's housing units",
+        "assessment_year": "2026",
+        "fetched": "2026-10-04",
+        "rows": 179,
+        "sha256_16": "4aca9ee1ade9b26a"
+      },
+      "unscored": 13,
+      "adapter_resolved_pct": 85.9,
+      "resolved_ci95": [
+        80.3,
+        90.2
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 1,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 179,
+            "coverage_pct": 100.0,
+            "median_abs_error": 15.0,
+            "exact_pct": 5.0,
+            "within_5yr_pct": 26.3,
+            "within_10yr_pct": 39.1
+          },
+          "sqft": {
+            "n": 122,
+            "coverage_pct": 100.0,
+            "median_abs_error": 180.0,
+            "exact_pct": 29.5,
+            "median_abs_pct_error": 10.4
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 179,
+            "differs_pct": 26.3
+          },
+          "energy": {
+            "n": 179,
+            "differs_pct": 26.3
+          },
+          "resilience": {
+            "n": 179,
+            "differs_pct": 1.1
+          },
+          "environmental": {
+            "n": 179,
+            "differs_pct": 21.8
+          },
+          "building_axis": {
+            "n": 179,
+            "differs_pct": 53.1
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 179,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 92.7,
+            "within_5yr_pct": 94.4,
+            "within_10yr_pct": 96.1
+          },
+          "sqft": {
+            "n": 122,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 95.1,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 179,
+            "differs_pct": 0.0
+          },
+          "energy": {
+            "n": 179,
+            "differs_pct": 0.6
+          },
+          "resilience": {
+            "n": 179,
+            "differs_pct": 0.0
+          },
+          "environmental": {
+            "n": 179,
+            "differs_pct": 1.7
+          },
+          "building_axis": {
+            "n": 179,
+            "differs_pct": 3.4
+          }
+        }
+      }
     }
   }
 }
