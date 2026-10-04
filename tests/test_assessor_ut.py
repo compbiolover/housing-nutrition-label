@@ -282,6 +282,27 @@ def test_a_typed_unit_does_not_discard_a_parcel_that_names_no_unit():
     assert got is not None and got.parcel_id == "140350270"
 
 
+def test_a_typed_unit_is_never_answered_by_a_sibling_that_lost_its_unit():
+    """2031 E Colorado Dr, St. George, recorded live: units 405, 501 and the rest
+    are filed "... UNIT n", but unit 404 is filed as the bare street address. A
+    reader who typed #403, whose own polygon lay outside the search, was answered
+    with 404's record. Numbered siblings at the address mean a unit-less parcel
+    there is one of the units, not the reader's — so the answer is none."""
+    sib = dict(_HOUSE, BUILT_YR=2012)
+    near = [dict(sib, PARCEL_ID="SG-RCP-4-404", PARCEL_ADD="2031 E COLORADO DR"),
+            dict(sib, PARCEL_ID="SG-RCP-4-405", PARCEL_ADD="2031 E COLORADO DR UNIT 405"),
+            dict(sib, PARCEL_ID="SG-RCP-5-501", PARCEL_ADD="2031 E COLORADO DR UNIT 501")]
+    assert _lookup([], near=near,
+                   address="2031 E COLORADO DR #403, ST GEORGE, UT, 84770") is None
+    # The same unit-less parcel still answers when nothing nearby is numbered —
+    # the building filed as one parcel (see the test above).
+    assert _lookup([], near=near[:1],
+                   address="2031 E COLORADO DR #403, ST GEORGE, UT, 84770") is not None
+    # And a typed unit that IS filed still finds its own parcel.
+    got = _lookup([], near=near, address="2031 E COLORADO DR #405, ST GEORGE, UT, 84770")
+    assert got is not None and got.parcel_id == "SG-RCP-4-405"
+
+
 def test_a_truncated_response_is_no_answer():
     """These layers cap a response at 2,000 rows and write one per building per
     polygon part. A cut-short buffer can drop the second of two parcels sharing an

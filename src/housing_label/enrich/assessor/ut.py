@@ -749,7 +749,18 @@ def _parcel_at(lat: float, lon: float, address: str | None = None,
         # Dropping rows that cannot be the answer is the sanctioned shape (see
         # select_parcel): it can turn "ambiguous" into "one", never admit a parcel
         # the address check would not.
-        return [p for p in found if _same_unit_or_none(p, unit)] if unit else found
+        if not unit:
+            return found
+        kept = [p for p in found if _same_unit_or_none(p, unit)]
+        if any(unit_of(p.get("PARCEL_ADD")) is None for p in kept):
+            hood = fetched.get(_shared.SEARCH_RADIUS_M)
+            if hood is None:
+                hood = fetched[_shared.SEARCH_RADIUS_M] = _parcels(
+                    url, lat, lon, _shared.SEARCH_RADIUS_M, deadline=deadline)
+            kept = _shared.without_unnumbered_siblings(
+                kept, hood, lambda p: unit_of(p.get("PARCEL_ADD")),
+                lambda p: p.get("PARCEL_ADD"))
+        return kept
 
     chosen = select_parcel(fetch, address, lambda p: p.get("PARCEL_ADD"))
     if chosen is None or not address:

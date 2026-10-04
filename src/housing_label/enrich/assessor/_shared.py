@@ -357,6 +357,27 @@ def unit_of(address: str | None) -> str | None:
     return None
 
 
+def without_unnumbered_siblings(candidates: list[dict], neighborhood: list[dict],
+                                unit_of_row, address_of_row) -> list[dict]:
+    """``candidates`` less every parcel that names no unit at an address where a
+    nearby parcel does. For a reader who typed a unit only.
+
+    Keeping a unit-less parcel for a typed unit is right where the building is
+    one parcel — the stack answered at the building level. It is wrong where the
+    roll files each unit as its own parcel and one of them lost its unit text:
+    Washington County, UT files "2031 E COLORADO DR UNIT 405", "... UNIT 501" and
+    unit 404 as plain "2031 E COLORADO DR". A reader who typed #403, whose own
+    polygon lay outside the search, was answered with 404's record — the
+    neighbor's home, named confidently. Numbered siblings at the same address are
+    the evidence that a unit-less parcel there is one unit among them (or the
+    common area), so it cannot stand in for the one typed.
+    """
+    numbered = {address_key(address_of_row(p)) for p in neighborhood
+                if unit_of_row(p)} - {None}
+    return [p for p in candidates
+            if unit_of_row(p) or address_key(address_of_row(p)) not in numbered]
+
+
 def strip_unit(address: str | None) -> str:
     """``address`` with the marked unit removed, and nothing else changed."""
     parts, out = str(address or "").split(","), []

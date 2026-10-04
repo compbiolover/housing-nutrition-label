@@ -803,9 +803,17 @@ def _parcel_at(county: _County, lat: float, lon: float, address: str | None,
         # parcels sharing a street address ("111 SAN MARCO DR ##A", "##B"), so
         # without this a typed "#B" faces every unit and is refused. Dropping rows
         # that cannot be the answer is the sanctioned shape (see select_parcel).
-        if typed_unit:
-            return [p for p in found if _same_unit_or_none(county.unit_of(p), typed_unit)]
-        return found
+        if not typed_unit:
+            return found
+        kept = [p for p in found if _same_unit_or_none(county.unit_of(p), typed_unit)]
+        if any(county.unit_of(p) is None for p in kept):
+            hood = fetched.get(_shared.SEARCH_RADIUS_M)
+            if hood is None:
+                hood = fetched[_shared.SEARCH_RADIUS_M] = _parcels(
+                    county, lat, lon, _shared.SEARCH_RADIUS_M, deadline=deadline)
+            kept = _shared.without_unnumbered_siblings(
+                kept, hood, county.unit_of, county.address_of)
+        return kept
 
     return select_parcel(fetch, address, county.address_of)
 
