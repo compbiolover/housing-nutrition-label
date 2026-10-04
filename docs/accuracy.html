@@ -61,6 +61,7 @@ record-keeping, different sample.</p>
 <tr><td><a href="#nj">New Jersey</a></td><td>181 of 200</td><td>75.1%</td><td>0</td><td>2.2% &rarr; 77.3%</td><td>43.1% &rarr; 15.5%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#nyc">New York City</a></td><td>198 of 200</td><td>96.0%</td><td>0</td><td>2.5% &rarr; 97.0%</td><td>30.3% &rarr; 0.5%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#nys">New York State (outside New York City)</a></td><td>131 of 200</td><td>66.7%</td><td>0</td><td>1.5% &rarr; 71.0%</td><td>44.3% &rarr; 16.8%</td><td>county record as the adapter reads it</td></tr>
+<tr><td><a href="#phl">Philadelphia, Pennsylvania</a></td><td>197 of 200</td><td>84.9%</td><td>0</td><td>1.0% &rarr; 86.3%</td><td>35.0% &rarr; 8.1%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#sf">San Francisco, California</a></td><td>184 of 200</td><td>97.8%</td><td>0</td><td>3.8% &rarr; 97.8%</td><td>22.8% &rarr; 0.5%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#mi">Southeast Michigan (SEMCOG&#x27;s seven counties)</a></td><td>190 of 200</td><td>96.3%</td><td>0</td><td>5.3% &rarr; 96.8%</td><td>27.4% &rarr; 1.6%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#tx">Texas (twelve largest-county appraisal districts)</a></td><td>190 of 200</td><td>82.7%</td><td>0</td><td>6.8% &rarr; 85.8%</td><td>29.5% &rarr; 2.6%</td><td>county record as the adapter reads it</td></tr>
@@ -635,6 +636,49 @@ Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchma
 bbefba603570d38b.</p>
 
 
+<h2 id="phl">Philadelphia, Pennsylvania</h2>
+
+<p><strong>Method.</strong> 199 addresses sampled across
+Philadelphia Office of Property Assessment (OpenDataPhilly, Carto) (assessment year current,
+fetched 2026-10-04); a further 2 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: OPA accounts in the dwelling categories (single family, multi family, mixed use, apartments), condominium units included. Drawn from 200 assessor rows; 1 was not read as one home even at its own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>1.0%</td><td>86.3%</td><td>13.0</td><td>0.0</td><td>197</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>7.7%</td><td>76.9%</td><td>248.0</td><td>0.0</td><td>13</td></tr>
+<tr><td>stories</td><td>38.3%</td><td>90.8%</td><td>81.5%</td><td>99.2%</td><td>0.0</td><td>0.0</td><td>141</td></tr>
+<tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>foundation</td><td>100.0%</td><td>100.0%</td><td>25.8%</td><td>90.0%</td><td>—</td><td>—</td><td>120</td></tr>
+<tr><td>condition</td><td>100.0%</td><td>100.0%</td><td>78.3%</td><td>92.6%</td><td>—</td><td>—</td><td>189</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 25.9% of the time at baseline and 91.4% with the assessor; within &plusmn;10 years 36.5% and 92.9%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>27.4%</td><td>5.1%</td><td>197</td></tr>
+<tr><td>energy</td><td>21.3%</td><td>2.5%</td><td>197</td></tr>
+<tr><td>resilience</td><td>5.1%</td><td>0.5%</td><td>197</td></tr>
+<tr><td>environmental</td><td>24.9%</td><td>3.6%</td><td>197</td></tr>
+<tr><td>building_axis</td><td>35.0%</td><td>8.1%</td><td>197</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+84.9% of the sample. 95% confidence interval 79.3&ndash;89.2% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+6ea589ba92d5927e.</p>
+
+
 <h2 id="sf">San Francisco, California</h2>
 
 <p><strong>Method.</strong> 184 addresses sampled across
@@ -812,7 +856,7 @@ Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchma
 jurisdiction served.</strong>
 Each figure describes one place's housing stock and record-keeping.
 Nothing here supports a claim about anywhere else, and the sections should not
-be averaged into one. An adapter can serve a jurisdiction that carries no figure here &mdash; Allegheny County, PA, Florida, Georgia (4 counties), Vanderburgh County, IN, Maryland, North Carolina, Ohio (9 counties), Pennsylvania (4 counties), Portland metro, Philadelphia and Utah are served and not measured, so these numbers say nothing about them. Each carries a wrong-parcel verification instead, listed on the <a href="coverage.html">coverage page</a>. Serving is not measuring.</li>
+be averaged into one. An adapter can serve a jurisdiction that carries no figure here &mdash; Allegheny County, PA, Florida, Georgia (4 counties), Vanderburgh County, IN, Maryland, North Carolina, Ohio (9 counties), Pennsylvania (4 counties), Portland metro and Utah are served and not measured, so these numbers say nothing about them. Each carries a wrong-parcel verification instead, listed on the <a href="coverage.html">coverage page</a>. Serving is not measuring.</li>
 <li><strong>Adapter benchmarks grade the lookup, not the field mapping.</strong>
 Cook's and DC's references are built from the assessor's tables by this page's own
 mapping, independently of the adapter. The other sections draw homes at random from

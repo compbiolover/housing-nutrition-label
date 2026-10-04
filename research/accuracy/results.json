@@ -2508,6 +2508,157 @@
           }
         }
       }
+    },
+    "phl": {
+      "benchmark": {
+        "jurisdiction": "phl",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 199,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 1
+        },
+        "source": "Philadelphia Office of Property Assessment (OpenDataPhilly, Carto)",
+        "scope": "OPA accounts in the dwelling categories (single family, multi family, mixed use, apartments), condominium units included",
+        "assessment_year": "current",
+        "fetched": "2026-10-04",
+        "rows": 197,
+        "sha256_16": "6ea589ba92d5927e"
+      },
+      "unscored": 2,
+      "adapter_resolved_pct": 84.9,
+      "resolved_ci95": [
+        79.3,
+        89.2
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 197,
+            "coverage_pct": 100.0,
+            "median_abs_error": 13.0,
+            "exact_pct": 1.0,
+            "within_5yr_pct": 25.9,
+            "within_10yr_pct": 36.5
+          },
+          "sqft": {
+            "n": 13,
+            "coverage_pct": 100.0,
+            "median_abs_error": 248.0,
+            "exact_pct": 7.7,
+            "median_abs_pct_error": 16.3
+          },
+          "stories": {
+            "n": 141,
+            "coverage_pct": 38.3,
+            "median_abs_error": 0.0,
+            "exact_pct": 81.5
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 120,
+            "coverage_pct": 100.0,
+            "exact_pct": 25.8
+          },
+          "condition": {
+            "n": 189,
+            "coverage_pct": 100.0,
+            "exact_pct": 78.3
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 197,
+            "differs_pct": 27.4
+          },
+          "energy": {
+            "n": 197,
+            "differs_pct": 21.3
+          },
+          "resilience": {
+            "n": 197,
+            "differs_pct": 5.1
+          },
+          "environmental": {
+            "n": 197,
+            "differs_pct": 24.9
+          },
+          "building_axis": {
+            "n": 197,
+            "differs_pct": 35.0
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 197,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 86.3,
+            "within_5yr_pct": 91.4,
+            "within_10yr_pct": 92.9
+          },
+          "sqft": {
+            "n": 13,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 76.9,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 141,
+            "coverage_pct": 90.8,
+            "median_abs_error": 0.0,
+            "exact_pct": 99.2
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 120,
+            "coverage_pct": 100.0,
+            "exact_pct": 90.0
+          },
+          "condition": {
+            "n": 189,
+            "coverage_pct": 100.0,
+            "exact_pct": 92.6
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 197,
+            "differs_pct": 5.1
+          },
+          "energy": {
+            "n": 197,
+            "differs_pct": 2.5
+          },
+          "resilience": {
+            "n": 197,
+            "differs_pct": 0.5
+          },
+          "environmental": {
+            "n": 197,
+            "differs_pct": 3.6
+          },
+          "building_axis": {
+            "n": 197,
+            "differs_pct": 8.1
+          }
+        }
+      }
     }
   }
 }
