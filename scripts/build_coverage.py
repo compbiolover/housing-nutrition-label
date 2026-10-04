@@ -235,6 +235,14 @@ CURATED: dict[str, dict] = {
         "fields": ("year_built", "sqft", "stories", "construction"),
         "verified": {"sample": 325, "resolved": 251, "wrong": 0},
     },
+    "co": {
+        "name": "Denver metro, Colorado (Denver, Jefferson, Adams, Douglas and Boulder "
+                "counties)",
+        "short": "Denver metro",
+        "since": "2026-10-04",
+        "fields": ("year_built", "sqft", "construction", "condition"),
+        "verified": {"sample": 215, "resolved": 178, "wrong": 0},
+    },
     "pdx": {
         "name": "Portland metro, Oregon (Multnomah, Washington and Clackamas counties)",
         "short": "Portland metro",

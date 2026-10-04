@@ -435,6 +435,11 @@ DATASET_NAMES = {
     "jcgis.jacksongov.org": "the Jackson County, MO Assessment Department parcel records",
     "arcgis.metc.state.mn.us": "the Metropolitan Council (MetroGIS) regional parcel service",
     "services2.arcgis.com/McQ0OlIABe29rJJy": "the Oregon Metro RLIS taxlot records (Portland metro)",
+    "services1.arcgis.com/zdB7qR0BtYrg0Xpl": "the City and County of Denver assessment parcels",
+    "gisportal.jeffco.us": "the Jefferson County, CO Assessor parcel records",
+    "services3.arcgis.com/4PNQOtAivErR7nbT": "the Adams County, CO Assessor parcel records",
+    "services.arcgis.com/seTexOicoRXDvRsJ": "the Douglas County, CO Assessor parcel records",
+    "maps.bouldercounty.org": "the Boulder County, CO Assessor parcel records",
     "geohwp.houstontx.gov": "the City of Houston copy of the Harris and Montgomery "
                             "County, TX appraisal rolls",
     "gisweb.fbcad.org": "the Fort Bend Central Appraisal District roll",
