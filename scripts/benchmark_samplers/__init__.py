@@ -150,17 +150,23 @@ def interior_point(geometry: dict) -> tuple[float, float] | None:
     if not rings or not rings[0]:
         return None
     ring = rings[0]
+    # Relative to the first vertex: in raw degrees a small lot's shoelace terms
+    # are products near 74 x 41 that cancel to an area of ~1e-9, and the lost
+    # precision threw the centroid hundreds of meters off the lot (42 of 200 New
+    # Jersey draws failed that way before this).
+    ox, oy = ring[0][0], ring[0][1]
     a = cx = cy = 0.0
     for (x0, y0), (x1, y1) in zip(ring, ring[1:]):
+        x0, y0, x1, y1 = x0 - ox, y0 - oy, x1 - ox, y1 - oy
         c = x0 * y1 - x1 * y0
         a += c
         cx += (x0 + x1) * c
         cy += (y0 + y1) * c
-    if abs(a) < 1e-18:
+    if abs(a) < 1e-24:
         x = sum(p[0] for p in ring) / len(ring)
         y = sum(p[1] for p in ring) / len(ring)
     else:
-        x, y = cx / (3 * a), cy / (3 * a)
+        x, y = cx / (3 * a) + ox, cy / (3 * a) + oy
     if _inside(x, y, rings):
         return y, x
     xs = []

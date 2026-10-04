@@ -831,6 +831,12 @@ def test_the_interior_point_is_inside_a_concave_lot():
     y, x = BS.interior_point({"rings": [ring]})
     assert BS._inside(x, y, [ring])
     assert BS.interior_point({"x": 3, "y": 4}) == (4, 3)
+    # A real 20-meter lot in raw degrees: the shoelace terms cancel badly unless
+    # computed relative to a vertex.
+    tiny = [[-74.0603821231112, 41.0535910314091], [-74.0606064090815, 41.0536472833003],
+            [-74.0603883484361, 41.053655983341], [-74.0603821231112, 41.0535910314091]]
+    ty, tx = BS.interior_point({"rings": [tiny]})
+    assert BS._inside(tx, ty, [tiny])
     assert BS.interior_point({}) is None and BS.interior_point({"rings": []}) is None
 
 
