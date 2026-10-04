@@ -223,6 +223,37 @@ JURISDICTIONS = {
                  "(~150,000) are outside it",
         "sampler": "adapter", "basis": "adapter", "adapter": "md",
     },
+    "nys": {
+        "source": "NYS ITS Geospatial Services public tax parcels (ORPTS rolls)",
+        "label": "New York State (outside New York City)",
+        "scope": "residential (class 2xx) parcels in the 33 opted-in counties outside "
+                 "New York City, drawn in proportion to each county's housing units; "
+                 "homes the roll gives no year built are counted, not skipped",
+        "sampler": "adapter", "basis": "adapter", "adapter": "nys",
+    },
+    "ma": {
+        "source": "MassGIS Level 3 standardized assessor parcels",
+        "label": "Massachusetts",
+        "scope": "records with a residential DOR use code in all 351 cities and "
+                 "towns (condominium units included, typed with their unit), drawn "
+                 "in proportion to each county's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "ma",
+    },
+    "phl": {
+        "source": "Philadelphia Office of Property Assessment (OpenDataPhilly, Carto)",
+        "label": "Philadelphia, Pennsylvania",
+        "scope": "OPA accounts in the dwelling categories (single family, multi "
+                 "family, mixed use, apartments), condominium units included",
+        "sampler": "adapter", "basis": "adapter", "adapter": "phl",
+    },
+    "allegheny": {
+        "source": "Allegheny County Office of Property Assessments (WPRDC)",
+        "label": "Allegheny County, Pennsylvania",
+        "scope": "roll records with a dwelling land use (houses, townhouses, "
+                 "rowhouses, condominium units, two- to four-family, apartments, "
+                 "farms), placed on the county parcel layer",
+        "sampler": "adapter", "basis": "adapter", "adapter": "allegheny",
+    },
 }
 
 
