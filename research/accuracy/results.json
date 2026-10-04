@@ -1189,6 +1189,153 @@
           }
         }
       }
+    },
+    "tx": {
+      "benchmark": {
+        "jurisdiction": "tx",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 197,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 3
+        },
+        "source": "Texas county appraisal districts (twelve counties' own services)",
+        "scope": "residential accounts (state categories A single-family and condominium, B multifamily, M mobile homes) in the twelve counties the adapter serves, drawn in proportion to each county's housing units",
+        "assessment_year": "current",
+        "fetched": "2026-10-04",
+        "rows": 190,
+        "sha256_16": "6ae3b403b15f6be2"
+      },
+      "unscored": 7,
+      "adapter_resolved_pct": 82.7,
+      "resolved_ci95": [
+        76.9,
+        87.4
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 190,
+            "coverage_pct": 100.0,
+            "median_abs_error": 7.0,
+            "exact_pct": 6.8,
+            "within_5yr_pct": 41.6,
+            "within_10yr_pct": 70.0
+          },
+          "sqft": {
+            "n": 130,
+            "coverage_pct": 100.0,
+            "median_abs_error": 240.0,
+            "exact_pct": 16.2,
+            "median_abs_pct_error": 11.4
+          },
+          "stories": {
+            "n": 49,
+            "coverage_pct": 91.8,
+            "median_abs_error": 0.0,
+            "exact_pct": 80.0
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 190,
+            "differs_pct": 25.3
+          },
+          "energy": {
+            "n": 190,
+            "differs_pct": 15.8
+          },
+          "resilience": {
+            "n": 190,
+            "differs_pct": 2.6
+          },
+          "environmental": {
+            "n": 190,
+            "differs_pct": 5.8
+          },
+          "building_axis": {
+            "n": 190,
+            "differs_pct": 29.5
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 190,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 85.8,
+            "within_5yr_pct": 91.1,
+            "within_10yr_pct": 96.8
+          },
+          "sqft": {
+            "n": 130,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 86.2,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 49,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 95.9
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 190,
+            "differs_pct": 4.2
+          },
+          "energy": {
+            "n": 190,
+            "differs_pct": 1.6
+          },
+          "resilience": {
+            "n": 190,
+            "differs_pct": 0.5
+          },
+          "environmental": {
+            "n": 190,
+            "differs_pct": 1.6
+          },
+          "building_axis": {
+            "n": 190,
+            "differs_pct": 2.6
+          }
+        }
+      }
     }
   }
 }
