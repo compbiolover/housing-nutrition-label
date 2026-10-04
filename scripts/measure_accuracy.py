@@ -175,6 +175,18 @@ def _parcel_matches(loc, row: dict) -> bool:
                 return True
             return val is not None and cast(ref) == cast(val)
         return same("year_built", lambda v: int(float(v))) and same("sqft", float)
+    if got and want.startswith(got) and len(want) > len(got) \
+            and not want[len(got)].isalnum():
+        # The reference is a condominium UNIT's record ("0901_159_18_C0001", read
+        # at the unit's own polygon with its unit typed) and the address lookup
+        # answered for its BUILDING ("0901_159_18") — an adapter reports a stack's
+        # year at the building level when every unit agrees. That is the same home
+        # described one level up, not a different parcel, provided it says the
+        # same year; a building whose year differs from the unit's is counted as a
+        # mismatch, the conservative reading.
+        ref = row.get("year_built")
+        val = getattr(record, "year_built", None)
+        return ref not in (None, "") and val is not None and int(float(ref)) == int(val)
     return bool(got) and got == want
 
 

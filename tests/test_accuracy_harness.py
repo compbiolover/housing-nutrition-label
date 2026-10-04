@@ -1482,3 +1482,18 @@ def test_honestly_varying_runtimes_are_not_refused():
     M._refuse_cache_replay([600.0, 900.0])
     M._refuse_cache_replay([1800.0])      # one run cannot be a replay of anything
     M._refuse_cache_replay([])
+
+
+def test_a_building_answer_for_one_of_its_units_is_the_same_home():
+    """New Jersey reports a condominium stack's year under the lot's id when every
+    unit agrees; the reference read at one unit carries the unit's id. Same home
+    one level up — unless the years differ."""
+    class Rec:
+        parcel_id, year_built, sqft = "0901_159_18", 1920, None
+    class Loc:
+        assessor = Rec()
+    row = {"parcel_id": "0901_159_18_C0001", "year_built": "1920"}
+    assert M._parcel_matches(Loc, row)
+    assert not M._parcel_matches(Loc, dict(row, year_built="1931"))
+    # A prefix that is not a parent id (no separator) is a different parcel.
+    assert not M._parcel_matches(Loc, dict(row, parcel_id="0901_159_181"))
