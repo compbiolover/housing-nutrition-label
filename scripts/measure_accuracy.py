@@ -833,6 +833,12 @@ def _overview(juris: dict, keys: list[str]) -> str:
     """
     def arrow(b, a):
         return "—" if b is None or a is None else f"{b}% &rarr; {a}%"
+    def drawn_of(m):
+        # The draw beside the count, so a section that lost a third of its draw
+        # to homes the source cannot answer for shows it here and not only in its
+        # method note — those homes are outside every rate in the row.
+        drawn = m.get("drawn")
+        return f" of {drawn}" if drawn and drawn != m["rows"] else ""
     body = []
     for k in keys:
         d = juris[k]
@@ -843,14 +849,15 @@ def _overview(juris: dict, keys: list[str]) -> str:
         indent = ' style="padding-left:1.4rem"' if JURISDICTIONS.get(k, {}).get("parent") else ""
         body.append(
             f'<tr><td{indent}><a href="#{html.escape(k)}">{html.escape(LABELS.get(k, k))}</a></td>'
-            f'<td>{d["benchmark"]["rows"]}</td><td>{d["adapter_resolved_pct"]}%</td>'
+            f'<td>{d["benchmark"]["rows"]}{drawn_of(d["benchmark"])}</td>'
+            f'<td>{d["adapter_resolved_pct"]}%</td>'
             f'<td>{d.get("parcel_mismatches", 0)}</td>'
             f'<td>{arrow(b["fields"]["year_built"].get("exact_pct"), a["fields"]["year_built"].get("exact_pct"))}</td>'
             f'<td>{arrow(b["grade_impact"]["building_axis"]["differs_pct"], a["grade_impact"]["building_axis"]["differs_pct"])}</td>'
             f'<td>{basis}</td></tr>')
     return f"""<h2 id="overview">At a glance</h2>
 <div class="table-scroll"><table class="data-table"><thead><tr>
-<th>Where</th><th>Homes scored</th><th>Answered by the assessor</th><th>Wrong parcel</th>
+<th>Where</th><th>Homes scored<br>of drawn</th><th>Answered by the assessor</th><th>Wrong parcel</th>
 <th>Year built exact<br>baseline &rarr; w/ assessor</th>
 <th>Building grade differs<br>baseline &rarr; w/ assessor</th><th>Reference</th>
 </tr></thead><tbody>
@@ -858,7 +865,9 @@ def _overview(juris: dict, keys: list[str]) -> str:
 </tbody></table></div>
 <p style="opacity:0.75;font-size:0.85rem;"><em>Building grade differs</em> is the
 share of homes whose building letter, as a reader would see it, is not the letter
-the reference record gives &mdash; lower is better. <em>Wrong parcel</em> counts
+the reference record gives &mdash; lower is better. A home drawn but not scored
+(no address, no year built, or not readable even at its own parcel) is outside
+every rate in its row; each section's method note says why. <em>Wrong parcel</em> counts
 answers that came from a different lot than the one asked about; they are scored as
 errors in every rate. The two kinds of reference are not the same test: see
 <a href="#caveats">what this does and does not establish</a>.</p>
