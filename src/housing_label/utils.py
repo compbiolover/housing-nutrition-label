@@ -433,6 +433,7 @@ DATASET_NAMES = {
     "data.sf.gov": "the San Francisco Assessor-Recorder secured roll (DataSF)",
     "services2.arcgis.com/XVOqAjTOJ5P6ngMu": "the NJOGIS Parcels and MOD-IV Composite of New Jersey",
     "jcgis.jacksongov.org": "the Jackson County, MO Assessment Department parcel records",
+    "arcgis.metc.state.mn.us": "the Metropolitan Council (MetroGIS) regional parcel service",
     "geohwp.houstontx.gov": "the City of Houston copy of the Harris and Montgomery "
                             "County, TX appraisal rolls",
     "gisweb.fbcad.org": "the Fort Bend Central Appraisal District roll",

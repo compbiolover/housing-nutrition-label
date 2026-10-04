@@ -229,6 +229,12 @@ CURATED: dict[str, dict] = {
         "fields": ("year_built", "sqft", "stories"),
         "verified": {"sample": 160, "resolved": 134, "wrong": 0},
     },
+    "mn": {
+        "name": "Twin Cities metro, Minnesota (7 counties)", "short": "Twin Cities metro",
+        "since": "2026-10-04",
+        "fields": ("year_built", "sqft", "stories", "construction"),
+        "verified": {"sample": 325, "resolved": 251, "wrong": 0},
+    },
 }
 
 
