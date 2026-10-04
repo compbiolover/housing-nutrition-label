@@ -598,3 +598,13 @@ def test_the_second_hop_falling_over_fails_open_too():
 
 def test_no_parcel_at_the_point_is_simply_no_answer():
     assert _lookup(CLAYTON, []) is None
+
+
+def test_a_unit_written_with_its_marker_word_is_the_typed_unit():
+    """Forsyth writes "UNIT 13"; a reader types "#13" or "Unit 13"."""
+    assert ga._same_unit_or_none("UNIT 13", "13")
+    assert ga._same_unit_or_none("#13", "13")
+    assert ga._same_unit_or_none("Apt. 4B", "4b")
+    assert not ga._same_unit_or_none("UNIT 13", "14")
+    assert not ga._same_unit_or_none("UNIT 01", "1")
+    assert ga._same_unit_or_none(None, "13")

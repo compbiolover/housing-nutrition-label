@@ -279,6 +279,7 @@ written into the repository.
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Callable, NamedTuple
@@ -751,9 +752,23 @@ def _parcels(county: _County, lat: float, lon: float, distance_m: float = 0,
     return out
 
 
+_UNIT_WORD_RE = re.compile(r"^\s*(?:#|UNIT|APT\.?|APARTMENT|STE\.?|SUITE)\s*#?\s*", re.I)
+
+
+def _unit_key(value: str) -> str:
+    """A unit designator reduced to compare: "UNIT 13", "#13" and "13" are equal.
+
+    Forsyth writes the marker word into its column ("UNIT 13") while a reader's
+    address gives the bare unit, so comparing them as written threw away every
+    typed Forsyth condominium (found by the accuracy benchmark). Leading zeros stay
+    significant — unit 01 and unit 1 can both exist — the District's rule.
+    """
+    return "".join(ch for ch in _UNIT_WORD_RE.sub("", value).upper() if ch.isalnum())
+
+
 def _same_unit_or_none(own: str | None, typed: str) -> bool:
     """Whether a parcel could be the typed unit's: it names that unit, or none."""
-    return own is None or own.lstrip("#").lower() == typed.lstrip("#").lower()
+    return own is None or _unit_key(own) == _unit_key(typed)
 
 
 def _county_at(lat: float, lon: float, *, deadline: float) -> str | None:
