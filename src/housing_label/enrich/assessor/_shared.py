@@ -255,7 +255,8 @@ _ORDINAL_WORDS = {
     "nineteenth": "19", "twentieth": "20",
 }
 _ORDINAL_DIGITS_RE = re.compile(r"^(\d+)(?:st|nd|rd|th)$")
-_NAME_WORDS = {"saint": "st", "mount": "mt", "fort": "ft", **_ORDINAL_WORDS}
+_NAME_WORDS = {"saint": "st", "mount": "mt", "fort": "ft", "general": "gen",
+               **_ORDINAL_WORDS}
 
 # A spelled-out directional folds to its letter — but only where some other word
 # of the name survives, because a directional can BE the name. "100 NORTH ST" is
@@ -301,6 +302,23 @@ def _leads_the_name(rest: list[str]) -> bool:
         return False
     before = rest[:-2]
     return not before or (len(before) == 1 and before[0] in _DIRECTIONALS)
+
+# A road numbered by the county or state that owns it: "COUNTY ROAD 33", "CO RD
+# 10", "STATE ROAD 7", "COUNTY HIGHWAY 5". The number is the road's name. Only
+# where the owner word starts the name (after at most one directional, the
+# leading-type rule): "9 OLD COUNTY HWY 4B" is unit 4B of Old County Highway.
+_PUBLIC_ROAD_OWNERS = {"county": "co", "co": "co", "cty": "co", "state": "state"}
+_ROAD_NUMBER_RE = re.compile(r"^\d{1,4}[a-z]?$")
+
+
+def _is_numbered_public_road(rest: list[str]) -> bool:
+    if not (len(rest) >= 3 and rest[-3] in _PUBLIC_ROAD_OWNERS
+            and SUFFIXES.get(rest[-2]) in ("rd", "hwy")
+            and _ROAD_NUMBER_RE.match(rest[-1])):
+        return False
+    before = rest[:-3]
+    return not before or (len(before) == 1 and before[0] in _DIRECTIONALS)
+
 
 # Everything from a unit marker onwards is dropped: a parcel layer writes
 # "234 W STATION ST B12" for one condo, and a unit number must not decide whether
@@ -444,7 +462,13 @@ def address_key(raw: str | None, locality: frozenset[str] = frozenset()):
     # "234 W STATION ST B12" and "234 W STATION ST" would parse differently and
     # fail to match. Inverting these two is a silent coverage loss, so the order
     # is pinned by a test.
-    if len(rest) >= 2 and _leads_the_name(rest):
+    if _is_numbered_public_road(rest):
+        # "COUNTY ROAD 33" is a road's name, not unit 33 of "County Road": read
+        # as a unit, "15525 CO RD 33" and "15525 CO RD 10" — two houses at one
+        # corner — parsed to the same address (found by the Minnesota adapter's
+        # verification run). Spelled one way, so CO RD and COUNTY ROAD agree.
+        rest = rest[:-3] + [_PUBLIC_ROAD_OWNERS[rest[-3]], SUFFIXES[rest[-2]], rest[-1]]
+    elif len(rest) >= 2 and _leads_the_name(rest):
         # A leading type is part of the name, so it is spelled one way for
         # comparison: the roll writes "AVENUE L8", the geocoder "AVE L8".
         rest = rest[:-2] + [SUFFIXES[rest[-2]], rest[-1]]

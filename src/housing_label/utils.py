@@ -431,6 +431,21 @@ DATASET_NAMES = {
     "services2.arcgis.com/GQhSReJEO6f7tsvy": "the San Joaquin County, CA Assessor parcels",
     "gis.countyofriverside.us": "the Riverside County, CA Assessor records",
     "data.sf.gov": "the San Francisco Assessor-Recorder secured roll (DataSF)",
+    "services2.arcgis.com/XVOqAjTOJ5P6ngMu": "the NJOGIS Parcels and MOD-IV Composite of New Jersey",
+    "jcgis.jacksongov.org": "the Jackson County, MO Assessment Department parcel records",
+    "arcgis.metc.state.mn.us": "the Metropolitan Council (MetroGIS) regional parcel service",
+    "services2.arcgis.com/McQ0OlIABe29rJJy": "the Oregon Metro RLIS taxlot records (Portland metro)",
+    "services1.arcgis.com/zdB7qR0BtYrg0Xpl": "the City and County of Denver assessment parcels",
+    "gisportal.jeffco.us": "the Jefferson County, CO Assessor parcel records",
+    "services3.arcgis.com/4PNQOtAivErR7nbT": "the Adams County, CO Assessor parcel records",
+    "services.arcgis.com/seTexOicoRXDvRsJ": "the Douglas County, CO Assessor parcel records",
+    "maps.bouldercounty.org": "the Boulder County, CO Assessor parcel records",
+    "services3.arcgis.com/TsynfzBSE6sXfoLq": "the Chesterfield County, VA real estate assessment records",
+    "services1.arcgis.com/k3vhq11XkBNeeOfM": "the City of Richmond, VA Assessor of Real Estate records",
+    "maps.evansvillegis.com": "the Vanderburgh County, IN Assessor parcel data",
+    # Held for coverage (city-only sources); named so enabling them is one line.
+    "milwaukeemaps.milwaukee.gov": "the City of Milwaukee Assessor's Master Property file",
+    "maps.cityofmadison.com": "the City of Madison Assessor's parcel records",
     "geohwp.houstontx.gov": "the City of Houston copy of the Harris and Montgomery "
                             "County, TX appraisal rolls",
     "gisweb.fbcad.org": "the Fort Bend Central Appraisal District roll",
@@ -438,6 +453,11 @@ DATASET_NAMES = {
     "tad.newedgeservices.com": "the Tarrant Appraisal District roll",
     "maps.bexar.org": "the Bexar County, TX appraisal roll",
     "taxmaps.traviscountytx.gov": "the Travis County, TX appraisal roll",
+    "gismaps.cityofallen.org": "the City of Allen copy of the Collin County, TX appraisal roll",
+    "gis.dentoncounty.gov": "the Denton County, TX appraisal roll",
+    "gis.elpasotexas.gov": "the City of El Paso copy of the El Paso County, TX appraisal roll",
+    "data.wcad.org": "the Williamson Central Appraisal District open data",
+    "cobgis.brownsvilletx.gov": "the City of Brownsville copy of the Cameron County, TX appraisal roll",
 }
 
 

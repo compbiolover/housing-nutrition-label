@@ -209,12 +209,62 @@ CURATED: dict[str, dict] = {
         "verified": {"sample": 320, "resolved": 314, "wrong": 0},
     },
     "tx": {
-        "name": "Texas (Harris, Dallas, Tarrant, Bexar, Travis, Fort Bend and "
-                "Montgomery counties)",
-        "short": "Texas (7 counties)",
+        "name": "Texas (12 counties: Harris, Dallas, Tarrant, Bexar, Travis, Collin, "
+                "Denton, Fort Bend, El Paso, Montgomery, Williamson, Cameron)",
+        "short": "Texas (12 counties)",
         "since": "2026-10-03",
         "fields": ("year_built", "sqft", "stories"),
-        "verified": {"sample": 315, "resolved": 268, "wrong": 0},
+        "verified": {"sample": 540, "resolved": 457, "wrong": 0},
+    },
+    # Toward 40% national coverage (2026-10).
+    "nj": {
+        "name": "New Jersey (all 21 counties)", "short": "New Jersey",
+        "since": "2026-10-04",
+        "fields": ("year_built", "stories"),
+        "verified": {"sample": 465, "resolved": 348, "wrong": 0},
+    },
+    "mo": {
+        "name": "Jackson County, Missouri (Kansas City)", "short": "Jackson County, MO",
+        "since": "2026-10-04",
+        "fields": ("year_built", "sqft", "stories"),
+        "verified": {"sample": 160, "resolved": 134, "wrong": 0},
+    },
+    "mn": {
+        "name": "Twin Cities metro, Minnesota (7 counties)", "short": "Twin Cities metro",
+        "since": "2026-10-04",
+        "fields": ("year_built", "sqft", "stories", "construction"),
+        "verified": {"sample": 325, "resolved": 251, "wrong": 0},
+    },
+    "co": {
+        "name": "Denver metro, Colorado (Denver, Jefferson, Adams, Douglas and Boulder "
+                "counties)",
+        "short": "Denver metro",
+        "since": "2026-10-04",
+        "fields": ("year_built", "sqft", "construction", "condition"),
+        "verified": {"sample": 215, "resolved": 178, "wrong": 0},
+    },
+    "va": {
+        "name": "Virginia (Chesterfield County and the City of Richmond)",
+        "short": "Chesterfield and Richmond, VA",
+        "since": "2026-10-04",
+        "fields": ("year_built", "sqft", "stories", "condition"),
+        "verified": {"sample": 180, "resolved": 149, "wrong": 0},
+    },
+    "ind": {
+        "name": "Vanderburgh County, Indiana (Evansville)", "short": "Vanderburgh County, IN",
+        "since": "2026-10-04",
+        "fields": ("year_built", "sqft", "stories", "condition"),
+        "verified": {"sample": 110, "resolved": 98, "wrong": 0},
+    },
+    "pdx": {
+        "name": "Portland metro, Oregon (Multnomah, Washington and Clackamas counties)",
+        "short": "Portland metro",
+        "since": "2026-10-04",
+        "fields": ("year_built", "sqft"),
+        "verified": {"sample": 214, "resolved": 181, "wrong": 0,
+                     "note": "Two sampled lots were addressed relative to a neighboring "
+                             "house (\"5655 S/ SE HARNEY DR\"); the geocoder resolves "
+                             "that to the house, whose own record was returned."},
     },
 }
 
