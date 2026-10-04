@@ -127,6 +127,37 @@ JURISDICTIONS = {
                  "units",
         "sampler": "adapter", "basis": "adapter", "adapter": "tx",
     },
+    "ga": {
+        "source": "Fulton, Clayton, Chatham (SAGIS) and Forsyth county parcel layers",
+        "label": "Georgia — Fulton, Clayton, Chatham and Forsyth counties",
+        "scope": "improved residential parcels in the four counties the adapter "
+                 "answers for (19% of Georgia's homes), drawn in proportion to each "
+                 "county's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "ga",
+    },
+    "mi": {
+        "source": "SEMCOG Building Footprints 2024",
+        "label": "Southeast Michigan (SEMCOG's seven counties)",
+        "scope": "live single-family, attached-condo and apartment buildings (not "
+                 "parcels) in Wayne, Oakland, Macomb, Washtenaw, Livingston, St. Clair "
+                 "and Monroe, drawn in proportion to each county's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "mi",
+    },
+    "pdx": {
+        "source": "Oregon Metro RLIS Taxlots (Public)",
+        "label": "Portland metro, Oregon (Multnomah, Washington, Clackamas)",
+        "scope": "residential taxlots (single-family, multi-family and rural "
+                 "residential, condominium units included) in all three counties, "
+                 "drawn in proportion to each county's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "pdx",
+    },
+    "va": {
+        "source": "Chesterfield County Open GIS Data; City of Richmond Assessor",
+        "label": "Virginia — Chesterfield County and the City of Richmond",
+        "scope": "residential assessment records in Chesterfield County and the City "
+                 "of Richmond only, drawn in proportion to each one's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "va",
+    },
 }
 
 
