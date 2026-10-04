@@ -190,6 +190,39 @@ JURISDICTIONS = {
                  "built in Vanderburgh County",
         "sampler": "adapter", "basis": "adapter", "adapter": "ind",
     },
+    "fl": {
+        "source": "Florida Department of Revenue statewide cadastral (county "
+                  "property appraisers' rolls)",
+        "label": "Florida",
+        "scope": "residential parcels (DOR use 001-008) with a dwelling unit and a "
+                 "year built in all 67 counties, drawn in proportion to each "
+                 "county's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "fl",
+    },
+    "ct": {
+        "source": "Connecticut GIS Office statewide CAMA and parcel layer",
+        "label": "Connecticut",
+        "scope": "residential parcels with a year built in all nine planning "
+                 "regions, drawn in proportion to each region's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "ct",
+    },
+    "nc": {
+        "source": "NC OneMap statewide parcels (county tax offices)",
+        "label": "North Carolina — 46 counties",
+        "scope": "parcels the adapter reads as homes with a year built, in the 46 "
+                 "of 100 counties that record one (64% of the state's housing "
+                 "units), drawn in proportion to each county's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "nc",
+    },
+    "md": {
+        "source": "Maryland SDAT assessment data on MD iMAP parcel boundaries",
+        "label": "Maryland",
+        "scope": "residential parcel polygons with a premise address and a year "
+                 "built in all 23 counties and Baltimore City, drawn in proportion "
+                 "to housing units; condominium units filed only as account points "
+                 "(~150,000) are outside it",
+        "sampler": "adapter", "basis": "adapter", "adapter": "md",
+    },
 }
 
 
