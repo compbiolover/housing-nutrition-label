@@ -65,6 +65,35 @@ JURISDICTIONS = {
                  "proportion to each county's housing units",
         "sampler": "adapter", "basis": "adapter", "adapter": "nj",
     },
+    "la": {
+        "source": "Los Angeles County Office of the Assessor (LA County eGIS parcels)",
+        "label": "Los Angeles County, California",
+        "scope": "parcels the roll classifies Residential, condominium units "
+                 "included and typed with their unit",
+        "sampler": "adapter", "basis": "adapter", "adapter": "la",
+    },
+    "ca": {
+        "source": "Contra Costa, San Joaquin and Riverside County Assessors",
+        "label": "California — Contra Costa, San Joaquin and Riverside Counties",
+        "scope": "residential parcels and condominium units in the three counties, "
+                 "drawn in proportion to each county's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "ca",
+    },
+    "sf": {
+        "source": "San Francisco Office of the Assessor-Recorder (DataSF secured roll)",
+        "label": "San Francisco, California",
+        "scope": "residential records (single- and multi-family uses, condominium "
+                 "units included) in the latest closed secured roll",
+        "sampler": "adapter", "basis": "adapter", "adapter": "sf",
+    },
+    "nyc": {
+        "source": "NYC Department of City Planning MapPLUTO (Department of Finance)",
+        "label": "New York City",
+        "scope": "tax lots with at least one residential unit in all five boroughs, "
+                 "drawn in proportion to each borough's housing units (a "
+                 "condominium is one billing lot)",
+        "sampler": "adapter", "basis": "adapter", "adapter": "nyc",
+    },
 }
 
 
