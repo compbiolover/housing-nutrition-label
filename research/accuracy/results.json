@@ -1632,6 +1632,149 @@
           }
         }
       }
+    },
+    "ct": {
+      "benchmark": {
+        "jurisdiction": "ct",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 171,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 29
+        },
+        "source": "Connecticut GIS Office statewide CAMA and parcel layer",
+        "scope": "residential parcels with a year built in all nine planning regions, drawn in proportion to each region's housing units",
+        "assessment_year": "2026",
+        "fetched": "2026-10-04",
+        "rows": 168,
+        "sha256_16": "d468b944d878dc8d"
+      },
+      "unscored": 3,
+      "adapter_resolved_pct": 70.2,
+      "resolved_ci95": [
+        62.9,
+        76.5
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 168,
+            "coverage_pct": 100.0,
+            "median_abs_error": 15.0,
+            "exact_pct": 2.4,
+            "within_5yr_pct": 22.0,
+            "within_10yr_pct": 37.5
+          },
+          "sqft": {
+            "n": 116,
+            "coverage_pct": 100.0,
+            "median_abs_error": 260.5,
+            "exact_pct": 31.9,
+            "median_abs_pct_error": 18.7
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 168,
+            "differs_pct": 34.5
+          },
+          "energy": {
+            "n": 168,
+            "differs_pct": 40.5
+          },
+          "resilience": {
+            "n": 168,
+            "differs_pct": 1.2
+          },
+          "environmental": {
+            "n": 168,
+            "differs_pct": 28.0
+          },
+          "building_axis": {
+            "n": 168,
+            "differs_pct": 55.4
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 168,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 72.0,
+            "within_5yr_pct": 78.6,
+            "within_10yr_pct": 85.1
+          },
+          "sqft": {
+            "n": 116,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 75.0,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 168,
+            "differs_pct": 10.1
+          },
+          "energy": {
+            "n": 168,
+            "differs_pct": 13.1
+          },
+          "resilience": {
+            "n": 168,
+            "differs_pct": 0.6
+          },
+          "environmental": {
+            "n": 168,
+            "differs_pct": 9.5
+          },
+          "building_axis": {
+            "n": 168,
+            "differs_pct": 17.9
+          }
+        }
+      }
     }
   }
 }
