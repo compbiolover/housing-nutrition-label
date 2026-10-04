@@ -202,7 +202,17 @@ def truth_at(adapter_key: str, fips: str, lat: float, lon: float, address: str):
     if reg.adapter_for_county(fips) is not mod:
         raise SystemExit(f"{fips} is not served by {adapter_key}; the sampler and "
                          f"the registry disagree about who answers there.")
-    rec = reg.assessor_for_point(lat, lon, fips, address)
+    # Retried, because None means two things the registry does not distinguish: the
+    # adapter's refusal (deterministic, and cached by the adapter, so a retry is
+    # free) and a lookup that timed out and failed open (not cached). Counting the
+    # second as "not a home" overstated the drops in every build that ran beside
+    # another — 22 of 200 in one Texas build, 3 on a quiet rebuild.
+    rec = None
+    for attempt in range(3):
+        rec = reg.assessor_for_point(lat, lon, fips, address)
+        if rec is not None:
+            break
+        time.sleep(1 + attempt)
     if rec is None:
         return None
     fields = rec.fields()
