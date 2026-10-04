@@ -625,13 +625,13 @@
         "sha256_16": "a2d67083da00a94e"
       },
       "unscored": 3,
-      "adapter_resolved_pct": 89.2,
+      "adapter_resolved_pct": 64.9,
       "resolved_ci95": [
-        83.9,
-        92.9
+        57.7,
+        71.4
       ],
       "resolved_runs": null,
-      "parcel_mismatches": 1,
+      "parcel_mismatches": 0,
       "baseline": {
         "fields": {
           "year_built": {
@@ -679,7 +679,7 @@
           },
           "resilience": {
             "n": 182,
-            "differs_pct": 6.0
+            "differs_pct": 6.6
           },
           "environmental": {
             "n": 182,
@@ -697,22 +697,22 @@
             "n": 182,
             "coverage_pct": 100.0,
             "median_abs_error": 0.0,
-            "exact_pct": 91.2,
-            "within_5yr_pct": 94.5,
-            "within_10yr_pct": 96.7
+            "exact_pct": 68.7,
+            "within_5yr_pct": 79.1,
+            "within_10yr_pct": 87.4
           },
           "sqft": {
             "n": 86,
             "coverage_pct": 100.0,
             "median_abs_error": 0.0,
-            "exact_pct": 89.5,
+            "exact_pct": 76.7,
             "median_abs_pct_error": 0.0
           },
           "stories": {
             "n": 122,
-            "coverage_pct": 95.9,
+            "coverage_pct": 82.0,
             "median_abs_error": 0.0,
-            "exact_pct": 99.1
+            "exact_pct": 97.0
           },
           "construction": {
             "n": 0,
@@ -730,23 +730,23 @@
         "grade_impact": {
           "durability": {
             "n": 182,
-            "differs_pct": 2.2
+            "differs_pct": 10.4
           },
           "energy": {
             "n": 182,
-            "differs_pct": 1.1
+            "differs_pct": 6.0
           },
           "resilience": {
             "n": 182,
-            "differs_pct": 0.0
+            "differs_pct": 2.7
           },
           "environmental": {
             "n": 182,
-            "differs_pct": 1.1
+            "differs_pct": 3.8
           },
           "building_axis": {
             "n": 182,
-            "differs_pct": 3.8
+            "differs_pct": 15.4
           }
         }
       }
