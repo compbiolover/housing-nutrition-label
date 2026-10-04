@@ -51,6 +51,7 @@ record-keeping, different sample.</p>
 <tr><td><a href="#cook">Cook County, Illinois</a></td><td>297 of 300</td><td>76.7%</td><td>0</td><td>1.0% &rarr; 77.8%</td><td>27.9% &rarr; 7.1%</td><td>assessor tables, mapped independently</td></tr>
 <tr><td><a href="#dc">Washington, DC</a></td><td>195 of 200</td><td>83.8%</td><td>0</td><td>1.5% &rarr; 85.6%</td><td>56.4% &rarr; 8.2%</td><td>assessor tables, mapped independently</td></tr>
 <tr><td style="padding-left:1.4rem"><a href="#dc-condo">Washington, DC — condominiums</a></td><td>187 of 200</td><td>97.4%</td><td>0</td><td>2.1% &rarr; 99.5%</td><td>65.8% &rarr; 19.8%</td><td>assessor tables, mapped independently</td></tr>
+<tr><td><a href="#allegheny">Allegheny County, Pennsylvania</a></td><td>189 of 200</td><td>81.2%</td><td>0</td><td>2.1% &rarr; 82.5%</td><td>40.7% &rarr; 9.5%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#ca">California — Contra Costa, San Joaquin and Riverside Counties</a></td><td>182 of 200</td><td>64.9%</td><td>0</td><td>5.5% &rarr; 68.7%</td><td>36.3% &rarr; 15.4%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#co">Colorado (Denver metro)</a></td><td>190 of 200</td><td>87.2%</td><td>0</td><td>4.2% &rarr; 90.0%</td><td>38.9% &rarr; 3.2%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#ct">Connecticut</a></td><td>168 of 200</td><td>70.2%</td><td>0</td><td>2.4% &rarr; 72.0%</td><td>55.4% &rarr; 17.9%</td><td>county record as the adapter reads it</td></tr>
@@ -65,6 +66,7 @@ record-keeping, different sample.</p>
 <tr><td><a href="#nyc">New York City</a></td><td>198 of 200</td><td>96.0%</td><td>0</td><td>2.5% &rarr; 97.0%</td><td>30.3% &rarr; 0.5%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#nys">New York State (outside New York City)</a></td><td>131 of 200</td><td>66.7%</td><td>0</td><td>1.5% &rarr; 71.0%</td><td>44.3% &rarr; 16.8%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#nc">North Carolina — 46 counties</a></td><td>185 of 200</td><td>71.9%</td><td>0</td><td>2.7% &rarr; 74.6%</td><td>50.8% &rarr; 13.5%</td><td>county record as the adapter reads it</td></tr>
+<tr><td><a href="#pa">Pennsylvania (four counties)</a></td><td>192 of 200</td><td>76.5%</td><td>0</td><td>3.1% &rarr; 81.2%</td><td>54.7% &rarr; 8.9%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#phl">Philadelphia, Pennsylvania</a></td><td>197 of 200</td><td>84.9%</td><td>0</td><td>1.0% &rarr; 86.3%</td><td>35.0% &rarr; 8.1%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#sf">San Francisco, California</a></td><td>184 of 200</td><td>97.8%</td><td>0</td><td>3.8% &rarr; 97.8%</td><td>22.8% &rarr; 0.5%</td><td>county record as the adapter reads it</td></tr>
 <tr><td><a href="#mi">Southeast Michigan (SEMCOG&#x27;s seven counties)</a></td><td>190 of 200</td><td>96.3%</td><td>0</td><td>5.3% &rarr; 96.8%</td><td>27.4% &rarr; 1.6%</td><td>county record as the adapter reads it</td></tr>
@@ -209,6 +211,49 @@ than collapsing into one median: within &plusmn;5 years 12.8% of the time at bas
 97.4% of the sample. 95% confidence interval 94.0&ndash;98.9% for the draw, and 95.8&ndash;97.9% observed across 3 scorings of these same rows. The second range is not sampling error: it is the same addresses scored again. Every upstream failure here fails open, so a portal having a bad minute is indistinguishable from a county with no record, and it removes rows from the numerator silently.
 Drawn uniform random offsets without replacement, seed 20260827 &middot; Benchmark digest
 d00857703ef166cb.</p>
+
+
+<h2 id="allegheny">Allegheny County, Pennsylvania</h2>
+
+<p><strong>Method.</strong> 191 addresses sampled across
+Allegheny County Office of Property Assessments (WPRDC) (assessment year 2026,
+fetched 2026-10-04); a further 2 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: roll records with a dwelling land use (houses, townhouses, rowhouses, condominium units, two- to four-family, apartments, farms), placed on the county parcel layer. Drawn from 200 assessor rows; 5 could not be fetched from the source when drawn, 4 were not read as one home even at their own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>2.1%</td><td>82.5%</td><td>17.0</td><td>0.0</td><td>189</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>26.6%</td><td>80.6%</td><td>195.0</td><td>0.0</td><td>139</td></tr>
+<tr><td>stories</td><td>89.9%</td><td>99.3%</td><td>70.7%</td><td>93.9%</td><td>0.0</td><td>0.0</td><td>148</td></tr>
+<tr><td>construction</td><td>100.0%</td><td>100.0%</td><td>66.0%</td><td>91.5%</td><td>—</td><td>—</td><td>188</td></tr>
+<tr><td>foundation</td><td>100.0%</td><td>100.0%</td><td>82.9%</td><td>98.9%</td><td>—</td><td>—</td><td>175</td></tr>
+<tr><td>condition</td><td>100.0%</td><td>100.0%</td><td>72.5%</td><td>93.7%</td><td>—</td><td>—</td><td>189</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 24.3% of the time at baseline and 88.4% with the assessor; within &plusmn;10 years 40.2% and 93.7%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>28.6%</td><td>5.3%</td><td>189</td></tr>
+<tr><td>energy</td><td>30.7%</td><td>5.3%</td><td>189</td></tr>
+<tr><td>resilience</td><td>0.0%</td><td>0.0%</td><td>189</td></tr>
+<tr><td>environmental</td><td>22.2%</td><td>6.9%</td><td>189</td></tr>
+<tr><td>building_axis</td><td>40.7%</td><td>9.5%</td><td>189</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+81.2% of the sample. 95% confidence interval 75.0&ndash;86.1% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+6f3447cdb24a07b2.</p>
 
 
 <h2 id="ca">California — Contra Costa, San Joaquin and Riverside Counties</h2>
@@ -813,6 +858,49 @@ Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchma
 9a228b28d6c8750d.</p>
 
 
+<h2 id="pa">Pennsylvania (four counties)</h2>
+
+<p><strong>Method.</strong> 200 addresses sampled across
+Montgomery, York, Northampton and Cumberland County (PA) assessment parcel layers (assessment year current,
+fetched 2026-10-04); a further 8 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: residential parcels with a recorded year built in Montgomery, York, Northampton and Cumberland counties, drawn in proportion to each county&#x27;s housing units. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>3.1%</td><td>81.2%</td><td>14.0</td><td>0.0</td><td>192</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>28.3%</td><td>79.7%</td><td>266.0</td><td>0.0</td><td>138</td></tr>
+<tr><td>stories</td><td>84.6%</td><td>96.5%</td><td>79.3%</td><td>96.4%</td><td>0.0</td><td>0.0</td><td>143</td></tr>
+<tr><td>construction</td><td>100.0%</td><td>100.0%</td><td>71.4%</td><td>95.6%</td><td>—</td><td>—</td><td>91</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 24.0% of the time at baseline and 87.0% with the assessor; within &plusmn;10 years 40.6% and 91.1%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>35.9%</td><td>7.8%</td><td>192</td></tr>
+<tr><td>energy</td><td>35.9%</td><td>4.2%</td><td>192</td></tr>
+<tr><td>resilience</td><td>0.5%</td><td>0.0%</td><td>192</td></tr>
+<tr><td>environmental</td><td>24.5%</td><td>3.1%</td><td>192</td></tr>
+<tr><td>building_axis</td><td>54.7%</td><td>8.9%</td><td>192</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+76.5% of the sample. 95% confidence interval 70.2&ndash;81.8% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+cb84ec898190d71d.</p>
+
+
 <h2 id="phl">Philadelphia, Pennsylvania</h2>
 
 <p><strong>Method.</strong> 199 addresses sampled across
@@ -1076,7 +1164,7 @@ Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchma
 jurisdiction served.</strong>
 Each figure describes one place's housing stock and record-keeping.
 Nothing here supports a claim about anywhere else, and the sections should not
-be averaged into one. An adapter can serve a jurisdiction that carries no figure here &mdash; Allegheny County, PA, Vanderburgh County, IN, Ohio (9 counties), Pennsylvania (4 counties) and Portland metro are served and not measured, so these numbers say nothing about them. Each carries a wrong-parcel verification instead, listed on the <a href="coverage.html">coverage page</a>. Serving is not measuring.</li>
+be averaged into one. An adapter can serve a jurisdiction that carries no figure here &mdash; Vanderburgh County, IN, Ohio (9 counties) and Portland metro are served and not measured, so these numbers say nothing about them. Each carries a wrong-parcel verification instead, listed on the <a href="coverage.html">coverage page</a>. Serving is not measuring.</li>
 <li><strong>Adapter benchmarks grade the lookup, not the field mapping.</strong>
 Cook's and DC's references are built from the assessor's tables by this page's own
 mapping, independently of the adapter. The other sections draw homes at random from

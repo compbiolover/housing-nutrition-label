@@ -3384,6 +3384,308 @@
           }
         }
       }
+    },
+    "allegheny": {
+      "benchmark": {
+        "jurisdiction": "allegheny",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 191,
+        "dropped": {
+          "no_parcel_record": 5,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 4
+        },
+        "source": "Allegheny County Office of Property Assessments (WPRDC)",
+        "scope": "roll records with a dwelling land use (houses, townhouses, rowhouses, condominium units, two- to four-family, apartments, farms), placed on the county parcel layer",
+        "assessment_year": "2026",
+        "fetched": "2026-10-04",
+        "rows": 189,
+        "sha256_16": "6f3447cdb24a07b2"
+      },
+      "unscored": 2,
+      "adapter_resolved_pct": 81.2,
+      "resolved_ci95": [
+        75.0,
+        86.1
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 189,
+            "coverage_pct": 100.0,
+            "median_abs_error": 17.0,
+            "exact_pct": 2.1,
+            "within_5yr_pct": 24.3,
+            "within_10yr_pct": 40.2
+          },
+          "sqft": {
+            "n": 139,
+            "coverage_pct": 100.0,
+            "median_abs_error": 195.0,
+            "exact_pct": 26.6,
+            "median_abs_pct_error": 12.8
+          },
+          "stories": {
+            "n": 148,
+            "coverage_pct": 89.9,
+            "median_abs_error": 0.0,
+            "exact_pct": 70.7
+          },
+          "construction": {
+            "n": 188,
+            "coverage_pct": 100.0,
+            "exact_pct": 66.0
+          },
+          "foundation": {
+            "n": 175,
+            "coverage_pct": 100.0,
+            "exact_pct": 82.9
+          },
+          "condition": {
+            "n": 189,
+            "coverage_pct": 100.0,
+            "exact_pct": 72.5
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 189,
+            "differs_pct": 28.6
+          },
+          "energy": {
+            "n": 189,
+            "differs_pct": 30.7
+          },
+          "resilience": {
+            "n": 189,
+            "differs_pct": 0.0
+          },
+          "environmental": {
+            "n": 189,
+            "differs_pct": 22.2
+          },
+          "building_axis": {
+            "n": 189,
+            "differs_pct": 40.7
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 189,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 82.5,
+            "within_5yr_pct": 88.4,
+            "within_10yr_pct": 93.7
+          },
+          "sqft": {
+            "n": 139,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 80.6,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 148,
+            "coverage_pct": 99.3,
+            "median_abs_error": 0.0,
+            "exact_pct": 93.9
+          },
+          "construction": {
+            "n": 188,
+            "coverage_pct": 100.0,
+            "exact_pct": 91.5
+          },
+          "foundation": {
+            "n": 175,
+            "coverage_pct": 100.0,
+            "exact_pct": 98.9
+          },
+          "condition": {
+            "n": 189,
+            "coverage_pct": 100.0,
+            "exact_pct": 93.7
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 189,
+            "differs_pct": 5.3
+          },
+          "energy": {
+            "n": 189,
+            "differs_pct": 5.3
+          },
+          "resilience": {
+            "n": 189,
+            "differs_pct": 0.0
+          },
+          "environmental": {
+            "n": 189,
+            "differs_pct": 6.9
+          },
+          "building_axis": {
+            "n": 189,
+            "differs_pct": 9.5
+          }
+        }
+      }
+    },
+    "pa": {
+      "benchmark": {
+        "jurisdiction": "pa",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 200,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 0
+        },
+        "source": "Montgomery, York, Northampton and Cumberland County (PA) assessment parcel layers",
+        "scope": "residential parcels with a recorded year built in Montgomery, York, Northampton and Cumberland counties, drawn in proportion to each county's housing units",
+        "assessment_year": "current",
+        "fetched": "2026-10-04",
+        "rows": 192,
+        "sha256_16": "cb84ec898190d71d"
+      },
+      "unscored": 8,
+      "adapter_resolved_pct": 76.5,
+      "resolved_ci95": [
+        70.2,
+        81.8
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 192,
+            "coverage_pct": 100.0,
+            "median_abs_error": 14.0,
+            "exact_pct": 3.1,
+            "within_5yr_pct": 24.0,
+            "within_10yr_pct": 40.6
+          },
+          "sqft": {
+            "n": 138,
+            "coverage_pct": 100.0,
+            "median_abs_error": 266.0,
+            "exact_pct": 28.3,
+            "median_abs_pct_error": 14.4
+          },
+          "stories": {
+            "n": 143,
+            "coverage_pct": 84.6,
+            "median_abs_error": 0.0,
+            "exact_pct": 79.3
+          },
+          "construction": {
+            "n": 91,
+            "coverage_pct": 100.0,
+            "exact_pct": 71.4
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 192,
+            "differs_pct": 35.9
+          },
+          "energy": {
+            "n": 192,
+            "differs_pct": 35.9
+          },
+          "resilience": {
+            "n": 192,
+            "differs_pct": 0.5
+          },
+          "environmental": {
+            "n": 192,
+            "differs_pct": 24.5
+          },
+          "building_axis": {
+            "n": 192,
+            "differs_pct": 54.7
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 192,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 81.2,
+            "within_5yr_pct": 87.0,
+            "within_10yr_pct": 91.1
+          },
+          "sqft": {
+            "n": 138,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 79.7,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 143,
+            "coverage_pct": 96.5,
+            "median_abs_error": 0.0,
+            "exact_pct": 96.4
+          },
+          "construction": {
+            "n": 91,
+            "coverage_pct": 100.0,
+            "exact_pct": 95.6
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 192,
+            "differs_pct": 7.8
+          },
+          "energy": {
+            "n": 192,
+            "differs_pct": 4.2
+          },
+          "resilience": {
+            "n": 192,
+            "differs_pct": 0.0
+          },
+          "environmental": {
+            "n": 192,
+            "differs_pct": 3.1
+          },
+          "building_axis": {
+            "n": 192,
+            "differs_pct": 8.9
+          }
+        }
+      }
     }
   }
 }
