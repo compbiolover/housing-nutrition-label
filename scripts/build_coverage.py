@@ -216,6 +216,13 @@ CURATED: dict[str, dict] = {
         "fields": ("year_built", "sqft", "stories"),
         "verified": {"sample": 315, "resolved": 268, "wrong": 0},
     },
+    # Toward 40% national coverage (2026-10).
+    "nj": {
+        "name": "New Jersey (all 21 counties)", "short": "New Jersey",
+        "since": "2026-10-04",
+        "fields": ("year_built", "stories"),
+        "verified": {"sample": 465, "resolved": 348, "wrong": 0},
+    },
 }
 
 

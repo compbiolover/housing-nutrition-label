@@ -46,8 +46,8 @@ import logging
 import os
 
 from housing_label.enrich.assessor import (
-    allegheny, ca, cook_il, ct, dc, fl, ga, la, ma, md, mi, nc, nyc, nys, oh, pa,
-    phl, sf, tx, ut,
+    allegheny, ca, cook_il, ct, dc, fl, ga, la, ma, md, mi, nc, nj, nyc, nys, oh,
+    pa, phl, sf, tx, ut,
 )
 from housing_label.enrich.assessor.base import (  # noqa: F401  (re-exported)
     CONDITION_VALUES, CONSTRUCTION_VALUES, FOUNDATION_VALUES, AssessorRecord,
@@ -61,7 +61,7 @@ ENABLE_ENV = "ASSESSOR_ADAPTERS"
 # covers, so resolution is a dict lookup rather than a scan.
 ADAPTERS = {fips: mod
             for mod in (allegheny, ca, cook_il, ct, dc, fl, ga, la, ma, md, mi, nc,
-                        nyc, nys, oh, pa, phl, sf, tx, ut)
+                        nj, nyc, nys, oh, pa, phl, sf, tx, ut)
             for fips in mod.COUNTY_FIPS}
 
 
