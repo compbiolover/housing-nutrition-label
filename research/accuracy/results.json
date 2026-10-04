@@ -1483,6 +1483,155 @@
           }
         }
       }
+    },
+    "mn": {
+      "benchmark": {
+        "jurisdiction": "mn",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 197,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 3
+        },
+        "source": "MetroGIS Regional Parcel Dataset (Metropolitan Council)",
+        "scope": "residential parcels (houses, townhouses, condominium units, duplexes to apartments) in the seven metro counties, drawn in proportion to each county's housing units",
+        "assessment_year": "current",
+        "fetched": "2026-10-04",
+        "rows": 190,
+        "sha256_16": "1c15796fa177c61c"
+      },
+      "unscored": 7,
+      "adapter_resolved_pct": 81.7,
+      "resolved_ci95": [
+        75.7,
+        86.5
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 190,
+            "coverage_pct": 100.0,
+            "median_abs_error": 9.5,
+            "exact_pct": 1.1,
+            "within_5yr_pct": 35.8,
+            "within_10yr_pct": 53.7
+          },
+          "sqft": {
+            "n": 85,
+            "coverage_pct": 100.0,
+            "median_abs_error": 177.0,
+            "exact_pct": 29.4,
+            "median_abs_pct_error": 9.4
+          },
+          "stories": {
+            "n": 53,
+            "coverage_pct": 96.2,
+            "median_abs_error": 0.0,
+            "exact_pct": 80.4
+          },
+          "construction": {
+            "n": 17,
+            "coverage_pct": 100.0,
+            "exact_pct": 88.2
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 190,
+            "differs_pct": 25.8
+          },
+          "energy": {
+            "n": 190,
+            "differs_pct": 33.2
+          },
+          "resilience": {
+            "n": 190,
+            "differs_pct": 0.5
+          },
+          "environmental": {
+            "n": 190,
+            "differs_pct": 21.6
+          },
+          "building_axis": {
+            "n": 190,
+            "differs_pct": 30.0
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 190,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 84.7,
+            "within_5yr_pct": 88.9,
+            "within_10yr_pct": 91.1
+          },
+          "sqft": {
+            "n": 85,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 78.8,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 53,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 94.3
+          },
+          "construction": {
+            "n": 17,
+            "coverage_pct": 100.0,
+            "exact_pct": 94.1
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 190,
+            "differs_pct": 3.7
+          },
+          "energy": {
+            "n": 190,
+            "differs_pct": 7.9
+          },
+          "resilience": {
+            "n": 190,
+            "differs_pct": 0.0
+          },
+          "environmental": {
+            "n": 190,
+            "differs_pct": 3.7
+          },
+          "building_axis": {
+            "n": 190,
+            "differs_pct": 5.3
+          }
+        }
+      }
     }
   }
 }
