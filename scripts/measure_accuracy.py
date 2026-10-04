@@ -266,6 +266,17 @@ def _score_arms(row: dict, juris: str) -> dict | None:
         log.debug("  %s: scoring failed (%s)", row["address"], exc)
         return None
 
+    mismatch = loc.assessor is not None and not _parcel_matches(loc, row)
+    if mismatch:
+        # Named, not just counted. A wrong-parcel answer is the one failure the
+        # product promises never to make, and a count alone leaves the row to be
+        # found again by replaying the whole sample — which need not reproduce it
+        # when an upstream answered differently the first time.
+        log.warning("  different parcel: %s — reference %s (%s), lookup %s (%s)",
+                    row["address"], row.get("parcel_id") or row.get("pin"),
+                    row.get("year_built"), getattr(loc.assessor, "parcel_id", None),
+                    getattr(loc.assessor, "year_built", None))
+
     return {
         "address": row["address"],
         "truth": truth_fields,
@@ -283,8 +294,7 @@ def _score_arms(row: dict, juris: str) -> dict | None:
         # mapping, so it is counted and published beside them rather than folded
         # in silently.
         "resolved": loc.assessor is not None,
-        "parcel_mismatch": (loc.assessor is not None
-                            and not _parcel_matches(loc, row)),
+        "parcel_mismatch": mismatch,
         "baseline": {"inferred": {f: cfg_off.get(f) for f in FIELDS},
                      "grades": _grades(pay_off)},
         "adapter": {"inferred": {f: cfg_on.get(f) for f in FIELDS},
@@ -795,12 +805,72 @@ coverage page). A drawn home the adapter will not read even at its own parcel is
 counted in the section's method note, not silently dropped.</li>"""
 
 
+def _page_order(juris: dict) -> list[str]:
+    """Sections in reading order: independently referenced ones first, then the
+    adapter benchmarks by name, each parent still followed by its own children.
+
+    Registry keys are not names — "ca" sorted before "cook" and put three
+    California counties at the top of a page whose strongest evidence is Cook's
+    and DC's, the two graded against references built without the adapter.
+    """
+    order = ordered()
+    tops = [k for k in order if not JURISDICTIONS.get(k, {}).get("parent")]
+    tops.sort(key=lambda k: (JURISDICTIONS.get(k, {}).get("basis") == "adapter",
+                             LABELS.get(k, k)))
+    out = []
+    for top in tops:
+        out.extend(k for k in [top] + [c for c in order
+                                       if JURISDICTIONS.get(c, {}).get("parent") == top]
+                   if k in juris)
+    return out
+
+
+def _overview(juris: dict, keys: list[str]) -> str:
+    """One row per section, so the page can be read before it is scrolled.
+
+    Every figure is copied from the section it links to — none is computed here —
+    and nothing is totaled or averaged across rows, which the caveats below forbid.
+    """
+    def arrow(b, a):
+        return "—" if b is None or a is None else f"{b}% &rarr; {a}%"
+    body = []
+    for k in keys:
+        d = juris[k]
+        b, a = d["baseline"], d["adapter"]
+        basis = ("county record as the adapter reads it"
+                 if JURISDICTIONS.get(k, {}).get("basis") == "adapter"
+                 else "assessor tables, mapped independently")
+        indent = ' style="padding-left:1.4rem"' if JURISDICTIONS.get(k, {}).get("parent") else ""
+        body.append(
+            f'<tr><td{indent}><a href="#{html.escape(k)}">{html.escape(LABELS.get(k, k))}</a></td>'
+            f'<td>{d["benchmark"]["rows"]}</td><td>{d["adapter_resolved_pct"]}%</td>'
+            f'<td>{d.get("parcel_mismatches", 0)}</td>'
+            f'<td>{arrow(b["fields"]["year_built"].get("exact_pct"), a["fields"]["year_built"].get("exact_pct"))}</td>'
+            f'<td>{arrow(b["grade_impact"]["building_axis"]["differs_pct"], a["grade_impact"]["building_axis"]["differs_pct"])}</td>'
+            f'<td>{basis}</td></tr>')
+    return f"""<h2 id="overview">At a glance</h2>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Where</th><th>Homes scored</th><th>Answered by the assessor</th><th>Wrong parcel</th>
+<th>Year built exact<br>baseline &rarr; w/ assessor</th>
+<th>Building grade differs<br>baseline &rarr; w/ assessor</th><th>Reference</th>
+</tr></thead><tbody>
+{chr(10).join(body)}
+</tbody></table></div>
+<p style="opacity:0.75;font-size:0.85rem;"><em>Building grade differs</em> is the
+share of homes whose building letter, as a reader would see it, is not the letter
+the reference record gives &mdash; lower is better. <em>Wrong parcel</em> counts
+answers that came from a different lot than the one asked about; they are scored as
+errors in every rate. The two kinds of reference are not the same test: see
+<a href="#caveats">what this does and does not establish</a>.</p>
+"""
+
+
 def _render(results: dict) -> str:
     juris = as_jurisdictions(results)
+    keys = _page_order(juris)
     sections = "\n".join(
         _section(k, juris[k], depth=1 if JURISDICTIONS.get(k, {}).get("parent") else 0)
-        for k in ordered() if k in juris)
-    measured = ", ".join(LABELS.get(k, k) for k in sorted(juris))
+        for k in keys)
 
     # The site-wide head block and the disclaimer are not decoration: two tests
     # (test_icons, test_disclaimer) assert that EVERY page under docs/ carries
@@ -848,11 +918,12 @@ authority where one resolves. The number that matters is the last table in each 
 error that moves no letter is not a defect anyone can see; one that crosses a
 code-era boundary is.</p>
 
-<p>Measured so far: {html.escape(measured)}. Each adapter is measured against its
-own assessor, and the sections are not comparable to each other &mdash; different
-housing stock, different record-keeping, different sample.</p>
+<p>Each adapter is measured against its own assessor, and the sections are
+not comparable to each other &mdash; different housing stock, different
+record-keeping, different sample.</p>
+{_overview(juris, keys)}
 {sections}
-<h2>What this does and does not establish</h2>
+<h2 id="caveats">What this does and does not establish</h2>
 <ul>
 <li><strong>These are measured jurisdictions, not a national sample, and not every
 jurisdiction served.</strong>
