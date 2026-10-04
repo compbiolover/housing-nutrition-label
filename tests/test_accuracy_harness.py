@@ -1435,7 +1435,7 @@ def test_the_documented_invocations_carry_every_required_argument():
                 assert "--seed" in line, f"{mod.__name__}: {line.strip()!r}"
 
 
-def test_the_cache_walk_reaches_the_caches_that_make_requests():
+def test_the_cache_walk_reaches_the_caches_that_make_requests(monkeypatch):
     """Replicates are only measurements if each one actually makes its requests.
     The adapters and the geocoder memoize, so the second scoring of a row answers
     from memory: the DC condominium benchmark took half an hour on the first run
@@ -1451,7 +1451,12 @@ def test_the_cache_walk_reaches_the_caches_that_make_requests():
         c.cache_clear()
     # Populate without network: lru_cache stores whatever the call returns, and a
     # refusal is a perfectly good cache entry — which is the point, a cached miss
-    # replays as a miss.
+    # replays as a miss. The requests underneath are stubbed out: a point at 0,0
+    # still went to both county servers, and a slow connect there failed this test
+    # in CI though it is a test of the cache walk, not of either server.
+    monkeypatch.setattr(cook_il, "_pin_at", lambda *a, **k: None)
+    monkeypatch.setattr(dc, "_residential_record", lambda *a, **k: None)
+    monkeypatch.setattr(dc, "_condo_record", lambda *a, **k: None)
     dc._lookup_cached(0.0, 0.0, None)
     cook_il._lookup_cached(0.0, 0.0, None)
     assert any(c.cache_info().currsize for c in caches), "nothing cached to clear"
