@@ -3686,6 +3686,157 @@
           }
         }
       }
+    },
+    "oh": {
+      "benchmark": {
+        "jurisdiction": "oh",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 194,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 6
+        },
+        "source": "Ohio county auditors' parcel layers (nine counties)",
+        "scope": "residential, agricultural and apartment parcels with a recorded year built in the nine counties served, drawn in proportion to each county's housing units",
+        "assessment_year": "current",
+        "fetched": "2026-10-04",
+        "rows": 188,
+        "sha256_16": "4c21e8efc4ea296e"
+      },
+      "unscored": 6,
+      "adapter_resolved_pct": 83.5,
+      "resolved_ci95": [
+        77.6,
+        88.1
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 188,
+            "coverage_pct": 100.0,
+            "median_abs_error": 9.0,
+            "exact_pct": 1.1,
+            "within_5yr_pct": 30.3,
+            "within_10yr_pct": 51.6
+          },
+          "sqft": {
+            "n": 115,
+            "coverage_pct": 100.0,
+            "median_abs_error": 121.0,
+            "exact_pct": 33.0,
+            "median_abs_pct_error": 6.7
+          },
+          "stories": {
+            "n": 86,
+            "coverage_pct": 81.4,
+            "median_abs_error": 0.0,
+            "exact_pct": 75.7
+          },
+          "construction": {
+            "n": 18,
+            "coverage_pct": 100.0,
+            "exact_pct": 66.7
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 14,
+            "coverage_pct": 100.0,
+            "exact_pct": 35.7
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 188,
+            "differs_pct": 26.6
+          },
+          "energy": {
+            "n": 188,
+            "differs_pct": 28.7
+          },
+          "resilience": {
+            "n": 188,
+            "differs_pct": 1.1
+          },
+          "environmental": {
+            "n": 188,
+            "differs_pct": 25.5
+          },
+          "building_axis": {
+            "n": 188,
+            "differs_pct": 36.2
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 188,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 86.7,
+            "within_5yr_pct": 90.4,
+            "within_10yr_pct": 93.6
+          },
+          "sqft": {
+            "n": 115,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 87.8,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 86,
+            "coverage_pct": 97.7,
+            "median_abs_error": 0.0,
+            "exact_pct": 97.6
+          },
+          "construction": {
+            "n": 18,
+            "coverage_pct": 100.0,
+            "exact_pct": 94.4
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 14,
+            "coverage_pct": 100.0,
+            "exact_pct": 78.6
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 188,
+            "differs_pct": 4.3
+          },
+          "energy": {
+            "n": 188,
+            "differs_pct": 2.1
+          },
+          "resilience": {
+            "n": 188,
+            "differs_pct": 0.0
+          },
+          "environmental": {
+            "n": 188,
+            "differs_pct": 2.7
+          },
+          "building_axis": {
+            "n": 188,
+            "differs_pct": 5.3
+          }
+        }
+      }
     }
   }
 }
