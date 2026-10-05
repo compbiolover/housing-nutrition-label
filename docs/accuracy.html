@@ -55,7 +55,7 @@ record-keeping, different sample.</p>
 <tr><td><a href="#ca">California — Contra Costa, San Joaquin and Riverside Counties</a></td><td>182 of 200</td><td>64.9%</td><td>0</td><td>5.5% &rarr; 68.7%</td><td>36.3% &rarr; 15.4%</td><td>adapter&rsquo;s own read</td></tr>
 <tr><td><a href="#co">Colorado (Denver metro)</a></td><td>190 of 200</td><td>87.2%</td><td>0</td><td>4.2% &rarr; 90.0%</td><td>38.9% &rarr; 3.2%</td><td>adapter&rsquo;s own read</td></tr>
 <tr><td><a href="#ct">Connecticut</a></td><td>168 of 200</td><td>70.2%</td><td>0</td><td>2.4% &rarr; 72.0%</td><td>55.4% &rarr; 17.9%</td><td>adapter&rsquo;s own read</td></tr>
-<tr><td><a href="#fl">Florida</a></td><td>169 of 203</td><td>60.7%</td><td>0</td><td>3.0% &rarr; 65.7%</td><td>32.5% &rarr; 10.1%</td><td>adapter&rsquo;s own read</td></tr>
+<tr><td><a href="#fl">Florida</a></td><td>169 of 203</td><td>64.0%</td><td>0</td><td>3.0% &rarr; 69.8%</td><td>32.5% &rarr; 8.9%</td><td>adapter&rsquo;s own read</td></tr>
 <tr><td><a href="#ga">Georgia — Fulton, Clayton, Chatham and Forsyth counties</a></td><td>158 of 200</td><td>77.0%</td><td>0</td><td>3.8% &rarr; 81.0%</td><td>43.0% &rarr; 10.1%</td><td>adapter&rsquo;s own read</td></tr>
 <tr><td><a href="#ind">Indiana (Vanderburgh County)</a></td><td>197 of 200</td><td>88.5%</td><td>0</td><td>0.5% &rarr; 89.8%</td><td>39.6% &rarr; 4.6%</td><td>adapter&rsquo;s own read</td></tr>
 <tr><td><a href="#la">Los Angeles County, California</a></td><td>173 of 200</td><td>89.3%</td><td>0</td><td>3.5% &rarr; 91.9%</td><td>39.3% &rarr; 3.5%</td><td>adapter&rsquo;s own read</td></tr>
@@ -405,8 +405,8 @@ the county's record as the adapter reads it at the parcel itself (see <em>adapte
 <th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
 <th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
 </tr></thead><tbody>
-<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>3.0%</td><td>65.7%</td><td>8.0</td><td>0.0</td><td>169</td></tr>
-<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>8.5%</td><td>62.4%</td><td>280.0</td><td>0.0</td><td>117</td></tr>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>3.0%</td><td>69.8%</td><td>8.0</td><td>0.0</td><td>169</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>8.5%</td><td>65.8%</td><td>280.0</td><td>0.0</td><td>117</td></tr>
 <tr><td>stories</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
 <tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
 <tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
@@ -415,21 +415,21 @@ the county's record as the adapter reads it at the parcel itself (see <em>adapte
 
 <p><strong>Year built, by tolerance.</strong> The single field the rest of the
 construction profile leans on hardest, so the near-misses are worth seeing rather
-than collapsing into one median: within &plusmn;5 years 37.9% of the time at baseline and 78.1% with the assessor; within &plusmn;10 years 63.3% and 85.8%.</p>
+than collapsing into one median: within &plusmn;5 years 37.9% of the time at baseline and 81.1% with the assessor; within &plusmn;10 years 63.3% and 88.2%.</p>
 
 <h3>Does the reader see a different grade?</h3>
 <div class="table-scroll"><table class="data-table"><thead><tr>
 <th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
 </tr></thead><tbody>
-<tr><td>durability</td><td>18.9%</td><td>10.7%</td><td>169</td></tr>
+<tr><td>durability</td><td>18.9%</td><td>8.9%</td><td>169</td></tr>
 <tr><td>energy</td><td>16.0%</td><td>5.9%</td><td>169</td></tr>
-<tr><td>resilience</td><td>10.7%</td><td>4.1%</td><td>169</td></tr>
+<tr><td>resilience</td><td>12.4%</td><td>3.6%</td><td>169</td></tr>
 <tr><td>environmental</td><td>7.7%</td><td>2.4%</td><td>169</td></tr>
-<tr><td>building_axis</td><td>32.5%</td><td>10.1%</td><td>169</td></tr>
+<tr><td>building_axis</td><td>32.5%</td><td>8.9%</td><td>169</td></tr>
 </tbody></table></div>
 
 <p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
-60.7% of the sample. 95% confidence interval 53.3&ndash;67.6% for the draw.
+64.0% of the sample. 95% confidence interval 56.8&ndash;70.7% for the draw, and 63.5&ndash;67.4% observed across 3 scorings of these same rows. The second range is not sampling error: it is the same addresses scored again. Every upstream failure here fails open, so a portal having a bad minute is indistinguishable from a county with no record, and it removes rows from the numerator silently.
 Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
 5dfa68716babe58d.</p>
 
@@ -1363,7 +1363,7 @@ distance between the arms rather than overstating it.</li>
 padding-top:0.9rem;">Informational purposes only. This label is a modeled estimate built from public data. It is not an inspection, appraisal, survey, or insurance quote, and it is not legal, financial, insurance, engineering, or real estate advice. It describes what the model expects of a home like this one at this location; it cannot tell you the condition, safety, value, or insurability of any particular property. Verify anything you would act on with a qualified professional. Provided as is, without warranty.</p>
 
 <p style="opacity:0.75;font-size:0.85rem;">Generated
-2026-10-04. Regenerate with
+2026-10-05. Regenerate with
 <code>python scripts/measure_accuracy.py --jurisdiction &lt;name&gt;</code>; each
 run replaces only its own section.</p>
 </main>

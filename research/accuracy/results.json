@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-04",
+  "generated": "2026-10-05",
   "jurisdictions": {
     "cook": {
       "benchmark": {
@@ -3114,12 +3114,18 @@
         "sha256_16": "5dfa68716babe58d"
       },
       "unscored": 9,
-      "adapter_resolved_pct": 60.7,
+      "adapter_resolved_pct": 64.0,
       "resolved_ci95": [
-        53.3,
-        67.6
+        56.8,
+        70.7
       ],
-      "resolved_runs": null,
+      "resolved_runs": {
+        "runs": 3,
+        "min": 63.5,
+        "max": 67.4,
+        "spread": 3.9,
+        "median": 64.0
+      },
       "parcel_mismatches": 0,
       "baseline": {
         "fields": {
@@ -3166,7 +3172,7 @@
           },
           "resilience": {
             "n": 169,
-            "differs_pct": 10.7
+            "differs_pct": 12.4
           },
           "environmental": {
             "n": 169,
@@ -3184,15 +3190,15 @@
             "n": 169,
             "coverage_pct": 100.0,
             "median_abs_error": 0.0,
-            "exact_pct": 65.7,
-            "within_5yr_pct": 78.1,
-            "within_10yr_pct": 85.8
+            "exact_pct": 69.8,
+            "within_5yr_pct": 81.1,
+            "within_10yr_pct": 88.2
           },
           "sqft": {
             "n": 117,
             "coverage_pct": 100.0,
             "median_abs_error": 0.0,
-            "exact_pct": 62.4,
+            "exact_pct": 65.8,
             "median_abs_pct_error": 0.0
           },
           "stories": {
@@ -3215,7 +3221,7 @@
         "grade_impact": {
           "durability": {
             "n": 169,
-            "differs_pct": 10.7
+            "differs_pct": 8.9
           },
           "energy": {
             "n": 169,
@@ -3223,7 +3229,7 @@
           },
           "resilience": {
             "n": 169,
-            "differs_pct": 4.1
+            "differs_pct": 3.6
           },
           "environmental": {
             "n": 169,
@@ -3231,7 +3237,7 @@
           },
           "building_axis": {
             "n": 169,
-            "differs_pct": 10.1
+            "differs_pct": 8.9
           }
         }
       }
