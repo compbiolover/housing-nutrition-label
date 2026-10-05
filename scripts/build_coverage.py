@@ -54,6 +54,7 @@ for _p in (_ROOT, _ROOT / "src"):
 
 from housing_label.enrich.assessor import ADAPTERS  # noqa: E402
 from housing_label.enrich.assessor.base import AssessorRecord  # noqa: E402
+from housing_label.data.states import STATE_FIPS_TO_USPS, usps_for_fips  # noqa: E402
 from housing_label.legal import DISCLAIMER  # noqa: E402
 
 PAGE = _ROOT / "docs" / "coverage.html"
@@ -625,17 +626,34 @@ def county_css(m: dict) -> str:
         "{display:inline}"
 
 
+# The same fields as they read mid-sentence ("Observed: year built, floor area").
+# Spelled out rather than lowercased from FIELD_LABELS, so a label with an acronym
+# in it can never come out as "hvac".
+FIELD_PHRASES = {
+    "year_built": "year built", "sqft": "floor area", "stories": "stories",
+    "construction": "wall", "foundation": "foundation", "condition": "condition",
+}
+
+
+def observed_phrase(fields) -> str:
+    """"Year built, floor area, stories" — what a source supplies, as one phrase."""
+    text = ", ".join(FIELD_PHRASES[f] for f in fields)
+    return text[:1].upper() + text[1:]
+
+
 def tooltip_data(m: dict) -> str:
     """What the map's tooltip needs, keyed small: county → adapter, homes."""
-    adapters = {r["key"]: {"n": r["short"], "f": [FIELD_LABELS[f] for f in r["fields"]],
+    adapters = {r["key"]: {"n": r["short"], "f": observed_phrase(r["fields"]),
                            "h": r["homes"], "d": r["depth"]}
                 for r in m["adapters"]}
     counties = {}
     for r in m["adapters"]:
         for f in r["counties"]:
             counties[f] = [r["key"], m["units"].get(f)]
-    return json.dumps({"a": adapters, "c": counties}, separators=(",", ":"),
-                      sort_keys=True)
+    # Every state, not just the covered ones: an uncovered county gets a tooltip too,
+    # and "Cumberland" alone does not say which of the eight Cumberland Counties.
+    return json.dumps({"a": adapters, "c": counties, "s": STATE_FIPS_TO_USPS},
+                      separators=(",", ":"), sort_keys=True)
 
 
 def field_matrix(m: dict) -> str:
@@ -686,7 +704,6 @@ def county_lists(m: dict) -> str:
     """Every covered county, by source — the map's county detail in a form a
     keyboard or a screen reader can reach. Making 3,142 map paths tab stops would
     be worse than useless; a list is the accessible equivalent."""
-    from housing_label.data.states import usps_for_fips
     names = county_names()
     out = []
     for r in m["adapters"]:
@@ -764,10 +781,12 @@ _STYLE = """
 .cov .legend span::before { content: ""; display: inline-block; width: .85rem; height: .85rem;
   border-radius: 3px; margin-right: .4rem; vertical-align: -2px; background: var(--sw); }
 .cov .tip { position: absolute; pointer-events: none; background: var(--surface); color: var(--ink);
-  border: 1px solid var(--border); border-radius: 6px; padding: .5rem .65rem; font-size: .85rem;
-  box-shadow: 0 4px 14px rgba(0,0,0,.12); max-width: 17rem; line-height: 1.35; display: none; z-index: 5; }
-.cov .tip b { display: block; }
-.cov .tip .m { color: var(--ink-2); }
+  border: 1px solid var(--border); border-radius: 8px; padding: .55rem .7rem; font-size: .85rem;
+  box-shadow: 0 6px 18px rgba(0,0,0,.18); width: max-content;
+  max-width: min(17rem, calc(100% - 16px)); line-height: 1.4; display: none; z-index: 5; }
+.cov .tip .t { display: block; font-weight: 700; font-size: .95rem; margin-bottom: .2rem; }
+.cov .tip .l { display: block; color: var(--ink-2); }
+.cov .tip .l b { color: var(--ink); font-weight: 600; }
 .cov .bars { width: 100%; height: auto; }
 .cov .bars .bar { fill: var(--series); }
 .cov .bars .hit { fill: transparent; }
@@ -814,6 +833,24 @@ _STYLE = """
 """
 
 _SCRIPT = """
+// Where the map tooltip goes, as a pure function so it can be tested. (px, py) is
+// the pointer and b the visible part of the tooltip's container, both in the
+// coordinates its left/top are measured in. A pointer gets the tooltip below and
+// to the right, flipped when that runs out of room; a finger covers what is below
+// it, so a tap gets it centered above, dropped below only when there is no room.
+// Either way it is then clamped inside b, so no part of it is off screen.
+function tipPosition(px, py, w, h, b, touch) {
+  var pad = 8, gap = 14;
+  var x = touch ? px - w / 2 : px + gap;
+  if (!touch && x + w > b.right - pad) x = px - w - gap;
+  x = Math.max(b.left + pad, Math.min(x, b.right - w - pad));
+  var y = touch ? py - h - gap : py + gap;
+  if (touch ? y < b.top + pad : y + h > b.bottom - pad) {
+    y = touch ? py + gap + 10 : py - h - gap;
+  }
+  y = Math.max(b.top + pad, Math.min(y, b.bottom - h - pad));
+  return {x: x, y: y};
+}
 (function () {
   var holder = document.getElementById('covmap');
   var tip = document.getElementById('covtip');
@@ -829,30 +866,107 @@ _SCRIPT = """
         var el = document.getElementById(p + f); if (el) el.classList.add('hl'); });
     }
   }
-  function show(evt, el) {
-    var f = el.id.slice(1), hit = data.c[f], name = el.getAttribute('data-n') || '';
-    var h = '<b>' + name + '</b>';
-    if (hit) {
-      var a = data.a[hit[0]];
-      h += '<span>' + a.n + '</span><span class="m">Observed: ' + a.f.join(', ') + '</span>';
-      if (hit[1]) h += '<span class="m">' + fmt(hit[1]) + ' homes in this county</span>';
-    } else {
-      h += '<span class="m">Modeled building data (no assessor source yet)</span>';
+  function line(cls, text, lead) {
+    var s = document.createElement('span'); s.className = cls;
+    if (lead) { var b = document.createElement('b'); b.textContent = lead; s.appendChild(b);
+      s.appendChild(document.createTextNode(' ')); }
+    s.appendChild(document.createTextNode(text));
+    return s;
+  }
+  var shown = null;
+  function hide() { tip.style.display = 'none'; shown = null; }
+  // Where the tooltip may go, in the coordinates its left/top are measured in: the
+  // part of its own container that is on screen. It was measured from the map,
+  // which sits below the card's heading, so it landed a heading's height from the
+  // pointer; and nothing kept it inside the card or the screen.
+  // Where the tooltip may go, in the coordinates its left/top are measured in. It
+  // was measured from the map, which sits below the card's heading, so it landed
+  // a heading's height from the pointer; and nothing kept it in view.
+  //
+  // Across, it stays inside both the card and the screen. Down, only the screen
+  // counts: a card scrolled almost out of view leaves no room for the tooltip
+  // inside its visible part, and on screen is what matters. The screen is the
+  // visual viewport where there is one, so a pinch-zoomed phone clamps to what is
+  // actually visible, and it starts below the site's pinned nav bar.
+  var nav = document.querySelector('nav');
+  var navPinned = nav && /fixed|sticky/.test(getComputedStyle(nav).position);
+  function visibleBounds(parent) {
+    var pb = parent.getBoundingClientRect();
+    var ox = pb.left + parent.clientLeft, oy = pb.top + parent.clientTop;
+    var de = document.documentElement, vv = window.visualViewport;
+    var sl = vv ? vv.offsetLeft : 0, st = vv ? vv.offsetTop : 0;
+    var sr = sl + (vv ? vv.width : de.clientWidth), sb = st + (vv ? vv.height : de.clientHeight);
+    if (navPinned) st = Math.max(st, nav.getBoundingClientRect().bottom);
+    return {ox: ox, oy: oy,
+            left: Math.max(0, sl - ox), right: Math.min(parent.clientWidth, sr - ox),
+            top: st - oy, bottom: sb - oy};
+  }
+  function place(evt, touch) {
+    var b = visibleBounds(tip.offsetParent || holder);
+    var pos = tipPosition(evt.clientX - b.ox, evt.clientY - b.oy,
+                          tip.offsetWidth, tip.offsetHeight, b, touch);
+    tip.style.left = pos.x + 'px'; tip.style.top = pos.y + 'px';
+  }
+  function show(evt, el, touch) {
+    if (shown !== el) {
+      var f = el.id.slice(1), hit = data.c[f], name = el.getAttribute('data-n') || '';
+      var st = data.s[f.slice(0, 2)];
+      tip.textContent = '';
+      tip.appendChild(line('t', st ? name + ', ' + st : name));
+      if (hit) {
+        var a = data.a[hit[0]];
+        tip.appendChild(line('l', a.n, 'Source:'));
+        tip.appendChild(line('l', a.f, 'Observed:'));
+        if (hit[1]) tip.appendChild(line('l', fmt(hit[1]) + ' homes'));
+      } else {
+        tip.appendChild(line('l', 'No assessor source yet; building data is modeled.'));
+      }
+      tip.style.display = 'block';
+      shown = el;
     }
-    tip.innerHTML = h; tip.style.display = 'block';
-    var box = holder.getBoundingClientRect();
-    var x = evt.clientX - box.left + 14, y = evt.clientY - box.top + 14;
-    if (x + tip.offsetWidth > box.width) x = evt.clientX - box.left - tip.offsetWidth - 14;
-    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+    place(evt, touch);
   }
   fetch('coverage-map.svg').then(function (r) { return r.ok ? r.text() : ''; }).then(function (svg) {
     if (!svg) return;
     holder.innerHTML = svg;
-    holder.addEventListener('mousemove', function (e) {
-      var el = e.target.closest ? e.target.closest('.c') : null;
-      if (el) show(e, el); else tip.style.display = 'none';
+    var lastType = 'mouse';
+    function county(e) { return e.target.closest ? e.target.closest('.c') : null; }
+    holder.addEventListener('pointerdown', function (e) { lastType = e.pointerType || 'mouse'; });
+    // Hover for a mouse or a hovering pen; a finger has no hover, so it taps.
+    holder.addEventListener('pointermove', function (e) {
+      if (e.pointerType === 'touch') return;
+      lastType = e.pointerType || 'mouse';
+      var el = county(e);
+      if (el) show(e, el, false); else hide();
     });
-    holder.addEventListener('mouseleave', function () { tip.style.display = 'none'; });
+    holder.addEventListener('mouseleave', function () { if (lastType !== 'touch') hide(); });
+    // A tap shows the county until the next tap; there is no hover to end it.
+    holder.addEventListener('click', function (e) {
+      var el = county(e);
+      if (el) show(e, el, lastType === 'touch'); else hide();
+    });
+    // pointerdown, not click: iOS Safari sends no click for a tap on plain text, so
+    // a tap beside the map would never have closed the tooltip.
+    document.addEventListener('pointerdown', function (e) {
+      if (!holder.contains(e.target)) hide();
+    });
+    // Any scroll moves the map under a tooltip placed for where it was. A wheel
+    // scroll fires no pointermove, so for a mouse the next move puts it back.
+    window.addEventListener('scroll', hide, {passive: true});
+    // Close on a real change of width (a phone turned on its side), not on every
+    // resize: iOS fires one when its toolbar slides back in, which a tap near the
+    // bottom of the screen causes, and the tooltip vanished as it appeared.
+    var lastWidth = document.documentElement.clientWidth;
+    window.addEventListener('resize', function () {
+      var w = document.documentElement.clientWidth;
+      if (w !== lastWidth) { lastWidth = w; hide(); }
+    });
+    // Panning or zooming a pinch-zoomed page moves the visible area out from under
+    // the tooltip, and fires no window scroll.
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('scroll', function () {
+        if (lastType === 'touch') hide(); });
+    }
   }).catch(function () {});
   var rows = document.querySelectorAll('.bar-row');
   for (var i = 0; i < rows.length; i++) (function (row) {
@@ -936,7 +1050,7 @@ stories, walls, foundation and condition. This page shows where that is true tod
 
 <div class="card map-wrap">
   <h2>Counties with an observed record source</h2>
-  <p class="sub">Darker means more of the building comes from the record. Hover a county for what its assessor supplies; hover a source in the chart below to find its counties.</p>
+  <p class="sub">Darker means more of the building comes from the record. Hover or tap a county for what its assessor supplies; hover a source in the chart below to find its counties.</p>
   <div id="covmap" role="img" aria-label="Map of US counties shaded by how much of the building record the assessor supplies; the same detail is listed under Counties covered"><noscript><p>The interactive map needs JavaScript; the tables below carry the same information.</p></noscript></div>
   <div class="tip" id="covtip" role="tooltip"></div>
   <div class="legend">{legend}</div>
