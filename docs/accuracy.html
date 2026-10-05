@@ -52,7 +52,7 @@ record-keeping, different sample.</p>
 <tr><td><a href="#dc">Washington, DC</a></td><td>195 of 200</td><td>83.8%</td><td>0</td><td>1.5% &rarr; 85.6%</td><td>56.4% &rarr; 8.2%</td><td>independent</td></tr>
 <tr><td style="padding-left:1.4rem"><a href="#dc-condo">Washington, DC — condominiums</a></td><td>187 of 200</td><td>97.4%</td><td>0</td><td>2.1% &rarr; 99.5%</td><td>65.8% &rarr; 19.8%</td><td>independent</td></tr>
 <tr><td><a href="#allegheny">Allegheny County, Pennsylvania</a></td><td>189 of 200</td><td>81.2%</td><td>0</td><td>2.1% &rarr; 82.5%</td><td>40.7% &rarr; 9.5%</td><td>adapter&rsquo;s own read</td></tr>
-<tr><td><a href="#ca">California — Contra Costa, San Joaquin and Riverside Counties</a></td><td>182 of 200</td><td>64.9%</td><td>0</td><td>5.5% &rarr; 68.7%</td><td>36.3% &rarr; 15.4%</td><td>adapter&rsquo;s own read</td></tr>
+<tr><td><a href="#ca">California — Contra Costa, San Joaquin and Riverside Counties</a></td><td>182 of 200</td><td>89.7%</td><td>0</td><td>5.5% &rarr; 91.8%</td><td>36.3% &rarr; 3.3%</td><td>adapter&rsquo;s own read</td></tr>
 <tr><td><a href="#co">Colorado (Denver metro)</a></td><td>190 of 200</td><td>87.2%</td><td>0</td><td>4.2% &rarr; 90.0%</td><td>38.9% &rarr; 3.2%</td><td>adapter&rsquo;s own read</td></tr>
 <tr><td><a href="#ct">Connecticut</a></td><td>168 of 200</td><td>70.2%</td><td>0</td><td>2.4% &rarr; 72.0%</td><td>55.4% &rarr; 17.9%</td><td>adapter&rsquo;s own read</td></tr>
 <tr><td><a href="#fl">Florida</a></td><td>169 of 203</td><td>64.0%</td><td>0</td><td>3.0% &rarr; 69.8%</td><td>32.5% &rarr; 8.9%</td><td>adapter&rsquo;s own read</td></tr>
@@ -276,9 +276,9 @@ the county's record as the adapter reads it at the parcel itself (see <em>adapte
 <th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
 <th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
 </tr></thead><tbody>
-<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>5.5%</td><td>68.7%</td><td>7.0</td><td>0.0</td><td>182</td></tr>
-<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>44.2%</td><td>76.7%</td><td>142.0</td><td>0.0</td><td>86</td></tr>
-<tr><td>stories</td><td>54.9%</td><td>82.0%</td><td>89.6%</td><td>97.0%</td><td>0.0</td><td>0.0</td><td>122</td></tr>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>5.5%</td><td>91.8%</td><td>7.0</td><td>0.0</td><td>182</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>44.2%</td><td>90.7%</td><td>142.0</td><td>0.0</td><td>86</td></tr>
+<tr><td>stories</td><td>54.9%</td><td>95.9%</td><td>89.6%</td><td>99.1%</td><td>0.0</td><td>0.0</td><td>122</td></tr>
 <tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
 <tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
 <tr><td>condition</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
@@ -286,21 +286,21 @@ the county's record as the adapter reads it at the parcel itself (see <em>adapte
 
 <p><strong>Year built, by tolerance.</strong> The single field the rest of the
 construction profile leans on hardest, so the near-misses are worth seeing rather
-than collapsing into one median: within &plusmn;5 years 41.2% of the time at baseline and 79.1% with the assessor; within &plusmn;10 years 64.3% and 87.4%.</p>
+than collapsing into one median: within &plusmn;5 years 41.2% of the time at baseline and 95.6% with the assessor; within &plusmn;10 years 64.3% and 97.3%.</p>
 
 <h3>Does the reader see a different grade?</h3>
 <div class="table-scroll"><table class="data-table"><thead><tr>
 <th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
 </tr></thead><tbody>
-<tr><td>durability</td><td>29.7%</td><td>10.4%</td><td>182</td></tr>
-<tr><td>energy</td><td>17.0%</td><td>6.0%</td><td>182</td></tr>
-<tr><td>resilience</td><td>6.6%</td><td>2.7%</td><td>182</td></tr>
-<tr><td>environmental</td><td>12.6%</td><td>3.8%</td><td>182</td></tr>
-<tr><td>building_axis</td><td>36.3%</td><td>15.4%</td><td>182</td></tr>
+<tr><td>durability</td><td>29.7%</td><td>1.6%</td><td>182</td></tr>
+<tr><td>energy</td><td>17.0%</td><td>1.1%</td><td>182</td></tr>
+<tr><td>resilience</td><td>6.6%</td><td>1.1%</td><td>182</td></tr>
+<tr><td>environmental</td><td>12.6%</td><td>1.1%</td><td>182</td></tr>
+<tr><td>building_axis</td><td>36.3%</td><td>3.3%</td><td>182</td></tr>
 </tbody></table></div>
 
 <p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
-64.9% of the sample. 95% confidence interval 57.7&ndash;71.4% for the draw.
+89.7% of the sample. 95% confidence interval 84.5&ndash;93.3% for the draw, and 83.8&ndash;90.8% observed across 3 scorings of these same rows. The second range is not sampling error: it is the same addresses scored again. Every upstream failure here fails open, so a portal having a bad minute is indistinguishable from a county with no record, and it removes rows from the numerator silently.
 Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
 a2d67083da00a94e.</p>
 

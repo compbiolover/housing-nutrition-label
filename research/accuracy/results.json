@@ -625,12 +625,18 @@
         "sha256_16": "a2d67083da00a94e"
       },
       "unscored": 3,
-      "adapter_resolved_pct": 64.9,
+      "adapter_resolved_pct": 89.7,
       "resolved_ci95": [
-        57.7,
-        71.4
+        84.5,
+        93.3
       ],
-      "resolved_runs": null,
+      "resolved_runs": {
+        "runs": 3,
+        "min": 83.8,
+        "max": 90.8,
+        "spread": 7.0,
+        "median": 89.7
+      },
       "parcel_mismatches": 0,
       "baseline": {
         "fields": {
@@ -697,22 +703,22 @@
             "n": 182,
             "coverage_pct": 100.0,
             "median_abs_error": 0.0,
-            "exact_pct": 68.7,
-            "within_5yr_pct": 79.1,
-            "within_10yr_pct": 87.4
+            "exact_pct": 91.8,
+            "within_5yr_pct": 95.6,
+            "within_10yr_pct": 97.3
           },
           "sqft": {
             "n": 86,
             "coverage_pct": 100.0,
             "median_abs_error": 0.0,
-            "exact_pct": 76.7,
+            "exact_pct": 90.7,
             "median_abs_pct_error": 0.0
           },
           "stories": {
             "n": 122,
-            "coverage_pct": 82.0,
+            "coverage_pct": 95.9,
             "median_abs_error": 0.0,
-            "exact_pct": 97.0
+            "exact_pct": 99.1
           },
           "construction": {
             "n": 0,
@@ -730,23 +736,23 @@
         "grade_impact": {
           "durability": {
             "n": 182,
-            "differs_pct": 10.4
+            "differs_pct": 1.6
           },
           "energy": {
             "n": 182,
-            "differs_pct": 6.0
+            "differs_pct": 1.1
           },
           "resilience": {
             "n": 182,
-            "differs_pct": 2.7
+            "differs_pct": 1.1
           },
           "environmental": {
             "n": 182,
-            "differs_pct": 3.8
+            "differs_pct": 1.1
           },
           "building_axis": {
             "n": 182,
-            "differs_pct": 15.4
+            "differs_pct": 3.3
           }
         }
       }
