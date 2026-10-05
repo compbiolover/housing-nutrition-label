@@ -318,6 +318,17 @@ def county_names() -> dict[str, str]:
     return dict(re.findall(r'id="c(\d{5})" data-n="([^"]*)"', svg))
 
 
+def _benchmark_for(adapter_key: str) -> str | None:
+    """The accuracy jurisdiction that measures this adapter, read off the
+    benchmark registry rather than restated here — a second list would be the one
+    that was not updated when the next benchmark landed."""
+    from scripts.jurisdictions import JURISDICTIONS
+    for key, cfg in JURISDICTIONS.items():
+        if cfg.get("adapter") == adapter_key and not cfg.get("parent"):
+            return key
+    return None
+
+
 def accuracy_results() -> dict:
     if not RESULTS.exists():
         return {}
@@ -377,7 +388,7 @@ def model() -> dict:
             "since": cfg["since"], "fields": list(cfg["fields"]),
             "depth": depth(cfg["fields"]), "counties": fips, "homes": homes,
         }
-        juris = cfg.get("accuracy")
+        juris = cfg.get("accuracy") or _benchmark_for(key)
         if juris and juris in acc:
             a = acc[juris]
             row["measured"] = {
@@ -555,7 +566,12 @@ def timeline_chart(m: dict) -> str:
 def dumbbells(rows: list[dict], lo_key: str, hi_key: str, unit_note: str,
               better_high: bool) -> str:
     """Baseline → with-assessor, one row per measured jurisdiction."""
-    row_h, label_w, plot_w, pad_r = 46, 180, 320, 30
+    row_h, plot_w, pad_r = 46, 320, 30
+    # Sized to the longest label rather than fixed: a fixed 180 px cut "Chesterfield
+    # and Richmond, VA" down to "sterfield and Richmond, VA" once every adapter had
+    # a measurement. About 7.4 px a character at the 14 px label size, plus the gap.
+    longest = max((len(r["label"]) for r in rows), default=0)
+    label_w = max(180, int(7.4 * longest) + 16)
     w = label_w + plot_w + pad_r
     h = len(rows) * row_h + 38
 
@@ -947,7 +963,7 @@ stories, walls, foundation and condition. This page shows where that is true tod
 
 <div class="card">
   <h2>Does the record make the label more accurate?</h2>
-  <p class="sub">Measured where a benchmark exists: addresses drawn at random, scored from the address alone, compared with the assessor's own record. <a href="accuracy.html">Full methodology and caveats</a>.</p>
+  <p class="sub">Measured where a benchmark exists: homes drawn at random, scored from the address alone, and compared with the assessor's record for that home. Cook County's and DC's references are built from the assessor's tables independently of the adapter; the others are the county's record as the adapter reads it at the parcel itself. <a href="accuracy.html">Full methodology and caveats</a>.</p>
   <div class="key"><span><i style="--k:var(--base)"></i>Modeled</span><span><i style="--k:var(--series)"></i>With the assessor record</span></div>
   <div class="two">
     <div><h3>Year built within ±10 years</h3>{yb}</div>

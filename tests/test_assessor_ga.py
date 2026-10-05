@@ -347,6 +347,17 @@ def test_a_typed_unit_picks_its_own_condominium_parcel():
     assert got is not None and got.parcel_id == "10011 03025" and got.year_built == 1984
 
 
+def test_a_typed_unit_is_never_answered_by_a_sibling_that_lost_its_unit():
+    """Units A and C are filed with their letter, B as the bare address. A reader
+    who typed #D has no parcel here; B is one of the numbered units, not theirs."""
+    bare_b = dict(_S_UNITS[1], PropAddress_Full="111 SAN MARCO DR",
+                  PropAddress_UnitNum="")
+    near = [_S_UNITS[0], bare_b, _S_UNITS[2]]
+    assert _lookup(CHATHAM, [], near=near, address="111 SAN MARCO DR #D, SAVANNAH, GA") is None
+    got = _lookup(CHATHAM, [], near=near, address="111 SAN MARCO DR #C, SAVANNAH, GA")
+    assert got is not None and got.parcel_id == "10011 03026"
+
+
 def test_without_a_unit_the_stacked_units_are_ambiguous():
     assert _lookup(CHATHAM, [], near=_S_UNITS, address="111 SAN MARCO DR, SAVANNAH, GA") is None
     assert _lookup(CHATHAM, _S_UNITS[:2], address="111 SAN MARCO DR, SAVANNAH, GA") is None
@@ -598,3 +609,13 @@ def test_the_second_hop_falling_over_fails_open_too():
 
 def test_no_parcel_at_the_point_is_simply_no_answer():
     assert _lookup(CLAYTON, []) is None
+
+
+def test_a_unit_written_with_its_marker_word_is_the_typed_unit():
+    """Forsyth writes "UNIT 13"; a reader types "#13" or "Unit 13"."""
+    assert ga._same_unit_or_none("UNIT 13", "13")
+    assert ga._same_unit_or_none("#13", "13")
+    assert ga._same_unit_or_none("Apt. 4B", "4b")
+    assert not ga._same_unit_or_none("UNIT 13", "14")
+    assert not ga._same_unit_or_none("UNIT 01", "1")
+    assert ga._same_unit_or_none(None, "13")

@@ -438,8 +438,44 @@ def _parcel_at(lat: float, lon: float, address: str | None = None,
         found = fetched[distance_m]
         return _for_unit(found, unit) if unit else found
 
-    return select_parcel(fetch, _unhyphenated(address),
-                         lambda r: _unhyphenated(r.get("SITEADDR")))
+    chosen = select_parcel(fetch, _unhyphenated(address),
+                           lambda r: _unhyphenated(r.get("SITEADDR")))
+    if chosen is None or not address:
+        return chosen
+    if number and number.isdigit():
+        companions = _shared.arcgis_parcels(
+            TAXLOT_URL, lat, lon, _FIELDS, COMPANION_RADIUS_M, deadline=deadline,
+            read_slice=READ_SLICE_S, where=f"SITEADDR LIKE '{number} WI/%'")
+        if any(_a_built_companion_of(chosen, r) for r in companions):
+            return None
+    return chosen
+
+
+# Multnomah writes a second taxlot that shares a house's address as "7815 WI/ N
+# WABASH AVE" — "with" 7815. 5,805 RLIS taxlots carry it (0.9%), most of them
+# vacant side lots, which change nothing. But some hold their own building: at
+# 7815 N Wabash Ave the "WI/" lot has a 1951 house of 800 sq ft beside the 1927
+# house filed under the plain address. Its resident types "7815 N Wabash Ave" too,
+# and was shown the 1927 house — measured in the 2026-10-04 benchmark. With two
+# buildings answering to one address there is no telling which home was asked
+# about, so the lookup declines.
+#
+# Searched for by address, not within the usual 80 m: the 7815 Wabash pair sit
+# 110 m apart along the street, so the companion was outside the neighborhood the
+# choice itself looks at. The query is filtered to "WI/" lots with this house
+# number, so it returns almost nothing and costs one fast request.
+COMPANION_RADIUS_M = 400
+_WITH_RE = re.compile(r"\bWI/\s*", re.IGNORECASE)
+
+
+def _a_built_companion_of(chosen: dict, row: dict) -> bool:
+    """Whether ``row`` is a "WI/" taxlot at ``chosen``'s address with a building."""
+    site = row.get("SITEADDR") or ""
+    if row is chosen or not _WITH_RE.search(site):
+        return False
+    same = (address_key(_unhyphenated(_WITH_RE.sub("", site)))
+            == address_key(_unhyphenated(chosen.get("SITEADDR"))))
+    return same and bool(_year(row) or num(row.get("BLDGSQFT")))
 
 
 @lru_cache(maxsize=4096)

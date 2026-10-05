@@ -54,6 +54,206 @@ JURISDICTIONS = {
         # to read them, not a license to average them.
         "parent": "dc",
     },
+    # Adapter benchmarks (scripts/benchmark_samplers): homes drawn at random from
+    # each adapter's own source, the reference read through the adapter at the
+    # parcel itself. `sampler` routes build_benchmark.py to that package; `basis`
+    # tells the page which kind of reference a section was graded against.
+    "nj": {
+        "source": "NJOGIS Parcels and MOD-IV Composite of New Jersey",
+        "label": "New Jersey",
+        "scope": "residential (class 2) parcels in all 21 counties, drawn in "
+                 "proportion to each county's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "nj",
+    },
+    "la": {
+        "source": "Los Angeles County Office of the Assessor (LA County eGIS parcels)",
+        "label": "Los Angeles County, California",
+        "scope": "parcels the roll classifies Residential, condominium units "
+                 "included and typed with their unit",
+        "sampler": "adapter", "basis": "adapter", "adapter": "la",
+    },
+    "ca": {
+        "source": "Contra Costa, San Joaquin and Riverside County Assessors",
+        "label": "California — Contra Costa, San Joaquin and Riverside Counties",
+        "scope": "residential parcels and condominium units in the three counties, "
+                 "drawn in proportion to each county's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "ca",
+    },
+    "sf": {
+        "source": "San Francisco Office of the Assessor-Recorder (DataSF secured roll)",
+        "label": "San Francisco, California",
+        "scope": "residential records (single- and multi-family uses, condominium "
+                 "units included) in the latest closed secured roll",
+        "sampler": "adapter", "basis": "adapter", "adapter": "sf",
+    },
+    "nyc": {
+        "source": "NYC Department of City Planning MapPLUTO (Department of Finance)",
+        "label": "New York City",
+        "scope": "tax lots with at least one residential unit in all five boroughs, "
+                 "drawn in proportion to each borough's housing units (a "
+                 "condominium is one billing lot)",
+        "sampler": "adapter", "basis": "adapter", "adapter": "nyc",
+    },
+    "mo": {
+        "source": "Jackson County (MO) Assessment Department Parcel Viewer",
+        "label": "Missouri (Jackson County)",
+        "scope": "dwelling land-use records (houses, townhouses, condominium units, "
+                 "duplexes to apartments) in Jackson County, the one county the "
+                 "adapter serves",
+        "sampler": "adapter", "basis": "adapter", "adapter": "mo",
+    },
+    "co": {
+        "source": "Denver, Jefferson, Adams, Douglas and Boulder county assessors",
+        "label": "Colorado (Denver metro)",
+        "scope": "residential parcels (houses, condominium units, townhouses and "
+                 "multifamily) in the five Denver-metro counties the adapter serves, "
+                 "drawn in proportion to each county's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "co",
+    },
+    "mn": {
+        "source": "MetroGIS Regional Parcel Dataset (Metropolitan Council)",
+        "label": "Minnesota (Twin Cities metro)",
+        "scope": "residential parcels (houses, townhouses, condominium units, "
+                 "duplexes to apartments) in the seven metro counties, drawn in "
+                 "proportion to each county's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "mn",
+    },
+    "tx": {
+        "source": "Texas county appraisal districts (twelve counties' own services)",
+        "label": "Texas (twelve largest-county appraisal districts)",
+        "scope": "residential accounts (state categories A single-family and "
+                 "condominium, B multifamily, M mobile homes) in the twelve counties "
+                 "the adapter serves, drawn in proportion to each county's housing "
+                 "units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "tx",
+    },
+    "ga": {
+        "source": "Fulton, Clayton, Chatham (SAGIS) and Forsyth county parcel layers",
+        "label": "Georgia — Fulton, Clayton, Chatham and Forsyth counties",
+        "scope": "improved residential parcels in the four counties the adapter "
+                 "answers for (19% of Georgia's homes), drawn in proportion to each "
+                 "county's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "ga",
+    },
+    "mi": {
+        "source": "SEMCOG Building Footprints 2024",
+        "label": "Southeast Michigan (SEMCOG's seven counties)",
+        "scope": "live single-family, attached-condo and apartment buildings (not "
+                 "parcels) in Wayne, Oakland, Macomb, Washtenaw, Livingston, St. Clair "
+                 "and Monroe, drawn in proportion to each county's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "mi",
+    },
+    "pdx": {
+        "source": "Oregon Metro RLIS Taxlots (Public)",
+        "label": "Portland metro, Oregon (Multnomah, Washington, Clackamas)",
+        "scope": "residential taxlots (single-family, multi-family and rural "
+                 "residential, condominium units included) in all three counties, "
+                 "drawn in proportion to each county's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "pdx",
+    },
+    "va": {
+        "source": "Chesterfield County Open GIS Data; City of Richmond Assessor",
+        "label": "Virginia — Chesterfield County and the City of Richmond",
+        "scope": "residential assessment records in Chesterfield County and the City "
+                 "of Richmond only, drawn in proportion to each one's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "va",
+    },
+    "ut": {
+        "source": "UGRC Land Information Records parcels (Utah county tax rolls)",
+        "label": "Utah",
+        "scope": "residential parcels with a recorded year built in the 28 counties "
+                 "served, one draw per parcel, in proportion to each county's housing "
+                 "units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "ut",
+    },
+    "pa": {
+        "source": "Montgomery, York, Northampton and Cumberland County (PA) assessment "
+                  "parcel layers",
+        "label": "Pennsylvania (four counties)",
+        "scope": "residential parcels with a recorded year built in Montgomery, York, "
+                 "Northampton and Cumberland counties, drawn in proportion to each "
+                 "county's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "pa",
+    },
+    "oh": {
+        "source": "Ohio county auditors' parcel layers (nine counties)",
+        "label": "Ohio (nine counties)",
+        "scope": "residential, agricultural and apartment parcels with a recorded "
+                 "year built in the nine counties served, drawn in proportion to each "
+                 "county's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "oh",
+    },
+    "ind": {
+        "source": "Vanderburgh County Assessor tax parcels",
+        "label": "Indiana (Vanderburgh County)",
+        "scope": "residential, apartment and farmhouse parcels with a recorded year "
+                 "built in Vanderburgh County",
+        "sampler": "adapter", "basis": "adapter", "adapter": "ind",
+    },
+    "fl": {
+        "source": "Florida Department of Revenue statewide cadastral (county "
+                  "property appraisers' rolls)",
+        "label": "Florida",
+        "scope": "residential parcels (DOR use 001-008) with a dwelling unit and a "
+                 "year built in all 67 counties, drawn in proportion to each "
+                 "county's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "fl",
+    },
+    "ct": {
+        "source": "Connecticut GIS Office statewide CAMA and parcel layer",
+        "label": "Connecticut",
+        "scope": "residential parcels with a year built in all nine planning "
+                 "regions, drawn in proportion to each region's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "ct",
+    },
+    "nc": {
+        "source": "NC OneMap statewide parcels (county tax offices)",
+        "label": "North Carolina — 46 counties",
+        "scope": "parcels the adapter reads as homes with a year built, in the 46 "
+                 "of 100 counties that record one (64% of the state's housing "
+                 "units), drawn in proportion to each county's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "nc",
+    },
+    "md": {
+        "source": "Maryland SDAT assessment data on MD iMAP parcel boundaries",
+        "label": "Maryland",
+        "scope": "residential parcel polygons with a premise address and a year "
+                 "built in all 23 counties and Baltimore City, drawn in proportion "
+                 "to housing units; condominium units filed only as account points "
+                 "(~150,000) are outside it",
+        "sampler": "adapter", "basis": "adapter", "adapter": "md",
+    },
+    "nys": {
+        "source": "NYS ITS Geospatial Services public tax parcels (ORPTS rolls)",
+        "label": "New York State (outside New York City)",
+        "scope": "residential (class 2xx) parcels in the 33 opted-in counties outside "
+                 "New York City, drawn in proportion to each county's housing units; "
+                 "homes the roll gives no year built are counted, not skipped",
+        "sampler": "adapter", "basis": "adapter", "adapter": "nys",
+    },
+    "ma": {
+        "source": "MassGIS Level 3 standardized assessor parcels",
+        "label": "Massachusetts",
+        "scope": "records with a residential DOR use code in all 351 cities and "
+                 "towns (condominium units included, typed with their unit), drawn "
+                 "in proportion to each county's housing units",
+        "sampler": "adapter", "basis": "adapter", "adapter": "ma",
+    },
+    "phl": {
+        "source": "Philadelphia Office of Property Assessment (OpenDataPhilly, Carto)",
+        "label": "Philadelphia, Pennsylvania",
+        "scope": "OPA accounts in the dwelling categories (single family, multi "
+                 "family, mixed use, apartments), condominium units included",
+        "sampler": "adapter", "basis": "adapter", "adapter": "phl",
+    },
+    "allegheny": {
+        "source": "Allegheny County Office of Property Assessments (WPRDC)",
+        "label": "Allegheny County, Pennsylvania",
+        "scope": "roll records with a dwelling land use (houses, townhouses, "
+                 "rowhouses, condominium units, two- to four-family, apartments, "
+                 "farms), placed on the county parcel layer",
+        "sampler": "adapter", "basis": "adapter", "adapter": "allegheny",
+    },
 }
 
 

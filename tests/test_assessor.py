@@ -1109,3 +1109,25 @@ def test_general_and_gen_name_one_street():
     "GENERAL MALONEY CIR"."""
     assert same_address("10 GENERAL MALONEY CIR", "10 GEN MALONEY CIR")
     assert not same_address("10 GENERAL MALONEY CIR", "10 MALONEY CIR")
+
+
+def test_a_direction_the_matcher_drops_hands_the_adapter_the_typed_words():
+    """Utah's grid: typed "3676 S Chippewa Rd" comes back as "3676 CHIPPEWA RD",
+    which no parcel filed "3676 S CHIPPEWA RD" agrees with. The reader's words,
+    which name the direction, are what the parcel must match."""
+    from housing_label.simulate.location import assessor_address
+    typed = "3676 S Chippewa Rd, West Valley City, UT 84120"
+    assert assessor_address("3676 CHIPPEWA RD, WEST VALLEY CITY, UT, 84120", typed) == typed
+    unit = "2511 E REDCLIFF RD # 5-I, UT 84532"
+    assert assessor_address("2511 REDCLIFF RD, MOAB, UT, 84532", unit) == unit
+
+
+def test_a_city_that_starts_with_a_direction_is_not_a_dropped_direction():
+    """Only a direction leading the street name counts. A comma-less city's first
+    word, or a street called North, keeps the matcher's canonical spelling."""
+    from housing_label.simulate.location import assessor_address
+    for matched, typed in (
+            ("123 MAIN ST, WEST VALLEY CITY, UT, 84120", "123 Main St West Valley City UT"),
+            ("123 MAIN ST, NORTH LAS VEGAS, NV", "123 Main St North Las Vegas NV"),
+            ("100 NORTH ST, SPRINGFIELD", "100 North St, Springfield")):
+        assert assessor_address(matched, typed) == matched, typed

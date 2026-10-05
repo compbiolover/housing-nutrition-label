@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-27",
+  "generated": "2026-10-05",
   "jurisdictions": {
     "cook": {
       "benchmark": {
@@ -459,6 +459,3685 @@
           "building_axis": {
             "n": 187,
             "differs_pct": 19.8
+          }
+        }
+      }
+    },
+    "nj": {
+      "benchmark": {
+        "jurisdiction": "nj",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 185,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 15
+        },
+        "source": "NJOGIS Parcels and MOD-IV Composite of New Jersey",
+        "scope": "residential (class 2) parcels in all 21 counties, drawn in proportion to each county's housing units",
+        "assessment_year": "2024",
+        "fetched": "2026-10-04",
+        "rows": 181,
+        "sha256_16": "db48887a520f76a2"
+      },
+      "unscored": 4,
+      "adapter_resolved_pct": 75.1,
+      "resolved_ci95": [
+        68.4,
+        80.8
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 181,
+            "coverage_pct": 100.0,
+            "median_abs_error": 13.0,
+            "exact_pct": 2.2,
+            "within_5yr_pct": 23.2,
+            "within_10yr_pct": 40.3
+          },
+          "sqft": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "stories": {
+            "n": 77,
+            "coverage_pct": 85.7,
+            "median_abs_error": 0.0,
+            "exact_pct": 78.8
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 181,
+            "differs_pct": 34.3
+          },
+          "energy": {
+            "n": 181,
+            "differs_pct": 37.6
+          },
+          "resilience": {
+            "n": 181,
+            "differs_pct": 3.3
+          },
+          "environmental": {
+            "n": 181,
+            "differs_pct": 19.3
+          },
+          "building_axis": {
+            "n": 181,
+            "differs_pct": 43.1
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 181,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 77.3,
+            "within_5yr_pct": 81.8,
+            "within_10yr_pct": 84.0
+          },
+          "sqft": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "stories": {
+            "n": 77,
+            "coverage_pct": 96.1,
+            "median_abs_error": 0.0,
+            "exact_pct": 94.6
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 181,
+            "differs_pct": 13.8
+          },
+          "energy": {
+            "n": 181,
+            "differs_pct": 11.6
+          },
+          "resilience": {
+            "n": 181,
+            "differs_pct": 1.7
+          },
+          "environmental": {
+            "n": 181,
+            "differs_pct": 7.2
+          },
+          "building_axis": {
+            "n": 181,
+            "differs_pct": 15.5
+          }
+        }
+      }
+    },
+    "ca": {
+      "benchmark": {
+        "jurisdiction": "ca",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 185,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 7,
+          "no_year_built": 0,
+          "no_home_record": 8
+        },
+        "source": "Contra Costa, San Joaquin and Riverside County Assessors",
+        "scope": "residential parcels and condominium units in the three counties, drawn in proportion to each county's housing units",
+        "assessment_year": "current",
+        "fetched": "2026-10-04",
+        "rows": 182,
+        "sha256_16": "a2d67083da00a94e"
+      },
+      "unscored": 3,
+      "adapter_resolved_pct": 89.7,
+      "resolved_ci95": [
+        84.5,
+        93.3
+      ],
+      "resolved_runs": {
+        "runs": 3,
+        "min": 83.8,
+        "max": 90.8,
+        "spread": 7.0,
+        "median": 89.7
+      },
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 182,
+            "coverage_pct": 100.0,
+            "median_abs_error": 7.0,
+            "exact_pct": 5.5,
+            "within_5yr_pct": 41.2,
+            "within_10yr_pct": 64.3
+          },
+          "sqft": {
+            "n": 86,
+            "coverage_pct": 100.0,
+            "median_abs_error": 142.0,
+            "exact_pct": 44.2,
+            "median_abs_pct_error": 6.1
+          },
+          "stories": {
+            "n": 122,
+            "coverage_pct": 54.9,
+            "median_abs_error": 0.0,
+            "exact_pct": 89.6
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 182,
+            "differs_pct": 29.7
+          },
+          "energy": {
+            "n": 182,
+            "differs_pct": 17.0
+          },
+          "resilience": {
+            "n": 182,
+            "differs_pct": 6.6
+          },
+          "environmental": {
+            "n": 182,
+            "differs_pct": 12.6
+          },
+          "building_axis": {
+            "n": 182,
+            "differs_pct": 36.3
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 182,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 91.8,
+            "within_5yr_pct": 95.6,
+            "within_10yr_pct": 97.3
+          },
+          "sqft": {
+            "n": 86,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 90.7,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 122,
+            "coverage_pct": 95.9,
+            "median_abs_error": 0.0,
+            "exact_pct": 99.1
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 182,
+            "differs_pct": 1.6
+          },
+          "energy": {
+            "n": 182,
+            "differs_pct": 1.1
+          },
+          "resilience": {
+            "n": 182,
+            "differs_pct": 1.1
+          },
+          "environmental": {
+            "n": 182,
+            "differs_pct": 1.1
+          },
+          "building_axis": {
+            "n": 182,
+            "differs_pct": 3.3
+          }
+        }
+      }
+    },
+    "la": {
+      "benchmark": {
+        "jurisdiction": "la",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 178,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 10,
+          "no_year_built": 0,
+          "no_home_record": 12
+        },
+        "source": "Los Angeles County Office of the Assessor (LA County eGIS parcels)",
+        "scope": "parcels the roll classifies Residential, condominium units included and typed with their unit",
+        "assessment_year": "2026",
+        "fetched": "2026-10-04",
+        "rows": 173,
+        "sha256_16": "d84e909022ec0162"
+      },
+      "unscored": 5,
+      "adapter_resolved_pct": 89.3,
+      "resolved_ci95": [
+        83.9,
+        93.1
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 173,
+            "coverage_pct": 100.0,
+            "median_abs_error": 10.0,
+            "exact_pct": 3.5,
+            "within_5yr_pct": 31.2,
+            "within_10yr_pct": 52.0
+          },
+          "sqft": {
+            "n": 64,
+            "coverage_pct": 100.0,
+            "median_abs_error": 203.5,
+            "exact_pct": 26.6,
+            "median_abs_pct_error": 11.7
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 173,
+            "differs_pct": 19.1
+          },
+          "energy": {
+            "n": 173,
+            "differs_pct": 12.1
+          },
+          "resilience": {
+            "n": 173,
+            "differs_pct": 18.5
+          },
+          "environmental": {
+            "n": 173,
+            "differs_pct": 6.9
+          },
+          "building_axis": {
+            "n": 173,
+            "differs_pct": 39.3
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 173,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 91.9,
+            "within_5yr_pct": 95.4,
+            "within_10yr_pct": 96.5
+          },
+          "sqft": {
+            "n": 64,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 92.2,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 173,
+            "differs_pct": 2.3
+          },
+          "energy": {
+            "n": 173,
+            "differs_pct": 1.7
+          },
+          "resilience": {
+            "n": 173,
+            "differs_pct": 1.2
+          },
+          "environmental": {
+            "n": 173,
+            "differs_pct": 1.2
+          },
+          "building_axis": {
+            "n": 173,
+            "differs_pct": 3.5
+          }
+        }
+      }
+    },
+    "nyc": {
+      "benchmark": {
+        "jurisdiction": "nyc",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 200,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 0
+        },
+        "source": "NYC Department of City Planning MapPLUTO (Department of Finance)",
+        "scope": "tax lots with at least one residential unit in all five boroughs, drawn in proportion to each borough's housing units (a condominium is one billing lot)",
+        "assessment_year": "26v2",
+        "fetched": "2026-10-04",
+        "rows": 198,
+        "sha256_16": "4d51eab983da5247"
+      },
+      "unscored": 2,
+      "adapter_resolved_pct": 96.0,
+      "resolved_ci95": [
+        92.3,
+        98.0
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 198,
+            "coverage_pct": 100.0,
+            "median_abs_error": 27.0,
+            "exact_pct": 2.5,
+            "within_5yr_pct": 16.7,
+            "within_10yr_pct": 29.8
+          },
+          "sqft": {
+            "n": 4,
+            "coverage_pct": 100.0,
+            "median_abs_error": 2.5,
+            "exact_pct": 50.0,
+            "median_abs_pct_error": 0.1
+          },
+          "stories": {
+            "n": 43,
+            "coverage_pct": 55.8,
+            "median_abs_error": 1.0,
+            "exact_pct": 41.7
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 93,
+            "coverage_pct": 100.0,
+            "exact_pct": 67.7
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 198,
+            "differs_pct": 26.3
+          },
+          "energy": {
+            "n": 198,
+            "differs_pct": 30.8
+          },
+          "resilience": {
+            "n": 198,
+            "differs_pct": 10.1
+          },
+          "environmental": {
+            "n": 198,
+            "differs_pct": 19.2
+          },
+          "building_axis": {
+            "n": 198,
+            "differs_pct": 30.3
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 198,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 97.0,
+            "within_5yr_pct": 98.0,
+            "within_10yr_pct": 98.0
+          },
+          "sqft": {
+            "n": 4,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 100.0,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 43,
+            "coverage_pct": 97.7,
+            "median_abs_error": 0.0,
+            "exact_pct": 100.0
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 93,
+            "coverage_pct": 100.0,
+            "exact_pct": 98.9
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 198,
+            "differs_pct": 0.0
+          },
+          "energy": {
+            "n": 198,
+            "differs_pct": 0.5
+          },
+          "resilience": {
+            "n": 198,
+            "differs_pct": 0.5
+          },
+          "environmental": {
+            "n": 198,
+            "differs_pct": 0.0
+          },
+          "building_axis": {
+            "n": 198,
+            "differs_pct": 0.5
+          }
+        }
+      }
+    },
+    "sf": {
+      "benchmark": {
+        "jurisdiction": "sf",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 184,
+        "dropped": {
+          "no_parcel_record": 1,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 15
+        },
+        "source": "San Francisco Office of the Assessor-Recorder (DataSF secured roll)",
+        "scope": "residential records (single- and multi-family uses, condominium units included) in the latest closed secured roll",
+        "assessment_year": "2025",
+        "fetched": "2026-10-04",
+        "rows": 184,
+        "sha256_16": "38e0e2eccf21bdc5"
+      },
+      "unscored": 0,
+      "adapter_resolved_pct": 97.8,
+      "resolved_ci95": [
+        94.5,
+        99.2
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 184,
+            "coverage_pct": 100.0,
+            "median_abs_error": 17.5,
+            "exact_pct": 3.8,
+            "within_5yr_pct": 20.1,
+            "within_10yr_pct": 31.0
+          },
+          "sqft": {
+            "n": 34,
+            "coverage_pct": 100.0,
+            "median_abs_error": 414.0,
+            "exact_pct": 32.4,
+            "median_abs_pct_error": 19.8
+          },
+          "stories": {
+            "n": 117,
+            "coverage_pct": 82.9,
+            "median_abs_error": 1.0,
+            "exact_pct": 43.3
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 184,
+            "differs_pct": 10.3
+          },
+          "energy": {
+            "n": 184,
+            "differs_pct": 8.7
+          },
+          "resilience": {
+            "n": 184,
+            "differs_pct": 16.3
+          },
+          "environmental": {
+            "n": 184,
+            "differs_pct": 16.3
+          },
+          "building_axis": {
+            "n": 184,
+            "differs_pct": 22.8
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 184,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 97.8,
+            "within_5yr_pct": 98.4,
+            "within_10yr_pct": 98.9
+          },
+          "sqft": {
+            "n": 34,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 100.0,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 117,
+            "coverage_pct": 99.1,
+            "median_abs_error": 0.0,
+            "exact_pct": 99.1
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 184,
+            "differs_pct": 0.5
+          },
+          "energy": {
+            "n": 184,
+            "differs_pct": 0.5
+          },
+          "resilience": {
+            "n": 184,
+            "differs_pct": 1.1
+          },
+          "environmental": {
+            "n": 184,
+            "differs_pct": 0.5
+          },
+          "building_axis": {
+            "n": 184,
+            "differs_pct": 0.5
+          }
+        }
+      }
+    },
+    "tx": {
+      "benchmark": {
+        "jurisdiction": "tx",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 197,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 3
+        },
+        "source": "Texas county appraisal districts (twelve counties' own services)",
+        "scope": "residential accounts (state categories A single-family and condominium, B multifamily, M mobile homes) in the twelve counties the adapter serves, drawn in proportion to each county's housing units",
+        "assessment_year": "current",
+        "fetched": "2026-10-04",
+        "rows": 190,
+        "sha256_16": "6ae3b403b15f6be2"
+      },
+      "unscored": 7,
+      "adapter_resolved_pct": 82.7,
+      "resolved_ci95": [
+        76.9,
+        87.4
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 190,
+            "coverage_pct": 100.0,
+            "median_abs_error": 7.0,
+            "exact_pct": 6.8,
+            "within_5yr_pct": 41.6,
+            "within_10yr_pct": 70.0
+          },
+          "sqft": {
+            "n": 130,
+            "coverage_pct": 100.0,
+            "median_abs_error": 240.0,
+            "exact_pct": 16.2,
+            "median_abs_pct_error": 11.4
+          },
+          "stories": {
+            "n": 49,
+            "coverage_pct": 91.8,
+            "median_abs_error": 0.0,
+            "exact_pct": 80.0
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 190,
+            "differs_pct": 25.3
+          },
+          "energy": {
+            "n": 190,
+            "differs_pct": 15.8
+          },
+          "resilience": {
+            "n": 190,
+            "differs_pct": 2.6
+          },
+          "environmental": {
+            "n": 190,
+            "differs_pct": 5.8
+          },
+          "building_axis": {
+            "n": 190,
+            "differs_pct": 29.5
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 190,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 85.8,
+            "within_5yr_pct": 91.1,
+            "within_10yr_pct": 96.8
+          },
+          "sqft": {
+            "n": 130,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 86.2,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 49,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 95.9
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 190,
+            "differs_pct": 4.2
+          },
+          "energy": {
+            "n": 190,
+            "differs_pct": 1.6
+          },
+          "resilience": {
+            "n": 190,
+            "differs_pct": 0.5
+          },
+          "environmental": {
+            "n": 190,
+            "differs_pct": 1.6
+          },
+          "building_axis": {
+            "n": 190,
+            "differs_pct": 2.6
+          }
+        }
+      }
+    },
+    "co": {
+      "benchmark": {
+        "jurisdiction": "co",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 196,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 1,
+          "no_year_built": 0,
+          "no_home_record": 3
+        },
+        "source": "Denver, Jefferson, Adams, Douglas and Boulder county assessors",
+        "scope": "residential parcels (houses, condominium units, townhouses and multifamily) in the five Denver-metro counties the adapter serves, drawn in proportion to each county's housing units",
+        "assessment_year": "current",
+        "fetched": "2026-10-04",
+        "rows": 190,
+        "sha256_16": "0a5020fe2746aa04"
+      },
+      "unscored": 6,
+      "adapter_resolved_pct": 87.2,
+      "resolved_ci95": [
+        81.8,
+        91.2
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 190,
+            "coverage_pct": 100.0,
+            "median_abs_error": 7.0,
+            "exact_pct": 4.2,
+            "within_5yr_pct": 38.9,
+            "within_10yr_pct": 62.6
+          },
+          "sqft": {
+            "n": 111,
+            "coverage_pct": 100.0,
+            "median_abs_error": 148.0,
+            "exact_pct": 34.2,
+            "median_abs_pct_error": 6.1
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 90,
+            "coverage_pct": 100.0,
+            "exact_pct": 82.2
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 23,
+            "coverage_pct": 100.0,
+            "exact_pct": 17.4
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 190,
+            "differs_pct": 31.6
+          },
+          "energy": {
+            "n": 190,
+            "differs_pct": 29.5
+          },
+          "resilience": {
+            "n": 190,
+            "differs_pct": 3.2
+          },
+          "environmental": {
+            "n": 190,
+            "differs_pct": 22.6
+          },
+          "building_axis": {
+            "n": 190,
+            "differs_pct": 38.9
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 190,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 90.0,
+            "within_5yr_pct": 94.2,
+            "within_10yr_pct": 95.8
+          },
+          "sqft": {
+            "n": 111,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 93.7,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 90,
+            "coverage_pct": 100.0,
+            "exact_pct": 96.7
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 23,
+            "coverage_pct": 100.0,
+            "exact_pct": 91.3
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 190,
+            "differs_pct": 3.2
+          },
+          "energy": {
+            "n": 190,
+            "differs_pct": 2.1
+          },
+          "resilience": {
+            "n": 190,
+            "differs_pct": 0.5
+          },
+          "environmental": {
+            "n": 190,
+            "differs_pct": 1.1
+          },
+          "building_axis": {
+            "n": 190,
+            "differs_pct": 3.2
+          }
+        }
+      }
+    },
+    "mn": {
+      "benchmark": {
+        "jurisdiction": "mn",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 197,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 3
+        },
+        "source": "MetroGIS Regional Parcel Dataset (Metropolitan Council)",
+        "scope": "residential parcels (houses, townhouses, condominium units, duplexes to apartments) in the seven metro counties, drawn in proportion to each county's housing units",
+        "assessment_year": "current",
+        "fetched": "2026-10-04",
+        "rows": 190,
+        "sha256_16": "1c15796fa177c61c"
+      },
+      "unscored": 7,
+      "adapter_resolved_pct": 81.7,
+      "resolved_ci95": [
+        75.7,
+        86.5
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 190,
+            "coverage_pct": 100.0,
+            "median_abs_error": 9.5,
+            "exact_pct": 1.1,
+            "within_5yr_pct": 35.8,
+            "within_10yr_pct": 53.7
+          },
+          "sqft": {
+            "n": 85,
+            "coverage_pct": 100.0,
+            "median_abs_error": 177.0,
+            "exact_pct": 29.4,
+            "median_abs_pct_error": 9.4
+          },
+          "stories": {
+            "n": 53,
+            "coverage_pct": 96.2,
+            "median_abs_error": 0.0,
+            "exact_pct": 80.4
+          },
+          "construction": {
+            "n": 17,
+            "coverage_pct": 100.0,
+            "exact_pct": 88.2
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 190,
+            "differs_pct": 25.8
+          },
+          "energy": {
+            "n": 190,
+            "differs_pct": 33.2
+          },
+          "resilience": {
+            "n": 190,
+            "differs_pct": 0.5
+          },
+          "environmental": {
+            "n": 190,
+            "differs_pct": 21.6
+          },
+          "building_axis": {
+            "n": 190,
+            "differs_pct": 30.0
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 190,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 84.7,
+            "within_5yr_pct": 88.9,
+            "within_10yr_pct": 91.1
+          },
+          "sqft": {
+            "n": 85,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 78.8,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 53,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 94.3
+          },
+          "construction": {
+            "n": 17,
+            "coverage_pct": 100.0,
+            "exact_pct": 94.1
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 190,
+            "differs_pct": 3.7
+          },
+          "energy": {
+            "n": 190,
+            "differs_pct": 7.9
+          },
+          "resilience": {
+            "n": 190,
+            "differs_pct": 0.0
+          },
+          "environmental": {
+            "n": 190,
+            "differs_pct": 3.7
+          },
+          "building_axis": {
+            "n": 190,
+            "differs_pct": 5.3
+          }
+        }
+      }
+    },
+    "ct": {
+      "benchmark": {
+        "jurisdiction": "ct",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 171,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 29
+        },
+        "source": "Connecticut GIS Office statewide CAMA and parcel layer",
+        "scope": "residential parcels with a year built in all nine planning regions, drawn in proportion to each region's housing units",
+        "assessment_year": "2026",
+        "fetched": "2026-10-04",
+        "rows": 168,
+        "sha256_16": "d468b944d878dc8d"
+      },
+      "unscored": 3,
+      "adapter_resolved_pct": 70.2,
+      "resolved_ci95": [
+        62.9,
+        76.5
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 168,
+            "coverage_pct": 100.0,
+            "median_abs_error": 15.0,
+            "exact_pct": 2.4,
+            "within_5yr_pct": 22.0,
+            "within_10yr_pct": 37.5
+          },
+          "sqft": {
+            "n": 116,
+            "coverage_pct": 100.0,
+            "median_abs_error": 260.5,
+            "exact_pct": 31.9,
+            "median_abs_pct_error": 18.7
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 168,
+            "differs_pct": 34.5
+          },
+          "energy": {
+            "n": 168,
+            "differs_pct": 40.5
+          },
+          "resilience": {
+            "n": 168,
+            "differs_pct": 1.2
+          },
+          "environmental": {
+            "n": 168,
+            "differs_pct": 28.0
+          },
+          "building_axis": {
+            "n": 168,
+            "differs_pct": 55.4
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 168,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 72.0,
+            "within_5yr_pct": 78.6,
+            "within_10yr_pct": 85.1
+          },
+          "sqft": {
+            "n": 116,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 75.0,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 168,
+            "differs_pct": 10.1
+          },
+          "energy": {
+            "n": 168,
+            "differs_pct": 13.1
+          },
+          "resilience": {
+            "n": 168,
+            "differs_pct": 0.6
+          },
+          "environmental": {
+            "n": 168,
+            "differs_pct": 9.5
+          },
+          "building_axis": {
+            "n": 168,
+            "differs_pct": 17.9
+          }
+        }
+      }
+    },
+    "mo": {
+      "benchmark": {
+        "jurisdiction": "mo",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 198,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 2
+        },
+        "source": "Jackson County (MO) Assessment Department Parcel Viewer",
+        "scope": "dwelling land-use records (houses, townhouses, condominium units, duplexes to apartments) in Jackson County, the one county the adapter serves",
+        "assessment_year": "2024",
+        "fetched": "2026-10-04",
+        "rows": 196,
+        "sha256_16": "0dbff6323683458b"
+      },
+      "unscored": 2,
+      "adapter_resolved_pct": 78.8,
+      "resolved_ci95": [
+        72.6,
+        83.9
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 196,
+            "coverage_pct": 100.0,
+            "median_abs_error": 10.0,
+            "exact_pct": 2.0,
+            "within_5yr_pct": 32.1,
+            "within_10yr_pct": 52.6
+          },
+          "sqft": {
+            "n": 158,
+            "coverage_pct": 100.0,
+            "median_abs_error": 242.5,
+            "exact_pct": 15.8,
+            "median_abs_pct_error": 15.8
+          },
+          "stories": {
+            "n": 182,
+            "coverage_pct": 90.7,
+            "median_abs_error": 0.0,
+            "exact_pct": 69.7
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 196,
+            "differs_pct": 18.4
+          },
+          "energy": {
+            "n": 196,
+            "differs_pct": 30.6
+          },
+          "resilience": {
+            "n": 196,
+            "differs_pct": 0.5
+          },
+          "environmental": {
+            "n": 196,
+            "differs_pct": 28.1
+          },
+          "building_axis": {
+            "n": 196,
+            "differs_pct": 28.1
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 196,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 80.6,
+            "within_5yr_pct": 85.7,
+            "within_10yr_pct": 91.3
+          },
+          "sqft": {
+            "n": 158,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 81.6,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 182,
+            "coverage_pct": 97.8,
+            "median_abs_error": 0.0,
+            "exact_pct": 93.8
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 196,
+            "differs_pct": 4.1
+          },
+          "energy": {
+            "n": 196,
+            "differs_pct": 5.6
+          },
+          "resilience": {
+            "n": 196,
+            "differs_pct": 0.0
+          },
+          "environmental": {
+            "n": 196,
+            "differs_pct": 5.6
+          },
+          "building_axis": {
+            "n": 196,
+            "differs_pct": 5.1
+          }
+        }
+      }
+    },
+    "mi": {
+      "benchmark": {
+        "jurisdiction": "mi",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 191,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 9
+        },
+        "source": "SEMCOG Building Footprints 2024",
+        "scope": "live single-family, attached-condo and apartment buildings (not parcels) in Wayne, Oakland, Macomb, Washtenaw, Livingston, St. Clair and Monroe, drawn in proportion to each county's housing units",
+        "assessment_year": "2024",
+        "fetched": "2026-10-04",
+        "rows": 190,
+        "sha256_16": "af02a75f72e38d5b"
+      },
+      "unscored": 1,
+      "adapter_resolved_pct": 96.3,
+      "resolved_ci95": [
+        92.6,
+        98.2
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 190,
+            "coverage_pct": 100.0,
+            "median_abs_error": 9.0,
+            "exact_pct": 5.3,
+            "within_5yr_pct": 35.3,
+            "within_10yr_pct": 54.2
+          },
+          "sqft": {
+            "n": 137,
+            "coverage_pct": 100.0,
+            "median_abs_error": 176.0,
+            "exact_pct": 19.0,
+            "median_abs_pct_error": 13.3
+          },
+          "stories": {
+            "n": 153,
+            "coverage_pct": 87.6,
+            "median_abs_error": 0.0,
+            "exact_pct": 67.9
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 190,
+            "differs_pct": 23.2
+          },
+          "energy": {
+            "n": 190,
+            "differs_pct": 33.2
+          },
+          "resilience": {
+            "n": 190,
+            "differs_pct": 0.5
+          },
+          "environmental": {
+            "n": 190,
+            "differs_pct": 27.4
+          },
+          "building_axis": {
+            "n": 190,
+            "differs_pct": 27.4
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 190,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 96.8,
+            "within_5yr_pct": 98.4,
+            "within_10yr_pct": 98.4
+          },
+          "sqft": {
+            "n": 137,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 96.4,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 153,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 99.3
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 190,
+            "differs_pct": 1.6
+          },
+          "energy": {
+            "n": 190,
+            "differs_pct": 2.6
+          },
+          "resilience": {
+            "n": 190,
+            "differs_pct": 0.0
+          },
+          "environmental": {
+            "n": 190,
+            "differs_pct": 1.6
+          },
+          "building_axis": {
+            "n": 190,
+            "differs_pct": 1.6
+          }
+        }
+      }
+    },
+    "va": {
+      "benchmark": {
+        "jurisdiction": "va",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 198,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 2
+        },
+        "source": "Chesterfield County Open GIS Data; City of Richmond Assessor",
+        "scope": "residential assessment records in Chesterfield County and the City of Richmond only, drawn in proportion to each one's housing units",
+        "assessment_year": "2025-2026 by locality (Chesterfield 2026, Richmond 2025)",
+        "fetched": "2026-10-04",
+        "rows": 190,
+        "sha256_16": "0ed594fd7c535280"
+      },
+      "unscored": 8,
+      "adapter_resolved_pct": 82.3,
+      "resolved_ci95": [
+        76.4,
+        87.0
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 190,
+            "coverage_pct": 100.0,
+            "median_abs_error": 10.0,
+            "exact_pct": 1.6,
+            "within_5yr_pct": 32.1,
+            "within_10yr_pct": 51.1
+          },
+          "sqft": {
+            "n": 150,
+            "coverage_pct": 100.0,
+            "median_abs_error": 176.5,
+            "exact_pct": 24.7,
+            "median_abs_pct_error": 10.0
+          },
+          "stories": {
+            "n": 134,
+            "coverage_pct": 90.3,
+            "median_abs_error": 0.0,
+            "exact_pct": 83.5
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 76,
+            "coverage_pct": 100.0,
+            "exact_pct": 46.1
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 190,
+            "differs_pct": 37.9
+          },
+          "energy": {
+            "n": 190,
+            "differs_pct": 29.5
+          },
+          "resilience": {
+            "n": 190,
+            "differs_pct": 0.5
+          },
+          "environmental": {
+            "n": 190,
+            "differs_pct": 24.2
+          },
+          "building_axis": {
+            "n": 190,
+            "differs_pct": 48.4
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 190,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 85.8,
+            "within_5yr_pct": 88.4,
+            "within_10yr_pct": 93.2
+          },
+          "sqft": {
+            "n": 150,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 86.0,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 134,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 97.0
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 76,
+            "coverage_pct": 100.0,
+            "exact_pct": 94.7
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 190,
+            "differs_pct": 7.4
+          },
+          "energy": {
+            "n": 190,
+            "differs_pct": 6.8
+          },
+          "resilience": {
+            "n": 190,
+            "differs_pct": 0.0
+          },
+          "environmental": {
+            "n": 190,
+            "differs_pct": 4.7
+          },
+          "building_axis": {
+            "n": 190,
+            "differs_pct": 8.9
+          }
+        }
+      }
+    },
+    "ma": {
+      "benchmark": {
+        "jurisdiction": "ma",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 190,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 10
+        },
+        "source": "MassGIS Level 3 standardized assessor parcels",
+        "scope": "records with a residential DOR use code in all 351 cities and towns (condominium units included, typed with their unit), drawn in proportion to each county's housing units",
+        "assessment_year": "FY2026",
+        "fetched": "2026-10-04",
+        "rows": 185,
+        "sha256_16": "f5451867e57d7d62"
+      },
+      "unscored": 5,
+      "adapter_resolved_pct": 81.1,
+      "resolved_ci95": [
+        74.9,
+        86.0
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 185,
+            "coverage_pct": 100.0,
+            "median_abs_error": 20.0,
+            "exact_pct": 1.6,
+            "within_5yr_pct": 17.3,
+            "within_10yr_pct": 30.8
+          },
+          "sqft": {
+            "n": 115,
+            "coverage_pct": 100.0,
+            "median_abs_error": 290.0,
+            "exact_pct": 31.3,
+            "median_abs_pct_error": 17.1
+          },
+          "stories": {
+            "n": 101,
+            "coverage_pct": 95.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 64.6
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 185,
+            "differs_pct": 37.8
+          },
+          "energy": {
+            "n": 185,
+            "differs_pct": 37.3
+          },
+          "resilience": {
+            "n": 185,
+            "differs_pct": 2.2
+          },
+          "environmental": {
+            "n": 185,
+            "differs_pct": 28.6
+          },
+          "building_axis": {
+            "n": 185,
+            "differs_pct": 38.9
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 185,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 83.2,
+            "within_5yr_pct": 84.3,
+            "within_10yr_pct": 87.6
+          },
+          "sqft": {
+            "n": 115,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 84.3,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 101,
+            "coverage_pct": 99.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 94.0
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 185,
+            "differs_pct": 7.6
+          },
+          "energy": {
+            "n": 185,
+            "differs_pct": 8.1
+          },
+          "resilience": {
+            "n": 185,
+            "differs_pct": 0.0
+          },
+          "environmental": {
+            "n": 185,
+            "differs_pct": 6.5
+          },
+          "building_axis": {
+            "n": 185,
+            "differs_pct": 8.1
+          }
+        }
+      }
+    },
+    "nys": {
+      "benchmark": {
+        "jurisdiction": "nys",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 138,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 62
+        },
+        "source": "NYS ITS Geospatial Services public tax parcels (ORPTS rolls)",
+        "scope": "residential (class 2xx) parcels in the 33 opted-in counties outside New York City, drawn in proportion to each county's housing units; homes the roll gives no year built are counted, not skipped",
+        "assessment_year": "2025",
+        "fetched": "2026-10-04",
+        "rows": 131,
+        "sha256_16": "bbefba603570d38b"
+      },
+      "unscored": 7,
+      "adapter_resolved_pct": 66.7,
+      "resolved_ci95": [
+        58.4,
+        74.0
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 131,
+            "coverage_pct": 100.0,
+            "median_abs_error": 17.0,
+            "exact_pct": 1.5,
+            "within_5yr_pct": 25.2,
+            "within_10yr_pct": 39.7
+          },
+          "sqft": {
+            "n": 81,
+            "coverage_pct": 100.0,
+            "median_abs_error": 237.0,
+            "exact_pct": 24.7,
+            "median_abs_pct_error": 12.5
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 131,
+            "differs_pct": 22.1
+          },
+          "energy": {
+            "n": 131,
+            "differs_pct": 45.8
+          },
+          "resilience": {
+            "n": 131,
+            "differs_pct": 1.5
+          },
+          "environmental": {
+            "n": 131,
+            "differs_pct": 16.0
+          },
+          "building_axis": {
+            "n": 131,
+            "differs_pct": 44.3
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 131,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 71.0,
+            "within_5yr_pct": 76.3,
+            "within_10yr_pct": 80.9
+          },
+          "sqft": {
+            "n": 81,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 67.9,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 131,
+            "differs_pct": 9.2
+          },
+          "energy": {
+            "n": 131,
+            "differs_pct": 17.6
+          },
+          "resilience": {
+            "n": 131,
+            "differs_pct": 0.0
+          },
+          "environmental": {
+            "n": 131,
+            "differs_pct": 6.9
+          },
+          "building_axis": {
+            "n": 131,
+            "differs_pct": 16.8
+          }
+        }
+      }
+    },
+    "phl": {
+      "benchmark": {
+        "jurisdiction": "phl",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 199,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 1
+        },
+        "source": "Philadelphia Office of Property Assessment (OpenDataPhilly, Carto)",
+        "scope": "OPA accounts in the dwelling categories (single family, multi family, mixed use, apartments), condominium units included",
+        "assessment_year": "current",
+        "fetched": "2026-10-04",
+        "rows": 197,
+        "sha256_16": "6ea589ba92d5927e"
+      },
+      "unscored": 2,
+      "adapter_resolved_pct": 84.9,
+      "resolved_ci95": [
+        79.3,
+        89.2
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 197,
+            "coverage_pct": 100.0,
+            "median_abs_error": 13.0,
+            "exact_pct": 1.0,
+            "within_5yr_pct": 25.9,
+            "within_10yr_pct": 36.5
+          },
+          "sqft": {
+            "n": 13,
+            "coverage_pct": 100.0,
+            "median_abs_error": 248.0,
+            "exact_pct": 7.7,
+            "median_abs_pct_error": 16.3
+          },
+          "stories": {
+            "n": 141,
+            "coverage_pct": 38.3,
+            "median_abs_error": 0.0,
+            "exact_pct": 81.5
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 120,
+            "coverage_pct": 100.0,
+            "exact_pct": 25.8
+          },
+          "condition": {
+            "n": 189,
+            "coverage_pct": 100.0,
+            "exact_pct": 78.3
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 197,
+            "differs_pct": 27.4
+          },
+          "energy": {
+            "n": 197,
+            "differs_pct": 21.3
+          },
+          "resilience": {
+            "n": 197,
+            "differs_pct": 5.1
+          },
+          "environmental": {
+            "n": 197,
+            "differs_pct": 24.9
+          },
+          "building_axis": {
+            "n": 197,
+            "differs_pct": 35.0
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 197,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 86.3,
+            "within_5yr_pct": 91.4,
+            "within_10yr_pct": 92.9
+          },
+          "sqft": {
+            "n": 13,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 76.9,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 141,
+            "coverage_pct": 90.8,
+            "median_abs_error": 0.0,
+            "exact_pct": 99.2
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 120,
+            "coverage_pct": 100.0,
+            "exact_pct": 90.0
+          },
+          "condition": {
+            "n": 189,
+            "coverage_pct": 100.0,
+            "exact_pct": 92.6
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 197,
+            "differs_pct": 5.1
+          },
+          "energy": {
+            "n": 197,
+            "differs_pct": 2.5
+          },
+          "resilience": {
+            "n": 197,
+            "differs_pct": 0.5
+          },
+          "environmental": {
+            "n": 197,
+            "differs_pct": 3.6
+          },
+          "building_axis": {
+            "n": 197,
+            "differs_pct": 8.1
+          }
+        }
+      }
+    },
+    "nc": {
+      "benchmark": {
+        "jurisdiction": "nc",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 192,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 1,
+          "no_year_built": 0,
+          "no_home_record": 7
+        },
+        "source": "NC OneMap statewide parcels (county tax offices)",
+        "scope": "parcels the adapter reads as homes with a year built, in the 46 of 100 counties that record one (64% of the state's housing units), drawn in proportion to each county's housing units",
+        "assessment_year": "current",
+        "fetched": "2026-10-04",
+        "rows": 185,
+        "sha256_16": "9a228b28d6c8750d"
+      },
+      "unscored": 7,
+      "adapter_resolved_pct": 71.9,
+      "resolved_ci95": [
+        65.1,
+        77.8
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 185,
+            "coverage_pct": 100.0,
+            "median_abs_error": 11.0,
+            "exact_pct": 2.7,
+            "within_5yr_pct": 29.7,
+            "within_10yr_pct": 48.1
+          },
+          "sqft": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 185,
+            "differs_pct": 32.4
+          },
+          "energy": {
+            "n": 185,
+            "differs_pct": 28.1
+          },
+          "resilience": {
+            "n": 185,
+            "differs_pct": 1.1
+          },
+          "environmental": {
+            "n": 185,
+            "differs_pct": 11.4
+          },
+          "building_axis": {
+            "n": 185,
+            "differs_pct": 50.8
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 185,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 74.6,
+            "within_5yr_pct": 80.0,
+            "within_10yr_pct": 87.0
+          },
+          "sqft": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 185,
+            "differs_pct": 7.6
+          },
+          "energy": {
+            "n": 185,
+            "differs_pct": 8.1
+          },
+          "resilience": {
+            "n": 185,
+            "differs_pct": 0.5
+          },
+          "environmental": {
+            "n": 185,
+            "differs_pct": 2.7
+          },
+          "building_axis": {
+            "n": 185,
+            "differs_pct": 13.5
+          }
+        }
+      }
+    },
+    "ga": {
+      "benchmark": {
+        "jurisdiction": "ga",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 165,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 35
+        },
+        "source": "Fulton, Clayton, Chatham (SAGIS) and Forsyth county parcel layers",
+        "scope": "improved residential parcels in the four counties the adapter answers for (19% of Georgia's homes), drawn in proportion to each county's housing units",
+        "assessment_year": "2024-2026 by county (Fulton 2026, Chatham 2025, Forsyth 2024, Clayton current)",
+        "fetched": "2026-10-04",
+        "rows": 158,
+        "sha256_16": "5bdcf0e953aa4094"
+      },
+      "unscored": 7,
+      "adapter_resolved_pct": 77.0,
+      "resolved_ci95": [
+        70.0,
+        82.7
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 158,
+            "coverage_pct": 100.0,
+            "median_abs_error": 8.0,
+            "exact_pct": 3.8,
+            "within_5yr_pct": 39.2,
+            "within_10yr_pct": 60.8
+          },
+          "sqft": {
+            "n": 35,
+            "coverage_pct": 100.0,
+            "median_abs_error": 163.0,
+            "exact_pct": 22.9,
+            "median_abs_pct_error": 11.6
+          },
+          "stories": {
+            "n": 105,
+            "coverage_pct": 90.5,
+            "median_abs_error": 0.0,
+            "exact_pct": 77.9
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 158,
+            "differs_pct": 27.8
+          },
+          "energy": {
+            "n": 158,
+            "differs_pct": 24.1
+          },
+          "resilience": {
+            "n": 158,
+            "differs_pct": 1.3
+          },
+          "environmental": {
+            "n": 158,
+            "differs_pct": 15.8
+          },
+          "building_axis": {
+            "n": 158,
+            "differs_pct": 43.0
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 158,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 81.0,
+            "within_5yr_pct": 86.7,
+            "within_10yr_pct": 91.8
+          },
+          "sqft": {
+            "n": 35,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 94.3,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 105,
+            "coverage_pct": 99.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 95.2
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 158,
+            "differs_pct": 5.1
+          },
+          "energy": {
+            "n": 158,
+            "differs_pct": 3.8
+          },
+          "resilience": {
+            "n": 158,
+            "differs_pct": 0.0
+          },
+          "environmental": {
+            "n": 158,
+            "differs_pct": 4.4
+          },
+          "building_axis": {
+            "n": 158,
+            "differs_pct": 10.1
+          }
+        }
+      }
+    },
+    "md": {
+      "benchmark": {
+        "jurisdiction": "md",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 199,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 1
+        },
+        "source": "Maryland SDAT assessment data on MD iMAP parcel boundaries",
+        "scope": "residential parcel polygons with a premise address and a year built in all 23 counties and Baltimore City, drawn in proportion to housing units; condominium units filed only as account points (~150,000) are outside it",
+        "assessment_year": "2026",
+        "fetched": "2026-10-04",
+        "rows": 192,
+        "sha256_16": "56262715d4ffdbcb"
+      },
+      "unscored": 7,
+      "adapter_resolved_pct": 78.4,
+      "resolved_ci95": [
+        72.2,
+        83.5
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 192,
+            "coverage_pct": 100.0,
+            "median_abs_error": 10.0,
+            "exact_pct": 3.1,
+            "within_5yr_pct": 34.9,
+            "within_10yr_pct": 51.6
+          },
+          "sqft": {
+            "n": 116,
+            "coverage_pct": 100.0,
+            "median_abs_error": 262.4,
+            "exact_pct": 21.6,
+            "median_abs_pct_error": 16.3
+          },
+          "stories": {
+            "n": 164,
+            "coverage_pct": 67.1,
+            "median_abs_error": 0.0,
+            "exact_pct": 73.6
+          },
+          "construction": {
+            "n": 151,
+            "coverage_pct": 100.0,
+            "exact_pct": 82.8
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 192,
+            "differs_pct": 29.7
+          },
+          "energy": {
+            "n": 192,
+            "differs_pct": 35.4
+          },
+          "resilience": {
+            "n": 192,
+            "differs_pct": 2.1
+          },
+          "environmental": {
+            "n": 192,
+            "differs_pct": 27.6
+          },
+          "building_axis": {
+            "n": 192,
+            "differs_pct": 53.1
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 192,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 81.8,
+            "within_5yr_pct": 88.0,
+            "within_10yr_pct": 89.6
+          },
+          "sqft": {
+            "n": 116,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 77.6,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 164,
+            "coverage_pct": 97.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 93.7
+          },
+          "construction": {
+            "n": 151,
+            "coverage_pct": 100.0,
+            "exact_pct": 96.0
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 192,
+            "differs_pct": 6.2
+          },
+          "energy": {
+            "n": 192,
+            "differs_pct": 7.3
+          },
+          "resilience": {
+            "n": 192,
+            "differs_pct": 0.5
+          },
+          "environmental": {
+            "n": 192,
+            "differs_pct": 5.7
+          },
+          "building_axis": {
+            "n": 192,
+            "differs_pct": 12.0
+          }
+        }
+      }
+    },
+    "fl": {
+      "benchmark": {
+        "jurisdiction": "fl",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 203,
+        "sampled": 178,
+        "dropped": {
+          "no_parcel_record": 2,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 23
+        },
+        "source": "Florida Department of Revenue statewide cadastral (county property appraisers' rolls)",
+        "scope": "residential parcels (DOR use 001-008) with a dwelling unit and a year built in all 67 counties, drawn in proportion to each county's housing units",
+        "assessment_year": "2026",
+        "fetched": "2026-10-04",
+        "rows": 169,
+        "sha256_16": "5dfa68716babe58d"
+      },
+      "unscored": 9,
+      "adapter_resolved_pct": 64.0,
+      "resolved_ci95": [
+        56.8,
+        70.7
+      ],
+      "resolved_runs": {
+        "runs": 3,
+        "min": 63.5,
+        "max": 67.4,
+        "spread": 3.9,
+        "median": 64.0
+      },
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 169,
+            "coverage_pct": 100.0,
+            "median_abs_error": 8.0,
+            "exact_pct": 3.0,
+            "within_5yr_pct": 37.9,
+            "within_10yr_pct": 63.3
+          },
+          "sqft": {
+            "n": 117,
+            "coverage_pct": 100.0,
+            "median_abs_error": 280.0,
+            "exact_pct": 8.5,
+            "median_abs_pct_error": 15.3
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 169,
+            "differs_pct": 18.9
+          },
+          "energy": {
+            "n": 169,
+            "differs_pct": 16.0
+          },
+          "resilience": {
+            "n": 169,
+            "differs_pct": 12.4
+          },
+          "environmental": {
+            "n": 169,
+            "differs_pct": 7.7
+          },
+          "building_axis": {
+            "n": 169,
+            "differs_pct": 32.5
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 169,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 69.8,
+            "within_5yr_pct": 81.1,
+            "within_10yr_pct": 88.2
+          },
+          "sqft": {
+            "n": 117,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 65.8,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 169,
+            "differs_pct": 8.9
+          },
+          "energy": {
+            "n": 169,
+            "differs_pct": 5.9
+          },
+          "resilience": {
+            "n": 169,
+            "differs_pct": 3.6
+          },
+          "environmental": {
+            "n": 169,
+            "differs_pct": 2.4
+          },
+          "building_axis": {
+            "n": 169,
+            "differs_pct": 8.9
+          }
+        }
+      }
+    },
+    "ut": {
+      "benchmark": {
+        "jurisdiction": "ut",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 186,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 7,
+          "no_year_built": 0,
+          "no_home_record": 7
+        },
+        "source": "UGRC Land Information Records parcels (Utah county tax rolls)",
+        "scope": "residential parcels with a recorded year built in the 28 counties served, one draw per parcel, in proportion to each county's housing units",
+        "assessment_year": "2025",
+        "fetched": "2026-10-04",
+        "rows": 164,
+        "sha256_16": "8b522f5c6868a8d0"
+      },
+      "unscored": 22,
+      "adapter_resolved_pct": 75.3,
+      "resolved_ci95": [
+        68.6,
+        80.9
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 164,
+            "coverage_pct": 100.0,
+            "median_abs_error": 9.0,
+            "exact_pct": 3.7,
+            "within_5yr_pct": 34.8,
+            "within_10yr_pct": 51.2
+          },
+          "sqft": {
+            "n": 20,
+            "coverage_pct": 100.0,
+            "median_abs_error": 40.0,
+            "exact_pct": 45.0,
+            "median_abs_pct_error": 2.5
+          },
+          "stories": {
+            "n": 18,
+            "coverage_pct": 88.9,
+            "median_abs_error": 0.0,
+            "exact_pct": 87.5
+          },
+          "construction": {
+            "n": 58,
+            "coverage_pct": 100.0,
+            "exact_pct": 87.9
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 164,
+            "differs_pct": 30.5
+          },
+          "energy": {
+            "n": 164,
+            "differs_pct": 31.7
+          },
+          "resilience": {
+            "n": 164,
+            "differs_pct": 8.5
+          },
+          "environmental": {
+            "n": 164,
+            "differs_pct": 18.3
+          },
+          "building_axis": {
+            "n": 164,
+            "differs_pct": 47.0
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 164,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 86.0,
+            "within_5yr_pct": 90.9,
+            "within_10yr_pct": 93.3
+          },
+          "sqft": {
+            "n": 20,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 90.0,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 18,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 100.0
+          },
+          "construction": {
+            "n": 58,
+            "coverage_pct": 100.0,
+            "exact_pct": 98.3
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 164,
+            "differs_pct": 4.9
+          },
+          "energy": {
+            "n": 164,
+            "differs_pct": 4.9
+          },
+          "resilience": {
+            "n": 164,
+            "differs_pct": 1.8
+          },
+          "environmental": {
+            "n": 164,
+            "differs_pct": 3.0
+          },
+          "building_axis": {
+            "n": 164,
+            "differs_pct": 8.5
+          }
+        }
+      }
+    },
+    "allegheny": {
+      "benchmark": {
+        "jurisdiction": "allegheny",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 191,
+        "dropped": {
+          "no_parcel_record": 5,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 4
+        },
+        "source": "Allegheny County Office of Property Assessments (WPRDC)",
+        "scope": "roll records with a dwelling land use (houses, townhouses, rowhouses, condominium units, two- to four-family, apartments, farms), placed on the county parcel layer",
+        "assessment_year": "2026",
+        "fetched": "2026-10-04",
+        "rows": 189,
+        "sha256_16": "6f3447cdb24a07b2"
+      },
+      "unscored": 2,
+      "adapter_resolved_pct": 81.2,
+      "resolved_ci95": [
+        75.0,
+        86.1
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 189,
+            "coverage_pct": 100.0,
+            "median_abs_error": 17.0,
+            "exact_pct": 2.1,
+            "within_5yr_pct": 24.3,
+            "within_10yr_pct": 40.2
+          },
+          "sqft": {
+            "n": 139,
+            "coverage_pct": 100.0,
+            "median_abs_error": 195.0,
+            "exact_pct": 26.6,
+            "median_abs_pct_error": 12.8
+          },
+          "stories": {
+            "n": 148,
+            "coverage_pct": 89.9,
+            "median_abs_error": 0.0,
+            "exact_pct": 70.7
+          },
+          "construction": {
+            "n": 188,
+            "coverage_pct": 100.0,
+            "exact_pct": 66.0
+          },
+          "foundation": {
+            "n": 175,
+            "coverage_pct": 100.0,
+            "exact_pct": 82.9
+          },
+          "condition": {
+            "n": 189,
+            "coverage_pct": 100.0,
+            "exact_pct": 72.5
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 189,
+            "differs_pct": 28.6
+          },
+          "energy": {
+            "n": 189,
+            "differs_pct": 30.7
+          },
+          "resilience": {
+            "n": 189,
+            "differs_pct": 0.0
+          },
+          "environmental": {
+            "n": 189,
+            "differs_pct": 22.2
+          },
+          "building_axis": {
+            "n": 189,
+            "differs_pct": 40.7
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 189,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 82.5,
+            "within_5yr_pct": 88.4,
+            "within_10yr_pct": 93.7
+          },
+          "sqft": {
+            "n": 139,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 80.6,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 148,
+            "coverage_pct": 99.3,
+            "median_abs_error": 0.0,
+            "exact_pct": 93.9
+          },
+          "construction": {
+            "n": 188,
+            "coverage_pct": 100.0,
+            "exact_pct": 91.5
+          },
+          "foundation": {
+            "n": 175,
+            "coverage_pct": 100.0,
+            "exact_pct": 98.9
+          },
+          "condition": {
+            "n": 189,
+            "coverage_pct": 100.0,
+            "exact_pct": 93.7
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 189,
+            "differs_pct": 5.3
+          },
+          "energy": {
+            "n": 189,
+            "differs_pct": 5.3
+          },
+          "resilience": {
+            "n": 189,
+            "differs_pct": 0.0
+          },
+          "environmental": {
+            "n": 189,
+            "differs_pct": 6.9
+          },
+          "building_axis": {
+            "n": 189,
+            "differs_pct": 9.5
+          }
+        }
+      }
+    },
+    "pa": {
+      "benchmark": {
+        "jurisdiction": "pa",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 200,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 0
+        },
+        "source": "Montgomery, York, Northampton and Cumberland County (PA) assessment parcel layers",
+        "scope": "residential parcels with a recorded year built in Montgomery, York, Northampton and Cumberland counties, drawn in proportion to each county's housing units",
+        "assessment_year": "current",
+        "fetched": "2026-10-04",
+        "rows": 192,
+        "sha256_16": "cb84ec898190d71d"
+      },
+      "unscored": 8,
+      "adapter_resolved_pct": 76.5,
+      "resolved_ci95": [
+        70.2,
+        81.8
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 192,
+            "coverage_pct": 100.0,
+            "median_abs_error": 14.0,
+            "exact_pct": 3.1,
+            "within_5yr_pct": 24.0,
+            "within_10yr_pct": 40.6
+          },
+          "sqft": {
+            "n": 138,
+            "coverage_pct": 100.0,
+            "median_abs_error": 266.0,
+            "exact_pct": 28.3,
+            "median_abs_pct_error": 14.4
+          },
+          "stories": {
+            "n": 143,
+            "coverage_pct": 84.6,
+            "median_abs_error": 0.0,
+            "exact_pct": 79.3
+          },
+          "construction": {
+            "n": 91,
+            "coverage_pct": 100.0,
+            "exact_pct": 71.4
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 192,
+            "differs_pct": 35.9
+          },
+          "energy": {
+            "n": 192,
+            "differs_pct": 35.9
+          },
+          "resilience": {
+            "n": 192,
+            "differs_pct": 0.5
+          },
+          "environmental": {
+            "n": 192,
+            "differs_pct": 24.5
+          },
+          "building_axis": {
+            "n": 192,
+            "differs_pct": 54.7
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 192,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 81.2,
+            "within_5yr_pct": 87.0,
+            "within_10yr_pct": 91.1
+          },
+          "sqft": {
+            "n": 138,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 79.7,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 143,
+            "coverage_pct": 96.5,
+            "median_abs_error": 0.0,
+            "exact_pct": 96.4
+          },
+          "construction": {
+            "n": 91,
+            "coverage_pct": 100.0,
+            "exact_pct": 95.6
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 192,
+            "differs_pct": 7.8
+          },
+          "energy": {
+            "n": 192,
+            "differs_pct": 4.2
+          },
+          "resilience": {
+            "n": 192,
+            "differs_pct": 0.0
+          },
+          "environmental": {
+            "n": 192,
+            "differs_pct": 3.1
+          },
+          "building_axis": {
+            "n": 192,
+            "differs_pct": 8.9
+          }
+        }
+      }
+    },
+    "oh": {
+      "benchmark": {
+        "jurisdiction": "oh",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 194,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 6
+        },
+        "source": "Ohio county auditors' parcel layers (nine counties)",
+        "scope": "residential, agricultural and apartment parcels with a recorded year built in the nine counties served, drawn in proportion to each county's housing units",
+        "assessment_year": "current",
+        "fetched": "2026-10-04",
+        "rows": 188,
+        "sha256_16": "4c21e8efc4ea296e"
+      },
+      "unscored": 6,
+      "adapter_resolved_pct": 83.5,
+      "resolved_ci95": [
+        77.6,
+        88.1
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 188,
+            "coverage_pct": 100.0,
+            "median_abs_error": 9.0,
+            "exact_pct": 1.1,
+            "within_5yr_pct": 30.3,
+            "within_10yr_pct": 51.6
+          },
+          "sqft": {
+            "n": 115,
+            "coverage_pct": 100.0,
+            "median_abs_error": 121.0,
+            "exact_pct": 33.0,
+            "median_abs_pct_error": 6.7
+          },
+          "stories": {
+            "n": 86,
+            "coverage_pct": 81.4,
+            "median_abs_error": 0.0,
+            "exact_pct": 75.7
+          },
+          "construction": {
+            "n": 18,
+            "coverage_pct": 100.0,
+            "exact_pct": 66.7
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 14,
+            "coverage_pct": 100.0,
+            "exact_pct": 35.7
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 188,
+            "differs_pct": 26.6
+          },
+          "energy": {
+            "n": 188,
+            "differs_pct": 28.7
+          },
+          "resilience": {
+            "n": 188,
+            "differs_pct": 1.1
+          },
+          "environmental": {
+            "n": 188,
+            "differs_pct": 25.5
+          },
+          "building_axis": {
+            "n": 188,
+            "differs_pct": 36.2
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 188,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 86.7,
+            "within_5yr_pct": 90.4,
+            "within_10yr_pct": 93.6
+          },
+          "sqft": {
+            "n": 115,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 87.8,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 86,
+            "coverage_pct": 97.7,
+            "median_abs_error": 0.0,
+            "exact_pct": 97.6
+          },
+          "construction": {
+            "n": 18,
+            "coverage_pct": 100.0,
+            "exact_pct": 94.4
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 14,
+            "coverage_pct": 100.0,
+            "exact_pct": 78.6
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 188,
+            "differs_pct": 4.3
+          },
+          "energy": {
+            "n": 188,
+            "differs_pct": 2.1
+          },
+          "resilience": {
+            "n": 188,
+            "differs_pct": 0.0
+          },
+          "environmental": {
+            "n": 188,
+            "differs_pct": 2.7
+          },
+          "building_axis": {
+            "n": 188,
+            "differs_pct": 5.3
+          }
+        }
+      }
+    },
+    "ind": {
+      "benchmark": {
+        "jurisdiction": "ind",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 200,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 0
+        },
+        "source": "Vanderburgh County Assessor tax parcels",
+        "scope": "residential, apartment and farmhouse parcels with a recorded year built in Vanderburgh County",
+        "assessment_year": "current",
+        "fetched": "2026-10-04",
+        "rows": 197,
+        "sha256_16": "74155c508179c40f"
+      },
+      "unscored": 3,
+      "adapter_resolved_pct": 88.5,
+      "resolved_ci95": [
+        83.3,
+        92.2
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 197,
+            "coverage_pct": 100.0,
+            "median_abs_error": 16.0,
+            "exact_pct": 0.5,
+            "within_5yr_pct": 20.3,
+            "within_10yr_pct": 34.0
+          },
+          "sqft": {
+            "n": 156,
+            "coverage_pct": 100.0,
+            "median_abs_error": 272.0,
+            "exact_pct": 20.5,
+            "median_abs_pct_error": 18.8
+          },
+          "stories": {
+            "n": 167,
+            "coverage_pct": 89.2,
+            "median_abs_error": 0.0,
+            "exact_pct": 76.5
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 182,
+            "coverage_pct": 100.0,
+            "exact_pct": 87.4
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 197,
+            "differs_pct": 24.4
+          },
+          "energy": {
+            "n": 197,
+            "differs_pct": 32.0
+          },
+          "resilience": {
+            "n": 197,
+            "differs_pct": 4.1
+          },
+          "environmental": {
+            "n": 197,
+            "differs_pct": 44.7
+          },
+          "building_axis": {
+            "n": 197,
+            "differs_pct": 39.6
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 197,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 89.8,
+            "within_5yr_pct": 91.9,
+            "within_10yr_pct": 91.9
+          },
+          "sqft": {
+            "n": 156,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 89.1,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 167,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 95.8
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 182,
+            "coverage_pct": 100.0,
+            "exact_pct": 98.4
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 197,
+            "differs_pct": 3.6
+          },
+          "energy": {
+            "n": 197,
+            "differs_pct": 4.1
+          },
+          "resilience": {
+            "n": 197,
+            "differs_pct": 0.5
+          },
+          "environmental": {
+            "n": 197,
+            "differs_pct": 5.6
+          },
+          "building_axis": {
+            "n": 197,
+            "differs_pct": 4.6
+          }
+        }
+      }
+    },
+    "pdx": {
+      "benchmark": {
+        "jurisdiction": "pdx",
+        "draw_method": "uniform random offsets without replacement",
+        "seed": 20261004,
+        "drawn": 200,
+        "sampled": 192,
+        "dropped": {
+          "no_parcel_record": 0,
+          "no_address": 0,
+          "no_year_built": 0,
+          "no_home_record": 8
+        },
+        "source": "Oregon Metro RLIS Taxlots (Public)",
+        "scope": "residential taxlots (single-family, multi-family and rural residential, condominium units included) in all three counties, drawn in proportion to each county's housing units",
+        "assessment_year": "2026",
+        "fetched": "2026-10-04",
+        "rows": 179,
+        "sha256_16": "4aca9ee1ade9b26a"
+      },
+      "unscored": 13,
+      "adapter_resolved_pct": 84.9,
+      "resolved_ci95": [
+        79.1,
+        89.3
+      ],
+      "resolved_runs": null,
+      "parcel_mismatches": 0,
+      "baseline": {
+        "fields": {
+          "year_built": {
+            "n": 179,
+            "coverage_pct": 100.0,
+            "median_abs_error": 15.0,
+            "exact_pct": 5.0,
+            "within_5yr_pct": 26.3,
+            "within_10yr_pct": 39.1
+          },
+          "sqft": {
+            "n": 122,
+            "coverage_pct": 100.0,
+            "median_abs_error": 180.0,
+            "exact_pct": 29.5,
+            "median_abs_pct_error": 10.4
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 179,
+            "differs_pct": 26.3
+          },
+          "energy": {
+            "n": 179,
+            "differs_pct": 26.3
+          },
+          "resilience": {
+            "n": 179,
+            "differs_pct": 1.1
+          },
+          "environmental": {
+            "n": 179,
+            "differs_pct": 21.8
+          },
+          "building_axis": {
+            "n": 179,
+            "differs_pct": 53.1
+          }
+        }
+      },
+      "adapter": {
+        "fields": {
+          "year_built": {
+            "n": 179,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 92.2,
+            "within_5yr_pct": 94.4,
+            "within_10yr_pct": 96.1
+          },
+          "sqft": {
+            "n": 122,
+            "coverage_pct": 100.0,
+            "median_abs_error": 0.0,
+            "exact_pct": 95.1,
+            "median_abs_pct_error": 0.0
+          },
+          "stories": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "construction": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "foundation": {
+            "n": 0,
+            "coverage_pct": null
+          },
+          "condition": {
+            "n": 0,
+            "coverage_pct": null
+          }
+        },
+        "grade_impact": {
+          "durability": {
+            "n": 179,
+            "differs_pct": 0.0
+          },
+          "energy": {
+            "n": 179,
+            "differs_pct": 0.6
+          },
+          "resilience": {
+            "n": 179,
+            "differs_pct": 0.6
+          },
+          "environmental": {
+            "n": 179,
+            "differs_pct": 2.2
+          },
+          "building_axis": {
+            "n": 179,
+            "differs_pct": 4.5
           }
         }
       }

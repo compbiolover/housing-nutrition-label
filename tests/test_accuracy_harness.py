@@ -1435,7 +1435,7 @@ def test_the_documented_invocations_carry_every_required_argument():
                 assert "--seed" in line, f"{mod.__name__}: {line.strip()!r}"
 
 
-def test_the_cache_walk_reaches_the_caches_that_make_requests():
+def test_the_cache_walk_reaches_the_caches_that_make_requests(monkeypatch):
     """Replicates are only measurements if each one actually makes its requests.
     The adapters and the geocoder memoize, so the second scoring of a row answers
     from memory: the DC condominium benchmark took half an hour on the first run
@@ -1451,7 +1451,12 @@ def test_the_cache_walk_reaches_the_caches_that_make_requests():
         c.cache_clear()
     # Populate without network: lru_cache stores whatever the call returns, and a
     # refusal is a perfectly good cache entry — which is the point, a cached miss
-    # replays as a miss.
+    # replays as a miss. The requests underneath are stubbed out: a point at 0,0
+    # still went to both county servers, and a slow connect there failed this test
+    # in CI though it is a test of the cache walk, not of either server.
+    monkeypatch.setattr(cook_il, "_pin_at", lambda *a, **k: None)
+    monkeypatch.setattr(dc, "_residential_record", lambda *a, **k: None)
+    monkeypatch.setattr(dc, "_condo_record", lambda *a, **k: None)
     dc._lookup_cached(0.0, 0.0, None)
     cook_il._lookup_cached(0.0, 0.0, None)
     assert any(c.cache_info().currsize for c in caches), "nothing cached to clear"
@@ -1482,3 +1487,30 @@ def test_honestly_varying_runtimes_are_not_refused():
     M._refuse_cache_replay([600.0, 900.0])
     M._refuse_cache_replay([1800.0])      # one run cannot be a replay of anything
     M._refuse_cache_replay([])
+
+
+def test_a_building_answer_for_one_of_its_units_is_the_same_home():
+    """New Jersey reports a condominium stack's year under the lot's id when every
+    unit agrees; the reference read at one unit carries the unit's id. Same home
+    one level up — unless the years differ."""
+    class Rec:
+        parcel_id, year_built, sqft = "0901_159_18", 1920, None
+    class Loc:
+        assessor = Rec()
+    row = {"parcel_id": "0901_159_18_C0001", "year_built": "1920"}
+    assert M._parcel_matches(Loc, row)
+    assert not M._parcel_matches(Loc, dict(row, year_built="1931"))
+    # A prefix that is not a parent id (no separator) is a different parcel.
+    assert not M._parcel_matches(Loc, dict(row, parcel_id="0901_159_181"))
+
+
+def test_a_building_year_that_names_no_parcel_is_judged_by_its_year():
+    """Contra Costa answers a condominium unit it cannot find with the building's
+    year and no parcel id. It names no lot, so it is judged by the year alone."""
+    class Rec:
+        parcel_id, year_built, sqft = None, 1972, None
+    class Loc:
+        assessor = Rec()
+    row = {"parcel_id": "173210621", "year_built": "1972", "sqft": "990"}
+    assert M._parcel_matches(Loc, row)
+    assert not M._parcel_matches(Loc, dict(row, year_built="1985"))

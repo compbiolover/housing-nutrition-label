@@ -39,9 +39,56 @@ authority where one resolves. The number that matters is the last table in each 
 error that moves no letter is not a defect anyone can see; one that crosses a
 code-era boundary is.</p>
 
-<p>Measured so far: Cook County, Illinois, Washington, DC, Washington, DC — condominiums. Each adapter is measured against its
-own assessor, and the sections are not comparable to each other &mdash; different
-housing stock, different record-keeping, different sample.</p>
+<p>Each adapter is measured against its own assessor, and the sections are
+not comparable to each other &mdash; different housing stock, different
+record-keeping, different sample.</p>
+<h2 id="overview">At a glance</h2>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Where</th><th>Homes scored<br>of drawn</th><th>Answered by the assessor</th><th>Wrong parcel</th>
+<th>Year built exact<br>baseline &rarr; w/ assessor</th>
+<th>Building grade differs<br>baseline &rarr; w/ assessor</th><th>Reference</th>
+</tr></thead><tbody>
+<tr><td><a href="#cook">Cook County, Illinois</a></td><td>297 of 300</td><td>76.7%</td><td>0</td><td>1.0% &rarr; 77.8%</td><td>27.9% &rarr; 7.1%</td><td>independent</td></tr>
+<tr><td><a href="#dc">Washington, DC</a></td><td>195 of 200</td><td>83.8%</td><td>0</td><td>1.5% &rarr; 85.6%</td><td>56.4% &rarr; 8.2%</td><td>independent</td></tr>
+<tr><td style="padding-left:1.4rem"><a href="#dc-condo">Washington, DC — condominiums</a></td><td>187 of 200</td><td>97.4%</td><td>0</td><td>2.1% &rarr; 99.5%</td><td>65.8% &rarr; 19.8%</td><td>independent</td></tr>
+<tr><td><a href="#allegheny">Allegheny County, Pennsylvania</a></td><td>189 of 200</td><td>81.2%</td><td>0</td><td>2.1% &rarr; 82.5%</td><td>40.7% &rarr; 9.5%</td><td>adapter&rsquo;s own read</td></tr>
+<tr><td><a href="#ca">California — Contra Costa, San Joaquin and Riverside Counties</a></td><td>182 of 200</td><td>89.7%</td><td>0</td><td>5.5% &rarr; 91.8%</td><td>36.3% &rarr; 3.3%</td><td>adapter&rsquo;s own read</td></tr>
+<tr><td><a href="#co">Colorado (Denver metro)</a></td><td>190 of 200</td><td>87.2%</td><td>0</td><td>4.2% &rarr; 90.0%</td><td>38.9% &rarr; 3.2%</td><td>adapter&rsquo;s own read</td></tr>
+<tr><td><a href="#ct">Connecticut</a></td><td>168 of 200</td><td>70.2%</td><td>0</td><td>2.4% &rarr; 72.0%</td><td>55.4% &rarr; 17.9%</td><td>adapter&rsquo;s own read</td></tr>
+<tr><td><a href="#fl">Florida</a></td><td>169 of 203</td><td>64.0%</td><td>0</td><td>3.0% &rarr; 69.8%</td><td>32.5% &rarr; 8.9%</td><td>adapter&rsquo;s own read</td></tr>
+<tr><td><a href="#ga">Georgia — Fulton, Clayton, Chatham and Forsyth counties</a></td><td>158 of 200</td><td>77.0%</td><td>0</td><td>3.8% &rarr; 81.0%</td><td>43.0% &rarr; 10.1%</td><td>adapter&rsquo;s own read</td></tr>
+<tr><td><a href="#ind">Indiana (Vanderburgh County)</a></td><td>197 of 200</td><td>88.5%</td><td>0</td><td>0.5% &rarr; 89.8%</td><td>39.6% &rarr; 4.6%</td><td>adapter&rsquo;s own read</td></tr>
+<tr><td><a href="#la">Los Angeles County, California</a></td><td>173 of 200</td><td>89.3%</td><td>0</td><td>3.5% &rarr; 91.9%</td><td>39.3% &rarr; 3.5%</td><td>adapter&rsquo;s own read</td></tr>
+<tr><td><a href="#md">Maryland</a></td><td>192 of 200</td><td>78.4%</td><td>0</td><td>3.1% &rarr; 81.8%</td><td>53.1% &rarr; 12.0%</td><td>adapter&rsquo;s own read</td></tr>
+<tr><td><a href="#ma">Massachusetts</a></td><td>185 of 200</td><td>81.1%</td><td>0</td><td>1.6% &rarr; 83.2%</td><td>38.9% &rarr; 8.1%</td><td>adapter&rsquo;s own read</td></tr>
+<tr><td><a href="#mn">Minnesota (Twin Cities metro)</a></td><td>190 of 200</td><td>81.7%</td><td>0</td><td>1.1% &rarr; 84.7%</td><td>30.0% &rarr; 5.3%</td><td>adapter&rsquo;s own read</td></tr>
+<tr><td><a href="#mo">Missouri (Jackson County)</a></td><td>196 of 200</td><td>78.8%</td><td>0</td><td>2.0% &rarr; 80.6%</td><td>28.1% &rarr; 5.1%</td><td>adapter&rsquo;s own read</td></tr>
+<tr><td><a href="#nj">New Jersey</a></td><td>181 of 200</td><td>75.1%</td><td>0</td><td>2.2% &rarr; 77.3%</td><td>43.1% &rarr; 15.5%</td><td>adapter&rsquo;s own read</td></tr>
+<tr><td><a href="#nyc">New York City</a></td><td>198 of 200</td><td>96.0%</td><td>0</td><td>2.5% &rarr; 97.0%</td><td>30.3% &rarr; 0.5%</td><td>adapter&rsquo;s own read</td></tr>
+<tr><td><a href="#nys">New York State (outside New York City)</a></td><td>131 of 200</td><td>66.7%</td><td>0</td><td>1.5% &rarr; 71.0%</td><td>44.3% &rarr; 16.8%</td><td>adapter&rsquo;s own read</td></tr>
+<tr><td><a href="#nc">North Carolina — 46 counties</a></td><td>185 of 200</td><td>71.9%</td><td>0</td><td>2.7% &rarr; 74.6%</td><td>50.8% &rarr; 13.5%</td><td>adapter&rsquo;s own read</td></tr>
+<tr><td><a href="#oh">Ohio (nine counties)</a></td><td>188 of 200</td><td>83.5%</td><td>0</td><td>1.1% &rarr; 86.7%</td><td>36.2% &rarr; 5.3%</td><td>adapter&rsquo;s own read</td></tr>
+<tr><td><a href="#pa">Pennsylvania (four counties)</a></td><td>192 of 200</td><td>76.5%</td><td>0</td><td>3.1% &rarr; 81.2%</td><td>54.7% &rarr; 8.9%</td><td>adapter&rsquo;s own read</td></tr>
+<tr><td><a href="#phl">Philadelphia, Pennsylvania</a></td><td>197 of 200</td><td>84.9%</td><td>0</td><td>1.0% &rarr; 86.3%</td><td>35.0% &rarr; 8.1%</td><td>adapter&rsquo;s own read</td></tr>
+<tr><td><a href="#pdx">Portland metro, Oregon (Multnomah, Washington, Clackamas)</a></td><td>179 of 200</td><td>84.9%</td><td>0</td><td>5.0% &rarr; 92.2%</td><td>53.1% &rarr; 4.5%</td><td>adapter&rsquo;s own read</td></tr>
+<tr><td><a href="#sf">San Francisco, California</a></td><td>184 of 200</td><td>97.8%</td><td>0</td><td>3.8% &rarr; 97.8%</td><td>22.8% &rarr; 0.5%</td><td>adapter&rsquo;s own read</td></tr>
+<tr><td><a href="#mi">Southeast Michigan (SEMCOG&#x27;s seven counties)</a></td><td>190 of 200</td><td>96.3%</td><td>0</td><td>5.3% &rarr; 96.8%</td><td>27.4% &rarr; 1.6%</td><td>adapter&rsquo;s own read</td></tr>
+<tr><td><a href="#tx">Texas (twelve largest-county appraisal districts)</a></td><td>190 of 200</td><td>82.7%</td><td>0</td><td>6.8% &rarr; 85.8%</td><td>29.5% &rarr; 2.6%</td><td>adapter&rsquo;s own read</td></tr>
+<tr><td><a href="#ut">Utah</a></td><td>164 of 200</td><td>75.3%</td><td>0</td><td>3.7% &rarr; 86.0%</td><td>47.0% &rarr; 8.5%</td><td>adapter&rsquo;s own read</td></tr>
+<tr><td><a href="#va">Virginia — Chesterfield County and the City of Richmond</a></td><td>190 of 200</td><td>82.3%</td><td>0</td><td>1.6% &rarr; 85.8%</td><td>48.4% &rarr; 8.9%</td><td>adapter&rsquo;s own read</td></tr>
+</tbody></table></div>
+<p style="opacity:0.75;font-size:0.85rem;"><em>Building grade differs</em> is the
+share of homes whose building letter, as a reader would see it, is not the letter
+the reference record gives &mdash; lower is better. A home drawn but not scored
+(no address, no year built, or not readable even at its own parcel) is outside
+every rate in its row; each section's method note says why. <em>Wrong parcel</em> counts
+answers that came from a different lot than the one asked about; they are scored as
+errors in every rate. <em>Reference</em> says what each row was graded against:
+<em>independent</em> references are built from the assessor's tables by this page's
+own mapping, and <em>adapter's own read</em> is the county's record as the adapter
+reads it at the parcel itself. They are not the same test: see
+<a href="#caveats">what this does and does not establish</a>.</p>
+
 
 <h2 id="cook">Cook County, Illinois</h2>
 
@@ -171,18 +218,1101 @@ than collapsing into one median: within &plusmn;5 years 12.8% of the time at bas
 Drawn uniform random offsets without replacement, seed 20260827 &middot; Benchmark digest
 d00857703ef166cb.</p>
 
-<h2>What this does and does not establish</h2>
+
+<h2 id="allegheny">Allegheny County, Pennsylvania</h2>
+
+<p><strong>Method.</strong> 191 addresses sampled across
+Allegheny County Office of Property Assessments (WPRDC) (assessment year 2026,
+fetched 2026-10-04); a further 2 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: roll records with a dwelling land use (houses, townhouses, rowhouses, condominium units, two- to four-family, apartments, farms), placed on the county parcel layer. Drawn from 200 assessor rows; 5 could not be fetched from the source when drawn, 4 were not read as one home even at their own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>2.1%</td><td>82.5%</td><td>17.0</td><td>0.0</td><td>189</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>26.6%</td><td>80.6%</td><td>195.0</td><td>0.0</td><td>139</td></tr>
+<tr><td>stories</td><td>89.9%</td><td>99.3%</td><td>70.7%</td><td>93.9%</td><td>0.0</td><td>0.0</td><td>148</td></tr>
+<tr><td>construction</td><td>100.0%</td><td>100.0%</td><td>66.0%</td><td>91.5%</td><td>—</td><td>—</td><td>188</td></tr>
+<tr><td>foundation</td><td>100.0%</td><td>100.0%</td><td>82.9%</td><td>98.9%</td><td>—</td><td>—</td><td>175</td></tr>
+<tr><td>condition</td><td>100.0%</td><td>100.0%</td><td>72.5%</td><td>93.7%</td><td>—</td><td>—</td><td>189</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 24.3% of the time at baseline and 88.4% with the assessor; within &plusmn;10 years 40.2% and 93.7%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>28.6%</td><td>5.3%</td><td>189</td></tr>
+<tr><td>energy</td><td>30.7%</td><td>5.3%</td><td>189</td></tr>
+<tr><td>resilience</td><td>0.0%</td><td>0.0%</td><td>189</td></tr>
+<tr><td>environmental</td><td>22.2%</td><td>6.9%</td><td>189</td></tr>
+<tr><td>building_axis</td><td>40.7%</td><td>9.5%</td><td>189</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+81.2% of the sample. 95% confidence interval 75.0&ndash;86.1% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+6f3447cdb24a07b2.</p>
+
+
+<h2 id="ca">California — Contra Costa, San Joaquin and Riverside Counties</h2>
+
+<p><strong>Method.</strong> 185 addresses sampled across
+Contra Costa, San Joaquin and Riverside County Assessors (assessment year current,
+fetched 2026-10-04); a further 3 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: residential parcels and condominium units in the three counties, drawn in proportion to each county&#x27;s housing units. Drawn from 200 assessor rows; 7 had no site address on file, 8 were not read as one home even at their own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>5.5%</td><td>91.8%</td><td>7.0</td><td>0.0</td><td>182</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>44.2%</td><td>90.7%</td><td>142.0</td><td>0.0</td><td>86</td></tr>
+<tr><td>stories</td><td>54.9%</td><td>95.9%</td><td>89.6%</td><td>99.1%</td><td>0.0</td><td>0.0</td><td>122</td></tr>
+<tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 41.2% of the time at baseline and 95.6% with the assessor; within &plusmn;10 years 64.3% and 97.3%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>29.7%</td><td>1.6%</td><td>182</td></tr>
+<tr><td>energy</td><td>17.0%</td><td>1.1%</td><td>182</td></tr>
+<tr><td>resilience</td><td>6.6%</td><td>1.1%</td><td>182</td></tr>
+<tr><td>environmental</td><td>12.6%</td><td>1.1%</td><td>182</td></tr>
+<tr><td>building_axis</td><td>36.3%</td><td>3.3%</td><td>182</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+89.7% of the sample. 95% confidence interval 84.5&ndash;93.3% for the draw, and 83.8&ndash;90.8% observed across 3 scorings of these same rows. The second range is not sampling error: it is the same addresses scored again. Every upstream failure here fails open, so a portal having a bad minute is indistinguishable from a county with no record, and it removes rows from the numerator silently.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+a2d67083da00a94e.</p>
+
+
+<h2 id="co">Colorado (Denver metro)</h2>
+
+<p><strong>Method.</strong> 196 addresses sampled across
+Denver, Jefferson, Adams, Douglas and Boulder county assessors (assessment year current,
+fetched 2026-10-04); a further 6 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: residential parcels (houses, condominium units, townhouses and multifamily) in the five Denver-metro counties the adapter serves, drawn in proportion to each county&#x27;s housing units. Drawn from 200 assessor rows; 1 had no site address on file, 3 were not read as one home even at their own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>4.2%</td><td>90.0%</td><td>7.0</td><td>0.0</td><td>190</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>34.2%</td><td>93.7%</td><td>148.0</td><td>0.0</td><td>111</td></tr>
+<tr><td>stories</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>construction</td><td>100.0%</td><td>100.0%</td><td>82.2%</td><td>96.7%</td><td>—</td><td>—</td><td>90</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>100.0%</td><td>100.0%</td><td>17.4%</td><td>91.3%</td><td>—</td><td>—</td><td>23</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 38.9% of the time at baseline and 94.2% with the assessor; within &plusmn;10 years 62.6% and 95.8%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>31.6%</td><td>3.2%</td><td>190</td></tr>
+<tr><td>energy</td><td>29.5%</td><td>2.1%</td><td>190</td></tr>
+<tr><td>resilience</td><td>3.2%</td><td>0.5%</td><td>190</td></tr>
+<tr><td>environmental</td><td>22.6%</td><td>1.1%</td><td>190</td></tr>
+<tr><td>building_axis</td><td>38.9%</td><td>3.2%</td><td>190</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+87.2% of the sample. 95% confidence interval 81.8&ndash;91.2% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+0a5020fe2746aa04.</p>
+
+
+<h2 id="ct">Connecticut</h2>
+
+<p><strong>Method.</strong> 171 addresses sampled across
+Connecticut GIS Office statewide CAMA and parcel layer (assessment year 2026,
+fetched 2026-10-04); a further 3 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: residential parcels with a year built in all nine planning regions, drawn in proportion to each region&#x27;s housing units. Drawn from 200 assessor rows; 29 were not read as one home even at their own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>2.4%</td><td>72.0%</td><td>15.0</td><td>0.0</td><td>168</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>31.9%</td><td>75.0%</td><td>260.5</td><td>0.0</td><td>116</td></tr>
+<tr><td>stories</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 22.0% of the time at baseline and 78.6% with the assessor; within &plusmn;10 years 37.5% and 85.1%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>34.5%</td><td>10.1%</td><td>168</td></tr>
+<tr><td>energy</td><td>40.5%</td><td>13.1%</td><td>168</td></tr>
+<tr><td>resilience</td><td>1.2%</td><td>0.6%</td><td>168</td></tr>
+<tr><td>environmental</td><td>28.0%</td><td>9.5%</td><td>168</td></tr>
+<tr><td>building_axis</td><td>55.4%</td><td>17.9%</td><td>168</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+70.2% of the sample. 95% confidence interval 62.9&ndash;76.5% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+d468b944d878dc8d.</p>
+
+
+<h2 id="fl">Florida</h2>
+
+<p><strong>Method.</strong> 178 addresses sampled across
+Florida Department of Revenue statewide cadastral (county property appraisers&#x27; rolls) (assessment year 2026,
+fetched 2026-10-04); a further 9 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: residential parcels (DOR use 001-008) with a dwelling unit and a year built in all 67 counties, drawn in proportion to each county&#x27;s housing units. Drawn from 203 assessor rows; 2 could not be fetched from the source when drawn, 23 were not read as one home even at their own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>3.0%</td><td>69.8%</td><td>8.0</td><td>0.0</td><td>169</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>8.5%</td><td>65.8%</td><td>280.0</td><td>0.0</td><td>117</td></tr>
+<tr><td>stories</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 37.9% of the time at baseline and 81.1% with the assessor; within &plusmn;10 years 63.3% and 88.2%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>18.9%</td><td>8.9%</td><td>169</td></tr>
+<tr><td>energy</td><td>16.0%</td><td>5.9%</td><td>169</td></tr>
+<tr><td>resilience</td><td>12.4%</td><td>3.6%</td><td>169</td></tr>
+<tr><td>environmental</td><td>7.7%</td><td>2.4%</td><td>169</td></tr>
+<tr><td>building_axis</td><td>32.5%</td><td>8.9%</td><td>169</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+64.0% of the sample. 95% confidence interval 56.8&ndash;70.7% for the draw, and 63.5&ndash;67.4% observed across 3 scorings of these same rows. The second range is not sampling error: it is the same addresses scored again. Every upstream failure here fails open, so a portal having a bad minute is indistinguishable from a county with no record, and it removes rows from the numerator silently.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+5dfa68716babe58d.</p>
+
+
+<h2 id="ga">Georgia — Fulton, Clayton, Chatham and Forsyth counties</h2>
+
+<p><strong>Method.</strong> 165 addresses sampled across
+Fulton, Clayton, Chatham (SAGIS) and Forsyth county parcel layers (assessment year 2024-2026 by county (Fulton 2026, Chatham 2025, Forsyth 2024, Clayton current),
+fetched 2026-10-04); a further 7 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: improved residential parcels in the four counties the adapter answers for (19% of Georgia&#x27;s homes), drawn in proportion to each county&#x27;s housing units. Drawn from 200 assessor rows; 35 were not read as one home even at their own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>3.8%</td><td>81.0%</td><td>8.0</td><td>0.0</td><td>158</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>22.9%</td><td>94.3%</td><td>163.0</td><td>0.0</td><td>35</td></tr>
+<tr><td>stories</td><td>90.5%</td><td>99.0%</td><td>77.9%</td><td>95.2%</td><td>0.0</td><td>0.0</td><td>105</td></tr>
+<tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 39.2% of the time at baseline and 86.7% with the assessor; within &plusmn;10 years 60.8% and 91.8%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>27.8%</td><td>5.1%</td><td>158</td></tr>
+<tr><td>energy</td><td>24.1%</td><td>3.8%</td><td>158</td></tr>
+<tr><td>resilience</td><td>1.3%</td><td>0.0%</td><td>158</td></tr>
+<tr><td>environmental</td><td>15.8%</td><td>4.4%</td><td>158</td></tr>
+<tr><td>building_axis</td><td>43.0%</td><td>10.1%</td><td>158</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+77.0% of the sample. 95% confidence interval 70.0&ndash;82.7% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+5bdcf0e953aa4094.</p>
+
+
+<h2 id="ind">Indiana (Vanderburgh County)</h2>
+
+<p><strong>Method.</strong> 200 addresses sampled across
+Vanderburgh County Assessor tax parcels (assessment year current,
+fetched 2026-10-04); a further 3 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: residential, apartment and farmhouse parcels with a recorded year built in Vanderburgh County. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>0.5%</td><td>89.8%</td><td>16.0</td><td>0.0</td><td>197</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>20.5%</td><td>89.1%</td><td>272.0</td><td>0.0</td><td>156</td></tr>
+<tr><td>stories</td><td>89.2%</td><td>100.0%</td><td>76.5%</td><td>95.8%</td><td>0.0</td><td>0.0</td><td>167</td></tr>
+<tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>100.0%</td><td>100.0%</td><td>87.4%</td><td>98.4%</td><td>—</td><td>—</td><td>182</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 20.3% of the time at baseline and 91.9% with the assessor; within &plusmn;10 years 34.0% and 91.9%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>24.4%</td><td>3.6%</td><td>197</td></tr>
+<tr><td>energy</td><td>32.0%</td><td>4.1%</td><td>197</td></tr>
+<tr><td>resilience</td><td>4.1%</td><td>0.5%</td><td>197</td></tr>
+<tr><td>environmental</td><td>44.7%</td><td>5.6%</td><td>197</td></tr>
+<tr><td>building_axis</td><td>39.6%</td><td>4.6%</td><td>197</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+88.5% of the sample. 95% confidence interval 83.3&ndash;92.2% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+74155c508179c40f.</p>
+
+
+<h2 id="la">Los Angeles County, California</h2>
+
+<p><strong>Method.</strong> 178 addresses sampled across
+Los Angeles County Office of the Assessor (LA County eGIS parcels) (assessment year 2026,
+fetched 2026-10-04); a further 5 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: parcels the roll classifies Residential, condominium units included and typed with their unit. Drawn from 200 assessor rows; 10 had no site address on file, 12 were not read as one home even at their own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>3.5%</td><td>91.9%</td><td>10.0</td><td>0.0</td><td>173</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>26.6%</td><td>92.2%</td><td>203.5</td><td>0.0</td><td>64</td></tr>
+<tr><td>stories</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 31.2% of the time at baseline and 95.4% with the assessor; within &plusmn;10 years 52.0% and 96.5%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>19.1%</td><td>2.3%</td><td>173</td></tr>
+<tr><td>energy</td><td>12.1%</td><td>1.7%</td><td>173</td></tr>
+<tr><td>resilience</td><td>18.5%</td><td>1.2%</td><td>173</td></tr>
+<tr><td>environmental</td><td>6.9%</td><td>1.2%</td><td>173</td></tr>
+<tr><td>building_axis</td><td>39.3%</td><td>3.5%</td><td>173</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+89.3% of the sample. 95% confidence interval 83.9&ndash;93.1% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+d84e909022ec0162.</p>
+
+
+<h2 id="md">Maryland</h2>
+
+<p><strong>Method.</strong> 199 addresses sampled across
+Maryland SDAT assessment data on MD iMAP parcel boundaries (assessment year 2026,
+fetched 2026-10-04); a further 7 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: residential parcel polygons with a premise address and a year built in all 23 counties and Baltimore City, drawn in proportion to housing units; condominium units filed only as account points (~150,000) are outside it. Drawn from 200 assessor rows; 1 was not read as one home even at its own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>3.1%</td><td>81.8%</td><td>10.0</td><td>0.0</td><td>192</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>21.6%</td><td>77.6%</td><td>262.4</td><td>0.0</td><td>116</td></tr>
+<tr><td>stories</td><td>67.1%</td><td>97.0%</td><td>73.6%</td><td>93.7%</td><td>0.0</td><td>0.0</td><td>164</td></tr>
+<tr><td>construction</td><td>100.0%</td><td>100.0%</td><td>82.8%</td><td>96.0%</td><td>—</td><td>—</td><td>151</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 34.9% of the time at baseline and 88.0% with the assessor; within &plusmn;10 years 51.6% and 89.6%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>29.7%</td><td>6.2%</td><td>192</td></tr>
+<tr><td>energy</td><td>35.4%</td><td>7.3%</td><td>192</td></tr>
+<tr><td>resilience</td><td>2.1%</td><td>0.5%</td><td>192</td></tr>
+<tr><td>environmental</td><td>27.6%</td><td>5.7%</td><td>192</td></tr>
+<tr><td>building_axis</td><td>53.1%</td><td>12.0%</td><td>192</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+78.4% of the sample. 95% confidence interval 72.2&ndash;83.5% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+56262715d4ffdbcb.</p>
+
+
+<h2 id="ma">Massachusetts</h2>
+
+<p><strong>Method.</strong> 190 addresses sampled across
+MassGIS Level 3 standardized assessor parcels (assessment year FY2026,
+fetched 2026-10-04); a further 5 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: records with a residential DOR use code in all 351 cities and towns (condominium units included, typed with their unit), drawn in proportion to each county&#x27;s housing units. Drawn from 200 assessor rows; 10 were not read as one home even at their own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>1.6%</td><td>83.2%</td><td>20.0</td><td>0.0</td><td>185</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>31.3%</td><td>84.3%</td><td>290.0</td><td>0.0</td><td>115</td></tr>
+<tr><td>stories</td><td>95.0%</td><td>99.0%</td><td>64.6%</td><td>94.0%</td><td>0.0</td><td>0.0</td><td>101</td></tr>
+<tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 17.3% of the time at baseline and 84.3% with the assessor; within &plusmn;10 years 30.8% and 87.6%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>37.8%</td><td>7.6%</td><td>185</td></tr>
+<tr><td>energy</td><td>37.3%</td><td>8.1%</td><td>185</td></tr>
+<tr><td>resilience</td><td>2.2%</td><td>0.0%</td><td>185</td></tr>
+<tr><td>environmental</td><td>28.6%</td><td>6.5%</td><td>185</td></tr>
+<tr><td>building_axis</td><td>38.9%</td><td>8.1%</td><td>185</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+81.1% of the sample. 95% confidence interval 74.9&ndash;86.0% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+f5451867e57d7d62.</p>
+
+
+<h2 id="mn">Minnesota (Twin Cities metro)</h2>
+
+<p><strong>Method.</strong> 197 addresses sampled across
+MetroGIS Regional Parcel Dataset (Metropolitan Council) (assessment year current,
+fetched 2026-10-04); a further 7 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: residential parcels (houses, townhouses, condominium units, duplexes to apartments) in the seven metro counties, drawn in proportion to each county&#x27;s housing units. Drawn from 200 assessor rows; 3 were not read as one home even at their own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>1.1%</td><td>84.7%</td><td>9.5</td><td>0.0</td><td>190</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>29.4%</td><td>78.8%</td><td>177.0</td><td>0.0</td><td>85</td></tr>
+<tr><td>stories</td><td>96.2%</td><td>100.0%</td><td>80.4%</td><td>94.3%</td><td>0.0</td><td>0.0</td><td>53</td></tr>
+<tr><td>construction</td><td>100.0%</td><td>100.0%</td><td>88.2%</td><td>94.1%</td><td>—</td><td>—</td><td>17</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 35.8% of the time at baseline and 88.9% with the assessor; within &plusmn;10 years 53.7% and 91.1%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>25.8%</td><td>3.7%</td><td>190</td></tr>
+<tr><td>energy</td><td>33.2%</td><td>7.9%</td><td>190</td></tr>
+<tr><td>resilience</td><td>0.5%</td><td>0.0%</td><td>190</td></tr>
+<tr><td>environmental</td><td>21.6%</td><td>3.7%</td><td>190</td></tr>
+<tr><td>building_axis</td><td>30.0%</td><td>5.3%</td><td>190</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+81.7% of the sample. 95% confidence interval 75.7&ndash;86.5% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+1c15796fa177c61c.</p>
+
+
+<h2 id="mo">Missouri (Jackson County)</h2>
+
+<p><strong>Method.</strong> 198 addresses sampled across
+Jackson County (MO) Assessment Department Parcel Viewer (assessment year 2024,
+fetched 2026-10-04); a further 2 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: dwelling land-use records (houses, townhouses, condominium units, duplexes to apartments) in Jackson County, the one county the adapter serves. Drawn from 200 assessor rows; 2 were not read as one home even at their own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>2.0%</td><td>80.6%</td><td>10.0</td><td>0.0</td><td>196</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>15.8%</td><td>81.6%</td><td>242.5</td><td>0.0</td><td>158</td></tr>
+<tr><td>stories</td><td>90.7%</td><td>97.8%</td><td>69.7%</td><td>93.8%</td><td>0.0</td><td>0.0</td><td>182</td></tr>
+<tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 32.1% of the time at baseline and 85.7% with the assessor; within &plusmn;10 years 52.6% and 91.3%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>18.4%</td><td>4.1%</td><td>196</td></tr>
+<tr><td>energy</td><td>30.6%</td><td>5.6%</td><td>196</td></tr>
+<tr><td>resilience</td><td>0.5%</td><td>0.0%</td><td>196</td></tr>
+<tr><td>environmental</td><td>28.1%</td><td>5.6%</td><td>196</td></tr>
+<tr><td>building_axis</td><td>28.1%</td><td>5.1%</td><td>196</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+78.8% of the sample. 95% confidence interval 72.6&ndash;83.9% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+0dbff6323683458b.</p>
+
+
+<h2 id="nj">New Jersey</h2>
+
+<p><strong>Method.</strong> 185 addresses sampled across
+NJOGIS Parcels and MOD-IV Composite of New Jersey (assessment year 2024,
+fetched 2026-10-04); a further 4 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: residential (class 2) parcels in all 21 counties, drawn in proportion to each county&#x27;s housing units. Drawn from 200 assessor rows; 15 were not read as one home even at their own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>2.2%</td><td>77.3%</td><td>13.0</td><td>0.0</td><td>181</td></tr>
+<tr><td>sqft</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>stories</td><td>85.7%</td><td>96.1%</td><td>78.8%</td><td>94.6%</td><td>0.0</td><td>0.0</td><td>77</td></tr>
+<tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 23.2% of the time at baseline and 81.8% with the assessor; within &plusmn;10 years 40.3% and 84.0%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>34.3%</td><td>13.8%</td><td>181</td></tr>
+<tr><td>energy</td><td>37.6%</td><td>11.6%</td><td>181</td></tr>
+<tr><td>resilience</td><td>3.3%</td><td>1.7%</td><td>181</td></tr>
+<tr><td>environmental</td><td>19.3%</td><td>7.2%</td><td>181</td></tr>
+<tr><td>building_axis</td><td>43.1%</td><td>15.5%</td><td>181</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+75.1% of the sample. 95% confidence interval 68.4&ndash;80.8% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+db48887a520f76a2.</p>
+
+
+<h2 id="nyc">New York City</h2>
+
+<p><strong>Method.</strong> 200 addresses sampled across
+NYC Department of City Planning MapPLUTO (Department of Finance) (assessment year 26v2,
+fetched 2026-10-04); a further 2 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: tax lots with at least one residential unit in all five boroughs, drawn in proportion to each borough&#x27;s housing units (a condominium is one billing lot). Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>2.5%</td><td>97.0%</td><td>27.0</td><td>0.0</td><td>198</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>50.0%</td><td>100.0%</td><td>2.5</td><td>0.0</td><td>4</td></tr>
+<tr><td>stories</td><td>55.8%</td><td>97.7%</td><td>41.7%</td><td>100.0%</td><td>1.0</td><td>0.0</td><td>43</td></tr>
+<tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>foundation</td><td>100.0%</td><td>100.0%</td><td>67.7%</td><td>98.9%</td><td>—</td><td>—</td><td>93</td></tr>
+<tr><td>condition</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 16.7% of the time at baseline and 98.0% with the assessor; within &plusmn;10 years 29.8% and 98.0%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>26.3%</td><td>0.0%</td><td>198</td></tr>
+<tr><td>energy</td><td>30.8%</td><td>0.5%</td><td>198</td></tr>
+<tr><td>resilience</td><td>10.1%</td><td>0.5%</td><td>198</td></tr>
+<tr><td>environmental</td><td>19.2%</td><td>0.0%</td><td>198</td></tr>
+<tr><td>building_axis</td><td>30.3%</td><td>0.5%</td><td>198</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+96.0% of the sample. 95% confidence interval 92.3&ndash;98.0% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+4d51eab983da5247.</p>
+
+
+<h2 id="nys">New York State (outside New York City)</h2>
+
+<p><strong>Method.</strong> 138 addresses sampled across
+NYS ITS Geospatial Services public tax parcels (ORPTS rolls) (assessment year 2025,
+fetched 2026-10-04); a further 7 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: residential (class 2xx) parcels in the 33 opted-in counties outside New York City, drawn in proportion to each county&#x27;s housing units; homes the roll gives no year built are counted, not skipped. Drawn from 200 assessor rows; 62 were not read as one home even at their own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>1.5%</td><td>71.0%</td><td>17.0</td><td>0.0</td><td>131</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>24.7%</td><td>67.9%</td><td>237.0</td><td>0.0</td><td>81</td></tr>
+<tr><td>stories</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 25.2% of the time at baseline and 76.3% with the assessor; within &plusmn;10 years 39.7% and 80.9%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>22.1%</td><td>9.2%</td><td>131</td></tr>
+<tr><td>energy</td><td>45.8%</td><td>17.6%</td><td>131</td></tr>
+<tr><td>resilience</td><td>1.5%</td><td>0.0%</td><td>131</td></tr>
+<tr><td>environmental</td><td>16.0%</td><td>6.9%</td><td>131</td></tr>
+<tr><td>building_axis</td><td>44.3%</td><td>16.8%</td><td>131</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+66.7% of the sample. 95% confidence interval 58.4&ndash;74.0% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+bbefba603570d38b.</p>
+
+
+<h2 id="nc">North Carolina — 46 counties</h2>
+
+<p><strong>Method.</strong> 192 addresses sampled across
+NC OneMap statewide parcels (county tax offices) (assessment year current,
+fetched 2026-10-04); a further 7 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: parcels the adapter reads as homes with a year built, in the 46 of 100 counties that record one (64% of the state&#x27;s housing units), drawn in proportion to each county&#x27;s housing units. Drawn from 200 assessor rows; 1 had no site address on file, 7 were not read as one home even at their own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>2.7%</td><td>74.6%</td><td>11.0</td><td>0.0</td><td>185</td></tr>
+<tr><td>sqft</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>stories</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 29.7% of the time at baseline and 80.0% with the assessor; within &plusmn;10 years 48.1% and 87.0%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>32.4%</td><td>7.6%</td><td>185</td></tr>
+<tr><td>energy</td><td>28.1%</td><td>8.1%</td><td>185</td></tr>
+<tr><td>resilience</td><td>1.1%</td><td>0.5%</td><td>185</td></tr>
+<tr><td>environmental</td><td>11.4%</td><td>2.7%</td><td>185</td></tr>
+<tr><td>building_axis</td><td>50.8%</td><td>13.5%</td><td>185</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+71.9% of the sample. 95% confidence interval 65.1&ndash;77.8% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+9a228b28d6c8750d.</p>
+
+
+<h2 id="oh">Ohio (nine counties)</h2>
+
+<p><strong>Method.</strong> 194 addresses sampled across
+Ohio county auditors&#x27; parcel layers (nine counties) (assessment year current,
+fetched 2026-10-04); a further 6 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: residential, agricultural and apartment parcels with a recorded year built in the nine counties served, drawn in proportion to each county&#x27;s housing units. Drawn from 200 assessor rows; 6 were not read as one home even at their own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>1.1%</td><td>86.7%</td><td>9.0</td><td>0.0</td><td>188</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>33.0%</td><td>87.8%</td><td>121.0</td><td>0.0</td><td>115</td></tr>
+<tr><td>stories</td><td>81.4%</td><td>97.7%</td><td>75.7%</td><td>97.6%</td><td>0.0</td><td>0.0</td><td>86</td></tr>
+<tr><td>construction</td><td>100.0%</td><td>100.0%</td><td>66.7%</td><td>94.4%</td><td>—</td><td>—</td><td>18</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>100.0%</td><td>100.0%</td><td>35.7%</td><td>78.6%</td><td>—</td><td>—</td><td>14</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 30.3% of the time at baseline and 90.4% with the assessor; within &plusmn;10 years 51.6% and 93.6%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>26.6%</td><td>4.3%</td><td>188</td></tr>
+<tr><td>energy</td><td>28.7%</td><td>2.1%</td><td>188</td></tr>
+<tr><td>resilience</td><td>1.1%</td><td>0.0%</td><td>188</td></tr>
+<tr><td>environmental</td><td>25.5%</td><td>2.7%</td><td>188</td></tr>
+<tr><td>building_axis</td><td>36.2%</td><td>5.3%</td><td>188</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+83.5% of the sample. 95% confidence interval 77.6&ndash;88.1% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+4c21e8efc4ea296e.</p>
+
+
+<h2 id="pa">Pennsylvania (four counties)</h2>
+
+<p><strong>Method.</strong> 200 addresses sampled across
+Montgomery, York, Northampton and Cumberland County (PA) assessment parcel layers (assessment year current,
+fetched 2026-10-04); a further 8 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: residential parcels with a recorded year built in Montgomery, York, Northampton and Cumberland counties, drawn in proportion to each county&#x27;s housing units. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>3.1%</td><td>81.2%</td><td>14.0</td><td>0.0</td><td>192</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>28.3%</td><td>79.7%</td><td>266.0</td><td>0.0</td><td>138</td></tr>
+<tr><td>stories</td><td>84.6%</td><td>96.5%</td><td>79.3%</td><td>96.4%</td><td>0.0</td><td>0.0</td><td>143</td></tr>
+<tr><td>construction</td><td>100.0%</td><td>100.0%</td><td>71.4%</td><td>95.6%</td><td>—</td><td>—</td><td>91</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 24.0% of the time at baseline and 87.0% with the assessor; within &plusmn;10 years 40.6% and 91.1%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>35.9%</td><td>7.8%</td><td>192</td></tr>
+<tr><td>energy</td><td>35.9%</td><td>4.2%</td><td>192</td></tr>
+<tr><td>resilience</td><td>0.5%</td><td>0.0%</td><td>192</td></tr>
+<tr><td>environmental</td><td>24.5%</td><td>3.1%</td><td>192</td></tr>
+<tr><td>building_axis</td><td>54.7%</td><td>8.9%</td><td>192</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+76.5% of the sample. 95% confidence interval 70.2&ndash;81.8% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+cb84ec898190d71d.</p>
+
+
+<h2 id="phl">Philadelphia, Pennsylvania</h2>
+
+<p><strong>Method.</strong> 199 addresses sampled across
+Philadelphia Office of Property Assessment (OpenDataPhilly, Carto) (assessment year current,
+fetched 2026-10-04); a further 2 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: OPA accounts in the dwelling categories (single family, multi family, mixed use, apartments), condominium units included. Drawn from 200 assessor rows; 1 was not read as one home even at its own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>1.0%</td><td>86.3%</td><td>13.0</td><td>0.0</td><td>197</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>7.7%</td><td>76.9%</td><td>248.0</td><td>0.0</td><td>13</td></tr>
+<tr><td>stories</td><td>38.3%</td><td>90.8%</td><td>81.5%</td><td>99.2%</td><td>0.0</td><td>0.0</td><td>141</td></tr>
+<tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>foundation</td><td>100.0%</td><td>100.0%</td><td>25.8%</td><td>90.0%</td><td>—</td><td>—</td><td>120</td></tr>
+<tr><td>condition</td><td>100.0%</td><td>100.0%</td><td>78.3%</td><td>92.6%</td><td>—</td><td>—</td><td>189</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 25.9% of the time at baseline and 91.4% with the assessor; within &plusmn;10 years 36.5% and 92.9%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>27.4%</td><td>5.1%</td><td>197</td></tr>
+<tr><td>energy</td><td>21.3%</td><td>2.5%</td><td>197</td></tr>
+<tr><td>resilience</td><td>5.1%</td><td>0.5%</td><td>197</td></tr>
+<tr><td>environmental</td><td>24.9%</td><td>3.6%</td><td>197</td></tr>
+<tr><td>building_axis</td><td>35.0%</td><td>8.1%</td><td>197</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+84.9% of the sample. 95% confidence interval 79.3&ndash;89.2% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+6ea589ba92d5927e.</p>
+
+
+<h2 id="pdx">Portland metro, Oregon (Multnomah, Washington, Clackamas)</h2>
+
+<p><strong>Method.</strong> 192 addresses sampled across
+Oregon Metro RLIS Taxlots (Public) (assessment year 2026,
+fetched 2026-10-04); a further 13 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: residential taxlots (single-family, multi-family and rural residential, condominium units included) in all three counties, drawn in proportion to each county&#x27;s housing units. Drawn from 200 assessor rows; 8 were not read as one home even at their own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>5.0%</td><td>92.2%</td><td>15.0</td><td>0.0</td><td>179</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>29.5%</td><td>95.1%</td><td>180.0</td><td>0.0</td><td>122</td></tr>
+<tr><td>stories</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 26.3% of the time at baseline and 94.4% with the assessor; within &plusmn;10 years 39.1% and 96.1%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>26.3%</td><td>0.0%</td><td>179</td></tr>
+<tr><td>energy</td><td>26.3%</td><td>0.6%</td><td>179</td></tr>
+<tr><td>resilience</td><td>1.1%</td><td>0.6%</td><td>179</td></tr>
+<tr><td>environmental</td><td>21.8%</td><td>2.2%</td><td>179</td></tr>
+<tr><td>building_axis</td><td>53.1%</td><td>4.5%</td><td>179</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+84.9% of the sample. 95% confidence interval 79.1&ndash;89.3% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+4aca9ee1ade9b26a.</p>
+
+
+<h2 id="sf">San Francisco, California</h2>
+
+<p><strong>Method.</strong> 184 addresses sampled across
+San Francisco Office of the Assessor-Recorder (DataSF secured roll) (assessment year 2025,
+fetched 2026-10-04). Scope: residential records (single- and multi-family uses, condominium units included) in the latest closed secured roll. Drawn from 200 assessor rows; 1 could not be fetched from the source when drawn, 15 were not read as one home even at their own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>3.8%</td><td>97.8%</td><td>17.5</td><td>0.0</td><td>184</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>32.4%</td><td>100.0%</td><td>414.0</td><td>0.0</td><td>34</td></tr>
+<tr><td>stories</td><td>82.9%</td><td>99.1%</td><td>43.3%</td><td>99.1%</td><td>1.0</td><td>0.0</td><td>117</td></tr>
+<tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 20.1% of the time at baseline and 98.4% with the assessor; within &plusmn;10 years 31.0% and 98.9%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>10.3%</td><td>0.5%</td><td>184</td></tr>
+<tr><td>energy</td><td>8.7%</td><td>0.5%</td><td>184</td></tr>
+<tr><td>resilience</td><td>16.3%</td><td>1.1%</td><td>184</td></tr>
+<tr><td>environmental</td><td>16.3%</td><td>0.5%</td><td>184</td></tr>
+<tr><td>building_axis</td><td>22.8%</td><td>0.5%</td><td>184</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+97.8% of the sample. 95% confidence interval 94.5&ndash;99.2% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+38e0e2eccf21bdc5.</p>
+
+
+<h2 id="mi">Southeast Michigan (SEMCOG&#x27;s seven counties)</h2>
+
+<p><strong>Method.</strong> 191 addresses sampled across
+SEMCOG Building Footprints 2024 (assessment year 2024,
+fetched 2026-10-04); a further 1 sampled address could not be geocoded or scored and is excluded from every rate below. Scope: live single-family, attached-condo and apartment buildings (not parcels) in Wayne, Oakland, Macomb, Washtenaw, Livingston, St. Clair and Monroe, drawn in proportion to each county&#x27;s housing units. Drawn from 200 assessor rows; 9 were not read as one home even at their own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>5.3%</td><td>96.8%</td><td>9.0</td><td>0.0</td><td>190</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>19.0%</td><td>96.4%</td><td>176.0</td><td>0.0</td><td>137</td></tr>
+<tr><td>stories</td><td>87.6%</td><td>100.0%</td><td>67.9%</td><td>99.3%</td><td>0.0</td><td>0.0</td><td>153</td></tr>
+<tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 35.3% of the time at baseline and 98.4% with the assessor; within &plusmn;10 years 54.2% and 98.4%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>23.2%</td><td>1.6%</td><td>190</td></tr>
+<tr><td>energy</td><td>33.2%</td><td>2.6%</td><td>190</td></tr>
+<tr><td>resilience</td><td>0.5%</td><td>0.0%</td><td>190</td></tr>
+<tr><td>environmental</td><td>27.4%</td><td>1.6%</td><td>190</td></tr>
+<tr><td>building_axis</td><td>27.4%</td><td>1.6%</td><td>190</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+96.3% of the sample. 95% confidence interval 92.6&ndash;98.2% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+af02a75f72e38d5b.</p>
+
+
+<h2 id="tx">Texas (twelve largest-county appraisal districts)</h2>
+
+<p><strong>Method.</strong> 197 addresses sampled across
+Texas county appraisal districts (twelve counties&#x27; own services) (assessment year current,
+fetched 2026-10-04); a further 7 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: residential accounts (state categories A single-family and condominium, B multifamily, M mobile homes) in the twelve counties the adapter serves, drawn in proportion to each county&#x27;s housing units. Drawn from 200 assessor rows; 3 were not read as one home even at their own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>6.8%</td><td>85.8%</td><td>7.0</td><td>0.0</td><td>190</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>16.2%</td><td>86.2%</td><td>240.0</td><td>0.0</td><td>130</td></tr>
+<tr><td>stories</td><td>91.8%</td><td>100.0%</td><td>80.0%</td><td>95.9%</td><td>0.0</td><td>0.0</td><td>49</td></tr>
+<tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 41.6% of the time at baseline and 91.1% with the assessor; within &plusmn;10 years 70.0% and 96.8%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>25.3%</td><td>4.2%</td><td>190</td></tr>
+<tr><td>energy</td><td>15.8%</td><td>1.6%</td><td>190</td></tr>
+<tr><td>resilience</td><td>2.6%</td><td>0.5%</td><td>190</td></tr>
+<tr><td>environmental</td><td>5.8%</td><td>1.6%</td><td>190</td></tr>
+<tr><td>building_axis</td><td>29.5%</td><td>2.6%</td><td>190</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+82.7% of the sample. 95% confidence interval 76.9&ndash;87.4% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+6ae3b403b15f6be2.</p>
+
+
+<h2 id="ut">Utah</h2>
+
+<p><strong>Method.</strong> 186 addresses sampled across
+UGRC Land Information Records parcels (Utah county tax rolls) (assessment year 2025,
+fetched 2026-10-04); a further 22 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: residential parcels with a recorded year built in the 28 counties served, one draw per parcel, in proportion to each county&#x27;s housing units. Drawn from 200 assessor rows; 7 had no site address on file, 7 were not read as one home even at their own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>3.7%</td><td>86.0%</td><td>9.0</td><td>0.0</td><td>164</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>45.0%</td><td>90.0%</td><td>40.0</td><td>0.0</td><td>20</td></tr>
+<tr><td>stories</td><td>88.9%</td><td>100.0%</td><td>87.5%</td><td>100.0%</td><td>0.0</td><td>0.0</td><td>18</td></tr>
+<tr><td>construction</td><td>100.0%</td><td>100.0%</td><td>87.9%</td><td>98.3%</td><td>—</td><td>—</td><td>58</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 34.8% of the time at baseline and 90.9% with the assessor; within &plusmn;10 years 51.2% and 93.3%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>30.5%</td><td>4.9%</td><td>164</td></tr>
+<tr><td>energy</td><td>31.7%</td><td>4.9%</td><td>164</td></tr>
+<tr><td>resilience</td><td>8.5%</td><td>1.8%</td><td>164</td></tr>
+<tr><td>environmental</td><td>18.3%</td><td>3.0%</td><td>164</td></tr>
+<tr><td>building_axis</td><td>47.0%</td><td>8.5%</td><td>164</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+75.3% of the sample. 95% confidence interval 68.6&ndash;80.9% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+8b522f5c6868a8d0.</p>
+
+
+<h2 id="va">Virginia — Chesterfield County and the City of Richmond</h2>
+
+<p><strong>Method.</strong> 198 addresses sampled across
+Chesterfield County Open GIS Data; City of Richmond Assessor (assessment year 2025-2026 by locality (Chesterfield 2026, Richmond 2025),
+fetched 2026-10-04); a further 8 sampled addresses could not be geocoded or scored and are excluded from every rate below. Scope: residential assessment records in Chesterfield County and the City of Richmond only, drawn in proportion to each one&#x27;s housing units. Drawn from 200 assessor rows; 2 were not read as one home even at their own parcel. Each is scored
+from the address alone, with no construction details supplied, and compared against
+the county's record as the adapter reads it at the parcel itself (see <em>adapter benchmarks</em> below).</p>
+
+<h3>Field accuracy</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Field</th><th>Coverage<br>baseline</th><th>Coverage<br>w/ assessor</th>
+<th>Exact<br>baseline</th><th>Exact<br>w/ assessor</th>
+<th>Median error<br>baseline</th><th>Median error<br>w/ assessor</th><th>Truth rows</th>
+</tr></thead><tbody>
+<tr><td>year_built</td><td>100.0%</td><td>100.0%</td><td>1.6%</td><td>85.8%</td><td>10.0</td><td>0.0</td><td>190</td></tr>
+<tr><td>sqft</td><td>100.0%</td><td>100.0%</td><td>24.7%</td><td>86.0%</td><td>176.5</td><td>0.0</td><td>150</td></tr>
+<tr><td>stories</td><td>90.3%</td><td>100.0%</td><td>83.5%</td><td>97.0%</td><td>0.0</td><td>0.0</td><td>134</td></tr>
+<tr><td>construction</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>foundation</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td>condition</td><td>100.0%</td><td>100.0%</td><td>46.1%</td><td>94.7%</td><td>—</td><td>—</td><td>76</td></tr>
+</tbody></table></div>
+
+<p><strong>Year built, by tolerance.</strong> The single field the rest of the
+construction profile leans on hardest, so the near-misses are worth seeing rather
+than collapsing into one median: within &plusmn;5 years 32.1% of the time at baseline and 88.4% with the assessor; within &plusmn;10 years 51.1% and 93.2%.</p>
+
+<h3>Does the reader see a different grade?</h3>
+<div class="table-scroll"><table class="data-table"><thead><tr>
+<th>Dimension</th><th>Baseline</th><th>With assessor</th><th>n</th>
+</tr></thead><tbody>
+<tr><td>durability</td><td>37.9%</td><td>7.4%</td><td>190</td></tr>
+<tr><td>energy</td><td>29.5%</td><td>6.8%</td><td>190</td></tr>
+<tr><td>resilience</td><td>0.5%</td><td>0.0%</td><td>190</td></tr>
+<tr><td>environmental</td><td>24.2%</td><td>4.7%</td><td>190</td></tr>
+<tr><td>building_axis</td><td>48.4%</td><td>8.9%</td><td>190</td></tr>
+</tbody></table></div>
+
+<p style="opacity:0.75;font-size:0.85rem;">Assessor lookups resolved for
+82.3% of the sample. 95% confidence interval 76.4&ndash;87.0% for the draw.
+Drawn uniform random offsets without replacement, seed 20261004 &middot; Benchmark digest
+0ed594fd7c535280.</p>
+
+<h2 id="caveats">What this does and does not establish</h2>
 <ul>
 <li><strong>These are measured jurisdictions, not a national sample, and not every
 jurisdiction served.</strong>
 Each figure describes one place's housing stock and record-keeping.
 Nothing here supports a claim about anywhere else, and the sections should not
-be averaged into one. An adapter can serve a jurisdiction that carries no figure
-here — Florida, Connecticut, Los Angeles County, New York City and State,
-Philadelphia, North Carolina, Maryland, Massachusetts and Utah are all served and none
-is measured, so these numbers say nothing about any of them. Each carries a
-wrong-parcel verification instead, listed on the <a href="coverage.html">coverage
-page</a>. Serving is not measuring.</li>
+be averaged into one. Every adapter currently served carries a measurement here.</li>
+<li><strong>Adapter benchmarks grade the lookup, not the field mapping.</strong>
+Cook's and DC's references are built from the assessor's tables by this page's own
+mapping, independently of the adapter. The other sections draw homes at random from
+each adapter's own source and take as reference the county's record <em>as the
+adapter reads it at the parcel itself</em> &mdash; at a point inside the lot, with
+the lot's own address. So the &ldquo;with assessor&rdquo; column there measures what
+a visitor actually gets: how often typing the address reaches the county's record,
+whether it is the right record, and how far that record moves the grades from the
+modeled baseline. It does not test whether the adapter translates the county's
+columns correctly; each adapter's year built and floor area were checked against the
+raw source values in its own verification run (recorded in its module and on the
+coverage page). A drawn home the adapter will not read even at its own parcel is
+counted in the section's method note, not silently dropped.</li>
 <li><strong>Washington, DC excludes condominiums</strong>, which are
 about 36% of its assessor's residential stock (61,329 condo records against 109,273
 others). DC keeps them in a separate table keyed by unit, and a unit-level
@@ -195,8 +1325,8 @@ the best available reference, not a survey.</li>
 baseline, so the &ldquo;with assessor&rdquo; column includes them. It is the
 end-to-end number a visitor would experience, not the adapter's accuracy on the
 rows it answers.</li>
-<li>The benchmarks are fetched on demand and not committed: neither source grants
-an explicit right to redistribute a dataset. Re-running months later samples a
+<li>The benchmarks are fetched on demand and not committed: most sources grant
+no explicit right to redistribute a dataset. Re-running months later samples a
 refreshed roll, so each section's digest and date are recorded to make that
 visible.</li>
 <li><strong>The categorical fields are a weaker test than the numeric ones.</strong>
@@ -233,7 +1363,7 @@ distance between the arms rather than overstating it.</li>
 padding-top:0.9rem;">Informational purposes only. This label is a modeled estimate built from public data. It is not an inspection, appraisal, survey, or insurance quote, and it is not legal, financial, insurance, engineering, or real estate advice. It describes what the model expects of a home like this one at this location; it cannot tell you the condition, safety, value, or insurability of any particular property. Verify anything you would act on with a qualified professional. Provided as is, without warranty.</p>
 
 <p style="opacity:0.75;font-size:0.85rem;">Generated
-2026-08-27. Regenerate with
+2026-10-05. Regenerate with
 <code>python scripts/measure_accuracy.py --jurisdiction &lt;name&gt;</code>; each
 run replaces only its own section.</p>
 </main>
