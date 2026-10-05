@@ -626,9 +626,24 @@ def county_css(m: dict) -> str:
         "{display:inline}"
 
 
+# The same fields as they read mid-sentence ("Observed: year built, floor area").
+# Spelled out rather than lowercased from FIELD_LABELS, so a label with an acronym
+# in it can never come out as "hvac".
+FIELD_PHRASES = {
+    "year_built": "year built", "sqft": "floor area", "stories": "stories",
+    "construction": "wall", "foundation": "foundation", "condition": "condition",
+}
+
+
+def observed_phrase(fields) -> str:
+    """"Year built, floor area, stories" — what a source supplies, as one phrase."""
+    text = ", ".join(FIELD_PHRASES[f] for f in fields)
+    return text[:1].upper() + text[1:]
+
+
 def tooltip_data(m: dict) -> str:
     """What the map's tooltip needs, keyed small: county → adapter, homes."""
-    adapters = {r["key"]: {"n": r["short"], "f": [FIELD_LABELS[f] for f in r["fields"]],
+    adapters = {r["key"]: {"n": r["short"], "f": observed_phrase(r["fields"]),
                            "h": r["homes"], "d": r["depth"]}
                 for r in m["adapters"]}
     counties = {}
@@ -864,18 +879,27 @@ function tipPosition(px, py, w, h, b, touch) {
   // part of its own container that is on screen. It was measured from the map,
   // which sits below the card's heading, so it landed a heading's height from the
   // pointer; and nothing kept it inside the card or the screen.
+  // Where the tooltip may go, in the coordinates its left/top are measured in. It
+  // was measured from the map, which sits below the card's heading, so it landed
+  // a heading's height from the pointer; and nothing kept it in view.
+  //
+  // Across, it stays inside both the card and the screen. Down, only the screen
+  // counts: a card scrolled almost out of view leaves no room for the tooltip
+  // inside its visible part, and on screen is what matters. The screen is the
+  // visual viewport where there is one, so a pinch-zoomed phone clamps to what is
+  // actually visible, and it starts below the site's pinned nav bar.
+  var nav = document.querySelector('nav');
+  var navPinned = nav && /fixed|sticky/.test(getComputedStyle(nav).position);
   function visibleBounds(parent) {
     var pb = parent.getBoundingClientRect();
     var ox = pb.left + parent.clientLeft, oy = pb.top + parent.clientTop;
-    var vw = document.documentElement.clientWidth || window.innerWidth;
-    // The site's nav bar stays pinned to the top, so the screen starts below it.
-    var nav = document.querySelector('nav'), vtop = 0;
-    if (nav && /fixed|sticky/.test(getComputedStyle(nav).position)) {
-      vtop = Math.max(0, nav.getBoundingClientRect().bottom);
-    }
-    return {ox: ox, oy: oy, left: Math.max(0, -ox), top: Math.max(0, vtop - oy),
-            right: Math.min(parent.clientWidth, vw - ox),
-            bottom: Math.min(parent.clientHeight, window.innerHeight - oy)};
+    var de = document.documentElement, vv = window.visualViewport;
+    var sl = vv ? vv.offsetLeft : 0, st = vv ? vv.offsetTop : 0;
+    var sr = sl + (vv ? vv.width : de.clientWidth), sb = st + (vv ? vv.height : de.clientHeight);
+    if (navPinned) st = Math.max(st, nav.getBoundingClientRect().bottom);
+    return {ox: ox, oy: oy,
+            left: Math.max(0, sl - ox), right: Math.min(parent.clientWidth, sr - ox),
+            top: st - oy, bottom: sb - oy};
   }
   function place(evt, touch) {
     var b = visibleBounds(tip.offsetParent || holder);
@@ -891,9 +915,8 @@ function tipPosition(px, py, w, h, b, touch) {
       tip.appendChild(line('t', st ? name + ', ' + st : name));
       if (hit) {
         var a = data.a[hit[0]];
-        var fields = a.f.map(function (x, i) { return i ? x.toLowerCase() : x; });
         tip.appendChild(line('l', a.n, 'Source:'));
-        tip.appendChild(line('l', fields.join(', '), 'Observed:'));
+        tip.appendChild(line('l', a.f, 'Observed:'));
         if (hit[1]) tip.appendChild(line('l', fmt(hit[1]) + ' homes'));
       } else {
         tip.appendChild(line('l', 'No assessor source yet; building data is modeled.'));
@@ -927,9 +950,23 @@ function tipPosition(px, py, w, h, b, touch) {
     document.addEventListener('pointerdown', function (e) {
       if (!holder.contains(e.target)) hide();
     });
-    window.addEventListener('scroll', function () { if (lastType === 'touch') hide(); },
-                            {passive: true});
-    window.addEventListener('resize', hide);
+    // Any scroll moves the map under a tooltip placed for where it was. A wheel
+    // scroll fires no pointermove, so for a mouse the next move puts it back.
+    window.addEventListener('scroll', hide, {passive: true});
+    // Close on a real change of width (a phone turned on its side), not on every
+    // resize: iOS fires one when its toolbar slides back in, which a tap near the
+    // bottom of the screen causes, and the tooltip vanished as it appeared.
+    var lastWidth = document.documentElement.clientWidth;
+    window.addEventListener('resize', function () {
+      var w = document.documentElement.clientWidth;
+      if (w !== lastWidth) { lastWidth = w; hide(); }
+    });
+    // Panning or zooming a pinch-zoomed page moves the visible area out from under
+    // the tooltip, and fires no window scroll.
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('scroll', function () {
+        if (lastType === 'touch') hide(); });
+    }
   }).catch(function () {});
   var rows = document.querySelectorAll('.bar-row');
   for (var i = 0; i < rows.length; i++) (function (row) {

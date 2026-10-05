@@ -123,9 +123,12 @@ def test_the_map_tooltip_never_leaves_the_visible_part_of_its_card():
     full = {"left": 0, "top": 0, "right": 360, "bottom": 700}
     scrolled = {"left": 0, "top": 300, "right": 360, "bottom": 700}  # top 300 px off screen
     tight = {"left": 0, "top": 500, "right": 360, "bottom": 700}     # 200 px left on screen
-    for b in (full, scrolled, tight):
+    # The card's top 300 px scrolled away: the bounds run from the top of the screen
+    # (300 px below the card's top edge, in the card's coordinates) to its bottom.
+    offtop = {"left": 0, "top": 300, "right": 360, "bottom": 1084}
+    for b in (full, scrolled, tight, offtop):
         for px in (0, 5, 180, 355, 360):
-            for py in (b["top"], b["top"] + 5, 450, 695, 700):
+            for py in sorted({b["top"], b["top"] + 5, 450, 695, 700, 305} & set(range(b["top"], b["bottom"] + 1))):
                 for touch in (False, True):
                     cases.append([px, py, 272, 110, b, touch])
     js = fn + "process.stdout.write(JSON.stringify(" + json.dumps(cases) + \
@@ -135,10 +138,18 @@ def test_the_map_tooltip_never_leaves_the_visible_part_of_its_card():
     for (px, py, w, h, b, touch), pos in zip(cases, out):
         assert b["left"] <= pos["x"] and pos["x"] + w <= b["right"], (px, py, touch, pos)
         assert b["top"] <= pos["y"] and pos["y"] + h <= b["bottom"], (px, py, touch, pos)
-    # And a tap with room above puts the tooltip above the finger, not under it.
+    # And a tap with room above puts the tooltip above the finger, not under it,
+    # and one at the very top of the screen puts it below, clear of the finger.
     above = out[cases.index([180, 450, 272, 110, full, True])]
     assert above["y"] + 110 <= 450
+    below = out[cases.index([180, 305, 272, 110, offtop, True])]
+    assert below["y"] >= 305
 
 
 def test_the_map_tooltip_text_never_goes_through_innerhtml():
     assert "tip.innerHTML" not in B._SCRIPT
+
+
+def test_the_observed_fields_read_as_one_phrase():
+    assert B.observed_phrase(["year_built", "sqft", "stories"]) == "Year built, floor area, stories"
+    assert set(B.FIELD_PHRASES) == set(B.FIELD_LABELS)
