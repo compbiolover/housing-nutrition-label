@@ -106,12 +106,39 @@ def test_the_map_tooltip_can_name_every_countys_state():
     assert covered_states <= set(data["s"])
 
 
-def test_the_map_tooltip_is_placed_against_its_own_container():
-    """The tooltip was positioned inside the card but measured from the map below
-    the card's heading, so it landed a heading's height above the pointer and ran
-    off the screen near an edge. It must measure from its own offset parent and be
-    clamped inside it, and its text must not go through innerHTML."""
-    script = _load()._SCRIPT
-    assert "tip.offsetParent" in script
-    assert "Math.max(pad, Math.min(x, pb.width - w - pad))" in script
-    assert "tip.innerHTML" not in script
+def test_the_map_tooltip_never_leaves_the_visible_part_of_its_card():
+    """The tooltip hung off the screen near an edge. ``tipPosition`` is run in Node
+    against each edge, for a pointer and for a finger, and for a card scrolled half
+    out of view: the box must always land inside the visible bounds."""
+    import json
+    import shutil
+    import subprocess
+    import pytest
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not installed")
+    script = B._SCRIPT
+    fn = script[script.index("function tipPosition"):script.index("(function () {")]
+    cases = []
+    full = {"left": 0, "top": 0, "right": 360, "bottom": 700}
+    scrolled = {"left": 0, "top": 300, "right": 360, "bottom": 700}  # top 300 px off screen
+    tight = {"left": 0, "top": 500, "right": 360, "bottom": 700}     # 200 px left on screen
+    for b in (full, scrolled, tight):
+        for px in (0, 5, 180, 355, 360):
+            for py in (b["top"], b["top"] + 5, 450, 695, 700):
+                for touch in (False, True):
+                    cases.append([px, py, 272, 110, b, touch])
+    js = fn + "process.stdout.write(JSON.stringify(" + json.dumps(cases) + \
+        ".map(function (c) { return tipPosition.apply(null, c); })));"
+    out = json.loads(subprocess.run([node, "-e", js], capture_output=True, text=True,
+                                    check=True).stdout)
+    for (px, py, w, h, b, touch), pos in zip(cases, out):
+        assert b["left"] <= pos["x"] and pos["x"] + w <= b["right"], (px, py, touch, pos)
+        assert b["top"] <= pos["y"] and pos["y"] + h <= b["bottom"], (px, py, touch, pos)
+    # And a tap with room above puts the tooltip above the finger, not under it.
+    above = out[cases.index([180, 450, 272, 110, full, True])]
+    assert above["y"] + 110 <= 450
+
+
+def test_the_map_tooltip_text_never_goes_through_innerhtml():
+    assert "tip.innerHTML" not in B._SCRIPT

@@ -54,6 +54,7 @@ for _p in (_ROOT, _ROOT / "src"):
 
 from housing_label.enrich.assessor import ADAPTERS  # noqa: E402
 from housing_label.enrich.assessor.base import AssessorRecord  # noqa: E402
+from housing_label.data.states import STATE_FIPS_TO_USPS, usps_for_fips  # noqa: E402
 from housing_label.legal import DISCLAIMER  # noqa: E402
 
 PAGE = _ROOT / "docs" / "coverage.html"
@@ -636,7 +637,6 @@ def tooltip_data(m: dict) -> str:
             counties[f] = [r["key"], m["units"].get(f)]
     # Every state, not just the covered ones: an uncovered county gets a tooltip too,
     # and "Cumberland" alone does not say which of the eight Cumberland Counties.
-    from housing_label.data.states import STATE_FIPS_TO_USPS
     return json.dumps({"a": adapters, "c": counties, "s": STATE_FIPS_TO_USPS},
                       separators=(",", ":"), sort_keys=True)
 
@@ -689,7 +689,6 @@ def county_lists(m: dict) -> str:
     """Every covered county, by source — the map's county detail in a form a
     keyboard or a screen reader can reach. Making 3,142 map paths tab stops would
     be worse than useless; a list is the accessible equivalent."""
-    from housing_label.data.states import usps_for_fips
     names = county_names()
     out = []
     for r in m["adapters"]:
@@ -819,6 +818,24 @@ _STYLE = """
 """
 
 _SCRIPT = """
+// Where the map tooltip goes, as a pure function so it can be tested. (px, py) is
+// the pointer and b the visible part of the tooltip's container, both in the
+// coordinates its left/top are measured in. A pointer gets the tooltip below and
+// to the right, flipped when that runs out of room; a finger covers what is below
+// it, so a tap gets it centered above, dropped below only when there is no room.
+// Either way it is then clamped inside b, so no part of it is off screen.
+function tipPosition(px, py, w, h, b, touch) {
+  var pad = 8, gap = 14;
+  var x = touch ? px - w / 2 : px + gap;
+  if (!touch && x + w > b.right - pad) x = px - w - gap;
+  x = Math.max(b.left + pad, Math.min(x, b.right - w - pad));
+  var y = touch ? py - h - gap : py + gap;
+  if (touch ? y < b.top + pad : y + h > b.bottom - pad) {
+    y = touch ? py + gap + 10 : py - h - gap;
+  }
+  y = Math.max(b.top + pad, Math.min(y, b.bottom - h - pad));
+  return {x: x, y: y};
+}
 (function () {
   var holder = document.getElementById('covmap');
   var tip = document.getElementById('covtip');
@@ -841,62 +858,78 @@ _SCRIPT = """
     s.appendChild(document.createTextNode(text));
     return s;
   }
-  function hide() { tip.style.display = 'none'; }
-  // Placed against the element the tooltip is actually positioned in, not the map.
-  // The map sits below the card's heading, so measuring from it put the tooltip a
-  // heading's height away from the pointer — over the paragraph above the map —
-  // and nothing kept it inside the card, so near an edge it hung off the screen.
+  var shown = null;
+  function hide() { tip.style.display = 'none'; shown = null; }
+  // Where the tooltip may go, in the coordinates its left/top are measured in: the
+  // part of its own container that is on screen. It was measured from the map,
+  // which sits below the card's heading, so it landed a heading's height from the
+  // pointer; and nothing kept it inside the card or the screen.
+  function visibleBounds(parent) {
+    var pb = parent.getBoundingClientRect();
+    var ox = pb.left + parent.clientLeft, oy = pb.top + parent.clientTop;
+    var vw = document.documentElement.clientWidth || window.innerWidth;
+    // The site's nav bar stays pinned to the top, so the screen starts below it.
+    var nav = document.querySelector('nav'), vtop = 0;
+    if (nav && /fixed|sticky/.test(getComputedStyle(nav).position)) {
+      vtop = Math.max(0, nav.getBoundingClientRect().bottom);
+    }
+    return {ox: ox, oy: oy, left: Math.max(0, -ox), top: Math.max(0, vtop - oy),
+            right: Math.min(parent.clientWidth, vw - ox),
+            bottom: Math.min(parent.clientHeight, window.innerHeight - oy)};
+  }
   function place(evt, touch) {
-    var parent = tip.offsetParent || holder, pb = parent.getBoundingClientRect();
-    var px = evt.clientX - pb.left, py = evt.clientY - pb.top;
-    var w = tip.offsetWidth, h = tip.offsetHeight, pad = 8, gap = 14;
-    var x = touch ? px - w / 2 : px + gap;
-    if (!touch && x + w > pb.width - pad) x = px - w - gap;
-    x = Math.max(pad, Math.min(x, pb.width - w - pad));
-    // A finger covers what is below it, so on touch the tooltip goes above first.
-    var y = touch ? py - h - gap : py + gap;
-    if (touch ? y < pad : y + h > pb.height - pad) y = touch ? py + gap + 10 : py - h - gap;
-    y = Math.max(pad, Math.min(y, pb.height - h - pad));
-    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+    var b = visibleBounds(tip.offsetParent || holder);
+    var pos = tipPosition(evt.clientX - b.ox, evt.clientY - b.oy,
+                          tip.offsetWidth, tip.offsetHeight, b, touch);
+    tip.style.left = pos.x + 'px'; tip.style.top = pos.y + 'px';
   }
   function show(evt, el, touch) {
-    var f = el.id.slice(1), hit = data.c[f], name = el.getAttribute('data-n') || '';
-    var st = data.s[f.slice(0, 2)];
-    tip.textContent = '';
-    tip.appendChild(line('t', st ? name + ', ' + st : name));
-    if (hit) {
-      var a = data.a[hit[0]];
-      var fields = a.f.map(function (x, i) { return i ? x.toLowerCase() : x; });
-      tip.appendChild(line('l', a.n, 'Source:'));
-      tip.appendChild(line('l', fields.join(', '), 'Observed:'));
-      if (hit[1]) tip.appendChild(line('l', fmt(hit[1]) + ' homes'));
-    } else {
-      tip.appendChild(line('l', 'No assessor source yet; building data is modeled.'));
+    if (shown !== el) {
+      var f = el.id.slice(1), hit = data.c[f], name = el.getAttribute('data-n') || '';
+      var st = data.s[f.slice(0, 2)];
+      tip.textContent = '';
+      tip.appendChild(line('t', st ? name + ', ' + st : name));
+      if (hit) {
+        var a = data.a[hit[0]];
+        var fields = a.f.map(function (x, i) { return i ? x.toLowerCase() : x; });
+        tip.appendChild(line('l', a.n, 'Source:'));
+        tip.appendChild(line('l', fields.join(', '), 'Observed:'));
+        if (hit[1]) tip.appendChild(line('l', fmt(hit[1]) + ' homes'));
+      } else {
+        tip.appendChild(line('l', 'No assessor source yet; building data is modeled.'));
+      }
+      tip.style.display = 'block';
+      shown = el;
     }
-    tip.style.display = 'block';
     place(evt, touch);
   }
   fetch('coverage-map.svg').then(function (r) { return r.ok ? r.text() : ''; }).then(function (svg) {
     if (!svg) return;
     holder.innerHTML = svg;
     var lastType = 'mouse';
+    function county(e) { return e.target.closest ? e.target.closest('.c') : null; }
     holder.addEventListener('pointerdown', function (e) { lastType = e.pointerType || 'mouse'; });
+    // Hover for a mouse or a hovering pen; a finger has no hover, so it taps.
     holder.addEventListener('pointermove', function (e) {
-      if (e.pointerType && e.pointerType !== 'mouse') return;
-      var el = e.target.closest ? e.target.closest('.c') : null;
+      if (e.pointerType === 'touch') return;
+      lastType = e.pointerType || 'mouse';
+      var el = county(e);
       if (el) show(e, el, false); else hide();
     });
-    holder.addEventListener('mouseleave', hide);
+    holder.addEventListener('mouseleave', function () { if (lastType !== 'touch') hide(); });
     // A tap shows the county until the next tap; there is no hover to end it.
     holder.addEventListener('click', function (e) {
-      var el = e.target.closest ? e.target.closest('.c') : null;
-      if (el) show(e, el, lastType !== 'mouse'); else hide();
+      var el = county(e);
+      if (el) show(e, el, lastType === 'touch'); else hide();
     });
-    document.addEventListener('click', function (e) {
+    // pointerdown, not click: iOS Safari sends no click for a tap on plain text, so
+    // a tap beside the map would never have closed the tooltip.
+    document.addEventListener('pointerdown', function (e) {
       if (!holder.contains(e.target)) hide();
     });
-    window.addEventListener('scroll', function () { if (lastType !== 'mouse') hide(); },
+    window.addEventListener('scroll', function () { if (lastType === 'touch') hide(); },
                             {passive: true});
+    window.addEventListener('resize', hide);
   }).catch(function () {});
   var rows = document.querySelectorAll('.bar-row');
   for (var i = 0; i < rows.length; i++) (function (row) {
