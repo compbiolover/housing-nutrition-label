@@ -9,6 +9,19 @@ pre-1.0 (`0.y.z`), breaking changes bump the **minor** version and everything el
 [release-please](https://github.com/googleapis/release-please) from Conventional Commit
 PR titles — edit entries by editing the open release PR, not this file directly.
 
+## [0.2.18](https://github.com/compbiolover/housing-nutrition-label/compare/v0.2.17...v0.2.18) (2026-10-05)
+
+
+### Features
+
+* **accuracy:** measure every adapter against its own source ([#332](https://github.com/compbiolover/housing-nutrition-label/issues/332)) ([d9cc150](https://github.com/compbiolover/housing-nutrition-label/commit/d9cc15027e36d7c2fd53783cd7f39856a9e9c2b0))
+* **assessor:** push national coverage past 40% ([#330](https://github.com/compbiolover/housing-nutrition-label/issues/330)) ([14626d9](https://github.com/compbiolover/housing-nutrition-label/commit/14626d9ec1ba2f261c2a92dde64996aeba07fbad))
+
+
+### Bug Fixes
+
+* **coverage:** lay out the map tooltip and keep it on screen ([#333](https://github.com/compbiolover/housing-nutrition-label/issues/333)) ([5232565](https://github.com/compbiolover/housing-nutrition-label/commit/52325655f346f735aed9a6fe57fa8d8e68cb3ca8))
+
 ## [0.2.17](https://github.com/compbiolover/housing-nutrition-label/compare/v0.2.16...v0.2.17) (2026-10-03)
 
 
