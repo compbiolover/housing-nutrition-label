@@ -634,8 +634,11 @@ def tooltip_data(m: dict) -> str:
     for r in m["adapters"]:
         for f in r["counties"]:
             counties[f] = [r["key"], m["units"].get(f)]
-    return json.dumps({"a": adapters, "c": counties}, separators=(",", ":"),
-                      sort_keys=True)
+    # Every state, not just the covered ones: an uncovered county gets a tooltip too,
+    # and "Cumberland" alone does not say which of the eight Cumberland Counties.
+    from housing_label.data.states import STATE_FIPS_TO_USPS
+    return json.dumps({"a": adapters, "c": counties, "s": STATE_FIPS_TO_USPS},
+                      separators=(",", ":"), sort_keys=True)
 
 
 def field_matrix(m: dict) -> str:
@@ -764,10 +767,12 @@ _STYLE = """
 .cov .legend span::before { content: ""; display: inline-block; width: .85rem; height: .85rem;
   border-radius: 3px; margin-right: .4rem; vertical-align: -2px; background: var(--sw); }
 .cov .tip { position: absolute; pointer-events: none; background: var(--surface); color: var(--ink);
-  border: 1px solid var(--border); border-radius: 6px; padding: .5rem .65rem; font-size: .85rem;
-  box-shadow: 0 4px 14px rgba(0,0,0,.12); max-width: 17rem; line-height: 1.35; display: none; z-index: 5; }
-.cov .tip b { display: block; }
-.cov .tip .m { color: var(--ink-2); }
+  border: 1px solid var(--border); border-radius: 8px; padding: .55rem .7rem; font-size: .85rem;
+  box-shadow: 0 6px 18px rgba(0,0,0,.18); width: max-content;
+  max-width: min(17rem, calc(100% - 16px)); line-height: 1.4; display: none; z-index: 5; }
+.cov .tip .t { display: block; font-weight: 700; font-size: .95rem; margin-bottom: .2rem; }
+.cov .tip .l { display: block; color: var(--ink-2); }
+.cov .tip .l b { color: var(--ink); font-weight: 600; }
 .cov .bars { width: 100%; height: auto; }
 .cov .bars .bar { fill: var(--series); }
 .cov .bars .hit { fill: transparent; }
@@ -829,30 +834,69 @@ _SCRIPT = """
         var el = document.getElementById(p + f); if (el) el.classList.add('hl'); });
     }
   }
-  function show(evt, el) {
+  function line(cls, text, lead) {
+    var s = document.createElement('span'); s.className = cls;
+    if (lead) { var b = document.createElement('b'); b.textContent = lead; s.appendChild(b);
+      s.appendChild(document.createTextNode(' ')); }
+    s.appendChild(document.createTextNode(text));
+    return s;
+  }
+  function hide() { tip.style.display = 'none'; }
+  // Placed against the element the tooltip is actually positioned in, not the map.
+  // The map sits below the card's heading, so measuring from it put the tooltip a
+  // heading's height away from the pointer — over the paragraph above the map —
+  // and nothing kept it inside the card, so near an edge it hung off the screen.
+  function place(evt, touch) {
+    var parent = tip.offsetParent || holder, pb = parent.getBoundingClientRect();
+    var px = evt.clientX - pb.left, py = evt.clientY - pb.top;
+    var w = tip.offsetWidth, h = tip.offsetHeight, pad = 8, gap = 14;
+    var x = touch ? px - w / 2 : px + gap;
+    if (!touch && x + w > pb.width - pad) x = px - w - gap;
+    x = Math.max(pad, Math.min(x, pb.width - w - pad));
+    // A finger covers what is below it, so on touch the tooltip goes above first.
+    var y = touch ? py - h - gap : py + gap;
+    if (touch ? y < pad : y + h > pb.height - pad) y = touch ? py + gap + 10 : py - h - gap;
+    y = Math.max(pad, Math.min(y, pb.height - h - pad));
+    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+  }
+  function show(evt, el, touch) {
     var f = el.id.slice(1), hit = data.c[f], name = el.getAttribute('data-n') || '';
-    var h = '<b>' + name + '</b>';
+    var st = data.s[f.slice(0, 2)];
+    tip.textContent = '';
+    tip.appendChild(line('t', st ? name + ', ' + st : name));
     if (hit) {
       var a = data.a[hit[0]];
-      h += '<span>' + a.n + '</span><span class="m">Observed: ' + a.f.join(', ') + '</span>';
-      if (hit[1]) h += '<span class="m">' + fmt(hit[1]) + ' homes in this county</span>';
+      var fields = a.f.map(function (x, i) { return i ? x.toLowerCase() : x; });
+      tip.appendChild(line('l', a.n, 'Source:'));
+      tip.appendChild(line('l', fields.join(', '), 'Observed:'));
+      if (hit[1]) tip.appendChild(line('l', fmt(hit[1]) + ' homes'));
     } else {
-      h += '<span class="m">Modeled building data (no assessor source yet)</span>';
+      tip.appendChild(line('l', 'No assessor source yet; building data is modeled.'));
     }
-    tip.innerHTML = h; tip.style.display = 'block';
-    var box = holder.getBoundingClientRect();
-    var x = evt.clientX - box.left + 14, y = evt.clientY - box.top + 14;
-    if (x + tip.offsetWidth > box.width) x = evt.clientX - box.left - tip.offsetWidth - 14;
-    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+    tip.style.display = 'block';
+    place(evt, touch);
   }
   fetch('coverage-map.svg').then(function (r) { return r.ok ? r.text() : ''; }).then(function (svg) {
     if (!svg) return;
     holder.innerHTML = svg;
-    holder.addEventListener('mousemove', function (e) {
+    var lastType = 'mouse';
+    holder.addEventListener('pointerdown', function (e) { lastType = e.pointerType || 'mouse'; });
+    holder.addEventListener('pointermove', function (e) {
+      if (e.pointerType && e.pointerType !== 'mouse') return;
       var el = e.target.closest ? e.target.closest('.c') : null;
-      if (el) show(e, el); else tip.style.display = 'none';
+      if (el) show(e, el, false); else hide();
     });
-    holder.addEventListener('mouseleave', function () { tip.style.display = 'none'; });
+    holder.addEventListener('mouseleave', hide);
+    // A tap shows the county until the next tap; there is no hover to end it.
+    holder.addEventListener('click', function (e) {
+      var el = e.target.closest ? e.target.closest('.c') : null;
+      if (el) show(e, el, lastType !== 'mouse'); else hide();
+    });
+    document.addEventListener('click', function (e) {
+      if (!holder.contains(e.target)) hide();
+    });
+    window.addEventListener('scroll', function () { if (lastType !== 'mouse') hide(); },
+                            {passive: true});
   }).catch(function () {});
   var rows = document.querySelectorAll('.bar-row');
   for (var i = 0; i < rows.length; i++) (function (row) {
@@ -936,7 +980,7 @@ stories, walls, foundation and condition. This page shows where that is true tod
 
 <div class="card map-wrap">
   <h2>Counties with an observed record source</h2>
-  <p class="sub">Darker means more of the building comes from the record. Hover a county for what its assessor supplies; hover a source in the chart below to find its counties.</p>
+  <p class="sub">Darker means more of the building comes from the record. Hover or tap a county for what its assessor supplies; hover a source in the chart below to find its counties.</p>
   <div id="covmap" role="img" aria-label="Map of US counties shaded by how much of the building record the assessor supplies; the same detail is listed under Counties covered"><noscript><p>The interactive map needs JavaScript; the tables below carry the same information.</p></noscript></div>
   <div class="tip" id="covtip" role="tooltip"></div>
   <div class="legend">{legend}</div>

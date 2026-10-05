@@ -93,3 +93,25 @@ def test_the_page_is_in_every_pages_nav():
                  "accuracy", "coverage"):
         html = (_ROOT / "docs" / f"{page}.html").read_text(encoding="utf-8")
         assert 'href="coverage.html"' in html, f"{page}.html has no Coverage link"
+
+
+def test_the_map_tooltip_can_name_every_countys_state():
+    """"Cumberland" alone is eight different counties. Every state is carried, not
+    only the covered ones, because an uncovered county gets a tooltip too."""
+    import json
+    bc = _load()
+    data = json.loads(bc.tooltip_data(bc.model()))
+    assert data["s"]["34"] == "NJ" and data["s"]["53"] == "WA"
+    covered_states = {f[:2] for f in data["c"]}
+    assert covered_states <= set(data["s"])
+
+
+def test_the_map_tooltip_is_placed_against_its_own_container():
+    """The tooltip was positioned inside the card but measured from the map below
+    the card's heading, so it landed a heading's height above the pointer and ran
+    off the screen near an edge. It must measure from its own offset parent and be
+    clamped inside it, and its text must not go through innerHTML."""
+    script = _load()._SCRIPT
+    assert "tip.offsetParent" in script
+    assert "Math.max(pad, Math.min(x, pb.width - w - pad))" in script
+    assert "tip.innerHTML" not in script
