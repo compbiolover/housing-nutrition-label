@@ -10,6 +10,14 @@ The goal: give homebuyers, renters, insurers, and policymakers an at-a-glance un
 
 **➡️ See a live label at [housinglabel.dev/label.html](https://housinglabel.dev/label.html)**
 
+<p align="center">
+  <a href="https://housinglabel.dev/label.html?lat=35.1199&lon=-89.9898">
+    <img src="docs/img/label-example.png" width="420"
+         alt="Housing Nutrition Label for a 1943 wood-frame home in Memphis, TN: overall 52.2/100 (C), the building 9th percentile (F), the site 64th percentile (B), with a graded bar for each of the thirteen dimensions.">
+  </a>
+  <br><sub>A real label from the live site: a 1943 wood-frame home in Memphis, TN. Click to open it.</sub>
+</p>
+
 > **Informational purposes only.** A label is a modeled estimate from public data — not an
 > inspection, appraisal, or insurance quote, and not legal, financial, insurance,
 > engineering, or real estate advice. See [Disclaimer](#disclaimer).
