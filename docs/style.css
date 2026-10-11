@@ -298,6 +298,8 @@ p code, li code { overflow-wrap: anywhere; }
 .insight { border-left: 4px solid var(--blue); background: #eff6ff; padding: 1rem 1.5rem; border-radius: 0 var(--radius) var(--radius) 0; margin: 1.5rem 0; }
 .insight.warn { border-color: var(--orange); background: #fff7ed; }
 .insight strong { color: var(--navy); }
+details.insight > summary { cursor: pointer; }
+details.insight[open] > summary { margin-bottom: 1rem; }
 
 /* Footer */
 footer { background: var(--navy); color: #94a3b8; text-align: center; padding: 2rem; margin-top: 3rem; }
