@@ -680,7 +680,8 @@ housing-nutrition-label/
 │   └── examples.html           #   Preset examples + address search
 ├── tests/
 ├── pyproject.toml / setup.py   # Packaging
-└── requirements.txt
+├── requirements.txt
+└── requirements-api.txt        # Hash-pinned deploy install (Dockerfile, render.yaml)
 ```
 
 Every stage script is also runnable on its own as a plain file (it resolves the

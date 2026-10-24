@@ -1,0 +1,4 @@
+# The build backend from pyproject's [build-system], compiled into
+# requirements-api.txt so the package itself installs with --no-build-isolation.
+setuptools>=64
+wheel

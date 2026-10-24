@@ -9,12 +9,18 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Every download is pinned and hash-checked, and in its own layer so a code
+# change does not refetch it. Regenerate with the command in the file's header.
+COPY requirements-api.txt ./
+RUN pip install --no-cache-dir --require-hashes -r requirements-api.txt
+
 # Copy only what the package needs to install (see pyproject's packages/readme).
 COPY pyproject.toml README.md ./
 COPY src ./src
 COPY scripts ./scripts
 
-RUN pip install --no-cache-dir ".[api]"
+# Offline, so it fails if pyproject needs something the lock above lacks.
+RUN pip install --no-cache-dir --no-index --no-build-isolation ".[api]"
 
 # Hosts (Render/Cloud Run/Fly) inject $PORT; default to 8000 locally.
 ENV PORT=8000
