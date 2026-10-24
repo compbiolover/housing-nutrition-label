@@ -28,4 +28,7 @@ ENV ALLOWED_ORIGINS=https://housinglabel.dev
 # port directly it would let any caller spoof their address and evade the limit.
 EXPOSE 8000
 
+# The API writes nothing to disk, so it needs no write access anywhere.
+USER nobody
+
 CMD ["sh", "-c", "uvicorn housing_label.api:app --host 0.0.0.0 --port ${PORT:-8000}"]
