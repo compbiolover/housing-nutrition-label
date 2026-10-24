@@ -37,6 +37,13 @@ jobs:
           cache: pip
       - name: Install (with API + dev extras)
         run: pip install -e ".[api,dev]"
+      # The Dockerfile and render.yaml install from requirements-api.txt, not from
+      # the ranges above, so check the lock still installs and still covers pyproject.
+      - name: Pinned deploy install (requirements-api.txt)
+        run: |
+          python -m venv /tmp/locked
+          /tmp/locked/bin/pip install --require-hashes -r requirements-api.txt
+          /tmp/locked/bin/pip install --no-index --no-build-isolation ".[api]"
       - name: Lint (ruff)
         run: ruff check .
       - name: README in sync with code (dimension roster)

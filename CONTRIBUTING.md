@@ -87,6 +87,11 @@ To run one stage on its own, name the file: `pytest tests/test_dimensions.py`.
 **CI** (`.github/workflows/ci.yml`) runs `ruff check` + `pytest` on every push and
 pull request across Python 3.10 and 3.12, so regressions are caught before merge.
 
+The deployed API (Dockerfile, `render.yaml`) installs from the hash-pinned
+`requirements-api.txt` instead. After changing a runtime or `[api]` dependency in
+`pyproject.toml`, regenerate it with the `uv pip compile` command in its header;
+CI fails while the lock no longer satisfies `pyproject.toml`.
+
 ## Docs stay in sync with the code
 
 The README's dimension roster and the website's Setup / Reference pages

@@ -13,7 +13,8 @@ services:
     # saying "free" it invites a blueprint re-sync to reconcile the live service
     # back down to a tier that sleeps when idle.
     plan: starter
-    buildCommand: pip install -e ".[api]"
+    # Pinned, hash-checked install, then the package itself offline (see Dockerfile).
+    buildCommand: pip install --require-hashes -r requirements-api.txt && pip install --no-index --no-build-isolation -e ".[api]"
     startCommand: housing-api          # reads $PORT, injected by Render
     healthCheckPath: /healthz
     autoDeploy: false
